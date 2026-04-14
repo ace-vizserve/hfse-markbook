@@ -1,0 +1,34 @@
+import { NextResponse, type NextRequest } from 'next/server';
+import { requireRole } from '@/lib/auth/require-role';
+import { createServiceClient } from '@/lib/supabase/service';
+
+// POST /api/grading-sheets/[id]/lock — registrar+ only.
+// Locks a grading sheet. Teachers become read-only; registrar can still edit,
+// but every post-lock edit requires an approval_reference and is audit-logged.
+export async function POST(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const auth = await requireRole(['registrar', 'admin', 'superadmin']);
+  if ('error' in auth) return auth.error;
+
+  const { id } = await params;
+  const service = createServiceClient();
+  const lockedBy = auth.user.email ?? auth.user.id;
+
+  const { data, error } = await service
+    .from('grading_sheets')
+    .update({
+      is_locked: true,
+      locked_at: new Date().toISOString(),
+      locked_by: lockedBy,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .select('id, is_locked, locked_at, locked_by')
+    .single();
+  if (error || !data) {
+    return NextResponse.json({ error: error?.message ?? 'lock failed' }, { status: 500 });
+  }
+  return NextResponse.json({ sheet: data });
+}
