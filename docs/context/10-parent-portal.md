@@ -45,6 +45,8 @@ The link between a parent Supabase account and a student is **implicit** via ema
 
 Three admissions tables live in the shared Supabase project under `public.ay{YY}_enrolment_*`. The parent portal owns the DDL; the markbook only SELECTs from them via the service-role client. **Never INSERT / UPDATE / DELETE these tables from this repo** — the parent portal is the source of truth.
 
+**The `{YY}` prefix is resolved dynamically**, not hardcoded. Every call site that needs to query admissions first reads the current academic year via `lib/academic-year.ts::getCurrentAcademicYear()` (or `requireCurrentAyCode()`), which returns the `ay_code` of the row in `public.academic_years` where `is_current = true`. That `ay_code` is then passed to `fetchAdmissionsRoster()` / `getStudentsByParentEmail()` and normalized to a table name prefix (e.g. `"AY2026"` → `ay2026_enrolment_applications`). When Joann flips the current-AY flag to `AY2027`, the admissions queries switch automatically with no code change, **on the assumption that the parent portal has created `ay2027_enrolment_*` tables with the same column shape as the DDL documented at the bottom of this file**.
+
 The real DDL is at the bottom of this doc under [§ Reference DDL](#reference-ddl). The subsections below list only the columns this repo actually reads, so you can see at a glance which parts of the admissions schema are load-bearing for the markbook.
 
 ### `ay{YY}_enrolment_applications` — one row per enrolee

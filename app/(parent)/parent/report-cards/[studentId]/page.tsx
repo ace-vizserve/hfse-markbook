@@ -4,6 +4,7 @@ import { ArrowLeft, Printer } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { getStudentsByParentEmail } from '@/lib/supabase/admissions';
+import { getCurrentAcademicYear } from '@/lib/academic-year';
 import { buildReportCard } from '@/lib/report-card/build-report-card';
 import { ReportCardDocument } from '@/components/report-card/report-card-document';
 import { PageHeader } from '@/components/ui/page-header';
@@ -21,14 +22,16 @@ export default async function ParentReportCardPage({
   } = await supabase.auth.getUser();
   const email = user?.email ?? '';
 
-  // 1) Verify parent→student linkage via admissions.
-  const admissionsRows = await getStudentsByParentEmail(email, 'AY2026');
+  // 1) Verify parent→student linkage via admissions, for the current AY.
+  const service = createServiceClient();
+  const currentAy = await getCurrentAcademicYear(service);
+  if (!currentAy) notFound();
+  const admissionsRows = await getStudentsByParentEmail(email, currentAy.ay_code);
   const allowedStudentNumbers = new Set(admissionsRows.map((r) => r.student_number));
 
   // 2) Resolve studentId → student_number to check ownership (student may
   //    exist in grading DB under a student_number we know belongs to this
   //    parent).
-  const service = createServiceClient();
   const { data: student } = await service
     .from('students')
     .select('id, student_number')

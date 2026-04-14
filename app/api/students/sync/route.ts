@@ -5,6 +5,7 @@ import { fetchAdmissionsRoster } from '@/lib/supabase/admissions';
 import { loadGradingSnapshot } from '@/lib/sync/snapshot';
 import { buildSyncPlan } from '@/lib/sync/students';
 import { logAction } from '@/lib/audit/log-action';
+import { requireCurrentAyCode } from '@/lib/academic-year';
 
 // Commit endpoint — applies the sync plan to the grading DB.
 // Hard rules:
@@ -16,10 +17,10 @@ export async function POST() {
   const auth = await requireRole(['registrar', 'admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
-  const ayCode = 'AY2026';
   const service = createServiceClient();
 
   try {
+    const ayCode = await requireCurrentAyCode(service);
     const [snapshot, rows] = await Promise.all([
       loadGradingSnapshot(service, ayCode),
       fetchAdmissionsRoster(ayCode),

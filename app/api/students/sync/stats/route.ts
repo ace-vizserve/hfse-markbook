@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { fetchAdmissionsRoster } from '@/lib/supabase/admissions';
 import { loadGradingSnapshot } from '@/lib/sync/snapshot';
 import { buildSyncPlan } from '@/lib/sync/students';
+import { requireCurrentAyCode } from '@/lib/academic-year';
 
 // Preview endpoint — returns what WOULD happen on sync without writing anything.
 export async function GET() {
@@ -11,8 +12,8 @@ export async function GET() {
   if ('error' in auth) return auth.error;
 
   try {
-    const ayCode = 'AY2026';
     const service = createServiceClient();
+    const ayCode = await requireCurrentAyCode(service);
     const [snapshot, rows] = await Promise.all([
       loadGradingSnapshot(service, ayCode),
       fetchAdmissionsRoster(ayCode),

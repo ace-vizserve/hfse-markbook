@@ -3,6 +3,7 @@ import { ArrowRight, BookOpen, CheckCircle2, Clock, GraduationCap } from 'lucide
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { getStudentsByParentEmail } from '@/lib/supabase/admissions';
+import { getCurrentAcademicYear } from '@/lib/academic-year';
 import { PageShell } from '@/components/ui/page-shell';
 import { PageHeader } from '@/components/ui/page-header';
 import { Surface } from '@/components/ui/surface';
@@ -30,8 +31,31 @@ export default async function ParentHomePage() {
   // Layout already verified user + null role; trust it here.
   const email = user?.email ?? '';
 
-  // 1) Look up the parent's children in admissions (service-role).
-  const admissionsRows = await getStudentsByParentEmail(email, 'AY2026');
+  // 1) Resolve the current academic year (dynamic — whatever row has
+  //    is_current=true in public.academic_years). Admissions tables are
+  //    named ay{YY}_enrolment_* and share the same column definitions from
+  //    AY2026 onward, so only the table prefix changes year-to-year.
+  const service = createServiceClient();
+  const currentAy = await getCurrentAcademicYear(service);
+  if (!currentAy) {
+    return (
+      <PageShell className="max-w-3xl">
+        <PageHeader
+          eyebrow="Parent portal"
+          title="Welcome"
+          description={`Signed in as ${email}.`}
+        />
+        <Surface>
+          <div className="py-6 text-center text-sm text-muted-foreground">
+            No academic year is currently active. Please contact the school office.
+          </div>
+        </Surface>
+      </PageShell>
+    );
+  }
+
+  // 2) Look up the parent's children in admissions for the current AY.
+  const admissionsRows = await getStudentsByParentEmail(email, currentAy.ay_code);
 
   if (admissionsRows.length === 0) {
     return (
@@ -58,9 +82,8 @@ export default async function ParentHomePage() {
     );
   }
 
-  // 2) Resolve each student_number → grading student_id via service-role client
+  // 3) Resolve each student_number → grading student_id via service-role client
   //    (the parent's own cookie-bound client can't read students under RLS 005).
-  const service = createServiceClient();
   const studentNumbers = admissionsRows.map((r) => r.student_number);
   const { data: studentRows } = await service
     .from('students')
@@ -75,14 +98,8 @@ export default async function ParentHomePage() {
   };
   const students = (studentRows ?? []) as StudentRow[];
 
-  // 3) For each student, find their section enrollment in the current AY
+  // 4) For each student, find their section enrollment in the current AY
   //    and any publications for that section.
-  const { data: ay } = await service
-    .from('academic_years')
-    .select('id, label')
-    .eq('is_current', true)
-    .single();
-
   const { data: enrolments } = await service
     .from('section_students')
     .select(
@@ -103,7 +120,7 @@ export default async function ParentHomePage() {
       | null;
   };
   const enrs = ((enrolments ?? []) as unknown as EnrolmentRow[]).filter(
-    (e) => e.section && ay && e.section.academic_year_id === ay.id,
+    (e) => e.section && e.section.academic_year_id === currentAy.id,
   );
 
   const sectionIds = Array.from(new Set(enrs.map((e) => e.section!.id)));
@@ -114,13 +131,11 @@ export default async function ParentHomePage() {
         .in('section_id', sectionIds)
     : { data: [] };
 
-  const { data: terms } = ay
-    ? await service
-        .from('terms')
-        .select('id, term_number, label')
-        .eq('academic_year_id', ay.id)
-        .order('term_number')
-    : { data: [] };
+  const { data: terms } = await service
+    .from('terms')
+    .select('id, term_number, label')
+    .eq('academic_year_id', currentAy.id)
+    .order('term_number');
   type TermRow = { id: string; term_number: number; label: string };
   const termList = (terms ?? []) as TermRow[];
   const termLabelById = new Map(termList.map((t) => [t.id, t.label]));
