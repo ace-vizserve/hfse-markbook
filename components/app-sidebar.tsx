@@ -11,6 +11,7 @@ import {
   History,
   LogOut,
   RefreshCw,
+  UserCog,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -131,6 +132,18 @@ export function AppSidebar({ role, email }: { role: Role; email: string }) {
           </div>
         </div>
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={pathname === '/account' || pathname.startsWith('/account/')}
+              tooltip="Account"
+            >
+              <Link href="/account">
+                <UserCog />
+                <span>Account</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={signOut} tooltip="Sign out">
               <LogOut />
