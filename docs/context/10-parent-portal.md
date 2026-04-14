@@ -165,11 +165,19 @@ const MARKBOOK_HANDOFF_URL =
 
 type Props = {
   /**
-   * Optional — if the parent portal already knows the specific student
-   * the parent wants to view, pass the markbook's `students.id` so the
-   * handoff deep-links straight to that report card. Without it, the
-   * parent lands on the markbook's "My children" page and picks which
-   * report card to open from there.
+   * Optional deep-link. **Leave this undefined in normal usage** — the
+   * parent lands on the markbook's "My children" page, which already
+   * lists every child linked to their email plus every currently-
+   * published report card per child. That landing page is the intended
+   * parent experience.
+   *
+   * Only set `studentId` if you have a reason to skip the list view and
+   * jump straight to one specific report card. It must be the markbook's
+   * `public.students.id` UUID, which the parent portal doesn't have
+   * natively — you'd need to resolve it from `studentNumber` first.
+   * For that reason, deep-linking is more trouble than it's worth on the
+   * parent portal side; use the no-arg form unless you have a specific
+   * need.
    */
   studentId?: string;
   className?: string;
@@ -226,19 +234,26 @@ export function ViewReportCardButton({ studentId, className, children }: Props) 
 }
 ```
 
-**Usage on the authenticated parent dashboard:**
+**Usage on the authenticated parent dashboard — recommended:**
+
+Render **one button** somewhere on `/admission/dashboard`. Don't pass `studentId`. The parent lands on the markbook's `/parent` page, which shows every child linked to their email plus every currently-published report card per child, with proper empty states for children whose report cards haven't been published yet. This is the default experience and works cleanly for parents with one child or multiple children.
 
 ```tsx
 // Anywhere under /admission/dashboard
-<ViewReportCardButton studentId={child.markbookStudentId}>
-  View {child.firstName}&apos;s report card
-</ViewReportCardButton>
+<ViewReportCardButton>View report cards</ViewReportCardButton>
 ```
 
-Or without a specific student (parent picks on the markbook side):
+That's it. No prop plumbing, no student ID lookup, no per-child loop. The markbook's landing page does the list-all-children rendering for you.
+
+**Deep-link variant — not recommended, listed for completeness:**
+
+If you ever want to skip the markbook's list view and jump straight into one child's report card, pass `studentId`. The catch: the value must be the markbook's `public.students.id` UUID, which the parent portal doesn't have directly — it has `studentNumber` from admissions. Resolving one to the other would require either a markbook API lookup or a direct query into `public.students` on the shared Supabase project. For this reason, deep-linking is usually more work than it's worth — stick with the no-arg form above.
 
 ```tsx
-<ViewReportCardButton>View report cards</ViewReportCardButton>
+// Only if you have the markbook UUID and really want to skip /parent
+<ViewReportCardButton studentId={markbookStudentUuid}>
+  View {child.firstName}&apos;s report card
+</ViewReportCardButton>
 ```
 
 ### Troubleshooting
