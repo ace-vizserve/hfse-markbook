@@ -19,8 +19,13 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "HFSE Markbook",
+  title: {
+    default: "HFSE Markbook",
+    template: "%s · HFSE Markbook",
+  },
   description: "HFSE International School grading module",
+  robots: { index: false, follow: false, nocache: true },
+  icons: { icon: "/hfse-logo-favicon.webp" },
 };
 
 export default function RootLayout({

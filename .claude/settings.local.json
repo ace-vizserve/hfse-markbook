@@ -54,7 +54,8 @@
       "Bash(awk '/\\\\.fade-in-0 \\\\{/,/\\\\}/' .next/dev/static/chunks/app_globals_css_0w3-wzy._.single.css)",
       "Bash(node -e \"console.log\\(require\\('./node_modules/tailwindcss/package.json'\\).version\\)\")",
       "Bash(node -e \"console.log\\(require\\('./node_modules/tw-animate-css/package.json'\\).peerDependencies || 'no peers'\\)\")",
-      "Bash(awk -F/ '{dir=$\\(NF-1\\); sub\\(/\\\\/[^/]+$/, \"\"\\); print dir, \\(NF%1\\), $0}')"
+      "Bash(awk -F/ '{dir=$\\(NF-1\\); sub\\(/\\\\/[^/]+$/, \"\"\\); print dir, \\(NF%1\\), $0}')",
+      "Bash(rm -rf .next)"
     ]
   },
   "enabledMcpjsonServers": [

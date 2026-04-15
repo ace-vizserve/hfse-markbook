@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { GraduationCap, Home, LogOut, UserCog } from 'lucide-react';
+import Image from 'next/image';
+import { Home, LogOut, UserCog } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -47,9 +48,13 @@ export function ParentSidebar({ email }: { email: string }) {
           href="/parent"
           className="flex items-center gap-3 outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
         >
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
-            <GraduationCap className="size-4" />
-          </div>
+          <Image
+            src="/hfse-logo-favicon.webp"
+            alt=""
+            width={36}
+            height={36}
+            className="size-9 shrink-0 rounded-xl"
+          />
           <div className="flex min-w-0 flex-col leading-tight group-data-[collapsible=icon]:hidden">
             <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-sidebar-foreground/60">
               HFSE
