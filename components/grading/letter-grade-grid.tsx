@@ -21,7 +21,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type { GradeRow } from './score-entry-grid';
-import { useApprovalReference } from './use-approval-reference';
+import { useChangeReference } from './use-approval-reference';
 
 const LETTER_OPTIONS = ['A', 'B', 'C', 'IP', 'UG', 'NA', 'INC', 'CO', 'E'] as const;
 const EMPTY_LETTER = '__none__';
@@ -39,28 +39,34 @@ export function LetterGradeGrid({
 }) {
   const [rows, setRows] = useState<GradeRow[]>(initialRows);
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [approvalRef, setApprovalRef] = useState<string>('');
-  const {
-    requireApproval: getApprovalRef,
-    dialog: approvalDialog,
-  } = useApprovalReference();
+  const { requireChangeReference, dialog: approvalDialog } = useChangeReference();
 
   async function save(entryId: string, letter: string | null) {
-    let approval = approvalRef;
-    if (requireApproval && !approval) {
-      const entered = await getApprovalRef();
-      if (!entered) {
-        toast.error('Approval reference required');
-        return;
+    let extraPayload: Record<string, unknown> = {};
+    if (requireApproval) {
+      const ref = await requireChangeReference({
+        sheetId,
+        entryId,
+        field: 'letter_grade',
+        slotIndex: null,
+      });
+      if (!ref) return;
+      if (ref.mode === 'request') {
+        extraPayload = {
+          change_request_id: ref.change_request_id,
+          patch_target: { field: 'letter_grade', slotIndex: null },
+        };
+      } else {
+        extraPayload = {
+          correction_reason: ref.correction_reason,
+          correction_justification: ref.correction_justification,
+          patch_target: { field: 'letter_grade', slotIndex: null },
+        };
       }
-      approval = entered;
-      setApprovalRef(approval);
     }
     setSavingId(entryId);
     try {
-      const payload = requireApproval
-        ? { letter_grade: letter, approval_reference: approval }
-        : { letter_grade: letter };
+      const payload = { letter_grade: letter, ...extraPayload };
       const res = await fetch(`/api/grading-sheets/${sheetId}/entries/${entryId}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },

@@ -11,6 +11,10 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getUserRole, type Role } from '@/lib/auth/roles';
+import {
+  loadAssignmentsForUser,
+  isSubjectTeacher,
+} from '@/lib/auth/teacher-assignments';
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
@@ -25,6 +29,7 @@ import { ScoreEntryGrid } from '@/components/grading/score-entry-grid';
 import { LetterGradeGrid } from '@/components/grading/letter-grade-grid';
 import { LockToggle } from '@/components/grading/lock-toggle';
 import { TotalsEditor } from '@/components/grading/totals-editor';
+import { RequestEditButton } from './request-edit-button';
 
 type Level = { code: string; label: string };
 type Section = { id: string; name: string; level: Level | Level[] | null };
@@ -122,6 +127,14 @@ export default async function GradingSheetPage({
   const config = first(sheet.subject_config as SubjectConfig | SubjectConfig[] | null);
   const isExaminable = subject?.is_examinable !== false;
 
+  // Teacher assignment gate — only the subject-teacher for this section/subject
+  // may file a change request on the locked sheet.
+  let isAssignedTeacher = false;
+  if (role === 'teacher' && userRes.user && section?.id && subject?.id) {
+    const assignments = await loadAssignmentsForUser(supabase, userRes.user.id);
+    isAssignedTeacher = isSubjectTeacher(assignments, section.id, subject.id);
+  }
+
   const rows = entries.map((e) => {
     const ss = first(e.section_student);
     const stu = first(ss?.student ?? null);
@@ -204,6 +217,26 @@ export default async function GradingSheetPage({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {sheet.is_locked && isAssignedTeacher && (
+            <RequestEditButton
+              sheetId={sheet.id}
+              isExaminable={isExaminable}
+              wwSlotCount={(sheet.ww_totals ?? []).length as number}
+              ptSlotCount={(sheet.pt_totals ?? []).length as number}
+              students={rows.map((r) => ({
+                entry_id: r.entry_id,
+                index_number: r.index_number,
+                student_name: r.student_name,
+                student_number: r.student_number,
+                ww_scores: r.ww_scores,
+                pt_scores: r.pt_scores,
+                qa_score: r.qa_score,
+                letter_grade: r.letter_grade,
+                is_na: r.is_na,
+                withdrawn: r.withdrawn,
+              }))}
+            />
+          )}
           {canManage && isExaminable && (
             <TotalsEditor
               sheetId={sheet.id}

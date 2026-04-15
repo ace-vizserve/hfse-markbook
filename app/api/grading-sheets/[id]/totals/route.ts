@@ -3,12 +3,23 @@ import { requireRole } from '@/lib/auth/require-role';
 import { createServiceClient } from '@/lib/supabase/service';
 import { computeQuarterly } from '@/lib/compute/quarterly';
 import { buildTotalsAuditRows, writeAuditRows } from '@/lib/audit/log-grade-change';
-import { logAction } from '@/lib/audit/log-action';
+import { logAction, type AuditAction } from '@/lib/audit/log-action';
+import {
+  CORRECTION_REASONS,
+  CORRECTION_REASON_LABELS,
+  type CorrectionReason,
+} from '@/lib/schemas/change-request';
 
 // PATCH /api/grading-sheets/[id]/totals — registrar+ only.
-// Updates WW/PT/QA max totals on a sheet. Post-lock requires approval_reference.
-// After updating totals, we MUST recompute every entry's percentage scores
-// (because the denominator changed) and write audit rows for the totals change.
+// Updates WW/PT/QA max totals on a sheet. After updating totals we MUST
+// recompute every entry's percentage scores (denominator changed) and write
+// audit rows for the totals change.
+//
+// Sprint 9: post-lock totals changes only support Path B (data entry
+// correction). Change requests aren't allowed here — teachers would never
+// legitimately request a max-slot change; that's a config fix. The registrar
+// provides a structured `correction_reason` + `correction_justification`,
+// logged as action='grade_correction' on the grading sheet.
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -22,10 +33,21 @@ export async function PATCH(
         ww_totals?: number[];
         pt_totals?: number[];
         qa_total?: number | null;
-        approval_reference?: string;
+        correction_reason?: string;
+        correction_justification?: string;
+        approval_reference?: string; // legacy — rejected
       }
     | null;
   if (!body) return NextResponse.json({ error: 'invalid body' }, { status: 400 });
+  if (body.approval_reference) {
+    return NextResponse.json(
+      {
+        error:
+          'approval_reference is no longer accepted — use correction_reason + correction_justification',
+      },
+      { status: 400 },
+    );
+  }
 
   const service = createServiceClient();
 
@@ -45,14 +67,26 @@ export async function PATCH(
     return NextResponse.json({ error: 'missing subject_config' }, { status: 500 });
   }
 
+  // Sprint 9 — Path B correction metadata for post-lock totals edits.
+  let correctionMeta: { reason: CorrectionReason; justification: string } | null = null;
+  let approval_reference = '';
   if (sheet.is_locked) {
-    const approval = body.approval_reference?.trim();
-    if (!approval) {
+    const reason = body.correction_reason;
+    if (!reason || !(CORRECTION_REASONS as readonly string[]).includes(reason)) {
       return NextResponse.json(
-        { error: 'approval_reference is required for post-lock totals edits' },
+        { error: 'post-lock totals edits require a valid correction_reason' },
         { status: 400 },
       );
     }
+    const justification = (body.correction_justification ?? '').trim();
+    if (justification.length < 20) {
+      return NextResponse.json(
+        { error: 'correction_justification must be at least 20 characters' },
+        { status: 400 },
+      );
+    }
+    correctionMeta = { reason: reason as CorrectionReason, justification };
+    approval_reference = `Data entry correction: ${CORRECTION_REASON_LABELS[reason as CorrectionReason]}`;
   }
 
   const before = {
@@ -141,8 +175,8 @@ export async function PATCH(
 
   // Audit-log the totals change (pre-lock AND post-lock in the new generic
   // audit_log; still also write post-lock to grade_audit_log for backward compat).
-  const approval_reference = body.approval_reference?.trim() ?? '';
   const changed_by = auth.user.email ?? auth.user.id;
+  const actionForAudit: AuditAction = sheet.is_locked ? 'grade_correction' : 'totals.update';
   const anchor = (entries ?? [])[0]?.id;
   if (anchor) {
     const totalsDiff = buildTotalsAuditRows(before, after, {
@@ -159,7 +193,7 @@ export async function PATCH(
         await logAction({
           service,
           actor: { id: auth.user.id, email: auth.user.email ?? null },
-          action: 'totals.update',
+          action: actionForAudit,
           entityType: 'grading_sheet',
           entityId: sheetId,
           context: {
@@ -168,6 +202,12 @@ export async function PATCH(
             new: row.new_value,
             was_locked: sheet.is_locked,
             ...(sheet.is_locked ? { approval_reference } : {}),
+            ...(correctionMeta
+              ? {
+                  correction_reason: correctionMeta.reason,
+                  correction_justification: correctionMeta.justification,
+                }
+              : {}),
           },
         });
       }

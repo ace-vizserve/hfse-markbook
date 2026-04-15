@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Minus, Pencil, Plus, Save } from 'lucide-react';
 import { toast } from 'sonner';
@@ -33,7 +33,27 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { useApprovalReference } from './use-approval-reference';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  CORRECTION_REASONS,
+  CORRECTION_REASON_LABELS,
+  type CorrectionReason,
+} from '@/lib/schemas/change-request';
 
 type Props = {
   sheetId: string;
@@ -61,10 +81,24 @@ export function TotalsEditor({
   const [qa, setQa] = useState<number | null>(initialQa);
   const [busy, setBusy] = useState(false);
   const [shrinkConfirmOpen, setShrinkConfirmOpen] = useState(false);
-  const {
-    requireApproval: getApprovalRef,
-    dialog: approvalDialog,
-  } = useApprovalReference();
+  const [correctionOpen, setCorrectionOpen] = useState(false);
+  const [correctionReason, setCorrectionReason] = useState<CorrectionReason>('formula_fix');
+  const [correctionJustification, setCorrectionJustification] = useState('');
+  const pendingCorrection = useRef<((v: { reason: CorrectionReason; justification: string } | null) => void) | null>(null);
+
+  async function requireCorrection(): Promise<{ reason: CorrectionReason; justification: string } | null> {
+    setCorrectionReason('formula_fix');
+    setCorrectionJustification('');
+    setCorrectionOpen(true);
+    return new Promise((resolve) => {
+      pendingCorrection.current = resolve;
+    });
+  }
+  function resolveCorrection(value: { reason: CorrectionReason; justification: string } | null) {
+    const fn = pendingCorrection.current;
+    pendingCorrection.current = null;
+    fn?.(value);
+  }
 
   function reset() {
     setWw(initialWw);
@@ -100,14 +134,14 @@ export function TotalsEditor({
   }
 
   async function doSave() {
-    let approval_reference: string | undefined;
+    let lockExtras: Record<string, unknown> = {};
     if (isLocked) {
-      const entered = await getApprovalRef();
-      if (!entered) {
-        toast.error('Approval reference required');
-        return;
-      }
-      approval_reference = entered;
+      const correction = await requireCorrection();
+      if (!correction) return;
+      lockExtras = {
+        correction_reason: correction.reason,
+        correction_justification: correction.justification,
+      };
     }
 
     setBusy(true);
@@ -119,7 +153,7 @@ export function TotalsEditor({
           ww_totals: ww,
           pt_totals: pt,
           qa_total: qa,
-          ...(approval_reference ? { approval_reference } : {}),
+          ...lockExtras,
         }),
       });
       const body = await res.json();
@@ -243,7 +277,75 @@ export function TotalsEditor({
         </AlertDialogContent>
       </AlertDialog>
 
-      {approvalDialog}
+      <Dialog
+        open={correctionOpen}
+        onOpenChange={(next) => {
+          setCorrectionOpen(next);
+          if (!next) resolveCorrection(null);
+        }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Log a data entry correction</DialogTitle>
+            <DialogDescription>
+              This sheet is locked. Totals changes are treated as registrar-only
+              corrections and are tagged in the audit log.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <Field>
+              <FieldLabel htmlFor="te-correction-reason">Correction type</FieldLabel>
+              <Select
+                value={correctionReason}
+                onValueChange={(v) => setCorrectionReason(v as CorrectionReason)}>
+                <SelectTrigger id="te-correction-reason" className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CORRECTION_REASONS.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {CORRECTION_REASON_LABELS[r]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="te-correction-justification">Justification</FieldLabel>
+              <Textarea
+                id="te-correction-justification"
+                value={correctionJustification}
+                onChange={(e) => setCorrectionJustification(e.target.value)}
+                placeholder="Explain what was wrong and why the totals are being changed (min 20 characters)"
+                rows={4}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                {correctionJustification.trim().length}/20 characters minimum
+              </p>
+            </Field>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCorrectionOpen(false);
+                resolveCorrection(null);
+              }}>
+              Cancel
+            </Button>
+            <Button
+              disabled={correctionJustification.trim().length < 20}
+              onClick={() => {
+                setCorrectionOpen(false);
+                resolveCorrection({
+                  reason: correctionReason,
+                  justification: correctionJustification.trim(),
+                });
+              }}>
+              Log correction
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }

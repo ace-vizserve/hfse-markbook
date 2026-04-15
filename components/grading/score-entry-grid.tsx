@@ -5,7 +5,6 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -16,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useApprovalReference } from './use-approval-reference';
+import { useChangeReference, type ChangeReferenceTarget } from './use-approval-reference';
 
 export type GradeRow = {
   entry_id: string;
@@ -67,30 +66,37 @@ export function ScoreEntryGrid({
 }: Props) {
   const [rows, setRows] = useState<GradeRow[]>(initialRows);
   const [savingId, setSavingId] = useState<string | null>(null);
-  const {
-    requireApproval: getApprovalRef,
-    dialog: approvalDialog,
-  } = useApprovalReference();
-  const [approvalRef, setApprovalRef] = useState<string>('');
+  const { requireChangeReference, dialog: approvalDialog } = useChangeReference();
 
   const locked = readOnly && !requireApproval;
 
   const patchEntry = useCallback(
-    async (entryId: string, body: Partial<Pick<GradeRow, 'ww_scores' | 'pt_scores' | 'qa_score' | 'is_na'>>) => {
-      let approval = approvalRef;
-      if (requireApproval && !approval) {
-        const entered = await getApprovalRef();
-        if (!entered) {
-          toast.error('Approval reference required');
-          return;
+    async (
+      entryId: string,
+      target: Omit<ChangeReferenceTarget, 'sheetId' | 'entryId'>,
+      body: Partial<Pick<GradeRow, 'ww_scores' | 'pt_scores' | 'qa_score' | 'is_na'>>,
+    ) => {
+      let extraPayload: Record<string, unknown> = {};
+      if (requireApproval) {
+        const ref = await requireChangeReference({ sheetId, entryId, ...target });
+        if (!ref) return;
+        if (ref.mode === 'request') {
+          extraPayload = {
+            change_request_id: ref.change_request_id,
+            patch_target: target,
+          };
+        } else {
+          extraPayload = {
+            correction_reason: ref.correction_reason,
+            correction_justification: ref.correction_justification,
+            patch_target: target,
+          };
         }
-        approval = entered;
-        setApprovalRef(approval);
       }
 
       setSavingId(entryId);
       try {
-        const payload = requireApproval ? { ...body, approval_reference: approval } : body;
+        const payload = { ...body, ...extraPayload };
         const res = await fetch(`/api/grading-sheets/${sheetId}/entries/${entryId}`, {
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
@@ -128,7 +134,7 @@ export function ScoreEntryGrid({
         setSavingId(null);
       }
     },
-    [sheetId, requireApproval, approvalRef, getApprovalRef, rows],
+    [sheetId, requireApproval, requireChangeReference, rows],
   );
 
   const updateLocal = useCallback(
@@ -209,7 +215,11 @@ export function ScoreEntryGrid({
                         }
                         onCommit={(v) => {
                           const next = replaceAt(r.ww_scores, i, v, wwTotals.length);
-                          patchEntry(r.entry_id, { ww_scores: next });
+                          patchEntry(
+                            r.entry_id,
+                            { field: 'ww_scores', slotIndex: i },
+                            { ww_scores: next },
+                          );
                         }}
                       />
                     </TableCell>
@@ -230,7 +240,11 @@ export function ScoreEntryGrid({
                         }
                         onCommit={(v) => {
                           const next = replaceAt(r.pt_scores, i, v, ptTotals.length);
-                          patchEntry(r.entry_id, { pt_scores: next });
+                          patchEntry(
+                            r.entry_id,
+                            { field: 'pt_scores', slotIndex: i },
+                            { pt_scores: next },
+                          );
                         }}
                       />
                     </TableCell>
@@ -245,7 +259,13 @@ export function ScoreEntryGrid({
                       onLocalChange={(v) =>
                         updateLocal(r.entry_id, (row) => ({ ...row, qa_score: v }))
                       }
-                      onCommit={(v) => patchEntry(r.entry_id, { qa_score: v })}
+                      onCommit={(v) =>
+                        patchEntry(
+                          r.entry_id,
+                          { field: 'qa_score', slotIndex: null },
+                          { qa_score: v },
+                        )
+                      }
                     />
                   </TableCell>
 
@@ -263,7 +283,11 @@ export function ScoreEntryGrid({
                       onCheckedChange={(v) => {
                         const next = v === true;
                         updateLocal(r.entry_id, (row) => ({ ...row, is_na: next }));
-                        patchEntry(r.entry_id, { is_na: next });
+                        patchEntry(
+                          r.entry_id,
+                          { field: 'is_na', slotIndex: null },
+                          { is_na: next },
+                        );
                       }}
                     />
                   </TableCell>
@@ -279,20 +303,6 @@ export function ScoreEntryGrid({
           <span className="inline-flex items-center gap-1 text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" />
             saving…
-          </span>
-        )}
-        {requireApproval && approvalRef && (
-          <span>
-            approval: <em className="font-medium">{approvalRef}</em>{' '}
-            <Button
-              type="button"
-              variant="link"
-              size="sm"
-              className="h-auto px-0 text-xs font-normal"
-              onClick={() => setApprovalRef('')}
-            >
-              change
-            </Button>
           </span>
         )}
       </div>

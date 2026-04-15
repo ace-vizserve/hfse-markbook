@@ -15,7 +15,10 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
     { items: [{ href: '/', label: 'Dashboard' }] },
     {
       label: 'Grading',
-      items: [{ href: '/grading', label: 'My Sheets' }],
+      items: [
+        { href: '/grading', label: 'My Sheets' },
+        { href: '/grading/requests', label: 'My Requests' },
+      ],
     },
   ],
   registrar: [
@@ -39,6 +42,7 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
       label: 'Admin',
       items: [
         { href: '/admin/admissions', label: 'Admissions Dashboard' },
+        { href: '/admin/change-requests', label: 'Change Requests' },
         { href: '/admin/audit-log', label: 'Audit Log' },
       ],
     },
@@ -56,7 +60,10 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
     },
     {
       label: 'Admin',
-      items: [{ href: '/admin/audit-log', label: 'Audit Log' }],
+      items: [
+        { href: '/admin/change-requests', label: 'Change Requests' },
+        { href: '/admin/audit-log', label: 'Audit Log' },
+      ],
     },
   ],
   superadmin: [
@@ -82,7 +89,10 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
     },
     {
       label: 'Admin',
-      items: [{ href: '/admin/audit-log', label: 'Audit Log' }],
+      items: [
+        { href: '/admin/change-requests', label: 'Change Requests' },
+        { href: '/admin/audit-log', label: 'Audit Log' },
+      ],
     },
   ],
 };
@@ -91,7 +101,7 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
 export const ROUTE_ACCESS: Array<{ prefix: string; allowed: Role[] }> = [
   { prefix: '/admin',        allowed: ['registrar', 'admin', 'superadmin'] },
   { prefix: '/report-cards', allowed: ['registrar', 'admin', 'superadmin'] },
-  { prefix: '/grading',      allowed: ['teacher', 'registrar', 'superadmin'] },
+  { prefix: '/grading',      allowed: ['teacher', 'registrar', 'admin', 'superadmin'] },
 ];
 
 export function getUserRole(user: User | null | undefined): Role | null {
