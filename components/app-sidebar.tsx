@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
-import { NAV_BY_ROLE, type Role } from '@/lib/auth/roles';
+import { NAV_BY_ROLE, type Role, type SidebarBadges } from '@/lib/auth/roles';
 import {
   Sidebar,
   SidebarContent,
@@ -37,8 +37,10 @@ import {
 const ICON_BY_HREF: Record<string, LucideIcon> = {
   '/grading': ClipboardList,
   '/grading/new': FilePlus2,
+  '/grading/requests': FileText,
   '/admin/sections': Users,
   '/admin/sync-students': RefreshCw,
+  '/admin/change-requests': FileText,
   '/report-cards': FileText,
   '/admin/audit-log': History,
   '/admin': GraduationCap,
@@ -51,7 +53,15 @@ const ROLE_LABEL: Record<Role, string> = {
   superadmin: 'Superadmin',
 };
 
-export function AppSidebar({ role, email }: { role: Role; email: string }) {
+export function AppSidebar({
+  role,
+  email,
+  badges,
+}: {
+  role: Role;
+  email: string;
+  badges?: SidebarBadges;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const sections = NAV_BY_ROLE[role];
@@ -115,17 +125,26 @@ export function AppSidebar({ role, email }: { role: Role; email: string }) {
                 {section.items.map((item) => {
                   const isActive = item.href === activeHref;
                   const Icon = ICON_BY_HREF[item.href] ?? BookOpen;
+                  const badge: number =
+                    (item.badgeKey && badges?.[item.badgeKey]) || 0;
                   return (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton
                         asChild
                         isActive={isActive}
-                        tooltip={item.label}
+                        tooltip={
+                          badge > 0 ? `${item.label} (${badge})` : item.label
+                        }
                         className="relative h-9 before:absolute before:left-0 before:top-1/2 before:h-5 before:w-0.5 before:-translate-y-1/2 before:rounded-r-full before:bg-brand-indigo before:opacity-0 before:transition-opacity data-[active=true]:before:opacity-100"
                       >
                         <Link href={item.href}>
                           <Icon />
                           <span>{item.label}</span>
+                          {badge > 0 && (
+                            <span className="ml-auto rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold tabular-nums text-primary group-data-[collapsible=icon]:hidden">
+                              {badge}
+                            </span>
+                          )}
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

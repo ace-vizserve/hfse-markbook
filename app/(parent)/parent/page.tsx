@@ -303,7 +303,7 @@ function ParentHero({ email, subtitle }: { email: string; subtitle: string }) {
       <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
         Parent Portal
       </p>
-      <h1 className="font-serif text-[38px] font-semibold leading-[1.05] tracking-tight text-foreground md:text-[44px]">
+      <h1 className="font-serif text-[30px] font-semibold leading-[1.05] tracking-tight text-foreground sm:text-[38px] md:text-[44px]">
         My children.
       </h1>
       <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">

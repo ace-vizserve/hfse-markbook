@@ -4,8 +4,11 @@ export type Role = 'teacher' | 'registrar' | 'admin' | 'superadmin';
 
 export const ROLES: Role[] = ['teacher', 'registrar', 'admin', 'superadmin'];
 
-export type NavItem = { href: string; label: string };
+export type NavItem = { href: string; label: string; badgeKey?: SidebarBadgeKey };
 export type NavSection = { label?: string; items: NavItem[] };
+
+export type SidebarBadgeKey = 'changeRequests';
+export type SidebarBadges = Partial<Record<SidebarBadgeKey, number>>;
 
 // Sectioned navigation. The sidebar renders each section with a small
 // uppercase label above its items. An empty `label` means the section has
@@ -17,7 +20,7 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
       label: 'Grading',
       items: [
         { href: '/grading', label: 'My Sheets' },
-        { href: '/grading/requests', label: 'My Requests' },
+        { href: '/grading/requests', label: 'My Requests', badgeKey: 'changeRequests' },
       ],
     },
   ],
@@ -42,7 +45,7 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
       label: 'Admin',
       items: [
         { href: '/admin/admissions', label: 'Admissions Dashboard' },
-        { href: '/admin/change-requests', label: 'Change Requests' },
+        { href: '/admin/change-requests', label: 'Change Requests', badgeKey: 'changeRequests' },
         { href: '/admin/audit-log', label: 'Audit Log' },
       ],
     },
@@ -61,7 +64,7 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
     {
       label: 'Admin',
       items: [
-        { href: '/admin/change-requests', label: 'Change Requests' },
+        { href: '/admin/change-requests', label: 'Change Requests', badgeKey: 'changeRequests' },
         { href: '/admin/audit-log', label: 'Audit Log' },
       ],
     },
@@ -90,7 +93,7 @@ export const NAV_BY_ROLE: Record<Role, NavSection[]> = {
     {
       label: 'Admin',
       items: [
-        { href: '/admin/change-requests', label: 'Change Requests' },
+        { href: '/admin/change-requests', label: 'Change Requests', badgeKey: 'changeRequests' },
         { href: '/admin/audit-log', label: 'Audit Log' },
       ],
     },

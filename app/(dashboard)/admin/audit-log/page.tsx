@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { AlertTriangle, ArrowLeft, ListChecks, Lock, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { getUserRole } from '@/lib/auth/roles';
 import {
   Card,
   CardAction,
@@ -19,6 +20,8 @@ export default async function AuditLogPage({
 }) {
   const params = await searchParams;
   const supabase = await createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  const canExport = getUserRole(userData.user) === 'superadmin';
 
   // Fetch both sources in parallel, then merge.
   const [newRes, legacyRes] = await Promise.all([
@@ -191,6 +194,7 @@ export default async function AuditLogPage({
         rows={merged}
         initialSheetIdFilter={params.sheet_id ?? null}
         initialActionFilter={params.action ?? null}
+        canExport={canExport}
       />
     </PageShell>
   );

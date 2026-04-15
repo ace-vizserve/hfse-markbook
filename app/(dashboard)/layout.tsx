@@ -1,8 +1,10 @@
 import { AppSidebar } from "@/components/app-sidebar";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { getUserRole } from "@/lib/auth/roles";
+import { getUserRole, type SidebarBadges } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
+import { getSidebarChangeRequestCount } from "@/lib/change-requests/sidebar-counts";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -22,9 +24,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const cookieStore = await cookies();
   const defaultOpen = cookieStore.get("sidebar:state")?.value !== "false";
 
+  const service = createServiceClient();
+  const sidebarBadges: SidebarBadges = {
+    changeRequests: await getSidebarChangeRequestCount(service, role, user.id),
+  };
+
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
-      <AppSidebar role={role} email={user.email ?? ""} />
+      <AppSidebar role={role} email={user.email ?? ""} badges={sidebarBadges} />
       <SidebarInset>
         <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/85 px-4 backdrop-blur-md print:hidden">
           <SidebarTrigger className="-ml-1" />

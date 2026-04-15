@@ -6,7 +6,7 @@ Development is split into 6 sprints. Each sprint produces working, testable soft
 
 **Stack:** Next.js 16 (App Router) + Supabase + Vercel. Python/FastAPI/WeasyPrint PDF service from the original plan has been deferred (see Sprint 6 decision note); browser print handles current volume.
 
-## Status snapshot (last updated 2026-04-15)
+## Status snapshot (last updated 2026-04-16)
 
 | Sprint | Title | Status |
 |---|---|---|
@@ -20,6 +20,8 @@ Development is split into 6 sprints. Each sprint produces working, testable soft
 | 7 | Admissions Dashboard (Phase 2) | 🔶 Part A done (2026-04-17) — pipeline cards, funnel, applications-by-level, outdated table, doc completion (live), assessment outcomes, referral sources, AY switcher, superadmin CSV export. Part B (SharePoint inquiries) still blocked on HFSE credentials |
 | 8 | Verified Student P-Files (Document Management) | 📋 Planned (post-phase-2) — dedicated module for admissions staff to create/update verified p-files against `enrolment_documents` with full revision history. Details TBD |
 | 9 | Locked-sheet Change Request Workflow | ✅ Done (2026-04-15) — replaces free-text `approval_reference` with structured teacher→admin→registrar state machine. Migration `009_change_requests.sql` + `/api/change-requests` + teacher request form + `/admin/change-requests` inbox + registrar Path A/B dialog + Resend notifications |
+| — | Change-request monitoring + audit-log export _(follow-up to Sprint 9, 2026-04-16)_ | ✅ Done — date-range + status filter toolbar on `/admin/change-requests`, pending-count badge on the sidebar (role-scoped), inline "ongoing change request" alert on `/grading/[id]`, superadmin CSV export at `/api/audit-log/export` with shared `lib/csv.ts` helper |
+| — | Parent-facing mobile pass _(follow-up, 2026-04-16)_ | ✅ Done — responsive body padding on `ReportCardDocument`, horizontal-scroll wrappers on the academic-grades + attendance tables (`min-w-[560px]` / `[420px]`), mobile-tightened hero typography on `/parent` + `/parent/report-cards/[id]`, Ctrl+P hint hidden below `md`. Staff-facing pages still deferred |
 | — | Forms + feedback polish pass _(cross-cutting, post-Sprint 7)_ | ✅ Done — RHF+zod+shadcn `Form` on all 4 submit-based forms (schemas in `lib/schemas/`), sonner `<Toaster>` mounted once in `app/layout.tsx`, shadcn `AlertDialog` for destructive confirms, shadcn `Dialog` via shared `useApprovalReference()` hook replacing all `window.prompt()`, `tw-animate-css` wired up (with `.animate-in`/`.animate-out` longhand overrides in `globals.css` because the package's minified shorthand was breaking dialog/sheet animations) |
 
 ### Cross-cutting improvements backlog
@@ -28,7 +30,7 @@ These came up during sprints but were intentionally deferred to keep scope tight
 
 - Previous-term comparison column on the grade entry grid (Sprint 3) — needs a second full term of data before it's meaningful
 - Automated PDF generation + Supabase Storage archival (Sprint 6) — browser Print / Save as PDF covers current volume; Puppeteer-in-Next.js is the path of least resistance if automation is ever needed
-- Mobile / tablet responsive pass (Sprint 6) — punted until after UAT signoff; registrar + teachers are all on desktop today
+- Mobile / tablet responsive pass (Sprint 6) — **parent-facing slice done 2026-04-16** (`ReportCardDocument` tables + parent hero typography). Staff-facing pages (grading grid especially) still deferred; registrar + teachers are all on desktop today
 - End-of-year "mid-year T1–T3" vs "full year T1–T4" report card toggle (Sprint 5) — end-of-year concern, no students past T2 yet
 - Secondary Sec 3–4 Economics variant template (Sprint 5) — no Sec 3–4 students enrolled yet
 - Virtue-theme header label on comments / report card (Sprint 5) — ornamental, no schema + no stakeholder ask
@@ -614,6 +616,16 @@ Final bite closing every deferred polish item that could ship without new data, 
 - [x] Registrar can also bypass the request flow for pure data-entry corrections via Path B — a structured `correction_reason` is logged as `approval_reference = "Data entry correction: ..."`
 - [x] Free-text `approval_reference` is no longer accepted by the API (returns 400)
 - [x] Resend emails fire at submit / decide / apply, best-effort, idempotent per transition
+
+### Sprint 9 follow-up — monitoring + exports (2026-04-16)
+
+Shipped as a post-Sprint 9 bite after UAT feedback. All edits uncommitted; review and ship as one commit.
+
+- [x] **`/admin/change-requests` filter toolbar** — new client component `app/(dashboard)/admin/change-requests/change-requests-data-table.tsx` replaces the old pending/history `Tabs` split. Two filters above the table: shadcn `Popover` + `Calendar` in `mode="range"` over `requested_at`, and a shadcn `Select` for status (All / Pending / Approved / Applied / Declined / Cancelled). In-memory filter over server-fetched rows; no URL sync beyond the existing `?sheet_id=` deep-link. Stat cards (5-up) kept as the at-a-glance summary. Decision buttons gated per-row on `r.status === 'pending'` now that pending + history share one table.
+- [x] **Sidebar pending-count badge** — `lib/change-requests/sidebar-counts.ts::getSidebarChangeRequestCount(service, role, userId)` runs one indexed `count` query per layout render (service client, bypasses RLS, hits `grade_change_requests_status_idx`). Role-scoped semantics: admin/superadmin → `status='pending'`; registrar → `status='approved'` (approved-unapplied); teacher → own `status='pending'`. `NavItem` type extended with optional `badgeKey: 'changeRequests'`; `SidebarBadges = Partial<Record<SidebarBadgeKey, number>>` threaded from `app/(dashboard)/layout.tsx` through `<AppSidebar badges={...} />`. Renders a small primary-tinted pill next to the nav label, hidden in collapsed-icon mode.
+- [x] **`/grading/[id]` ongoing change-request alert** — server-side fetch of `grade_change_requests` filtered to `status IN ('pending','approved')` on the current sheet (cookie-bound client is fine — migration 009 RLS allows authenticated SELECT). Alert block inserted directly above the entry grid when count > 0: indigo-wash `border-brand-indigo-soft/50 bg-accent/60` container, `MessageSquareWarning` icon, description splits "N pending · M approved, awaiting registrar", link to `/admin/change-requests?sheet_id=<id>` for staff or `/grading/requests` for teachers. Sits visually below the existing lock-status alert so the two don't collide.
+- [x] **Audit log CSV export (superadmin only)** — new route `app/api/audit-log/export/route.ts` gated on `getUserRole() === 'superadmin'`. `?from=YYYY-MM-DD&to=YYYY-MM-DD` required; dates validated and normalized to UTC day-start / day-end. Unions `public.audit_log` + legacy `public.grade_audit_log` inside the window using `createServiceClient()`, serializes via the new shared helper. Columns: `timestamp_utc, source, actor_email, action, entity_type, entity_id, sheet_id, context_json`. Filename: `audit-log-${from}-to-${to}.csv`. UI wiring on `audit-log-data-table.tsx`: date-range popover + `Download` button on the right of the toolbar, anchor-with-`download` attribute (no fetch/blob), disabled until a range is picked, only rendered when `canExport === true` (passed from the server page based on role).
+- [x] **Shared CSV helper `lib/csv.ts`** — `toCsvValue(v)` (RFC-4180 escape: wrap in quotes if comma/quote/newline/CR; double-up internal quotes) and `buildCsv(headers, rows)`. `/api/admissions/export/route.ts` refactored to use it so there's a single source for CSV escaping.
 
 ---
 

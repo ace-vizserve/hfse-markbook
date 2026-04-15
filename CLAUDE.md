@@ -100,11 +100,13 @@ hfse-markbook/
 │   ├── auth/                 ← roles, require-role, teacher-assignments
 │   ├── compute/              ← quarterly.ts + annual.ts (both with self-tests)
 │   ├── audit/                ← log-action.ts (generic) + log-grade-change.ts (legacy)
-│   ├── notifications/        ← email-parents-publication.ts (Resend)
+│   ├── notifications/        ← email-parents-publication.ts + email-change-request.ts (Resend)
 │   ├── report-card/          ← build-report-card.ts (shared staff+parent fetch)
 │   ├── admissions/           ← dashboard.ts — cached read-only query helpers for /admin/admissions
+│   ├── change-requests/      ← sidebar-counts.ts — per-role pending-count badge query
 │   ├── schemas/              ← zod schemas shared by RHF forms (and by API routes once server validation is adopted)
 │   ├── academic-year.ts      ← getCurrentAcademicYear / requireCurrentAyCode
+│   ├── csv.ts                ← toCsvValue + buildCsv — shared RFC-4180 escape used by every /api/**/export route
 │   └── sync/                 ← students planner, snapshot loader, normalizers
 ├── components/grading/       ← score-entry-grid, lock-toggle, totals-editor, use-approval-reference (shadcn Dialog hook replacing window.prompt), ...
 ├── components/admin/         ← teacher-assignments-panel, publish-window-panel, publication-status

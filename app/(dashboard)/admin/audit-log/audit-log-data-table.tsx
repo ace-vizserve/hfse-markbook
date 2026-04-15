@@ -19,15 +19,22 @@ import {
   ArrowRight,
   ArrowUpDown,
   ArrowUpRight,
+  CalendarIcon,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
   ChevronsUpDown,
+  Download,
   History,
   Search,
   X,
 } from 'lucide-react';
+import type { DateRange } from 'react-day-picker';
+
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -73,13 +80,23 @@ type Props = {
   rows: MergedRow[];
   initialSheetIdFilter?: string | null;
   initialActionFilter?: string | null;
+  canExport?: boolean;
 };
 
 export function AuditLogDataTable({
   rows,
   initialSheetIdFilter,
   initialActionFilter,
+  canExport = false,
 }: Props) {
+  const [exportRange, setExportRange] = React.useState<DateRange | undefined>(
+    undefined,
+  );
+  const [exportOpen, setExportOpen] = React.useState(false);
+  const exportHref = React.useMemo(() => {
+    if (!exportRange?.from || !exportRange.to) return null;
+    return `/api/audit-log/export?from=${toIsoDay(exportRange.from)}&to=${toIsoDay(exportRange.to)}`;
+  }, [exportRange]);
   const [sheetIdFilter, setSheetIdFilter] = React.useState<string | null>(
     initialSheetIdFilter ?? null,
   );
@@ -339,6 +356,80 @@ export function AuditLogDataTable({
             </Button>
           )}
         </div>
+
+        {canExport && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Popover open={exportOpen} onOpenChange={setExportOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    'gap-2 font-normal',
+                    !exportRange?.from && 'text-muted-foreground',
+                  )}
+                >
+                  <CalendarIcon className="h-3.5 w-3.5" />
+                  {exportRange?.from ? (
+                    <span className="font-mono text-[11px] tabular-nums">
+                      {formatDay(exportRange.from)}
+                      {exportRange.to ? ` – ${formatDay(exportRange.to)}` : ''}
+                    </span>
+                  ) : (
+                    <span>Export range</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="range"
+                  selected={exportRange}
+                  onSelect={setExportRange}
+                  numberOfMonths={2}
+                  captionLayout="dropdown"
+                />
+                <div className="flex items-center justify-between border-t border-hairline p-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setExportRange(undefined)}
+                    disabled={!exportRange?.from}
+                  >
+                    Clear
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setExportOpen(false)}
+                  >
+                    Done
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <Button
+              asChild={!!exportHref}
+              variant="default"
+              size="sm"
+              disabled={!exportHref}
+              className="gap-2"
+            >
+              {exportHref ? (
+                <a href={exportHref} download>
+                  <Download className="h-3.5 w-3.5" />
+                  Export CSV
+                </a>
+              ) : (
+                <span>
+                  <Download className="h-3.5 w-3.5" />
+                  Export CSV
+                </span>
+              )}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -654,4 +745,13 @@ function ActionDetails({ row }: { row: MergedRow }) {
     default:
       return <span className="text-muted-foreground">{JSON.stringify(ctx)}</span>;
   }
+}
+
+function toIsoDay(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function formatDay(d: Date): string {
+  return d.toLocaleDateString('en-SG', { month: 'short', day: 'numeric' });
 }

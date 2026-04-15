@@ -24,7 +24,7 @@ export function ReportCardDocument({ payload }: { payload: ReportCardPayload }) 
         className="block w-full"
       />
 
-      <div className="space-y-8 px-10 py-8 print:px-8 print:py-6">
+      <div className="space-y-8 px-4 py-6 sm:px-8 sm:py-8 lg:px-10 print:px-8 print:py-6">
         {/* Document title band */}
         <header className="flex flex-col items-center gap-1 border-b border-hairline pb-5 text-center">
           <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-ink-4">
@@ -53,8 +53,8 @@ export function ReportCardDocument({ payload }: { payload: ReportCardPayload }) 
         {/* Academic grades */}
         <section className="space-y-3 print:break-inside-avoid">
           <SectionHeading>Academic grades</SectionHeading>
-          <div className="overflow-hidden rounded-xl border border-hairline">
-            <table className="w-full border-collapse text-sm">
+          <div className="-mx-4 overflow-x-auto rounded-none border-y border-hairline sm:mx-0 sm:overflow-hidden sm:rounded-xl sm:border print:mx-0 print:overflow-hidden print:rounded-xl print:border">
+            <table className="w-full min-w-[560px] border-collapse text-sm">
               <thead>
                 <tr className="bg-muted/60 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-4">
                   <th className="px-4 py-2.5">Subject</th>
@@ -128,8 +128,8 @@ export function ReportCardDocument({ payload }: { payload: ReportCardPayload }) 
         {/* Attendance */}
         <section className="space-y-3 print:break-inside-avoid">
           <SectionHeading>Attendance</SectionHeading>
-          <div className="overflow-hidden rounded-xl border border-hairline">
-            <table className="w-full border-collapse text-sm">
+          <div className="-mx-4 overflow-x-auto rounded-none border-y border-hairline sm:mx-0 sm:overflow-hidden sm:rounded-xl sm:border print:mx-0 print:overflow-hidden print:rounded-xl print:border">
+            <table className="w-full min-w-[420px] border-collapse text-sm">
               <thead>
                 <tr className="bg-muted/60 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-4">
                   <th className="px-4 py-2.5"></th>
@@ -185,7 +185,7 @@ export function ReportCardDocument({ payload }: { payload: ReportCardPayload }) 
         </section>
 
         {/* Signatures */}
-        <section className="grid grid-cols-2 gap-10 pt-2 text-xs text-ink-3 print:break-inside-avoid">
+        <section className="grid grid-cols-2 gap-6 pt-2 text-xs text-ink-3 sm:gap-10 print:break-inside-avoid">
           <div>
             <div className="h-12 border-b border-ink-5"></div>
             <p className="mt-2 font-medium text-ink">
@@ -229,7 +229,7 @@ function cellText(cell: Cell, examinable: boolean): string {
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline gap-3">
-      <div className="w-36 shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
+      <div className="w-28 shrink-0 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4 sm:w-36">
         {label}
       </div>
       <div className="flex-1 font-medium text-ink">{value}</div>

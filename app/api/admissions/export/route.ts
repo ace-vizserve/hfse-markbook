@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getUserRole } from '@/lib/auth/roles';
 import { requireCurrentAyCode } from '@/lib/academic-year';
 import { getOutdatedApplications } from '@/lib/admissions/dashboard';
+import { buildCsv } from '@/lib/csv';
 
 // Superadmin-only CSV export of the outdated-applications table for a given
 // AY. Surfaces the same rows the dashboard shows, but serialized for offline
@@ -25,38 +26,26 @@ export async function GET(req: Request) {
 
   const rows = await getOutdatedApplications(ayCode);
 
-  const header = [
-    'enroleeNumber',
-    'fullName',
-    'status',
-    'levelApplied',
-    'lastUpdated',
-    'daysSinceUpdate',
-    'daysInPipeline',
-  ];
-  const escape = (v: string | number | null): string => {
-    if (v === null || v === undefined) return '';
-    const s = String(v);
-    if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-    return s;
-  };
-
-  const body = [
-    header.join(','),
-    ...rows.map((r) =>
-      [
-        r.enroleeNumber,
-        r.fullName,
-        r.status,
-        r.levelApplied,
-        r.lastUpdated,
-        r.daysSinceUpdate,
-        r.daysInPipeline,
-      ]
-        .map(escape)
-        .join(','),
-    ),
-  ].join('\n');
+  const body = buildCsv(
+    [
+      'enroleeNumber',
+      'fullName',
+      'status',
+      'levelApplied',
+      'lastUpdated',
+      'daysSinceUpdate',
+      'daysInPipeline',
+    ],
+    rows.map((r) => [
+      r.enroleeNumber,
+      r.fullName,
+      r.status,
+      r.levelApplied,
+      r.lastUpdated,
+      r.daysSinceUpdate,
+      r.daysInPipeline,
+    ]),
+  );
 
   const filename = `admissions-outdated-${ayCode}-${new Date()
     .toISOString()

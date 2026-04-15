@@ -95,7 +95,7 @@ export default async function ParentReportCardPage({
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             Report card · {payload.ay.label}
           </p>
-          <h1 className="font-serif text-[32px] font-semibold leading-[1.05] tracking-tight text-foreground md:text-[38px]">
+          <h1 className="font-serif text-[26px] font-semibold leading-[1.05] tracking-tight text-foreground sm:text-[32px] md:text-[38px]">
             {payload.student.full_name}.
           </h1>
           <p className="text-[15px] leading-relaxed text-muted-foreground">
@@ -130,14 +130,14 @@ export default async function ParentReportCardPage({
             <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Report card · {payload.ay.label}
             </p>
-            <h1 className="font-serif text-[38px] font-semibold leading-[1.05] tracking-tight text-foreground md:text-[44px]">
+            <h1 className="font-serif text-[28px] font-semibold leading-[1.05] tracking-tight text-foreground sm:text-[38px] md:text-[44px]">
               {payload.student.full_name}.
             </h1>
             <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
               {payload.level.label} · {payload.section.name}
             </p>
           </div>
-          <div className="text-xs text-muted-foreground">
+          <div className="hidden text-xs text-muted-foreground md:block">
             <Printer className="mr-1 inline h-3 w-3" />
             Press <kbd className="rounded border border-border bg-card px-1 py-0.5">Ctrl</kbd>
             {' + '}

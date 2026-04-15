@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Lock,
   LockOpen,
+  MessageSquareWarning,
   Scale,
   Users,
 } from 'lucide-react';
@@ -100,6 +101,18 @@ export default async function GradingSheetPage({
 
   const readOnly = sheet.is_locked && !canManage;
   const requireApproval = sheet.is_locked && canManage;
+
+  const { data: openRequestsRaw } = await supabase
+    .from('grade_change_requests')
+    .select('id, status')
+    .eq('grading_sheet_id', id)
+    .in('status', ['pending', 'approved']);
+  const openRequests = (openRequestsRaw ?? []) as Array<{
+    id: string;
+    status: 'pending' | 'approved';
+  }>;
+  const pendingCount = openRequests.filter((r) => r.status === 'pending').length;
+  const approvedCount = openRequests.filter((r) => r.status === 'approved').length;
 
   const { data: entriesRaw } = await supabase
     .from('grade_entries')
@@ -326,6 +339,45 @@ export default async function GradingSheetPage({
                 <ArrowUpRight className="size-3.5" />
               </Link>
             )}
+          </div>
+        </div>
+      )}
+
+      {openRequests.length > 0 && (
+        <div className="flex items-start gap-4 rounded-xl border border-brand-indigo-soft/50 bg-accent/60 p-5">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
+            <MessageSquareWarning className="size-4" />
+          </div>
+          <div className="flex-1 space-y-1.5">
+            <p className="font-serif text-base font-semibold leading-tight text-foreground">
+              {openRequests.length === 1
+                ? 'There is an open change request on this sheet'
+                : `There are ${openRequests.length} open change requests on this sheet`}
+            </p>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {[
+                pendingCount > 0
+                  ? `${pendingCount} pending review`
+                  : null,
+                approvedCount > 0
+                  ? `${approvedCount} approved, awaiting registrar`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+              .
+            </p>
+            <Link
+              href={
+                canManage
+                  ? `/admin/change-requests?sheet_id=${sheet.id}`
+                  : '/grading/requests'
+              }
+              className="inline-flex items-center gap-1 pt-1 text-sm font-medium text-brand-indigo-deep underline-offset-4 hover:underline"
+            >
+              {canManage ? 'View change requests' : 'My requests'}
+              <ArrowUpRight className="size-3.5" />
+            </Link>
           </div>
         </div>
       )}
