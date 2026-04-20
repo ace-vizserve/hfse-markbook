@@ -1,8 +1,8 @@
-# HFSE Grading Module — Project Overview
+# HFSE SIS — Project Overview
 
 ## What This Is
 
-A web application to replace the current manual Google Sheets-based grading system at HFSE International School (Singapore). Teachers enter scores per subject per section per term. The system computes grades using the DepEd transmutation formula, locks sheets at the registrar's discretion, and generates printable PDF report cards.
+A Student Information System for HFSE International School (Singapore). It centralizes enrollment, grades, documents, and student records in one place, all connected to a single student profile. The system is organized into modules — **Markbook** (grades / report cards), **P-Files** (documents), **Admissions** (applicant pipeline), **SIS** (profiles / family / discount codes / document validation) — that share the same student record as their backbone. Modules are surfaces of one system, not sibling apps, and cross-link through the stable `studentNumber` key so a student's data stays consistent regardless of which surface you're viewing it from.
 
 ## Organization Context
 
@@ -11,7 +11,7 @@ A web application to replace the current manual Google Sheets-based grading syst
 - **Levels:** Primary 1–6, Secondary 1–4
 - **Terms:** 4 terms per academic year (T1, T2, T3, T4)
 - **Class Types:** Global Class and Standard Class (different grading weights per subject)
-- **Current AY:** 2025–2026
+- **Current AY:** AY2026
 
 ## Key People
 
@@ -34,6 +34,8 @@ The current system is Google Sheets with:
 - Report card generation done manually via VLOOKUP across multiple files
 - Student names manually maintained per sheet (not synced from admissions)
 
+Beyond grading, student data lived scattered across Directus, Google Drive folders, and Google Sheets with no shared identity. The SIS reunites all of it under one `studentNumber`-keyed profile so anyone looking at a student sees the same record wherever they are in the app.
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -49,23 +51,26 @@ The current system is Google Sheets with:
 
 ```
 Browser
-  └── Next.js App (Vercel)
-        ├── /app — React frontend (teacher grade entry, admin dashboard)
+  └── Next.js App (Vercel) — the SIS, one deployable with four modules
+        ├── /app — React frontend (Markbook, P-Files, Admissions, Records module)
         ├── /api — Next.js API routes (CRUD, grade computation, auth)
-        └── → POST to Python PDF service (Render/Railway)
-                └── WeasyPrint → PDF binary → streamed back to browser
+        └── Report cards render in-browser and print via the browser's
+            native print / save-as-PDF (the Python PDF service from the
+            original plan was deferred — see Sprint 6 decision note).
 
-Supabase (PostgreSQL)
-  ├── Admissions DB (existing, read-only from grading app)
-  │     ├── ay2026_enrolment_applications
-  │     └── ay2026_enrolment_status
-  └── Grading DB (new tables, owned by this app)
-        ├── students
-        ├── sections
-        ├── grading_sheets
-        ├── grade_entries
-        ├── quarterly_grades
-        └── report_card_comments
+Supabase (PostgreSQL) — single shared project
+  ├── Admissions tables (owned by the parent portal, read from by the SIS)
+  │     ├── ay{YY}_enrolment_applications   ← Profile / Family edits via Records module
+  │     ├── ay{YY}_enrolment_status         ← Stage-pipeline edits via Records module
+  │     ├── ay{YY}_enrolment_documents      ← File URLs via P-Files; Status via SIS
+  │     └── ay{YY}_discount_codes           ← Catalogue CRUD via Records module
+  └── SIS-owned tables (Markbook + cross-module infrastructure)
+        ├── students, section_students, academic_years, terms, levels, subjects
+        ├── subject_configs, sections, teacher_assignments
+        ├── grading_sheets, grade_entries, grade_audit_log
+        ├── report_card_comments, attendance_records, report_card_publications
+        ├── grade_change_requests, p_file_revisions, audit_log
+        └── supabase.auth.users (shared with parent portal for SSO)
 ```
 
 ## Guiding Constraints
@@ -74,5 +79,5 @@ Supabase (PostgreSQL)
 2. Grading sheets lock on a schedule set by the registrar (Ms. Chandana's instruction)
 3. Post-lock edits require email approval from Ms. Chandana/Ms. Tin, then applied by Joann only
 4. The system must produce a PDF report card that matches the existing physical format exactly
-5. Student roster is sourced from the Supabase admissions DB — the grading app does not own student records
+5. Student roster is sourced from the shared admissions tables — the SIS's Markbook module does not own applicant records; it syncs from admissions into its own `students` table and never writes back to the admissions applications row for roster purposes
 6. `studentNumber` is the stable cross-year student identifier (not `enroleeNumber`, which resets each AY)

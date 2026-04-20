@@ -89,7 +89,7 @@ export function StudentDataTable({ data }: { data: StudentListRow[] }) {
         ),
         cell: ({ row }) => (
           <Link
-            href={`/sis/students/${row.original.enroleeNumber}`}
+            href={`/records/students/${row.original.enroleeNumber}`}
             className="font-medium text-foreground underline transition-colors hover:text-primary"
           >
             {studentDisplayName(row.original)}

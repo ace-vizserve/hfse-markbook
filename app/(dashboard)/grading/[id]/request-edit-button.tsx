@@ -46,12 +46,22 @@ export type RequestableStudent = {
   withdrawn: boolean;
 };
 
+// Designated approvers for the markbook.change_request flow, minus the
+// current teacher (they can't self-approve). Populated server-side from
+// `approver_assignments`.
+export type ApproverOption = {
+  user_id: string;
+  email: string;
+  role: string | null;
+};
+
 type Props = {
   sheetId: string;
   isExaminable: boolean;
   wwSlotCount: number;
   ptSlotCount: number;
   students: RequestableStudent[];
+  approvers: ApproverOption[];
 };
 
 const FIELD_LABELS: Record<ChangeRequestField, string> = {
@@ -62,7 +72,7 @@ const FIELD_LABELS: Record<ChangeRequestField, string> = {
   is_na: "Late enrollee N/A flag",
 };
 
-export function RequestEditButton({ sheetId, isExaminable, wwSlotCount, ptSlotCount, students }: Props) {
+export function RequestEditButton({ sheetId, isExaminable, wwSlotCount, ptSlotCount, students, approvers }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
@@ -73,6 +83,10 @@ export function RequestEditButton({ sheetId, isExaminable, wwSlotCount, ptSlotCo
     }
     return CHANGE_REQUEST_FIELDS.filter((f) => f === "letter_grade" || f === "is_na");
   }, [isExaminable]);
+
+  const approverCount = approvers.length;
+  const noApproversConfigured = approverCount === 0;
+  const onlyOneApprover = approverCount === 1;
 
   const form = useForm<ChangeRequestFormInput>({
     resolver: zodResolver(ChangeRequestFormSchema),
@@ -85,8 +99,12 @@ export function RequestEditButton({ sheetId, isExaminable, wwSlotCount, ptSlotCo
       proposed_value: "",
       reason_category: "regrading",
       justification: "",
+      primary_approver_id: "",
+      secondary_approver_id: "",
     },
   });
+
+  const primaryApproverId = form.watch("primary_approver_id");
 
   const selectedEntryId = form.watch("grade_entry_id");
   const selectedField = form.watch("field_changed");
@@ -177,11 +195,7 @@ export function RequestEditButton({ sheetId, isExaminable, wwSlotCount, ptSlotCo
                   <FormItem className="flex flex-col">
                     <FormLabel>Student</FormLabel>
                     <FormControl>
-                      <StudentCombobox
-                        students={students}
-                        value={field.value}
-                        onChange={field.onChange}
-                      />
+                      <StudentCombobox students={students} value={field.value} onChange={field.onChange} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -330,6 +344,76 @@ export function RequestEditButton({ sheetId, isExaminable, wwSlotCount, ptSlotCo
                   </FormItem>
                 )}
               />
+
+              <div className="space-y-4 rounded-md border border-border bg-muted/20 p-4">
+                <div className="space-y-1">
+                  <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-brand-indigo-deep">
+                    Approvers
+                  </p>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Pick who reviews this request. Both can act independently; the first to approve or reject wins.
+                  </p>
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="primary_approver_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Primary approver</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange} disabled={approverCount < 2}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Pick an approver…" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {approvers.map((a) => (
+                            <SelectItem key={a.user_id} value={a.user_id}>
+                              {a.email}
+                              {a.role && (
+                                <span className="ml-2 text-[10px] uppercase text-muted-foreground">{a.role}</span>
+                              )}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="secondary_approver_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Secondary approver</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange} disabled={approverCount < 2}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Pick a different approver…" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {approvers
+                            .filter((a) => a.user_id !== primaryApproverId)
+                            .map((a) => (
+                              <SelectItem key={a.user_id} value={a.user_id}>
+                                {a.email}
+                                {a.role && (
+                                  <span className="ml-2 text-[10px] uppercase text-muted-foreground">{a.role}</span>
+                                )}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>Must be different from the primary approver.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
             <SheetFooter className="flex-row justify-end gap-2 border-t border-border p-6 sm:justify-end">
@@ -338,7 +422,7 @@ export function RequestEditButton({ sheetId, isExaminable, wwSlotCount, ptSlotCo
                   Cancel
                 </Button>
               </SheetClose>
-              <Button type="submit" size="sm" disabled={busy}>
+              <Button type="submit" size="sm" disabled={busy || noApproversConfigured || onlyOneApprover}>
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 {busy ? "Submitting…" : "Submit request"}
               </Button>
@@ -363,10 +447,7 @@ function StudentCombobox({
   const [query, setQuery] = useState("");
 
   const eligible = useMemo(() => students.filter((s) => !s.withdrawn), [students]);
-  const selected = useMemo(
-    () => eligible.find((s) => s.entry_id === value) ?? null,
-    [eligible, value],
-  );
+  const selected = useMemo(() => eligible.find((s) => s.entry_id === value) ?? null, [eligible, value]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -383,16 +464,14 @@ function StudentCombobox({
       onOpenChange={(next) => {
         setOpen(next);
         if (!next) setQuery("");
-      }}
-    >
+      }}>
       <PopoverTrigger asChild>
         <Button
           type="button"
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="h-9 w-full justify-between font-normal"
-        >
+          className="h-9 w-full justify-between font-normal">
           <span className={selected ? "truncate text-foreground" : "truncate text-muted-foreground"}>
             {selected ? `#${selected.index_number} · ${selected.student_name}` : "Pick a student…"}
           </span>
@@ -405,8 +484,7 @@ function StudentCombobox({
         onOpenAutoFocus={(e) => {
           // Let the Input inside grab focus instead of the first list button.
           e.preventDefault();
-        }}
-      >
+        }}>
         <div className="relative border-b border-border p-2">
           <Search className="pointer-events-none absolute left-4 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -420,12 +498,9 @@ function StudentCombobox({
         <div
           className="max-h-64 overflow-y-auto overscroll-contain p-1"
           onWheel={(e) => e.stopPropagation()}
-          onTouchMove={(e) => e.stopPropagation()}
-        >
+          onTouchMove={(e) => e.stopPropagation()}>
           {filtered.length === 0 ? (
-            <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-              No students match.
-            </div>
+            <div className="px-3 py-6 text-center text-sm text-muted-foreground">No students match.</div>
           ) : (
             filtered.map((s) => {
               const isSelected = s.entry_id === value;
@@ -438,14 +513,9 @@ function StudentCombobox({
                     setOpen(false);
                     setQuery("");
                   }}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
-                >
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent focus-visible:bg-accent focus-visible:outline-none">
                   <Check
-                    className={
-                      isSelected
-                        ? "size-3.5 shrink-0 text-brand-indigo"
-                        : "size-3.5 shrink-0 opacity-0"
-                    }
+                    className={isSelected ? "size-3.5 shrink-0 text-brand-indigo" : "size-3.5 shrink-0 opacity-0"}
                   />
                   <span className="truncate">
                     <span className="tabular-nums text-muted-foreground">#{s.index_number}</span>

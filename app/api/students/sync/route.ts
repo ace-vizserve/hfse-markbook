@@ -14,7 +14,7 @@ import { requireCurrentAyCode } from '@/lib/academic-year';
 //   * Withdrawn students keep their row; enrollment_status flips to 'withdrawn'.
 //   * Never delete; every mutation goes through update/insert only.
 export async function POST() {
-  const auth = await requireRole(['registrar', 'admin', 'superadmin']);
+  const auth = await requireRole(['registrar', 'school_admin', 'admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const service = createServiceClient();

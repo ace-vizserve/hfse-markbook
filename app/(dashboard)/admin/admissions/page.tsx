@@ -3,7 +3,7 @@ import { ArrowLeft } from 'lucide-react';
 
 import { PageShell } from '@/components/ui/page-shell';
 import { createClient, getSessionUser } from '@/lib/supabase/server';
-import { requireCurrentAyCode } from '@/lib/academic-year';
+import { requireCurrentAyCode, listAyCodes } from '@/lib/academic-year';
 import {
   getApplicationsByLevel,
   getAssessmentOutcomes,
@@ -46,12 +46,8 @@ export default async function AdmissionsDashboardPage({ searchParams }: PageProp
   const supabase = await createClient();
 
   const currentAy = await requireCurrentAyCode(supabase);
-  const selectedAy = sp.ay && /^AY\d{4}$/.test(sp.ay) ? sp.ay : currentAy;
-
-  const { data: ayList } = await supabase
-    .from('academic_years')
-    .select('id, ay_code, label')
-    .order('ay_code', { ascending: false });
+  const ayCodes = await listAyCodes(supabase);
+  const selectedAy = sp.ay && ayCodes.includes(sp.ay) ? sp.ay : currentAy;
 
   const [
     pipeline,
@@ -73,7 +69,7 @@ export default async function AdmissionsDashboardPage({ searchParams }: PageProp
     getReferralSourceBreakdown(selectedAy),
   ]);
 
-  const canExport = role === 'admin' || role === 'superadmin';
+  const canExport = role === 'school_admin' || role === 'admin' || role === 'superadmin';
 
   return (
     <PageShell>
@@ -115,10 +111,7 @@ export default async function AdmissionsDashboardPage({ searchParams }: PageProp
             </CardAction>
           </CardHeader>
           <CardContent className="space-y-3">
-            <AySwitcher
-              current={selectedAy}
-              options={(ayList ?? []).map((a) => ({ code: a.ay_code, label: a.label }))}
-            />
+            <AySwitcher current={selectedAy} options={ayCodes} />
             {canExport && (
               <Button asChild variant="outline" className="w-full">
                 <a href={`/api/admissions/export?ay=${selectedAy}`}>

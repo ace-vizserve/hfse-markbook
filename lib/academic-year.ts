@@ -1,4 +1,22 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+// The AY Setup Wizard (`/sis/ay-setup`) is the source of truth for which
+// AYs exist — it INSERTs into `academic_years` when admin creates a new
+// year. The switcher + URL-param validation read that table at render
+// time via `listAyCodes()` below, so adding an AY is a pure runtime
+// operation (no code deploy).
+
+export async function listAyCodes(client: SupabaseClient): Promise<string[]> {
+  const { data, error } = await client
+    .from("academic_years")
+    .select("ay_code")
+    .order("ay_code", { ascending: false });
+  if (error) {
+    console.error("[academic-year] listAyCodes failed:", error.message);
+    return [];
+  }
+  return (data ?? []).map((r) => (r as { ay_code: string }).ay_code);
+}
 
 // Single source of truth for "which academic year are we currently in?"
 // Reads from `public.academic_years` where `is_current = true`.
@@ -15,20 +33,18 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type CurrentAcademicYear = {
   id: string;
-  ay_code: string;    // e.g. "AY2026"
-  label: string;      // e.g. "Academic Year 2025-2026"
+  ay_code: string; // e.g. "AY2026"
+  label: string; // e.g. "Academic Year 2025-2026"
 };
 
-export async function getCurrentAcademicYear(
-  client: SupabaseClient,
-): Promise<CurrentAcademicYear | null> {
+export async function getCurrentAcademicYear(client: SupabaseClient): Promise<CurrentAcademicYear | null> {
   const { data, error } = await client
-    .from('academic_years')
-    .select('id, ay_code, label')
-    .eq('is_current', true)
+    .from("academic_years")
+    .select("id, ay_code, label")
+    .eq("is_current", true)
     .maybeSingle();
   if (error) {
-    console.error('[academic-year] current lookup failed:', error.message);
+    console.error("[academic-year] current lookup failed:", error.message);
     return null;
   }
   return (data as CurrentAcademicYear | null) ?? null;
@@ -41,7 +57,7 @@ export async function requireCurrentAyCode(client: SupabaseClient): Promise<stri
   const ay = await getCurrentAcademicYear(client);
   if (!ay) {
     throw new Error(
-      'No current academic year set. Ask the registrar to set is_current=true on one academic_years row.',
+      "No current academic year set. Ask the registrar to set is_current=true on one academic_years row.",
     );
   }
   return ay.ay_code;

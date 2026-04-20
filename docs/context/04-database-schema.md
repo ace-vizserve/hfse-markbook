@@ -2,16 +2,16 @@
 
 ## Overview
 
-The grading app maintains its own Supabase schema (`grading` schema or separate tables prefixed `grading_`). It reads from the admissions schema but never writes to it.
+The SIS owns a set of tables in the shared Supabase project (no separate schema — everything lives in `public`). These tables back the Markbook module (grading / report cards / attendance) and cross-module infrastructure (auth, audit log, change requests, publication windows, P-Files revision history). The admissions tables (`ay{YY}_enrolment_*`, `ay{YY}_discount_codes`) are owned by the parent portal and are read by every Records module; mutating access to them is narrow and documented per Key Decision — see `06-admissions-integration.md` for the ownership split.
 
-All tables use UUID primary keys except where noted. `created_at` and `updated_at` are on all tables.
+All SIS-owned tables use UUID primary keys except where noted. `created_at` and `updated_at` are on all tables.
 
 ---
 
 ## Core Tables
 
 ### `students`
-Synced from admissions DB. The grading app's own roster.
+Synced from admissions. The SIS's canonical student roster (one row per `studentNumber`, Hard Rule #4).
 
 ```sql
 CREATE TABLE students (
@@ -254,7 +254,7 @@ WHERE s."classSection" IS NOT NULL
 ORDER BY s."classLevel", s."classSection", a."lastName";
 ```
 
-> **Warning:** The admissions DB uses year-specific table names (`ay2026_*`, `ay2027_*`). Update the table names in the sync query each AY. The grading app should have a config value for the current AY table prefix.
+> **Warning:** The admissions tables use year-specific names (`ay2026_*`, `ay2027_*`). The SIS derives the prefix from the current AY via `lib/academic-year.ts::requireCurrentAyCode()` — never hardcode the year into runtime code. Rolling to a new AY is an AY Setup Wizard action at `/sis/ay-setup` (see `docs/context/18-ay-setup.md`) plus flipping `academic_years.is_current` — no code deploy.
 
 ---
 

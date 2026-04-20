@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
 
-// Parent portal → markbook handoff page. Reached from the "View report card"
+// Parent portal → SIS handoff page. Reached from the "View report card"
 // button on https://enrol.hfse.edu.sg/admission/dashboard. Expects the
 // parent's current Supabase session tokens in the URL fragment:
 //
@@ -20,7 +20,7 @@ import { PageShell } from '@/components/ui/page-shell';
 // origins. This page is a client component by necessity — the fragment is
 // only readable in the browser.
 //
-// On successful setSession, the markbook's browser client writes the
+// On successful setSession, the SIS's browser client writes the
 // sb-*-auth-token cookies via the @supabase/ssr adapter, and the
 // subsequent router.replace to `next` hits proxy.ts with a valid session.
 

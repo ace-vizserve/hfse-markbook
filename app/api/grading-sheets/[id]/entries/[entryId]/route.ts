@@ -28,7 +28,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; entryId: string }> },
 ) {
-  const auth = await requireRole(['teacher', 'registrar', 'admin', 'superadmin']);
+  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'admin', 'superadmin']);
   if ('error' in auth) return auth.error;
   const role = getUserRole(auth.user);
 

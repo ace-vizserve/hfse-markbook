@@ -15,7 +15,7 @@ export default async function SisLayout({ children }: { children: React.ReactNod
   if (!sessionUser) redirect('/login');
 
   const { email, role } = sessionUser;
-  if (role !== 'registrar' && role !== 'admin' && role !== 'superadmin') {
+  if (role !== 'registrar' && role !== 'school_admin' && role !== 'admin' && role !== 'superadmin') {
     if (role === 'p-file') redirect('/p-files');
     if (!role) redirect('/parent');
     redirect('/');
@@ -31,7 +31,7 @@ export default async function SisLayout({ children }: { children: React.ReactNod
         <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/85 px-4 backdrop-blur-md">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mx-1 h-4" />
-          <ModuleSwitcher currentModule="sis" canSwitch={role === 'admin' || role === 'superadmin'} />
+          <ModuleSwitcher currentModule="sis" canSwitch={role === 'school_admin' || role === 'admin' || role === 'superadmin'} />
         </header>
         <div className="flex-1 bg-muted px-6 py-8 md:px-10 md:py-10">
           {children}

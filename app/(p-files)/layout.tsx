@@ -15,7 +15,7 @@ export default async function PFilesLayout({ children }: { children: React.React
   if (!sessionUser) redirect('/login');
 
   const { email, role } = sessionUser;
-  if (role !== 'p-file' && role !== 'admin' && role !== 'superadmin') redirect('/');
+  if (role !== 'p-file' && role !== 'school_admin' && role !== 'admin' && role !== 'superadmin') redirect('/');
 
   const cookieStore = await cookies();
   const defaultOpen = cookieStore.get('sidebar:state')?.value !== 'false';
@@ -27,7 +27,7 @@ export default async function PFilesLayout({ children }: { children: React.React
         <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/85 px-4 backdrop-blur-md">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mx-1 h-4" />
-          <ModuleSwitcher currentModule="p-files" canSwitch={role === 'admin' || role === 'superadmin'} />
+          <ModuleSwitcher currentModule="p-files" canSwitch={role === 'school_admin' || role === 'admin' || role === 'superadmin'} />
         </header>
         <div className="flex-1 bg-muted px-6 py-8 md:px-10 md:py-10">
           {children}

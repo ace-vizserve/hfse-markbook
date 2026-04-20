@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FolderOpen, History, LogOut, UserCog } from 'lucide-react';
+import { FolderOpen, History, LogOut, UserCog, type LucideIcon } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -18,11 +18,22 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from '@/components/ui/sidebar';
+import { NAV_BY_MODULE } from '@/lib/auth/roles';
 
 const ROLE_LABEL: Record<string, string> = {
   'p-file': 'P-File Officer',
+  school_admin: 'School Admin',
+  admin: 'Admin',
   superadmin: 'Superadmin',
 };
+
+const ICON_BY_HREF: Record<string, LucideIcon> = {
+  '/p-files': FolderOpen,
+  '/p-files/audit-log': History,
+};
+
+const ACTIVE_INDICATOR =
+  'relative h-9 before:absolute before:left-0 before:top-1/2 before:h-5 before:w-0.5 before:-translate-y-1/2 before:rounded-r-full before:bg-brand-indigo before:opacity-0 before:transition-opacity data-[active=true]:before:opacity-100';
 
 export function PFilesSidebar({ email, role }: { email: string; role: string }) {
   const router = useRouter();
@@ -43,8 +54,7 @@ export function PFilesSidebar({ email, role }: { email: string; role: string }) 
       .join('')
       .slice(0, 2) || 'PF';
 
-  const isOnDashboard = pathname === '/p-files';
-  const isOnAuditLog = pathname === '/p-files/audit-log';
+  const sections = NAV_BY_MODULE['p-files'];
 
   return (
     <Sidebar collapsible="icon">
@@ -72,38 +82,33 @@ export function PFilesSidebar({ email, role }: { email: string; role: string }) 
       </SidebarHeader>
 
       <SidebarContent className="px-1.5 py-3">
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={isOnDashboard}
-                  tooltip="Dashboard"
-                  className="relative h-9 before:absolute before:left-0 before:top-1/2 before:h-5 before:w-0.5 before:-translate-y-1/2 before:rounded-r-full before:bg-brand-indigo before:opacity-0 before:transition-opacity data-[active=true]:before:opacity-100"
-                >
-                  <Link href="/p-files">
-                    <FolderOpen />
-                    <span>Dashboard</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={isOnAuditLog}
-                  tooltip="Audit Log"
-                  className="relative h-9 before:absolute before:left-0 before:top-1/2 before:h-5 before:w-0.5 before:-translate-y-1/2 before:rounded-r-full before:bg-brand-indigo before:opacity-0 before:transition-opacity data-[active=true]:before:opacity-100"
-                >
-                  <Link href="/p-files/audit-log">
-                    <History />
-                    <span>Audit Log</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {sections.map((section, i) => (
+          <SidebarGroup key={i}>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {section.items.map((item) => {
+                  const Icon = ICON_BY_HREF[item.href] ?? FolderOpen;
+                  const isActive = pathname === item.href;
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        tooltip={item.label}
+                        className={ACTIVE_INDICATOR}
+                      >
+                        <Link href={item.href}>
+                          <Icon />
+                          <span>{item.label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-3">

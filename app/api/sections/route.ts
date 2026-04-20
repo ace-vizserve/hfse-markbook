@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 
 // List sections for the current academic year, annotated with enrolment counts.
 export async function GET() {
-  const auth = await requireRole(['teacher', 'registrar', 'admin', 'superadmin']);
+  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const supabase = await createClient();

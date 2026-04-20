@@ -12,6 +12,7 @@ import {
 } from '@/lib/auth/teacher-assignments';
 import { notifyRequestFiled } from '@/lib/notifications/email-change-request';
 import { createClient } from '@/lib/supabase/server';
+import { listApproversForFlow } from '@/lib/sis/approvers/queries';
 
 // GET /api/change-requests
 // Query params:
@@ -36,12 +37,21 @@ export async function GET(request: NextRequest) {
        current_value, proposed_value, reason_category, justification,
        status, requested_by, requested_by_email, requested_at,
        reviewed_by, reviewed_by_email, reviewed_at, decision_note,
-       applied_by, applied_at`,
+       applied_by, applied_at,
+       primary_approver_id, secondary_approver_id`,
     )
     .order('requested_at', { ascending: false });
 
   if (auth.role === 'teacher') {
     query = query.eq('requested_by', auth.user.id);
+  } else if (auth.role === 'admin' || auth.role === 'superadmin') {
+    // Designated-approver scope: admin+ sees only requests where they're
+    // primary or secondary. Legacy rows (both NULL) fall back to the
+    // broadcast-style "anyone admin+ sees it" behavior so pre-feature
+    // pending requests don't strand.
+    query = query.or(
+      `primary_approver_id.eq.${auth.user.id},secondary_approver_id.eq.${auth.user.id},and(primary_approver_id.is.null,secondary_approver_id.is.null)`,
+    );
   }
   if (status) {
     query = query.eq('status', status);
@@ -137,6 +147,40 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Approver validation: both designated users must currently be in the
+  // `markbook.change_request` approver list, and neither can be the teacher
+  // filing the request. The form schema already rejects identical primary
+  // + secondary; we re-check here for defence-in-depth.
+  if (
+    body.primary_approver_id === auth.user.id ||
+    body.secondary_approver_id === auth.user.id
+  ) {
+    return NextResponse.json(
+      { error: 'You cannot designate yourself as an approver on your own request.' },
+      { status: 400 },
+    );
+  }
+  if (body.primary_approver_id === body.secondary_approver_id) {
+    return NextResponse.json(
+      { error: 'Primary and secondary approvers must be different people.' },
+      { status: 400 },
+    );
+  }
+  const approvers = await listApproversForFlow('markbook.change_request');
+  const approverIds = new Set(approvers.map((a) => a.user_id));
+  if (!approverIds.has(body.primary_approver_id)) {
+    return NextResponse.json(
+      { error: 'Primary approver is not assigned to this flow.' },
+      { status: 400 },
+    );
+  }
+  if (!approverIds.has(body.secondary_approver_id)) {
+    return NextResponse.json(
+      { error: 'Secondary approver is not assigned to this flow.' },
+      { status: 400 },
+    );
+  }
+
   // Snapshot the current value from the entry for the requested field/slot.
   const currentValue = snapshotCurrentValue(entry, body.field_changed, body.slot_index);
 
@@ -154,6 +198,8 @@ export async function POST(request: NextRequest) {
       status: 'pending',
       requested_by: auth.user.id,
       requested_by_email: auth.user.email ?? '(unknown)',
+      primary_approver_id: body.primary_approver_id,
+      secondary_approver_id: body.secondary_approver_id,
     })
     .select('*')
     .single();
@@ -178,13 +224,22 @@ export async function POST(request: NextRequest) {
       slot_index: body.slot_index,
       proposed: body.proposed_value,
       reason_category: body.reason_category,
+      primary_approver_id: body.primary_approver_id,
+      secondary_approver_id: body.secondary_approver_id,
     },
   });
 
-  // Fire-and-forget notification to approvers. Never blocks the response.
+  // Fire-and-forget notification to designated approvers only. The email
+  // scope narrows from "all admin+" (old broadcast) to just the two the
+  // teacher picked.
   void (async () => {
     try {
-      const approverEmails = await fetchApproverEmails(service);
+      const designated = approvers.filter(
+        (a) =>
+          a.user_id === body.primary_approver_id ||
+          a.user_id === body.secondary_approver_id,
+      );
+      const approverEmails = designated.map((a) => a.email).filter(Boolean);
       const { student_label, sheet_label } = await fetchLabels(service, sheet.id, entry.id);
       await notifyRequestFiled(
         {

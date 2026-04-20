@@ -9,7 +9,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requireRole(['registrar', 'admin', 'superadmin']);
+  const auth = await requireRole(['registrar', 'school_admin', 'admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const { id: sectionId } = await params;

@@ -2,9 +2,9 @@
 
 ## Overview
 
-A separate module within HFSE Markbook that provides decision-making and forecasting support for the admissions team. This is a **read-only dashboard** — it does not write to the admissions DB. It reads from the same Supabase admissions tables used by the student roster sync.
+The Admissions module of the HFSE SIS — a read-only dashboard that provides decision-making and forecasting support for the admissions team. It does not write to the admissions DB; it reads from the same Supabase admissions tables used by the student roster sync.
 
-This module is scoped to **Phase 2** of development, after the core grading module (Phase 1) is complete and stable.
+This module is scoped to **Phase 2** of development, after the Markbook module (Phase 1) is complete and stable.
 
 ---
 

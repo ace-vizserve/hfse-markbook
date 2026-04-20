@@ -1,8 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowRight, GraduationCap, Hourglass, Tag, UserMinus, Users } from 'lucide-react';
+import { ArrowUpRight, CalendarCog, FolderCog, ShieldCheck, Users } from 'lucide-react';
 
-import { AySwitcher } from '@/components/admissions/ay-switcher';
 import {
   Card,
   CardAction,
@@ -13,182 +12,129 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
-import { getCurrentAcademicYear } from '@/lib/academic-year';
-import { getSisDashboardSummary } from '@/lib/sis/queries';
 import { getSessionUser } from '@/lib/supabase/server';
-import { createServiceClient } from '@/lib/supabase/service';
+import type { Role } from '@/lib/auth/roles';
 
-export default async function SisDashboard({
-  searchParams,
-}: {
-  searchParams: Promise<{ ay?: string }>;
-}) {
+export default async function SisAdminHub() {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
-  if (sessionUser.role !== 'registrar' && sessionUser.role !== 'admin' && sessionUser.role !== 'superadmin') {
+  const role = sessionUser.role;
+  if (role !== 'school_admin' && role !== 'admin' && role !== 'superadmin') {
     redirect('/');
   }
-
-  const service = createServiceClient();
-  const currentAy = await getCurrentAcademicYear(service);
-  if (!currentAy) {
-    return (
-      <PageShell>
-        <div className="text-sm text-destructive">No current academic year configured.</div>
-      </PageShell>
-    );
-  }
-
-  const { ay: ayParam } = await searchParams;
-  const { data: allAys } = await service
-    .from('academic_years')
-    .select('id, ay_code, label')
-    .order('ay_code', { ascending: false });
-  const ayList = (allAys ?? []) as { id: string; ay_code: string; label: string }[];
-  const selectedAy = ayParam && ayList.some((a) => a.ay_code === ayParam) ? ayParam : currentAy.ay_code;
-
-  const summary = await getSisDashboardSummary(selectedAy);
 
   return (
     <PageShell>
       <header className="space-y-3">
         <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          SIS · Student Information System
+          SIS · Admin Hub
         </p>
         <h1 className="font-serif text-[38px] font-semibold leading-[1.05] tracking-tight text-foreground md:text-[44px]">
-          Student records.
+          System administration.
         </h1>
         <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-          Find any student, view their full record, and track their enrollment across academic years. Read-only in this phase.
+          Structural and system-level controls for the HFSE SIS. Day-to-day operational
+          work lives in the Records module; this page is for AY rollovers, approver
+          management, and other setup tasks that cross modules.
         </p>
       </header>
 
-      <div className="grid gap-6 md:grid-cols-[1fr_320px]">
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <SummaryStat
-              label="Total students"
-              value={summary.totalStudents}
-              icon={Users}
-              footnote="In this academic year"
-            />
-            <SummaryStat
-              label="Enrolled"
-              value={summary.enrolled}
-              icon={GraduationCap}
-              footnote="Active + conditional"
-            />
-            <SummaryStat
-              label="In pipeline"
-              value={summary.pending}
-              icon={Hourglass}
-              footnote="Pre-enrollment stages"
-            />
-            <SummaryStat
-              label="Withdrawn"
-              value={summary.withdrawn}
-              icon={UserMinus}
-              footnote="Left during the year"
-            />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <QuickLink
-              href={{ pathname: '/sis/students', query: { ay: selectedAy } }}
-              icon={Users}
-              title="Students"
-              description="Browse and search all students for the selected academic year."
-            />
-            <QuickLink
-              href={{ pathname: '/sis/discount-codes', query: { ay: selectedAy } }}
-              icon={Tag}
-              title="Discount Codes"
-              description="Manage time-bound enrolment promotion codes."
-            />
-          </div>
-        </div>
-
-        <aside className="space-y-3">
-          <Card>
-            <CardHeader>
-              <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-                Viewing
-              </CardDescription>
-              <CardTitle className="font-serif text-lg font-semibold">Academic year</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <AySwitcher
-                current={selectedAy}
-                options={ayList.map((a) => ({ code: a.ay_code, label: a.label }))}
-              />
-              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                Switching loads the corresponding <code className="rounded bg-muted px-1 py-0.5 text-[11px]">ay{selectedAy.slice(2)}_*</code> tables.
-              </p>
-            </CardContent>
-          </Card>
-        </aside>
-      </div>
+      <section className="grid gap-4 md:grid-cols-2">
+        <AdminCard
+          href="/records"
+          icon={FolderCog}
+          eyebrow="Operational"
+          title="Records"
+          description="Student records, profiles, family, stage pipeline, discount codes. The daily operational surface for admissions + registrar staff."
+          cta="Open Records"
+          role={role}
+          allowedRoles={['school_admin', 'admin', 'superadmin']}
+        />
+        <AdminCard
+          href="/sis/ay-setup"
+          icon={CalendarCog}
+          eyebrow="Structural"
+          title="AY Setup"
+          description="Create a new academic year, switch the active AY, or retire an empty one. Creates the 4 AY-prefixed admissions tables + SIS reference rows in a single transaction."
+          cta="Open AY Setup"
+          role={role}
+          allowedRoles={['school_admin', 'admin', 'superadmin']}
+        />
+        <AdminCard
+          href="/sis/admin/approvers"
+          icon={ShieldCheck}
+          eyebrow="Access"
+          title="Approvers"
+          description="Manage who approves grade-change requests. Teachers pick primary + secondary from this list at submission; only those two see the request."
+          cta="Manage approvers"
+          role={role}
+          allowedRoles={['superadmin']}
+        />
+        <AdminCard
+          href="/admin/admissions"
+          icon={Users}
+          eyebrow="Analytics"
+          title="Admissions Dashboard"
+          description="Read-only pipeline analytics — applications by level, conversion funnel, outdated applications, document completeness, assessment outcomes."
+          cta="Open dashboard"
+          role={role}
+          allowedRoles={['school_admin', 'admin', 'superadmin']}
+        />
+      </section>
     </PageShell>
   );
 }
 
-function SummaryStat({
-  label,
-  value,
+function AdminCard({
+  href,
   icon: Icon,
-  footnote,
+  eyebrow,
+  title,
+  description,
+  cta,
+  role,
+  allowedRoles,
 }: {
-  label: string;
-  value: number;
+  href: string;
   icon: React.ComponentType<{ className?: string }>;
-  footnote: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  cta: string;
+  role: Role | null;
+  allowedRoles: Role[];
 }) {
-  return (
-    <Card className="@container/card">
+  const enabled = role != null && allowedRoles.includes(role);
+  const Inner = (
+    <Card
+      className={`@container/card h-full transition-all ${
+        enabled ? 'hover:border-brand-indigo/40 hover:shadow-sm' : 'cursor-not-allowed opacity-60'
+      }`}
+    >
       <CardHeader>
         <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-          {label}
+          {eyebrow}
         </CardDescription>
-        <CardTitle className="font-serif text-[28px] font-semibold leading-none tabular-nums text-foreground @[200px]/card:text-[32px]">
-          {value.toLocaleString('en-SG')}
+        <CardTitle className="font-serif text-xl font-semibold tracking-tight text-foreground">
+          {title}
         </CardTitle>
         <CardAction>
-          <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
             <Icon className="size-4" />
           </div>
         </CardAction>
       </CardHeader>
-      <CardFooter className="text-xs text-muted-foreground">{footnote}</CardFooter>
+      <CardContent>
+        <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
+      </CardContent>
+      <CardFooter>
+        <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+          {enabled ? cta : 'Requires higher role'}
+          {enabled && <ArrowUpRight className="size-3.5" />}
+        </span>
+      </CardFooter>
     </Card>
   );
-}
 
-function QuickLink({
-  href,
-  icon: Icon,
-  title,
-  description,
-}: {
-  href: { pathname: string; query: Record<string, string> };
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  description: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group flex items-start gap-4 rounded-xl border border-hairline bg-card p-5 transition-all hover:border-brand-indigo/40 hover:shadow-sm"
-    >
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
-        <Icon className="size-4" />
-      </div>
-      <div className="min-w-0 flex-1 space-y-1">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="font-serif text-base font-semibold text-foreground">{title}</h3>
-          <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-        </div>
-        <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
-      </div>
-    </Link>
-  );
+  return enabled ? <Link href={href}>{Inner}</Link> : Inner;
 }

@@ -17,11 +17,11 @@ import { AuditLogDataTable, type MergedRow } from '@/app/(dashboard)/admin/audit
 export default async function SisAuditLogPage() {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
-  if (sessionUser.role !== 'registrar' && sessionUser.role !== 'admin' && sessionUser.role !== 'superadmin') {
+  if (sessionUser.role !== 'registrar' && sessionUser.role !== 'school_admin' && sessionUser.role !== 'admin' && sessionUser.role !== 'superadmin') {
     redirect('/');
   }
 
-  const canExport = sessionUser.role === 'admin' || sessionUser.role === 'superadmin';
+  const canExport = sessionUser.role === 'school_admin' || sessionUser.role === 'admin' || sessionUser.role === 'superadmin';
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -56,7 +56,7 @@ export default async function SisAuditLogPage() {
   return (
     <PageShell>
       <Link
-        href="/sis"
+        href="/records"
         className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
@@ -65,7 +65,7 @@ export default async function SisAuditLogPage() {
 
       <header className="space-y-4">
         <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          SIS · Activity
+          Records · Activity
         </p>
         <h1 className="font-serif text-[38px] font-semibold leading-[1.05] tracking-tight text-foreground md:text-[44px]">
           Audit log.

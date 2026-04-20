@@ -2,9 +2,9 @@
 
 ## Overview
 
-The P-Files module is the **document repository** for enrolled students' validated records. Admissions staff come here to retrieve the current passport, birth certificate, medical exam, parent/guardian passes, etc., for any student. It is **not** a review queue — document validation (approve/reject) lives in the future SIS module, where admissions staff manage the full student record.
+The P-Files module is the **document repository** for enrolled students' validated records. Admissions staff come here to retrieve the current passport, birth certificate, medical exam, parent/guardian passes, etc., for any student. It is **not** a review queue — document validation (approve/reject) lives in the future Records module, where admissions staff manage the full student record.
 
-P-Files lives alongside the markbook as a separate route group (`/(p-files)/`) in the same Next.js app, sharing auth and Supabase infrastructure.
+P-Files lives alongside the other Records modules as a separate route group (`/(p-files)/`) in the same Next.js app, sharing auth and Supabase infrastructure.
 
 **Current manual process:** Parents upload documents during enrollment via the admissions portal (`enrol.hfse.edu.sg`). Ms. Gael (admissions) collects them, forwards to the P-files person, who manually uploads to SharePoint folders organized by student name/number. No centralized tracking of what's complete vs missing.
 
@@ -71,7 +71,7 @@ There is **no `Rejected` state in P-Files** — rejection is a validation call a
 
 ## Data Source
 
-All document data lives in the admissions table `ay{YY}_enrolment_documents`, keyed by `studentNumber`. This table is **already populated** by parent uploads through the admissions portal. The markbook has read access via `createServiceClient()` (service-role, bypasses RLS).
+All document data lives in the admissions table `ay{YY}_enrolment_documents`, keyed by `studentNumber`. This table is **already populated** by parent uploads through the admissions portal. The SIS has read access via `createServiceClient()` (service-role, bypasses RLS).
 
 ### Document URL format
 
@@ -150,7 +150,7 @@ After login, the root `/` page (or sidebar) shows a module picker: Markbook vs P
 
 ## Not in scope (for now)
 
-- **Approve / reject of documents** — moves to the SIS module (see `docs/context/13-sis-module.md`). P-Files only writes `Status='Valid'` on staff uploads; SIS becomes the primary writer of the `{slotKey}Status` column.
+- **Approve / reject of documents** — moves to the Records module (see `docs/context/13-sis-module.md`). P-Files only writes `Status='Valid'` on staff uploads; the Records module becomes the primary writer of the `{slotKey}Status` column.
 - Bulk operations (bulk upload, export missing list)
 - Integration with SharePoint (the goal is to replace SharePoint, not sync with it)
 - Revision rollback UI — the History dialog is read-only. Restoring a prior version means re-uploading it via the Replace flow, which will itself create a new revision.

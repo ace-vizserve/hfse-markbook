@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getCurrentAcademicYear } from '@/lib/academic-year';
+import { getCurrentAcademicYear, listAyCodes } from '@/lib/academic-year';
 import { listDiscountCodes } from '@/lib/sis/queries';
 import { getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -30,7 +30,7 @@ export default async function SisDiscountCodesPage({
 }) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
-  if (sessionUser.role !== 'registrar' && sessionUser.role !== 'admin' && sessionUser.role !== 'superadmin') {
+  if (sessionUser.role !== 'registrar' && sessionUser.role !== 'school_admin' && sessionUser.role !== 'admin' && sessionUser.role !== 'superadmin') {
     redirect('/');
   }
 
@@ -45,12 +45,8 @@ export default async function SisDiscountCodesPage({
   }
 
   const { ay: ayParam } = await searchParams;
-  const { data: allAys } = await service
-    .from('academic_years')
-    .select('id, ay_code, label')
-    .order('ay_code', { ascending: false });
-  const ayList = (allAys ?? []) as { id: string; ay_code: string; label: string }[];
-  const selectedAy = ayParam && ayList.some((a) => a.ay_code === ayParam) ? ayParam : currentAy.ay_code;
+  const ayCodes = await listAyCodes(service);
+  const selectedAy = ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
 
   const codes = await listDiscountCodes(selectedAy);
 
@@ -73,7 +69,7 @@ export default async function SisDiscountCodesPage({
   return (
     <PageShell>
       <Link
-        href="/sis"
+        href="/records"
         className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
@@ -83,7 +79,7 @@ export default async function SisDiscountCodesPage({
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-3">
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            SIS · Discount Codes · {selectedAy}
+            Records · Discount Codes · {selectedAy}
           </p>
           <h1 className="font-serif text-[38px] font-semibold leading-[1.05] tracking-tight text-foreground md:text-[44px]">
             Promotion codes.
@@ -179,10 +175,7 @@ export default async function SisDiscountCodesPage({
               <CardTitle className="font-serif text-lg font-semibold">Academic year</CardTitle>
             </CardHeader>
             <CardContent>
-              <AySwitcher
-                current={selectedAy}
-                options={ayList.map((a) => ({ code: a.ay_code, label: a.label }))}
-              />
+              <AySwitcher current={selectedAy} options={ayCodes} />
               <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
                 Codes live in <code className="rounded bg-muted px-1 py-0.5 text-[11px]">ay{selectedAy.slice(2)}_discount_codes</code>.
               </p>

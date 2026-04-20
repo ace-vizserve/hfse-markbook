@@ -1,18 +1,18 @@
 # Parent Portal Integration
 
-Reference for how HFSE Markbook integrates with the existing HFSE parent portal. Read this before touching anything under `app/(parent)/`, `lib/supabase/admissions.ts`, or the `report_card_publications` migration.
+Reference for how the HFSE SIS integrates with the existing HFSE parent portal. Read this before touching anything under `app/(parent)/`, `lib/supabase/admissions.ts`, or the `report_card_publications` migration.
 
 ## The parent portal is a separate codebase
 
-The HFSE parent portal (where parents enrol, add, review, edit, and update their student applications) is a **separate Next.js project** maintained outside this repo. It shares the same Supabase project with the HFSE Markbook — which is how the markbook reaches parent data without parents needing a second account.
+The HFSE parent portal (where parents enrol, add, review, edit, and update their student applications) is a **separate Next.js project** maintained outside this repo. It shares the same Supabase project with the HFSE SIS — which is how the SIS reaches parent data without parents needing a second account.
 
-This repo has **no code for** enrolment, application editing, document upload, or any other parent-portal feature. The markbook only serves report cards to parents and relies on the parent portal to do everything else.
+This repo has **no code for** enrolment, application editing, document upload, or any other parent-portal feature. The SIS only serves report cards to parents and relies on the parent portal to do everything else.
 
 ## Shared Supabase project
 
 Both systems point at the same Supabase project. The grading schema tables (`academic_years`, `terms`, `levels`, `subjects`, `students`, `section_students`, `grading_sheets`, `grade_entries`, `grade_audit_log`, `report_card_comments`, `attendance_records`, `teacher_assignments`, `audit_log`, `report_card_publications`) live in `public` and are owned by this repo's migrations.
 
-The **admissions tables** that the parent portal owns live in the same Supabase project but are managed by the parent portal's own migrations. The markbook reads from them as a foreign schema would — we never `ALTER`, `INSERT`, `UPDATE`, or `DELETE` any admissions row from this repo.
+The **admissions tables** that the parent portal owns live in the same Supabase project but are managed by the parent portal's own migrations. The SIS reads from them as a foreign schema would — we never `ALTER`, `INSERT`, `UPDATE`, or `DELETE` any admissions row from this repo.
 
 ## Parent identity: no role = parent
 
@@ -37,17 +37,17 @@ The link between a parent Supabase account and a student is **implicit** via ema
 - Every matching row is a child linked to this parent for the given academic year
 - The child's `studentNumber` from admissions is then resolved to a `students.id` in the grading schema via `students.student_number`
 
-**This means the parent's account email must exactly match an entry in `motherEmail` or `fatherEmail` in admissions.** There is no manual link table. If a parent wants to update their email, they do it in the parent portal (which writes back to `ay{YY}_enrolment_applications`), and the markbook picks up the new email on their next login.
+**This means the parent's account email must exactly match an entry in `motherEmail` or `fatherEmail` in admissions.** There is no manual link table. If a parent wants to update their email, they do it in the parent portal (which writes back to `ay{YY}_enrolment_applications`), and the SIS picks up the new email on their next login.
 
 **`fatherEmail` may be null** in admissions — the `.or(...)` query handles this correctly.
 
-## Admissions tables the markbook reads
+## Admissions tables the SIS reads
 
-Three admissions tables live in the shared Supabase project under `public.ay{YY}_enrolment_*`. The parent portal owns the DDL; the markbook only SELECTs from them via the service-role client. **Never INSERT / UPDATE / DELETE these tables from this repo** — the parent portal is the source of truth.
+Three admissions tables live in the shared Supabase project under `public.ay{YY}_enrolment_*`. The parent portal owns the DDL; the SIS only SELECTs from them via the service-role client. **Never INSERT / UPDATE / DELETE these tables from this repo** — the parent portal is the source of truth.
 
 **The `{YY}` prefix is resolved dynamically**, not hardcoded. Every call site that needs to query admissions first reads the current academic year via `lib/academic-year.ts::getCurrentAcademicYear()` (or `requireCurrentAyCode()`), which returns the `ay_code` of the row in `public.academic_years` where `is_current = true`. That `ay_code` is then passed to `fetchAdmissionsRoster()` / `getStudentsByParentEmail()` and normalized to a table name prefix (e.g. `"AY2026"` → `ay2026_enrolment_applications`). When Joann flips the current-AY flag to `AY2027`, the admissions queries switch automatically with no code change, **on the assumption that the parent portal has created `ay2027_enrolment_*` tables with the same column shape as the DDL documented at the bottom of this file**.
 
-The real DDL is at the bottom of this doc under [§ Reference DDL](#reference-ddl). The subsections below list only the columns this repo actually reads, so you can see at a glance which parts of the admissions schema are load-bearing for the markbook.
+The real DDL is at the bottom of this doc under [§ Reference DDL](#reference-ddl). The subsections below list only the columns this repo actually reads, so you can see at a glance which parts of the admissions schema are load-bearing for the SIS.
 
 ### `ay{YY}_enrolment_applications` — one row per enrolee
 
@@ -58,12 +58,12 @@ Used by: `lib/supabase/admissions.ts::fetchAdmissionsRoster()`, `getStudentsByPa
 | `enroleeNumber` | `text` | yes | Join key to `ay{YY}_enrolment_status` |
 | `studentNumber` | `text` | yes | Stable cross-year student ID (Hard Rule #4). `null` means the registrar hasn't assigned one yet — that row is skipped by the sync. |
 | `lastName`, `firstName`, `middleName` | `text` | yes | Name sync into `public.students` |
-| `motherEmail` | `text` | yes | Parent auth lookup (**case-insensitive** — the markbook matches with `.ilike`) |
+| `motherEmail` | `text` | yes | Parent auth lookup (**case-insensitive** — the SIS matches with `.ilike`) |
 | `fatherEmail` | `text` | yes | Parent auth lookup (same) |
 
-Columns the markbook does **not** currently read (but which exist on the table and may be useful later): `guardianEmail`, `levelApplied`, `applicationStatus`, medical/allergy flags, all `father*` / `mother*` / `guardian*` personal data beyond email, sibling info, `residenceHistory`, `feedbackConsent`, etc.
+Columns the SIS does **not** currently read (but which exist on the table and may be useful later): `guardianEmail`, `levelApplied`, `applicationStatus`, medical/allergy flags, all `father*` / `mother*` / `guardian*` personal data beyond email, sibling info, `residenceHistory`, `feedbackConsent`, etc.
 
-> **`passCodeStudent` is legacy and should be ignored.** It was the parent-portal's pre-account auth mechanism (parents entered a per-student code to view their application back when there were no `auth.users` rows for them). Supabase Auth accounts superseded it. The markbook should **not** use `passCodeStudent` for anything, and new features shouldn't revive it as a fallback — if email matching ever proves unreliable, fix it at the account/email level, not by resurrecting a deprecated code.
+> **`passCodeStudent` is legacy and should be ignored.** It was the parent-portal's pre-account auth mechanism (parents entered a per-student code to view their application back when there were no `auth.users` rows for them). Supabase Auth accounts superseded it. The SIS should **not** use `passCodeStudent` for anything, and new features shouldn't revive it as a fallback — if email matching ever proves unreliable, fix it at the account/email level, not by resurrecting a deprecated code.
 
 ### `ay{YY}_enrolment_status` — workflow state per enrolee
 
@@ -77,7 +77,7 @@ Used by: `fetchAdmissionsRoster()`, `getStudentsByParentEmail()`.
 | `classAY` | `character varying` | yes | AY code (e.g. `"AY2026"`) |
 | `applicationStatus` | `character varying` | yes | Filter — rows where this is `"Cancelled"` or `"Withdrawn"` are excluded from sync |
 
-Columns the markbook does **not** read but that exist: `registrationStatus`, `documentStatus`, `assessmentStatus`, `assessmentGradeMath`, `assessmentGradeEnglish`, `contractStatus`, `feeStatus`, `suppliesStatus`, `orientationStatus`, all their `Remarks`/`UpdatedDate`/`Updatedby` siblings. These drive the admissions dashboard (Sprint 7 Part A) but are out of scope for the markbook proper.
+Columns the SIS does **not** read but that exist: `registrationStatus`, `documentStatus`, `assessmentStatus`, `assessmentGradeMath`, `assessmentGradeEnglish`, `contractStatus`, `feeStatus`, `suppliesStatus`, `orientationStatus`, all their `Remarks`/`UpdatedDate`/`Updatedby` siblings. These drive the admissions dashboard (Sprint 7 Part A) but are out of scope for the SIS proper.
 
 ### `ay{YY}_enrolment_documents` — per-enrolee document upload state
 
@@ -97,8 +97,8 @@ Never change this to "parents read directly via RLS." The parent↔student relat
 ## What the parent flow actually does, step-by-step
 
 1. Parent signs in at the parent portal (`https://enrol.hfse.edu.sg/`) — that's their existing, primary auth point.
-2. From the authenticated parent dashboard (`/admission/dashboard`), the parent clicks "View report card". The parent-portal code reads `supabase.auth.getSession()` and navigates the browser to `https://<markbook>/parent/enter#access_token=…&refresh_token=…&next=/parent/...` (see [§ Parent portal → markbook handoff](#parent-portal--markbook-handoff) below for the integration snippet).
-3. The markbook's `/parent/enter` client page reads the URL fragment, calls `supabase.auth.setSession()` with the tokens, and the `@supabase/ssr` browser client writes the session cookies. Parent never sees a login screen on the markbook side.
+2. From the authenticated parent dashboard (`/admission/dashboard`), the parent clicks "View report card". The parent-portal code reads `supabase.auth.getSession()` and navigates the browser to `https://<sis>/parent/enter#access_token=…&refresh_token=…&next=/parent/...` (see [§ Parent portal → SIS handoff](#parent-portal--sis-handoff) below for the integration snippet).
+3. The SIS's `/parent/enter` client page reads the URL fragment, calls `supabase.auth.setSession()` with the tokens, and the `@supabase/ssr` browser client writes the session cookies. Parent never sees a login screen on the SIS side.
 4. Post-handoff, `router.replace(next)` redirects to `/parent` or directly to `/parent/report-cards/{studentId}`. `proxy.ts` now sees a cookie-bound session with `role === null` and allows parent paths.
 5. `/parent` calls `getStudentsByParentEmail(user.email, currentAy.ay_code)` to look up children in `ay{YY}_enrolment_applications` where `motherEmail` or `fatherEmail` matches (case-insensitive).
 6. For each admissions row, the server resolves `studentNumber` → grading `students.id` via the service-role client.
@@ -108,23 +108,23 @@ Never change this to "parents read directly via RLS." The parent↔student relat
 10. Clicking the link goes to `/parent/report-cards/{studentId}`, which re-runs the parent→student verification and re-checks the publication window, then renders the shared `<ReportCardDocument>` via `buildReportCard()`.
 11. Parent presses `Ctrl+P` to print / save as PDF — the print CSS in `components/report-card/report-card-document.tsx` produces the same paper layout the staff view uses.
 
-The markbook's own `/login` route still exists as a fallback (staff use it for sign-in; a parent could technically use it too if they ever arrive at the markbook without going through the handoff), but the intended parent entry point is always the "View report card" button on the parent portal.
+The SIS's own `/login` route still exists as a fallback (staff use it for sign-in; a parent could technically use it too if they ever arrive at the SIS without going through the handoff), but the intended parent entry point is always the "View report card" button on the parent portal.
 
-## Parent portal → markbook handoff
+## Parent portal → SIS handoff
 
-The handoff mechanism that lets parents cross from `enrol.hfse.edu.sg` into the markbook without a second sign-in, based on Path B of the design discussion (token-in-URL-fragment).
+The handoff mechanism that lets parents cross from `enrol.hfse.edu.sg` into the SIS without a second sign-in, based on Path B of the design discussion (token-in-URL-fragment).
 
 ### Why it exists
 
-Parent accounts live in the shared Supabase project's `auth.users`. The parent portal and the markbook are separate codebases on **different origins**, which means their Supabase Auth session cookies are not shared. Without a handoff mechanism, a parent who signed in at the parent portal would face a second login screen on the markbook — same credentials, different cookie jar, bad UX. The handoff lets us hand over the signed-in session cleanly.
+Parent accounts live in the shared Supabase project's `auth.users`. The parent portal and the SIS are separate codebases on **different origins**, which means their Supabase Auth session cookies are not shared. Without a handoff mechanism, a parent who signed in at the parent portal would face a second login screen on the SIS — same credentials, different cookie jar, bad UX. The handoff lets us hand over the signed-in session cleanly.
 
 ### How it works
 
 1. **Parent portal builds a URL** with the parent's current Supabase session tokens in the **URL fragment** (the part after `#`):
    ```
-   https://<markbook-domain>/parent/enter#access_token=<jwt>&refresh_token=<jwt>&next=/parent/report-cards/<studentId>
+   https://<sis-domain>/parent/enter#access_token=<jwt>&refresh_token=<jwt>&next=/parent/report-cards/<studentId>
    ```
-2. **Browser navigates** to the markbook. The URL fragment is **not sent to any server** — it stays in the browser, so the tokens never appear in the markbook's access logs, the parent-portal's `Referer` header, or any intermediate proxy.
+2. **Browser navigates** to the SIS. The URL fragment is **not sent to any server** — it stays in the browser, so the tokens never appear in the SIS's access logs, the parent-portal's `Referer` header, or any intermediate proxy.
 3. **Markbook's `/parent/enter` client page** (at `app/(parent)/parent/enter/page.tsx`) reads `window.location.hash` on mount, parses `access_token` / `refresh_token` / `next`, and calls `supabase.auth.setSession({ access_token, refresh_token })`. The `@supabase/ssr` browser client writes the `sb-*-auth-token` cookies via its cookie adapter.
 4. **`router.replace(next)`** navigates to the target path. The URL fragment drops from history, and `proxy.ts` on the next hop sees a valid session cookie → parent routing kicks in → the report card renders.
 
@@ -139,7 +139,7 @@ Parent accounts live in the shared Supabase project's `auth.users`. The parent p
 
 ### Environment variables
 
-Both sides of the handoff need **per-environment** env vars — the staging parent portal talks to the markbook's staging/preview deployment, and the production parent portal talks to the markbook's production. Vercel (and most platforms) support different env var values per environment on the same project, so you set each variable multiple times, once per environment, without touching the code.
+Both sides of the handoff need **per-environment** env vars — the staging parent portal talks to the SIS's staging/preview deployment, and the production parent portal talks to the SIS's production. Vercel (and most platforms) support different env var values per environment on the same project, so you set each variable multiple times, once per environment, without touching the code.
 
 #### Markbook — `NEXT_PUBLIC_PARENT_PORTAL_URL`
 
@@ -151,23 +151,23 @@ Used by `/parent/enter` as the "Back to parent portal" button destination when t
 | **Preview** | `https://online-admission-staging.vercel.app/admission/dashboard` |
 | **Development** (local `.env.local`) | `https://online-admission-staging.vercel.app/admission/dashboard` (or whatever parent-portal instance you develop against) |
 
-Configure all three at **Vercel → your markbook project → Settings → Environment Variables**. Select the environment scope for each value individually; don't paste one value into "All Environments" or staging will point at production by accident.
+Configure all three at **Vercel → your SIS project → Settings → Environment Variables**. Select the environment scope for each value individually; don't paste one value into "All Environments" or staging will point at production by accident.
 
 #### Parent portal — `NEXT_PUBLIC_MARKBOOK_HANDOFF_URL`
 
-Used by the `<ViewReportCardButton>` snippet as the handoff URL. The parent-portal team sets this in **their** Vercel project, not the markbook's.
+Used by the `<ViewReportCardButton>` snippet as the handoff URL. The parent-portal team sets this in **their** Vercel project, not the SIS's.
 
 | Vercel environment | Value |
 |---|---|
-| **Production** | `https://<markbook-production-domain>/parent/enter` |
-| **Preview** | `https://<markbook-staging-or-preview-domain>/parent/enter` |
-| **Development** | `https://<markbook-staging-or-preview-domain>/parent/enter` |
+| **Production** | `https://<sis-production-domain>/parent/enter` |
+| **Preview** | `https://<sis-staging-or-preview-domain>/parent/enter` |
+| **Development** | `https://<sis-staging-or-preview-domain>/parent/enter` |
 
-If there is only one markbook deployment today, both Production and Preview point at the same URL — that's fine, the markbook accepts handoffs from any origin (no origin checks were added this sprint). When a dedicated staging markbook exists later, bump the Preview value to point at it.
+If there is only one SIS deployment today, both Production and Preview point at the same URL — that's fine, the SIS accepts handoffs from any origin (no origin checks were added this sprint). When a dedicated staging SIS exists later, bump the Preview value to point at it.
 
 #### Why per-environment matters
 
-Shipping the button to production parent portal with a staging markbook URL (or vice versa) leaks staging data into a production UX or breaks the handoff entirely. Treat both URLs as environment-scoped from day one — you avoid the "works on staging, breaks on production, I swear I tested it" class of bug.
+Shipping the button to production parent portal with a staging SIS URL (or vice versa) leaks staging data into a production UX or breaks the handoff entirely. Treat both URLs as environment-scoped from day one — you avoid the "works on staging, breaks on production, I swear I tested it" class of bug.
 
 ### Integration snippet for the parent-portal team
 
@@ -181,13 +181,13 @@ import { createClient } from '@/lib/supabase/client';
 
 // Markbook handoff URL. MUST be configured per-environment in Vercel
 // (Production, Preview, Development) so staging parent portal points at
-// the staging markbook and production points at production. Do NOT ship
+// the staging SIS and production points at production. Do NOT ship
 // without setting NEXT_PUBLIC_MARKBOOK_HANDOFF_URL in your parent-portal
 // Vercel project's environment variables.
 //
 // The fallback literal below is defensive only — it's the value the
 // snippet reaches for if the env var is somehow missing at runtime, and
-// it should match your default/staging markbook URL, not production.
+// it should match your default/staging SIS URL, not production.
 const MARKBOOK_HANDOFF_URL =
   process.env.NEXT_PUBLIC_MARKBOOK_HANDOFF_URL ??
   'https://hfse-markbook.vercel.app/parent/enter';
@@ -195,13 +195,13 @@ const MARKBOOK_HANDOFF_URL =
 type Props = {
   /**
    * Optional deep-link. **Leave this undefined in normal usage** — the
-   * parent lands on the markbook's "My children" page, which already
+   * parent lands on the SIS's "My children" page, which already
    * lists every child linked to their email plus every currently-
    * published report card per child. That landing page is the intended
    * parent experience.
    *
    * Only set `studentId` if you have a reason to skip the list view and
-   * jump straight to one specific report card. It must be the markbook's
+   * jump straight to one specific report card. It must be the SIS's
    * `public.students.id` UUID, which the parent portal doesn't have
    * natively — you'd need to resolve it from `studentNumber` first.
    * For that reason, deep-linking is more trouble than it's worth on the
@@ -265,21 +265,21 @@ export function ViewReportCardButton({ studentId, className, children }: Props) 
 
 **Usage on the authenticated parent dashboard — recommended:**
 
-Render **one button** somewhere on `/admission/dashboard`. Don't pass `studentId`. The parent lands on the markbook's `/parent` page, which shows every child linked to their email plus every currently-published report card per child, with proper empty states for children whose report cards haven't been published yet. This is the default experience and works cleanly for parents with one child or multiple children.
+Render **one button** somewhere on `/admission/dashboard`. Don't pass `studentId`. The parent lands on the SIS's `/parent` page, which shows every child linked to their email plus every currently-published report card per child, with proper empty states for children whose report cards haven't been published yet. This is the default experience and works cleanly for parents with one child or multiple children.
 
 ```tsx
 // Anywhere under /admission/dashboard
 <ViewReportCardButton>View report cards</ViewReportCardButton>
 ```
 
-That's it. No prop plumbing, no student ID lookup, no per-child loop. The markbook's landing page does the list-all-children rendering for you.
+That's it. No prop plumbing, no student ID lookup, no per-child loop. The SIS's landing page does the list-all-children rendering for you.
 
 **Deep-link variant — not recommended, listed for completeness:**
 
-If you ever want to skip the markbook's list view and jump straight into one child's report card, pass `studentId`. The catch: the value must be the markbook's `public.students.id` UUID, which the parent portal doesn't have directly — it has `studentNumber` from admissions. Resolving one to the other would require either a markbook API lookup or a direct query into `public.students` on the shared Supabase project. For this reason, deep-linking is usually more work than it's worth — stick with the no-arg form above.
+If you ever want to skip the SIS's list view and jump straight into one child's report card, pass `studentId`. The catch: the value must be the SIS's `public.students.id` UUID, which the parent portal doesn't have directly — it has `studentNumber` from admissions. Resolving one to the other would require either an SIS API lookup or a direct query into `public.students` on the shared Supabase project. For this reason, deep-linking is usually more work than it's worth — stick with the no-arg form above.
 
 ```tsx
-// Only if you have the markbook UUID and really want to skip /parent
+// Only if you have the SIS UUID and really want to skip /parent
 <ViewReportCardButton studentId={markbookStudentUuid}>
   View {child.firstName}&apos;s report card
 </ViewReportCardButton>
@@ -289,21 +289,21 @@ If you ever want to skip the markbook's list view and jump straight into one chi
 
 - **"This handoff link is missing its session tokens"** — the URL fragment is empty or malformed. Check that the parent-portal snippet is constructing the URL correctly with `#` (not `?`) and that both `access_token` and `refresh_token` are present.
 - **"Your session has expired"** — the refresh token is no longer valid. The parent needs to sign in fresh on the parent portal, then click the button again.
-- **Parent lands on the markbook's `/login` instead of `/parent/enter`** — `PUBLIC_PATHS` in `proxy.ts` didn't get `/parent/enter` added. Verify the middleware allows the route without authentication.
-- **Handoff succeeds but parent sees "no students linked to this email"** — the parent portal's `motherEmail`/`fatherEmail` on the admissions row doesn't match their `auth.users.email`. The markbook does a case-insensitive match (`.ilike`), but a genuine email mismatch (typo, different provider) will show an empty state. Fix at the admissions side.
+- **Parent lands on the SIS's `/login` instead of `/parent/enter`** — `PUBLIC_PATHS` in `proxy.ts` didn't get `/parent/enter` added. Verify the middleware allows the route without authentication.
+- **Handoff succeeds but parent sees "no students linked to this email"** — the parent portal's `motherEmail`/`fatherEmail` on the admissions row doesn't match their `auth.users.email`. The SIS does a case-insensitive match (`.ilike`), but a genuine email mismatch (typo, different provider) will show an empty state. Fix at the admissions side.
 
 ## Out of scope
 
 - **Parent self-service**: no enrolment, no application editing, no document upload, no profile edit in this repo. Parents do all of that in the parent portal.
 - **Email notifications**: when the registrar publishes a window, parents are not emailed. They navigate to the URL on their own. Wiring Resend / SMTP / WhatsApp is a future sprint.
 - **Cross-AY history**: parents only see current-AY report cards. Historical term cards are not exposed.
-- **Account linking UI**: parents cannot "add another child" from within the markbook — the link is purely via email in admissions.
+- **Account linking UI**: parents cannot "add another child" from within the SIS — the link is purely via email in admissions.
 
 ---
 
 ## Reference DDL
 
-Frozen copy of the admissions table definitions, as of 2026-04-14, pulled from the parent portal's Supabase project. **Update this block whenever the parent portal bumps its schema** — the "what the markbook reads" tables above only stay accurate if this ground truth does.
+Frozen copy of the admissions table definitions, as of 2026-04-20, pulled from the parent portal's Supabase project (verified live against all four AY-prefixed tables). **Update this block whenever the parent portal bumps its schema** — the "what the SIS reads" tables above only stay accurate if this ground truth does, and `supabase/migrations/012_ay_setup_helpers.sql` (the wizard's DDL template) must be updated in lockstep.
 
 Column name identifiers are quoted camelCase. This is what PostgREST returns when you `.select('*')` from these tables in JavaScript; the Supabase JS client handles the quoting automatically in both `.select()` and `.or()` filter strings.
 
@@ -598,5 +598,20 @@ create table public.ay2026_enrolment_status (
   "enroleeType" character varying null,
   "levelApplied" text null,
   constraint ay2026_enrolment_status_pkey primary key (id)
+) TABLESPACE pg_default;
+```
+
+### `ay2026_discount_codes`
+
+```sql
+create table public.ay2026_discount_codes (
+  id bigint generated by default as identity not null,
+  created_at timestamp with time zone not null default now(),
+  "discountCode" text null,
+  "startDate" date null,
+  "endDate" date null,
+  details text null,
+  "enroleeType" character varying null,
+  constraint ay2026_discount_codes_pkey primary key (id)
 ) TABLESPACE pg_default;
 ```

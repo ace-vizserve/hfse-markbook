@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { unstable_cache } from "next/cache";
 
 import { Badge } from "@/components/ui/badge";
@@ -81,9 +82,19 @@ export default async function DashboardHome() {
   const email = (claims?.email as string | undefined) ?? undefined;
   const role = getRoleFromClaims(claims);
 
-  const canSeeAdmin = role === "registrar" || role === "admin" || role === "superadmin";
-  const canSeeGrading = role === "teacher" || role === "registrar" || role === "superadmin";
-  const canSeeReportCards = role === "registrar" || role === "admin" || role === "superadmin";
+  // Superadmin defaults to the SIS admin hub — their job is structural /
+  // IT / CEO-level oversight, not the Markbook dashboard. They can still
+  // reach `/` via the module switcher → Markbook; this is just the default
+  // landing after sign-in and on fresh navigation to `/`.
+  if (role === "superadmin") {
+    redirect("/sis");
+  }
+
+  // Superadmin was already redirected to /sis above, so the narrowed role
+  // type no longer includes "superadmin" — don't repeat it in these checks.
+  const canSeeAdmin = role === "registrar" || role === "school_admin" || role === "admin";
+  const canSeeGrading = role === "teacher" || role === "registrar";
+  const canSeeReportCards = role === "registrar" || role === "school_admin" || role === "admin";
 
   // Service client bypasses RLS so stats are the school-wide view — teachers
   // see the same numbers; their scoped work lives on /grading.

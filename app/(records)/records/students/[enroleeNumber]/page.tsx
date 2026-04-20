@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getCurrentAcademicYear } from '@/lib/academic-year';
+import { getCurrentAcademicYear, listAyCodes } from '@/lib/academic-year';
 import { getEnrollmentHistory, getStudentDetail, type ApplicationRow, type DocumentSlot, type StatusRow } from '@/lib/sis/queries';
 import { getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -29,7 +29,7 @@ export default async function SisStudentDetailPage({
 }) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
-  if (sessionUser.role !== 'registrar' && sessionUser.role !== 'admin' && sessionUser.role !== 'superadmin') {
+  if (sessionUser.role !== 'registrar' && sessionUser.role !== 'school_admin' && sessionUser.role !== 'admin' && sessionUser.role !== 'superadmin') {
     redirect('/');
   }
 
@@ -46,12 +46,8 @@ export default async function SisStudentDetailPage({
     );
   }
 
-  const { data: allAys } = await service
-    .from('academic_years')
-    .select('ay_code')
-    .order('ay_code', { ascending: false });
-  const ayList = ((allAys ?? []) as { ay_code: string }[]).map((a) => a.ay_code);
-  const selectedAy = ayParam && ayList.includes(ayParam) ? ayParam : currentAy.ay_code;
+  const ayCodes = await listAyCodes(service);
+  const selectedAy = ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
 
   const detail = await getStudentDetail(selectedAy, enroleeNumber);
   if (!detail) notFound();
@@ -74,7 +70,7 @@ export default async function SisStudentDetailPage({
   return (
     <PageShell>
       <Link
-        href={{ pathname: '/sis/students', query: { ay: selectedAy } }}
+        href={{ pathname: '/records/students', query: { ay: selectedAy } }}
         className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
@@ -83,7 +79,7 @@ export default async function SisStudentDetailPage({
 
       <header className="space-y-3">
         <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          SIS · Student Record
+          Records · Student Record
         </p>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="space-y-2">

@@ -5,7 +5,6 @@ import {
   ClipboardList,
   FilePlus2,
   FileText,
-  FolderOpen,
   GraduationCap,
   History,
   LogOut,
@@ -32,7 +31,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { useRealtimeBadgeCount } from "@/hooks/use-realtime-badge-count";
-import { NAV_BY_ROLE, type Role, type SidebarBadges } from "@/lib/auth/roles";
+import { NAV_BY_MODULE, type Role, type SidebarBadges } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/client";
 
 // Map nav hrefs to lucide icons. Falls back to BookOpen.
@@ -43,15 +42,15 @@ const ICON_BY_HREF: Record<string, LucideIcon> = {
   "/admin/sections": Users,
   "/admin/sync-students": RefreshCw,
   "/admin/change-requests": FileText,
+  "/admin/admissions": GraduationCap,
   "/report-cards": FileText,
   "/admin/audit-log": History,
-  "/admin": GraduationCap,
-  "/p-files": FolderOpen,
 };
 
 const ROLE_LABEL: Record<Role, string> = {
   teacher: "Teacher",
   registrar: "Registrar",
+  school_admin: "School Admin",
   admin: "Admin",
   superadmin: "Superadmin",
   "p-file": "P-File Officer",
@@ -71,7 +70,7 @@ export function AppSidebar({
   const liveChangeRequestCount = useRealtimeBadgeCount(role, userId, badges?.changeRequests ?? 0);
   const router = useRouter();
   const pathname = usePathname();
-  const sections = NAV_BY_ROLE[role];
+  const sections = NAV_BY_MODULE.markbook[role] ?? [];
 
   async function signOut() {
     const supabase = createClient();

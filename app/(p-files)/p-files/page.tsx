@@ -2,7 +2,7 @@ import { AySwitcher } from "@/components/admissions/ay-switcher";
 import { CompletenessTable } from "@/components/p-files/completeness-table";
 import { SummaryCards } from "@/components/p-files/summary-cards";
 import { PageShell } from "@/components/ui/page-shell";
-import { getCurrentAcademicYear } from "@/lib/academic-year";
+import { getCurrentAcademicYear, listAyCodes } from "@/lib/academic-year";
 import { getDocumentDashboardData } from "@/lib/p-files/queries";
 import { getSessionUser } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -23,14 +23,9 @@ export default async function PFilesDashboard({ searchParams }: { searchParams: 
     );
   }
 
-  // AY switcher: use searchParam or default to current
   const { ay: ayParam } = await searchParams;
-  const { data: allAys } = await service
-    .from("academic_years")
-    .select("id, ay_code, label")
-    .order("ay_code", { ascending: false });
-  const ayList = (allAys ?? []) as { id: string; ay_code: string; label: string }[];
-  const selectedAy = ayParam && ayList.some((a) => a.ay_code === ayParam) ? ayParam : currentAy.ay_code;
+  const ayCodes = await listAyCodes(service);
+  const selectedAy = ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
 
   const { students, summary } = await getDocumentDashboardData(selectedAy);
 
@@ -72,7 +67,7 @@ export default async function PFilesDashboard({ searchParams }: { searchParams: 
         </section>
 
         <div className="w-full md:w-80 md:shrink-0">
-          <AySwitcher current={selectedAy} options={ayList.map((a) => ({ code: a.ay_code, label: a.label }))} />
+          <AySwitcher current={selectedAy} options={ayCodes} />
         </div>
       </div>
 

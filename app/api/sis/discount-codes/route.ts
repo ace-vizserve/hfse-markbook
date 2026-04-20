@@ -12,7 +12,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 // client can invalidate its list query. Per-student grants are NOT written
 // here — grants are handled by the external enrolment portal.
 export async function POST(request: Request) {
-  const auth = await requireRole(['registrar', 'admin', 'superadmin']);
+  const auth = await requireRole(['registrar', 'school_admin', 'admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const url = new URL(request.url);

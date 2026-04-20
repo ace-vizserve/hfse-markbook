@@ -37,7 +37,7 @@ Skip this section entirely on the default fast path. It's there for "I haven't t
 Reply with a tight, scannable status report. Structure:
 
 ```
-## Project: HFSE Markbook
+## Project: HFSE SIS
 
 **Stack:** [from CLAUDE.md tech stack — one line]
 **Repo:** [single deployable / monorepo / etc — one line]

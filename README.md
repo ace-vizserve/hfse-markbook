@@ -1,6 +1,11 @@
-# HFSE Markbook
+# HFSE SIS
 
-Web app that replaces manual Google Sheets grading at **HFSE International School, Singapore**. Teachers enter raw scores; the server computes quarterly grades, enforces locking with audit trail, and produces printable report cards.
+Student Information System for **HFSE International School, Singapore**. It replaces manual Google Sheets grading plus scattered Directus / Google Drive records under a single `studentNumber`-keyed profile. The app is organised into four modules:
+
+- **Markbook** — teachers enter raw scores; the server computes quarterly grades, enforces locking with audit trail, and produces printable report cards.
+- **P-Files** — student document repository with revision history (passports, birth certs, medical, parent / guardian passes).
+- **Admissions** — read-only pipeline analytics over the shared admissions tables.
+- **Records** — day-to-day records management (profile, family, stage pipeline, discount codes, document validation) — replaces Directus. Routes live under `/sis/*`.
 
 One registrar, ~90 students × 4 terms × ~12 subjects. Volume is small; correctness and auditability are not.
 
@@ -69,7 +74,7 @@ These come from `CLAUDE.md` — read that file before writing code.
 
 ## Roles
 
-Stored in Supabase `app_metadata.role`. One of: `teacher`, `registrar`, `admin`, `superadmin`.
+Stored in Supabase `app_metadata.role`. One of: `teacher`, `registrar`, `school_admin`, `admin`, `superadmin`, `p-file`. (Parents are null-role Supabase Auth users routed to `/parent/*` by `proxy.ts`.) `admin` is narrow — grade-change approval pool (principals / academic head). `school_admin` handles school operations (AY setup, Records, discounts). `superadmin` is reserved for destructive / IT / CEO-level ops. See `CLAUDE.md` KD #39.
 
 Route-level access is enforced by `proxy.ts`; UI nav is driven by `NAV_BY_ROLE` in `lib/auth/roles.ts`.
 
@@ -164,3 +169,9 @@ Full deploy checklist (git init, Vercel project creation, Supabase redirect URLs
 | `docs/context/06-admissions-integration.md` | Admissions sync |
 | `docs/context/07-api-routes.md` | API contracts |
 | `docs/context/09-design-system.md` | Any UI work — tokens, components, forbidden patterns |
+| `docs/context/10-parent-portal.md` | Parent portal handoff + admissions DDL reference |
+| `docs/context/11-performance-patterns.md` | Any new page — auth / cache / parallel / loading checklist |
+| `docs/context/12-p-files-module.md` | P-Files module — document types, upload flow, revisions |
+| `docs/context/13-sis-module.md` | Records module — profile / family / stage / discount / validation |
+| `docs/context/14-modules-overview.md` | Cross-module work — architecture hub, data contract |
+| `docs/context/15-markbook-module.md` | Grading / report-card / attendance — module scope doc |

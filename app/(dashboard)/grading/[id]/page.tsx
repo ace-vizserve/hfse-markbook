@@ -30,6 +30,7 @@ import { ScoreEntryGrid } from '@/components/grading/score-entry-grid';
 import { LetterGradeGrid } from '@/components/grading/letter-grade-grid';
 import { LockToggle } from '@/components/grading/lock-toggle';
 import { TotalsEditor } from '@/components/grading/totals-editor';
+import { listApproversForFlow } from '@/lib/sis/approvers/queries';
 import { RequestEditButton } from './request-edit-button';
 
 type Level = { code: string; label: string };
@@ -150,6 +151,17 @@ export default async function GradingSheetPage({
     isAssignedTeacher = isSubjectTeacher(assignments, section.id, subject.id);
   }
 
+  // Designated approvers for the locked-sheet change-request flow. Teachers
+  // pick primary + secondary from this list when filing a request; the
+  // list is managed at /sis/admin/approvers. Filter out the current user
+  // since a teacher can't designate themselves.
+  const approversAll = sheet.is_locked && isAssignedTeacher
+    ? await listApproversForFlow('markbook.change_request')
+    : [];
+  const approvers = approversAll
+    .filter((a) => a.user_id !== sessionUser?.id)
+    .map((a) => ({ user_id: a.user_id, email: a.email, role: a.role }));
+
   const rows = entries.map((e) => {
     const ss = first(e.section_student);
     const stu = first(ss?.student ?? null);
@@ -238,6 +250,7 @@ export default async function GradingSheetPage({
               isExaminable={isExaminable}
               wwSlotCount={(sheet.ww_totals ?? []).length as number}
               ptSlotCount={(sheet.pt_totals ?? []).length as number}
+              approvers={approvers}
               students={rows.map((r) => ({
                 entry_id: r.entry_id,
                 index_number: r.index_number,

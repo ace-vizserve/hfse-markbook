@@ -20,10 +20,10 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "HFSE Markbook",
-    template: "%s · HFSE Markbook",
+    default: "HFSE SIS",
+    template: "%s · HFSE SIS",
   },
-  description: "HFSE International School grading module",
+  description: "HFSE International School student information system",
   robots: { index: false, follow: false, nocache: true },
   icons: { icon: "/hfse-logo-favicon.webp" },
 };

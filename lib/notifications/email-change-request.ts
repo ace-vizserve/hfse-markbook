@@ -31,7 +31,7 @@ function getTransport(): { resend: Resend; from: string } | null {
     return null;
   }
   const from =
-    process.env.RESEND_FROM_EMAIL ?? 'HFSE Markbook <noreply@hfse.edu.sg>';
+    process.env.RESEND_FROM_EMAIL ?? 'HFSE SIS <noreply@hfse.edu.sg>';
   return { resend: new Resend(apiKey), from };
 }
 
@@ -71,7 +71,7 @@ function baseFrame(title: string, bodyHtml: string): string {
       <h1 style="font-size: 20px; margin: 0 0 16px; color: #0F172A;">${title}</h1>
       ${bodyHtml}
       <p style="line-height: 1.6; font-size: 12px; color: #64748B; margin: 24px 0 0;">
-        This is an automated notification from the HFSE Markbook.
+        This is an automated notification from the HFSE SIS.
       </p>
     </div>
   `;
@@ -125,7 +125,7 @@ export async function notifyRequestFiled(
     'New grade change request',
     `
       <p style="line-height: 1.6; margin: 0 0 8px;">
-        A teacher has filed a request to edit a locked grading sheet. Please review it in the Markbook.
+        A teacher has filed a request to edit a locked grading sheet. Please review it in the SIS.
       </p>
       ${summaryTable(req)}
       <p style="line-height: 1.6; margin: 0 0 8px;">

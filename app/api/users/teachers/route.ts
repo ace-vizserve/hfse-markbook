@@ -6,7 +6,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 // is 'teacher'. Used by the assignments UI to populate the teacher picker.
 // Registrar+ only.
 export async function GET() {
-  const auth = await requireRole(['registrar', 'admin', 'superadmin']);
+  const auth = await requireRole(['registrar', 'school_admin', 'admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const service = createServiceClient();

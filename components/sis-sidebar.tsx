@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { History, LayoutDashboard, LogOut, Tag, UserCog, Users } from 'lucide-react';
+import { CalendarCog, LayoutDashboard, LogOut, ShieldCheck, UserCog, type LucideIcon } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -18,19 +18,22 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from '@/components/ui/sidebar';
+import { NAV_BY_MODULE, type NavItem, type Role } from '@/lib/auth/roles';
 
 const ROLE_LABEL: Record<string, string> = {
   registrar: 'Registrar',
+  school_admin: 'School Admin',
   admin: 'Admin',
   superadmin: 'Superadmin',
 };
 
-const NAV: Array<{ href: string; label: string; icon: typeof LayoutDashboard; matchPrefix?: string }> = [
-  { href: '/sis', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/sis/students', label: 'Students', icon: Users, matchPrefix: '/sis/students' },
-  { href: '/sis/discount-codes', label: 'Discount Codes', icon: Tag, matchPrefix: '/sis/discount-codes' },
-  { href: '/sis/audit-log', label: 'Audit Log', icon: History },
-];
+const ICON_BY_HREF: Record<string, LucideIcon> = {
+  '/sis': LayoutDashboard,
+  '/sis/ay-setup': CalendarCog,
+  '/sis/admin/approvers': ShieldCheck,
+};
+
+const PREFIX_MATCH_HREFS = new Set<string>();
 
 const ACTIVE_INDICATOR =
   'relative h-9 before:absolute before:left-0 before:top-1/2 before:h-5 before:w-0.5 before:-translate-y-1/2 before:rounded-r-full before:bg-brand-indigo before:opacity-0 before:transition-opacity data-[active=true]:before:opacity-100';
@@ -52,12 +55,24 @@ export function SisSidebar({ email, role }: { email: string; role: string }) {
       .split(/[._-]/)
       .map((p) => p[0]?.toUpperCase() ?? '')
       .join('')
-      .slice(0, 2) || 'SIS';
+      .slice(0, 2) || 'RC';
 
-  function isActive(item: (typeof NAV)[number]): boolean {
-    if (item.matchPrefix) return pathname === item.matchPrefix || pathname.startsWith(item.matchPrefix + '/');
+  function isActive(item: NavItem): boolean {
+    if (PREFIX_MATCH_HREFS.has(item.href)) {
+      return pathname === item.href || pathname.startsWith(item.href + '/');
+    }
     return pathname === item.href;
   }
+
+  // Filter out items the caller's role can't access. `requiresRoles` is
+  // optional — an item without it is visible to anyone in the Records
+  // audience (registrar + admin + superadmin per ROUTE_ACCESS on /sis).
+  const sections = NAV_BY_MODULE.sis.map((section) => ({
+    ...section,
+    items: section.items.filter(
+      (item) => !item.requiresRoles || item.requiresRoles.includes(role as Role),
+    ),
+  }));
 
   return (
     <Sidebar collapsible="icon">
@@ -78,37 +93,39 @@ export function SisSidebar({ email, role }: { email: string; role: string }) {
               HFSE
             </span>
             <span className="truncate font-serif text-base font-semibold tracking-tight text-sidebar-foreground">
-              SIS
+              SIS Admin
             </span>
           </div>
         </Link>
       </SidebarHeader>
 
       <SidebarContent className="px-1.5 py-3">
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {NAV.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive(item)}
-                      tooltip={item.label}
-                      className={ACTIVE_INDICATOR}
-                    >
-                      <Link href={item.href}>
-                        <Icon />
-                        <span>{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {sections.map((section, i) => (
+          <SidebarGroup key={i}>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {section.items.map((item) => {
+                  const Icon = ICON_BY_HREF[item.href] ?? LayoutDashboard;
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive(item)}
+                        tooltip={item.label}
+                        className={ACTIVE_INDICATOR}
+                      >
+                        <Link href={item.href}>
+                          <Icon />
+                          <span>{item.label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-3">

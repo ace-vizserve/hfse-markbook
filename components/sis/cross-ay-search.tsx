@@ -124,7 +124,7 @@ export function CrossAySearch() {
                 <li key={`${m.ayCode}:${m.enroleeNumber}`}>
                   <Link
                     href={{
-                      pathname: `/sis/students/${m.enroleeNumber}`,
+                      pathname: `/records/students/${m.enroleeNumber}`,
                       query: { ay: m.ayCode },
                     }}
                     onClick={() => setOpen(false)}

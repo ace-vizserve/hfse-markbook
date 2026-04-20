@@ -11,7 +11,7 @@ import { logAction } from '@/lib/audit/log-action';
 // Teachers only see sheets matching their (section, subject) assignments.
 // Managers (registrar/admin/superadmin) see everything.
 export async function GET(request: NextRequest) {
-  const auth = await requireRole(['teacher', 'registrar', 'admin', 'superadmin']);
+  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const supabase = await createClient();
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
 // Creates a sheet for (term, section, subject) and seeds one grade_entries row
 // per active / late_enrollee student in the section.
 export async function POST(request: NextRequest) {
-  const auth = await requireRole(['registrar', 'admin', 'superadmin']);
+  const auth = await requireRole(['registrar', 'school_admin', 'admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const body = (await request.json().catch(() => null)) as

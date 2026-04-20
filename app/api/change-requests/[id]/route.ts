@@ -59,9 +59,30 @@ export async function PATCH(
 
   // Authorization per action
   if (action === 'approve' || action === 'reject') {
-    if (auth.role !== 'admin' && auth.role !== 'superadmin') {
+    // Approvers are admin role only. Superadmins manage who's designated
+    // as an approver (via /sis/admin/approvers) but don't approve change
+    // requests themselves.
+    if (auth.role !== 'admin') {
       return NextResponse.json(
-        { error: 'only admin/superadmin can approve or reject' },
+        { error: 'only admin users can approve or reject change requests' },
+        { status: 403 },
+      );
+    }
+    // Designated-approver scope: the acting admin must be the primary or
+    // secondary approver on this specific request. Legacy rows with both
+    // NULL (pre-feature) fall back to broadcast scope.
+    const isLegacy =
+      existing.primary_approver_id == null &&
+      existing.secondary_approver_id == null;
+    const isDesignated =
+      existing.primary_approver_id === auth.user.id ||
+      existing.secondary_approver_id === auth.user.id;
+    if (!isLegacy && !isDesignated) {
+      return NextResponse.json(
+        {
+          error:
+            'You are not a designated approver on this request. Only the primary or secondary approver selected by the teacher can act on it.',
+        },
         { status: 403 },
       );
     }

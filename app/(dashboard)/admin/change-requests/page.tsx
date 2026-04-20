@@ -22,16 +22,31 @@ export default async function AdminChangeRequestsPage({
   const { sheet_id } = await searchParams;
 
   const service = createServiceClient();
-  const { data: rawRows } = await service
+
+  // Designated-approver scope: admins (and superadmins) see only requests
+  // where they are the primary or secondary approver. Legacy rows with
+  // both approver columns NULL (pre-feature) stay broadcast-visible so
+  // nothing strands mid-migration. Registrar keeps full visibility —
+  // they're the ones applying approved requests (Path A/B).
+  let query = service
     .from('grade_change_requests')
     .select(
       `id, grading_sheet_id, grade_entry_id, field_changed, slot_index,
        current_value, proposed_value, reason_category, justification,
        status, requested_by_email, requested_at,
        reviewed_by_email, reviewed_at, decision_note,
-       applied_by, applied_at`,
+       applied_by, applied_at,
+       primary_approver_id, secondary_approver_id`,
     )
     .order('requested_at', { ascending: false });
+
+  if (canDecide) {
+    query = query.or(
+      `primary_approver_id.eq.${sessionUser.id},secondary_approver_id.eq.${sessionUser.id},and(primary_approver_id.is.null,secondary_approver_id.is.null)`,
+    );
+  }
+
+  const { data: rawRows } = await query;
 
   const rows = (rawRows ?? []) as AdminRequestRow[];
 

@@ -35,7 +35,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/85 px-4 backdrop-blur-md print:hidden">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mx-1 h-4" />
-          <ModuleSwitcher currentModule="markbook" canSwitch={role === 'admin' || role === 'superadmin'} />
+          <ModuleSwitcher currentModule="markbook" canSwitch={role === 'school_admin' || role === 'admin' || role === 'superadmin'} />
         </header>
         <div className="flex-1 bg-muted px-6 py-8 md:px-10 md:py-10 print:bg-background print:p-0">{children}</div>
       </SidebarInset>

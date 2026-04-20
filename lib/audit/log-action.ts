@@ -31,7 +31,12 @@ export type AuditAction =
   | 'sis.discount_code.update'
   | 'sis.discount_code.expire'
   | 'sis.document.approve'
-  | 'sis.document.reject';
+  | 'sis.document.reject'
+  | 'ay.create'
+  | 'ay.switch_current'
+  | 'ay.delete'
+  | 'approver.assign'
+  | 'approver.revoke';
 
 export type AuditEntityType =
   | 'grading_sheet'
@@ -46,7 +51,9 @@ export type AuditEntityType =
   | 'enrolment_document'
   | 'enrolment_application'
   | 'enrolment_status'
-  | 'discount_code';
+  | 'discount_code'
+  | 'academic_year'
+  | 'approver_assignment';
 
 type LogActionParams = {
   service: SupabaseClient;

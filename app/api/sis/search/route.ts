@@ -7,7 +7,7 @@ import { searchStudentsAcrossAY } from '@/lib/sis/queries';
 // search box. Service-role inside the helper, capped at 50 rows. Returns
 // 401/403 for non-staff. 200 with empty array if q is too short.
 export async function GET(request: Request) {
-  const auth = await requireRole(['registrar', 'admin', 'superadmin']);
+  const auth = await requireRole(['registrar', 'school_admin', 'admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const { searchParams } = new URL(request.url);

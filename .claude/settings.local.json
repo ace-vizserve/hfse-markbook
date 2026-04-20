@@ -60,7 +60,15 @@
       "Bash(node -e \"const m = require\\('next/cache'\\); console.log\\(m.revalidateTag?.toString\\(\\)?.slice\\(0,200\\)\\)\")",
       "Bash(rm \"C:/Users/Ace/OneDrive - HFSE International School/Desktop/hfse-markbook/app/api/p-files/[enroleeNumber]/status/route.ts\")",
       "Bash(rmdir \"C:/Users/Ace/OneDrive - HFSE International School/Desktop/hfse-markbook/app/api/p-files/[enroleeNumber]/status\")",
-      "Bash(git status *)"
+      "Bash(git status *)",
+      "Bash(git commit *)",
+      "Bash(xargs -I{} sed -i \"s/\\\\['registrar', 'admin', 'superadmin'\\\\]/\\\\['registrar', 'school_admin', 'admin', 'superadmin'\\\\]/g\" {})",
+      "Bash(xargs -I{} sed -i \"s/\\\\['teacher', 'registrar', 'admin', 'superadmin'\\\\]/\\\\['teacher', 'registrar', 'school_admin', 'admin', 'superadmin'\\\\]/g\" {})",
+      "Bash(xargs -I{} sed -i \"s/\\\\['p-file', 'admin', 'superadmin'\\\\]/\\\\['p-file', 'school_admin', 'admin', 'superadmin'\\\\]/g\" {})",
+      "Bash(mkdir -p \"app/\\(records\\)/records/students/[enroleeNumber]\" \"app/\\(records\\)/records/discount-codes\" \"app/\\(records\\)/records/audit-log\")",
+      "Bash(cp \"app/\\(sis\\)/sis/students/[enroleeNumber]/page.tsx\" \"app/\\(records\\)/records/students/[enroleeNumber]/page.tsx\")",
+      "Bash(sed -i \"s|pathname: \\\\`/sis/students/|pathname: \\\\`/records/students/|g\" components/sis/cross-ay-search.tsx components/sis/enrollment-history-chips.tsx)",
+      "Bash(sed -i \"s|href={\\\\`/sis/students/|href={\\\\`/records/students/|g\" components/sis/student-data-table.tsx)"
     ],
     "deny": [
       "Read(./.env.local)"

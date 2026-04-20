@@ -1,8 +1,17 @@
-# Admissions Database Integration
+# Admissions Tables — Ownership and Integration
 
 ## Overview
 
-Student data is sourced from an existing Supabase admissions database. The grading app reads from it but never writes to it. The integration is a one-way sync triggered manually by the registrar.
+Student data lives in admissions tables (`ay{YY}_enrolment_applications`, `ay{YY}_enrolment_status`, `ay{YY}_enrolment_documents`, `ay{YY}_discount_codes`) that the **parent portal owns** and the **SIS reads from**. Both codebases share a single Supabase project; see `10-parent-portal.md` for the full ownership split.
+
+Every Records module consumes a different slice of these tables:
+
+- **Admissions dashboard** — read-only analytics over applications + status.
+- **Markbook module** — reads the student-roster sync source; never touches admissions directly at runtime.
+- **P-Files module** — writes file URLs + `{slotKey}Expiry` to `ay{YY}_enrolment_documents` on staff upload; also mirrors passport number / pass type to `ay{YY}_enrolment_applications` (Key Decision #34).
+- **Records module** — writes demographics/family/stage fields via narrow PATCH routes (Profile / Family / Stage), manages the discount-code catalogue, and owns `{slotKey}Status` on documents (approve / reject, Key Decision #37).
+
+The Markbook's student-roster sync is a one-way pull into the SIS's own `students` table, triggered manually by the registrar. It is the only SIS → admissions touchpoint that produces a full DB cross-read.
 
 ## Admissions DB Tables
 
@@ -34,7 +43,7 @@ Key fields:
 | `classSection` | varchar | e.g., "Patience", "Discipline 2" |
 
 ### `ay{YY}_enrolment_documents`
-Document tracking only — not used by the grading app.
+Document tracking. Read by the Records module's Documents tab and by P-Files dashboards; written by P-Files on staff upload (URL + status + expiry, Key Decision #34) and by the parent portal on parent self-serve upload. The `{slotKey}Status` column is the Records module's responsibility to set `Valid` / `Rejected` (Key Decision #37) — P-Files never sets `'Rejected'`.
 
 ## Status Values
 
@@ -93,9 +102,9 @@ WHERE s."classSection" IS NOT NULL
   AND s."applicationStatus" NOT IN ('Cancelled', 'Withdrawn');
 ```
 
-## Sync Process (in the Grading App)
+## Sync Process
 
-1. Registrar clicks "Sync Students from Admissions" in the admin panel
+1. Registrar clicks "Sync Students from Admissions" in the SIS admin panel
 2. App runs the sync query against the admissions Supabase instance
 3. For each returned row:
    - If `studentNumber` exists in `students` table → update name fields if changed
@@ -117,16 +126,12 @@ WHERE s."classSection" IS NOT NULL
 
 ## Connection Config
 
-The grading app needs two Supabase connections:
-1. **Grading DB** — read/write (the grading app's own tables)
-2. **Admissions DB** — read-only (for student roster sync)
+Admissions tables and SIS-owned tables share a single Supabase project, so one connection is enough. The SIS uses three client factories with strict separation (Key Decision #22): `createClient()` (cookie-scoped, RLS-enforced) for server-component reads, `createServiceClient()` (bypasses RLS) for mutating routes + cross-user aggregations, and the browser `createClient()` only where unavoidable (parent-portal SSO handoff). Environment variables:
 
-Store both connection strings in environment variables:
 ```
-SUPABASE_URL=...
-SUPABASE_SERVICE_KEY=...
-ADMISSIONS_SUPABASE_URL=...
-ADMISSIONS_SUPABASE_SERVICE_KEY=...
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_KEY=...      # server-only
 ```
 
-If both are in the same Supabase project, only one connection is needed — just reference both schemas directly.
+The original plan had separate `ADMISSIONS_SUPABASE_*` vars for a two-project setup; that was dropped once both halves converged on one project.

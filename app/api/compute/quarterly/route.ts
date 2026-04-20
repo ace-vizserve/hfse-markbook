@@ -5,7 +5,7 @@ import { computeQuarterly, type ComputeInput } from '@/lib/compute/quarterly';
 // Stateless compute endpoint. All authenticated roles can call it — useful for
 // sanity checks and for the UI to preview a grade without persisting.
 export async function POST(request: NextRequest) {
-  const auth = await requireRole(['teacher', 'registrar', 'admin', 'superadmin']);
+  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const body = (await request.json().catch(() => null)) as Partial<ComputeInput> | null;

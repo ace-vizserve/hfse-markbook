@@ -12,14 +12,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-type AyOption = { code: string; label: string };
-
 export function AySwitcher({
   current,
   options,
 }: {
   current: string;
-  options: AyOption[];
+  options: readonly string[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -51,9 +49,9 @@ export function AySwitcher({
             {current}
           </SelectItem>
         ) : (
-          options.map((o) => (
-            <SelectItem key={o.code} value={o.code}>
-              {o.code} · {o.label}
+          options.map((code) => (
+            <SelectItem key={code} value={code}>
+              {code}
             </SelectItem>
           ))
         )}

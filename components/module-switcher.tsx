@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, ChevronDown, ChevronUp, FolderOpen, Users } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronUp, FolderOpen, ShieldCheck, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,11 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 const MODULES = [
   { value: "markbook", label: "Markbook", icon: BookOpen, href: "/" },
   { value: "p-files", label: "P-Files", icon: FolderOpen, href: "/p-files" },
-  { value: "sis", label: "SIS", icon: Users, href: "/sis" },
+  { value: "records", label: "Records", icon: Users, href: "/records" },
+  { value: "sis", label: "SIS Admin", icon: ShieldCheck, href: "/sis" },
 ] as const;
 
 type ModuleSwitcherProps = {
-  currentModule: "markbook" | "p-files" | "sis";
+  currentModule: "markbook" | "p-files" | "records" | "sis";
   canSwitch: boolean;
 };
 

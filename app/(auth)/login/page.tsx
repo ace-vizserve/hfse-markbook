@@ -45,7 +45,7 @@ export default function LoginPage() {
         <div className="flex items-center">
           <Image
             src="/hfse-logo.webp"
-            alt="HFSE Markbook"
+            alt="HFSE SIS"
             width={180}
             height={72}
             className="hidden md:block"
@@ -59,7 +59,7 @@ export default function LoginPage() {
             <div className="mb-10">
               <Image
                 src="/hfse-logo.webp"
-                alt="HFSE Markbook"
+                alt="HFSE SIS"
                 width={160}
                 height={52}
                 className="block md:hidden"
@@ -195,7 +195,7 @@ export default function LoginPage() {
             <div className="flex flex-col leading-tight">
               <span className="font-serif text-[15px] font-semibold tracking-tight">HFSE International School</span>
               <span className="mt-0.5 font-mono text-[11px] uppercase tracking-[0.1em] text-white/50">
-                Singapore · AY 2025–26
+                Singapore · AY2026
               </span>
             </div>
           </div>
@@ -209,7 +209,7 @@ export default function LoginPage() {
                 <span className="size-2 rounded-full bg-[#FEBC2E]" />
                 <span className="size-2 rounded-full bg-[#28C840]" />
                 <span className="ml-3 truncate font-mono text-[10px] text-white/40">
-                  markbook.hfse.edu.sg / grading / sec-1a
+                  /grading / sec-1a
                 </span>
               </div>
 

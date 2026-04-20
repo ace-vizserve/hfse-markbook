@@ -8,7 +8,7 @@ import { requireCurrentAyCode } from '@/lib/academic-year';
 
 // Preview endpoint — returns what WOULD happen on sync without writing anything.
 export async function GET() {
-  const auth = await requireRole(['registrar', 'admin', 'superadmin']);
+  const auth = await requireRole(['registrar', 'school_admin', 'admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   try {

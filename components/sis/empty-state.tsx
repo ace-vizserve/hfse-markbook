@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-// Canonical empty-state lockup for the SIS module — icon tile + serif title
+// Canonical empty-state lockup for the Records module — icon tile + serif title
 // + body + optional CTA. Per docs/context/09-design-system.md §7.6:
 // "Empty states are never blank."
 //

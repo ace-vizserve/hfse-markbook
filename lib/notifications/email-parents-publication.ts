@@ -11,7 +11,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 // Template:
 //   Subject: "Report card available — {LEVEL} {SECTION} · {TERM}"
 //   Body:    deep-link to the parent portal (enrol.hfse.edu.sg), NOT the
-//            markbook directly — parents always enter via the SSO handoff.
+//            SIS directly — parents always enter via the SSO handoff.
 export async function emailParentsPublication(args: {
   sectionId: string;
   termId: string;
@@ -102,7 +102,7 @@ export async function emailParentsPublication(args: {
     </div>
   `;
   const fromAddress =
-    process.env.RESEND_FROM_EMAIL ?? 'HFSE Markbook <noreply@hfse.edu.sg>';
+    process.env.RESEND_FROM_EMAIL ?? 'HFSE SIS <noreply@hfse.edu.sg>';
 
   let sent = 0;
   let failed = 0;

@@ -1,4 +1,4 @@
-# HFSE Markbook — Design System
+# HFSE SIS — Design System
 
 > **Hard rule.** Every page, layout, and component must conform to this document. Enforced by `CLAUDE.md` § Hard Rule #7.
 >

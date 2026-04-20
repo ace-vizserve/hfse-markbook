@@ -8,7 +8,7 @@ import { logAction } from '@/lib/audit/log-action';
 // Managers (registrar+) see all; any other authenticated user can request
 // their own via ?mine=1 (used by teacher-facing screens later).
 export async function GET(request: NextRequest) {
-  const auth = await requireRole(['teacher', 'registrar', 'admin', 'superadmin']);
+  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const supabase = await createClient();
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
 // role='form_adviser' — subject_id must be null; unique per section.
 // role='subject_teacher' — subject_id required; unique per (teacher, section, subject).
 export async function POST(request: NextRequest) {
-  const auth = await requireRole(['registrar', 'admin', 'superadmin']);
+  const auth = await requireRole(['registrar', 'school_admin', 'admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const body = (await request.json().catch(() => null)) as

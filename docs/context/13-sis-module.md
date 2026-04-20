@@ -1,10 +1,12 @@
-# SIS Module (Student Information System)
+# Records Module (formerly "SIS Module")
+
+> **Note on naming + routing.** This module was originally called "SIS module" because it replaces Directus's Student Information System view. After the SIS-first framing (2026-04-20) the display name became **Records** to avoid collision with the product name. On the same date the Records module moved from `/sis/*` to `/records/*` to free up `/sis/*` as the SIS admin hub (AY Setup, Approvers, superadmin landing). Internal type value is now `"records"` in the `Module` union; `"sis"` identifies the admin hub. API paths (`/api/sis/*`), cache tags (`sis:${ay}`), audit prefix (`sis.*`), and this filename stay as-is for stability — renaming them would invalidate historical audit rows + cache entries.
 
 > **Status:** 🔶 Phases 1–2 shipped (2026-04-17). Phase 3 spec finalized 2026-04-18 — see `docs/sprints/development-plan.md` §Sprint 10 Phase 3. Phase 4 (inquiries) blocked on SharePoint creds. The sections below describe the module's intent and cross-module contract; for up-to-date shipped scope read the sprint plan.
 
 ## Why this doc exists
 
-HFSE currently uses **Directus** (a headless CMS / admin dashboard) as the admin UI for the admissions database. The plan is to replace it with a custom-built SIS module inside the markbook app, reading and writing the same Supabase tables that Directus touches today.
+HFSE currently uses **Directus** (a headless CMS / admin dashboard) as the admin UI for the admissions database. The plan is to replace it with a custom-built Records module inside this app, reading and writing the same Supabase tables that Directus touches today.
 
 This context file captures the rough shape of the module, the decisions that have already been made (module boundary, P-Files relationship), and the open questions that need HFSE input before a sprint can be opened.
 
@@ -38,7 +40,7 @@ The app already has two modules: **Markbook** (grading) and **P-Files** (documen
 Separate route group `/(sis)/sis/*` with its own sidebar and layout, parallel to the existing `/(p-files)/`.
 
 **Why:**
-- Different audience (admissions records vs. academic workflow) — putting SIS under `/admin/*` would crowd the markbook sidebar with unrelated concerns.
+- Different audience (admissions records vs. academic workflow) — putting SIS under `/admin/*` would crowd the Markbook sidebar with unrelated concerns.
 - Directus was already standalone, so users think of "the SIS" as its own tool; preserve the mental model.
 - Scope grows fast — demographics, discounts, medical, scholarships, outreach logs. `/admin/admissions` can't absorb that.
 
@@ -110,9 +112,9 @@ Just to anchor the discussion — not a commitment:
 1. Add `sis` route group: `app/(sis)/sis/*` with own layout + sidebar. Pattern-match `(p-files)`.
 2. Module switcher (`components/module-switcher.tsx`) extends to 3 options. Already a shadcn `Select` — 3 items is fine.
 3. Hero page: `/sis` = student list with search, AY switcher, level/section filters, `@tanstack/react-table` (reuse the existing patterns).
-4. Detail page: `/sis/students/[enroleeNumber]` with tabs — Profile / Family / Enrollment / Documents (with approve/reject in Phase 3; links to P-Files for the file viewer). No separate Discounts tab — the catalogue lives at `/sis/discount-codes`, grants live in the Profile sheet's Discount slots section.
+4. Detail page: `/records/students/[enroleeNumber]` with tabs — Profile / Family / Enrollment / Documents (with approve/reject in Phase 3; links to P-Files for the file viewer). No separate Discounts tab — the catalogue lives at `/records/discount-codes`, grants live in the Profile sheet's Discount slots section.
 5. Write forms: RHF + zod + shadcn `Form` per existing convention (Key Decision #20). Schemas in `lib/schemas/`.
-6. Audit log: new actions (`sis.profile.update`, `sis.family.update`, `sis.stage.update`, `sis.discount_code.*`, `sis.document.{approve,reject}`), new entity types (`enrolment_application`, `enrolment_status`, `discount_code`, `enrolment_document`), written via existing `logAction()`. Route `/sis/audit-log` with a module-scoped view (same split pattern as `/p-files/audit-log`).
+6. Audit log: new actions (`sis.profile.update`, `sis.family.update`, `sis.stage.update`, `sis.discount_code.*`, `sis.document.{approve,reject}`), new entity types (`enrolment_application`, `enrolment_status`, `discount_code`, `enrolment_document`), written via existing `logAction()`. Route `/records/audit-log` with a module-scoped view (same split pattern as `/p-files/audit-log`).
 7. Migration SQL is only needed if Phase 4 inquiries land — no schema changes for Phases 1–3.
 
 ## References

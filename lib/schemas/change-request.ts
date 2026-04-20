@@ -42,7 +42,10 @@ export const CORRECTION_REASON_LABELS: Record<CorrectionReason, string> = {
 };
 
 // Form payload for teachers filing a new request. slot_index is required
-// whenever field is ww_scores or pt_scores.
+// whenever field is ww_scores or pt_scores. primary/secondary approvers
+// must be distinct and neither can be the requesting teacher — the API
+// route re-validates these invariants + that both IDs are in the
+// `approver_assignments` list for `markbook.change_request`.
 export const ChangeRequestFormSchema = z
   .object({
     grading_sheet_id: z.string().uuid('Missing grading sheet'),
@@ -64,6 +67,8 @@ export const ChangeRequestFormSchema = z
       .trim()
       .min(20, 'Please explain in at least 20 characters')
       .max(2000, 'Justification is too long'),
+    primary_approver_id: z.string().uuid('Pick a primary approver'),
+    secondary_approver_id: z.string().uuid('Pick a secondary approver'),
   })
   .refine(
     (data) =>
@@ -74,6 +79,13 @@ export const ChangeRequestFormSchema = z
       message:
         'Slot index is required for WW/PT fields and must be empty otherwise',
       path: ['slot_index'],
+    },
+  )
+  .refine(
+    (data) => data.primary_approver_id !== data.secondary_approver_id,
+    {
+      message: 'Primary and secondary approvers must be different people',
+      path: ['secondary_approver_id'],
     },
   );
 

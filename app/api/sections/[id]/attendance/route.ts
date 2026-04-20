@@ -11,7 +11,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requireRole(['teacher', 'registrar', 'admin', 'superadmin']);
+  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const { id: sectionId } = await params;
@@ -67,7 +67,7 @@ export async function GET(
 // Body: { term_id, section_student_id, school_days, days_present, days_late }
 // Upserts on (term_id, section_student_id). Registrar+ only.
 export async function PUT(request: NextRequest) {
-  const auth = await requireRole(['registrar', 'admin', 'superadmin']);
+  const auth = await requireRole(['registrar', 'school_admin', 'admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const body = (await request.json().catch(() => null)) as
