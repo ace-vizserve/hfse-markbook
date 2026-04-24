@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import * as React from "react";
 
+import { ChartLegendChip } from "@/components/dashboard/chart-legend-chip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -405,48 +406,14 @@ export function OutdatedApplicationsTable({ rows }: { rows: OutdatedRow[] }) {
       </div>
 
       {/* Staleness legend */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border bg-white px-3 py-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-border bg-background px-3 py-2">
         <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Staleness
         </span>
-        <LegendItem
-          badge={
-            <Badge variant="outline" className={`${BADGE_BASE} border-brand-mint bg-brand-mint/30 text-ink`}>
-              <CheckCircle2 className="h-3 w-3" aria-hidden />
-              Fresh
-            </Badge>
-          }
-          hint="< 7 days"
-        />
-        <LegendItem
-          badge={
-            <Badge variant="outline" className={`${BADGE_BASE} border-chart-4/50 bg-chart-4/15 text-ink`}>
-              <AlertCircle className="h-3 w-3" aria-hidden />
-              Warning
-            </Badge>
-          }
-          hint="7–13 days"
-        />
-        <LegendItem
-          badge={
-            <Badge
-              variant="outline"
-              className={`${BADGE_BASE} border-destructive/40 bg-destructive/10 text-destructive`}>
-              <AlertTriangle className="h-3 w-3" aria-hidden />
-              Critical
-            </Badge>
-          }
-          hint="≥ 14 days"
-        />
-        <LegendItem
-          badge={
-            <Badge variant="outline" className={`${BADGE_BASE} border-hairline bg-muted text-ink-3`}>
-              <HelpCircle className="h-3 w-3" aria-hidden />
-              Never updated
-            </Badge>
-          }
-          hint="no timestamp"
-        />
+        <ChartLegendChip color="fresh" label="Fresh · < 7 days" />
+        <ChartLegendChip color="stale" label="Warning · 7–13 days" />
+        <ChartLegendChip color="very-stale" label="Critical · ≥ 14 days" />
+        <ChartLegendChip color="chart-4" label="Never updated" />
       </div>
 
       {/* Table */}
@@ -674,15 +641,6 @@ function LevelCombobox({
         )}
       </PopoverContent>
     </Popover>
-  );
-}
-
-function LegendItem({ badge, hint }: { badge: React.ReactNode; hint: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      {badge}
-      <span className="text-[11px] text-muted-foreground tabular-nums">{hint}</span>
-    </span>
   );
 }
 
