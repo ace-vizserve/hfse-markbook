@@ -11,6 +11,8 @@ import {
   YAxis,
 } from 'recharts';
 
+import { chartLegendContent } from '@/components/dashboard/chart-legend-chip';
+
 export type ComparisonBarPoint = {
   category: string;
   current: number;
@@ -112,10 +114,7 @@ export function ComparisonBarChart({
           cursor={{ fill: 'var(--color-accent)', opacity: 0.5 }}
         />
         {showCmp && (
-          <Legend
-            iconType="circle"
-            wrapperStyle={{ fontSize: 10, color: 'var(--color-muted-foreground)' }}
-          />
+          <Legend content={chartLegendContent({ current: 'chart-1', comparison: 'chart-3' })} />
         )}
         <Bar
           dataKey="current"
