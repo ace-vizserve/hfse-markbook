@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { SubjectConfigEditDialog, type SubjectConfigDraft } from "@/components/sis/subject-config-edit-dialog";
+import { ChartLegendChip } from "@/components/dashboard/chart-legend-chip";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -95,11 +96,11 @@ export function SubjectConfigMatrix({
                 </TableHead>
                 {levels.map((l) => (
                   <TableHead key={l.id} className="min-w-[108px] p-2 text-center align-middle">
-                    <div className="mx-auto inline-flex flex-col items-center gap-0.5 rounded-md border border-hairline bg-primary text-white px-2 py-1 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6)]">
-                      <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-white">
+                    <div className="mx-auto inline-flex flex-col items-center gap-0.5 rounded-md border border-hairline bg-background px-2 py-1 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6)]">
+                      <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground">
                         {l.code}
                       </span>
-                      <span className="font-mono text-[9px] tracking-[0.1em] text-white">{l.label}</span>
+                      <span className="font-mono text-[9px] tracking-[0.1em] text-muted-foreground">{l.label}</span>
                     </div>
                   </TableHead>
                 ))}
@@ -176,24 +177,15 @@ export function SubjectConfigMatrix({
             </TableBody>
           </Table>
         </div>
-        {/* Profile legend strip — explains the color code under the table. */}
-        <div className="flex flex-wrap items-center gap-3 border-t border-hairline bg-muted/20 px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5)]">
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block size-3 rounded-sm border border-brand-mint/50 bg-brand-mint/20" />
-            Primary · 40·40·20
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block size-3 rounded-sm border border-brand-indigo-soft/50 bg-accent" />
-            Secondary · 30·50·20
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block size-3 rounded-sm border border-brand-amber/40 bg-brand-amber-light" />
-            Custom
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block size-3 rounded-sm border border-destructive/60 bg-destructive/10" />
-            Invalid · sum ≠ 100
-          </span>
+        {/* Profile legend strip — uses ChartLegendChip per the app-wide
+            legend convention. Each chip here matches the tinted cell recipe
+            via shared color semantics (fresh=mint, primary=indigo, stale=
+            amber, very-stale=destructive). */}
+        <div className="flex flex-wrap items-center gap-3 border-t border-hairline bg-muted/25 px-4 py-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5)]">
+          <ChartLegendChip color="fresh" label="Primary · 40·40·20" />
+          <ChartLegendChip color="primary" label="Secondary · 30·50·20" />
+          <ChartLegendChip color="stale" label="Custom" />
+          <ChartLegendChip color="very-stale" label="Invalid · sum ≠ 100" />
         </div>
       </Card>
 
