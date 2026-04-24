@@ -1,22 +1,12 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useState } from "react";
 
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  SubjectConfigEditDialog,
-  type SubjectConfigDraft,
-} from '@/components/sis/subject-config-edit-dialog';
-import { cn } from '@/lib/utils';
+import { SubjectConfigEditDialog, type SubjectConfigDraft } from "@/components/sis/subject-config-edit-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 type Subject = { id: string; code: string; name: string; is_examinable: boolean };
 type Level = { id: string; code: string; label: string };
@@ -30,6 +20,27 @@ type Config = {
   ww_max_slots: number;
   pt_max_slots: number;
   qa_max: number;
+};
+
+// Classify weight ratios into the canonical HFSE profiles (KD #4). Primary
+// levels use 40/40/20; Secondary levels use 30/50/20. Anything else is
+// flagged as "custom" so registrars can spot non-standard configs fast.
+type WeightProfile = "primary" | "secondary" | "custom";
+
+function classifyProfile(ww: number, pt: number, qa: number): WeightProfile {
+  if (ww === 40 && pt === 40 && qa === 20) return "primary";
+  if (ww === 30 && pt === 50 && qa === 20) return "secondary";
+  return "custom";
+}
+
+// Per-profile visual recipe. Primary = mint wash (healthy default), Secondary
+// = indigo wash (also canonical), Custom = amber wash (attention — verify
+// intentional). Hover brightens; invalid-weight (sum ≠ 100) adds destructive
+// ring on top.
+const PROFILE_CLASS: Record<WeightProfile, string> = {
+  primary: "border-brand-mint/50 bg-brand-mint/15 hover:bg-brand-mint/25 hover:border-brand-mint",
+  secondary: "border-brand-indigo-soft/50 bg-accent hover:bg-accent hover:border-brand-indigo-soft",
+  custom: "border-brand-amber/40 bg-brand-amber-light hover:bg-brand-amber/25 hover:border-brand-amber/60",
 };
 
 export function SubjectConfigMatrix({
@@ -77,15 +88,18 @@ export function SubjectConfigMatrix({
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40 hover:bg-muted/40">
-                <TableHead className="sticky left-0 z-10 w-[220px] bg-muted/40">Subject</TableHead>
+                <TableHead className="sticky left-0 z-10 w-[220px] border-r border-hairline bg-muted/40">
+                  <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4">
+                    Subject
+                  </span>
+                </TableHead>
                 {levels.map((l) => (
-                  <TableHead
-                    key={l.id}
-                    className="min-w-[96px] text-center font-mono text-[10px]"
-                  >
-                    <div className="font-semibold text-foreground">{l.code}</div>
-                    <div className="text-[9px] font-normal normal-case text-muted-foreground">
-                      {l.label}
+                  <TableHead key={l.id} className="min-w-[108px] p-2 text-center align-middle">
+                    <div className="mx-auto inline-flex flex-col items-center gap-0.5 rounded-md border border-hairline bg-primary text-white px-2 py-1 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6)]">
+                      <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-white">
+                        {l.code}
+                      </span>
+                      <span className="font-mono text-[9px] tracking-[0.1em] text-white">{l.label}</span>
                     </div>
                   </TableHead>
                 ))}
@@ -94,65 +108,92 @@ export function SubjectConfigMatrix({
             <TableBody>
               {subjects.length === 0 && (
                 <TableRow>
-                  <TableCell
-                    colSpan={levels.length + 1}
-                    className="py-10 text-center text-sm text-muted-foreground"
-                  >
+                  <TableCell colSpan={levels.length + 1} className="py-10 text-center text-sm text-muted-foreground">
                     No subjects configured. Seed them via SQL first.
                   </TableCell>
                 </TableRow>
               )}
-              {subjects.map((s) => (
-                <TableRow key={s.id} className="group transition-colors hover:bg-muted/20">
-                  <TableCell className="sticky left-0 z-10 bg-background group-hover:bg-muted/20">
-                    <div className="flex items-center gap-2">
-                      <span className="font-serif text-sm font-semibold text-foreground">
-                        {s.name}
-                      </span>
-                      {!s.is_examinable && <Badge variant="muted">Non-exam</Badge>}
-                    </div>
-                    <div className="font-mono text-[10px] text-muted-foreground">{s.code}</div>
-                  </TableCell>
-                  {levels.map((l) => {
-                    const cfg = byKey.get(`${s.id}|${l.id}`);
-                    if (!cfg) {
+              {subjects.map((s, rowIdx) => {
+                const stripeBg = rowIdx % 2 === 1 ? "bg-muted/10" : "bg-background";
+                return (
+                  <TableRow key={s.id} className={cn("group transition-colors hover:bg-accent/40", stripeBg)}>
+                    <TableCell
+                      className={cn(
+                        "sticky left-0 z-10 border-r border-hairline transition-colors group-hover:bg-accent/40",
+                        "border-l-2 border-l-brand-indigo",
+                        stripeBg,
+                      )}>
+                      <div className="flex items-center gap-2">
+                        <span className="font-serif text-sm font-semibold text-foreground">{s.name}</span>
+                        {!s.is_examinable && <Badge variant="muted">Non-exam</Badge>}
+                      </div>
+                      <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                        {s.code}
+                      </div>
+                    </TableCell>
+                    {levels.map((l) => {
+                      const cfg = byKey.get(`${s.id}|${l.id}`);
+                      if (!cfg) {
+                        return (
+                          <TableCell key={l.id} className="p-2 text-center">
+                            <span className="font-mono text-[11px] text-muted-foreground/60">—</span>
+                          </TableCell>
+                        );
+                      }
+                      const ww = Math.round(cfg.ww_weight * 100);
+                      const pt = Math.round(cfg.pt_weight * 100);
+                      const qa = Math.round(cfg.qa_weight * 100);
+                      const weightsOk = ww + pt + qa === 100;
+                      const profile = classifyProfile(ww, pt, qa);
                       return (
-                        <TableCell key={l.id} className="text-center">
-                          <span className="font-mono text-[11px] text-muted-foreground/60">—</span>
+                        <TableCell key={l.id} className="p-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => openCell(s, l, cfg)}
+                            className={cn(
+                              "inline-flex w-full flex-col items-center gap-0.5 rounded-md border px-2 py-1.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6)] transition-all",
+                              "hover:-translate-y-0.5 hover:shadow-sm",
+                              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-indigo/20 focus-visible:border-brand-indigo/60",
+                              // Profile tint (primary / secondary / custom)
+                              PROFILE_CLASS[profile],
+                              // Invalid sum overrides profile tint with destructive.
+                              !weightsOk && "border-destructive/60 bg-destructive/10 hover:bg-destructive/15",
+                            )}
+                            title={`Edit ${s.name} × ${l.code} — weights ${ww}/${pt}/${qa} · slots ${cfg.ww_max_slots}/${cfg.pt_max_slots} · QA/${cfg.qa_max} · ${profile}`}>
+                            <span className="font-mono text-[12px] font-semibold tabular-nums text-ink">
+                              {ww}·{pt}·{qa}
+                            </span>
+                            <span className="font-mono text-[9px] tabular-nums text-ink-4">
+                              {cfg.ww_max_slots}/{cfg.pt_max_slots} · QA/{cfg.qa_max}
+                            </span>
+                          </button>
                         </TableCell>
                       );
-                    }
-                    const ww = Math.round(cfg.ww_weight * 100);
-                    const pt = Math.round(cfg.pt_weight * 100);
-                    const qa = Math.round(cfg.qa_weight * 100);
-                    const weightsOk = ww + pt + qa === 100;
-                    return (
-                      <TableCell key={l.id} className="text-center">
-                        <button
-                          type="button"
-                          onClick={() => openCell(s, l, cfg)}
-                          className={cn(
-                            'inline-flex w-full flex-col items-center gap-0.5 rounded-md border bg-background px-2 py-1.5 shadow-input transition-all',
-                            'hover:-translate-y-0.5 hover:border-brand-indigo-soft hover:bg-accent hover:shadow-sm',
-                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-indigo/20 focus-visible:border-brand-indigo/60',
-                            weightsOk ? 'border-hairline' : 'border-destructive/40 bg-destructive/5',
-                          )}
-                          title={`Edit ${s.name} × ${l.code} — weights ${ww}/${pt}/${qa} · slots ${cfg.ww_max_slots}/${cfg.pt_max_slots} · QA/${cfg.qa_max}`}
-                        >
-                          <span className="font-mono text-[12px] font-semibold tabular-nums text-foreground">
-                            {ww}·{pt}·{qa}
-                          </span>
-                          <span className="font-mono text-[9px] tabular-nums text-muted-foreground">
-                            {cfg.ww_max_slots}/{cfg.pt_max_slots} · QA/{cfg.qa_max}
-                          </span>
-                        </button>
-                      </TableCell>
-                    );
-                  })}
-                </TableRow>
-              ))}
+                    })}
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
+        </div>
+        {/* Profile legend strip — explains the color code under the table. */}
+        <div className="flex flex-wrap items-center gap-3 border-t border-hairline bg-muted/20 px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5)]">
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block size-3 rounded-sm border border-brand-mint/50 bg-brand-mint/20" />
+            Primary · 40·40·20
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block size-3 rounded-sm border border-brand-indigo-soft/50 bg-accent" />
+            Secondary · 30·50·20
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block size-3 rounded-sm border border-brand-amber/40 bg-brand-amber-light" />
+            Custom
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block size-3 rounded-sm border border-destructive/60 bg-destructive/10" />
+            Invalid · sum ≠ 100
+          </span>
         </div>
       </Card>
 

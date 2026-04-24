@@ -130,54 +130,62 @@ export function SubjectConfigEditDialog({
 
         {draft && (
           <div className="space-y-5">
-            <div className="space-y-2">
-              <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Weights (% must sum to 100)
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <WeightField label="WW" value={ww} setValue={setWw} />
-                <WeightField label="PT" value={pt} setValue={setPt} />
-                <WeightField label="QA" value={qa} setValue={setQa} />
-              </div>
-              {/* Live sum indicator — §9.3 status-panel recipe (mint wash for
-                  valid, destructive wash for invalid). Aurora Vault tokens
-                  only; no emerald / dark-branch hacks. */}
-              <div
-                className={cn(
-                  "flex items-center gap-2 rounded-md border px-3 py-2 font-mono text-[11px] font-semibold",
-                  sumOk
-                    ? "border-brand-mint/60 bg-brand-mint/20 text-ink"
-                    : "border-destructive/40 bg-destructive/10 text-destructive",
-                )}>
-                {sumOk ? <CheckCircle2 className="size-3.5" /> : <AlertCircle className="size-3.5" />}
-                <span className="uppercase tracking-[0.12em]">
-                  WW + PT + QA = <span className="tabular-nums">{sum}</span>
-                  {sumOk ? " · Valid" : sum < 100 ? ` · need ${100 - sum} more` : ` · over by ${sum - 100}`}
+            {/* Section 1 — Weights. Labeled panel with tinted header + three
+                inline fields + inline live sum validator. */}
+            <section className="overflow-hidden rounded-xl border border-hairline bg-card shadow-[inset_0_0_0_1px_rgba(255,255,255,0.6)]">
+              <header className="flex items-center justify-between gap-3 border-b border-hairline bg-muted/30 px-4 py-2">
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  1 · Weights
+                </p>
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]",
+                    sumOk
+                      ? "border-brand-mint/60 bg-brand-mint/20 text-ink"
+                      : "border-destructive/40 bg-destructive/10 text-destructive",
+                  )}>
+                  {sumOk ? <CheckCircle2 className="size-3" /> : <AlertCircle className="size-3" />}
+                  <span className="tabular-nums">{sum}</span>%
+                  <span>{sumOk ? "· Valid" : sum < 100 ? `· need ${100 - sum}` : `· over ${sum - 100}`}</span>
                 </span>
+              </header>
+              <div className="grid grid-cols-3 gap-3 p-4">
+                <WeightField label="WW · Written Works" value={ww} setValue={setWw} />
+                <WeightField label="PT · Perf. Tasks" value={pt} setValue={setPt} />
+                <WeightField label="QA · Quarterly" value={qa} setValue={setQa} />
               </div>
-            </div>
+              <p className="border-t border-hairline bg-muted/10 px-4 py-2 text-[11px] leading-snug text-muted-foreground">
+                Three percentages must sum to 100. Canonical HFSE profiles: Primary 40·40·20, Secondary 30·50·20.
+              </p>
+            </section>
 
-            <div className="space-y-2">
-              <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Max slots per sheet
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+            {/* Section 2 — Max slots per sheet. */}
+            <section className="overflow-hidden rounded-xl border border-hairline bg-card shadow-[inset_0_0_0_1px_rgba(255,255,255,0.6)]">
+              <header className="border-b border-hairline bg-muted/30 px-4 py-2">
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  2 · Max slots per sheet
+                </p>
+              </header>
+              <div className="grid grid-cols-2 gap-3 p-4">
                 <SlotField label="WW slots" value={wwSlots} setValue={setWwSlots} />
                 <SlotField label="PT slots" value={ptSlots} setValue={setPtSlots} />
               </div>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="border-t border-hairline bg-muted/10 px-4 py-2 text-[11px] leading-snug text-muted-foreground">
                 Hard cap 5 per KD #5. Lowering won&apos;t delete existing entries — only caps future additions.
               </p>
-            </div>
+            </section>
 
-            <div className="space-y-2">
-              <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                QA assessment max
-              </div>
-              <div className="grid grid-cols-[1fr_1fr] gap-3">
+            {/* Section 3 — QA assessment max. */}
+            <section className="overflow-hidden rounded-xl border border-hairline bg-card shadow-[inset_0_0_0_1px_rgba(255,255,255,0.6)]">
+              <header className="border-b border-hairline bg-muted/30 px-4 py-2">
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  3 · QA assessment max
+                </p>
+              </header>
+              <div className="grid grid-cols-[1fr_2fr] items-center gap-3 p-4">
                 <div className="space-y-1">
                   <Label className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                    QA max score
+                    Max score
                   </Label>
                   <Input
                     type="text"
@@ -188,12 +196,12 @@ export function SubjectConfigEditDialog({
                     className="h-10 text-right font-mono tabular-nums"
                   />
                 </div>
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  Denominator of the QA percentage. Canonical 30 per Hard Rule #1; vary per subject (e.g. 50 for Math,
+                  20 for Art). Range 1–100.
+                </p>
               </div>
-              <p className="text-[11px] text-muted-foreground">
-                Denominator of the QA percentage. Canonical 30 per Hard Rule #1; vary per subject (e.g. 50 for Math, 20
-                for Art). Range 1&ndash;100.
-              </p>
-            </div>
+            </section>
           </div>
         )}
 
