@@ -35,6 +35,7 @@ function todayLocalIso(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+import { ChartLegendChip } from "@/components/dashboard/chart-legend-chip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -559,12 +560,12 @@ export function AttendanceWideGrid({
         <p className="mt-3 mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-indigo-deep">
           Calendar · column tint
         </p>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5">
-          <LegendDot className="bg-muted/60" label="School day" />
-          <LegendDot className="bg-destructive/10" label="Public holiday" />
-          <LegendDot className="bg-brand-amber/15" label="School holiday" />
-          <LegendDot className="bg-primary/10" label="HBL (encodable)" />
-          <LegendDot className="bg-muted/40" label="No class" />
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          <ChartLegendChip color="chart-4" label="School day" />
+          <ChartLegendChip color="very-stale" label="Public holiday" />
+          <ChartLegendChip color="stale" label="School holiday" />
+          <ChartLegendChip color="primary" label="HBL (encodable)" />
+          <ChartLegendChip color="chart-4" label="No class" />
         </div>
         <p className="mt-3 text-[10px] text-muted-foreground">
           Dropdown shows EM / EC / ES for MC / Compassionate / School-activity.
@@ -572,15 +573,6 @@ export function AttendanceWideGrid({
         </p>
       </Card>
     </div>
-  );
-}
-
-function LegendDot({ className, label }: { className: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className={"inline-block size-2.5 rounded-full " + className} aria-hidden />
-      {label}
-    </span>
   );
 }
 
