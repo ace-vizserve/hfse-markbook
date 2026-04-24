@@ -11,6 +11,8 @@ import {
   YAxis,
 } from 'recharts';
 
+import { chartLegendContent } from '@/components/dashboard/chart-legend-chip';
+
 export type TrendPoint = { x: string; y: number };
 
 export type YFormat = 'number' | 'percent' | 'days';
@@ -102,10 +104,7 @@ export function TrendChart({
           }}
         />
         {comparison && (
-          <Legend
-            iconType="plainline"
-            wrapperStyle={{ fontSize: 10, color: 'var(--color-muted-foreground)' }}
-          />
+          <Legend content={chartLegendContent({ current: 'chart-1', comparison: 'chart-3' })} />
         )}
         <Area
           type="monotone"
