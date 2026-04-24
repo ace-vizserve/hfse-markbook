@@ -403,9 +403,7 @@ export function CalendarAdminClient({
           <ChartLegendChip color="stale" label="School holiday" />
           <ChartLegendChip color="primary" label="HBL" />
           <ChartLegendChip color="neutral" label="No class" />
-          <span className="inline-flex items-center gap-1.5 rounded-md border border-brand-indigo-soft/40 bg-accent px-2 py-0.5 font-mono text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-brand-indigo-deep">
-            Important date
-          </span>
+          <ChartLegendChip color="chart-4" label="Important date" />
         </div>
       )}
 
@@ -547,8 +545,7 @@ function buildMonthWeekdayRows(
         date: new Date(d),
         dayType: dayTypeByIso.get(iso) ?? null,
         isToday: iso === todayIso,
-        inTermRange:
-          d.getTime() >= termStart.getTime() && d.getTime() <= termEnd.getTime(),
+        inTermRange: d.getTime() >= termStart.getTime() && d.getTime() <= termEnd.getTime(),
         outOfMonth: d.getMonth() !== month,
       });
     }
