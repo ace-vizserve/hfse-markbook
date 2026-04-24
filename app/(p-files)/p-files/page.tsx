@@ -2,6 +2,7 @@ import { AlertTriangle, Clock, FileStack, FolderKanban, TrendingUp } from "lucid
 import { redirect } from "next/navigation";
 
 import { ActionList, type ActionItem } from "@/components/dashboard/action-list";
+import { ChartLegendChip } from "@/components/dashboard/chart-legend-chip";
 import { DonutChart } from "@/components/dashboard/charts/donut-chart";
 import { ComparisonToolbar } from "@/components/dashboard/comparison-toolbar";
 import { DashboardHero } from "@/components/dashboard/dashboard-hero";
@@ -227,23 +228,15 @@ export default async function PFilesDashboard({
       </section>
 
       {/* Legend — placed immediately above the table it documents */}
-      <section className="rounded-xl border border-hairline bg-white p-4 text-xs text-muted-foreground">
-        <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-indigo-deep">
+      <section className="rounded-xl border border-hairline bg-background p-4">
+        <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
           Document Status Legend
         </p>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5">
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block size-2.5 rounded-full bg-brand-mint" /> On file
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block size-2.5 rounded-full bg-brand-amber" /> Pending review
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block size-2.5 rounded-full bg-destructive" /> Expired
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block size-2.5 rounded-full border border-border bg-muted" /> Missing
-          </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <ChartLegendChip color="fresh" label="On file" />
+          <ChartLegendChip color="stale" label="Pending review" />
+          <ChartLegendChip color="very-stale" label="Expired" />
+          <ChartLegendChip color="chart-2" label="Missing" />
         </div>
       </section>
 
