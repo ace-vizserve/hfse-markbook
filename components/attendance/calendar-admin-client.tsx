@@ -404,7 +404,7 @@ export function CalendarAdminClient({
           <ChartLegendChip color="primary" label="HBL" />
           <ChartLegendChip color="neutral" label="No class" />
           <span className="inline-flex items-center gap-1.5 rounded-md border border-brand-indigo-soft/40 bg-accent px-2 py-0.5 font-mono text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-brand-indigo-deep">
-            Event
+            Important date
           </span>
         </div>
       )}
