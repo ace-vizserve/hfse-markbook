@@ -6,6 +6,7 @@ import { CalendarOff, CalendarPlus, CheckCheck, Loader2, Trash2, X } from 'lucid
 import type { DayButton } from 'react-day-picker';
 import { toast } from 'sonner';
 
+import { ChartLegendChip } from '@/components/dashboard/chart-legend-chip';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar, CalendarDayButton } from '@/components/ui/calendar';
@@ -415,12 +416,12 @@ export function CalendarAdminClient({
       {/* Legend */}
       {selectedTerm && (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-2.5 text-[11px] text-muted-foreground">
-          {DAY_TYPE_VALUES.map((dt) => (
-            <LegendChip key={dt} className={DAY_TYPE_STYLES[dt].chip}>
-              {DAY_TYPE_LABELS[dt]}
-            </LegendChip>
-          ))}
-          <LegendChip className="bg-muted text-muted-foreground">Weekend</LegendChip>
+          <ChartLegendChip color="chart-4" label="School day" />
+          <ChartLegendChip color="very-stale" label="Public holiday" />
+          <ChartLegendChip color="stale" label="School holiday" />
+          <ChartLegendChip color="primary" label="HBL" />
+          <ChartLegendChip color="chart-4" label="No class" />
+          <ChartLegendChip color="chart-4" label="Weekend" />
           <span className="inline-flex items-center gap-1.5">
             <span className="inline-block size-1.5 rounded-full bg-primary" />
             <span>Important date overlay</span>
