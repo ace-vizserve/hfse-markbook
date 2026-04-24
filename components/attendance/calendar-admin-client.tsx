@@ -326,7 +326,7 @@ export function CalendarAdminClient({
         )}
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <Tabs value={view} onValueChange={(v) => setView(v as "month" | "term")}>
-            <TabsList variant="segmented">
+            <TabsList className="bg-background" variant="default">
               <TabsTrigger value="month">Month</TabsTrigger>
               <TabsTrigger value="term">Full term</TabsTrigger>
             </TabsList>
@@ -424,6 +424,7 @@ export function CalendarAdminClient({
         <TermStripView
           term={selectedTerm}
           daysByType={daysByType}
+          events={events}
           multiSelect={multiSelect}
           selectedDates={selectedDates}
           onSelectDates={setSelectedDates}
@@ -890,6 +891,7 @@ function buildStripWeeks(
 function TermStripView({
   term,
   daysByType,
+  events,
   multiSelect,
   selectedDates,
   onSelectDates,
@@ -897,6 +899,7 @@ function TermStripView({
 }: {
   term: TermOption;
   daysByType: Record<DayType, Date[]> & { event: Date[] };
+  events: CalendarEventRow[];
   multiSelect: boolean;
   selectedDates: Date[];
   onSelectDates: (next: Date[]) => void;
@@ -917,6 +920,24 @@ function TermStripView({
     daysByType.event.forEach((d) => s.add(formatIso(d)));
     return s;
   }, [daysByType]);
+
+  // Labelled events grouped by iso, matching MonthView's pattern.
+  const eventsByIso = useMemo(() => {
+    const m = new Map<string, CalendarEventRow[]>();
+    for (const e of events) {
+      const start = parseIso(e.startDate);
+      const end = parseIso(e.endDate);
+      const d = new Date(start);
+      while (d.getTime() <= end.getTime()) {
+        const iso = formatIso(d);
+        const arr = m.get(iso) ?? [];
+        arr.push(e);
+        m.set(iso, arr);
+        d.setDate(d.getDate() + 1);
+      }
+    }
+    return m;
+  }, [events]);
 
   const weeks = useMemo(
     () => buildStripWeeks(term.startDate, term.endDate, dayTypeByIso, eventIsoSet),
@@ -994,22 +1015,16 @@ function TermStripView({
                 if (!d) {
                   // Leading / trailing days outside term range — rendered as a
                   // subtle placeholder so the grid shape stays legible.
-                  return (
-                    <div
-                      key={colIdx}
-                      className={`min-h-[72px] bg-muted/20 ${borderClasses}`}
-                    />
-                  );
+                  return <div key={colIdx} className={`min-h-[100px] bg-muted/20 ${borderClasses}`} />;
                 }
 
                 const isSelected = selectedIsoSet.has(d.iso);
-                const tintClass = d.dayType
-                  ? DAY_TYPE_STYLES[d.dayType].cell
-                  : "bg-background hover:bg-muted/30";
+                const dayEvents = eventsByIso.get(d.iso) ?? [];
+                const shortLabel = d.dayType ? DAY_TYPE_SHORT_LABEL[d.dayType] : null;
 
-                // Custom <button> per §5 step 5 — term-strip cells need a
-                // specific flex layout + colored tint + overlay dot that
-                // don't fit the shadcn Button component shape.
+                // Custom <button> per §5 step 5 — same reasoning as MonthView
+                // day-button. Cell structure identical to MonthView for visual
+                // consistency: white bg + sans date number + stacked badges.
                 return (
                   <button
                     key={d.iso}
@@ -1019,15 +1034,14 @@ function TermStripView({
                       else onDayClick(d.iso);
                     }}
                     className={[
-                      "relative flex min-h-[72px] cursor-pointer flex-col items-start p-2 text-left transition-colors",
+                      "relative flex min-h-[100px] cursor-pointer flex-col items-start gap-1.5 p-2 text-left transition-colors",
                       borderClasses,
-                      tintClass,
-                      isSelected && "ring-2 ring-brand-indigo/40 ring-inset",
+                      isSelected ? "bg-accent" : "bg-background hover:bg-muted/40",
                     ]
                       .filter(Boolean)
                       .join(" ")}
                     title={formatHumanDate(d.iso)}>
-                    {/* Date number — sans, top-left. Today = filled indigo circle (matches MonthView). */}
+                    {/* Date number — sans, top-left. Today = filled indigo circle. */}
                     <span
                       className={[
                         "inline-flex size-6 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold tabular-nums leading-none",
@@ -1039,12 +1053,25 @@ function TermStripView({
                         .join(" ")}>
                       {d.date.getDate()}
                     </span>
-                    {d.isEvent && (
-                      <span
-                        aria-hidden
-                        className="absolute right-2 top-2 size-1.5 rounded-full bg-primary"
-                      />
-                    )}
+
+                    {/* Stacked badges — identical pattern to MonthView. */}
+                    <div className="flex w-full flex-col gap-0.5">
+                      {shortLabel && d.dayType && (
+                        <ChartLegendChip
+                          color={DAY_TYPE_LEGEND_COLOR[d.dayType]}
+                          label={shortLabel}
+                          className="flex w-full justify-center"
+                        />
+                      )}
+                      {dayEvents.slice(0, 2).map((evt) => (
+                        <EventChip key={evt.id} label={evt.label} />
+                      ))}
+                      {dayEvents.length > 2 && (
+                        <span className="px-1 font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
+                          +{dayEvents.length - 2} more
+                        </span>
+                      )}
+                    </div>
                   </button>
                 );
               })}
