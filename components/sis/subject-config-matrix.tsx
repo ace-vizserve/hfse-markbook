@@ -16,6 +16,7 @@ import {
   SubjectConfigEditDialog,
   type SubjectConfigDraft,
 } from '@/components/sis/subject-config-edit-dialog';
+import { cn } from '@/lib/utils';
 
 type Subject = { id: string; code: string; name: string; is_examinable: boolean };
 type Level = { id: string; code: string; label: string };
@@ -102,20 +103,13 @@ export function SubjectConfigMatrix({
                 </TableRow>
               )}
               {subjects.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell className="sticky left-0 z-10 bg-background">
+                <TableRow key={s.id} className="group transition-colors hover:bg-muted/20">
+                  <TableCell className="sticky left-0 z-10 bg-background group-hover:bg-muted/20">
                     <div className="flex items-center gap-2">
-                      <span className="font-serif text-sm font-medium text-foreground">
+                      <span className="font-serif text-sm font-semibold text-foreground">
                         {s.name}
                       </span>
-                      {!s.is_examinable && (
-                        <Badge
-                          variant="outline"
-                          className="h-5 border-border bg-muted/40 px-1.5 font-mono text-[9px] uppercase tracking-[0.14em] text-muted-foreground"
-                        >
-                          Non-exam
-                        </Badge>
-                      )}
+                      {!s.is_examinable && <Badge variant="muted">Non-exam</Badge>}
                     </div>
                     <div className="font-mono text-[10px] text-muted-foreground">{s.code}</div>
                   </TableCell>
@@ -131,12 +125,18 @@ export function SubjectConfigMatrix({
                     const ww = Math.round(cfg.ww_weight * 100);
                     const pt = Math.round(cfg.pt_weight * 100);
                     const qa = Math.round(cfg.qa_weight * 100);
+                    const weightsOk = ww + pt + qa === 100;
                     return (
                       <TableCell key={l.id} className="text-center">
                         <button
                           type="button"
                           onClick={() => openCell(s, l, cfg)}
-                          className="inline-flex w-full flex-col items-center rounded-md border border-border bg-card px-2 py-1 transition-colors hover:border-primary/40 hover:bg-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                          className={cn(
+                            'inline-flex w-full flex-col items-center gap-0.5 rounded-md border bg-background px-2 py-1.5 shadow-input transition-all',
+                            'hover:-translate-y-0.5 hover:border-brand-indigo-soft hover:bg-accent hover:shadow-sm',
+                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-indigo/20 focus-visible:border-brand-indigo/60',
+                            weightsOk ? 'border-hairline' : 'border-destructive/40 bg-destructive/5',
+                          )}
                           title={`Edit ${s.name} × ${l.code} — weights ${ww}/${pt}/${qa} · slots ${cfg.ww_max_slots}/${cfg.pt_max_slots} · QA/${cfg.qa_max}`}
                         >
                           <span className="font-mono text-[12px] font-semibold tabular-nums text-foreground">
