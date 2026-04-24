@@ -23,6 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { CalendarEventRow, SchoolCalendarRow } from "@/lib/attendance/calendar";
 import { DAY_TYPE_LABELS, DAY_TYPE_VALUES, isEncodableDayType, type DayType } from "@/lib/schemas/attendance";
 
@@ -156,6 +157,7 @@ export function CalendarAdminClient({
   const [multiSelect, setMultiSelect] = useState(false);
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [view, setView] = useState<"month" | "term">("month");
 
   const selectedTerm = terms.find((t) => t.id === termId) ?? terms[0];
 
@@ -200,6 +202,7 @@ export function CalendarAdminClient({
   function switchTerm(next: string) {
     // Clear multi-select selection when crossing terms — the picked dates
     // belong to the previous term's calendar scope and shouldn't leak.
+    setView("month");
     setSelectedDates([]);
     setMultiSelect(false);
     startTransition(() => {
@@ -326,6 +329,12 @@ export function CalendarAdminClient({
           </div>
         )}
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Tabs value={view} onValueChange={(v) => setView(v as "month" | "term")}>
+            <TabsList variant="segmented">
+              <TabsTrigger value="month">Month</TabsTrigger>
+              <TabsTrigger value="term">Full term</TabsTrigger>
+            </TabsList>
+          </Tabs>
           {copyHolidaysProps && (
             <CopyHolidaysDialog
               targetTermId={copyHolidaysProps.targetTermId}
@@ -407,9 +416,19 @@ export function CalendarAdminClient({
         </div>
       )}
 
-      {/* Month view */}
-      {selectedTerm && (
+      {/* Calendar view — Month (default) or Full-term strip */}
+      {selectedTerm && view === "month" && (
         <MonthView
+          term={selectedTerm}
+          daysByType={daysByType}
+          multiSelect={multiSelect}
+          selectedDates={selectedDates}
+          onSelectDates={setSelectedDates}
+          onDayClick={(iso) => setDateDialogIso(iso)}
+        />
+      )}
+      {selectedTerm && view === "term" && (
+        <TermStripView
           term={selectedTerm}
           daysByType={daysByType}
           multiSelect={multiSelect}
@@ -631,6 +650,16 @@ function MonthView({
           />
         )}
       </div>
+    </div>
+  );
+}
+
+function TermStripView(props: React.ComponentProps<typeof MonthView>) {
+  // Placeholder — full implementation in Task 6.
+  void props;
+  return (
+    <div className="rounded-xl border border-hairline bg-card p-6 text-sm text-muted-foreground">
+      Term strip view — coming in the next commit.
     </div>
   );
 }
