@@ -6,7 +6,7 @@ import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { CopyHolidaysDialog } from "@/components/attendance/copy-holidays-dialog";
-import { ChartLegendChip } from "@/components/dashboard/chart-legend-chip";
+import { ChartLegendChip, type ChartLegendChipColor } from "@/components/dashboard/chart-legend-chip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -60,11 +60,9 @@ type CopyHolidaysProps = {
 };
 
 // Short banner labels printed inside each cell (below the day number).
-// Keep terse — cell is ~80px wide. `school_day` is intentionally null so
-// the default encodable state renders nothing; showing "School" on every
-// weekday would be pure noise.
-const DAY_TYPE_SHORT_LABEL: Record<DayType, string | null> = {
-  school_day: null,
+// Keep terse — cell is ~80px wide.
+const DAY_TYPE_SHORT_LABEL: Record<DayType, string> = {
+  school_day: "School",
   public_holiday: "Public",
   school_holiday: "School hol.",
   hbl: "HBL",
@@ -400,15 +398,13 @@ export function CalendarAdminClient({
       {/* Legend — each chip here matches the in-cell chip color for the same day-type. */}
       {selectedTerm && (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-hairline bg-muted/25 px-4 py-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5)]">
+          <ChartLegendChip color="fresh" label="School day" />
           <ChartLegendChip color="very-stale" label="Public holiday" />
           <ChartLegendChip color="stale" label="School holiday" />
           <ChartLegendChip color="primary" label="HBL" />
           <ChartLegendChip color="neutral" label="No class" />
           <span className="inline-flex items-center gap-1.5 rounded-md border border-brand-indigo-soft/40 bg-accent px-2 py-0.5 font-mono text-[10px] font-semibold uppercase leading-none tracking-[0.14em] text-brand-indigo-deep">
             Event
-          </span>
-          <span className="ml-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            School days are the default — weekdays without a chip are in-school
           </span>
         </div>
       )}
@@ -562,27 +558,24 @@ function buildMonthWeekdayRows(
   return rows;
 }
 
-// Horizontal event bar — left-aligned, full-width of cell, colored left border
-// with tinted background. Used for both day-type classifications and event-row
-// labels (Google-Calendar-style). All colors resolve to Aurora Vault tokens.
-function EventBar({
-  type,
-  label,
-}: {
-  type: DayType | "event";
-  label: string;
-}) {
-  const classByType: Record<DayType | "event", string> = {
-    school_day: "bg-brand-mint/30 text-ink border-l-[3px] border-brand-mint",
-    public_holiday: "bg-destructive/15 text-destructive border-l-[3px] border-destructive",
-    school_holiday: "bg-brand-amber/25 text-foreground border-l-[3px] border-brand-amber",
-    hbl: "bg-primary/15 text-primary border-l-[3px] border-primary",
-    no_class: "bg-muted text-ink-3 border-l-[3px] border-ink-5",
-    event: "bg-accent text-brand-indigo-deep border-l-[3px] border-brand-indigo-soft",
-  };
+// Map each day-type to the ChartLegendChip color used in the Legend strip.
+// Using the same mapping here guarantees the in-cell badge renders with the
+// exact same gradient as the Legend chip for that day-type.
+const DAY_TYPE_LEGEND_COLOR: Record<DayType, ChartLegendChipColor> = {
+  school_day: "fresh",
+  public_holiday: "very-stale",
+  school_holiday: "stale",
+  hbl: "primary",
+  no_class: "neutral",
+};
+
+// Subdued outline chip for informational events (calendar_events rows). Kept
+// distinct from the gradient day-type badges so structural vs informational
+// classifications read differently at a glance.
+function EventChip({ label }: { label: string }) {
   return (
     <span
-      className={`block truncate rounded-sm px-1.5 py-0.5 font-mono text-[10px] font-semibold leading-tight tracking-[0.02em] ${classByType[type]}`}
+      className="block truncate rounded-md border border-brand-indigo-soft/40 bg-accent px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase leading-none tracking-[0.1em] text-brand-indigo-deep"
       title={label}>
       {label}
     </span>
@@ -797,13 +790,21 @@ function MonthView({
                     {cell.date.getDate()}
                   </span>
 
-                  {/* Stacked event bars */}
+                  {/* Stacked badges. Day-type uses the ChartLegendChip
+                      component — the SAME component rendered in the Legend
+                      strip above — so the colors match 1:1. Events use a
+                      subdued outline chip so informational entries don't
+                      compete with structural day-type classifications. */}
                   <div className="flex w-full flex-col gap-0.5">
                     {shortLabel && cell.dayType && (
-                      <EventBar type={cell.dayType} label={shortLabel} />
+                      <ChartLegendChip
+                        color={DAY_TYPE_LEGEND_COLOR[cell.dayType]}
+                        label={shortLabel}
+                        className="flex w-full justify-center"
+                      />
                     )}
                     {dayEvents.slice(0, 3).map((evt) => (
-                      <EventBar key={evt.id} type="event" label={evt.label} />
+                      <EventChip key={evt.id} label={evt.label} />
                     ))}
                     {dayEvents.length > 3 && (
                       <span className="px-1 font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
