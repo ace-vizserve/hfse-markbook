@@ -3,6 +3,7 @@ import {
   ArrowDownIcon,
   ArrowRightIcon,
   ArrowUpIcon,
+  ChevronsRight,
   MinusIcon,
   type LucideIcon,
 } from 'lucide-react';
@@ -15,6 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Sheet, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { formatDeltaLabel, type Delta } from '@/lib/dashboard/range';
 import { SparklineChart, type SparkPoint } from './charts/sparkline-chart';
@@ -42,6 +44,14 @@ export type MetricCardProps = {
   intent?: MetricIntent;
   sparkline?: SparkPoint[];
   href?: string;
+  /**
+   * When provided, the card becomes a Sheet trigger instead of a link.
+   * Pass the full `<SheetContent>...</SheetContent>` (or a component that
+   * renders one) — MetricCard wraps its own `<Sheet>` internally.
+   * Mutually exclusive with `href`; `drillSheet` takes precedence if both
+   * are set (a runtime console.warn is emitted in that case).
+   */
+  drillSheet?: React.ReactNode;
   subtext?: string;
   className?: string;
 };
@@ -114,12 +124,24 @@ export function MetricCard({
   intent: _intent,
   sparkline,
   href,
+  drillSheet,
   subtext,
   className,
 }: MetricCardProps) {
+  // Mutual exclusivity: drillSheet wins, href is ignored with a runtime warning.
+  if (drillSheet && href) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[MetricCard] drillSheet and href are mutually exclusive; drillSheet takes precedence',
+    );
+  }
+  const effectiveHref = drillSheet ? undefined : href;
+  const interactive = Boolean(drillSheet || effectiveHref);
+
   const cardClass = cn(
     '@container/card bg-gradient-to-t from-primary/5 to-card shadow-xs',
-    href && 'group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md',
+    interactive &&
+      'group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md',
     className,
   );
 
@@ -155,19 +177,37 @@ export function MetricCard({
             <SparklineChart points={sparkline} />
           </div>
         )}
-        {href && (
+        {effectiveHref && (
           <span className="inline-flex items-center gap-1 text-xs font-medium text-brand-indigo-deep">
             View
             <ArrowRightIcon className="size-3 transition-transform group-hover:translate-x-0.5" />
+          </span>
+        )}
+        {drillSheet && (
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-brand-indigo-deep">
+            <ChevronsRight className="size-3 transition-transform group-hover:translate-x-0.5" />
           </span>
         )}
       </CardFooter>
     </Card>
   );
 
-  if (href) {
+  if (drillSheet) {
     return (
-      <Link href={href} className="block">
+      <Sheet>
+        <SheetTrigger asChild>
+          <button type="button" className="block w-full text-left">
+            {inner}
+          </button>
+        </SheetTrigger>
+        {drillSheet}
+      </Sheet>
+    );
+  }
+
+  if (effectiveHref) {
+    return (
+      <Link href={effectiveHref} className="block">
         {inner}
       </Link>
     );
