@@ -946,57 +946,70 @@ function TermStripView({
           Switch → Month to drill down
         </p>
       </div>
-      {/* Term grid */}
-      <div className="p-6 md:p-8">
-        <div className="mb-3 flex items-baseline justify-between border-b border-hairline pb-3">
-          <h3 className="font-serif text-[24px] font-semibold tracking-tight text-foreground">
-            {term.label} <span className="mx-2 text-hairline-strong">·</span>{" "}
-            <span className="font-mono text-[12px] tabular-nums text-muted-foreground">
-              {term.startDate} → {term.endDate}
-            </span>
-          </h3>
-        </div>
-        {/* Weekday header (Mon–Fri only) */}
-        <div className="mb-1 grid grid-cols-[56px_repeat(5,1fr)] gap-1">
-          <div />
-          {["Mon", "Tue", "Wed", "Thu", "Fri"].map((d) => (
+      {/* Term caption */}
+      <div className="flex items-baseline justify-between border-b border-hairline px-6 pb-3 pt-5">
+        <h3 className="font-serif text-[24px] font-semibold leading-none tracking-tight text-foreground">
+          {term.label}
+        </h3>
+        <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+          {term.startDate} → {term.endDate}
+        </span>
+      </div>
+
+      {/* Event-calendar grid — flush table-style, hairlines between cells,
+          consistent with MonthView's aesthetic at term-strip density. */}
+      <div className="border-t border-hairline">
+        {/* Weekday header row (with week-label rail) */}
+        <div className="grid grid-cols-[56px_repeat(5,1fr)] bg-muted/30">
+          <div className="border-b border-r border-hairline" />
+          {["Mon", "Tue", "Wed", "Thu", "Fri"].map((d, idx) => (
             <div
               key={d}
-              className="rounded-md bg-muted/40 px-2 py-1.5 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5)]">
+              className={`px-3 py-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4 ${
+                idx < 4 ? "border-r border-hairline" : ""
+              } border-b border-hairline`}>
               {d}
             </div>
           ))}
         </div>
-        {/* Weeks */}
-        <div className="space-y-1">
-          {weeks.map((wk) => (
-            <div key={wk.weekNumber} className="grid grid-cols-[56px_repeat(5,1fr)] gap-1">
-              <div className="flex items-center justify-center rounded-md bg-muted/40 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-3">
+
+        {/* Week rows */}
+        {weeks.map((wk, wkIdx) => {
+          const isLastRow = wkIdx === weeks.length - 1;
+          return (
+            <div key={wk.weekNumber} className="grid grid-cols-[56px_repeat(5,1fr)]">
+              <div
+                className={`flex items-center justify-center bg-muted/30 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-3 border-r border-hairline ${!isLastRow ? "border-b border-hairline" : ""}`}>
                 W{wk.weekNumber}
               </div>
-              {wk.days.map((d, idx) => {
+              {wk.days.map((d, colIdx) => {
+                const isLastCol = colIdx === 4;
+                const borderClasses = [
+                  !isLastCol && "border-r border-hairline",
+                  !isLastRow && "border-b border-hairline",
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+
                 if (!d) {
-                  // Leading / trailing days outside term range — render a
-                  // subtle placeholder so the grid shape stays visible.
+                  // Leading / trailing days outside term range — rendered as a
+                  // subtle placeholder so the grid shape stays legible.
                   return (
                     <div
-                      key={idx}
-                      className="aspect-[1.2/1] rounded-md border border-hairline/40 bg-muted/20 opacity-50"
+                      key={colIdx}
+                      className={`min-h-[72px] bg-muted/20 ${borderClasses}`}
                     />
                   );
                 }
+
+                const isSelected = selectedIsoSet.has(d.iso);
                 const tintClass = d.dayType
                   ? DAY_TYPE_STYLES[d.dayType].cell
-                  : "bg-background shadow-[inset_0_0_0_1px_var(--av-hairline)]";
-                const isSelected = selectedIsoSet.has(d.iso);
-                const todayClass = d.isToday ? "shadow-[inset_0_0_0_2px_var(--av-indigo)]" : "";
-                const selectedClass = isSelected
-                  ? "scale-[0.98] ring-2 ring-brand-indigo/40 ring-offset-1 ring-offset-card"
-                  : "";
+                  : "bg-background hover:bg-muted/30";
 
-                // Custom <button> per §5 step 5 — term-strip cells use an
-                // aspect-ratio + custom tint + overlay dot that don't fit
-                // the shadcn Button component shape.
+                // Custom <button> per §5 step 5 — term-strip cells need a
+                // specific flex layout + colored tint + overlay dot that
+                // don't fit the shadcn Button component shape.
                 return (
                   <button
                     key={d.iso}
@@ -1006,27 +1019,38 @@ function TermStripView({
                       else onDayClick(d.iso);
                     }}
                     className={[
-                      "relative aspect-[1.2/1] cursor-pointer rounded-md p-1 text-left font-serif text-[13px] font-semibold tabular-nums leading-none transition-all hover:-translate-y-0.5 hover:shadow-md",
+                      "relative flex min-h-[72px] cursor-pointer flex-col items-start p-2 text-left transition-colors",
+                      borderClasses,
                       tintClass,
-                      todayClass,
-                      selectedClass,
+                      isSelected && "ring-2 ring-brand-indigo/40 ring-inset",
                     ]
                       .filter(Boolean)
                       .join(" ")}
                     title={formatHumanDate(d.iso)}>
-                    <span>{d.date.getDate()}</span>
+                    {/* Date number — sans, top-left. Today = filled indigo circle (matches MonthView). */}
+                    <span
+                      className={[
+                        "inline-flex size-6 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold tabular-nums leading-none",
+                        d.isToday
+                          ? "bg-gradient-to-b from-brand-indigo to-brand-indigo-deep text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_1px_2px_rgba(15,23,42,0.1)]"
+                          : "text-foreground",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}>
+                      {d.date.getDate()}
+                    </span>
                     {d.isEvent && (
                       <span
                         aria-hidden
-                        className="absolute bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full bg-primary"
+                        className="absolute right-2 top-2 size-1.5 rounded-full bg-primary"
                       />
                     )}
                   </button>
                 );
               })}
             </div>
-          ))}
-        </div>
+          );
+        })}
       </div>
     </div>
   );
