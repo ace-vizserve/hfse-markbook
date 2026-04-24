@@ -12,6 +12,7 @@ import {
   YAxis,
 } from 'recharts';
 
+import { chartLegendContent } from '@/components/dashboard/chart-legend-chip';
 import type { AssessmentOutcomes } from '@/lib/admissions/dashboard';
 import {
   Card,
@@ -69,7 +70,7 @@ export function AssessmentOutcomesChart({ data }: { data: AssessmentOutcomes }) 
                   fontSize: 12,
                 }}
               />
-              <Legend wrapperStyle={{ fontSize: 12, paddingTop: 4 }} iconType="circle" />
+              <Legend content={chartLegendContent({ Pass: 'chart-5', Fail: 'very-stale', Unknown: 'chart-2' })} />
               <Bar dataKey="Pass" stackId="a" fill="var(--chart-5)" />
               <Bar dataKey="Fail" stackId="a" fill="var(--destructive)" />
               <Bar dataKey="Unknown" stackId="a" fill="var(--muted-foreground)" radius={[4, 4, 0, 0]} />

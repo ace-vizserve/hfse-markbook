@@ -67,21 +67,20 @@ export function ChartLegendChip({
  *
  * Pass a `palette` mapping `dataKey` or series name → ChartLegendChipColor.
  */
-type RechartsLegendPayload = {
+type RechartsLegendEntry = {
   value: string;
   dataKey?: string | number;
   color?: string;
-}[];
-
-type RechartsLegendProps = {
-  payload?: RechartsLegendPayload;
 };
 
+// Typed as (props: unknown) to satisfy recharts' ContentType (which uses
+// readonly LegendPayload[]) without coupling to recharts' internal types.
 export function chartLegendContent(
   palette: Record<string, ChartLegendChipColor>,
 ) {
-  return function ChartLegendContent(props: RechartsLegendProps) {
-    const payload = props.payload ?? [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return function ChartLegendContent(props: any) {
+    const payload: RechartsLegendEntry[] = props?.payload ?? [];
     return (
       <div className="flex flex-wrap items-center gap-2 pt-2">
         {payload.map((entry, idx) => {
