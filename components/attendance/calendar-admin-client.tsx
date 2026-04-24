@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { CalendarEventRow, SchoolCalendarRow } from "@/lib/attendance/calendar";
@@ -698,28 +699,34 @@ function MonthView({
           {monthLabel}
         </h2>
         <div className="flex items-center gap-1.5">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="icon"
             onClick={goPrev}
             disabled={!canPrev}
             aria-label="Previous month"
-            className="flex size-8 items-center justify-center rounded-md border border-hairline bg-background text-ink-3 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-40">
-            <ChevronLeft className="size-4" />
-          </button>
-          <button
+            className="size-8">
+            <ChevronLeft />
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={goToday}
-            className="h-8 rounded-md border border-hairline bg-background px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:bg-muted/40">
+            className="h-8 font-mono text-[10px] uppercase tracking-[0.14em]">
             Today
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            size="icon"
             onClick={goNext}
             disabled={!canNext}
             aria-label="Next month"
-            className="flex size-8 items-center justify-center rounded-md border border-hairline bg-background text-ink-3 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-40">
-            <ChevronRight className="size-4" />
-          </button>
+            className="size-8">
+            <ChevronRight />
+          </Button>
         </div>
       </div>
 
@@ -987,6 +994,9 @@ function TermStripView({
                   ? "scale-[0.98] ring-2 ring-brand-indigo/40 ring-offset-1 ring-offset-card"
                   : "";
 
+                // Custom <button> per §5 step 5 — term-strip cells use an
+                // aspect-ratio + custom tint + overlay dot that don't fit
+                // the shadcn Button component shape.
                 return (
                   <button
                     key={d.iso}
@@ -1139,26 +1149,24 @@ function DateActionDialog({
                 <legend className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   Day type
                 </legend>
-                <div className="grid gap-2">
+                <RadioGroup
+                  value={pickedType}
+                  onValueChange={(v) => setPickedType(v as DayType)}
+                  className="grid gap-2">
                   {DAY_TYPE_VALUES.map((dt) => {
                     const style = DAY_TYPE_STYLES[dt];
                     const selected = pickedType === dt;
+                    const id = `day-type-${dt}`;
                     return (
                       <label
                         key={dt}
+                        htmlFor={id}
                         className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
                           selected
                             ? "border-primary/40 ring-2 ring-primary/20"
                             : "border-border hover:border-primary/30"
                         }`}>
-                        <input
-                          type="radio"
-                          name="dayType"
-                          value={dt}
-                          checked={selected}
-                          onChange={() => setPickedType(dt)}
-                          className="mt-1 size-4 cursor-pointer accent-primary"
-                        />
+                        <RadioGroupItem id={id} value={dt} className="mt-1" />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span
@@ -1176,7 +1184,7 @@ function DateActionDialog({
                       </label>
                     );
                   })}
-                </div>
+                </RadioGroup>
               </fieldset>
 
               <div className="space-y-2">
@@ -1417,7 +1425,7 @@ function EventsPanel({
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
+                variant="destructive"
                 disabled={busy}
                 onClick={() => onDelete(e.id)}
                 className="gap-1">
@@ -1522,24 +1530,19 @@ function BulkDayTypeDialog({
             <legend className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Day type
             </legend>
-            <div className="grid gap-2">
+            <RadioGroup value={pickedType} onValueChange={(v) => setPickedType(v as DayType)} className="grid gap-2">
               {DAY_TYPE_VALUES.map((dt) => {
                 const style = DAY_TYPE_STYLES[dt];
                 const selected = pickedType === dt;
+                const id = `bulk-day-type-${dt}`;
                 return (
                   <label
                     key={dt}
+                    htmlFor={id}
                     className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
                       selected ? "border-primary/40 ring-2 ring-primary/20" : "border-border hover:border-primary/30"
                     }`}>
-                    <input
-                      type="radio"
-                      name="bulkDayType"
-                      value={dt}
-                      checked={selected}
-                      onChange={() => setPickedType(dt)}
-                      className="mt-1 size-4 cursor-pointer accent-primary"
-                    />
+                    <RadioGroupItem id={id} value={dt} className="mt-1" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span
@@ -1557,7 +1560,7 @@ function BulkDayTypeDialog({
                   </label>
                 );
               })}
-            </div>
+            </RadioGroup>
           </fieldset>
 
           <div className="space-y-2">
