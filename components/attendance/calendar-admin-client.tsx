@@ -1,16 +1,14 @@
 "use client";
 
-import { CalendarOff, CalendarPlus, CheckCheck, Loader2, Trash2, X } from "lucide-react";
+import { CalendarOff, CalendarPlus, CheckCheck, ChevronLeft, ChevronRight, Loader2, Trash2, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import type { DayButton } from "react-day-picker";
 import { toast } from "sonner";
 
 import { CopyHolidaysDialog } from "@/components/attendance/copy-holidays-dialog";
 import { ChartLegendChip } from "@/components/dashboard/chart-legend-chip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, CalendarDayButton } from "@/components/ui/calendar";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
   Dialog,
@@ -27,16 +25,15 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { CalendarEventRow, SchoolCalendarRow } from "@/lib/attendance/calendar";
 import { DAY_TYPE_LABELS, DAY_TYPE_VALUES, isEncodableDayType, type DayType } from "@/lib/schemas/attendance";
 
-// School-calendar admin, month-view. Composes the shadcn `Calendar`
-// primitive (react-day-picker) with modifier classes for school-day and
-// holiday states. The design-system (§6) mandates `@shadcn` only; the
-// registry has no "event calendar", so we compose per §5 step 4.
+// School-calendar admin. Two views — Month grid and Full-term strip — both
+// rendered as custom 5-column (Mon–Fri) grids. Weekends are not school days
+// and are not rendered; the design-system (§6) allows custom composition when
+// no registry fits (per §5 step 4).
 //
 // UX model: every weekday is a school day by default. The page RSC
 // auto-seeds `school_calendar` rows on first visit via ensureTermSeeded(),
-// so the registrar never sees empty state. Weekends are hard-disabled.
-// The only actions on a weekday click are "Set as holiday" and
-// "Set as important date".
+// so the registrar never sees empty state. The only actions on a weekday
+// click are "Set as holiday" and "Set as important date".
 //
 // Allowlist semantics (migration 015) are preserved underneath: the
 // attendance grid reads `school_calendar` rows and treats missing rows as
@@ -44,7 +41,7 @@ import { DAY_TYPE_LABELS, DAY_TYPE_VALUES, isEncodableDayType, type DayType } fr
 // state — the UI just never shows it.
 //
 // Events (`calendar_events`) are informational labels overlaid as a
-// primary-colored dot below the date number.
+// primary-colored dot in the cell's top-right corner.
 
 type TermOption = {
   id: string;
@@ -168,7 +165,7 @@ export function CalendarAdminClient({
     return map;
   }, [calendar]);
 
-  // Modifier date arrays for react-day-picker — one per day_type + overlay.
+  // Classified dates grouped by day-type, plus an `event` array of event days.
   const daysByType = useMemo(() => {
     const out: Record<DayType, Date[]> = {
       school_day: [],
@@ -507,35 +504,63 @@ function LegendChip({ className, children }: { className: string; children: Reac
   return <span className={`inline-flex items-center rounded-sm px-2 py-0.5 font-medium ${className}`}>{children}</span>;
 }
 
-// Picks the banner label for a given day cell based on which day-type
-// modifier is set on it. Returns null for `school_day` (no banner) and
-// for weekends / disabled days (no modifier match).
-function bannerTypeFromModifiers(modifiers: Record<string, unknown>): DayType | null {
-  if (modifiers.public_holiday) return "public_holiday";
-  if (modifiers.school_holiday) return "school_holiday";
-  if (modifiers.hbl) return "hbl";
-  if (modifiers.no_class) return "no_class";
-  return null;
-}
+// Build 5-column (Mon–Fri) weekday rows for the month containing `cursor`.
+// Weekends are intentionally excluded — weekdays are school days by default;
+// there is no classification granularity for Saturdays / Sundays.
+type MonthCell = {
+  iso: string;
+  date: Date;
+  dayType: DayType | null;
+  isEvent: boolean;
+  isToday: boolean;
+  inTermRange: boolean;
+};
 
-// Wraps shadcn's CalendarDayButton so every cell renders a small chip
-// beneath the day number indicating its day-type. Defaults (`school_day`)
-// render nothing extra.
-function DayButtonWithBanner(props: React.ComponentProps<typeof DayButton>) {
-  const { modifiers, children } = props;
-  const bannerType = bannerTypeFromModifiers(modifiers as Record<string, unknown>);
-  return (
-    <CalendarDayButton {...props}>
-      {/* Day number — inherits font-serif / text-[22px] / tabular-nums from the day_button className (Task 4) */}
-      {children}
-      {bannerType && (
-        <span
-          className={`mt-auto inline-flex self-stretch justify-center rounded-md px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase leading-none tracking-[0.14em] ${DAY_TYPE_STYLES[bannerType].chip}`}>
-          {DAY_TYPE_SHORT_LABEL[bannerType]}
-        </span>
-      )}
-    </CalendarDayButton>
-  );
+function buildMonthWeekdayRows(
+  cursor: Date,
+  termStart: Date,
+  termEnd: Date,
+  dayTypeByIso: Map<string, DayType>,
+  eventIsos: Set<string>,
+): (MonthCell | null)[][] {
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
+  const firstOfMonth = new Date(year, month, 1);
+  const lastOfMonth = new Date(year, month + 1, 0);
+
+  // Align to the Monday of the week containing the 1st.
+  const firstDow = firstOfMonth.getDay(); // 0 = Sun, 1 = Mon, ... 6 = Sat
+  const mondayShift = firstDow === 0 ? -6 : 1 - firstDow;
+  const weekStart = new Date(firstOfMonth);
+  weekStart.setDate(firstOfMonth.getDate() + mondayShift);
+
+  const todayIso = formatIso(new Date());
+  const rows: (MonthCell | null)[][] = [];
+
+  while (weekStart.getTime() <= lastOfMonth.getTime()) {
+    const week: (MonthCell | null)[] = [];
+    for (let i = 0; i < 5; i++) {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      const inMonth = d.getMonth() === month;
+      if (!inMonth) {
+        week.push(null);
+      } else {
+        const iso = formatIso(d);
+        week.push({
+          iso,
+          date: new Date(d),
+          dayType: dayTypeByIso.get(iso) ?? null,
+          isEvent: eventIsos.has(iso),
+          isToday: iso === todayIso,
+          inTermRange: d.getTime() >= termStart.getTime() && d.getTime() <= termEnd.getTime(),
+        });
+      }
+    }
+    rows.push(week);
+    weekStart.setDate(weekStart.getDate() + 7);
+  }
+  return rows;
 }
 
 function MonthView({
@@ -553,63 +578,62 @@ function MonthView({
   onSelectDates: (next: Date[]) => void;
   onDayClick: (iso: string) => void;
 }) {
-  const startDate = parseIso(term.startDate);
-  const endDate = parseIso(term.endDate);
-  const [month, setMonth] = useState<Date>(startDate);
+  const termStart = parseIso(term.startDate);
+  const termEnd = parseIso(term.endDate);
 
-  const sharedCalendarProps = {
-    showOutsideDays: false,
-    month,
-    onMonthChange: setMonth,
-    startMonth: startDate,
-    endMonth: endDate,
-    // Hard-disable Sat (6) and Sun (0). The attendance sheet has no
-    // concept of weekend school days for this school.
-    disabled: (day: Date) => day.getDay() === 0 || day.getDay() === 6,
-    modifiers: {
-      school_day: daysByType.school_day,
-      public_holiday: daysByType.public_holiday,
-      school_holiday: daysByType.school_holiday,
-      hbl: daysByType.hbl,
-      no_class: daysByType.no_class,
-      eventDay: daysByType.event,
-      today: [new Date()],
-    },
-    modifiersClassNames: {
-      school_day: DAY_TYPE_STYLES.school_day.cell,
-      public_holiday: DAY_TYPE_STYLES.public_holiday.cell,
-      school_holiday: DAY_TYPE_STYLES.school_holiday.cell,
-      hbl: DAY_TYPE_STYLES.hbl.cell,
-      no_class: DAY_TYPE_STYLES.no_class.cell,
-      eventDay:
-        'relative after:content-[""] after:absolute after:bottom-1.5 after:left-1/2 after:-translate-x-1/2 after:h-1.5 after:w-1.5 after:rounded-full after:bg-primary',
-      today: "shadow-[inset_0_0_0_2px_var(--av-indigo)]",
-      selected: "scale-[0.98] ring-2 ring-brand-indigo/40 ring-offset-1 ring-offset-card",
-    },
-    classNames: {
-      root: "w-full",
-      month: "flex w-full flex-col gap-4",
-      // Editorial month caption — serif display face, left-aligned, hairline underline.
-      month_caption:
-        "flex h-[56px] w-full items-center justify-between border-b border-hairline px-2 pb-3 font-serif text-[30px] font-semibold leading-none tracking-tight text-foreground",
-      // Weekday header band — bg-muted tint + inset highlight.
-      weekdays:
-        "flex rounded-lg border border-hairline bg-muted/40 px-2 py-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5)]",
-      weekday:
-        "flex-1 text-center text-[11px] font-mono font-semibold uppercase tracking-[0.14em] text-ink-4 select-none",
-      week: "mt-1 flex w-full",
-      day: "p-0.5",
-      day_button:
-        "flex aspect-square size-auto w-full min-w-(--cell-size) flex-col items-start justify-start gap-1 rounded-lg px-3 pt-3 font-serif text-[22px] font-semibold tabular-nums leading-none transition-all hover:-translate-y-0.5 hover:shadow-md group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:ring-[3px] group-data-[focused=true]/day:ring-ring/50",
-    },
-    components: { DayButton: DayButtonWithBanner },
-    className: "[--cell-size:--spacing(36)] w-full",
-  };
+  // Cursor = first-of-month for the visible month. Starts at term-start month.
+  const [cursor, setCursor] = useState<Date>(() => new Date(termStart.getFullYear(), termStart.getMonth(), 1));
 
-  const monthLabel = month.toLocaleString("en-SG", { month: "long", year: "numeric" });
+  // Flatten daysByType into an iso → DayType map for O(1) lookup.
+  const dayTypeByIso = useMemo(() => {
+    const m = new Map<string, DayType>();
+    (Object.keys(daysByType) as Array<keyof typeof daysByType>).forEach((key) => {
+      if (key === "event") return;
+      daysByType[key as DayType].forEach((d) => m.set(formatIso(d), key as DayType));
+    });
+    return m;
+  }, [daysByType]);
 
-  // Count school-day rows already classified for this term — every non-weekend
-  // day with a day-type assignment.
+  const eventIsoSet = useMemo(() => {
+    const s = new Set<string>();
+    daysByType.event.forEach((d) => s.add(formatIso(d)));
+    return s;
+  }, [daysByType]);
+
+  const selectedIsoSet = useMemo(() => new Set(selectedDates.map(formatIso)), [selectedDates]);
+
+  const rows = useMemo(
+    () => buildMonthWeekdayRows(cursor, termStart, termEnd, dayTypeByIso, eventIsoSet),
+    [cursor, termStart, termEnd, dayTypeByIso, eventIsoSet],
+  );
+
+  // Nav — clamp prev/next to months that overlap the term range.
+  const firstOfTermStart = new Date(termStart.getFullYear(), termStart.getMonth(), 1);
+  const firstOfTermEnd = new Date(termEnd.getFullYear(), termEnd.getMonth(), 1);
+  const canPrev = cursor.getTime() > firstOfTermStart.getTime();
+  const canNext = cursor.getTime() < firstOfTermEnd.getTime();
+
+  function goPrev() {
+    setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1));
+  }
+  function goNext() {
+    setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1));
+  }
+  function goToday() {
+    const t = new Date();
+    setCursor(new Date(t.getFullYear(), t.getMonth(), 1));
+  }
+
+  function toggleSelection(iso: string, d: Date) {
+    if (selectedIsoSet.has(iso)) {
+      onSelectDates(selectedDates.filter((x) => formatIso(x) !== iso));
+    } else {
+      onSelectDates([...selectedDates, d]);
+    }
+  }
+
+  const monthLabel = cursor.toLocaleString("en-SG", { month: "long", year: "numeric" });
+
   const totalSchoolDays =
     daysByType.school_day.length +
     daysByType.public_holiday.length +
@@ -617,19 +641,15 @@ function MonthView({
     daysByType.hbl.length +
     daysByType.no_class.length;
 
-  // Compute week-of-term — 1-indexed number of weeks from term start to today,
-  // clamped to [1, 13]. If today is before the term starts, reads as "Week 1".
+  // Week-of-term — 1-indexed number of Monday-weeks from term start to today,
+  // clamped to [1, 13].
   const now = new Date();
-  const termStart = parseIso(term.startDate);
-  const daysSinceStart = Math.max(
-    0,
-    Math.floor((now.getTime() - termStart.getTime()) / 86400000),
-  );
+  const daysSinceStart = Math.max(0, Math.floor((now.getTime() - termStart.getTime()) / 86400000));
   const weekOfTerm = Math.min(13, Math.floor(daysSinceStart / 7) + 1);
 
   return (
-    <div className="rounded-xl border border-hairline bg-card shadow-sm ring-1 ring-inset ring-hairline" title={monthLabel}>
-      {/* Eyebrow meta-strip — term label + week-of-term on the left, classified-count on the right. */}
+    <div className="rounded-xl border border-hairline bg-card shadow-sm ring-1 ring-inset ring-hairline">
+      {/* Eyebrow meta-strip — term label + week-of-term left, classified-count right. */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline bg-muted/30 px-6 py-3 shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.4)]">
         <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {term.label}
@@ -640,39 +660,121 @@ function MonthView({
           <span className="tabular-nums">{totalSchoolDays}</span> days classified
         </p>
       </div>
-      {/* Calendar grid */}
+
+      {/* Month caption + nav */}
+      <div className="flex items-end justify-between gap-3 border-b border-hairline px-6 pb-3 pt-5">
+        <h2 className="font-serif text-[30px] font-semibold leading-none tracking-tight text-foreground">
+          {monthLabel}
+        </h2>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={goPrev}
+            disabled={!canPrev}
+            aria-label="Previous month"
+            className="flex size-8 items-center justify-center rounded-md border border-hairline bg-background text-ink-3 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-40">
+            <ChevronLeft className="size-4" />
+          </button>
+          <button
+            type="button"
+            onClick={goToday}
+            className="h-8 rounded-md border border-hairline bg-background px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-3 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:bg-muted/40">
+            Today
+          </button>
+          <button
+            type="button"
+            onClick={goNext}
+            disabled={!canNext}
+            aria-label="Next month"
+            className="flex size-8 items-center justify-center rounded-md border border-hairline bg-background text-ink-3 shadow-[inset_0_1px_2px_rgba(15,23,42,0.04)] transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-40">
+            <ChevronRight className="size-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Calendar grid (Mon–Fri) */}
       <div className="p-6 md:p-8">
-        {multiSelect ? (
-          <Calendar
-            {...sharedCalendarProps}
-            mode="multiple"
-            selected={selectedDates}
-            onSelect={(next) => onSelectDates(next ?? [])}
-          />
-        ) : (
-          <Calendar
-            {...sharedCalendarProps}
-            mode="single"
-            onDayClick={(day, modifiers) => {
-              if (modifiers.disabled) return;
-              onDayClick(formatIso(day));
-            }}
-          />
-        )}
+        {/* Weekday header band */}
+        <div className="mb-2 grid grid-cols-5 gap-1">
+          {["Mon", "Tue", "Wed", "Thu", "Fri"].map((d) => (
+            <div
+              key={d}
+              className="rounded-md bg-muted/40 px-2 py-2 text-center font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5)]">
+              {d}
+            </div>
+          ))}
+        </div>
+
+        {/* Day grid */}
+        <div className="space-y-1">
+          {rows.map((row, rowIdx) => (
+            <div key={rowIdx} className="grid grid-cols-5 gap-1">
+              {row.map((cell, i) => {
+                if (!cell) {
+                  return <div key={i} className="aspect-square" />;
+                }
+                const isSelected = selectedIsoSet.has(cell.iso);
+                const tintClass = cell.dayType
+                  ? DAY_TYPE_STYLES[cell.dayType].cell
+                  : "bg-background text-ink shadow-[inset_0_0_0_1px_var(--av-hairline)] hover:bg-muted/30";
+                const todayClass = cell.isToday ? "shadow-[inset_0_0_0_2px_var(--av-indigo)]" : "";
+                const selectedClass = isSelected
+                  ? "scale-[0.98] ring-2 ring-brand-indigo/40 ring-offset-1 ring-offset-card"
+                  : "";
+                const shortLabel = cell.dayType ? DAY_TYPE_SHORT_LABEL[cell.dayType] : null;
+
+                return (
+                  <button
+                    key={cell.iso}
+                    type="button"
+                    disabled={!cell.inTermRange}
+                    onClick={() => {
+                      if (!cell.inTermRange) return;
+                      if (multiSelect) toggleSelection(cell.iso, cell.date);
+                      else onDayClick(cell.iso);
+                    }}
+                    className={[
+                      "relative flex aspect-square flex-col items-start justify-between gap-1 rounded-lg p-3 text-left transition-all",
+                      tintClass,
+                      todayClass,
+                      selectedClass,
+                      cell.inTermRange
+                        ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-md"
+                        : "cursor-not-allowed opacity-50",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    title={formatHumanDate(cell.iso)}>
+                    <span className="font-serif text-[22px] font-semibold leading-none tabular-nums">
+                      {cell.date.getDate()}
+                    </span>
+                    {cell.isEvent && (
+                      <span aria-hidden className="absolute right-2 top-2 size-1.5 rounded-full bg-primary" />
+                    )}
+                    {shortLabel && cell.dayType && (
+                      <span
+                        className={`inline-flex self-stretch justify-center rounded-md px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase leading-none tracking-[0.14em] ${DAY_TYPE_STYLES[cell.dayType].chip}`}>
+                        {shortLabel}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
-// Group every day within [termStart, termEnd] into rows keyed by Monday-
-// starting week number. Weekends are INCLUDED so each row is a full 7-day
-// strip (weekends render as disabled cells). Day objects carry their ISO
-// date + classified day-type (or null for pre-weekend cells).
+// Group every weekday within [termStart, termEnd] into rows keyed by
+// Monday-starting week number. Each row is a 5-day Mon–Fri strip — weekends
+// are excluded entirely (they're not school days).
 type StripDay = {
   iso: string;
   date: Date;
   dayType: DayType | null;
-  isWeekend: boolean;
   isEvent: boolean;
   isToday: boolean;
   isFirstOfMonth: boolean;
@@ -688,7 +790,7 @@ function buildStripWeeks(
   const start = parseIso(termStartIso);
   const end = parseIso(termEndIso);
 
-  // Align to the Monday of the first week.
+  // Align to the Monday of the week containing term start.
   const firstMonday = new Date(start);
   const startDow = start.getDay(); // 0 = Sun, 1 = Mon, ... 6 = Sat
   const shift = startDow === 0 ? -6 : 1 - startDow; // Mon → 0, Tue → -1, Sun → -6
@@ -696,33 +798,33 @@ function buildStripWeeks(
 
   const weeks: StripWeek[] = [];
   const todayIso = formatIso(new Date());
-  const cursor = new Date(firstMonday);
+  const weekStart = new Date(firstMonday);
   let weekNumber = 1;
 
-  while (cursor.getTime() <= end.getTime()) {
+  while (weekStart.getTime() <= end.getTime()) {
     const days: (StripDay | null)[] = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(cursor);
+    for (let i = 0; i < 5; i++) {
+      // Mon..Fri only
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
       const iso = formatIso(d);
       const inRange = d.getTime() >= start.getTime() && d.getTime() <= end.getTime();
       if (!inRange) {
         days.push(null);
       } else {
-        const dow = d.getDay();
         days.push({
           iso,
           date: new Date(d),
           dayType: dayTypeByIso.get(iso) ?? null,
-          isWeekend: dow === 0 || dow === 6,
           isEvent: eventIsos.has(iso),
           isToday: iso === todayIso,
           isFirstOfMonth: d.getDate() === 1,
         });
       }
-      cursor.setDate(cursor.getDate() + 1);
     }
     weeks.push({ weekNumber, days });
     weekNumber++;
+    weekStart.setDate(weekStart.getDate() + 7);
   }
   return weeks;
 }
@@ -763,10 +865,7 @@ function TermStripView({
     [term.startDate, term.endDate, dayTypeByIso, eventIsoSet],
   );
 
-  const selectedIsoSet = useMemo(
-    () => new Set(selectedDates.map(formatIso)),
-    [selectedDates],
-  );
+  const selectedIsoSet = useMemo(() => new Set(selectedDates.map(formatIso)), [selectedDates]);
 
   function toggleSelection(iso: string, d: Date) {
     if (selectedIsoSet.has(iso)) {
@@ -799,14 +898,13 @@ function TermStripView({
             </span>
           </h3>
         </div>
-        {/* Weekday header */}
-        <div className="mb-1 grid grid-cols-[56px_repeat(7,1fr)] gap-1">
+        {/* Weekday header (Mon–Fri only) */}
+        <div className="mb-1 grid grid-cols-[56px_repeat(5,1fr)] gap-1">
           <div />
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+          {["Mon", "Tue", "Wed", "Thu", "Fri"].map((d) => (
             <div
               key={d}
-              className="rounded-md bg-muted/40 px-2 py-1.5 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5)]"
-            >
+              className="rounded-md bg-muted/40 px-2 py-1.5 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5)]">
               {d}
             </div>
           ))}
@@ -814,10 +912,7 @@ function TermStripView({
         {/* Weeks */}
         <div className="space-y-1">
           {weeks.map((wk) => (
-            <div
-              key={wk.weekNumber}
-              className="grid grid-cols-[56px_repeat(7,1fr)] gap-1"
-            >
+            <div key={wk.weekNumber} className="grid grid-cols-[56px_repeat(5,1fr)] gap-1">
               <div className="flex items-center justify-center rounded-md bg-muted/40 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-3">
                 W{wk.weekNumber}
               </div>
@@ -825,49 +920,38 @@ function TermStripView({
                 if (!d) {
                   return <div key={idx} className="aspect-[1.2/1] opacity-0" />;
                 }
-                const tintClass = d.isWeekend
-                  ? "bg-background text-hairline-strong shadow-[inset_0_0_0_1px_var(--av-hairline)]"
-                  : d.dayType
-                    ? DAY_TYPE_STYLES[d.dayType].cell
-                    : "bg-background shadow-[inset_0_0_0_1px_var(--av-hairline)]";
+                const tintClass = d.dayType
+                  ? DAY_TYPE_STYLES[d.dayType].cell
+                  : "bg-background shadow-[inset_0_0_0_1px_var(--av-hairline)]";
                 const isSelected = selectedIsoSet.has(d.iso);
-                const todayClass = d.isToday
-                  ? "shadow-[inset_0_0_0_2px_var(--av-indigo)]"
-                  : "";
+                const todayClass = d.isToday ? "shadow-[inset_0_0_0_2px_var(--av-indigo)]" : "";
                 const selectedClass = isSelected
                   ? "scale-[0.98] ring-2 ring-brand-indigo/40 ring-offset-1 ring-offset-card"
                   : "";
-                const firstOfMonthClass = d.isFirstOfMonth
-                  ? "mt-2 border-t border-hairline/40 pt-2"
-                  : "";
-                const clickable = !d.isWeekend;
 
                 return (
                   <button
                     key={d.iso}
                     type="button"
-                    disabled={!clickable}
                     onClick={() => {
-                      if (!clickable) return;
                       if (multiSelect) toggleSelection(d.iso, d.date);
                       else onDayClick(d.iso);
                     }}
                     className={[
-                      "relative aspect-[1.2/1] rounded-md p-1 text-left font-serif text-[13px] font-semibold tabular-nums leading-none transition-all",
+                      "relative aspect-[1.2/1] cursor-pointer rounded-md p-1 text-left font-serif text-[13px] font-semibold tabular-nums leading-none transition-all hover:-translate-y-0.5 hover:shadow-md",
                       tintClass,
                       todayClass,
                       selectedClass,
-                      firstOfMonthClass,
-                      clickable && "hover:-translate-y-0.5 hover:shadow-md cursor-pointer",
-                      !clickable && "cursor-not-allowed",
                     ]
                       .filter(Boolean)
                       .join(" ")}
-                    title={formatHumanDate(d.iso)}
-                  >
+                    title={formatHumanDate(d.iso)}>
                     <span>{d.date.getDate()}</span>
                     {d.isEvent && (
-                      <span className="absolute bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full bg-primary" />
+                      <span
+                        aria-hidden
+                        className="absolute bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full bg-primary"
+                      />
                     )}
                   </button>
                 );
