@@ -562,6 +562,12 @@ async function loadChangeRequestRowsUncached(ayCode: string): Promise<ChangeRequ
 
 // ── Cache wrappers ──────────────────────────────────────────────────────────
 
+// AY-scoped caches; scope/range/teacher filtering applied post-cache by
+// callers. We deliberately do NOT include scope/from/to/allowedSectionIds
+// in the cache key — they would fragment the cache without saving any DB
+// work (the underlying tables are the same regardless of date scope).
+// See lib/admissions/drill.ts::buildDrillRows for the same rationale.
+
 async function loadEntryRows(ayCode: string): Promise<GradeEntryRow[]> {
   return unstable_cache(
     () => loadEntryRowsUncached(ayCode),

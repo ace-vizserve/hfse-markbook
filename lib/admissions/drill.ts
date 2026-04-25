@@ -278,6 +278,11 @@ function applyScopeFilter(rows: DrillRow[], input: DrillRangeInput): DrillRow[] 
 }
 
 export async function buildDrillRows(input: DrillRangeInput): Promise<DrillRow[]> {
+  // Cache the AY-wide row set once per AY; apply scope (range / ay / all)
+  // post-cache. Cheap because applyScopeFilter is a single .filter() over
+  // the cached array. We deliberately do NOT include scope/from/to in the
+  // cache key — they would fragment the cache without saving any DB work
+  // (the underlying tables are the same regardless of date scope).
   const cached = await unstable_cache(
     () => loadDrillRowsUncached({ ayCode: input.ayCode, scope: 'all' }),
     ['admissions-drill', 'rows', input.ayCode],
