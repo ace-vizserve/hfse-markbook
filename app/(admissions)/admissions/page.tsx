@@ -115,12 +115,19 @@ export default async function AdmissionsDashboard({ searchParams }: { searchPara
     getTimeToEnrollHistogram(selectedAy),
     getApplicationsByLevelRange(rangeInput),
     getDocumentCompletionByLevel(selectedAy),
-    buildDrillRows({
-      ayCode: selectedAy,
-      scope: "range",
-      from: rangeInput.from,
-      to: rangeInput.to,
-    }),
+    // withDocs:true here because the page-level pre-fetch seeds initialRows
+    // for drills that render doc-completeness (applications, enrolled,
+    // outdated, doc-completion, applications-by-level). Cheap at admissions
+    // scale (~400 applicants).
+    buildDrillRows(
+      {
+        ayCode: selectedAy,
+        scope: "range",
+        from: rangeInput.from,
+        to: rangeInput.to,
+      },
+      { withDocs: true },
+    ),
   ]);
 
   const comparisonLabel = `vs ${formatRangeLabel({ from: rangeInput.cmpFrom, to: rangeInput.cmpTo })}`;

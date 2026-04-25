@@ -124,14 +124,17 @@ const CORE_DOC_STATUS_COLUMNS = [
 type DocRow = Record<(typeof CORE_DOC_STATUS_COLUMNS)[number] | 'enroleeNumber', string | null>;
 
 async function loadDrillRowsUncached(input: DrillRangeInput): Promise<DrillRow[]> {
+  // Core rows fetch — no docs. Doc enrichment is layered on top via
+  // `enrichWithDocs` for the targets that need it. Of 12 drill targets, only
+  // 5 surface doc fields (applications, enrolled, outdated, doc-completion,
+  // applications-by-level), so we skip the docs query for the rest.
   const prefix = prefixFor(input.ayCode);
   const appsTable = `${prefix}_enrolment_applications`;
   const statusTable = `${prefix}_enrolment_status`;
-  const docsTable = `${prefix}_enrolment_documents`;
 
   const supabase = createAdmissionsClient();
 
-  const [appsRes, statusRes, docsRes] = await Promise.all([
+  const [appsRes, statusRes] = await Promise.all([
     supabase
       .from(appsTable)
       .select(
@@ -142,11 +145,6 @@ async function loadDrillRowsUncached(input: DrillRangeInput): Promise<DrillRow[]
       .select(
         'enroleeNumber, applicationStatus, applicationUpdatedDate, classLevel, levelApplied, assessmentGradeMath, assessmentGradeEnglish',
       ),
-    supabase
-      .from(docsTable)
-      .select(
-        `enroleeNumber, ${CORE_DOC_STATUS_COLUMNS.join(', ')}`,
-      ),
   ]);
 
   if (appsRes.error) {
@@ -156,10 +154,6 @@ async function loadDrillRowsUncached(input: DrillRangeInput): Promise<DrillRow[]
   if (statusRes.error) {
     console.error('[admissions-drill] status fetch failed:', statusRes.error.message);
     return [];
-  }
-  if (docsRes.error) {
-    // Docs failure is non-fatal — we still return rows with documentsComplete=0.
-    console.warn('[admissions-drill] docs fetch failed (non-fatal):', docsRes.error.message);
   }
 
   type AppLite = {
@@ -184,25 +178,20 @@ async function loadDrillRowsUncached(input: DrillRangeInput): Promise<DrillRow[]
 
   const apps = (appsRes.data ?? []) as AppLite[];
   const statuses = (statusRes.data ?? []) as StatusLite[];
-  const docs = ((docsRes.data ?? []) as unknown as DocRow[]);
 
   const statusByEnrolee = new Map<string, StatusLite>();
   for (const s of statuses) {
     if (s.enroleeNumber) statusByEnrolee.set(s.enroleeNumber, s);
   }
-  const docsByEnrolee = new Map<string, DocRow>();
-  for (const d of docs) {
-    if (d.enroleeNumber) docsByEnrolee.set(d.enroleeNumber, d);
-  }
 
   const today = Date.now();
   const ENROLLED_STATUSES = new Set(['Enrolled', 'Enrolled (Conditional)']);
+  const documentsTotal = CORE_DOC_STATUS_COLUMNS.length;
 
   const out: DrillRow[] = [];
   for (const a of apps) {
     if (!a.enroleeNumber) continue;
     const s = statusByEnrolee.get(a.enroleeNumber);
-    const d = docsByEnrolee.get(a.enroleeNumber);
 
     const status = (s?.applicationStatus ?? '').trim();
     const updated = s?.applicationUpdatedDate ?? a.created_at ?? null;
@@ -223,17 +212,6 @@ async function loadDrillRowsUncached(input: DrillRangeInput): Promise<DrillRow[]
     const daysInPipeline = !Number.isNaN(createdMs)
       ? Math.floor((today - createdMs) / 86_400_000)
       : 0;
-
-    let documentsComplete = 0;
-    const documentsTotal = CORE_DOC_STATUS_COLUMNS.length;
-    if (d) {
-      for (const col of CORE_DOC_STATUS_COLUMNS) {
-        const v = d[col];
-        if (v && String(v).trim() !== '' && String(v).toLowerCase() !== 'missing') {
-          documentsComplete += 1;
-        }
-      }
-    }
 
     out.push({
       enroleeNumber: a.enroleeNumber,
@@ -257,12 +235,53 @@ async function loadDrillRowsUncached(input: DrillRangeInput): Promise<DrillRow[]
       daysToEnroll,
       daysSinceUpdate,
       daysInPipeline,
-      hasMissingDocs: documentsComplete < documentsTotal,
-      documentsComplete,
+      // Doc fields default to all-missing; enrichWithDocs() upgrades them
+      // for callers that need doc data.
+      hasMissingDocs: true,
+      documentsComplete: 0,
       documentsTotal,
     });
   }
   return out;
+}
+
+/**
+ * Layers doc-completeness fields onto rows fetched by
+ * loadDrillRowsUncached. Called only by callers that need the doc fields
+ * (5 of 12 drill targets); other callers use the cheaper bare row set.
+ */
+async function enrichWithDocs(rows: DrillRow[], ayCode: string): Promise<DrillRow[]> {
+  if (rows.length === 0) return rows;
+  const prefix = prefixFor(ayCode);
+  const docsTable = `${prefix}_enrolment_documents`;
+  const supabase = createAdmissionsClient();
+  const { data, error } = await supabase
+    .from(docsTable)
+    .select(`enroleeNumber, ${CORE_DOC_STATUS_COLUMNS.join(', ')}`);
+  if (error) {
+    console.warn('[admissions-drill] docs fetch failed (non-fatal):', error.message);
+    return rows;
+  }
+  const docsByEnrolee = new Map<string, DocRow>();
+  for (const d of (data ?? []) as unknown as DocRow[]) {
+    if (d.enroleeNumber) docsByEnrolee.set(d.enroleeNumber, d);
+  }
+  return rows.map((r) => {
+    const d = docsByEnrolee.get(r.enroleeNumber);
+    if (!d) return r;
+    let documentsComplete = 0;
+    for (const col of CORE_DOC_STATUS_COLUMNS) {
+      const v = d[col];
+      if (v && String(v).trim() !== '' && String(v).toLowerCase() !== 'missing') {
+        documentsComplete += 1;
+      }
+    }
+    return {
+      ...r,
+      documentsComplete,
+      hasMissingDocs: documentsComplete < r.documentsTotal,
+    };
+  });
 }
 
 function applyScopeFilter(rows: DrillRow[], input: DrillRangeInput): DrillRow[] {
@@ -277,18 +296,27 @@ function applyScopeFilter(rows: DrillRow[], input: DrillRangeInput): DrillRow[] 
   });
 }
 
-export async function buildDrillRows(input: DrillRangeInput): Promise<DrillRow[]> {
+export async function buildDrillRows(
+  input: DrillRangeInput,
+  options?: { withDocs?: boolean },
+): Promise<DrillRow[]> {
   // Cache the AY-wide row set once per AY; apply scope (range / ay / all)
   // post-cache. Cheap because applyScopeFilter is a single .filter() over
   // the cached array. We deliberately do NOT include scope/from/to in the
   // cache key — they would fragment the cache without saving any DB work
   // (the underlying tables are the same regardless of date scope).
+  //
+  // The cached row set has placeholder doc fields. Callers that need
+  // doc-completeness data pass `withDocs: true` and get the docs table
+  // queried + layered on. The 7 of 12 targets that don't surface doc
+  // fields skip that query entirely.
   const cached = await unstable_cache(
     () => loadDrillRowsUncached({ ayCode: input.ayCode, scope: 'all' }),
     ['admissions-drill', 'rows', input.ayCode],
     { revalidate: CACHE_TTL_SECONDS, tags: tags(input.ayCode) },
   )();
-  return applyScopeFilter(cached, input);
+  const scoped = applyScopeFilter(cached, input);
+  return options?.withDocs ? enrichWithDocs(scoped, input.ayCode) : scoped;
 }
 
 // ---------------------------------------------------------------------------
