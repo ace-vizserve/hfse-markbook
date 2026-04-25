@@ -404,23 +404,23 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
 
   // Apply status + level filters before passing to DrillDownSheet.
   const preFiltered = React.useMemo(() => {
-    let out = rows;
-    if (selectedStatuses.length > 0) {
-      const set = new Set(selectedStatuses);
-      out = out.filter((r) => {
-        if (kind === 'entry') return set.has((r as GradeEntryRow).isLocked ? 'Locked' : 'Open');
-        if (kind === 'sheet') return set.has((r as SheetRow).isLocked ? 'Locked' : 'Open');
-        return set.has((r as ChangeRequestRow).status);
-      });
-    }
-    if (selectedLevels.length > 0 && kind !== 'change-request') {
-      const set = new Set(selectedLevels);
-      out = out.filter((r) => {
+    if (selectedStatuses.length === 0 && selectedLevels.length === 0) return rows;
+    const statusSet = new Set(selectedStatuses);
+    const levelSet = new Set(selectedLevels);
+    return rows.filter((r) => {
+      if (selectedStatuses.length > 0) {
+        let status: string;
+        if (kind === 'entry') status = (r as GradeEntryRow).isLocked ? 'Locked' : 'Open';
+        else if (kind === 'sheet') status = (r as SheetRow).isLocked ? 'Locked' : 'Open';
+        else status = (r as ChangeRequestRow).status;
+        if (!statusSet.has(status)) return false;
+      }
+      if (selectedLevels.length > 0 && kind !== 'change-request') {
         const lvl = (kind === 'entry' ? (r as GradeEntryRow).level : (r as SheetRow).level) ?? 'Unknown';
-        return set.has(lvl);
-      });
-    }
-    return out;
+        if (!levelSet.has(lvl)) return false;
+      }
+      return true;
+    });
   }, [rows, selectedStatuses, selectedLevels, kind]);
 
   // Build columns based on row kind.

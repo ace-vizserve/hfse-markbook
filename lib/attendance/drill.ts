@@ -456,10 +456,15 @@ function rollupBySection(entries: AttendanceEntryRow[]): SectionAttendanceRow[] 
   return rows;
 }
 
-async function rollupCompassionate(ayCode: string): Promise<CompassionateUsageRow[]> {
+async function rollupCompassionate(
+  ayCode: string,
+  preloadedEntries?: AttendanceEntryRow[],
+): Promise<CompassionateUsageRow[]> {
   const ctx = await resolveAyContext(ayCode);
   if (!ctx.ayId || ctx.sectionStudents.length === 0) return [];
-  const entries = await loadEntryRows(ayCode);
+  // When buildAllRowSets has already loaded entries, reuse them rather than
+  // hitting the cache + re-iterating ~180k rows for a second roll-up.
+  const entries = preloadedEntries ?? (await loadEntryRows(ayCode));
   const usage = new Map<string, number>();
   for (const e of entries) {
     if (e.status === 'EX' && e.exReason === 'compassionate') {
@@ -557,11 +562,13 @@ export async function buildAllRowSets(input: {
   // do NOT return them — at 1000 students × 180 school days that's 180k
   // rows we'd ship through the RSC payload for nothing. Drill sheets that
   // need raw entries lazy-fetch via /api/attendance/drill/{target}.
-  const [entriesAll, calendarAll, compassionate] = await Promise.all([
+  const [entriesAll, calendarAll] = await Promise.all([
     loadEntryRows(input.ayCode),
     loadCalendarRows(input.ayCode),
-    rollupCompassionate(input.ayCode),
   ]);
+  // Pass entriesAll into rollupCompassionate so it doesn't redundantly hit
+  // loadEntryRows + re-iterate 180k rows for the same roll-up.
+  const compassionate = await rollupCompassionate(input.ayCode, entriesAll);
   const entries = applyScopeFilter(entriesAll, input);
   const calendar = applyScopeFilter(calendarAll, input);
   return {

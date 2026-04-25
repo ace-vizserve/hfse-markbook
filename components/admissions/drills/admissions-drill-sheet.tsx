@@ -555,16 +555,14 @@ export function AdmissionsDrillSheet({
   // we apply the slower client filters here so they reduce the dataset
   // *before* the table builds its row model.
   const preFiltered = React.useMemo<DrillRow[]>(() => {
-    let out = rows;
-    if (selectedStatuses.length > 0) {
-      const allow = new Set(selectedStatuses);
-      out = out.filter((r) => allow.has(r.status));
-    }
-    if (selectedLevels.length > 0) {
-      const allow = new Set(selectedLevels);
-      out = out.filter((r) => allow.has(r.level ?? 'Unknown'));
-    }
-    return out;
+    if (selectedStatuses.length === 0 && selectedLevels.length === 0) return rows;
+    const statusSet = new Set(selectedStatuses);
+    const levelSet = new Set(selectedLevels);
+    return rows.filter((r) => {
+      if (selectedStatuses.length > 0 && !statusSet.has(r.status)) return false;
+      if (selectedLevels.length > 0 && !levelSet.has(r.level ?? 'Unknown')) return false;
+      return true;
+    });
   }, [rows, selectedStatuses, selectedLevels]);
 
   // ── Filter options derived from the *fetched* row set ────────────────────

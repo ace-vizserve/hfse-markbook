@@ -403,22 +403,35 @@ async function loadSheetRowsUncached(ayCode: string): Promise<SheetRow[]> {
   const termById = new Map<string, TermLite>();
   for (const t of ctx.terms) termById.set(t.id, t);
 
-  const [{ data: sheetsData }, { data: pubsData }, { data: ssRollupData }, { data: entriesRollupData }] =
-    await Promise.all([
-      service
-        .from('grading_sheets')
-        .select('id, term_id, section_id, subject_id, is_locked, locked_at, teacher_name')
-        .in('term_id', ctx.termIds),
-      service
-        .from('report_card_publications')
-        .select('section_id, term_id, publish_from'),
-      service
-        .from('section_students')
-        .select('section_id, enrollment_status'),
-      service
-        .from('grade_entries')
-        .select('grading_sheet_id'),
-    ]);
+  // Fetch sheets first so we can scope the entries + publications queries
+  // by term/sheet IDs — avoids unbounded scans across all AYs' data.
+  const sectionIds = ctx.sections.map((s) => s.id);
+  const { data: sheetsData } = await service
+    .from('grading_sheets')
+    .select('id, term_id, section_id, subject_id, is_locked, locked_at, teacher_name')
+    .in('term_id', ctx.termIds);
+  const sheetIdsForRollup = (sheetsData ?? []).map((s) => (s as { id: string }).id);
+
+  const [{ data: pubsData }, { data: ssRollupData }, { data: entriesRollupData }] = await Promise.all([
+    sectionIds.length > 0
+      ? service
+          .from('report_card_publications')
+          .select('section_id, term_id, publish_from')
+          .in('term_id', ctx.termIds)
+      : Promise.resolve({ data: [] }),
+    sectionIds.length > 0
+      ? service
+          .from('section_students')
+          .select('section_id, enrollment_status')
+          .in('section_id', sectionIds)
+      : Promise.resolve({ data: [] }),
+    sheetIdsForRollup.length > 0
+      ? service
+          .from('grade_entries')
+          .select('grading_sheet_id')
+          .in('grading_sheet_id', sheetIdsForRollup)
+      : Promise.resolve({ data: [] }),
+  ]);
 
   type SheetLite = {
     id: string;
