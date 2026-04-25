@@ -15,11 +15,12 @@ import {
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { ComparisonBarChart } from "@/components/dashboard/charts/comparison-bar-chart";
 import { ComparisonToolbar } from "@/components/dashboard/comparison-toolbar";
 import { DashboardHero } from "@/components/dashboard/dashboard-hero";
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
 import { MetricCard } from "@/components/dashboard/metric-card";
+import { ActivityByActorCard } from "@/components/sis/activity-by-actor-card";
+import { AuditByModuleDrillCard } from "@/components/sis/drills/audit-by-module-drill-card";
 import { SystemHealthStrip } from "@/components/sis/system-health-strip";
 import {
   Card,
@@ -36,7 +37,7 @@ import type { Role } from "@/lib/auth/roles";
 import { sisInsights } from "@/lib/dashboard/insights";
 import { formatRangeLabel, resolveRange, type DashboardSearchParams } from "@/lib/dashboard/range";
 import { getDashboardWindows } from "@/lib/dashboard/windows";
-import { getAuditActivityByModule } from "@/lib/sis/dashboard";
+import { getActivityByActor, getAuditActivityByModule } from "@/lib/sis/dashboard";
 import { getSystemHealth } from "@/lib/sis/health";
 import { getSessionUser } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -66,12 +67,18 @@ export default async function SisAdminHub({ searchParams }: { searchParams: Prom
   const rangeInput = ayCode ? resolveRange(resolvedSearch, windows, ayCode) : null;
   // Audit-activity query can be slow on large audit_log tables; guard so a
   // transient DB error never tanks the admin hub.
-  const auditResult = rangeInput
-    ? await getAuditActivityByModule(rangeInput).catch((err) => {
-        console.error("[sis] getAuditActivityByModule failed:", err);
-        return null;
-      })
-    : null;
+  const [auditResult, actorActivity] = rangeInput
+    ? await Promise.all([
+        getAuditActivityByModule(rangeInput).catch((err) => {
+          console.error("[sis] getAuditActivityByModule failed:", err);
+          return null;
+        }),
+        getActivityByActor({ from: rangeInput.from, to: rangeInput.to }).catch((err) => {
+          console.error("[sis] getActivityByActor failed:", err);
+          return [];
+        }),
+      ])
+    : [null, []];
   const comparisonLabel = rangeInput
     ? `vs ${formatRangeLabel({ from: rangeInput.cmpFrom, to: rangeInput.cmpTo })}`
     : "";
@@ -164,17 +171,18 @@ export default async function SisAdminHub({ searchParams }: { searchParams: Prom
             />
           </section>
 
-          <Card>
-            <CardHeader>
-              <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-                Audit activity by module
-              </CardDescription>
-              <CardTitle className="font-serif text-xl">Where the system is most active</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ComparisonBarChart data={chartData} orientation="horizontal" height={300} />
-            </CardContent>
-          </Card>
+          <section className="grid gap-4 lg:grid-cols-2">
+            <AuditByModuleDrillCard
+              data={chartData}
+              rangeFrom={rangeInput.from}
+              rangeTo={rangeInput.to}
+            />
+            <ActivityByActorCard
+              data={actorActivity}
+              rangeFrom={rangeInput.from}
+              rangeTo={rangeInput.to}
+            />
+          </section>
         </>
       )}
 

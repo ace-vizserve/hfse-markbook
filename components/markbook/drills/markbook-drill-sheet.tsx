@@ -10,6 +10,7 @@ import {
   type DrillDownDensity,
   type DrillDownGroupBy,
 } from '@/components/dashboard/drill-down-sheet';
+import { DrillSheetSkeleton } from '@/components/dashboard/drill-sheet-skeleton';
 import { Badge } from '@/components/ui/badge';
 import {
   allColumnsForKind,
@@ -335,6 +336,7 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
 
   const [scope, setScope] = React.useState<DrillScope>(initialScope);
   const [rows, setRows] = React.useState<MarkbookDrillRow[]>(seedRows);
+  const [loading, setLoading] = React.useState(seedRows.length === 0);
   const [globalFilter, _setGlobalFilter] = React.useState('');
   void _setGlobalFilter;
   const [selectedStatuses, setSelectedStatuses] = React.useState<string[]>([]);
@@ -353,6 +355,7 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
       return;
     }
     let cancelled = false;
+    setLoading(true);
     const params = new URLSearchParams({ ay: ayCode, scope });
     if (initialFrom) params.set('from', initialFrom);
     if (initialTo) params.set('to', initialTo);
@@ -367,6 +370,9 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
       })
       .catch(() => {
         if (!cancelled) toast.error('Failed to load drill data');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
@@ -398,23 +404,23 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
 
   // Apply status + level filters before passing to DrillDownSheet.
   const preFiltered = React.useMemo(() => {
-    let out = rows;
-    if (selectedStatuses.length > 0) {
-      const set = new Set(selectedStatuses);
-      out = out.filter((r) => {
-        if (kind === 'entry') return set.has((r as GradeEntryRow).isLocked ? 'Locked' : 'Open');
-        if (kind === 'sheet') return set.has((r as SheetRow).isLocked ? 'Locked' : 'Open');
-        return set.has((r as ChangeRequestRow).status);
-      });
-    }
-    if (selectedLevels.length > 0 && kind !== 'change-request') {
-      const set = new Set(selectedLevels);
-      out = out.filter((r) => {
+    if (selectedStatuses.length === 0 && selectedLevels.length === 0) return rows;
+    const statusSet = new Set(selectedStatuses);
+    const levelSet = new Set(selectedLevels);
+    return rows.filter((r) => {
+      if (selectedStatuses.length > 0) {
+        let status: string;
+        if (kind === 'entry') status = (r as GradeEntryRow).isLocked ? 'Locked' : 'Open';
+        else if (kind === 'sheet') status = (r as SheetRow).isLocked ? 'Locked' : 'Open';
+        else status = (r as ChangeRequestRow).status;
+        if (!statusSet.has(status)) return false;
+      }
+      if (selectedLevels.length > 0 && kind !== 'change-request') {
         const lvl = (kind === 'entry' ? (r as GradeEntryRow).level : (r as SheetRow).level) ?? 'Unknown';
-        return set.has(lvl);
-      });
-    }
-    return out;
+        if (!levelSet.has(lvl)) return false;
+      }
+      return true;
+    });
   }, [rows, selectedStatuses, selectedLevels, kind]);
 
   // Build columns based on row kind.
@@ -457,6 +463,10 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
   );
 
   const header = drillHeaderForTarget(target, segment ?? null);
+
+  if (loading && rows.length === 0) {
+    return <DrillSheetSkeleton title={header.title} />;
+  }
 
   const csvParams = new URLSearchParams({ ay: ayCode, scope, format: 'csv' });
   if (initialFrom) csvParams.set('from', initialFrom);

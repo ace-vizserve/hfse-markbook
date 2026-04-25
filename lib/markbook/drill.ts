@@ -1,5 +1,6 @@
 import { unstable_cache } from 'next/cache';
 
+import { getTeacherEmailMap } from '@/lib/auth/teacher-emails';
 import { createServiceClient } from '@/lib/supabase/service';
 
 // Markbook drill-down primitives — sibling of `lib/admissions/drill.ts`.
@@ -292,22 +293,7 @@ async function loadEntryRowsUncached(ayCode: string): Promise<GradeEntryRow[]> {
     if (!teacherBySectionSubject.has(k)) teacherBySectionSubject.set(k, a.teacher_user_id);
   }
 
-  // Resolve teacher emails for all teacher user IDs we'll reference. Service
-  // role can hit auth.admin for this; we batch via a single listUsers call.
-  // Pragmatic shortcut: pull all teachers via auth.admin.listUsers if cheap;
-  // otherwise leave email null (the dashboard tolerates).
-  let teacherEmailById = new Map<string, string>();
-  try {
-    const { data: userList } = await service.auth.admin.listUsers({ perPage: 1000 });
-    if (userList?.users) {
-      for (const u of userList.users) {
-        if (u.email) teacherEmailById.set(u.id, u.email);
-      }
-    }
-  } catch {
-    // Auth admin call optional; fall back to null emails.
-    teacherEmailById = new Map();
-  }
+  const teacherEmailById = new Map<string, string>(await getTeacherEmailMap());
 
   // Entries — split into chunks to avoid PostgREST URL length limits.
   type EntryLite = {
@@ -417,22 +403,35 @@ async function loadSheetRowsUncached(ayCode: string): Promise<SheetRow[]> {
   const termById = new Map<string, TermLite>();
   for (const t of ctx.terms) termById.set(t.id, t);
 
-  const [{ data: sheetsData }, { data: pubsData }, { data: ssRollupData }, { data: entriesRollupData }] =
-    await Promise.all([
-      service
-        .from('grading_sheets')
-        .select('id, term_id, section_id, subject_id, is_locked, locked_at, teacher_name')
-        .in('term_id', ctx.termIds),
-      service
-        .from('report_card_publications')
-        .select('section_id, term_id, publish_from'),
-      service
-        .from('section_students')
-        .select('section_id, enrollment_status'),
-      service
-        .from('grade_entries')
-        .select('grading_sheet_id'),
-    ]);
+  // Fetch sheets first so we can scope the entries + publications queries
+  // by term/sheet IDs — avoids unbounded scans across all AYs' data.
+  const sectionIds = ctx.sections.map((s) => s.id);
+  const { data: sheetsData } = await service
+    .from('grading_sheets')
+    .select('id, term_id, section_id, subject_id, is_locked, locked_at, teacher_name')
+    .in('term_id', ctx.termIds);
+  const sheetIdsForRollup = (sheetsData ?? []).map((s) => (s as { id: string }).id);
+
+  const [{ data: pubsData }, { data: ssRollupData }, { data: entriesRollupData }] = await Promise.all([
+    sectionIds.length > 0
+      ? service
+          .from('report_card_publications')
+          .select('section_id, term_id, publish_from')
+          .in('term_id', ctx.termIds)
+      : Promise.resolve({ data: [] }),
+    sectionIds.length > 0
+      ? service
+          .from('section_students')
+          .select('section_id, enrollment_status')
+          .in('section_id', sectionIds)
+      : Promise.resolve({ data: [] }),
+    sheetIdsForRollup.length > 0
+      ? service
+          .from('grade_entries')
+          .select('grading_sheet_id')
+          .in('grading_sheet_id', sheetIdsForRollup)
+      : Promise.resolve({ data: [] }),
+  ]);
 
   type SheetLite = {
     id: string;
@@ -576,6 +575,12 @@ async function loadChangeRequestRowsUncached(ayCode: string): Promise<ChangeRequ
 
 // ── Cache wrappers ──────────────────────────────────────────────────────────
 
+// AY-scoped caches; scope/range/teacher filtering applied post-cache by
+// callers. We deliberately do NOT include scope/from/to/allowedSectionIds
+// in the cache key — they would fragment the cache without saving any DB
+// work (the underlying tables are the same regardless of date scope).
+// See lib/admissions/drill.ts::buildDrillRows for the same rationale.
+
 async function loadEntryRows(ayCode: string): Promise<GradeEntryRow[]> {
   return unstable_cache(
     () => loadEntryRowsUncached(ayCode),
@@ -598,6 +603,51 @@ async function loadChangeRequestRows(ayCode: string): Promise<ChangeRequestRow[]
     ['markbook-drill', 'cr-rows', ayCode],
     { revalidate: CACHE_TTL_SECONDS, tags: tags(ayCode) },
   )();
+}
+
+// ---------------------------------------------------------------------------
+// Teacher-entry-velocity rollup. Surfaced on the dashboard as a chart card
+// (registrar+ only — gated at the page level via canSeeAdmin). Drill into a
+// teacher segment shows the actual entries via target='teacher-entry-velocity'.
+
+export type TeacherVelocityRow = {
+  teacherUserId: string;
+  teacherEmail: string | null;
+  entryCount: number;
+  lastEntryAt: string | null;
+};
+
+export async function getTeacherEntryVelocity(
+  ayCode: string,
+  range?: { from: string; to: string },
+): Promise<TeacherVelocityRow[]> {
+  const entries = await loadEntryRows(ayCode);
+  type Acc = { count: number; lastAt: string | null; email: string | null };
+  const map = new Map<string, Acc>();
+  for (const e of entries) {
+    if (!e.enteredById) continue;
+    if (range && (e.enteredAt.slice(0, 10) < range.from || e.enteredAt.slice(0, 10) > range.to)) {
+      continue;
+    }
+    let acc = map.get(e.enteredById);
+    if (!acc) {
+      acc = { count: 0, lastAt: null, email: e.enteredBy };
+      map.set(e.enteredById, acc);
+    }
+    acc.count += 1;
+    if (!acc.lastAt || e.enteredAt > acc.lastAt) acc.lastAt = e.enteredAt;
+  }
+  const out: TeacherVelocityRow[] = [];
+  for (const [teacherUserId, acc] of map.entries()) {
+    out.push({
+      teacherUserId,
+      teacherEmail: acc.email,
+      entryCount: acc.count,
+      lastEntryAt: acc.lastAt,
+    });
+  }
+  out.sort((a, b) => b.entryCount - a.entryCount);
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -638,12 +688,15 @@ export async function buildAllRowSets(input: {
   to?: string;
   allowedSectionIds?: string[] | null;
 }): Promise<{
-  entries: GradeEntryRow[];
   sheets: SheetRow[];
   changeRequests: ChangeRequestRow[];
 }> {
-  const [entries, sheets, changeRequests] = await Promise.all([
-    loadEntryRows(input.ayCode),
+  // entries deliberately excluded — at 1000 students × 10 subjects × 4 terms
+  // that's ~40k rows, ~10 MB JSON shipped through the RSC payload for users
+  // who may never open an entry-kind drill. Drill sheets with target kind
+  // 'entry' lazy-fetch via /api/markbook/drill/{target}. sheets +
+  // changeRequests stay pre-fetched (small + read often).
+  const [sheets, changeRequests] = await Promise.all([
     loadSheetRows(input.ayCode),
     loadChangeRequestRows(input.ayCode),
   ]);
@@ -654,11 +707,6 @@ export async function buildAllRowSets(input: {
     to: input.to,
     allowedSectionIds: input.allowedSectionIds ?? null,
   };
-  const filteredEntries = applyTeacherFilter(
-    applyScopeFilter(entries as MarkbookDrillRow[], 'entry', rangeInput),
-    'entry',
-    input.allowedSectionIds ?? null,
-  ) as GradeEntryRow[];
   const filteredSheets = applyTeacherFilter(
     applyScopeFilter(sheets as MarkbookDrillRow[], 'sheet', rangeInput),
     'sheet',
@@ -670,7 +718,6 @@ export async function buildAllRowSets(input: {
     input.allowedSectionIds ?? null,
   ) as ChangeRequestRow[];
   return {
-    entries: filteredEntries,
     sheets: filteredSheets,
     changeRequests: filteredCrs,
   };

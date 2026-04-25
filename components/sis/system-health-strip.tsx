@@ -1,17 +1,25 @@
+'use client';
+
+import * as React from 'react';
 import { ArrowRight, ArrowUpRight, CalendarCheck2, CheckCircle2, Clock, ShieldAlert, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
+import { SisAdminDrillSheet } from "@/components/sis/drills/sis-admin-drill-sheet";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Sheet } from "@/components/ui/sheet";
 import type { SystemHealth } from "@/lib/sis/health";
+import type { SisAdminDrillTarget } from "@/lib/sis/drill";
 
 export function SystemHealthStrip({ health }: { health: SystemHealth }) {
+  const [drillTarget, setDrillTarget] = React.useState<SisAdminDrillTarget | null>(null);
   const { ayCount, currentAy, approverFlows, lastAdminActivityAt } = health;
   const approverIssues = approverFlows.filter((f) => !f.ok).length;
   const overallOk = currentAy != null && approverIssues === 0;
 
   return (
-    <Card className="overflow-hidden p-0">
-      <CardHeader className="border-b border-hairline bg-muted/40 px-6 py-4">
+    <Sheet open={!!drillTarget} onOpenChange={(o) => !o && setDrillTarget(null)}>
+      <Card className="overflow-hidden p-0">
+        <CardHeader className="border-b border-hairline bg-muted/40 px-6 py-4">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
@@ -40,8 +48,12 @@ export function SystemHealthStrip({ health }: { health: SystemHealth }) {
         </div>
       </CardHeader>
       <CardContent className="grid gap-0 divide-y divide-border md:grid-cols-3 md:divide-x md:divide-y-0 p-0">
-        {/* Academic year */}
-        <div className="flex items-start gap-3 p-5">
+        {/* Academic year — click to drill into all AYs */}
+        <button
+          type="button"
+          onClick={() => setDrillTarget('academic-years')}
+          className="flex items-start gap-3 p-5 text-left transition-colors hover:bg-muted/40"
+        >
           <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
             <CalendarCheck2 className="size-4" />
           </div>
@@ -65,10 +77,14 @@ export function SystemHealthStrip({ health }: { health: SystemHealth }) {
               </>
             )}
           </div>
-        </div>
+        </button>
 
-        {/* Approver coverage */}
-        <div className="flex items-start gap-3 p-5">
+        {/* Approver coverage — click to drill into all approver assignments */}
+        <button
+          type="button"
+          onClick={() => setDrillTarget('approver-coverage')}
+          className="flex items-start gap-3 p-5 text-left transition-colors hover:bg-muted/40"
+        >
           <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
             {approverIssues === 0 ? <ShieldCheck className="size-4" /> : <ShieldAlert className="size-4" />}
           </div>
@@ -101,7 +117,7 @@ export function SystemHealthStrip({ health }: { health: SystemHealth }) {
               ))}
             </ul>
           </div>
-        </div>
+        </button>
 
         {/* Quick link to approvers */}
         <div className="flex items-center gap-3 p-5">
@@ -124,6 +140,8 @@ export function SystemHealthStrip({ health }: { health: SystemHealth }) {
         </div>
       </CardContent>
     </Card>
+    {drillTarget && <SisAdminDrillSheet target={drillTarget} />}
+    </Sheet>
   );
 }
 

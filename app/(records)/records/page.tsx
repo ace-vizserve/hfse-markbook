@@ -18,10 +18,14 @@ import { ComparisonToolbar } from "@/components/dashboard/comparison-toolbar";
 import { DashboardHero } from "@/components/dashboard/dashboard-hero";
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
 import { MetricCard } from "@/components/dashboard/metric-card";
-import { DocumentBacklogChart } from "@/components/sis/document-backlog-chart";
-import { ExpiringDocumentsPanel } from "@/components/sis/expiring-documents-panel";
-import { LevelDistributionChart } from "@/components/sis/level-distribution-chart";
-import { PipelineStageChart } from "@/components/sis/pipeline-stage-chart";
+import { ClassAssignmentReadinessCard } from "@/components/sis/class-assignment-readiness-card";
+import {
+  DocumentBacklogDrillCard,
+  ExpiringDocsDrillCard,
+  LevelDistributionDrillCard,
+  PipelineStageDrillCard,
+} from "@/components/sis/drills/chart-drill-cards";
+import { RecordsDrillSheet } from "@/components/sis/drills/records-drill-sheet";
 import { RecentActivityFeed } from "@/components/sis/recent-activity-feed";
 import {
   Card,
@@ -38,6 +42,7 @@ import { recordsInsights } from "@/lib/dashboard/insights";
 import { formatRangeLabel, resolveRange, type DashboardSearchParams } from "@/lib/dashboard/range";
 import { getDashboardWindows } from "@/lib/dashboard/windows";
 import {
+  getClassAssignmentReadiness,
   getDocumentValidationBacklog,
   getEnrollmentVelocityRange,
   getExpiringDocuments,
@@ -88,18 +93,29 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
   const windows = await getDashboardWindows(selectedAy);
   const rangeInput = resolveRange(resolvedSearch, windows, selectedAy);
 
-  const [summary, docBacklog, levels, expiring, activity, pipelineStages, kpisResult, enrolVelocity, withdrawVelocity] =
-    await Promise.all([
-      getSisDashboardSummary(selectedAy),
-      getDocumentValidationBacklog(selectedAy),
-      getLevelDistribution(selectedAy),
-      getExpiringDocuments(selectedAy, EXPIRY_WINDOW_DAYS, 8),
-      getRecentSisActivity(8),
-      getPipelineStageBreakdown(selectedAy),
-      getRecordsKpisRange(rangeInput),
-      getEnrollmentVelocityRange(rangeInput),
-      getWithdrawalVelocityRange(rangeInput),
-    ]);
+  const [
+    summary,
+    docBacklog,
+    levels,
+    expiring,
+    activity,
+    pipelineStages,
+    kpisResult,
+    enrolVelocity,
+    withdrawVelocity,
+    classAssignment,
+  ] = await Promise.all([
+    getSisDashboardSummary(selectedAy),
+    getDocumentValidationBacklog(selectedAy),
+    getLevelDistribution(selectedAy),
+    getExpiringDocuments(selectedAy, EXPIRY_WINDOW_DAYS, 8),
+    getRecentSisActivity(8),
+    getPipelineStageBreakdown(selectedAy),
+    getRecordsKpisRange(rangeInput),
+    getEnrollmentVelocityRange(rangeInput),
+    getWithdrawalVelocityRange(rangeInput),
+    getClassAssignmentReadiness(selectedAy),
+  ]);
 
   const comparisonLabel = `vs ${formatRangeLabel({ from: rangeInput.cmpFrom, to: rangeInput.cmpTo })}`;
 
@@ -156,6 +172,15 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
           deltaGoodWhen="up"
           comparisonLabel={comparisonLabel}
           sparkline={enrolVelocity.current.slice(-14)}
+          drillSheet={
+            <RecordsDrillSheet
+              target="enrollments-range"
+              ayCode={selectedAy}
+              initialScope="range"
+              initialFrom={rangeInput.from}
+              initialTo={rangeInput.to}
+            />
+          }
         />
         <MetricCard
           label="Withdrawals"
@@ -164,6 +189,15 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
           intent={kpisResult.current.withdrawalsInRange > 0 ? "warning" : "good"}
           deltaGoodWhen="down"
           subtext={`${kpisResult.comparison.withdrawalsInRange} prior`}
+          drillSheet={
+            <RecordsDrillSheet
+              target="withdrawals-range"
+              ayCode={selectedAy}
+              initialScope="range"
+              initialFrom={rangeInput.from}
+              initialTo={rangeInput.to}
+            />
+          }
         />
         <MetricCard
           label="Active enrolled"
@@ -171,6 +205,13 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
           icon={GraduationCap}
           intent="good"
           subtext="Total headcount"
+          drillSheet={
+            <RecordsDrillSheet
+              target="active-enrolled"
+              ayCode={selectedAy}
+              initialScope="ay"
+            />
+          }
         />
         <MetricCard
           label="Docs expiring ≤60d"
@@ -178,6 +219,13 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
           icon={AlertTriangle}
           intent={kpisResult.current.expiringSoon > 0 ? "warning" : "good"}
           subtext="From end of range"
+          drillSheet={
+            <RecordsDrillSheet
+              target="expiring-docs"
+              ayCode={selectedAy}
+              initialScope="ay"
+            />
+          }
         />
       </section>
 
@@ -272,20 +320,20 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
 
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <DocumentBacklogChart data={docBacklog} />
+          <DocumentBacklogDrillCard data={docBacklog} ayCode={selectedAy} />
         </div>
         <div className="lg:col-span-1">
-          <LevelDistributionChart data={levels} />
+          <LevelDistributionDrillCard data={levels} ayCode={selectedAy} />
         </div>
       </section>
 
       {/* Spec §2 row 8 — pipeline breakdown + expiring docs panel (2+1) */}
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <PipelineStageChart data={pipelineStages} />
+          <PipelineStageDrillCard data={pipelineStages} ayCode={selectedAy} />
         </div>
         <div className="lg:col-span-1">
-          <ExpiringDocumentsPanel rows={expiring} ayCode={selectedAy} windowDays={EXPIRY_WINDOW_DAYS} />
+          <ExpiringDocsDrillCard rows={expiring} ayCode={selectedAy} />
         </div>
       </section>
 
@@ -298,6 +346,8 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
         emptyLabel="No documents expiring in range."
         viewAllHref="/p-files"
       />
+
+      <ClassAssignmentReadinessCard data={classAssignment} ayCode={selectedAy} />
 
       <RecentActivityFeed rows={activity} />
 

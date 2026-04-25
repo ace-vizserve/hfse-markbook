@@ -484,12 +484,17 @@ function bucketByDay(dates: (string | null)[], from: string, to: string): Veloci
     const d = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate() + i);
     labels.push(toISODate(d));
   }
+  // Pre-build label→index Map once; replaces per-row Array.indexOf which was
+  // O(n × k). For a 90-day range × 1000 rows this drops 90k comparisons to
+  // 1k Map lookups.
+  const labelIndex = new Map<string, number>();
+  for (let i = 0; i < labels.length; i += 1) labelIndex.set(labels[i], i);
   const buckets = new Array(length).fill(0) as number[];
   for (const iso of dates) {
     if (!iso) continue;
     const day = iso.slice(0, 10);
-    const idx = labels.indexOf(day);
-    if (idx >= 0) buckets[idx] += 1;
+    const idx = labelIndex.get(day);
+    if (idx !== undefined) buckets[idx] += 1;
   }
   return labels.map((x, i) => ({ x, y: buckets[i] }));
 }

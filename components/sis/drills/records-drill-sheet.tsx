@@ -5,16 +5,8 @@ import type { ColumnDef } from '@tanstack/react-table';
 import {
   AlertCircle,
   AlertTriangle,
-  Asterisk,
   CheckCircle2,
-  ClipboardList,
-  Cog,
-  FileText,
-  GraduationCap,
   HelpCircle,
-  UserMinus,
-  XCircle,
-  type LucideIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -23,6 +15,7 @@ import {
   type DrillDownDensity,
   type DrillDownGroupBy,
 } from '@/components/dashboard/drill-down-sheet';
+import { DrillSheetSkeleton } from '@/components/dashboard/drill-sheet-skeleton';
 import { Badge } from '@/components/ui/badge';
 import {
   ALL_DRILL_COLUMNS,
@@ -30,16 +23,16 @@ import {
   defaultColumnsForTarget,
   drillHeaderForTarget,
   type DrillColumnKey,
-  type DrillRow,
   type DrillScope,
-  type DrillTarget,
-} from '@/lib/admissions/drill';
+  type RecordsDrillRow,
+  type RecordsDrillTarget,
+} from '@/lib/sis/drill';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Props
 
-export type AdmissionsDrillSheetProps = {
-  target: DrillTarget;
+export type RecordsDrillSheetProps = {
+  target: RecordsDrillTarget;
   segment?: string | null;
   ayCode: string;
   /** Initial scope; the drill manages its own scope state and refetches when it changes. */
@@ -50,13 +43,11 @@ export type AdmissionsDrillSheetProps = {
   /** Pre-fetched rows — when provided, the drill renders immediately without
    *  a network call. Used by the page (Server Component) to avoid loading
    *  spinners on first open. Subsequent scope changes still hit the API. */
-  initialRows?: DrillRow[];
+  initialRows?: RecordsDrillRow[];
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Cell badges — visual patterns lifted from outdated-applications-table.tsx so
-// every drill table reads as one visual family. When we eventually dedupe these
-// into a shared module, both files import from the same place.
+// Cell badges
 
 const BADGE_BASE =
   'h-6 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]';
@@ -116,72 +107,27 @@ function StalenessBadge({ days }: { days: number | null }) {
   );
 }
 
-type StatusStyle = {
-  icon: LucideIcon;
-  label: string;
-  className: string;
-};
-
-const STATUS_STYLES: Record<string, StatusStyle> = {
-  Submitted: {
-    icon: FileText,
-    label: 'Submitted',
-    className: 'border-brand-indigo/40 bg-brand-indigo/10 text-brand-indigo',
-  },
-  'Ongoing Verification': {
-    icon: ClipboardList,
-    label: 'Verification',
-    className: 'border-chart-4/50 bg-chart-4/15 text-ink',
-  },
-  Processing: {
-    icon: Cog,
-    label: 'Processing',
-    className: 'border-brand-indigo-soft/60 bg-brand-indigo-soft/15 text-ink',
-  },
-  Enrolled: {
-    icon: GraduationCap,
-    label: 'Enrolled',
-    className: 'border-brand-mint bg-brand-mint/30 text-ink',
-  },
-  'Enrolled (Conditional)': {
-    icon: Asterisk,
-    label: 'Conditional',
-    className: 'border-brand-mint/60 bg-brand-mint/15 text-ink',
-  },
-  Withdrawn: {
-    icon: UserMinus,
-    label: 'Withdrawn',
-    className: 'border-destructive/30 bg-destructive/5 text-ink-4',
-  },
-  Cancelled: {
-    icon: XCircle,
-    label: 'Cancelled',
-    className: 'border-destructive/30 bg-destructive/5 text-ink-4',
-  },
-};
-
-const UNKNOWN_STATUS: StatusStyle = {
-  icon: HelpCircle,
-  label: 'No status',
-  className: 'border-hairline bg-muted text-ink-3',
-};
-
-function StatusBadge({ status }: { status: string }) {
-  const style = STATUS_STYLES[status] ?? UNKNOWN_STATUS;
-  const Icon = style.icon;
-  return (
-    <Badge variant="outline" className={`${BADGE_BASE} ${style.className}`}>
-      <Icon className="h-3 w-3" aria-hidden />
-      {style.label}
-    </Badge>
-  );
+function EnrollmentBadge({ enrollmentStatus }: { enrollmentStatus: string }) {
+  const v = enrollmentStatus.toLowerCase();
+  if (v === 'active' || v === 'conditional') {
+    return <Badge variant="success">{enrollmentStatus}</Badge>;
+  }
+  if (v === 'withdrawn') {
+    return <Badge variant="blocked">Withdrawn</Badge>;
+  }
+  return <Badge variant="muted">{enrollmentStatus || '—'}</Badge>;
 }
 
-function AssessmentBadge({ outcome }: { outcome: string }) {
-  const normalized = outcome.toLowerCase();
-  if (normalized === 'pass') return <Badge variant="success">Pass</Badge>;
-  if (normalized === 'fail') return <Badge variant="blocked">Fail</Badge>;
-  return <Badge variant="muted">Unknown</Badge>;
+function StageBadge({ stage }: { stage: string }) {
+  return <Badge variant="muted">{stage || '—'}</Badge>;
+}
+
+function ApplicationStatusBadge({ status }: { status: string }) {
+  return (
+    <Badge variant="outline" className={`${BADGE_BASE} border-hairline bg-muted text-ink-3`}>
+      {status || '—'}
+    </Badge>
+  );
 }
 
 function DocsCell({ complete, total }: { complete: number; total: number }) {
@@ -194,7 +140,6 @@ function DocsCell({ complete, total }: { complete: number; total: number }) {
   } else {
     badge = <Badge variant="muted">{complete}/{total}</Badge>;
   }
-  // Inline meter under the badge — semantic tokens only, no hardcoded color.
   const fillClass =
     complete === total && total > 0
       ? 'bg-brand-mint'
@@ -257,7 +202,7 @@ function compareLevels(a: string, b: string): number {
 }
 
 function buildDrillUrl(
-  target: DrillTarget,
+  target: RecordsDrillTarget,
   ayCode: string,
   scope: DrillScope,
   from: string | undefined,
@@ -280,13 +225,13 @@ function buildDrillUrl(
       params.set('columns', visibleColumnKeys.join(','));
     }
   }
-  return `/api/admissions/drill/${target}?${params.toString()}`;
+  return `/api/records/drill/${target}?${params.toString()}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Column factory
 
-function buildColumnDef(key: DrillColumnKey): ColumnDef<DrillRow, unknown> {
+function buildColumnDef(key: DrillColumnKey): ColumnDef<RecordsDrillRow, unknown> {
   const header = DRILL_COLUMN_LABELS[key];
   switch (key) {
     case 'fullName':
@@ -304,18 +249,6 @@ function buildColumnDef(key: DrillColumnKey): ColumnDef<DrillRow, unknown> {
         ),
         enableSorting: true,
       };
-    case 'enroleeNumber':
-      return {
-        id: 'enroleeNumber',
-        accessorKey: 'enroleeNumber',
-        header,
-        cell: ({ row }) => (
-          <span className="font-mono text-xs text-muted-foreground">
-            {row.original.enroleeNumber}
-          </span>
-        ),
-        enableSorting: true,
-      };
     case 'studentNumber':
       return {
         id: 'studentNumber',
@@ -328,12 +261,36 @@ function buildColumnDef(key: DrillColumnKey): ColumnDef<DrillRow, unknown> {
         ),
         enableSorting: true,
       };
-    case 'status':
+    case 'enroleeNumber':
       return {
-        id: 'status',
-        accessorKey: 'status',
+        id: 'enroleeNumber',
+        accessorKey: 'enroleeNumber',
         header,
-        cell: ({ row }) => <StatusBadge status={row.original.status} />,
+        cell: ({ row }) => (
+          <span className="font-mono text-xs text-muted-foreground">
+            {row.original.enroleeNumber}
+          </span>
+        ),
+        enableSorting: true,
+      };
+    case 'enrollmentStatus':
+      return {
+        id: 'enrollmentStatus',
+        accessorKey: 'enrollmentStatus',
+        header,
+        cell: ({ row }) => (
+          <EnrollmentBadge enrollmentStatus={row.original.enrollmentStatus} />
+        ),
+        enableSorting: true,
+      };
+    case 'applicationStatus':
+      return {
+        id: 'applicationStatus',
+        accessorKey: 'applicationStatus',
+        header,
+        cell: ({ row }) => (
+          <ApplicationStatusBadge status={row.original.applicationStatus} />
+        ),
         enableSorting: true,
       };
     case 'level':
@@ -353,50 +310,24 @@ function buildColumnDef(key: DrillColumnKey): ColumnDef<DrillRow, unknown> {
           return compareLevels(av, bv);
         },
       };
-    case 'stage':
+    case 'sectionName':
       return {
-        id: 'stage',
-        accessorKey: 'stage',
+        id: 'sectionName',
+        accessorKey: 'sectionName',
         header,
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
-            {row.original.stage ?? '—'}
+            {row.original.sectionName ?? '—'}
           </span>
         ),
         enableSorting: true,
       };
-    case 'referralSource':
+    case 'pipelineStage':
       return {
-        id: 'referralSource',
-        accessorKey: 'referralSource',
+        id: 'pipelineStage',
+        accessorKey: 'pipelineStage',
         header,
-        cell: ({ row }) => (
-          <span className="text-sm text-muted-foreground">
-            {row.original.referralSource ?? '—'}
-          </span>
-        ),
-        enableSorting: true,
-      };
-    case 'assessmentOutcome':
-      return {
-        id: 'assessmentOutcome',
-        accessorKey: 'assessmentOutcome',
-        header,
-        cell: ({ row }) => (
-          <AssessmentBadge outcome={row.original.assessmentOutcome ?? 'unknown'} />
-        ),
-        enableSorting: true,
-      };
-    case 'applicationDate':
-      return {
-        id: 'applicationDate',
-        accessorKey: 'applicationDate',
-        header,
-        cell: ({ row }) => (
-          <span className="text-sm tabular-nums text-muted-foreground">
-            {formatDate(row.original.applicationDate)}
-          </span>
-        ),
+        cell: ({ row }) => <StageBadge stage={row.original.pipelineStage} />,
         enableSorting: true,
       };
     case 'enrollmentDate':
@@ -411,34 +342,28 @@ function buildColumnDef(key: DrillColumnKey): ColumnDef<DrillRow, unknown> {
         ),
         enableSorting: true,
       };
-    case 'daysToEnroll':
+    case 'withdrawalDate':
       return {
-        id: 'daysToEnroll',
-        accessorKey: 'daysToEnroll',
+        id: 'withdrawalDate',
+        accessorKey: 'withdrawalDate',
         header,
         cell: ({ row }) => (
-          <span className="text-sm tabular-nums text-foreground">
-            {row.original.daysToEnroll === null
-              ? '—'
-              : `${row.original.daysToEnroll}d`}
+          <span className="text-sm tabular-nums text-muted-foreground">
+            {formatDate(row.original.withdrawalDate)}
           </span>
         ),
         enableSorting: true,
-        sortingFn: (a, b) => {
-          const av = a.original.daysToEnroll;
-          const bv = b.original.daysToEnroll;
-          if (av === null && bv === null) return 0;
-          if (av === null) return 1;
-          if (bv === null) return -1;
-          return av - bv;
-        },
       };
     case 'daysSinceUpdate':
       return {
         id: 'daysSinceUpdate',
         accessorKey: 'daysSinceUpdate',
         header,
-        cell: ({ row }) => <StalenessBadge days={row.original.daysSinceUpdate} />,
+        cell: ({ row }) => (
+          <div className="tabular-nums">
+            <StalenessBadge days={row.original.daysSinceUpdate} />
+          </div>
+        ),
         enableSorting: true,
         sortingFn: (a, b) => {
           const av = a.original.daysSinceUpdate;
@@ -448,18 +373,6 @@ function buildColumnDef(key: DrillColumnKey): ColumnDef<DrillRow, unknown> {
           if (bv === null) return -1;
           return av - bv;
         },
-      };
-    case 'daysInPipeline':
-      return {
-        id: 'daysInPipeline',
-        accessorKey: 'daysInPipeline',
-        header,
-        cell: ({ row }) => (
-          <span className="text-sm tabular-nums text-foreground">
-            {row.original.daysInPipeline}d
-          </span>
-        ),
-        enableSorting: true,
       };
     case 'documentsComplete':
       return {
@@ -485,7 +398,7 @@ function buildColumnDef(key: DrillColumnKey): ColumnDef<DrillRow, unknown> {
 // ─────────────────────────────────────────────────────────────────────────────
 // The wrapper
 
-export function AdmissionsDrillSheet({
+export function RecordsDrillSheet({
   target,
   segment,
   ayCode,
@@ -493,11 +406,11 @@ export function AdmissionsDrillSheet({
   initialFrom,
   initialTo,
   initialRows,
-}: AdmissionsDrillSheetProps) {
+}: RecordsDrillSheetProps) {
   // ── State ────────────────────────────────────────────────────────────────
   const [scope, setScope] = React.useState<DrillScope>(initialScope);
-  const [rows, setRows] = React.useState<DrillRow[]>(initialRows ?? []);
-  const [, setLoading] = React.useState<boolean>(
+  const [rows, setRows] = React.useState<RecordsDrillRow[]>(initialRows ?? []);
+  const [loading, setLoading] = React.useState<boolean>(
     initialRows === undefined,
   );
   const [selectedStatuses, setSelectedStatuses] = React.useState<string[]>([]);
@@ -534,7 +447,7 @@ export function AdmissionsDrillSheet({
     fetch(url, { credentials: 'include' })
       .then(async (res) => {
         if (!res.ok) throw new Error(`status ${res.status}`);
-        const json = (await res.json()) as { rows?: DrillRow[] };
+        const json = (await res.json()) as { rows?: RecordsDrillRow[] };
         if (cancelled) return;
         setRows(Array.isArray(json.rows) ? json.rows : []);
       })
@@ -551,26 +464,21 @@ export function AdmissionsDrillSheet({
   }, [target, ayCode, scope, segment, initialFrom, initialTo]);
 
   // ── Pre-filter rows by status + level ───────────────────────────────────
-  // Search (`globalFilter`) is owned by react-table inside DrillDownSheet;
-  // we apply the slower client filters here so they reduce the dataset
-  // *before* the table builds its row model.
-  const preFiltered = React.useMemo<DrillRow[]>(() => {
+  const preFiltered = React.useMemo<RecordsDrillRow[]>(() => {
     if (selectedStatuses.length === 0 && selectedLevels.length === 0) return rows;
     const statusSet = new Set(selectedStatuses);
     const levelSet = new Set(selectedLevels);
     return rows.filter((r) => {
-      if (selectedStatuses.length > 0 && !statusSet.has(r.status)) return false;
+      if (selectedStatuses.length > 0 && !statusSet.has(r.enrollmentStatus)) return false;
       if (selectedLevels.length > 0 && !levelSet.has(r.level ?? 'Unknown')) return false;
       return true;
     });
   }, [rows, selectedStatuses, selectedLevels]);
 
   // ── Filter options derived from the *fetched* row set ────────────────────
-  // (Not the pre-filtered set — otherwise selecting a status would empty
-  //  the level dropdown for the unselected statuses.)
   const statusOptions = React.useMemo<string[]>(() => {
     const set = new Set<string>();
-    for (const r of rows) if (r.status) set.add(r.status);
+    for (const r of rows) if (r.enrollmentStatus) set.add(r.enrollmentStatus);
     return Array.from(set).sort();
   }, [rows]);
 
@@ -581,9 +489,7 @@ export function AdmissionsDrillSheet({
   }, [rows]);
 
   // ── Columns ──────────────────────────────────────────────────────────────
-  // Build full column set in canonical order; DrillDownSheet handles
-  // visibility filtering via `visibleColumnKeys`.
-  const columns = React.useMemo<ColumnDef<DrillRow, unknown>[]>(
+  const columns = React.useMemo<ColumnDef<RecordsDrillRow, unknown>[]>(
     () => ALL_DRILL_COLUMNS.map(buildColumnDef),
     [],
   );
@@ -599,14 +505,14 @@ export function AdmissionsDrillSheet({
 
   // ── Group accessor ───────────────────────────────────────────────────────
   const groupAccessor = React.useCallback(
-    (row: DrillRow): string | null => {
+    (row: RecordsDrillRow): string | null => {
       switch (groupBy) {
         case 'level':
           return row.level ?? 'Unknown';
         case 'status':
-          return row.status;
+          return row.enrollmentStatus;
         case 'stage':
-          return row.stage ?? null;
+          return row.pipelineStage;
         default:
           return null;
       }
@@ -616,6 +522,12 @@ export function AdmissionsDrillSheet({
 
   // ── Header + CSV ────────────────────────────────────────────────────────
   const heading = drillHeaderForTarget(target, segment ?? null);
+
+  // Show a skeleton on first load (parent didn't hydrate via initialRows).
+  if (loading && rows.length === 0) {
+    return <DrillSheetSkeleton title={heading.title} />;
+  }
+
   const csvHref = buildDrillUrl(
     target,
     ayCode,
@@ -627,18 +539,8 @@ export function AdmissionsDrillSheet({
     visibleColumnKeys,
   );
 
-  // ── Per-target tweaks ────────────────────────────────────────────────────
-  // For target-rows where every status is "Enrolled" / "Enrolled (Conditional)",
-  // grouping by stage is meaningless. We still surface the control — the user
-  // can flip back to None — but we let the option set degenerate naturally.
-  const enrolledOnly =
-    target === 'avg-time' ||
-    target === 'time-to-enroll-bucket' ||
-    target === 'enrolled';
-  const showGroupBy = !enrolledOnly || groupBy !== 'none';
-
   return (
-    <DrillDownSheet<DrillRow>
+    <DrillDownSheet<RecordsDrillRow>
       title={heading.title}
       eyebrow={heading.eyebrow}
       count={preFiltered.length}
@@ -656,7 +558,6 @@ export function AdmissionsDrillSheet({
       onLevelsChange={setSelectedLevels}
       groupBy={groupBy}
       onGroupByChange={setGroupBy}
-      showGroupBy={showGroupBy}
       groupAccessor={groupAccessor}
       density={density}
       onDensityChange={setDensity}

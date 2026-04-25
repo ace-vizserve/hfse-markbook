@@ -40,6 +40,16 @@ const ALLOWED_ROLES = [
   'superadmin',
 ] as const;
 
+// Targets that surface document-completeness fields. Other targets skip the
+// docs query entirely — saves ~15% of the row payload on non-doc drills.
+const DOC_TARGETS: ReadonlySet<DrillTarget> = new Set<DrillTarget>([
+  'applications',
+  'enrolled',
+  'outdated',
+  'doc-completion',
+  'applications-by-level',
+]);
+
 export async function GET(
   req: Request,
   ctx: { params: Promise<{ target: string }> },
@@ -68,7 +78,11 @@ export async function GET(
   const columnsParam = url.searchParams.get('columns');
 
   // Build the universal row set (scope-clamped), then apply target filter.
-  const all = await buildDrillRows({ ayCode, scope, from, to });
+  // Only enrich with doc data when the target actually surfaces it.
+  const all = await buildDrillRows(
+    { ayCode, scope, from, to },
+    { withDocs: DOC_TARGETS.has(target) },
+  );
   const rows = applyTargetFilter(all, target, segment);
 
   if (format === 'csv') {
