@@ -2,14 +2,18 @@ import { ArrowRight, CalendarCheck, Clock, UserCheck, UserX } from "lucide-react
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { DonutChart } from "@/components/dashboard/charts/donut-chart";
-import { TrendChart } from "@/components/dashboard/charts/trend-chart";
+import { AttendanceDrillSheet } from "@/components/attendance/drills/attendance-drill-sheet";
+import {
+  DailyAttendanceDrillCard,
+  DayTypeDrillCard,
+  ExReasonDrillCard,
+  TopAbsentDrillCard,
+} from "@/components/attendance/drills/chart-drill-cards";
 import { ComparisonToolbar } from "@/components/dashboard/comparison-toolbar";
 import { DashboardHero } from "@/components/dashboard/dashboard-hero";
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
 import {
   getAttendanceKpisRange,
@@ -18,6 +22,7 @@ import {
   getExReasonMixRange,
   getTopAbsentRange,
 } from "@/lib/attendance/dashboard";
+import { buildAllRowSets } from "@/lib/attendance/drill";
 import { attendanceInsights } from "@/lib/dashboard/insights";
 import { formatRangeLabel, resolveRange, type DashboardSearchParams } from "@/lib/dashboard/range";
 import { getDashboardWindows } from "@/lib/dashboard/windows";
@@ -51,12 +56,13 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
   const rangeInput = resolveRange(resolvedSearch, windows, selectedAy);
   const ayCodes = [ay.ay_code];
 
-  const [kpisResult, dailySeries, exMix, topAbsent, dayTypes] = await Promise.all([
+  const [kpisResult, dailySeries, exMix, topAbsent, dayTypes, drillRowSets] = await Promise.all([
     getAttendanceKpisRange(rangeInput),
     getDailyAttendanceRange(rangeInput),
     getExReasonMixRange(rangeInput),
     getTopAbsentRange(rangeInput, 10),
     getDayTypeDistributionRange(rangeInput),
+    buildAllRowSets({ ayCode: selectedAy, scope: "range", from: rangeInput.from, to: rangeInput.to }),
   ]);
 
   const comparisonLabel = `vs ${formatRangeLabel({ from: rangeInput.cmpFrom, to: rangeInput.cmpTo })}`;
@@ -113,6 +119,16 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
           deltaGoodWhen="up"
           comparisonLabel={comparisonLabel}
           sparkline={dailySeries.current.slice(-14)}
+          drillSheet={
+            <AttendanceDrillSheet
+              target="attendance-summary"
+              ayCode={selectedAy}
+              initialScope="range"
+              initialFrom={rangeInput.from}
+              initialTo={rangeInput.to}
+              initialEntries={drillRowSets.entries}
+            />
+          }
         />
         <MetricCard
           label="Late incidents"
@@ -121,6 +137,16 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
           intent={kpisResult.current.late > kpisResult.comparison.late ? "warning" : "default"}
           deltaGoodWhen="down"
           subtext={`${kpisResult.comparison.late} prior`}
+          drillSheet={
+            <AttendanceDrillSheet
+              target="lates"
+              ayCode={selectedAy}
+              initialScope="range"
+              initialFrom={rangeInput.from}
+              initialTo={rangeInput.to}
+              initialEntries={drillRowSets.entries}
+            />
+          }
         />
         <MetricCard
           label="Excused"
@@ -128,6 +154,16 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
           icon={CalendarCheck}
           intent="default"
           subtext={`${kpisResult.comparison.excused} prior`}
+          drillSheet={
+            <AttendanceDrillSheet
+              target="excused"
+              ayCode={selectedAy}
+              initialScope="range"
+              initialFrom={rangeInput.from}
+              initialTo={rangeInput.to}
+              initialEntries={drillRowSets.entries}
+            />
+          }
         />
         <MetricCard
           label="Absences"
@@ -136,102 +172,57 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
           intent={kpisResult.current.absent > 0 ? "bad" : "good"}
           deltaGoodWhen="down"
           subtext={`${kpisResult.comparison.absent} prior`}
+          drillSheet={
+            <AttendanceDrillSheet
+              target="absent"
+              ayCode={selectedAy}
+              initialScope="range"
+              initialFrom={rangeInput.from}
+              initialTo={rangeInput.to}
+              initialEntries={drillRowSets.entries}
+            />
+          }
         />
       </section>
 
       {/* Daily attendance % trend */}
       {dailySeries.current.length > 1 && (
-        <Card>
-          <CardHeader>
-            <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-              Daily attendance
-            </CardDescription>
-            <CardTitle className="font-serif text-xl">% attended per day</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TrendChart
-              label="Attendance %"
-              current={dailySeries.current}
-              comparison={dailySeries.comparison}
-              yFormat="percent"
-            />
-          </CardContent>
-        </Card>
+        <DailyAttendanceDrillCard
+          current={dailySeries.current}
+          comparison={dailySeries.comparison}
+          ayCode={selectedAy}
+          rangeFrom={rangeInput.from}
+          rangeTo={rangeInput.to}
+          initialEntries={drillRowSets.entries}
+        />
       )}
 
       {/* EX reason + Day type donuts */}
       <section className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-              Excused reason mix
-            </CardDescription>
-            <CardTitle className="font-serif text-xl">Why absences are excused</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {exMix.length > 0 ? (
-              <DonutChart data={exMix} centerValue={exMix.reduce((s, d) => s + d.value, 0)} centerLabel="Total EX" />
-            ) : (
-              <div className="flex h-40 items-center justify-center text-xs text-ink-4">
-                No excused absences in range.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-              Day-type distribution
-            </CardDescription>
-            <CardTitle className="font-serif text-xl">Calendar make-up of range</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {dayTypes.length > 0 ? (
-              <DonutChart data={dayTypes} centerValue={dayTypes.reduce((s, d) => s + d.value, 0)} centerLabel="Days" />
-            ) : (
-              <div className="flex h-40 items-center justify-center text-xs text-ink-4">No calendar data in range.</div>
-            )}
-          </CardContent>
-        </Card>
+        <ExReasonDrillCard
+          data={exMix}
+          ayCode={selectedAy}
+          rangeFrom={rangeInput.from}
+          rangeTo={rangeInput.to}
+          initialEntries={drillRowSets.entries}
+        />
+        <DayTypeDrillCard
+          data={dayTypes}
+          ayCode={selectedAy}
+          rangeFrom={rangeInput.from}
+          rangeTo={rangeInput.to}
+          initialCalendar={drillRowSets.calendar}
+        />
       </section>
 
-      {/* Top-absent students table */}
-      <Card>
-        <CardHeader>
-          <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-            Needs attention
-          </CardDescription>
-          <CardTitle className="font-serif text-xl">Top-absent students</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {topAbsent.length === 0 ? (
-            <div className="flex h-32 items-center justify-center text-xs text-ink-4">
-              No absences in range. {String.fromCodePoint(0x1f389)}
-            </div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left font-mono text-[10px] uppercase tracking-wider text-ink-4">
-                  <th className="py-2">Student</th>
-                  <th className="py-2">Section</th>
-                  <th className="py-2 text-right">Absences</th>
-                  <th className="py-2 text-right">Lates</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topAbsent.map((r) => (
-                  <tr key={r.sectionStudentId} className="border-b border-border/60">
-                    <td className="py-2 font-medium text-foreground">{r.studentName}</td>
-                    <td className="py-2 text-ink-4">{r.sectionName}</td>
-                    <td className="py-2 text-right font-mono tabular-nums">{r.absences}</td>
-                    <td className="py-2 text-right font-mono tabular-nums text-ink-4">{r.lates}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </CardContent>
-      </Card>
+      {/* Top-absent students */}
+      <TopAbsentDrillCard
+        data={drillRowSets.topAbsent}
+        ayCode={selectedAy}
+        rangeFrom={rangeInput.from}
+        rangeTo={rangeInput.to}
+        initialTopAbsent={drillRowSets.topAbsent}
+      />
 
       {/* Trust strip */}
       <div className="mt-2 flex items-center gap-2 border-t border-border pt-5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
