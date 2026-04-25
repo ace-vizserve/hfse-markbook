@@ -2,6 +2,7 @@ import { ArrowRight, CalendarCheck, Clock, UserCheck, UserX } from "lucide-react
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { AttendanceBySectionCard } from "@/components/attendance/drills/attendance-by-section-card";
 import { AttendanceDrillSheet } from "@/components/attendance/drills/attendance-drill-sheet";
 import {
   DailyAttendanceDrillCard,
@@ -9,6 +10,7 @@ import {
   ExReasonDrillCard,
   TopAbsentDrillCard,
 } from "@/components/attendance/drills/chart-drill-cards";
+import { CompassionateQuotaCard } from "@/components/attendance/drills/compassionate-quota-card";
 import { ComparisonToolbar } from "@/components/dashboard/comparison-toolbar";
 import { DashboardHero } from "@/components/dashboard/dashboard-hero";
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
@@ -206,6 +208,20 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
           rangeFrom={rangeInput.from}
           rangeTo={rangeInput.to}
           initialCalendar={drillRowSets.calendar}
+        />
+      </section>
+
+      {/* Section breakdown + compassionate quota */}
+      <section className="grid gap-4 lg:grid-cols-2">
+        <AttendanceBySectionCard
+          data={drillRowSets.sectionAttendance}
+          ayCode={selectedAy}
+          rangeFrom={rangeInput.from}
+          rangeTo={rangeInput.to}
+        />
+        <CompassionateQuotaCard
+          data={drillRowSets.compassionate}
+          ayCode={selectedAy}
         />
       </section>
 
