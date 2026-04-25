@@ -3,16 +3,20 @@ import { redirect } from "next/navigation";
 
 import { ActionList, type ActionItem } from "@/components/dashboard/action-list";
 import { ChartLegendChip } from "@/components/dashboard/chart-legend-chip";
-import { DonutChart } from "@/components/dashboard/charts/donut-chart";
 import { ComparisonToolbar } from "@/components/dashboard/comparison-toolbar";
 import { DashboardHero } from "@/components/dashboard/dashboard-hero";
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { CompletenessTable, type StatusFilter } from "@/components/p-files/completeness-table";
-import { CompletionByLevelChart } from "@/components/p-files/completion-by-level-chart";
+import {
+  CompletenessCsvButton,
+  CompletionByLevelDrillCard,
+  SlotStatusDrillCard,
+  TopMissingDrillCard,
+} from "@/components/p-files/drills/chart-drill-cards";
+import { PFilesDrillSheet } from "@/components/p-files/drills/pfiles-drill-sheet";
 import { RevisionsOverTimeChart } from "@/components/p-files/revisions-over-time-chart";
 import { SummaryCards } from "@/components/p-files/summary-cards";
-import { TopMissingPanel } from "@/components/p-files/top-missing-panel";
 import { ExpiringDocumentsPanel } from "@/components/sis/expiring-documents-panel";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
@@ -144,6 +148,13 @@ export default async function PFilesDashboard({
           deltaGoodWhen="up"
           comparisonLabel={comparisonLabel}
           sparkline={velocity.current.slice(-14)}
+          drillSheet={
+            <PFilesDrillSheet
+              target="all-docs"
+              ayCode={selectedAy}
+              initialScope="ay"
+            />
+          }
         />
         <MetricCard
           label="Expiring ≤60d"
@@ -151,6 +162,13 @@ export default async function PFilesDashboard({
           icon={AlertTriangle}
           intent={kpisResult.current.expiringSoon > 0 ? "warning" : "good"}
           subtext="From end of range"
+          drillSheet={
+            <PFilesDrillSheet
+              target="expired-docs"
+              ayCode={selectedAy}
+              initialScope="ay"
+            />
+          }
         />
         <MetricCard
           label="Pending review"
@@ -158,6 +176,14 @@ export default async function PFilesDashboard({
           icon={Clock}
           intent={kpisResult.current.pendingReview > 0 ? "warning" : "good"}
           subtext={`${kpisResult.comparison.pendingReview} prior`}
+          drillSheet={
+            <PFilesDrillSheet
+              target="slot-by-status"
+              segment="Pending review"
+              ayCode={selectedAy}
+              initialScope="ay"
+            />
+          }
         />
         <MetricCard
           label="Total docs tracked"
@@ -165,6 +191,13 @@ export default async function PFilesDashboard({
           icon={TrendingUp}
           intent="default"
           subtext="All slots · all levels"
+          drillSheet={
+            <PFilesDrillSheet
+              target="all-docs"
+              ayCode={selectedAy}
+              initialScope="ay"
+            />
+          }
         />
       </section>
 
@@ -186,28 +219,16 @@ export default async function PFilesDashboard({
       {/* Row 7 — completion by level (2/3) + slot status mix (1/3) */}
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <CompletionByLevelChart data={byLevel} />
+          <CompletionByLevelDrillCard data={byLevel} ayCode={selectedAy} />
         </div>
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-              Slot status mix
-            </CardDescription>
-            <CardTitle className="font-serif text-xl">Where documents stand</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DonutChart
-              data={donutSlices}
-              centerValue={slotMix.valid + slotMix.pending + slotMix.rejected + slotMix.missing}
-              centerLabel="Total"
-            />
-          </CardContent>
-        </Card>
+        <div className="lg:col-span-1">
+          <SlotStatusDrillCard slotMix={slotMix} ayCode={selectedAy} />
+        </div>
       </section>
 
       {/* Row 8 — top missing (1/2) + expiring docs (1/2) */}
       <section className="grid gap-4 lg:grid-cols-2">
-        <TopMissingPanel data={backlog} limit={6} />
+        <TopMissingDrillCard data={backlog} ayCode={selectedAy} />
         <Card>
           <CardHeader>
             <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
@@ -240,6 +261,7 @@ export default async function PFilesDashboard({
         </div>
       </section>
 
+      <CompletenessCsvButton ayCode={selectedAy} />
       <CompletenessTable
         students={students}
         ayCode={isCurrentAy ? undefined : selectedAy}

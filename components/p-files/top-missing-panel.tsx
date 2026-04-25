@@ -15,9 +15,11 @@ import {
 export function TopMissingPanel({
   data,
   limit = 6,
+  onSegmentClick,
 }: {
   data: DocumentBacklogRow[];
   limit?: number;
+  onSegmentClick?: (slotKey: string) => void;
 }) {
   const ranked = [...data]
     .map((r) => ({ ...r, gap: r.missing + r.rejected }))
@@ -54,25 +56,45 @@ export function TopMissingPanel({
           </div>
         ) : (
           <ul className="divide-y divide-border border-t border-border">
-            {ranked.map((r) => (
-              <li key={r.slotKey} className="flex items-center gap-3 px-5 py-3">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">{r.label}</p>
-                  <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                    {r.missing > 0 && `${r.missing} missing`}
-                    {r.missing > 0 && r.rejected > 0 && ' · '}
-                    {r.rejected > 0 && `${r.rejected} rejected`}
-                    {r.pending > 0 && ` · ${r.pending} pending`}
-                  </p>
-                </div>
-                <Badge
-                  className="h-6 border-destructive/40 bg-destructive/10 text-destructive tabular-nums"
-                  variant="outline"
-                >
-                  {r.gap}
-                </Badge>
-              </li>
-            ))}
+            {ranked.map((r) => {
+              const inner = (
+                <>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{r.label}</p>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                      {r.missing > 0 && `${r.missing} missing`}
+                      {r.missing > 0 && r.rejected > 0 && ' · '}
+                      {r.rejected > 0 && `${r.rejected} rejected`}
+                      {r.pending > 0 && ` · ${r.pending} pending`}
+                    </p>
+                  </div>
+                  <Badge
+                    className="h-6 border-destructive/40 bg-destructive/10 text-destructive tabular-nums"
+                    variant="outline"
+                  >
+                    {r.gap}
+                  </Badge>
+                </>
+              );
+              if (!onSegmentClick) {
+                return (
+                  <li key={r.slotKey} className="flex items-center gap-3 px-5 py-3">
+                    {inner}
+                  </li>
+                );
+              }
+              return (
+                <li key={r.slotKey}>
+                  <button
+                    type="button"
+                    onClick={() => onSegmentClick(r.slotKey)}
+                    className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-muted/40"
+                  >
+                    {inner}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         )}
       </CardContent>
