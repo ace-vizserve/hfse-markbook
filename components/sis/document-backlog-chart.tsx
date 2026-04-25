@@ -23,7 +23,13 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
-export function DocumentBacklogChart({ data }: { data: DocumentBacklogRow[] }) {
+export function DocumentBacklogChart({
+  data,
+  onSegmentClick,
+}: {
+  data: DocumentBacklogRow[];
+  onSegmentClick?: (segment: string) => void;
+}) {
   const total = data.reduce(
     (sum, r) => sum + r.valid + r.pending + r.rejected + r.missing,
     0,
@@ -80,10 +86,70 @@ export function DocumentBacklogChart({ data }: { data: DocumentBacklogRow[] }) {
                 }}
               />
               <Legend content={chartLegendContent({ valid: 'chart-5', pending: 'chart-3', rejected: 'very-stale', missing: 'chart-2' })} />
-              <Bar dataKey="valid" name="Valid" stackId="status" fill="var(--chart-5)" />
-              <Bar dataKey="pending" name="Pending review" stackId="status" fill="var(--chart-3)" />
-              <Bar dataKey="rejected" name="Rejected" stackId="status" fill="var(--destructive)" />
-              <Bar dataKey="missing" name="Missing / expired" stackId="status" fill="var(--muted-foreground)" />
+              <Bar
+                dataKey="valid"
+                name="Valid"
+                stackId="status"
+                fill="var(--chart-5)"
+                onClick={
+                  onSegmentClick
+                    ? ((d: unknown) => {
+                        const p = d as { payload?: { label?: string } };
+                        const lbl = p?.payload?.label;
+                        if (lbl) onSegmentClick(`${lbl}|valid`);
+                      }) as never
+                    : undefined
+                }
+                style={onSegmentClick ? { cursor: 'pointer' } : undefined}
+              />
+              <Bar
+                dataKey="pending"
+                name="Pending review"
+                stackId="status"
+                fill="var(--chart-3)"
+                onClick={
+                  onSegmentClick
+                    ? ((d: unknown) => {
+                        const p = d as { payload?: { label?: string } };
+                        const lbl = p?.payload?.label;
+                        if (lbl) onSegmentClick(`${lbl}|pending`);
+                      }) as never
+                    : undefined
+                }
+                style={onSegmentClick ? { cursor: 'pointer' } : undefined}
+              />
+              <Bar
+                dataKey="rejected"
+                name="Rejected"
+                stackId="status"
+                fill="var(--destructive)"
+                onClick={
+                  onSegmentClick
+                    ? ((d: unknown) => {
+                        const p = d as { payload?: { label?: string } };
+                        const lbl = p?.payload?.label;
+                        if (lbl) onSegmentClick(`${lbl}|rejected`);
+                      }) as never
+                    : undefined
+                }
+                style={onSegmentClick ? { cursor: 'pointer' } : undefined}
+              />
+              <Bar
+                dataKey="missing"
+                name="Missing / expired"
+                stackId="status"
+                fill="var(--muted-foreground)"
+                onClick={
+                  onSegmentClick
+                    ? ((d: unknown) => {
+                        const p = d as { payload?: { label?: string } };
+                        const lbl = p?.payload?.label;
+                        if (lbl) onSegmentClick(`${lbl}|missing`);
+                      }) as never
+                    : undefined
+                }
+                style={onSegmentClick ? { cursor: 'pointer' } : undefined}
+              />
             </BarChart>
           </ResponsiveContainer>
         )}

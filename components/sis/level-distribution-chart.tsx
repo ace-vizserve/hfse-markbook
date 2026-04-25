@@ -11,7 +11,13 @@ import {
 } from '@/components/ui/card';
 import { DonutChart } from '@/components/dashboard/charts/donut-chart';
 
-export function LevelDistributionChart({ data }: { data: LevelCount[] }) {
+export function LevelDistributionChart({
+  data,
+  onSegmentClick,
+}: {
+  data: LevelCount[];
+  onSegmentClick?: (level: string) => void;
+}) {
   const total = data.reduce((sum, d) => sum + d.count, 0);
   const empty = total === 0;
   const slices = data.map((d) => ({ name: d.level, value: d.count }));
@@ -46,6 +52,7 @@ export function LevelDistributionChart({ data }: { data: LevelCount[] }) {
             centerValue={total.toLocaleString('en-SG')}
             centerLabel="Students"
             height={240}
+            onSegmentClick={onSegmentClick}
           />
         )}
       </CardContent>
