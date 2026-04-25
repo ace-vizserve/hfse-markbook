@@ -9,9 +9,11 @@ Every module's dashboard landing page composes from **one** vocabulary:
 **Shared primitives (`components/dashboard/`):**
 - `dashboard-hero.tsx` — canonical hero pattern (§8 hero header)
 - `comparison-toolbar.tsx` — AY + date range + comparison period picker
+- `priority-panel.tsx` — top-of-fold "what to act on right now?" banner (operational archetype only — see Layout archetypes below)
 - `insights-panel.tsx` — 3–5 auto-generated narrative observations
-- `action-list.tsx` — compact follow-up table
+- `action-list.tsx` — compact follow-up table (analytical archetype "supplement" placement)
 - `metric-card.tsx` — dashboard-01 SectionCards KPI with delta + sparkline
+- `chart-legend-chip.tsx` — gradient pill for severity / category labels
 - `charts/trend-chart.tsx` — area chart with gradient fill + comparison overlay
 - `charts/comparison-bar-chart.tsx` — grouped bar (vertical or horizontal)
 - `charts/donut-chart.tsx` — donut + inline legend with progress bars
@@ -21,6 +23,7 @@ Every module's dashboard landing page composes from **one** vocabulary:
 - `range.ts` — preset resolution + delta math + shared types (`RangeInput`, `RangeResult<T>`)
 - `windows.ts` — server-side term + AY window resolver (uses service client to stay inside `unstable_cache`)
 - `insights.ts` — 7 module-specific insight generators (pure, data-driven)
+- `priority.ts` — `PriorityPayload` type for the PriorityPanel; per-module computers live next to `dashboard.ts` (e.g. `lib/p-files/dashboard.ts::getPFilesPriority`)
 
 ## URL-param contract
 
@@ -45,19 +48,74 @@ export function getRevisionsOverTimeRange(input: RangeInput): Promise<RangeResul
 
 Hoist `load*Uncached` at module scope (KD #46), wrap per-call with `unstable_cache` using cache key `['module', 'fn-name', ayCode, from, to, cmpFrom, cmpTo]` and tag = the existing per-AY tag.
 
-## F-pattern row order
+## Layout archetypes
 
-Every dashboard follows:
-1. Hero + filters
-2. InsightsPanel
-3. 4 MetricCards (SectionCards grid)
+Not every dashboard does the same job. The layout depends on what the user is trying to do when they arrive — **not** on what data the system happens to have. We classify each dashboard into one of three archetypes (Stephen Few taxonomy) and compose the top-of-fold accordingly.
+
+| Archetype | Primary user task | Top-of-fold answer |
+|---|---|---|
+| **Operational** | "What do I owe / who needs action right now?" | A `PriorityPanel` headlining the single most important action |
+| **Analytical** | "Is the funnel / cohort healthy?" | A 4-up `MetricCard` strip + `InsightsPanel` |
+| **Hub** | "What configuration surface do I need?" | Admin nav cards. KPIs are *opt-in* via `?view=audit` |
+
+### Module assignments
+
+| Module | Archetype | Notes |
+|---|---|---|
+| `/markbook` (registrar view) | Operational | Lock-completion + change-request decision queue |
+| `/markbook` (teacher view) | Operational | Sheets needing entry + assigned-section chips |
+| `/attendance` | Operational | Sections that haven't marked today + compassionate-quota alerts |
+| `/p-files` | Operational | Documents expiring + missing for newly enrolled |
+| `/records` | Analytical | New enrolments / withdrawals / doc-expiry flow |
+| `/admissions` | Analytical | Funnel conversion + time-to-enroll |
+| `/evaluation` (registrar view) | Analytical | Submission velocity by section/term |
+| `/evaluation` (teacher view) | Operational | Writeups due in current term + assigned-section chips |
+| `/sis` | Hub | Admin nav cards; audit metrics live behind `?view=audit` |
+
+### Composition per archetype
+
+**Operational** (top-to-bottom):
+1. `DashboardHero`
+2. `PriorityPanel` (the headline answer — must fit in the first ~240px)
+3. `ComparisonToolbar` (compact)
+4. `MetricCard` strip — *secondary*, no sparklines (or omit entirely if PriorityPanel already covers the same metric)
+5. Drill table (the work surface)
+6. Charts (de-emphasized, below the fold)
+
+**Analytical** (the original Sprint 21 F-pattern row order):
+1. `DashboardHero` + `ComparisonToolbar`
+2. `InsightsPanel`
+3. 4 `MetricCard`s (SectionCards grid, with sparklines)
 4. Primary trend chart (wide)
 5. Secondary trend or context
 6. Breakdowns (donuts / horizontal bars)
-7. Action lists + tables + deep-link Cards
+7. `ActionList` + tables + deep-link Cards
 8. Trust strip
 
-Chart budget ≤ 8 per screen (sparklines inside MetricCards don't count).
+**Hub** (top-to-bottom):
+1. `DashboardHero` + system-health strip (if relevant)
+2. Admin nav cards (the navigation IS the page)
+3. *(Optional)* tabbed entry to KPIs / audit metrics via `?view=audit`
+
+Chart budget ≤ 8 per screen for analytical; operational and hub typically use ≤ 3 charts.
+
+### Role-aware composition
+
+Where one URL serves both teachers and registrars (Markbook, Evaluation), the page RSC branches on role at SSR and renders different top-of-fold composition per role:
+
+```ts
+const sessionUser = await getSessionUser();
+return sessionUser.role === 'teacher' ? <TeacherView /> : <RegistrarView />;
+```
+
+The two views live in `components/<module>/<module>-{teacher,registrar}-view.tsx`. The URL stays single — the user always lands at `/markbook`, never at a per-role route.
+
+### When to use which
+
+- Default to **Analytical** for any new dashboard unless the user lands with a single concrete action
+- Promote to **Operational** when the dashboard's first job is to surface "do this now" rather than "monitor this"
+- Use **Hub** only when the page is genuinely a navigator (no aggregation; just routing into config surfaces)
+- A dashboard CAN change archetype as the module matures; revisit during sync-docs passes
 
 ## Comparison model
 
