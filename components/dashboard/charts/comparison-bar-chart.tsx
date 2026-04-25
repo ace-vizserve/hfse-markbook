@@ -39,6 +39,7 @@ export type ComparisonBarChartProps = {
   height?: number;
   orientation?: 'vertical' | 'horizontal';
   yFormat?: YFormat;
+  onSegmentClick?: (category: string) => void;
 };
 
 export function ComparisonBarChart({
@@ -46,6 +47,7 @@ export function ComparisonBarChart({
   height = 260,
   orientation = 'vertical',
   yFormat,
+  onSegmentClick,
 }: ComparisonBarChartProps) {
   const yFormatter = formatterFor(yFormat);
   const showCmp = data.some((d) => typeof d.comparison === 'number');
@@ -123,6 +125,16 @@ export function ComparisonBarChart({
           radius={isHorizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]}
           maxBarSize={isHorizontal ? 14 : 32}
           isAnimationActive={false}
+          onClick={
+            onSegmentClick
+              ? ((data: unknown) => {
+                  const payload = (data as { payload?: { category?: string }; category?: string });
+                  const category = payload?.payload?.category ?? payload?.category;
+                  if (category) onSegmentClick(category);
+                }) as never
+              : undefined
+          }
+          style={onSegmentClick ? { cursor: 'pointer' } : undefined}
         />
         {showCmp && (
           <Bar
