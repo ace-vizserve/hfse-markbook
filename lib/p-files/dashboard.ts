@@ -1,4 +1,5 @@
 import { unstable_cache } from 'next/cache';
+import { AlertTriangle } from 'lucide-react';
 
 import { DOCUMENT_SLOTS, resolveStatus } from '@/lib/p-files/document-config';
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
@@ -11,6 +12,8 @@ import {
   type RangeInput,
   type RangeResult,
 } from '@/lib/dashboard/range';
+import { getExpiringDocuments } from '@/lib/sis/dashboard';
+import type { PriorityPayload } from '@/lib/dashboard/priority';
 
 // P-Files dashboard aggregators — document-repository lens.
 //
@@ -546,4 +549,59 @@ export function getRevisionsHeatmap(
     ['p-files', 'revisions-heatmap', ayCode, String(weeks)],
     { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS },
   )();
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// PriorityPanel payload — top-of-fold "what should I act on right now?"
+// answer for the operational P-Files dashboard. Reuses getExpiringDocuments
+// (already cached + urgency-ordered) so no new query is introduced.
+// ──────────────────────────────────────────────────────────────────────────
+
+export type PFilesPriorityInput = {
+  ayCode: string;
+};
+
+export async function getPFilesPriority(
+  input: PFilesPriorityInput,
+): Promise<PriorityPayload> {
+  // Pull a few more than we'll display so we have headroom for the chips.
+  const expiring = await getExpiringDocuments(input.ayCode, 60, 12);
+
+  const overdue = expiring.filter((r) => r.daysUntilExpiry < 0);
+  const dueSoon = expiring.filter(
+    (r) => r.daysUntilExpiry >= 0 && r.daysUntilExpiry <= 14,
+  );
+  const total = overdue.length + dueSoon.length;
+
+  // Chips: top 4 most urgent items. Each chip is one student.
+  const top = expiring.slice(0, 4).map((row) => ({
+    label: row.studentName,
+    count: row.daysUntilExpiry < 0 ? Math.abs(row.daysUntilExpiry) : row.daysUntilExpiry,
+    href: `/p-files/${row.enroleeNumber}`,
+    severity:
+      row.daysUntilExpiry < 0
+        ? ('bad' as const)
+        : row.daysUntilExpiry <= 14
+          ? ('warn' as const)
+          : ('info' as const),
+  }));
+
+  return {
+    eyebrow: 'Priority · today',
+    title: total === 0 ? 'No documents need urgent attention' : 'Documents needing attention',
+    headline: {
+      value: total,
+      label:
+        overdue.length > 0
+          ? `${overdue.length} overdue · ${dueSoon.length} due in 14 days`
+          : `due in the next 14 days`,
+      severity: overdue.length > 0 ? 'bad' : dueSoon.length > 0 ? 'warn' : 'good',
+    },
+    chips: top,
+    cta:
+      total > 0
+        ? { label: 'View all expiring', href: `/p-files?ay=${input.ayCode}&status=expired` }
+        : undefined,
+    icon: AlertTriangle,
+  };
 }
