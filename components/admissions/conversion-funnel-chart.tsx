@@ -11,7 +11,13 @@ import {
 } from '@/components/ui/card';
 import { ComparisonBarChart } from '@/components/dashboard/charts/comparison-bar-chart';
 
-export function ConversionFunnelChart({ data }: { data: FunnelStage[] }) {
+export function ConversionFunnelChart({
+  data,
+  onSegmentClick,
+}: {
+  data: FunnelStage[];
+  onSegmentClick?: (segment: string) => void;
+}) {
   const empty = data.every((d) => d.count === 0);
   const chartData = data.map((d) => ({ category: d.stage, current: d.count }));
 
@@ -40,7 +46,12 @@ export function ConversionFunnelChart({ data }: { data: FunnelStage[] }) {
             </p>
           </div>
         ) : (
-          <ComparisonBarChart data={chartData} orientation="horizontal" height={260} />
+          <ComparisonBarChart
+            data={chartData}
+            orientation="horizontal"
+            height={260}
+            onSegmentClick={onSegmentClick}
+          />
         )}
       </CardContent>
     </Card>

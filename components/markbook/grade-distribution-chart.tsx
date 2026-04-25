@@ -34,9 +34,11 @@ const BAND_FILL: Record<string, string> = {
 export function GradeDistributionChart({
   data,
   termLabel,
+  onSegmentClick,
 }: {
   data: GradeBucket[];
   termLabel: string;
+  onSegmentClick?: (bucket: string) => void;
 }) {
   const total = data.reduce((sum, d) => sum + d.count, 0);
   const empty = total === 0;
@@ -85,7 +87,21 @@ export function GradeDistributionChart({
                   fontSize: 12,
                 }}
               />
-              <Bar dataKey="count" name="Students" radius={[4, 4, 0, 0]}>
+              <Bar
+                dataKey="count"
+                name="Students"
+                radius={[4, 4, 0, 0]}
+                onClick={
+                  onSegmentClick
+                    ? ((d: unknown) => {
+                        const p = d as { payload?: { key?: string }; key?: string };
+                        const key = p?.payload?.key ?? p?.key;
+                        if (key) onSegmentClick(key);
+                      }) as never
+                    : undefined
+                }
+                style={onSegmentClick ? { cursor: 'pointer' } : undefined}
+              >
                 {data.map((d) => (
                   <Cell key={d.key} fill={BAND_FILL[d.key] ?? 'var(--chart-1)'} />
                 ))}

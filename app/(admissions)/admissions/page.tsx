@@ -2,13 +2,19 @@ import { ArrowRight, ChartBar, FileStack, Hourglass, TrendingUp, UserPlus, Users
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { AssessmentOutcomesChart } from "@/components/admissions/assessment-outcomes-chart";
-import { ConversionFunnelChart } from "@/components/admissions/conversion-funnel-chart";
+import { ApplicationsByLevelCard } from "@/components/admissions/applications-by-level-card";
+import { DocumentCompletionCard } from "@/components/admissions/document-completion-card";
+import { AdmissionsDrillSheet } from "@/components/admissions/drills/admissions-drill-sheet";
+import {
+  AssessmentDrillCard,
+  FunnelDrillCard,
+  PipelineDrillCard,
+  ReferralDrillCard,
+  TimeToEnrollDrillCard,
+} from "@/components/admissions/drills/chart-drill-cards";
 import { OutdatedApplicationsTable } from "@/components/admissions/outdated-applications-table";
-import { ReferralSourceChart } from "@/components/admissions/referral-source-chart";
 import { TimeToEnrollmentCard } from "@/components/admissions/time-to-enrollment-card";
 import { ActionList, type ActionItem } from "@/components/dashboard/action-list";
-import { ComparisonBarChart } from "@/components/dashboard/charts/comparison-bar-chart";
 import { TrendChart } from "@/components/dashboard/charts/trend-chart";
 import { ComparisonToolbar } from "@/components/dashboard/comparison-toolbar";
 import { DashboardHero } from "@/components/dashboard/dashboard-hero";
@@ -28,14 +34,17 @@ import { PageShell } from "@/components/ui/page-shell";
 import { getCurrentAcademicYear, listAyCodes as listAcademicAyCodes } from "@/lib/academic-year";
 import {
   getAdmissionsKpisRange,
+  getApplicationsByLevelRange,
   getApplicationsVelocityRange,
   getAssessmentOutcomes,
   getAverageTimeToEnrollment,
   getConversionFunnel,
+  getDocumentCompletionByLevel,
   getOutdatedApplications,
   getReferralSourceBreakdown,
   getTimeToEnrollHistogram,
 } from "@/lib/admissions/dashboard";
+import { buildDrillRows } from "@/lib/admissions/drill";
 import { admissionsInsights } from "@/lib/dashboard/insights";
 import { formatRangeLabel, resolveRange, type DashboardSearchParams } from "@/lib/dashboard/range";
 import { getDashboardWindows } from "@/lib/dashboard/windows";
@@ -90,6 +99,9 @@ export default async function AdmissionsDashboard({ searchParams }: { searchPara
     kpisResult,
     velocity,
     histogram,
+    appsByLevel,
+    docCompletion,
+    drillRows,
   ] = await Promise.all([
     getSisDashboardSummary(selectedAy),
     getPipelineStageBreakdown(selectedAy),
@@ -101,6 +113,14 @@ export default async function AdmissionsDashboard({ searchParams }: { searchPara
     getAdmissionsKpisRange(rangeInput),
     getApplicationsVelocityRange(rangeInput),
     getTimeToEnrollHistogram(selectedAy),
+    getApplicationsByLevelRange(rangeInput),
+    getDocumentCompletionByLevel(selectedAy),
+    buildDrillRows({
+      ayCode: selectedAy,
+      scope: "range",
+      from: rangeInput.from,
+      to: rangeInput.to,
+    }),
   ]);
 
   const comparisonLabel = `vs ${formatRangeLabel({ from: rangeInput.cmpFrom, to: rangeInput.cmpTo })}`;
@@ -168,6 +188,16 @@ export default async function AdmissionsDashboard({ searchParams }: { searchPara
           deltaGoodWhen="up"
           comparisonLabel={comparisonLabel}
           sparkline={velocity.current.slice(-14)}
+          drillSheet={
+            <AdmissionsDrillSheet
+              target="applications"
+              ayCode={selectedAy}
+              initialScope="range"
+              initialFrom={rangeInput.from}
+              initialTo={rangeInput.to}
+              initialRows={drillRows}
+            />
+          }
         />
         <MetricCard
           label="Enrolled (range)"
@@ -175,6 +205,16 @@ export default async function AdmissionsDashboard({ searchParams }: { searchPara
           icon={UserPlus}
           intent="good"
           subtext={`${kpisResult.comparison.enrolledInRange} prior`}
+          drillSheet={
+            <AdmissionsDrillSheet
+              target="enrolled"
+              ayCode={selectedAy}
+              initialScope="range"
+              initialFrom={rangeInput.from}
+              initialTo={rangeInput.to}
+              initialRows={drillRows}
+            />
+          }
         />
         <MetricCard
           label="Conversion rate"
@@ -183,6 +223,16 @@ export default async function AdmissionsDashboard({ searchParams }: { searchPara
           icon={TrendingUp}
           intent="default"
           subtext={`${kpisResult.comparison.conversionPct.toFixed(1)}% prior`}
+          drillSheet={
+            <AdmissionsDrillSheet
+              target="conversion"
+              ayCode={selectedAy}
+              initialScope="range"
+              initialFrom={rangeInput.from}
+              initialTo={rangeInput.to}
+              initialRows={drillRows}
+            />
+          }
         />
         <MetricCard
           label="Avg time to enroll"
@@ -192,6 +242,16 @@ export default async function AdmissionsDashboard({ searchParams }: { searchPara
           intent="default"
           subtext={`n=${kpisResult.current.sampleSize} · ${kpisResult.comparison.avgDaysToEnroll}d prior`}
           deltaGoodWhen="down"
+          drillSheet={
+            <AdmissionsDrillSheet
+              target="avg-time"
+              ayCode={selectedAy}
+              initialScope="range"
+              initialFrom={rangeInput.from}
+              initialTo={rangeInput.to}
+              initialRows={drillRows}
+            />
+          }
         />
       </section>
 
@@ -227,37 +287,53 @@ export default async function AdmissionsDashboard({ searchParams }: { searchPara
       {/* Bento row 2: conversion funnel (wide) + time-to-enroll histogram (narrow) */}
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <ConversionFunnelChart data={funnel} />
+          <FunnelDrillCard
+            data={funnel}
+            ayCode={selectedAy}
+            rangeFrom={rangeInput.from}
+            rangeTo={rangeInput.to}
+            drillRows={drillRows}
+          />
         </div>
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-              Time to enrollment
-            </CardDescription>
-            <CardTitle className="font-serif text-xl font-semibold tracking-tight text-foreground">
-              Days to close
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ComparisonBarChart data={histogram.map((b) => ({ category: b.label, current: b.count }))} height={240} />
-          </CardContent>
-        </Card>
+        <div className="lg:col-span-1">
+          <TimeToEnrollDrillCard
+            data={histogram}
+            ayCode={selectedAy}
+            drillRows={drillRows}
+          />
+        </div>
       </section>
 
       {/* Bento row 3: pipeline stage (wide) + assessment outcomes (narrow) */}
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <PipelineStageChart data={pipelineStages} />
+          <PipelineDrillCard data={pipelineStages} ayCode={selectedAy} drillRows={drillRows} />
         </div>
         <div className="lg:col-span-1">
-          <AssessmentOutcomesChart data={assessment} />
+          <AssessmentDrillCard data={assessment} ayCode={selectedAy} drillRows={drillRows} />
         </div>
+      </section>
+
+      {/* New cards: applications-by-level + document completion */}
+      <section className="grid gap-4 lg:grid-cols-2">
+        <ApplicationsByLevelCard
+          data={appsByLevel}
+          ayCode={selectedAy}
+          rangeFrom={rangeInput.from}
+          rangeTo={rangeInput.to}
+          drillRows={drillRows}
+        />
+        <DocumentCompletionCard
+          data={docCompletion}
+          ayCode={selectedAy}
+          drillRows={drillRows}
+        />
       </section>
 
       {/* Referral + time-to-enrol + browse — three-up footer row */}
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-1">
-          <ReferralSourceChart data={referral} />
+          <ReferralDrillCard data={referral} ayCode={selectedAy} drillRows={drillRows} />
         </div>
         <div className="lg:col-span-1">
           <TimeToEnrollmentCard data={timeToEnroll} />
@@ -311,7 +387,7 @@ export default async function AdmissionsDashboard({ searchParams }: { searchPara
             All outdated applications
           </h2>
         </div>
-        <OutdatedApplicationsTable rows={outdated} />
+        <OutdatedApplicationsTable rows={outdated} ayCode={selectedAy} />
       </section>
 
       <div className="mt-2 flex items-center gap-2 border-t border-border pt-5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">

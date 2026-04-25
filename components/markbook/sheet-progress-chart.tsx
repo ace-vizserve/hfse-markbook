@@ -12,6 +12,7 @@ import {
   YAxis,
 } from 'recharts';
 
+import { chartLegendContent } from '@/components/dashboard/chart-legend-chip';
 import type { TermLockProgress } from '@/lib/markbook/dashboard';
 import {
   Card,
@@ -22,7 +23,13 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
-export function SheetProgressChart({ data }: { data: TermLockProgress[] }) {
+export function SheetProgressChart({
+  data,
+  onSegmentClick,
+}: {
+  data: TermLockProgress[];
+  onSegmentClick?: (segment: string) => void;
+}) {
   const total = data.reduce((sum, t) => sum + t.locked + t.open, 0);
   const empty = total === 0;
 
@@ -66,9 +73,39 @@ export function SheetProgressChart({ data }: { data: TermLockProgress[] }) {
                   fontSize: 12,
                 }}
               />
-              <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" />
-              <Bar dataKey="locked" name="Locked" stackId="status" fill="var(--chart-5)" />
-              <Bar dataKey="open" name="Open" stackId="status" fill="var(--chart-3)" />
+              <Legend content={chartLegendContent({ locked: 'chart-5', open: 'chart-3' })} />
+              <Bar
+                dataKey="locked"
+                name="Locked"
+                stackId="status"
+                fill="var(--chart-5)"
+                onClick={
+                  onSegmentClick
+                    ? ((d: unknown) => {
+                        const p = d as { payload?: { termLabel?: string } };
+                        const lbl = p?.payload?.termLabel;
+                        if (lbl) onSegmentClick(`${lbl} · Locked`);
+                      }) as never
+                    : undefined
+                }
+                style={onSegmentClick ? { cursor: 'pointer' } : undefined}
+              />
+              <Bar
+                dataKey="open"
+                name="Open"
+                stackId="status"
+                fill="var(--chart-3)"
+                onClick={
+                  onSegmentClick
+                    ? ((d: unknown) => {
+                        const p = d as { payload?: { termLabel?: string } };
+                        const lbl = p?.payload?.termLabel;
+                        if (lbl) onSegmentClick(`${lbl} · Open`);
+                      }) as never
+                    : undefined
+                }
+                style={onSegmentClick ? { cursor: 'pointer' } : undefined}
+              />
             </BarChart>
           </ResponsiveContainer>
         )}

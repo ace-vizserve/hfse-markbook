@@ -11,7 +11,13 @@ import {
 } from '@/components/ui/card';
 import { ComparisonBarChart } from '@/components/dashboard/charts/comparison-bar-chart';
 
-export function PipelineStageChart({ data }: { data: PipelineStage[] }) {
+export function PipelineStageChart({
+  data,
+  onSegmentClick,
+}: {
+  data: PipelineStage[];
+  onSegmentClick?: (segment: string) => void;
+}) {
   const total = data.reduce((sum, s) => sum + s.count, 0);
   const empty = total === 0;
   const chartData = data.map((d) => ({ category: d.label, current: d.count }));
@@ -41,7 +47,12 @@ export function PipelineStageChart({ data }: { data: PipelineStage[] }) {
             </p>
           </div>
         ) : (
-          <ComparisonBarChart data={chartData} orientation="horizontal" height={340} />
+          <ComparisonBarChart
+            data={chartData}
+            orientation="horizontal"
+            height={340}
+            onSegmentClick={onSegmentClick}
+          />
         )}
       </CardContent>
     </Card>

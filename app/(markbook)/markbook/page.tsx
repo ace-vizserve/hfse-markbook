@@ -21,10 +21,13 @@ import { DashboardHero } from "@/components/dashboard/dashboard-hero";
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { ChangeRequestPanel } from "@/components/markbook/change-request-panel";
-import { GradeDistributionChart } from "@/components/markbook/grade-distribution-chart";
-import { PublicationCoverageChart } from "@/components/markbook/publication-coverage-chart";
+import {
+  GradeDistributionDrillCard,
+  PublicationCoverageDrillCard,
+  SheetProgressDrillCard,
+} from "@/components/markbook/drills/chart-drill-cards";
+import { MarkbookDrillSheet } from "@/components/markbook/drills/markbook-drill-sheet";
 import { RecentMarkbookActivity } from "@/components/markbook/recent-markbook-activity";
-import { SheetProgressChart } from "@/components/markbook/sheet-progress-chart";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -36,11 +39,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
-import { getCurrentAcademicYear } from "@/lib/academic-year";
+import { getCurrentAcademicYear, listAyCodes } from "@/lib/academic-year";
 import { getRoleFromClaims } from "@/lib/auth/roles";
 import { markbookInsights } from "@/lib/dashboard/insights";
 import { formatRangeLabel, resolveRange, type DashboardSearchParams } from "@/lib/dashboard/range";
-import { getDashboardWindows, listAyCodes } from "@/lib/dashboard/windows";
+import { getDashboardWindows } from "@/lib/dashboard/windows";
 import {
   getChangeRequestSummary,
   getChangeRequestVelocityRange,
@@ -51,6 +54,7 @@ import {
   getRecentMarkbookActivity,
   getSheetLockProgressByTerm,
 } from "@/lib/markbook/dashboard";
+import { buildAllRowSets } from "@/lib/markbook/drill";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -112,7 +116,7 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
     ayCode
       ? getDashboardWindows(ayCode)
       : Promise.resolve({ term: { thisTerm: null, lastTerm: null }, ay: { thisAY: null, lastAY: null } }),
-    listAyCodes(),
+    listAyCodes(service),
   ]);
   const rangeInput = resolveRange(resolvedSearchParams, windows, ayCode);
 
@@ -127,6 +131,7 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
     pubCoverage,
     activity,
     currentTerm,
+    drillRowSets,
   ] = await Promise.all([
     ayId ? loadStats(ayId) : Promise.resolve(null),
     canSeeAdmin ? getMarkbookKpisRange(rangeInput) : Promise.resolve(null),
@@ -146,6 +151,9 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
           .limit(1)
           .maybeSingle()
           .then((r) => (r.data?.term_number as number | undefined) ?? null)
+      : Promise.resolve(null),
+    canSeeAdmin && ayCode
+      ? buildAllRowSets({ ayCode, scope: "range", from: rangeInput.from, to: rangeInput.to })
       : Promise.resolve(null),
   ]);
 
@@ -187,7 +195,7 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
       {canSeeAdmin && insights.length > 0 && <InsightsPanel insights={insights} />}
 
       {/* Range-aware KPIs — new MetricCards driven by ComparisonToolbar */}
-      {canSeeAdmin && kpisResult && (
+      {canSeeAdmin && kpisResult && ayCode && (
         <section className="grid gap-4 xl:grid-cols-4">
           <MetricCard
             label="Grades entered"
@@ -198,6 +206,16 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
             deltaGoodWhen="up"
             comparisonLabel={comparisonLabel}
             sparkline={velocity?.current.slice(-14)}
+            drillSheet={
+              <MarkbookDrillSheet
+                target="grade-entries"
+                ayCode={ayCode}
+                initialScope="range"
+                initialFrom={rangeInput.from}
+                initialTo={rangeInput.to}
+                initialEntries={drillRowSets?.entries}
+              />
+            }
           />
           <MetricCard
             label="Sheets locked (range)"
@@ -205,6 +223,16 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
             icon={Lock}
             intent="good"
             comparisonLabel={`${kpisResult.current.lockedPct.toFixed(0)}% of ${kpisResult.current.sheetsTotal}`}
+            drillSheet={
+              <MarkbookDrillSheet
+                target="sheets-locked"
+                ayCode={ayCode}
+                initialScope="range"
+                initialFrom={rangeInput.from}
+                initialTo={rangeInput.to}
+                initialSheets={drillRowSets?.sheets}
+              />
+            }
           />
           <MetricCard
             label="Change requests pending"
@@ -212,6 +240,16 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
             icon={TrendingUp}
             intent={kpisResult.current.changeRequestsPending > 0 ? "warning" : "good"}
             subtext={`${kpisResult.comparison.changeRequestsPending} in prior period`}
+            drillSheet={
+              <MarkbookDrillSheet
+                target="change-requests"
+                ayCode={ayCode}
+                initialScope="range"
+                initialFrom={rangeInput.from}
+                initialTo={rangeInput.to}
+                initialChangeRequests={drillRowSets?.changeRequests}
+              />
+            }
           />
           <MetricCard
             label="Avg decision time"
@@ -223,6 +261,16 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
               kpisResult.comparison.avgDecisionHours != null
                 ? `${kpisResult.comparison.avgDecisionHours.toFixed(1)}d prior`
                 : "No prior decisions"
+            }
+            drillSheet={
+              <MarkbookDrillSheet
+                target="change-requests"
+                ayCode={ayCode}
+                initialScope="range"
+                initialFrom={rangeInput.from}
+                initialTo={rangeInput.to}
+                initialChangeRequests={drillRowSets?.changeRequests}
+              />
             }
           />
         </section>
@@ -304,28 +352,42 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
         </div>
       </div>
 
-      {canSeeAdmin && (gradeDist || sheetProgress) && (
+      {canSeeAdmin && ayCode && (gradeDist || sheetProgress) && (
         <section className="grid gap-4 lg:grid-cols-3">
           {gradeDist && (
             <div className="lg:col-span-2">
-              <GradeDistributionChart
+              <GradeDistributionDrillCard
                 data={gradeDist}
                 termLabel={currentTerm != null ? `Term ${currentTerm}` : "Current term"}
+                ayCode={ayCode}
+                rangeFrom={rangeInput.from}
+                rangeTo={rangeInput.to}
+                initialEntries={drillRowSets?.entries}
               />
             </div>
           )}
           {sheetProgress && (
             <div className="lg:col-span-1">
-              <SheetProgressChart data={sheetProgress} />
+              <SheetProgressDrillCard
+                data={sheetProgress}
+                ayCode={ayCode}
+                initialSheets={drillRowSets?.sheets}
+              />
             </div>
           )}
         </section>
       )}
 
-      {canSeeAdmin && (changeRequests || pubCoverage) && (
+      {canSeeAdmin && ayCode && (changeRequests || pubCoverage) && (
         <section className="grid gap-4 lg:grid-cols-2">
           {changeRequests && <ChangeRequestPanel summary={changeRequests} />}
-          {pubCoverage && <PublicationCoverageChart data={pubCoverage} />}
+          {pubCoverage && (
+            <PublicationCoverageDrillCard
+              data={pubCoverage}
+              ayCode={ayCode}
+              initialSheets={drillRowSets?.sheets}
+            />
+          )}
         </section>
       )}
 

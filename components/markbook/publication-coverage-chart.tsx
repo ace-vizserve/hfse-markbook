@@ -12,6 +12,7 @@ import {
   YAxis,
 } from 'recharts';
 
+import { chartLegendContent } from '@/components/dashboard/chart-legend-chip';
 import type { TermPubCoverage } from '@/lib/markbook/dashboard';
 import {
   Card,
@@ -22,7 +23,13 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
-export function PublicationCoverageChart({ data }: { data: TermPubCoverage[] }) {
+export function PublicationCoverageChart({
+  data,
+  onSegmentClick,
+}: {
+  data: TermPubCoverage[];
+  onSegmentClick?: (segment: string) => void;
+}) {
   const chartData = data.map((t) => ({
     ...t,
     notPublished: Math.max(0, t.sections - t.published),
@@ -70,9 +77,39 @@ export function PublicationCoverageChart({ data }: { data: TermPubCoverage[] }) 
                   fontSize: 12,
                 }}
               />
-              <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" />
-              <Bar dataKey="published" name="Published" stackId="pub" fill="var(--chart-5)" />
-              <Bar dataKey="notPublished" name="Not yet published" stackId="pub" fill="var(--muted-foreground)" />
+              <Legend content={chartLegendContent({ published: 'chart-5', notPublished: 'chart-2' })} />
+              <Bar
+                dataKey="published"
+                name="Published"
+                stackId="pub"
+                fill="var(--chart-5)"
+                onClick={
+                  onSegmentClick
+                    ? ((d: unknown) => {
+                        const p = d as { payload?: { termLabel?: string } };
+                        const lbl = p?.payload?.termLabel;
+                        if (lbl) onSegmentClick(`${lbl} · Published`);
+                      }) as never
+                    : undefined
+                }
+                style={onSegmentClick ? { cursor: 'pointer' } : undefined}
+              />
+              <Bar
+                dataKey="notPublished"
+                name="Not yet published"
+                stackId="pub"
+                fill="var(--muted-foreground)"
+                onClick={
+                  onSegmentClick
+                    ? ((d: unknown) => {
+                        const p = d as { payload?: { termLabel?: string } };
+                        const lbl = p?.payload?.termLabel;
+                        if (lbl) onSegmentClick(`${lbl} · Unpublished`);
+                      }) as never
+                    : undefined
+                }
+                style={onSegmentClick ? { cursor: 'pointer' } : undefined}
+              />
             </BarChart>
           </ResponsiveContainer>
         )}

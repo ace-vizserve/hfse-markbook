@@ -10,6 +10,7 @@ export type DonutChartProps = {
   colors?: string[];
   centerLabel?: string;
   centerValue?: string | number;
+  onSegmentClick?: (sliceName: string) => void;
 };
 
 const DEFAULT_COLORS = [
@@ -28,6 +29,7 @@ export function DonutChart({
   colors = DEFAULT_COLORS,
   centerLabel,
   centerValue,
+  onSegmentClick,
 }: DonutChartProps) {
   const total = data.reduce((sum, d) => sum + d.value, 0);
   const sorted = [...data].sort((a, b) => b.value - a.value);
@@ -49,6 +51,14 @@ export function DonutChart({
               stroke="var(--color-background)"
               strokeWidth={2}
               isAnimationActive={false}
+              onClick={
+                onSegmentClick
+                  ? (payload: { name?: string }) => {
+                      if (payload?.name) onSegmentClick(payload.name);
+                    }
+                  : undefined
+              }
+              style={onSegmentClick ? { cursor: 'pointer' } : undefined}
             >
               {data.map((_, i) => (
                 <Cell key={i} fill={colors[i % colors.length]} />
@@ -92,7 +102,23 @@ export function DonutChart({
           const idx = data.findIndex((d) => d.name === slice.name);
           const pct = total > 0 ? (slice.value / total) * 100 : 0;
           return (
-            <li key={slice.name} className="flex items-center gap-3">
+            <li
+              key={slice.name}
+              className={`flex items-center gap-3${onSegmentClick ? ' cursor-pointer rounded-md transition-colors hover:bg-accent/40' : ''}`}
+              onClick={onSegmentClick ? () => onSegmentClick(slice.name) : undefined}
+              role={onSegmentClick ? 'button' : undefined}
+              tabIndex={onSegmentClick ? 0 : undefined}
+              onKeyDown={
+                onSegmentClick
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onSegmentClick(slice.name);
+                      }
+                    }
+                  : undefined
+              }
+            >
               <span
                 className="size-2.5 shrink-0 rounded-full"
                 style={{ backgroundColor: colors[idx % colors.length] }}
