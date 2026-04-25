@@ -11,7 +11,13 @@ import {
 } from '@/components/ui/card';
 import { DonutChart } from '@/components/dashboard/charts/donut-chart';
 
-export function ReferralSourceChart({ data }: { data: ReferralSource[] }) {
+export function ReferralSourceChart({
+  data,
+  onSegmentClick,
+}: {
+  data: ReferralSource[];
+  onSegmentClick?: (segment: string) => void;
+}) {
   const empty = data.length === 0;
   const total = data.reduce((s, r) => s + r.count, 0);
   const slices = data.map((d) => ({ name: d.source, value: d.count }));
@@ -41,7 +47,12 @@ export function ReferralSourceChart({ data }: { data: ReferralSource[] }) {
             </p>
           </div>
         ) : (
-          <DonutChart data={slices} centerValue={total.toLocaleString('en-SG')} centerLabel="Sources" />
+          <DonutChart
+            data={slices}
+            centerValue={total.toLocaleString('en-SG')}
+            centerLabel="Sources"
+            onSegmentClick={onSegmentClick}
+          />
         )}
       </CardContent>
     </Card>

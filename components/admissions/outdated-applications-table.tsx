@@ -27,6 +27,7 @@ import {
   ChevronsUpDown,
   ClipboardList,
   Cog,
+  Download,
   FileText,
   GraduationCap,
   HelpCircle,
@@ -271,7 +272,13 @@ const columns: ColumnDef<OutdatedRow>[] = [
   },
 ];
 
-export function OutdatedApplicationsTable({ rows }: { rows: OutdatedRow[] }) {
+export function OutdatedApplicationsTable({
+  rows,
+  ayCode,
+}: {
+  rows: OutdatedRow[];
+  ayCode?: string;
+}) {
   const [sorting, setSorting] = React.useState<SortingState>([{ id: "tier", desc: true }]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = React.useState("");
@@ -383,6 +390,18 @@ export function OutdatedApplicationsTable({ rows }: { rows: OutdatedRow[] }) {
               }}>
               <X className="h-3 w-3" />
               Clear
+            </Button>
+          )}
+
+          {ayCode && (
+            <Button asChild variant="outline" size="sm">
+              <a
+                href={`/api/admissions/drill/outdated?ay=${ayCode}&scope=ay&format=csv`}
+                download
+              >
+                <Download className="h-3 w-3" />
+                Export CSV
+              </a>
             </Button>
           )}
         </div>

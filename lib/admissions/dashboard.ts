@@ -34,7 +34,7 @@ function tag(ayCode: string): string[] {
 // Canonical 7 statuses from the spec (08-admission-dashboard.md §1.1).
 // Any other value returned by the admissions DB folds into "Other" and is
 // surfaced to the user rather than silently dropped.
-export const PIPELINE_STATUSES = [
+const PIPELINE_STATUSES = [
   'Submitted',
   'Ongoing Verification',
   'Processing',
@@ -43,9 +43,9 @@ export const PIPELINE_STATUSES = [
   'Withdrawn',
   'Cancelled',
 ] as const;
-export type PipelineStatus = (typeof PIPELINE_STATUSES)[number];
+type PipelineStatus = (typeof PIPELINE_STATUSES)[number];
 
-export type PipelineCounts = Record<PipelineStatus, number> & {
+type PipelineCounts = Record<PipelineStatus, number> & {
   Other: number;
   total: number;
 };
@@ -165,7 +165,7 @@ function loadJoinedRows(ayCode: string): Promise<JoinedRow[]> {
 // Aggregators — each takes rows from loadJoinedRows and reduces them.
 // ──────────────────────────────────────────────────────────────────────────
 
-export async function getPipelineCounts(ayCode: string): Promise<PipelineCounts> {
+async function getPipelineCounts(ayCode: string): Promise<PipelineCounts> {
   const rows = await loadJoinedRows(ayCode);
   const counts: PipelineCounts = {
     Submitted: 0,
@@ -216,30 +216,6 @@ export async function getAverageTimeToEnrollment(ayCode: string): Promise<TimeTo
     n += 1;
   }
   return { avgDays: n > 0 ? Math.round(total / n) : 0, sampleSize: n };
-}
-
-export type LevelBucket = {
-  level: string;
-  submitted: number;
-  enrolled: number;
-};
-
-export async function getApplicationsByLevel(ayCode: string): Promise<LevelBucket[]> {
-  const rows = await loadJoinedRows(ayCode);
-  const buckets = new Map<string, LevelBucket>();
-  for (const r of rows) {
-    const level = (r.levelApplied ?? r.statusLevel ?? 'Unknown').trim() || 'Unknown';
-    const b = buckets.get(level) ?? { level, submitted: 0, enrolled: 0 };
-    b.submitted += 1;
-    if (
-      r.applicationStatus === 'Enrolled' ||
-      r.applicationStatus === 'Enrolled (Conditional)'
-    ) {
-      b.enrolled += 1;
-    }
-    buckets.set(level, b);
-  }
-  return Array.from(buckets.values()).sort((a, b) => a.level.localeCompare(b.level));
 }
 
 export type FunnelStage = {
@@ -417,65 +393,6 @@ export async function getReferralSourceBreakdown(ayCode: string): Promise<Referr
 }
 
 // Document completion — live query against ay{YY}_enrolment_documents.
-// "Complete" = all 5 core docs have a non-null status value: medical,
-// passport, birthCert, educCert, idPicture. form12 is excluded because it's
-// always null in AY2026 (legacy column). Status values seen in practice are
-// "Uploaded" / "Valid" — we treat any non-null as complete.
-export type DocumentCompletion = {
-  percent: number;
-  withAll: number;
-  total: number;
-} | null;
-
-const CORE_DOC_STATUS_COLUMNS = [
-  'medicalStatus',
-  'passportStatus',
-  'birthCertStatus',
-  'educCertStatus',
-  'idPictureStatus',
-] as const;
-
-async function getDocumentCompletionUncached(
-  ayCode: string,
-): Promise<DocumentCompletion> {
-  const prefix = prefixFor(ayCode);
-  const docsTable = `${prefix}_enrolment_documents`;
-  const supabase = createAdmissionsClient();
-
-  const { data, error } = await supabase
-    .from(docsTable)
-    .select(CORE_DOC_STATUS_COLUMNS.join(','));
-  if (error) {
-    console.error('[admissions-dashboard] doc completion fetch failed:', error.message);
-    return null;
-  }
-  const rows = (data ?? []) as unknown as Record<
-    (typeof CORE_DOC_STATUS_COLUMNS)[number],
-    string | null
-  >[];
-  const total = rows.length;
-  if (total === 0) return { percent: 0, withAll: 0, total: 0 };
-  let withAll = 0;
-  for (const r of rows) {
-    if (CORE_DOC_STATUS_COLUMNS.every((c) => (r[c] ?? '').toString().trim() !== '')) {
-      withAll += 1;
-    }
-  }
-  return {
-    withAll,
-    total,
-    percent: Math.round((withAll / total) * 100),
-  };
-}
-
-export function getDocumentCompletion(ayCode: string): Promise<DocumentCompletion> {
-  return unstable_cache(
-    () => getDocumentCompletionUncached(ayCode),
-    ['admissions-doc-completion', ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tag(ayCode) },
-  )();
-}
-
 // ──────────────────────────────────────────────────────────────────────────
 // Range-aware siblings (new). Delegate to the existing `loadJoinedRows`
 // cache (AY-scoped) and range-filter in memory — avoids stampede on per-
@@ -653,6 +570,221 @@ export function getTimeToEnrollHistogram(ayCode: string): Promise<TimeToEnrollBu
   return unstable_cache(
     () => loadTimeToEnrollHistogramUncached(ayCode),
     ['admissions', 'time-to-enroll-histogram', ayCode],
+    { revalidate: CACHE_TTL_SECONDS, tags: tag(ayCode) },
+  )();
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Canonical level ordering — primary then secondary, then any other value
+// alphabetically, with 'Unknown' pinned to the end. Shared by the
+// applications-by-level and doc-completion-by-level aggregators below.
+// ──────────────────────────────────────────────────────────────────────────
+
+const CANONICAL_LEVELS = [
+  'P1',
+  'P2',
+  'P3',
+  'P4',
+  'P5',
+  'P6',
+  'S1',
+  'S2',
+  'S3',
+  'S4',
+] as const;
+
+const CANONICAL_LEVEL_INDEX: Record<string, number> = CANONICAL_LEVELS.reduce(
+  (acc, lvl, i) => {
+    acc[lvl] = i;
+    return acc;
+  },
+  {} as Record<string, number>,
+);
+
+function compareLevels(a: string, b: string): number {
+  // Three-tier ordering: canonical (P1..S4) → other → Unknown (last).
+  const aIsUnknown = a === 'Unknown';
+  const bIsUnknown = b === 'Unknown';
+  if (aIsUnknown && bIsUnknown) return 0;
+  if (aIsUnknown) return 1;
+  if (bIsUnknown) return -1;
+
+  const aIdx = CANONICAL_LEVEL_INDEX[a];
+  const bIdx = CANONICAL_LEVEL_INDEX[b];
+  const aIsCanon = aIdx !== undefined;
+  const bIsCanon = bIdx !== undefined;
+  if (aIsCanon && bIsCanon) return aIdx - bIdx;
+  if (aIsCanon) return -1;
+  if (bIsCanon) return 1;
+  return a.localeCompare(b);
+}
+
+function resolveLevel(row: JoinedRow): string {
+  // statusLevel takes precedence (registrar-stamped classLevel/levelApplied)
+  // because admissions occasionally promotes/demotes between application and
+  // class assignment. Falls back to the application-time levelApplied, then
+  // 'Unknown' for blank/whitespace.
+  const raw = (row.statusLevel ?? row.levelApplied ?? '').trim();
+  return raw || 'Unknown';
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Applications-by-level — range-aware breakdown of applications by canonical
+// level, with comparison-period delta on totals.
+// ──────────────────────────────────────────────────────────────────────────
+
+export type ApplicationsByLevelRow = {
+  level: string; // canonical (P1..P6, S1..S4) or 'Unknown'
+  count: number; // applications created within range with this level
+};
+
+export type ApplicationsByLevelResult = RangeResult<ApplicationsByLevelRow[]>;
+
+function bucketByLevel(rows: JoinedRow[], from: string, to: string): ApplicationsByLevelRow[] {
+  const counts = new Map<string, number>();
+  for (const r of rows) {
+    if (!inRange(r.created_at, from, to)) continue;
+    const lvl = resolveLevel(r);
+    counts.set(lvl, (counts.get(lvl) ?? 0) + 1);
+  }
+  const out: ApplicationsByLevelRow[] = Array.from(counts.entries()).map(([level, count]) => ({
+    level,
+    count,
+  }));
+  out.sort((a, b) => compareLevels(a.level, b.level));
+  return out;
+}
+
+async function loadApplicationsByLevelRangeUncached(
+  input: RangeInput,
+): Promise<ApplicationsByLevelResult> {
+  const rows = await loadJoinedRows(input.ayCode);
+  const current = bucketByLevel(rows, input.from, input.to);
+  const comparison = bucketByLevel(rows, input.cmpFrom, input.cmpTo);
+  const currentTotal = current.reduce((s, r) => s + r.count, 0);
+  const comparisonTotal = comparison.reduce((s, r) => s + r.count, 0);
+  return {
+    current,
+    comparison,
+    delta: computeDelta(currentTotal, comparisonTotal),
+    range: { from: input.from, to: input.to },
+    comparisonRange: { from: input.cmpFrom, to: input.cmpTo },
+  };
+}
+
+export function getApplicationsByLevelRange(
+  input: RangeInput,
+): Promise<ApplicationsByLevelResult> {
+  return unstable_cache(
+    loadApplicationsByLevelRangeUncached,
+    ['admissions', 'apps-by-level', input.ayCode, input.from, input.to, input.cmpFrom, input.cmpTo],
+    { tags: tag(input.ayCode), revalidate: CACHE_TTL_SECONDS },
+  )(input);
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Document-completion by level — current-state aggregate, not range-aware.
+// Each applicant is bucketed as complete (5/5), partial (1–4), or missing (0)
+// based on the 5 core document-status columns. We join the docs table to the
+// existing cached joined rows in memory rather than refetching apps+status.
+// ──────────────────────────────────────────────────────────────────────────
+
+const CORE_DOC_STATUS_COLUMNS = [
+  'medicalStatus',
+  'passportStatus',
+  'birthCertStatus',
+  'educCertStatus',
+  'idPictureStatus',
+] as const;
+
+type DocCompletionDocRow = Record<
+  (typeof CORE_DOC_STATUS_COLUMNS)[number] | 'enroleeNumber',
+  string | null
+>;
+
+export type DocCompletionRow = {
+  level: string; // canonical or 'Unknown'
+  total: number; // applicants in this AY at this level
+  complete: number; // applicants with all 5 core docs present
+  partial: number; // applicants with 1–4 docs present
+  missing: number; // applicants with 0 docs present
+  percentComplete: number; // round(complete/total * 100), 0 if total = 0
+};
+
+export type DocCompletionResult = DocCompletionRow[];
+
+function countPresentDocs(d: DocCompletionDocRow | undefined): number {
+  if (!d) return 0;
+  let n = 0;
+  for (const col of CORE_DOC_STATUS_COLUMNS) {
+    const v = d[col];
+    if (v !== null && v !== undefined) {
+      const s = String(v).trim();
+      if (s !== '' && s.toLowerCase() !== 'missing') n += 1;
+    }
+  }
+  return n;
+}
+
+async function loadDocumentCompletionByLevelUncached(
+  ayCode: string,
+): Promise<DocCompletionResult> {
+  const prefix = prefixFor(ayCode);
+  const docsTable = `${prefix}_enrolment_documents`;
+  const supabase = createAdmissionsClient();
+
+  const [joinedRows, docsRes] = await Promise.all([
+    loadJoinedRows(ayCode),
+    supabase
+      .from(docsTable)
+      .select(`enroleeNumber, ${CORE_DOC_STATUS_COLUMNS.join(', ')}`),
+  ]);
+
+  if (docsRes.error) {
+    // Non-fatal: surface zero-completion bucketing rather than failing the
+    // whole dashboard card. Mirrors the drill.ts non-fatal-docs convention.
+    console.warn(
+      '[admissions-dashboard] doc completion fetch failed (non-fatal):',
+      docsRes.error.message,
+    );
+  }
+
+  const docs = (docsRes.data ?? []) as unknown as DocCompletionDocRow[];
+  const docsByEnrolee = new Map<string, DocCompletionDocRow>();
+  for (const d of docs) {
+    if (d.enroleeNumber) docsByEnrolee.set(d.enroleeNumber, d);
+  }
+
+  type Bucket = { total: number; complete: number; partial: number; missing: number };
+  const byLevel = new Map<string, Bucket>();
+  for (const r of joinedRows) {
+    if (!r.enroleeNumber) continue;
+    const level = resolveLevel(r);
+    const bucket = byLevel.get(level) ?? { total: 0, complete: 0, partial: 0, missing: 0 };
+    bucket.total += 1;
+    const present = countPresentDocs(docsByEnrolee.get(r.enroleeNumber));
+    if (present === CORE_DOC_STATUS_COLUMNS.length) bucket.complete += 1;
+    else if (present === 0) bucket.missing += 1;
+    else bucket.partial += 1;
+    byLevel.set(level, bucket);
+  }
+
+  const out: DocCompletionResult = Array.from(byLevel.entries()).map(([level, b]) => ({
+    level,
+    total: b.total,
+    complete: b.complete,
+    partial: b.partial,
+    missing: b.missing,
+    percentComplete: b.total > 0 ? Math.round((b.complete / b.total) * 100) : 0,
+  }));
+  out.sort((a, b) => compareLevels(a.level, b.level));
+  return out;
+}
+
+export function getDocumentCompletionByLevel(ayCode: string): Promise<DocCompletionResult> {
+  return unstable_cache(
+    () => loadDocumentCompletionByLevelUncached(ayCode),
+    ['admissions', 'doc-completion-by-level', ayCode],
     { revalidate: CACHE_TTL_SECONDS, tags: tag(ayCode) },
   )();
 }
