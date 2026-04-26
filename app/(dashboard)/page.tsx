@@ -1,23 +1,38 @@
-import { ArrowUpRight, BookOpen, FolderCog, FolderKanban, ShieldCheck } from 'lucide-react';
+import {
+  BookOpen,
+  CalendarCheck,
+  ClipboardCheck,
+  FileStack,
+  FolderKanban,
+  ShieldCheck,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
-import type { Role } from '@/lib/auth/roles';
+import { isRouteAllowed } from '@/lib/auth/roles';
 import { getSessionUser } from '@/lib/supabase/server';
 
-// Root `/` is the SIS entry point. All four modules are peers — no single
-// module "owns" the root. Single-module roles auto-redirect to their module;
-// multi-module roles see a neutral picker.
+// Root `/` is the SIS entry point. Single-module roles auto-redirect to
+// their module; multi-module roles see a "pick a module" tile picker
+// — same lifecycle order + same canonical role gate as the top-bar
+// ModuleSwitcher, so the picker can't drift from ROUTE_ACCESS.
+//
+// Lifecycle order: Admissions → Records → P-Files → Markbook → Attendance
+// → Evaluation → SIS Admin (matches components/module-switcher.tsx).
+const MODULES: Array<{ href: string; label: string; icon: LucideIcon }> = [
+  { href: '/admissions', label: 'Admissions', icon: FileStack },
+  { href: '/records', label: 'Records', icon: Users },
+  { href: '/p-files', label: 'P-Files', icon: FolderKanban },
+  { href: '/markbook', label: 'Markbook', icon: BookOpen },
+  { href: '/attendance', label: 'Attendance', icon: CalendarCheck },
+  { href: '/evaluation', label: 'Evaluation', icon: ClipboardCheck },
+  { href: '/sis', label: 'SIS Admin', icon: ShieldCheck },
+];
+
 export default async function Home() {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
@@ -45,108 +60,54 @@ export default async function Home() {
           Pick a module.
         </h1>
         <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-          Signed in as <span className="font-medium text-foreground">{email}</span>. Every
-          module below surfaces a different facet of the same student record. The module
-          switcher in the top-left lets you pivot any time.
+          Signed in as <span className="font-medium text-foreground">{email}</span>. Every module
+          surfaces a different facet of the same student record.
         </p>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-2">
-        <ModuleCard
-          href="/markbook"
-          icon={BookOpen}
-          eyebrow="Academic"
-          title="Markbook"
-          description="Grades, report cards, adviser comments, change-request workflow, and the current-AY dashboard with school-wide stats."
-          cta="Open Markbook"
-          role={role}
-          allowedRoles={['registrar', 'school_admin', 'admin']}
-        />
-        <ModuleCard
-          href="/records"
-          icon={FolderCog}
-          eyebrow="Operational"
-          title="Records"
-          description="Day-to-day student records — profiles, family, stage pipeline, document validation, discount-code catalogue."
-          cta="Open Records"
-          role={role}
-          allowedRoles={['registrar', 'school_admin', 'admin']}
-        />
-        <ModuleCard
-          href="/p-files"
-          icon={FolderKanban}
-          eyebrow="Documents"
-          title="P-Files"
-          description="Per-student document repository with revision history. Read-only for admin; full write for p-file officers."
-          cta="Open P-Files"
-          role={role}
-          allowedRoles={['school_admin', 'admin']}
-        />
-        <ModuleCard
-          href="/sis"
-          icon={ShieldCheck}
-          eyebrow="Structural"
-          title="SIS Admin"
-          description="AY setup, approver management, cross-module admin controls. Structural ops, not daily use."
-          cta="Open SIS Admin"
-          role={role}
-          allowedRoles={['school_admin', 'admin']}
-        />
+      <section className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+        {MODULES.map((m) => (
+          <ModuleTile
+            key={m.href}
+            href={m.href}
+            label={m.label}
+            icon={m.icon}
+            enabled={isRouteAllowed(m.href, role)}
+          />
+        ))}
       </section>
     </PageShell>
   );
 }
 
-function ModuleCard({
+function ModuleTile({
   href,
+  label,
   icon: Icon,
-  eyebrow,
-  title,
-  description,
-  cta,
-  role,
-  allowedRoles,
+  enabled,
 }: {
   href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  eyebrow: string;
-  title: string;
-  description: string;
-  cta: string;
-  role: Role | null;
-  allowedRoles: Role[];
+  label: string;
+  icon: LucideIcon;
+  enabled: boolean;
 }) {
-  const enabled = role != null && allowedRoles.includes(role);
-  const Inner = (
+  const inner = (
     <Card
-      className={`@container/card h-full transition-all ${
-        enabled ? 'hover:border-brand-indigo/40 hover:shadow-sm' : 'cursor-not-allowed opacity-60'
-      }`}
+      className={
+        '@container/card flex aspect-square flex-col items-center justify-center gap-4 p-6 text-center transition-all ' +
+        (enabled
+          ? 'cursor-pointer hover:-translate-y-0.5 hover:border-brand-indigo/40 hover:shadow-md'
+          : 'cursor-not-allowed opacity-50')
+      }
     >
-      <CardHeader>
-        <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-          {eyebrow}
-        </CardDescription>
-        <CardTitle className="font-serif text-xl font-semibold tracking-tight text-foreground">
-          {title}
-        </CardTitle>
-        <CardAction>
-          <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
-            <Icon className="size-4" />
-          </div>
-        </CardAction>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
-      </CardContent>
-      <CardFooter>
-        <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
-          {enabled ? cta : 'Requires higher role'}
-          {enabled && <ArrowUpRight className="size-3.5" />}
-        </span>
-      </CardFooter>
+      <div className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
+        <Icon className="size-6" />
+      </div>
+      <span className="font-serif text-base font-semibold tracking-tight text-foreground">
+        {label}
+      </span>
     </Card>
   );
 
-  return enabled ? <Link href={href}>{Inner}</Link> : Inner;
+  return enabled ? <Link href={href}>{inner}</Link> : <div aria-disabled>{inner}</div>;
 }
