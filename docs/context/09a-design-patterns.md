@@ -270,10 +270,17 @@ A legend is a **key**. Its visual must match the thing it documents — pixel-id
 
 | What you're documenting | Use | Component |
 |---|---|---|
-| Recharts series, donut slice, stacked bar segment — anything where the chart paint is a brand gradient | **Gradient pill** | `ChartLegendChip` (or `chartLegendContent(palette)` factory for recharts `<Legend content={…}>`) |
-| Table / grid cell tint that uses solid washes (not gradients) | **Tinted swatch (true visual key)** | Bespoke `*LegendItem` helper that pulls its tint from the **same map** the cells use. See `StatusLegendItem` + `DayTypeLegendItem` in `components/attendance/wide-grid.tsx` |
+| Recharts series, donut slice, stacked bar segment | **Gradient pill** | `ChartLegendChip` (or `chartLegendContent(palette)` factory for recharts `<Legend content={…}>`) |
+| **Cells / column headers in a table or grid** — including dense data-entry grids with native form controls | **Gradient pill, rendered both in the cell AND in the legend** | `ChartLegendChip` in the legend; for cells either render `ChartLegendChip` directly (calendar pattern) or apply the same gradient classes inline so the cell wash matches the chip pixel-for-pixel (wide-grid pattern) |
+| Last resort — when the surface genuinely cannot render gradient pills | **Tinted swatch** matching the cell wash exactly | Bespoke `*LegendItem` helper that pulls its tint from the **same map** the cells use |
+
+**Default to the gradient-pill pattern.** It's the brand voice (matches the rest of `ChartLegendChip` usage across the SIS) and it elevates the legend from "a flat colored square" to a real chip. The flat-swatch fallback exists only because some surfaces (e.g. printed report cards, screenshot exports) can't render gradients reliably. Don't reach for it on a normal screen.
 
 Never mix the two for one visualization. A wash-tinted column header documented by a gradient pill is the most common bug; a gradient series documented by a solid swatch is the inverse. Both break the key.
+
+Reference implementations:
+- **Calendar pattern** (gradient pill IN the cell + IN the legend): `components/attendance/calendar-admin-client.tsx` — cell chips use `ChartLegendChip` directly, legend strip uses the same `ChartLegendChip`, both keyed on the same `DAY_TYPE_LEGEND_COLOR` map
+- **Wide-grid pattern** (gradient classes inline in the cell + `ChartLegendChip` in the legend): `components/attendance/wide-grid.tsx` — cells apply `STATUS_CHIP_GRADIENT[status]` directly to the wrapping div (so the native `<select>` stays interactive), column headers render a small `ChartLegendChip`, legend uses `ChartLegendChip` keyed on the same `STATUS_CHIP_COLOR` and `DAY_TYPE_CHIP_COLOR` maps
 
 ### 10.2 Single source of truth for the tint
 
