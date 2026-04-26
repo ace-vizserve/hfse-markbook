@@ -11,8 +11,13 @@ import type { BadgeProps } from '@/components/ui/badge';
 
 // Single source of truth for the grade-change-request status badge.
 // Both surfaces (admin queue at /markbook/change-requests + teacher's
-// own-requests view at /markbook/grading/requests) consume this — keeps
-// the labels, icons, and §9.3 wash recipes from drifting between views.
+// own-requests view at /markbook/grading/requests) consume this.
+//
+// All variants are non-flat (gradient pills with white text + shadow)
+// per the 26th-pass design-system "non-flat" primitive refresh — state
+// pills carry the brand voice via the gradient, with the icon + label
+// disambiguating the specific lifecycle step. No wash overrides; the
+// Badge variant prop carries the colour entirely.
 
 export type ChangeRequestStatus =
   | 'pending'
@@ -24,10 +29,7 @@ export type ChangeRequestStatus =
 export type ChangeRequestStatusConfig = {
   label: string;
   icon: LucideIcon;
-  /** Maps to the Badge primitive's variant prop. */
   variant: NonNullable<BadgeProps['variant']>;
-  /** Per-status §9.3 wash override; empty when the variant carries the colour. */
-  className: string;
 };
 
 export const CHANGE_REQUEST_STATUS_CONFIG: Record<
@@ -37,31 +39,31 @@ export const CHANGE_REQUEST_STATUS_CONFIG: Record<
   pending: {
     label: 'Awaiting Review',
     icon: Circle,
-    variant: 'secondary',
-    className: '',
+    // Amber gradient — calls the admin's eye; this is the row that needs a decision.
+    variant: 'warning',
   },
   approved: {
     label: 'Approved · Awaiting Changes',
     icon: CheckCircle2,
-    variant: 'outline',
-    className: 'border-primary/30 bg-primary/10 text-primary',
+    // Indigo gradient — decision made, system processing the change.
+    variant: 'default',
   },
   applied: {
     label: 'Changes Applied',
     icon: CircleCheck,
-    variant: 'outline',
-    className: 'border-brand-mint bg-brand-mint/30 text-ink',
+    // Mint→sky gradient — terminal-positive, change is live.
+    variant: 'success',
   },
   rejected: {
     label: 'Declined',
     icon: XCircle,
-    variant: 'outline',
-    className: 'border-destructive/40 bg-destructive/10 text-destructive',
+    // Destructive gradient — terminal-negative, request was declined.
+    variant: 'blocked',
   },
   cancelled: {
     label: 'Cancelled',
     icon: CircleX,
-    variant: 'secondary',
-    className: '',
+    // Filled muted — terminal-neutral, teacher pulled the request before review.
+    variant: 'muted',
   },
 };

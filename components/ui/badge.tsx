@@ -24,9 +24,15 @@ const badgeVariants = cva(
         // attention weight of the default indigo gradient.
         muted:
           "border-transparent bg-muted-foreground text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.18),0_1px_2px_rgba(15,23,42,0.08)]",
-        // Semantic state variants — gradient treatment for §9.3 healthy / blocked.
+        // Semantic state variants — gradient treatment for §9.3 healthy /
+        // warning / blocked. Use these for state pills that benefit from the
+        // non-flat brand voice (status columns, lifecycle chips). Wash
+        // recipes (Badge variant="outline" + per-tone className) are the
+        // fallback when the table needs lighter visual weight.
         success:
           "border-transparent bg-gradient-to-br from-brand-mint to-brand-sky text-white shadow-sm",
+        warning:
+          "border-transparent bg-gradient-to-br from-brand-amber to-brand-amber/80 text-white shadow-sm",
         blocked:
           "border-transparent bg-gradient-to-br from-destructive to-destructive/80 text-white shadow-sm",
       },

@@ -10,7 +10,6 @@ import {
   CHANGE_REQUEST_STATUS_CONFIG,
   type ChangeRequestStatus,
 } from "@/lib/markbook/change-request-status";
-import { cn } from "@/lib/utils";
 import { getSessionUser } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { MyRequestsCancelButton } from "./my-requests-cancel-button";
@@ -154,7 +153,7 @@ export default async function MyRequestsPage() {
                         const cfg = CHANGE_REQUEST_STATUS_CONFIG[r.status];
                         const Icon = cfg.icon;
                         return (
-                          <Badge variant={cfg.variant} className={cn(cfg.className)}>
+                          <Badge variant={cfg.variant}>
                             <Icon className="h-3 w-3" />
                             {cfg.label}
                           </Badge>

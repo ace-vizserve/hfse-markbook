@@ -237,7 +237,7 @@ export function ChangeRequestsDataTable({
                       const cfg = CHANGE_REQUEST_STATUS_CONFIG[r.status];
                       const Icon = cfg.icon;
                       return (
-                        <Badge variant={cfg.variant} className={cn(cfg.className)}>
+                        <Badge variant={cfg.variant}>
                           <Icon className="h-3 w-3" />
                           {cfg.label}
                         </Badge>
