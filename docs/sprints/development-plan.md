@@ -857,6 +857,20 @@ SharePoint inquiry sync is no longer planned. Admissions will continue tracking 
 
 ---
 
+## Planned next (shovel-ready, not started)
+
+Sprint scopes that have been brainstormed + committed to disk but haven't been picked up yet. Live in `docs/superpowers/plans/` so any contributor can grab one cold.
+
+- **Security hardening sprint** — `docs/superpowers/plans/2026-04-26-security-hardening-sprint.md` (8 bites, ~1-2 weeks). Targeted route-level authz audit + drill API row-scoping + audit-log coverage check + ESLint/CI rule that prevents new unauth'd routes from shipping. Comprehensive RLS rebuild explicitly deferred (trades one bug class for another). KD #58 lands at the end.
+
+Other cross-cutting candidates not yet scoped to a plan file:
+- Test framework setup (vitest + smoke layer over `lib/compute/quarterly.ts` + drill builders + priority loaders) — repo has zero tests today.
+- Mobile pass for staff-facing pages (dashboards + drill sheets + AY-setup are desktop-only).
+- Drop legacy `school_calendar.is_holiday` column (KD #50 calls it dead weight) — small migration 029.
+- Collaborator-onboarding setup — plan saved at `docs/superpowers/plans/2026-04-25-collaborator-onboarding-setup.md` (Prettier + husky + GitHub Actions CI + CONTRIBUTING.md); ready when a second contributor joins.
+
+---
+
 ## Testing Checklist (before each sprint sign-off)
 
 ### Formula verification
