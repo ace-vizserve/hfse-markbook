@@ -13,7 +13,7 @@ Every module's dashboard landing page composes from **one** vocabulary:
 - `insights-panel.tsx` — 3–5 auto-generated narrative observations
 - `action-list.tsx` — compact follow-up table (analytical archetype "supplement" placement)
 - `metric-card.tsx` — dashboard-01 SectionCards KPI with delta + sparkline
-- `chart-legend-chip.tsx` — gradient pill for severity / category labels
+- `chart-legend-chip.tsx` — gradient pill for severity / category labels (use for chart-series legends; for table/grid cell tints use a bespoke `*LegendItem` swatch helper instead — see `09a-design-patterns.md` §10)
 - `charts/trend-chart.tsx` — area chart with gradient fill + comparison overlay
 - `charts/comparison-bar-chart.tsx` — grouped bar (vertical or horizontal)
 - `charts/donut-chart.tsx` — donut + inline legend with progress bars

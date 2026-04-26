@@ -262,3 +262,77 @@ If every answer is yes, the page is on brand and legible. If any answer is no, f
 
 ---
 
+## 10. Legends
+
+A legend is a **key**. Its visual must match the thing it documents — pixel-identical paint. If the legend chip is a gradient pill but the thing it labels is a solid wash, the key is broken; the user has to mentally translate, and color stops carrying meaning.
+
+### 10.1 Two legend shapes — pick by what you're documenting
+
+| What you're documenting | Use | Component |
+|---|---|---|
+| Recharts series, donut slice, stacked bar segment — anything where the chart paint is a brand gradient | **Gradient pill** | `ChartLegendChip` (or `chartLegendContent(palette)` factory for recharts `<Legend content={…}>`) |
+| Table / grid cell tint that uses solid washes (not gradients) | **Tinted swatch (true visual key)** | Bespoke `*LegendItem` helper that pulls its tint from the **same map** the cells use. See `StatusLegendItem` + `DayTypeLegendItem` in `components/attendance/wide-grid.tsx` |
+
+Never mix the two for one visualization. A wash-tinted column header documented by a gradient pill is the most common bug; a gradient series documented by a solid swatch is the inverse. Both break the key.
+
+### 10.2 Single source of truth for the tint
+
+The cells own the color map. The legend reads from it.
+
+```tsx
+// ✅ Single source — cell tint and legend swatch can't drift apart
+const DAY_TYPE_HEADER_BG: Record<DayType, string> = {
+  school_day: 'bg-muted/60 text-foreground',
+  public_holiday: 'bg-destructive/10 text-destructive',
+  // …
+};
+
+function DayTypeLegendItem({ dayType }: { dayType: DayType }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className={'inline-flex size-7 rounded-md shadow-input ' + DAY_TYPE_HEADER_BG[dayType]} aria-hidden />
+      <span className="text-[12px] font-medium text-foreground">{DAY_TYPE_LABELS[dayType]}</span>
+    </span>
+  );
+}
+```
+
+```tsx
+// ❌ Two sources — drift inevitable
+<ChartLegendChip color="chart-4" label="School day" />   // teal gradient pill
+// …elsewhere in the same file…
+school_day: 'bg-muted/60 text-foreground',               // gray wash on the actual cell
+```
+
+If the cell's color map is exported, the legend imports it. If it's not, hoist it to module scope before the legend exists. **Never hand-pick a chip color that "looks similar" to the cell tint.**
+
+### 10.3 Reuse `ChartLegendChipColor` for chart legends
+
+When using gradient pills for a recharts visualization, the palette mapping (data key → `ChartLegendChipColor`) is per-chart and lives next to the chart. Don't sprinkle ad-hoc string colors:
+
+```tsx
+<Legend content={chartLegendContent({
+  applied: 'chart-1',
+  interviewed: 'chart-2',
+  offered: 'chart-3',
+  enrolled: 'fresh',
+})} />
+```
+
+### 10.4 Where legends live
+
+- **Inside the chart card** — preferred for most charts. Place under the chart, not above. Use `chartLegendContent()` for recharts.
+- **Standalone strip above a table/grid** — when one legend documents multiple visuals (e.g. a status row + a calendar-tint row in `wide-grid.tsx`), wrap in a `Card` with two labelled rows; mono-uppercase eyebrow per row.
+
+### 10.5 Review checklist per legend
+
+- [ ] Does each legend swatch have **identical paint** (color + finish — gradient vs wash) to the thing it documents?
+- [ ] Is the swatch color pulled from the **same map** the cells / chart series use? (Not a "looks similar" hand-pick.)
+- [ ] If the legend is for chart series, does it use `ChartLegendChip` / `chartLegendContent(palette)`?
+- [ ] If the legend is for table or grid cell tints, does it use a bespoke `*LegendItem` swatch helper that reads from the cell's color map?
+- [ ] Are no two distinct states using the same swatch color? (Duplicate `chart-4` for "School day" + "No class" was the bug that prompted this rule.)
+
+If every answer is yes, the legend is a true key. If any answer is no, the user has to translate — fix it before shipping.
+
+---
+

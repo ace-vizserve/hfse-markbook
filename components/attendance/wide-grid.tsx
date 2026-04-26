@@ -583,8 +583,9 @@ export function AttendanceWideGrid({
 // Status chip + label used in the Legend card. Renders the status letter
 // inside a colored square sized to match the grid's visual weight so the
 // legend reads as a true key ("this is what P looks like in the grid"),
-// not a washed-out colored dot. The chip's colors come from the same
-// statusColor() the grid cells use — single source of truth.
+// not a washed-out colored dot. The swatch's colors come from the same
+// statusColor() the grid cells use — single source of truth, per the
+// "true visual key" rule in docs/context/09a-design-patterns.md §10.
 function StatusLegendItem({
   status,
   description,
@@ -618,6 +619,8 @@ function StatusLegendItem({
 // headers, so the legend reads as a true visual key ("this is what a
 // public-holiday column looks like in the grid"). Single source of truth
 // for the day-type → tint mapping; no duplicate ChartLegendChip palette.
+// Same "true visual key" rule as StatusLegendItem — see
+// docs/context/09a-design-patterns.md §10.
 function DayTypeLegendItem({
   dayType,
   sub,
