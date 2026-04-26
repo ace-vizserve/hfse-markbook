@@ -1,5 +1,14 @@
 import Link from 'next/link';
-import { ArrowRightIcon } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowRightIcon,
+  CheckCircle2,
+  ClipboardCheck,
+  ClipboardList,
+  FileWarning,
+  NotebookPen,
+  type LucideIcon,
+} from 'lucide-react';
 
 import {
   Card,
@@ -17,7 +26,11 @@ import {
 } from '@/components/dashboard/chart-legend-chip';
 import { cn } from '@/lib/utils';
 import type { InsightSeverity } from '@/lib/dashboard/insights';
-import type { PriorityChip, PriorityPayload } from '@/lib/dashboard/priority';
+import type {
+  PriorityChip,
+  PriorityIconKey,
+  PriorityPayload,
+} from '@/lib/dashboard/priority';
 
 /**
  * PriorityPanel — top-of-fold "what to act on right now?" answer.
@@ -47,12 +60,26 @@ const CHIP_COLOR_BY_SEVERITY: Record<InsightSeverity, ChartLegendChipColor> = {
   info: 'primary',
 };
 
+// JSON-safe iconKey → LucideIcon registry. The payload comes through
+// unstable_cache, which serializes return values; passing a component
+// reference directly (as we did initially) round-trips as `{}` and
+// blows up at render. The loaders set `iconKey: 'alert'` etc. instead.
+const ICON_BY_KEY: Record<PriorityIconKey, LucideIcon> = {
+  alert: AlertTriangle,
+  check: CheckCircle2,
+  clipboard: ClipboardCheck,
+  list: ClipboardList,
+  pen: NotebookPen,
+  warning: FileWarning,
+};
+
 export type PriorityPanelProps = {
   payload: PriorityPayload;
 };
 
 export function PriorityPanel({ payload }: PriorityPanelProps) {
-  const { eyebrow = 'Priority', title, headline, chips, cta, icon: Icon } = payload;
+  const { eyebrow = 'Priority', title, headline, chips, cta, iconKey } = payload;
+  const Icon = iconKey ? ICON_BY_KEY[iconKey] : undefined;
   const isEmpty = headline.value === 0 && chips.length === 0;
   const headlineSeverity = headline.severity ?? 'info';
   const headlineChipColor = CHIP_COLOR_BY_SEVERITY[headlineSeverity];

@@ -1,5 +1,4 @@
 import { unstable_cache } from 'next/cache';
-import { ClipboardList, FileWarning } from 'lucide-react';
 
 import { createServiceClient } from '@/lib/supabase/service';
 import { loadAssignmentsForUser } from '@/lib/auth/teacher-assignments';
@@ -672,7 +671,7 @@ async function loadMarkbookTeacherPriorityUncached(
       headline: { value: 0, label: 'sheets pending', severity: 'good' },
       chips: [],
       cta: undefined,
-      icon: ClipboardList,
+      iconKey: 'list',
     };
   }
 
@@ -692,7 +691,7 @@ async function loadMarkbookTeacherPriorityUncached(
       headline: { value: 0, label: 'sheets pending', severity: 'good' },
       chips: [],
       cta: undefined,
-      icon: ClipboardList,
+      iconKey: 'list',
     };
   }
 
@@ -749,7 +748,7 @@ async function loadMarkbookTeacherPriorityUncached(
     },
     chips,
     cta: total > 0 ? { label: 'Open grading', href: '/markbook/grading' } : undefined,
-    icon: ClipboardList,
+    iconKey: 'list',
   };
 }
 
@@ -836,7 +835,7 @@ async function loadMarkbookRegistrarPriorityUncached(
       : totalOpen > 0
         ? { label: 'Open grading', href: '/markbook/grading' }
         : undefined,
-    icon: useChangeRequestHeadline ? FileWarning : ClipboardList,
+    iconKey: useChangeRequestHeadline ? 'warning' : 'list',
   };
 }
 

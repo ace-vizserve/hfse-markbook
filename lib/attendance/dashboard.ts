@@ -1,5 +1,4 @@
 import { unstable_cache } from 'next/cache';
-import { AlertTriangle } from 'lucide-react';
 
 import { createServiceClient } from '@/lib/supabase/service';
 import {
@@ -381,7 +380,7 @@ async function loadAttendancePriorityUncached(
       title: 'No academic year configured',
       headline: { value: 0, label: 'set up AY in /sis/ay-setup', severity: 'info' },
       chips: [],
-      icon: AlertTriangle,
+      iconKey: 'alert',
     };
   }
 
@@ -431,7 +430,7 @@ async function loadAttendancePriorityUncached(
         severity: overQuota.length > 0 ? 'warn' : 'good',
       },
       chips: compassionateChips,
-      icon: AlertTriangle,
+      iconKey: 'alert',
     };
   }
 
@@ -515,7 +514,7 @@ async function loadAttendancePriorityUncached(
     chips: [...topUnmarkedChips, ...compassionateChips],
     cta:
       total > 0 ? { label: 'Open section picker', href: '/attendance/sections' } : undefined,
-    icon: AlertTriangle,
+    iconKey: 'alert',
   };
 }
 

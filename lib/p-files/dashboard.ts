@@ -1,5 +1,4 @@
 import { unstable_cache } from 'next/cache';
-import { AlertTriangle } from 'lucide-react';
 
 import { DOCUMENT_SLOTS, resolveStatus } from '@/lib/p-files/document-config';
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
@@ -602,6 +601,6 @@ export async function getPFilesPriority(
       total > 0
         ? { label: 'View all expiring', href: `/p-files?ay=${input.ayCode}&status=expired` }
         : undefined,
-    icon: AlertTriangle,
+    iconKey: 'alert',
   };
 }

@@ -1,5 +1,3 @@
-import type { LucideIcon } from 'lucide-react';
-
 import type { InsightSeverity } from '@/lib/dashboard/insights';
 
 /**
@@ -15,6 +13,12 @@ import type { InsightSeverity } from '@/lib/dashboard/insights';
  *
  * Per-module data loaders that build this payload land in subsequent bites.
  * This module is type-only.
+ *
+ * **Serialization caveat:** PriorityPayloads are returned from
+ * `unstable_cache`-wrapped loaders, which JSON-serialize their results.
+ * That's why `iconKey` is a string (mapped to a real LucideIcon inside
+ * PriorityPanel) and not a `LucideIcon` reference — React components
+ * round-trip as empty objects through the cache.
  */
 
 export type PriorityChip = {
@@ -37,6 +41,19 @@ export type PriorityHeadline = {
   severity?: InsightSeverity;
 };
 
+/**
+ * String discriminator for the optional gradient icon tile.
+ * PriorityPanel maps this to a real LucideIcon at render time.
+ * Add new keys here when a loader needs an icon not yet in the registry.
+ */
+export type PriorityIconKey =
+  | 'alert'
+  | 'check'
+  | 'clipboard'
+  | 'list'
+  | 'pen'
+  | 'warning';
+
 export type PriorityPayload = {
   /** Eyebrow stays "Priority" by default; overridable per-module. */
   eyebrow?: string;
@@ -44,6 +61,6 @@ export type PriorityPayload = {
   headline: PriorityHeadline;
   chips: PriorityChip[];
   cta?: PriorityCta;
-  /** Optional gradient icon for the CardAction slot. */
-  icon?: LucideIcon;
+  /** Optional gradient icon for the CardAction slot. JSON-safe string key. */
+  iconKey?: PriorityIconKey;
 };

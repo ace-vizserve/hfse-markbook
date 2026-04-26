@@ -1,5 +1,4 @@
 import { unstable_cache } from 'next/cache';
-import { ClipboardCheck, NotebookPen } from 'lucide-react';
 
 import { loadAssignmentsForUser } from '@/lib/auth/teacher-assignments';
 import type { PriorityPayload } from '@/lib/dashboard/priority';
@@ -264,7 +263,7 @@ async function loadEvaluationTeacherPriorityUncached(
       headline: { value: 0, label: 'writeups pending', severity: 'good' },
       chips: [],
       cta: undefined,
-      icon: NotebookPen,
+      iconKey: 'pen',
     };
   }
 
@@ -286,7 +285,7 @@ async function loadEvaluationTeacherPriorityUncached(
       headline: { value: 0, label: 'writeups pending', severity: 'good' },
       chips: [],
       cta: undefined,
-      icon: NotebookPen,
+      iconKey: 'pen',
     };
   }
 
@@ -304,7 +303,7 @@ async function loadEvaluationTeacherPriorityUncached(
       headline: { value: 0, label: 'writeups pending', severity: 'good' },
       chips: [],
       cta: undefined,
-      icon: NotebookPen,
+      iconKey: 'pen',
     };
   }
 
@@ -361,7 +360,7 @@ async function loadEvaluationTeacherPriorityUncached(
       totalPending > 0
         ? { label: 'Open my sections', href: '/evaluation/sections' }
         : undefined,
-    icon: NotebookPen,
+    iconKey: 'pen',
   };
 }
 
@@ -399,7 +398,7 @@ async function loadEvaluationRegistrarPriorityUncached(
       headline: { value: 0, label: 'writeups pending', severity: 'good' },
       chips: [],
       cta: undefined,
-      icon: ClipboardCheck,
+      iconKey: 'clipboard',
     };
   }
 
@@ -417,7 +416,7 @@ async function loadEvaluationRegistrarPriorityUncached(
       headline: { value: 0, label: 'no writeups expected', severity: 'good' },
       chips: [],
       cta: undefined,
-      icon: ClipboardCheck,
+      iconKey: 'clipboard',
     };
   }
 
@@ -475,7 +474,7 @@ async function loadEvaluationRegistrarPriorityUncached(
       totalPending > 0
         ? { label: 'Open writeups roster', href: '/evaluation/sections' }
         : undefined,
-    icon: ClipboardCheck,
+    iconKey: 'clipboard',
   };
 }
 
