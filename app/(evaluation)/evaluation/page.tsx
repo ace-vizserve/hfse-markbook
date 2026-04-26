@@ -6,6 +6,7 @@ import { ComparisonToolbar } from "@/components/dashboard/comparison-toolbar";
 import { DashboardHero } from "@/components/dashboard/dashboard-hero";
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
 import { MetricCard } from "@/components/dashboard/metric-card";
+import { PriorityPanel } from "@/components/dashboard/priority-panel";
 import {
   SubmissionVelocityDrillCard,
   TimeToSubmitHistogramCard,
@@ -26,7 +27,12 @@ import { PageShell } from "@/components/ui/page-shell";
 import { evaluationInsights } from "@/lib/dashboard/insights";
 import { formatRangeLabel, resolveRange, type DashboardSearchParams } from "@/lib/dashboard/range";
 import { getDashboardWindows } from "@/lib/dashboard/windows";
-import { getEvaluationKpisRange, getSubmissionVelocityRange } from "@/lib/evaluation/dashboard";
+import {
+  getEvaluationKpisRange,
+  getEvaluationRegistrarPriority,
+  getEvaluationTeacherPriority,
+  getSubmissionVelocityRange,
+} from "@/lib/evaluation/dashboard";
 import { buildAllRowSets } from "@/lib/evaluation/drill";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -98,6 +104,16 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
     ? `vs ${formatRangeLabel({ from: rangeInput.cmpFrom, to: rangeInput.cmpTo })}`
     : "";
 
+  // Role-aware PriorityPanel payload — teacher gets pending writeups across
+  // their advisory sections; registrar gets pending writeups school-wide.
+  const isTeacher = sessionUser.role === "teacher";
+  const teacherPriority =
+    isTeacher && ayCode
+      ? await getEvaluationTeacherPriority({ ayCode, teacherUserId: sessionUser.id })
+      : null;
+  const registrarPriority =
+    canToggle && ayCode ? await getEvaluationRegistrarPriority({ ayCode }) : null;
+
   const insights = kpisResult
     ? evaluationInsights({
         submissionPct: kpisResult.current.submissionPct,
@@ -118,7 +134,10 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
         badges={ayCode ? [{ label: ayCode }] : []}
       />
 
-      {rangeInput && kpisResult && velocity && (
+      {teacherPriority && <PriorityPanel payload={teacherPriority} />}
+      {registrarPriority && <PriorityPanel payload={registrarPriority} />}
+
+      {canToggle && rangeInput && kpisResult && velocity && (
         <>
           <ComparisonToolbar
             ayCode={ayCode}

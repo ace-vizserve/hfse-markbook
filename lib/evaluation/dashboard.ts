@@ -1,5 +1,8 @@
 import { unstable_cache } from 'next/cache';
+import { ClipboardCheck, NotebookPen } from 'lucide-react';
 
+import { loadAssignmentsForUser } from '@/lib/auth/teacher-assignments';
+import type { PriorityPayload } from '@/lib/dashboard/priority';
 import { createServiceClient } from '@/lib/supabase/service';
 import {
   computeDelta,
@@ -223,5 +226,265 @@ export function getSubmissionVelocityRange(
     loadSubmissionVelocityRangeUncached,
     ['evaluation', 'velocity', input.ayCode, input.from, input.to, input.cmpFrom, input.cmpTo],
     { revalidate: CACHE_TTL_SECONDS, tags: tag(input.ayCode) },
+  )(input);
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Role-aware PriorityPanel loaders (Bite 6).
+//
+// Teacher path: count NOT-YET-SUBMITTED writeups across the teacher's
+// form_adviser sections in the current open T1-T3 term. Headline = total
+// pending; chips = top 4 sections by pending count.
+//
+// Registrar path: same logic but school-wide (every section in the AY).
+// Both collapse to a "no active window" state when the term's
+// evaluation_terms.is_open flag is false (or no current term exists).
+// ──────────────────────────────────────────────────────────────────────────
+
+export type EvaluationTeacherPriorityInput = {
+  ayCode: string;
+  teacherUserId: string;
+};
+
+async function loadEvaluationTeacherPriorityUncached(
+  input: EvaluationTeacherPriorityInput,
+): Promise<PriorityPayload> {
+  const service = createServiceClient();
+
+  // 1. Resolve teacher's form_adviser sections.
+  const assignments = await loadAssignmentsForUser(service, input.teacherUserId);
+  const adviserSectionIds = Array.from(
+    new Set(assignments.filter((a) => a.role === 'form_adviser').map((a) => a.section_id)),
+  );
+
+  if (adviserSectionIds.length === 0) {
+    return {
+      eyebrow: 'Priority · this term',
+      title: 'No advisory sections assigned',
+      headline: { value: 0, label: 'writeups pending', severity: 'good' },
+      chips: [],
+      cta: undefined,
+      icon: NotebookPen,
+    };
+  }
+
+  // 2. Find the current open term in this AY (T1-T3 only).
+  const { data: termRows } = await service
+    .from('terms')
+    .select('id, term_number, label, academic_years!inner(ay_code)')
+    .eq('academic_years.ay_code', input.ayCode)
+    .neq('term_number', 4)
+    .eq('is_current', true)
+    .limit(1)
+    .maybeSingle();
+
+  const currentTerm = termRows as { id: string; term_number: number; label: string } | null;
+  if (!currentTerm) {
+    return {
+      eyebrow: 'Priority · this term',
+      title: 'No active term',
+      headline: { value: 0, label: 'writeups pending', severity: 'good' },
+      chips: [],
+      cta: undefined,
+      icon: NotebookPen,
+    };
+  }
+
+  // 3. Confirm the evaluation window for this term is open.
+  const { data: evalTermRow } = await service
+    .from('evaluation_terms')
+    .select('is_open')
+    .eq('term_id', currentTerm.id)
+    .maybeSingle();
+
+  if (!(evalTermRow as { is_open: boolean } | null)?.is_open) {
+    return {
+      eyebrow: 'Priority · this term',
+      title: 'Evaluation window closed for this term',
+      headline: { value: 0, label: 'writeups pending', severity: 'good' },
+      chips: [],
+      cta: undefined,
+      icon: NotebookPen,
+    };
+  }
+
+  // 4. For each adviser section, count active students MINUS submitted writeups
+  //    for the current term. evaluation_writeups uses `submitted boolean`
+  //    (migration 018) — there is no `status` column.
+  const perSection = await Promise.all(
+    adviserSectionIds.map(async (sectionId) => {
+      const [enrolledRes, writeupsRes, sectionRes] = await Promise.all([
+        service
+          .from('section_students')
+          .select('id', { count: 'exact', head: true })
+          .eq('section_id', sectionId)
+          .eq('enrollment_status', 'active'),
+        service
+          .from('evaluation_writeups')
+          .select('id', { count: 'exact', head: true })
+          .eq('section_id', sectionId)
+          .eq('term_id', currentTerm.id)
+          .eq('submitted', true),
+        service.from('sections').select('name').eq('id', sectionId).maybeSingle(),
+      ]);
+      const expected = enrolledRes.count ?? 0;
+      const submitted = writeupsRes.count ?? 0;
+      const pending = Math.max(0, expected - submitted);
+      const sectionName = (sectionRes.data as { name: string } | null)?.name ?? 'Section';
+      return { sectionId, sectionName, pending };
+    }),
+  );
+
+  const totalPending = perSection.reduce((sum, s) => sum + s.pending, 0);
+
+  const chips = perSection
+    .filter((s) => s.pending > 0)
+    .sort((a, b) => b.pending - a.pending)
+    .slice(0, 4)
+    .map((s) => ({
+      label: s.sectionName,
+      count: s.pending,
+      href: `/evaluation/sections/${s.sectionId}`,
+      severity: 'warn' as const,
+    }));
+
+  return {
+    eyebrow: `Priority · ${currentTerm.label}`,
+    title: totalPending === 0 ? 'All writeups submitted' : 'Writeups still need your input',
+    headline: {
+      value: totalPending,
+      label: totalPending === 0 ? 'caught up' : 'writeups pending across your advisories',
+      severity: totalPending === 0 ? 'good' : totalPending <= 5 ? 'warn' : 'bad',
+    },
+    chips,
+    cta:
+      totalPending > 0
+        ? { label: 'Open my sections', href: '/evaluation/sections' }
+        : undefined,
+    icon: NotebookPen,
+  };
+}
+
+export function getEvaluationTeacherPriority(
+  input: EvaluationTeacherPriorityInput,
+): Promise<PriorityPayload> {
+  return unstable_cache(
+    loadEvaluationTeacherPriorityUncached,
+    ['evaluation', 'teacher-priority', input.ayCode, input.teacherUserId],
+    { tags: tag(input.ayCode), revalidate: 60 },
+  )(input);
+}
+
+export type EvaluationRegistrarPriorityInput = { ayCode: string };
+
+async function loadEvaluationRegistrarPriorityUncached(
+  input: EvaluationRegistrarPriorityInput,
+): Promise<PriorityPayload> {
+  const service = createServiceClient();
+
+  // Current open term in current AY (T1-T3).
+  const { data: termRow } = await service
+    .from('terms')
+    .select('id, term_number, label, academic_years!inner(ay_code)')
+    .eq('academic_years.ay_code', input.ayCode)
+    .neq('term_number', 4)
+    .eq('is_current', true)
+    .maybeSingle();
+
+  const currentTerm = termRow as { id: string; term_number: number; label: string } | null;
+  if (!currentTerm) {
+    return {
+      eyebrow: 'Priority · today',
+      title: 'No active evaluation term',
+      headline: { value: 0, label: 'writeups pending', severity: 'good' },
+      chips: [],
+      cta: undefined,
+      icon: ClipboardCheck,
+    };
+  }
+
+  // Confirm window is open.
+  const { data: evalTermRow } = await service
+    .from('evaluation_terms')
+    .select('is_open')
+    .eq('term_id', currentTerm.id)
+    .maybeSingle();
+
+  if (!(evalTermRow as { is_open: boolean } | null)?.is_open) {
+    return {
+      eyebrow: 'Priority · today',
+      title: 'Evaluation window closed',
+      headline: { value: 0, label: 'no writeups expected', severity: 'good' },
+      chips: [],
+      cta: undefined,
+      icon: ClipboardCheck,
+    };
+  }
+
+  // All sections in current AY → expected vs submitted writeups.
+  const { data: sectionRows } = await service
+    .from('sections')
+    .select('id, name, academic_years!inner(ay_code)')
+    .eq('academic_years.ay_code', input.ayCode);
+  const sections = (sectionRows ?? []) as Array<{ id: string; name: string }>;
+
+  const perSection = await Promise.all(
+    sections.map(async (s) => {
+      const [enrolledRes, submittedRes] = await Promise.all([
+        service
+          .from('section_students')
+          .select('id', { count: 'exact', head: true })
+          .eq('section_id', s.id)
+          .eq('enrollment_status', 'active'),
+        service
+          .from('evaluation_writeups')
+          .select('id', { count: 'exact', head: true })
+          .eq('section_id', s.id)
+          .eq('term_id', currentTerm.id)
+          .eq('submitted', true),
+      ]);
+      const expected = enrolledRes.count ?? 0;
+      const submitted = submittedRes.count ?? 0;
+      return { sectionId: s.id, sectionName: s.name, pending: Math.max(0, expected - submitted) };
+    }),
+  );
+
+  const totalPending = perSection.reduce((sum, s) => sum + s.pending, 0);
+
+  const chips = perSection
+    .filter((s) => s.pending > 0)
+    .sort((a, b) => b.pending - a.pending)
+    .slice(0, 4)
+    .map((s) => ({
+      label: s.sectionName,
+      count: s.pending,
+      href: `/evaluation/sections/${s.sectionId}`,
+      severity: 'warn' as const,
+    }));
+
+  return {
+    eyebrow: `Priority · ${currentTerm.label}`,
+    title: totalPending === 0 ? 'All writeups submitted' : 'Writeups still pending school-wide',
+    headline: {
+      value: totalPending,
+      label: totalPending === 0 ? 'all sections complete' : 'writeups still due across all sections',
+      severity: totalPending === 0 ? 'good' : 'warn',
+    },
+    chips,
+    cta:
+      totalPending > 0
+        ? { label: 'Open writeups roster', href: '/evaluation/sections' }
+        : undefined,
+    icon: ClipboardCheck,
+  };
+}
+
+export function getEvaluationRegistrarPriority(
+  input: EvaluationRegistrarPriorityInput,
+): Promise<PriorityPayload> {
+  return unstable_cache(
+    loadEvaluationRegistrarPriorityUncached,
+    ['evaluation', 'registrar-priority', input.ayCode],
+    { tags: tag(input.ayCode), revalidate: 60 },
   )(input);
 }
