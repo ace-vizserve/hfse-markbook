@@ -199,7 +199,12 @@ export function EnvironmentCard({ current }: { current: Environment | null }) {
 
       <div className="flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-start gap-3">
-          <Trash2 className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" />
+          {/* §7.4 gradient destructive tile — matches the per-environment
+              tiles above. shadow-brand-tile-destructive is the brand-tinted
+              red glow added in the 26th-pass primitive refresh. */}
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-destructive to-destructive/80 text-white shadow-brand-tile-destructive">
+            <Trash2 className="size-4" />
+          </div>
           <div className="min-w-0 space-y-1">
             <div className="font-serif text-sm font-semibold text-foreground">
               Reset Test environment
@@ -215,12 +220,12 @@ export function EnvironmentCard({ current }: { current: Environment | null }) {
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button
-              variant="outline"
+              variant="destructive"
               size="sm"
               disabled={resetting || submitting !== null}
-              className="shrink-0 gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              className="shrink-0"
             >
-              {resetting ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+              {resetting ? <Loader2 className="animate-spin" /> : <Trash2 />}
               {resetting ? 'Resetting…' : 'Reset Test data'}
             </Button>
           </AlertDialogTrigger>
@@ -240,11 +245,11 @@ export function EnvironmentCard({ current }: { current: Environment | null }) {
             <AlertDialogFooter>
               <AlertDialogCancel disabled={resetting}>Cancel</AlertDialogCancel>
               <AlertDialogAction
+                variant="destructive"
                 onClick={resetTestEnv}
                 disabled={resetting}
-                className="bg-destructive text-white hover:bg-destructive/90"
               >
-                {resetting && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+                {resetting && <Loader2 className="animate-spin" />}
                 Delete Test environment
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -287,12 +292,15 @@ function EnvironmentOption({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
+          {/* §7.4 gradient icon tile — brand-indigo for Production (the
+              live default), brand-amber for Test (matches the warning-
+              tinted UAT environment indicators across the SIS). */}
           <div
             className={
-              'flex size-9 items-center justify-center rounded-lg ' +
+              'flex size-9 items-center justify-center rounded-xl text-white shadow-brand-tile bg-gradient-to-br ' +
               (target === 'test'
-                ? 'bg-brand-amber/10 text-brand-amber'
-                : 'bg-brand-indigo/10 text-brand-indigo')
+                ? 'from-brand-amber to-brand-amber/80'
+                : 'from-brand-indigo to-brand-navy')
             }
           >
             <Icon className="size-4" />
@@ -307,8 +315,9 @@ function EnvironmentOption({
           </div>
         </div>
         {active ? (
-          <Badge className="border-transparent bg-brand-mint text-foreground">
-            <CheckCircle2 className="mr-1 size-3" /> Current
+          <Badge variant="success">
+            <CheckCircle2 className="size-3" />
+            Current
           </Badge>
         ) : null}
       </div>
@@ -319,12 +328,11 @@ function EnvironmentOption({
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button
-              variant={target === 'test' ? 'outline' : 'default'}
-              className={target === 'test' ? 'border-brand-amber/50 text-brand-amber hover:bg-brand-amber-light' : ''}
+              variant={target === 'test' ? 'warning' : 'default'}
               disabled={submitting}
               size="sm"
             >
-              {submitting && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+              {submitting && <Loader2 className="animate-spin" />}
               Switch to {title}
             </Button>
           </AlertDialogTrigger>
@@ -353,8 +361,12 @@ function EnvironmentOption({
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={submitting}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={onSwitch} disabled={submitting}>
-                {submitting && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+              <AlertDialogAction
+                variant={target === 'test' ? 'warning' : 'default'}
+                onClick={onSwitch}
+                disabled={submitting}
+              >
+                {submitting && <Loader2 className="animate-spin" />}
                 Switch to {title}
               </AlertDialogAction>
             </AlertDialogFooter>

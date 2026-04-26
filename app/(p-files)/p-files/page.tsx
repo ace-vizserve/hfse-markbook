@@ -1,12 +1,12 @@
 import { AlertTriangle, Clock, FileStack, FolderKanban, TrendingUp } from "lucide-react";
 import { redirect } from "next/navigation";
 
-import { ActionList, type ActionItem } from "@/components/dashboard/action-list";
 import { ChartLegendChip } from "@/components/dashboard/chart-legend-chip";
 import { ComparisonToolbar } from "@/components/dashboard/comparison-toolbar";
 import { DashboardHero } from "@/components/dashboard/dashboard-hero";
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
 import { MetricCard } from "@/components/dashboard/metric-card";
+import { PriorityPanel } from "@/components/dashboard/priority-panel";
 import { CompletenessTable, type StatusFilter } from "@/components/p-files/completeness-table";
 import {
   CompletenessCsvButton,
@@ -28,6 +28,7 @@ import { getDashboardWindows } from "@/lib/dashboard/windows";
 import {
   getCompletionByLevel,
   getPFilesKpisRange,
+  getPFilesPriority,
   getRevisionVelocityRange,
   getRevisionsHeatmap,
   getRevisionsOverTime,
@@ -87,6 +88,7 @@ export default async function PFilesDashboard({
     velocity,
     slotMix,
     revisionsHeatmap,
+    priority,
   ] = await Promise.all([
     getDocumentDashboardData(selectedAy),
     getCompletionByLevel(selectedAy),
@@ -97,6 +99,7 @@ export default async function PFilesDashboard({
     getRevisionVelocityRange(rangeInput),
     getSlotStatusMix(selectedAy),
     getRevisionsHeatmap(selectedAy, 12),
+    getPFilesPriority({ ayCode: selectedAy }),
   ]);
 
   const comparisonLabel = `vs ${formatRangeLabel({ from: rangeInput.cmpFrom, to: rangeInput.cmpTo })}`;
@@ -109,15 +112,6 @@ export default async function PFilesDashboard({
     totalDocuments: kpisResult.current.totalDocuments,
     revisionsDelta: kpisResult.delta,
   });
-
-  // Docs-to-collect action list from the expiring panel.
-  const expiringItems: ActionItem[] = expiring.slice(0, 6).map((row) => ({
-    label: row.studentName,
-    sublabel: row.slotLabel,
-    meta: row.daysUntilExpiry < 0 ? `${Math.abs(row.daysUntilExpiry)}d overdue` : `${row.daysUntilExpiry}d left`,
-    severity: row.daysUntilExpiry < 0 ? "bad" : row.daysUntilExpiry <= 14 ? "warn" : "info",
-    href: `/p-files/${row.enroleeNumber}`,
-  }));
 
   const donutSlices = [
     { name: "On file", value: slotMix.valid },
@@ -146,6 +140,8 @@ export default async function PFilesDashboard({
         termWindows={windows.term}
         ayWindows={windows.ay}
       />
+
+      <PriorityPanel payload={priority} />
 
       <InsightsPanel insights={insights} />
 
@@ -214,14 +210,6 @@ export default async function PFilesDashboard({
       </section>
 
       <SummaryCards summary={summary} />
-
-      <ActionList
-        title="Documents to collect"
-        description="Students with documents expiring or overdue — contact families to renew."
-        items={expiringItems}
-        emptyLabel="No outstanding documents. Everything on file."
-        viewAllHref={`/p-files?ay=${selectedAy}&status=expired`}
-      />
 
       {/* Row 6 — wide revision trend + heatmap (12-week reference) */}
       <section className="grid gap-4 lg:grid-cols-2">

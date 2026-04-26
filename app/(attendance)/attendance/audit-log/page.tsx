@@ -22,9 +22,10 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { PageShell } from '@/components/ui/page-shell';
 
+type AttendanceActionTone = 'default' | 'warn' | 'info';
 type AttendanceActionLabel = {
   label: string;
-  tone: 'default' | 'warn' | 'info';
+  tone: AttendanceActionTone;
 };
 
 const ACTION_LABELS: Record<string, AttendanceActionLabel> = {
@@ -32,6 +33,15 @@ const ACTION_LABELS: Record<string, AttendanceActionLabel> = {
   'attendance.daily.correct': { label: 'Daily · correction', tone: 'warn' },
   'attendance.import.bulk': { label: 'Bulk import', tone: 'info' },
   'attendance.update': { label: 'Term summary (legacy)', tone: 'info' },
+};
+
+// §9.3 wash recipes — brand tokens only. `default` uses the flat muted
+// Badge variant (matches the markbook audit log's action chips); `warn`
+// + `info` add per-tone wash overrides via Badge variant="outline".
+const TONE_CLASS: Record<AttendanceActionTone, string> = {
+  default: '',
+  warn: 'border-brand-amber/40 bg-brand-amber/15 text-brand-amber',
+  info: 'border-brand-indigo-soft/40 bg-accent text-brand-indigo-deep',
 };
 
 export default async function AttendanceAuditLogPage() {
@@ -155,18 +165,13 @@ export default async function AttendanceAuditLogPage() {
                     </TableCell>
                     <TableCell className="text-sm text-foreground">{r.actor_email}</TableCell>
                     <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={
-                          label.tone === 'warn'
-                            ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-200'
-                            : label.tone === 'info'
-                            ? 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-200'
-                            : 'border-border bg-card text-foreground'
-                        }
-                      >
-                        {label.label}
-                      </Badge>
+                      {label.tone === 'default' ? (
+                        <Badge variant="secondary">{label.label}</Badge>
+                      ) : (
+                        <Badge variant="outline" className={TONE_CLASS[label.tone]}>
+                          {label.label}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       <ContextCell context={r.context} />
