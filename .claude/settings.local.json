@@ -91,7 +91,11 @@
       "PowerShell($path = \"C:\\\\Users\\\\Ace\\\\OneDrive - HFSE International School\\\\Desktop\\\\hfse-vizserve projects\\\\hfse-markbook\\\\lib\\\\csv.ts\"; $content = [System.IO.File]::ReadAllText\\($path\\); $bomChar = [string][char]0xFEFF; $oldLine = \"const UTF8_BOM = '\" + $bomChar + \"';\"; $newLine = \"const UTF8_BOM = '\\\\u\" + \"FEFF';\"; if \\($content.Contains\\($oldLine\\)\\) { $newContent = $content.Replace\\($oldLine, $newLine\\); [System.IO.File]::WriteAllText\\($path, $newContent, \\(New-Object System.Text.UTF8Encoding $false\\)\\); \"Replaced successfully\" } else { \"Old pattern not found\" })",
       "PowerShell($content = [System.IO.File]::ReadAllText\\(\"C:\\\\Users\\\\Ace\\\\OneDrive - HFSE International School\\\\Desktop\\\\hfse-vizserve projects\\\\hfse-markbook\\\\lib\\\\csv.ts\"\\); $idx = $content.IndexOf\\(\"UTF8_BOM\"\\); $segment = $content.Substring\\($idx, 30\\); Write-Host \"Segment:\"; $segment; Write-Host \"\"; Write-Host \"Bytes:\"; \\($segment.ToCharArray\\(\\) | ForEach-Object { \"{0,-4} U+{1:X4}\" -f $_, [int]$_ }\\) -join \"`n\")",
       "Bash(echo \"EXIT: $?\")",
-      "Bash(C:/Users/Ace/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/scripts/start-server.sh *)"
+      "Bash(C:/Users/Ace/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/scripts/start-server.sh *)",
+      "Bash(git cherry-pick *)",
+      "Bash(awk *)",
+      "Bash(bash \"C:/Users/Ace/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/scripts/stop-server.sh\" \"C:/Users/Ace/OneDrive - HFSE International School/Desktop/hfse-vizserve projects/hfse-markbook/.superpowers/brainstorm/718-1777199958\")",
+      "Bash(npx eslint *)"
     ],
     "deny": [
       "Read(./.env.local)"

@@ -177,8 +177,8 @@ async function loadRecordsRowsUncached(ayCode: string): Promise<RecordsDrillRow[
   const enroleeNumbers = ss
     .map((r) => r.enrolee_number)
     .filter((v): v is string => v !== null);
-  let appByEnrolee = new Map<string, ApplicationLite>();
-  let statusByEnrolee = new Map<string, StatusLite>();
+  const appByEnrolee = new Map<string, ApplicationLite>();
+  const statusByEnrolee = new Map<string, StatusLite>();
   if (enroleeNumbers.length > 0) {
     const [appsRes, statusRes] = await Promise.all([
       admissions
