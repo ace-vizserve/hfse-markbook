@@ -35,7 +35,6 @@ function todayLocalIso(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-import { ChartLegendChip } from "@/components/dashboard/chart-legend-chip";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -543,16 +542,18 @@ export function AttendanceWideGrid({
         <p className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-indigo-deep">
           Status · cell colour
         </p>
-        {/* Legend chips use the same statusColor() the grid cells use, so
-            this is a true visual key — what you see here is exactly what
-            appears in the grid. */}
+        {/* Legend swatches use the same statusColor() the grid cells use,
+            so this is a true visual key — what you see here is exactly what
+            appears in the grid. Status letters mirror the dropdown values
+            (P / L / EX / A / NC); EX collapses the three sub-reasons since
+            they share one cell colour. */}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-foreground">
           <StatusLegendItem status="P" description="Present" />
           <StatusLegendItem status="L" description="Late" />
           <StatusLegendItem
             status="EX"
             description="Excused"
-            sub="MC / Compassionate / School-activity"
+            sub="MC / Compassionate / School activity"
           />
           <StatusLegendItem status="A" description="Absent" />
           {canWriteNc && <StatusLegendItem status="NC" description="No class" />}
@@ -560,15 +561,18 @@ export function AttendanceWideGrid({
         <p className="mt-3 mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-indigo-deep">
           Calendar · column tint
         </p>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-          <ChartLegendChip color="chart-4" label="School day" />
-          <ChartLegendChip color="very-stale" label="Public holiday" />
-          <ChartLegendChip color="stale" label="School holiday" />
-          <ChartLegendChip color="primary" label="HBL (encodable)" />
-          <ChartLegendChip color="chart-4" label="No class" />
+        {/* Day-type swatches mirror DAY_TYPE_HEADER_BG so the chip's tint
+            matches the column header tint exactly — a true visual key, same
+            craft as the status row above. */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-foreground">
+          <DayTypeLegendItem dayType="school_day" />
+          <DayTypeLegendItem dayType="public_holiday" />
+          <DayTypeLegendItem dayType="school_holiday" />
+          <DayTypeLegendItem dayType="hbl" sub="Encodable" />
+          <DayTypeLegendItem dayType="no_class" />
         </div>
         <p className="mt-3 text-[10px] text-muted-foreground">
-          Dropdown shows EM / EC / ES for MC / Compassionate / School-activity.
+          Dropdown shows EX · MC / EX · Compassionate / EX · School activity.
           <span className="ml-2">★ marks dates with a calendar event.</span>
         </p>
       </Card>
@@ -603,6 +607,37 @@ function StatusLegendItem({
       </span>
       <span className="flex flex-col leading-tight">
         <span className="text-[12px] font-medium text-foreground">{description}</span>
+        {sub && <span className="text-[10px] text-muted-foreground">{sub}</span>}
+      </span>
+    </span>
+  );
+}
+
+// Day-type chip + label, sibling to StatusLegendItem. The swatch's tint
+// is pulled from the same DAY_TYPE_HEADER_BG map the grid uses for column
+// headers, so the legend reads as a true visual key ("this is what a
+// public-holiday column looks like in the grid"). Single source of truth
+// for the day-type → tint mapping; no duplicate ChartLegendChip palette.
+function DayTypeLegendItem({
+  dayType,
+  sub,
+}: {
+  dayType: DayType;
+  sub?: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span
+        className={
+          "inline-flex size-7 items-center justify-center rounded-md shadow-input " +
+          DAY_TYPE_HEADER_BG[dayType]
+        }
+        aria-hidden
+      />
+      <span className="flex flex-col leading-tight">
+        <span className="text-[12px] font-medium text-foreground">
+          {DAY_TYPE_LABELS[dayType]}
+        </span>
         {sub && <span className="text-[10px] text-muted-foreground">{sub}</span>}
       </span>
     </span>
