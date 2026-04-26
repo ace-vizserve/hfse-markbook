@@ -12,7 +12,7 @@ load: on-demand
 - **Supabase** (Postgres + Auth, `@supabase/ssr`) — one shared project also hosts admissions tables.
 - **Tailwind v4** via `@tailwindcss/postcss` (no JS config) + `tw-animate-css`.
 - **RHF + zod + shadcn `Form`** for submit-based forms; schemas in `lib/schemas/`.
-- **sonner** for toasts; `<Toaster />` mounted once in `app/layout.tsx`.
+- **sileo** for toasts via tsconfig path-alias shim (KD #58) — `'sonner'` is rewired in `tsconfig.json::compilerOptions.paths` to resolve to `components/ui/sonner.tsx`, which is a sonner-shaped facade over `sileo`. Call sites still `import { toast } from 'sonner'`. `<Toaster />` mounted once in `app/layout.tsx`.
 - **`@tanstack/react-table`** + **`recharts`** for filterable lists and dashboards.
 - **`pdf-merger-js`** (server-only) for P-Files upload merge.
 - **`xlsx`** / SheetJS (server-only, trusted registrar input only) for attendance bulk import.

@@ -443,7 +443,7 @@ async function loadAttendancePriorityUncached(
 
   // Sections with at least one attendance_daily row for today.
   const sectionIds = sections.map((s) => s.id);
-  let markedSectionIds = new Set<string>();
+  const markedSectionIds = new Set<string>();
   if (sectionIds.length > 0) {
     // attendance_daily references section_students (not sections directly).
     // Resolve the section_student ids that belong to these sections, then

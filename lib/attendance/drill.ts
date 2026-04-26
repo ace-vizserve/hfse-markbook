@@ -189,7 +189,7 @@ async function resolveAyContext(ayCode: string) {
   for (const l of (levelsRes.data ?? []) as LevelLite[]) levels.set(l.id, l.code);
 
   let sectionStudents: StudentSectionLite[] = [];
-  let studentMap = new Map<string, StudentLite>();
+  const studentMap = new Map<string, StudentLite>();
   if (sectionIds.length > 0) {
     const { data: ssRows } = await service
       .from('section_students')
