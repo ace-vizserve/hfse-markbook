@@ -671,8 +671,7 @@ function MonthView({
     return new Date(t.getFullYear(), t.getMonth(), 1);
   })();
   const todayInTerm =
-    todayMonth.getTime() >= firstOfTermStart.getTime() &&
-    todayMonth.getTime() <= firstOfTermEnd.getTime();
+    todayMonth.getTime() >= firstOfTermStart.getTime() && todayMonth.getTime() <= firstOfTermEnd.getTime();
 
   function goPrev() {
     setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1));
@@ -705,48 +704,48 @@ function MonthView({
   // hardcoding 13. Week-of-term is 1-indexed, only meaningful when today is
   // inside the term; pre/post-term render as "Starts MMM DD" / "Ended MMM DD"
   // to give the registrar an accurate at-a-glance state.
-  const termSpanDays = Math.max(
-    1,
-    Math.floor((termEnd.getTime() - termStart.getTime()) / 86400000) + 1,
-  );
+  const termSpanDays = Math.max(1, Math.floor((termEnd.getTime() - termStart.getTime()) / 86400000) + 1);
   const totalWeeks = Math.max(1, Math.ceil(termSpanDays / 7));
   const now = new Date();
-  let termPhase: 'pre' | 'in' | 'post';
+  let termPhase: "pre" | "in" | "post";
   let weekOfTerm: number;
   if (now.getTime() < termStart.getTime()) {
-    termPhase = 'pre';
+    termPhase = "pre";
     weekOfTerm = 0;
   } else if (now.getTime() > termEnd.getTime()) {
-    termPhase = 'post';
+    termPhase = "post";
     weekOfTerm = totalWeeks;
   } else {
-    termPhase = 'in';
+    termPhase = "in";
     const daysSinceStart = Math.floor((now.getTime() - termStart.getTime()) / 86400000);
     weekOfTerm = Math.min(totalWeeks, Math.floor(daysSinceStart / 7) + 1);
   }
-  const formatMetaDate = (d: Date) =>
-    d.toLocaleDateString('en-SG', { month: 'short', day: 'numeric' });
+  const formatMetaDate = (d: Date) => d.toLocaleDateString("en-SG", { month: "short", day: "numeric" });
 
   return (
     <div className="rounded-xl border border-hairline bg-card shadow-sm ring-1 ring-inset ring-hairline">
       {/* Eyebrow meta-strip — term label + week-of-term left, classified-count right. */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline bg-muted/30 px-6 py-3 shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.4)]">
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        <Badge>
           {term.label}
           <span className="mx-2 text-hairline-strong">·</span>
-          {termPhase === 'pre' && (
-            <>Starts <span className="tabular-nums">{formatMetaDate(termStart)}</span></>
-          )}
-          {termPhase === 'in' && (
+          {termPhase === "pre" && (
             <>
-              Week <span className="tabular-nums">{weekOfTerm}</span> of{' '}
+              Starts <span className="tabular-nums">{formatMetaDate(termStart)}</span>
+            </>
+          )}
+          {termPhase === "in" && (
+            <>
+              Week <span className="tabular-nums">{weekOfTerm}</span> of{" "}
               <span className="tabular-nums">{totalWeeks}</span>
             </>
           )}
-          {termPhase === 'post' && (
-            <>Ended <span className="tabular-nums">{formatMetaDate(termEnd)}</span></>
+          {termPhase === "post" && (
+            <>
+              Ended <span className="tabular-nums">{formatMetaDate(termEnd)}</span>
+            </>
           )}
-        </p>
+        </Badge>
         <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
           <span className="tabular-nums">{totalSchoolDays}</span> days classified
         </p>
@@ -784,7 +783,7 @@ function MonthView({
             onClick={goToday}
             title={
               todayInTerm
-                ? 'Jump to today'
+                ? "Jump to today"
                 : "Today is outside this term — view will show today's month with empty cells; switch terms to see badges"
             }
             className="h-8 font-mono text-[10px] uppercase tracking-[0.14em]">
