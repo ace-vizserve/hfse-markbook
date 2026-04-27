@@ -648,6 +648,19 @@ function MonthView({
   const canPrev = cursor.getTime() > firstOfTermStart.getTime();
   const canNext = cursor.getTime() < firstOfTermEnd.getTime();
 
+  // Today button — only meaningful when today's month overlaps the selected
+  // term. Calendar data is term-scoped, so jumping the cursor to today's month
+  // when today is outside the term would render cells with no day-type badges
+  // (the upstream `daysByType` map has no entries for those dates). Disable
+  // the button in that case + clamp goToday() defensively.
+  const todayMonth = (() => {
+    const t = new Date();
+    return new Date(t.getFullYear(), t.getMonth(), 1);
+  })();
+  const todayInTerm =
+    todayMonth.getTime() >= firstOfTermStart.getTime() &&
+    todayMonth.getTime() <= firstOfTermEnd.getTime();
+
   function goPrev() {
     setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1));
   }
@@ -655,8 +668,8 @@ function MonthView({
     setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1));
   }
   function goToday() {
-    const t = new Date();
-    setCursor(new Date(t.getFullYear(), t.getMonth(), 1));
+    if (!todayInTerm) return; // safety: button is disabled, but guard anyway
+    setCursor(todayMonth);
   }
 
   function toggleSelection(iso: string, d: Date) {
@@ -726,6 +739,12 @@ function MonthView({
             type="button"
             size="sm"
             onClick={goToday}
+            disabled={!todayInTerm}
+            title={
+              todayInTerm
+                ? "Jump to today"
+                : "Today is outside this term — switch terms to see today's calendar"
+            }
             className="h-8 font-mono text-[10px] uppercase tracking-[0.14em]">
             Today
           </Button>
