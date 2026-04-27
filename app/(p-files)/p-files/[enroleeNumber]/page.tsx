@@ -42,7 +42,7 @@ export default async function StudentDocumentDetailPage({
 
   // Group slots by their document group
   const groups: { group: DocumentGroup; label: string; slots: typeof student.slots }[] = [];
-  const groupOrder: DocumentGroup[] = ['student', 'student-expiring', 'parent'];
+  const groupOrder: DocumentGroup[] = ['student', 'student-expiring', 'parent', 'stp'];
   for (const g of groupOrder) {
     const groupSlots = student.slots.filter((slot) => {
       const config = DOCUMENT_SLOTS.find((s) => s.key === slot.key);
