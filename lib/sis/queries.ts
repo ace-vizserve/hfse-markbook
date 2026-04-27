@@ -396,6 +396,7 @@ export const DOCUMENT_SLOTS: Array<{ key: string; label: string; statusCol: stri
   { key: 'birthCert',         label: 'Birth Certificate',    statusCol: 'birthCertStatus',         urlCol: 'birthCert' },
   { key: 'educCert',          label: 'Education Certificate',statusCol: 'educCertStatus',          urlCol: 'educCert' },
   { key: 'medical',           label: 'Medical',              statusCol: 'medicalStatus',           urlCol: 'medical' },
+  { key: 'form12',            label: 'Form 12',              statusCol: 'form12Status',            urlCol: 'form12' },
   { key: 'passport',          label: 'Passport (Student)',   statusCol: 'passportStatus',          urlCol: 'passport',          expiryCol: 'passportExpiry' },
   { key: 'pass',              label: 'Pass (Student)',       statusCol: 'passStatus',              urlCol: 'pass',              expiryCol: 'passExpiry' },
   { key: 'motherPassport',    label: 'Mother Passport',      statusCol: 'motherPassportStatus',    urlCol: 'motherPassport',    expiryCol: 'motherPassportExpiry' },
@@ -404,7 +405,20 @@ export const DOCUMENT_SLOTS: Array<{ key: string; label: string; statusCol: stri
   { key: 'fatherPass',        label: 'Father Pass',          statusCol: 'fatherPassStatus',        urlCol: 'fatherPass',        expiryCol: 'fatherPassExpiry' },
   { key: 'guardianPassport',  label: 'Guardian Passport',    statusCol: 'guardianPassportStatus',  urlCol: 'guardianPassport',  expiryCol: 'guardianPassportExpiry' },
   { key: 'guardianPass',      label: 'Guardian Pass',        statusCol: 'guardianPassStatus',      urlCol: 'guardianPass',      expiryCol: 'guardianPassExpiry' },
+  // STP application slots — visible when stpApplicationType is set on the applications row
+  { key: 'icaPhoto',                label: 'ICA Photo (STP)',         statusCol: 'icaPhotoStatus',                urlCol: 'icaPhoto' },
+  { key: 'financialSupportDocs',    label: 'Financial Support (STP)', statusCol: 'financialSupportDocsStatus',    urlCol: 'financialSupportDocs' },
+  { key: 'vaccinationInformation',  label: 'Vaccination Info (STP)',  statusCol: 'vaccinationInformationStatus',  urlCol: 'vaccinationInformation' },
 ];
+
+// STP-conditional slot keys — UI consumers hide these when the apps row's
+// stpApplicationType is null. The columns always exist on the row; only display
+// is gated. See KD #51 + the parent-portal STP workflow.
+export const STP_CONDITIONAL_SLOT_KEYS = [
+  'icaPhoto',
+  'financialSupportDocs',
+  'vaccinationInformation',
+] as const;
 
 const DOCUMENT_COLUMNS = [
   'enroleeNumber', 'studentNumber',
