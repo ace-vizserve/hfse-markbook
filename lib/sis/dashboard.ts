@@ -128,8 +128,15 @@ async function loadDocumentValidationBacklogUncached(ayCode: string): Promise<Do
   const supabase = createAdmissionsClient();
 
   // Columns to select: for each slot, url + status + (expiry if expiring).
-  // Plus the parent-email gate columns that drive `conditional` slots.
-  const selectCols = new Set<string>(['enroleeNumber', 'fatherEmail', 'guardianEmail']);
+  // Plus the gate columns that drive `conditional` slots — fatherEmail /
+  // guardianEmail for parent-presence gating, stpApplicationType for the STP
+  // slot group (KD #61).
+  const selectCols = new Set<string>([
+    'enroleeNumber',
+    'fatherEmail',
+    'guardianEmail',
+    'stpApplicationType',
+  ]);
   for (const slot of DOCUMENT_SLOTS) {
     selectCols.add(slot.key);
     selectCols.add(`${slot.key}Status`);
@@ -137,7 +144,8 @@ async function loadDocumentValidationBacklogUncached(ayCode: string): Promise<Do
   }
 
   // Documents table holds url + status + expiry; conditional columns
-  // (fatherEmail / guardianEmail) live on the applications row. Fetch both.
+  // (fatherEmail / guardianEmail / stpApplicationType) live on the apps row.
+  // Fetch both.
   const [docsRes, appsRes] = await Promise.all([
     supabase
       .from(`${prefix}_enrolment_documents`)
@@ -151,7 +159,7 @@ async function loadDocumentValidationBacklogUncached(ayCode: string): Promise<Do
       ),
     supabase
       .from(`${prefix}_enrolment_applications`)
-      .select('enroleeNumber, fatherEmail, guardianEmail'),
+      .select('enroleeNumber, fatherEmail, guardianEmail, stpApplicationType'),
   ]);
 
   if (docsRes.error) {
@@ -167,6 +175,7 @@ async function loadDocumentValidationBacklogUncached(ayCode: string): Promise<Do
     enroleeNumber: string | null;
     fatherEmail: string | null;
     guardianEmail: string | null;
+    stpApplicationType: string | null;
   };
   const gates = new Map<string, GateRow>();
   for (const a of (appsRes.data ?? []) as unknown as GateRow[]) {
@@ -192,7 +201,10 @@ async function loadDocumentValidationBacklogUncached(ayCode: string): Promise<Do
     for (const slot of DOCUMENT_SLOTS) {
       // Conditional slots — skip if the gate column is not set on this applicant.
       if (slot.conditional) {
-        const gateValue = gate?.[slot.conditional as 'fatherEmail' | 'guardianEmail'] ?? null;
+        const gateValue =
+          gate?.[
+            slot.conditional as 'fatherEmail' | 'guardianEmail' | 'stpApplicationType'
+          ] ?? null;
         if (!gateValue || gateValue.trim() === '') continue;
       }
 

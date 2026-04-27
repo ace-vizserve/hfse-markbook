@@ -54,7 +54,7 @@ async function loadCompletionByLevelUncached(ayCode: string): Promise<LevelCompl
   const [appsRes, statusRes, docsRes] = await Promise.all([
     supabase
       .from(`${prefix}_enrolment_applications`)
-      .select('enroleeNumber, levelApplied, fatherEmail, guardianEmail'),
+      .select('enroleeNumber, levelApplied, fatherEmail, guardianEmail, stpApplicationType'),
     supabase.from(`${prefix}_enrolment_status`).select('enroleeNumber, classLevel'),
     supabase
       .from(`${prefix}_enrolment_documents`)
@@ -83,6 +83,7 @@ async function loadCompletionByLevelUncached(ayCode: string): Promise<LevelCompl
     levelApplied: string | null;
     fatherEmail: string | null;
     guardianEmail: string | null;
+    stpApplicationType: string | null;
   };
   type StatusRow = { enroleeNumber: string | null; classLevel: string | null };
 
@@ -120,7 +121,9 @@ async function loadCompletionByLevelUncached(ayCode: string): Promise<LevelCompl
     for (const slot of DOCUMENT_SLOTS) {
       if (slot.conditional) {
         const gateValue =
-          entry.gate[slot.conditional as 'fatherEmail' | 'guardianEmail'] ?? null;
+          entry.gate[
+            slot.conditional as 'fatherEmail' | 'guardianEmail' | 'stpApplicationType'
+          ] ?? null;
         if (!gateValue || String(gateValue).trim() === '') continue;
       }
       const url = row[slot.key];

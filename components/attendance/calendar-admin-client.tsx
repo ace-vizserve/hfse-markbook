@@ -2,7 +2,7 @@
 
 import { CalendarOff, CalendarPlus, CheckCheck, ChevronLeft, ChevronRight, Loader2, Trash2, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { CopyHolidaysDialog } from "@/components/attendance/copy-holidays-dialog";
@@ -606,6 +606,17 @@ function MonthView({
   // Cursor = first-of-month for the visible month. Starts at term-start month.
   const [cursor, setCursor] = useState<Date>(() => new Date(termStart.getFullYear(), termStart.getMonth(), 1));
 
+  // When the user switches to a different term via the dropdown, reset the
+  // cursor to the new term's start month. Without this, the cursor stays at
+  // whatever month the user navigated to in the prior term — which would
+  // often be out-of-range for the new term and force an extra "go back to
+  // start" click. Keyed on `term.startDate` (a stable string) rather than
+  // the parsed termStart Date object whose reference changes each render.
+  useEffect(() => {
+    setCursor(new Date(termStart.getFullYear(), termStart.getMonth(), 1));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [term.startDate]);
+
   // Flatten daysByType into an iso → DayType map for O(1) lookup.
   const dayTypeByIso = useMemo(() => {
     const m = new Map<string, DayType>();
@@ -648,6 +659,20 @@ function MonthView({
   const canPrev = cursor.getTime() > firstOfTermStart.getTime();
   const canNext = cursor.getTime() < firstOfTermEnd.getTime();
 
+  // Today button is always enabled — even when today's month is outside the
+  // selected term. The grid renders cells with date numbers + headers but
+  // without day-type badges (since term-scoped `daysByType` has no entries
+  // for non-term months). That's an honest representation of "this term
+  // doesn't cover today" rather than a broken-looking empty state. To see
+  // today's actual badges, the user switches to the term that contains today
+  // via the term selector.
+  const todayMonth = (() => {
+    const t = new Date();
+    return new Date(t.getFullYear(), t.getMonth(), 1);
+  })();
+  const todayInTerm =
+    todayMonth.getTime() >= firstOfTermStart.getTime() && todayMonth.getTime() <= firstOfTermEnd.getTime();
+
   function goPrev() {
     setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1));
   }
@@ -655,8 +680,7 @@ function MonthView({
     setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1));
   }
   function goToday() {
-    const t = new Date();
-    setCursor(new Date(t.getFullYear(), t.getMonth(), 1));
+    setCursor(todayMonth);
   }
 
   function toggleSelection(iso: string, d: Date) {
@@ -676,21 +700,52 @@ function MonthView({
     daysByType.hbl.length +
     daysByType.no_class.length;
 
-  // Week-of-term — 1-indexed number of Monday-weeks from term start to today,
-  // clamped to [1, 13].
+  // Term span — derive total-weeks from the actual term length rather than
+  // hardcoding 13. Week-of-term is 1-indexed, only meaningful when today is
+  // inside the term; pre/post-term render as "Starts MMM DD" / "Ended MMM DD"
+  // to give the registrar an accurate at-a-glance state.
+  const termSpanDays = Math.max(1, Math.floor((termEnd.getTime() - termStart.getTime()) / 86400000) + 1);
+  const totalWeeks = Math.max(1, Math.ceil(termSpanDays / 7));
   const now = new Date();
-  const daysSinceStart = Math.max(0, Math.floor((now.getTime() - termStart.getTime()) / 86400000));
-  const weekOfTerm = Math.min(13, Math.floor(daysSinceStart / 7) + 1);
+  let termPhase: "pre" | "in" | "post";
+  let weekOfTerm: number;
+  if (now.getTime() < termStart.getTime()) {
+    termPhase = "pre";
+    weekOfTerm = 0;
+  } else if (now.getTime() > termEnd.getTime()) {
+    termPhase = "post";
+    weekOfTerm = totalWeeks;
+  } else {
+    termPhase = "in";
+    const daysSinceStart = Math.floor((now.getTime() - termStart.getTime()) / 86400000);
+    weekOfTerm = Math.min(totalWeeks, Math.floor(daysSinceStart / 7) + 1);
+  }
+  const formatMetaDate = (d: Date) => d.toLocaleDateString("en-SG", { month: "short", day: "numeric" });
 
   return (
     <div className="rounded-xl border border-hairline bg-card shadow-sm ring-1 ring-inset ring-hairline">
       {/* Eyebrow meta-strip — term label + week-of-term left, classified-count right. */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline bg-muted/30 px-6 py-3 shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.4)]">
-        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        <Badge>
           {term.label}
           <span className="mx-2 text-hairline-strong">·</span>
-          Week <span className="tabular-nums">{weekOfTerm}</span> of 13
-        </p>
+          {termPhase === "pre" && (
+            <>
+              Starts <span className="tabular-nums">{formatMetaDate(termStart)}</span>
+            </>
+          )}
+          {termPhase === "in" && (
+            <>
+              Week <span className="tabular-nums">{weekOfTerm}</span> of{" "}
+              <span className="tabular-nums">{totalWeeks}</span>
+            </>
+          )}
+          {termPhase === "post" && (
+            <>
+              Ended <span className="tabular-nums">{formatMetaDate(termEnd)}</span>
+            </>
+          )}
+        </Badge>
         <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
           <span className="tabular-nums">{totalSchoolDays}</span> days classified
         </p>
@@ -726,6 +781,11 @@ function MonthView({
             type="button"
             size="sm"
             onClick={goToday}
+            title={
+              todayInTerm
+                ? "Jump to today"
+                : "Today is outside this term — view will show today's month with empty cells; switch terms to see badges"
+            }
             className="h-8 font-mono text-[10px] uppercase tracking-[0.14em]">
             Today
           </Button>
@@ -763,7 +823,12 @@ function MonthView({
                 <button
                   key={cell.iso}
                   type="button"
-                  disabled={!clickable}
+                  // NOTE: deliberately NOT using `disabled` here. Disabled
+                  // buttons render their badge children in some browsers with
+                  // default disabled-color overrides that suppress the
+                  // ChartLegendChip's white text against its gradient. Match
+                  // TermStripView's pattern: enabled button + onClick guard
+                  // + cursor-not-allowed for visual no-go feedback.
                   onClick={() => {
                     if (!clickable) return;
                     if (multiSelect) toggleSelection(cell.iso, cell.date);
