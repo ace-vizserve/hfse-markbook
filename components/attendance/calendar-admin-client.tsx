@@ -701,11 +701,31 @@ function MonthView({
     daysByType.hbl.length +
     daysByType.no_class.length;
 
-  // Week-of-term — 1-indexed number of Monday-weeks from term start to today,
-  // clamped to [1, 13].
+  // Term span — derive total-weeks from the actual term length rather than
+  // hardcoding 13. Week-of-term is 1-indexed, only meaningful when today is
+  // inside the term; pre/post-term render as "Starts MMM DD" / "Ended MMM DD"
+  // to give the registrar an accurate at-a-glance state.
+  const termSpanDays = Math.max(
+    1,
+    Math.floor((termEnd.getTime() - termStart.getTime()) / 86400000) + 1,
+  );
+  const totalWeeks = Math.max(1, Math.ceil(termSpanDays / 7));
   const now = new Date();
-  const daysSinceStart = Math.max(0, Math.floor((now.getTime() - termStart.getTime()) / 86400000));
-  const weekOfTerm = Math.min(13, Math.floor(daysSinceStart / 7) + 1);
+  let termPhase: 'pre' | 'in' | 'post';
+  let weekOfTerm: number;
+  if (now.getTime() < termStart.getTime()) {
+    termPhase = 'pre';
+    weekOfTerm = 0;
+  } else if (now.getTime() > termEnd.getTime()) {
+    termPhase = 'post';
+    weekOfTerm = totalWeeks;
+  } else {
+    termPhase = 'in';
+    const daysSinceStart = Math.floor((now.getTime() - termStart.getTime()) / 86400000);
+    weekOfTerm = Math.min(totalWeeks, Math.floor(daysSinceStart / 7) + 1);
+  }
+  const formatMetaDate = (d: Date) =>
+    d.toLocaleDateString('en-SG', { month: 'short', day: 'numeric' });
 
   return (
     <div className="rounded-xl border border-hairline bg-card shadow-sm ring-1 ring-inset ring-hairline">
@@ -714,7 +734,18 @@ function MonthView({
         <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {term.label}
           <span className="mx-2 text-hairline-strong">·</span>
-          Week <span className="tabular-nums">{weekOfTerm}</span> of 13
+          {termPhase === 'pre' && (
+            <>Starts <span className="tabular-nums">{formatMetaDate(termStart)}</span></>
+          )}
+          {termPhase === 'in' && (
+            <>
+              Week <span className="tabular-nums">{weekOfTerm}</span> of{' '}
+              <span className="tabular-nums">{totalWeeks}</span>
+            </>
+          )}
+          {termPhase === 'post' && (
+            <>Ended <span className="tabular-nums">{formatMetaDate(termEnd)}</span></>
+          )}
         </p>
         <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
           <span className="tabular-nums">{totalSchoolDays}</span> days classified
