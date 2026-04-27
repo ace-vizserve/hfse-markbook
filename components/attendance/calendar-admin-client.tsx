@@ -782,7 +782,12 @@ function MonthView({
                 <button
                   key={cell.iso}
                   type="button"
-                  disabled={!clickable}
+                  // NOTE: deliberately NOT using `disabled` here. Disabled
+                  // buttons render their badge children in some browsers with
+                  // default disabled-color overrides that suppress the
+                  // ChartLegendChip's white text against its gradient. Match
+                  // TermStripView's pattern: enabled button + onClick guard
+                  // + cursor-not-allowed for visual no-go feedback.
                   onClick={() => {
                     if (!clickable) return;
                     if (multiSelect) toggleSelection(cell.iso, cell.date);
