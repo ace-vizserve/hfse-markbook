@@ -34,16 +34,22 @@ function classifyProfile(ww: number, pt: number, qa: number): WeightProfile {
   return "custom";
 }
 
-// Per-profile visual recipe. Primary = mint wash (healthy default), Secondary
-// = indigo wash (also canonical), Custom = amber wash (attention — verify
-// intentional). Hover brightens; invalid-weight (sum ≠ 100) adds destructive
-// ring on top. Tints match the legend ChartLegendChip gradients below
-// (fresh→mint, primary→indigo, stale→amber, very-stale→destructive) — same
-// border/bg/hover scale across all 3 profiles for visual consistency.
+// Per-profile visual recipe. Tints mirror the legend ChartLegendChip
+// gradients below (fresh→mint, primary→indigo, stale→amber, very-stale→
+// destructive). Each cell uses a low-opacity bg-gradient at the same
+// direction as the chip (-to-b) so the cell reads as a pale wash of the
+// chip's color, not a flat tint. Hover brightens both stops; invalid-weight
+// (sum ≠ 100) overrides with a destructive gradient.
 const PROFILE_CLASS: Record<WeightProfile, string> = {
-  primary: "border-brand-mint/50 bg-brand-mint/15 hover:bg-brand-mint/25 hover:border-brand-mint",
-  secondary: "border-brand-indigo/50 bg-brand-indigo/15 hover:bg-brand-indigo/25 hover:border-brand-indigo",
-  custom: "border-brand-amber/50 bg-brand-amber/15 hover:bg-brand-amber/25 hover:border-brand-amber",
+  primary:
+    "border-brand-mint/50 bg-gradient-to-b from-chart-5/25 to-chart-3/15 " +
+    "hover:from-chart-5/40 hover:to-chart-3/25 hover:border-brand-mint",
+  secondary:
+    "border-brand-indigo/50 bg-gradient-to-b from-brand-indigo/15 to-brand-navy/10 " +
+    "hover:from-brand-indigo/25 hover:to-brand-navy/20 hover:border-brand-indigo",
+  custom:
+    "border-brand-amber/50 bg-gradient-to-b from-brand-amber/25 to-brand-amber/10 " +
+    "hover:from-brand-amber/35 hover:to-brand-amber/20 hover:border-brand-amber",
 };
 
 export function SubjectConfigMatrix({
@@ -90,15 +96,15 @@ export function SubjectConfigMatrix({
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/40 hover:bg-muted/40">
-                <TableHead className="sticky left-0 z-10 w-[220px] border-r border-hairline bg-muted/40">
+              <TableRow className="bg-gradient-to-b from-muted/60 to-muted/30 hover:from-muted/60 hover:to-muted/30">
+                <TableHead className="sticky left-0 z-10 w-[220px] border-r border-hairline bg-gradient-to-b from-muted/60 to-muted/30">
                   <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4">
                     Subject
                   </span>
                 </TableHead>
                 {levels.map((l) => (
                   <TableHead key={l.id} className="min-w-[108px] p-2 text-center align-middle">
-                    <div className="mx-auto inline-flex flex-col items-center gap-0.5 rounded-md border border-hairline bg-background px-2 py-1 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6)]">
+                    <div className="mx-auto inline-flex flex-col items-center gap-0.5 rounded-md border border-hairline bg-gradient-to-b from-background to-muted/30 px-2 py-1 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6)]">
                       <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground">
                         {l.code}
                       </span>
@@ -159,8 +165,10 @@ export function SubjectConfigMatrix({
                               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-indigo/20 focus-visible:border-brand-indigo/60",
                               // Profile tint (primary / secondary / custom)
                               PROFILE_CLASS[profile],
-                              // Invalid sum overrides profile tint with destructive.
-                              !weightsOk && "border-destructive/60 bg-destructive/10 hover:bg-destructive/15",
+                              // Invalid sum overrides profile tint with destructive gradient
+                              // (matches the very-stale legend chip's destructive gradient).
+                              !weightsOk &&
+                                "border-destructive/60 bg-gradient-to-b from-destructive/20 to-destructive/10 hover:from-destructive/30 hover:to-destructive/15 hover:border-destructive",
                             )}
                             title={`Edit ${s.name} × ${l.code} — weights ${ww}/${pt}/${qa} · slots ${cfg.ww_max_slots}/${cfg.pt_max_slots} · QA/${cfg.qa_max} · ${profile}`}>
                             <span className="font-mono text-[12px] font-semibold tabular-nums text-ink">
