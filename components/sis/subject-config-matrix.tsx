@@ -37,11 +37,13 @@ function classifyProfile(ww: number, pt: number, qa: number): WeightProfile {
 // Per-profile visual recipe. Primary = mint wash (healthy default), Secondary
 // = indigo wash (also canonical), Custom = amber wash (attention — verify
 // intentional). Hover brightens; invalid-weight (sum ≠ 100) adds destructive
-// ring on top.
+// ring on top. Tints match the legend ChartLegendChip gradients below
+// (fresh→mint, primary→indigo, stale→amber, very-stale→destructive) — same
+// border/bg/hover scale across all 3 profiles for visual consistency.
 const PROFILE_CLASS: Record<WeightProfile, string> = {
   primary: "border-brand-mint/50 bg-brand-mint/15 hover:bg-brand-mint/25 hover:border-brand-mint",
-  secondary: "border-brand-indigo-soft/50 bg-accent hover:bg-accent hover:border-brand-indigo-soft",
-  custom: "border-brand-amber/40 bg-brand-amber-light hover:bg-brand-amber/25 hover:border-brand-amber/60",
+  secondary: "border-brand-indigo/50 bg-brand-indigo/15 hover:bg-brand-indigo/25 hover:border-brand-indigo",
+  custom: "border-brand-amber/50 bg-brand-amber/15 hover:bg-brand-amber/25 hover:border-brand-amber",
 };
 
 export function SubjectConfigMatrix({
