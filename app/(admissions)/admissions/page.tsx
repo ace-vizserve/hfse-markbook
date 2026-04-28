@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { ApplicationsByLevelCard } from "@/components/admissions/applications-by-level-card";
 import { DocumentCompletionCard } from "@/components/admissions/document-completion-card";
 import { AdmissionsDrillSheet } from "@/components/admissions/drills/admissions-drill-sheet";
+import { DocumentChaseQueueStrip } from "@/components/sis/document-chase-queue-strip";
 import { NewApplicationsPriority } from "@/components/admissions/new-applications-priority";
 import {
   AssessmentDrillCard,
@@ -185,6 +186,10 @@ export default async function AdmissionsDashboard({ searchParams }: { searchPara
 
       {/* Operational top-of-fold (KD #57) — new applications waiting on triage. */}
       <NewApplicationsPriority ayCode={selectedAy} />
+
+      {/* Document chase queue (spec 2026-04-28) — top-of-fold navigation
+          to revalidation / validation / promised drill sheets. */}
+      <DocumentChaseQueueStrip ayCode={selectedAy} />
 
       <InsightsPanel insights={insights} />
 
