@@ -690,6 +690,7 @@ async function loadLifecycleAggregateUncached(
   let awaitingFeePayment = 0;
   let awaitingDocRevalidation = 0;
   let awaitingDocValidation = 0;
+  let awaitingPromisedDocs = 0;     // NEW: any slot at 'To follow'
   let awaitingStpCompletion = 0;
   let awaitingAssessmentSchedule = 0;
   let awaitingContractSignature = 0;
@@ -715,19 +716,13 @@ async function loadLifecycleAggregateUncached(
     //    registrar hasn't validated yet — only meaningful for non-expiring slots).
     //    A row with both 'Uploaded' and 'Rejected' slots counts in BOTH buckets;
     //    that's intentional — they're orthogonal action queues for the registrar.
+    // 3.5. Awaiting promised documents — any slot at 'To follow' (parent
+    //      acknowledged but file not yet sent).
     const docs = docsByEnrolee.get(r.enroleeNumber!);
-    if (docs) {
-      let rowHasRevalidation = false;
-      let rowHasValidation = false;
-      for (const slot of DOCUMENT_SLOTS) {
-        const v = (docs[slot.statusCol] ?? '').toString().trim();
-        if (v === 'Rejected' || v === 'Expired') rowHasRevalidation = true;
-        else if (v === 'Uploaded') rowHasValidation = true;
-        if (rowHasRevalidation && rowHasValidation) break;
-      }
-      if (rowHasRevalidation) awaitingDocRevalidation += 1;
-      if (rowHasValidation) awaitingDocValidation += 1;
-    }
+    const docFlags = scanDocStatusForActionFlags(docs);
+    if (docFlags.hasRevalidation) awaitingDocRevalidation += 1;
+    if (docFlags.hasValidation) awaitingDocValidation += 1;
+    if (docFlags.hasPromised) awaitingPromisedDocs += 1;
 
     // 4. Awaiting STP completion — the parent opted into the Singapore
     //    Student Pass sub-flow (`stpApplicationType IS NOT NULL`) AND any of
@@ -817,6 +812,13 @@ async function loadLifecycleAggregateUncached(
       count: awaitingDocValidation,
       severity: 'warn',
       drillTarget: 'awaiting-document-validation',
+    },
+    {
+      key: 'awaiting-promised-documents',
+      label: 'Awaiting promised documents',
+      count: awaitingPromisedDocs,
+      severity: 'warn',
+      drillTarget: 'awaiting-promised-documents',
     },
     {
       key: 'awaiting-stp-completion',
