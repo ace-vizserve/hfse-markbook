@@ -70,11 +70,10 @@ const TILES: ChaseTile[] = [
   },
 ];
 
-const TILE_CRAFT: Record<ChaseTile['severity'], string> = {
-  // Mirrors §7.4 craft + §10 chip palette in 09a-design-patterns.md.
-  bad: 'bg-gradient-to-br from-destructive/15 via-destructive/8 to-transparent ring-1 ring-inset ring-destructive/30',
-  warn: 'bg-gradient-to-br from-brand-amber/20 via-brand-amber/8 to-transparent ring-1 ring-inset ring-brand-amber/30',
-};
+// Neutral card wash matching MetricCard's pattern — severity is communicated
+// by the gradient icon tile + ChartLegendChip on each card, so the card body
+// itself stays calm and consistent across tiles.
+const TILE_CRAFT = '@container/card bg-gradient-to-t from-primary/5 to-card shadow-xs';
 
 const ICON_TILE_CRAFT: Record<ChaseTile['severity'], string> = {
   bad: 'shadow-brand-tile-destructive bg-gradient-to-br from-destructive to-destructive/70 text-destructive-foreground',
@@ -120,7 +119,7 @@ export async function DocumentChaseQueueStrip({
                 className="block w-full text-left"
                 aria-label={`${tile.label}: ${value}`}
               >
-                <Card className={`${TILE_CRAFT[tile.severity]} transition-shadow hover:shadow-md`}>
+                <Card className={`${TILE_CRAFT} transition-shadow hover:shadow-md`}>
                   <CardHeader>
                     <CardAction>
                       <div className={`flex size-12 items-center justify-center rounded-xl ${ICON_TILE_CRAFT[tile.severity]}`}>

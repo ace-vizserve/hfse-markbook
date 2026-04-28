@@ -324,7 +324,7 @@ function buildColumnDef(
         accessorKey: 'expiredSlots',
         header,
         cell: ({ row }) => (
-          <SlotChips slots={row.original.expiredSlots} color="stale" />
+          <SlotChips slots={row.original.expiredSlots} color="very-stale" />
         ),
         enableSorting: false,
       };
@@ -334,7 +334,7 @@ function buildColumnDef(
         accessorKey: 'uploadedSlots',
         header,
         cell: ({ row }) => (
-          <SlotChips slots={row.original.uploadedSlots} color="primary" />
+          <SlotChips slots={row.original.uploadedSlots} color="very-stale" />
         ),
         enableSorting: false,
       };
@@ -344,7 +344,7 @@ function buildColumnDef(
         accessorKey: 'promisedSlots',
         header,
         cell: ({ row }) => (
-          <SlotChips slots={row.original.promisedSlots} color="stale" />
+          <SlotChips slots={row.original.promisedSlots} color="very-stale" />
         ),
         enableSorting: false,
       };
@@ -394,7 +394,7 @@ function buildColumnDef(
         accessorKey: 'expiringSlots',
         header,
         cell: ({ row }) => (
-          <SlotChips slots={row.original.expiringSlots} color="stale" />
+          <SlotChips slots={row.original.expiringSlots} color="very-stale" />
         ),
         enableSorting: false,
       };
