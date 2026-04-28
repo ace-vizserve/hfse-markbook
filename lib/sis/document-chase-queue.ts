@@ -2,7 +2,10 @@ import { unstable_cache } from 'next/cache';
 
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
 import { DOCUMENT_SLOTS } from '@/lib/sis/queries';
-import { scanDocStatusForActionFlags } from '@/lib/sis/process';
+import {
+  EXPIRING_SOON_THRESHOLD_DAYS,
+  scanDocStatusForActionFlags,
+} from '@/lib/sis/process';
 
 // ──────────────────────────────────────────────────────────────────────────
 // Document chase queue — top-of-fold counts for /p-files, /admissions,
@@ -25,7 +28,6 @@ export type DocumentChaseQueueCounts = {
 };
 
 const CACHE_TTL_SECONDS = 60;
-export const EXPIRING_SOON_THRESHOLD_DAYS = 30;
 
 function prefixFor(ayCode: string): string {
   return `ay${ayCode.replace(/^AY/i, '').toLowerCase()}`;

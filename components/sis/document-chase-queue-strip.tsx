@@ -108,7 +108,7 @@ export async function DocumentChaseQueueStrip({
   };
 
   return (
-    <section className="grid gap-4 md:grid-cols-4" aria-label="Documents needing action">
+    <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4" aria-label="Documents needing action">
       {TILES.map((tile) => {
         const value = valueByTarget[tile.target] ?? 0;
         const Icon = tile.icon;

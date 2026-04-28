@@ -30,6 +30,14 @@ import { DOCUMENT_SLOTS } from '@/lib/sis/queries';
 
 const CACHE_TTL_SECONDS = 60;
 
+// Threshold (in days) for the proactive "expiring soon" signal. Owned by
+// this module because scanDocStatusForActionFlags is the canonical detection
+// point; lib/sis/document-chase-queue.ts and lib/sis/drill.ts import from
+// here to keep the threshold in one place. Defined here, not in
+// document-chase-queue.ts, to avoid a circular import (that module already
+// imports scanDocStatusForActionFlags from process.ts).
+export const EXPIRING_SOON_THRESHOLD_DAYS = 30;
+
 function prefixFor(ayCode: string): string {
   return `ay${ayCode.replace(/^AY/i, '').toLowerCase()}`;
 }
@@ -73,7 +81,7 @@ export function scanDocStatusForActionFlags(
   if (!docs) return out;
 
   const todayMs = options?.todayMs ?? Date.now();
-  const thresholdDays = options?.expiringSoonThresholdDays ?? 30;
+  const thresholdDays = options?.expiringSoonThresholdDays ?? EXPIRING_SOON_THRESHOLD_DAYS;
   const thresholdMs = thresholdDays * 86_400_000;
 
   for (const slot of DOCUMENT_SLOTS) {
