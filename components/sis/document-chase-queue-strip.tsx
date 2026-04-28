@@ -1,5 +1,9 @@
 import { AlertTriangle, FileWarning, MailQuestion } from 'lucide-react';
 
+import {
+  ChartLegendChip,
+  type ChartLegendChipColor,
+} from '@/components/dashboard/chart-legend-chip';
 import { LifecycleDrillSheet } from '@/components/sis/drills/lifecycle-drill-sheet';
 import {
   Card,
@@ -70,6 +74,11 @@ const ICON_TILE_CRAFT: Record<ChaseTile['severity'], string> = {
   warn: 'shadow-brand-tile-amber bg-gradient-to-br from-brand-amber to-brand-amber/70 text-ink',
 };
 
+const CHIP_COLOR_BY_SEVERITY: Record<ChaseTile['severity'], ChartLegendChipColor> = {
+  bad: 'very-stale',
+  warn: 'stale',
+};
+
 export async function DocumentChaseQueueStrip({
   ayCode,
 }: DocumentChaseQueueStripProps) {
@@ -112,6 +121,12 @@ export async function DocumentChaseQueueStrip({
             </CardHeader>
             <CardContent>
               <p className="text-sm text-ink-2">{tile.description}</p>
+              <div className="mt-2">
+                <ChartLegendChip
+                  color={CHIP_COLOR_BY_SEVERITY[tile.severity]}
+                  label={tile.severity === 'bad' ? 'Needs action' : 'Awaiting'}
+                />
+              </div>
             </CardContent>
             <CardFooter>
               <LifecycleDrillSheet target={tile.target} ayCode={ayCode} />
