@@ -10,10 +10,10 @@ import {
   CardAction,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Sheet, SheetTrigger } from '@/components/ui/sheet';
 import { getDocumentChaseQueueCounts } from '@/lib/sis/document-chase-queue';
 import type { LifecycleDrillTarget } from '@/lib/sis/drill';
 
@@ -105,33 +105,41 @@ export async function DocumentChaseQueueStrip({
         const value = valueByTarget[tile.target] ?? 0;
         const Icon = tile.icon;
         return (
-          <Card key={tile.target} className={TILE_CRAFT[tile.severity]}>
-            <CardHeader>
-              <CardAction>
-                <div className={`flex size-12 items-center justify-center rounded-xl ${ICON_TILE_CRAFT[tile.severity]}`}>
-                  <Icon className="size-6" aria-hidden />
-                </div>
-              </CardAction>
-              <CardTitle className="font-serif text-3xl tabular-nums">
-                {value}
-              </CardTitle>
-              <CardDescription className="font-mono text-[11px] uppercase tracking-[0.12em]">
-                {tile.label}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-ink-2">{tile.description}</p>
-              <div className="mt-2">
-                <ChartLegendChip
-                  color={CHIP_COLOR_BY_SEVERITY[tile.severity]}
-                  label={tile.severity === 'bad' ? 'Needs action' : 'Awaiting'}
-                />
-              </div>
-            </CardContent>
-            <CardFooter>
-              <LifecycleDrillSheet target={tile.target} ayCode={ayCode} />
-            </CardFooter>
-          </Card>
+          <Sheet key={tile.target}>
+            <SheetTrigger asChild>
+              <button
+                type="button"
+                className="block w-full text-left"
+                aria-label={`${tile.label}: ${value}`}
+              >
+                <Card className={`${TILE_CRAFT[tile.severity]} transition-shadow hover:shadow-md`}>
+                  <CardHeader>
+                    <CardAction>
+                      <div className={`flex size-12 items-center justify-center rounded-xl ${ICON_TILE_CRAFT[tile.severity]}`}>
+                        <Icon className="size-6" aria-hidden />
+                      </div>
+                    </CardAction>
+                    <CardTitle className="font-serif text-3xl tabular-nums">
+                      {value}
+                    </CardTitle>
+                    <CardDescription className="font-mono text-[11px] uppercase tracking-[0.12em]">
+                      {tile.label}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-ink-2">{tile.description}</p>
+                    <div className="mt-2">
+                      <ChartLegendChip
+                        color={CHIP_COLOR_BY_SEVERITY[tile.severity]}
+                        label={tile.severity === 'bad' ? 'Needs action' : 'Awaiting'}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </button>
+            </SheetTrigger>
+            <LifecycleDrillSheet target={tile.target} ayCode={ayCode} />
+          </Sheet>
         );
       })}
     </section>
