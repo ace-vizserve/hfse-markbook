@@ -53,6 +53,7 @@ import {
   getRecordsKpisRange,
   getWithdrawalVelocityRange,
 } from "@/lib/sis/dashboard";
+import { freshenAyDocuments } from "@/lib/sis/freshen-document-statuses";
 import { getSisDashboardSummary } from "@/lib/sis/queries";
 import { getSessionUser } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -93,6 +94,11 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
 
   const windows = await getDashboardWindows(selectedAy);
   const rangeInput = resolveRange(resolvedSearch, windows, selectedAy);
+
+  // Auto-flip any expired-but-still-Valid doc statuses for this AY before
+  // the dashboard reads the column. Cached 60s; existing PATCH routes
+  // invalidate via the sis:${ayCode} tag.
+  await freshenAyDocuments(selectedAy);
 
   const [
     summary,
