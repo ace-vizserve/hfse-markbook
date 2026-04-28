@@ -43,33 +43,67 @@ function tag(ayCode: string): string[] {
 // ──────────────────────────────────────────────────────────────────────────
 
 /**
- * Per-row scan over a documents row's slot status columns. Returns three
+ * Per-row scan over a documents row's slot status columns. Returns four
  * orthogonal action flags used by both the cohort aggregate
  * (loadLifecycleBlockerBucketsUncached) and the chase-queue loader
  * (lib/sis/document-chase-queue.ts). Overlap allowed — a row with both an
  * 'Uploaded' slot and a 'To follow' slot lights up multiple flags.
+ *
+ * Optional `options` parameter controls the expiring-soon threshold:
+ * - `todayMs`: current time in milliseconds (defaults to Date.now())
+ * - `expiringSoonThresholdDays`: window in days (defaults to 30)
  */
 export type DocStatusActionFlags = {
   hasRevalidation: boolean; // any slot at 'Rejected' or 'Expired'
   hasValidation: boolean;   // any slot at 'Uploaded'
   hasPromised: boolean;     // any slot at 'To follow'
+  hasExpiringSoon: boolean; // any Valid slot expiring within 30 days
 };
 
 export function scanDocStatusForActionFlags(
   docs: Record<string, string | null> | undefined,
+  options?: { todayMs?: number; expiringSoonThresholdDays?: number },
 ): DocStatusActionFlags {
   const out: DocStatusActionFlags = {
     hasRevalidation: false,
     hasValidation: false,
     hasPromised: false,
+    hasExpiringSoon: false,
   };
   if (!docs) return out;
+
+  const todayMs = options?.todayMs ?? Date.now();
+  const thresholdDays = options?.expiringSoonThresholdDays ?? 30;
+  const thresholdMs = thresholdDays * 86_400_000;
+
   for (const slot of DOCUMENT_SLOTS) {
-    const v = (docs[slot.statusCol] ?? '').toString().trim();
-    if (v === 'Rejected' || v === 'Expired') out.hasRevalidation = true;
-    else if (v === 'Uploaded') out.hasValidation = true;
-    else if (v === 'To follow') out.hasPromised = true;
-    if (out.hasRevalidation && out.hasValidation && out.hasPromised) break;
+    const statusVal = (docs[slot.statusCol] ?? '').toString().trim();
+
+    // Existing 3 flags
+    if (statusVal === 'Rejected' || statusVal === 'Expired') {
+      out.hasRevalidation = true;
+    } else if (statusVal === 'Uploaded') {
+      out.hasValidation = true;
+    } else if (statusVal === 'To follow') {
+      out.hasPromised = true;
+    }
+
+    // Expiring-soon flag: only for slots with an expiry column, status Valid,
+    // and a future expiry within the threshold window.
+    if (!out.hasExpiringSoon && slot.expiryCol && statusVal === 'Valid') {
+      const expiryRaw = docs[slot.expiryCol];
+      if (expiryRaw) {
+        const expiryMs = Date.parse(expiryRaw.toString());
+        if (!Number.isNaN(expiryMs) && expiryMs >= todayMs && expiryMs <= todayMs + thresholdMs) {
+          out.hasExpiringSoon = true;
+        }
+      }
+    }
+
+    // Micro-optimization: early exit when all 4 flags are true
+    if (out.hasRevalidation && out.hasValidation && out.hasPromised && out.hasExpiringSoon) {
+      break;
+    }
   }
   return out;
 }

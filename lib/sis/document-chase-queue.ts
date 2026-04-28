@@ -21,9 +21,11 @@ export type DocumentChaseQueueCounts = {
   promised: number;     // any slot at 'To follow'
   validation: number;   // any slot at 'Uploaded'
   revalidation: number; // any slot at 'Rejected' or 'Expired'
+  expiringSoon: number; // any Valid slot expiring within 30 days
 };
 
 const CACHE_TTL_SECONDS = 60;
+export const EXPIRING_SOON_THRESHOLD_DAYS = 30;
 
 function prefixFor(ayCode: string): string {
   return `ay${ayCode.replace(/^AY/i, '').toLowerCase()}`;
@@ -35,7 +37,13 @@ async function loadChaseQueueUncached(
   const prefix = prefixFor(ayCode);
   const supabase = createAdmissionsClient();
 
-  const docColumns = ['enroleeNumber', ...DOCUMENT_SLOTS.map((s) => s.statusCol)];
+  // Include both status columns and expiry columns so scanDocStatusForActionFlags
+  // can evaluate hasExpiringSoon. Expiring-soon detection requires dates.
+  const docColumns = [
+    'enroleeNumber',
+    ...DOCUMENT_SLOTS.map((s) => s.statusCol),
+    ...DOCUMENT_SLOTS.filter((s) => s.expiryCol).map((s) => s.expiryCol!),
+  ];
 
   const docsRes = await supabase
     .from(`${prefix}_enrolment_documents`)
@@ -46,24 +54,28 @@ async function loadChaseQueueUncached(
       '[sis/document-chase-queue] docs fetch failed:',
       docsRes.error.message,
     );
-    return { promised: 0, validation: 0, revalidation: 0 };
+    return { promised: 0, validation: 0, revalidation: 0, expiringSoon: 0 };
   }
 
   let promised = 0;
   let validation = 0;
   let revalidation = 0;
+  let expiringSoon = 0;
 
   type DocRow = Record<string, string | null>;
   const rows = (docsRes.data ?? []) as unknown as DocRow[];
 
   for (const row of rows) {
-    const flags = scanDocStatusForActionFlags(row);
+    const flags = scanDocStatusForActionFlags(row, {
+      expiringSoonThresholdDays: EXPIRING_SOON_THRESHOLD_DAYS,
+    });
     if (flags.hasPromised) promised += 1;
     if (flags.hasValidation) validation += 1;
     if (flags.hasRevalidation) revalidation += 1;
+    if (flags.hasExpiringSoon) expiringSoon += 1;
   }
 
-  return { promised, validation, revalidation };
+  return { promised, validation, revalidation, expiringSoon };
 }
 
 export async function getDocumentChaseQueueCounts(
