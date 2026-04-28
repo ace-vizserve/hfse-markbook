@@ -43,6 +43,8 @@ New file: `lib/sis/freshen-document-statuses.ts`
 ```ts
 import 'server-only';
 
+import { unstable_cache } from 'next/cache';
+
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
 import { createServiceClient } from '@/lib/supabase/service';
 import { logAction } from '@/lib/audit/log-action';
@@ -55,12 +57,13 @@ export type FreshenResult = {
 };
 
 const EXPIRING_SLOTS = DOCUMENT_SLOTS.filter((s) => s.expiryCol);
+const CACHE_TTL_SECONDS = 60;
 
 function prefixFor(ayCode: string): string {
   return `ay${ayCode.replace(/^AY/i, '').toLowerCase()}`;
 }
 
-export async function freshenAyDocuments(ayCode: string): Promise<FreshenResult> {
+async function freshenAyDocumentsUncached(ayCode: string): Promise<FreshenResult> {
   const result: FreshenResult = {
     flippedCount: 0,
     flippedBySlot: {},
@@ -70,33 +73,39 @@ export async function freshenAyDocuments(ayCode: string): Promise<FreshenResult>
   const admissions = createAdmissionsClient();
   const prefix = prefixFor(ayCode);
   const seen = new Set<string>();
+  const today = new Date().toISOString().slice(0, 10);
 
   try {
-    for (const slot of EXPIRING_SLOTS) {
-      // Per-slot UPDATE. Idempotent — no-op when no rows match the filter.
-      // Date comparison uses today's ISO string from the application's clock;
-      // expiry dates are calendar dates, not timestamps, so SGT/UTC fuzz at
-      // the day boundary is acceptable.
-      const { data, error } = await admissions
-        .from(`${prefix}_enrolment_documents`)
-        .update({ [slot.statusCol!]: 'Expired' })
-        .eq(slot.statusCol!, 'Valid')
-        .lt(slot.expiryCol!, new Date().toISOString().slice(0, 10))
-        .not(slot.expiryCol!, 'is', null)
-        .select(`enroleeNumber, ${slot.expiryCol!}`);
+    // Run the 8 per-slot UPDATEs in parallel. Single Supabase roundtrip
+    // latency dominates (~15ms total) instead of 8x sequential roundtrips
+    // (~80ms). Each UPDATE is independent and idempotent — no transactional
+    // dependency between them, so parallelism is safe.
+    const slotResults = await Promise.all(
+      EXPIRING_SLOTS.map(async (slot) => {
+        const { data, error } = await admissions
+          .from(`${prefix}_enrolment_documents`)
+          .update({ [slot.statusCol!]: 'Expired' })
+          .eq(slot.statusCol!, 'Valid')
+          .lt(slot.expiryCol!, today)
+          .not(slot.expiryCol!, 'is', null)
+          .select(`enroleeNumber, ${slot.expiryCol!}`);
 
-      if (error) {
-        console.warn(
-          `[sis/freshen-documents] flip failed for ${slot.key} in ${ayCode}:`,
-          error.message,
-        );
-        continue;
-      }
+        if (error) {
+          console.warn(
+            `[sis/freshen-documents] flip failed for ${slot.key} in ${ayCode}:`,
+            error.message,
+          );
+          return { slotKey: slot.key, flipped: [] as Array<{ enroleeNumber: string | null }> };
+        }
 
-      const flipped = data ?? [];
+        return { slotKey: slot.key, flipped: data ?? [] };
+      }),
+    );
+
+    for (const { slotKey, flipped } of slotResults) {
       if (flipped.length > 0) {
         result.flippedCount += flipped.length;
-        result.flippedBySlot[slot.key] = flipped.length;
+        result.flippedBySlot[slotKey] = flipped.length;
         for (const row of flipped) {
           if (row.enroleeNumber) seen.add(row.enroleeNumber);
         }
@@ -119,10 +128,10 @@ export async function freshenAyDocuments(ayCode: string): Promise<FreshenResult>
     try {
       await logAction({
         service: createServiceClient(),
-        actor: { id: null, email: '(system:freshen)' },  // null actor for system actions; see logAction extension below
+        actor: { id: null, email: '(system:freshen)' },
         action: 'sis.documents.auto-expire',
         entityType: 'enrolment_document',
-        entityId: null,  // batch action — affects multiple rows
+        entityId: null,
         context: {
           ayCode,
           flippedCount: result.flippedCount,
@@ -141,13 +150,36 @@ export async function freshenAyDocuments(ayCode: string): Promise<FreshenResult>
 
   return result;
 }
+
+// Public entry point — wraps the uncached body in `unstable_cache` with a
+// 60-second TTL keyed on the AY code. Per-page-render cost is ~0ms on cache
+// hit; cache miss runs the parallel UPDATE chain (~15ms). The bounded
+// 60-second staleness is functionally invisible for calendar-date expiry
+// (passports/passes flip at midnight; nobody perceives a 60-second lag the
+// next morning). Tag `sis:${ayCode}` is invalidated by every existing PATCH
+// route that already touches this AY's documents (e.g., manual status edits
+// in /admissions/applications/[enroleeNumber]) so a fresh edit doesn't see
+// a stale freshen result.
+export function freshenAyDocuments(ayCode: string): Promise<FreshenResult> {
+  return unstable_cache(
+    () => freshenAyDocumentsUncached(ayCode),
+    ['sis', 'freshen-documents', ayCode],
+    {
+      revalidate: CACHE_TTL_SECONDS,
+      tags: ['sis', `sis:${ayCode}`],
+    },
+  )();
+}
 ```
 
 Properties:
-- **No `unstable_cache` wrapper.** Every call runs the SQL. Refresh always re-checks. Steady state (8 UPDATEs returning 0 rows each) is microseconds — Postgres uses the index on `(slot)Status` and short-circuits.
+- **Wrapped in `unstable_cache`** (KD #46 cache-wrapper pattern: hoist the `loadX_Uncached` body, compose `unstable_cache` per call).
+- **60-second TTL.** First page render in any 60s window per AY runs the freshen; subsequent renders within that window cost ~0ms (cache hit). Steady-state DB load is bounded to one freshen-per-minute-per-AY at most.
+- **Tag-invalidated by `sis:${ayCode}`.** Every existing PATCH route that touches an AY's documents (e.g., `/api/sis/students/[enroleeNumber]/documents` manual edits, the residence-history editor, etc.) already calls `revalidateTag('sis:${ayCode}')` — so an edit naturally invalidates the freshen cache, the next page render runs a fresh freshen.
+- **Parallel UPDATEs via `Promise.all`.** 8 slot updates run concurrently; total wall-clock time = single Supabase roundtrip (~15ms), not 8 × 10ms sequential. Each UPDATE is independent and idempotent — concurrent execution is safe.
 - **Admissions service-role client** for the documents table (matches `lib/sis/queries.ts` pattern, KD #1, KD #22).
-- **Audit-log service client** is the standard service-role client used by every other `logAction` call site. The two clients are intentionally separate; mixing them inside one call site is the convention.
-- **Per-slot `try`/`continue`** — if one slot's UPDATE fails (e.g., RLS, network), the others still run. The page still renders.
+- **Audit-log service client** is the standard service-role client used by every other `logAction` call site.
+- **Per-slot error swallow** — if one slot's UPDATE fails (e.g., RLS, network), the others still complete. The page still renders.
 - **Top-level `try`/`catch`** — never break the page render. Errors logged via `console.warn` (not `console.error`, to avoid Next 16's dev-overlay full-crash modal).
 - **Audit only on flips.** Per-call when `flippedCount > 0`, one batched audit row in `context` listing the affected enrolees (capped at 50, with a `truncated` count if the cap was hit).
 
@@ -267,13 +299,15 @@ This avoids the audit-table explosion of "one row per flip × N flips × M AYs" 
 Manual happy-path on AY9999 (test mode, KD #52):
 
 1. Connect to Supabase studio (or run a SQL update locally) to set a seeded student's `passportStatus = 'Valid'`, `passportExpiry = '2024-01-01'` (clearly in the past).
-2. Open `/admissions?ay=AY9999`. The freshen helper runs. Confirm:
+2. Open `/admissions?ay=AY9999`. The freshen helper runs (cache miss on first call). Confirm:
    - The "Awaiting revalidation" chip on the chase strip increments.
    - Click into the drill — the student appears with their passport flagged as Expired.
-   - The audit log (`/sis/admin/...` audit surface, or direct DB query) shows one new `sis.documents.auto-expire` entry with the student's enroleeNumber in `metadata.enroleeNumbers`.
-3. Refresh the page. The chip count remains the same — no new flip, no new audit entry (the student's status is already Expired, so the SQL is a 0-row no-op).
-4. Navigate directly to `/admissions/applications/<that-enrolee>`. The applicant detail page runs freshen on its own (page entry point #4). The timeline shows Expired in the Documents stage. Refresh — still correct.
-5. `npx next build` clean.
+   - The audit log surface shows one new `sis.documents.auto-expire` entry with the student's enroleeNumber in `context.enroleeNumbers`.
+3. Refresh the page within 60s. Cache hit — freshen does NOT re-run (visible by the absence of a new audit entry). Chip count remains correct (column was already flipped). This is the intended behavior: the cache holds for 60s after a flip; refreshes within that window read the already-correct column.
+4. Wait >60s and refresh. Cache miss — freshen runs again, but the SQL is a 0-row no-op (status is already `Expired`), so no new audit entry. Chip count unchanged.
+5. Set up a second pre-existing stale student via SQL, then navigate directly to `/admissions/applications/<that-second-enrolee>` (without opening any dashboard first). The applicant detail page runs freshen for AY9999 — confirms the direct-link case is covered.
+6. Manually edit the second student's `passportStatus` back to `'Valid'` and `passportExpiry` to a future date via the existing PATCH route. The PATCH calls `revalidateTag('sis:AY9999')` (existing behavior), invalidating the freshen cache. Next page load runs freshen — SQL is a 0-row no-op (the row no longer matches the WHERE clause), no audit entry, the chip stays correct.
+7. `npx next build` clean.
 
 ### 8. Files touched
 
