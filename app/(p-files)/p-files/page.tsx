@@ -274,7 +274,13 @@ export default async function PFilesDashboard({
       </section>
 
       <CompletenessCsvButton ayCode={selectedAy} />
+      {/* `key` forces a fresh mount when the sidebar Quicklink flips
+          `?status=...` so the table's local statusFilter state actually
+          re-initialises from the new initialStatusFilter prop. Without
+          the key, useState only consumes the prop on first mount and
+          ignores subsequent URL changes. */}
       <CompletenessTable
+        key={`${selectedAy}:${initialStatusFilter ?? 'all'}`}
         students={students}
         ayCode={isCurrentAy ? undefined : selectedAy}
         initialStatusFilter={initialStatusFilter}
