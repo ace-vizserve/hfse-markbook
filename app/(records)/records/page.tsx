@@ -19,6 +19,7 @@ import { DashboardHero } from "@/components/dashboard/dashboard-hero";
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { ClassAssignmentReadinessCard } from "@/components/sis/class-assignment-readiness-card";
+import { DocumentChaseQueueStrip } from "@/components/sis/document-chase-queue-strip";
 import {
   DocumentBacklogDrillCard,
   ExpiringDocsDrillCard,
@@ -158,6 +159,10 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
         termWindows={windows.term}
         ayWindows={windows.ay}
       />
+
+      {/* Document chase queue (spec 2026-04-28) — top-of-fold navigation
+          to revalidation / validation / promised drill sheets. */}
+      <DocumentChaseQueueStrip ayCode={selectedAy} />
 
       <InsightsPanel insights={insights} />
 
