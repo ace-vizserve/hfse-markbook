@@ -1496,7 +1496,13 @@ async function seedAdmissionsDocuments(
         assign(validIdx, 'Valid', true, false);
         const used = new Set(validIdx);
         const pendingIdx = pickIndices(3, used);
-        assign(pendingIdx, 'Pending', true, false);
+        // Per KD #60 the canonical per-slot status for "parent uploaded,
+        // awaiting registrar review" is 'Uploaded' (not 'Pending', which
+        // is a stage-level status used on enrolment_status). Writing
+        // 'Pending' here used to leak into the P-Files quick filters as
+        // 'valid' instead of 'uploaded' because resolveStatus only
+        // recognises the canonical word.
+        assign(pendingIdx, 'Uploaded', true, false);
         for (const idx of pendingIdx) used.add(idx);
         const rejectIdx = pickIndices(2, used);
         assign(rejectIdx, 'Rejected', true, true);

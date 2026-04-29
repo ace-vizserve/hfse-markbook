@@ -620,6 +620,12 @@ export const DOCUMENT_SLOTS: Array<{
 // is gated. See KD #51 + the parent-portal STP workflow.
 export const STP_CONDITIONAL_SLOT_KEYS = ["icaPhoto", "financialSupportDocs", "vaccinationInformation"] as const;
 
+// Slots that are NEVER required for the documents-stage Verified / Finished
+// gate, regardless of student type. Medical and educCert are admissions-side
+// optional — the student can be enrolled without them and the registrar can
+// chase them up post-enrolment without blocking the workflow.
+export const OPTIONAL_DOCUMENT_SLOT_KEYS = ["medical", "educCert"] as const;
+
 const DOCUMENT_COLUMNS = [
   "enroleeNumber",
   "studentNumber",

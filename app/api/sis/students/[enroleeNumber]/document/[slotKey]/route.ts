@@ -50,15 +50,19 @@ export async function PATCH(
   const slot = SLOT_META.get(slotKey)!;
   const statusCol = slot.statusCol;
   const urlCol = slot.urlCol;
+  const expiryCol = slot.expiryCol;
 
   const prefix = `ay${ayCode.replace(/^AY/i, '').toLowerCase()}`;
   const table = `${prefix}_enrolment_documents`;
   const supabase = createServiceClient();
 
-  // Pre-fetch prior status + url for audit context.
+  // Pre-fetch prior status + url + (when applicable) expiry. The expiry
+  // is only present on expiring slots (`expiryCol` defined in
+  // DOCUMENT_SLOTS) — KD #60 distinguishes the two flows.
+  const selectCols = [statusCol, urlCol, ...(expiryCol ? [expiryCol] : [])].join(', ');
   const { data: before, error: beforeErr } = await supabase
     .from(table)
-    .select(`${statusCol}, ${urlCol}`)
+    .select(selectCols)
     .eq('enroleeNumber', enroleeNumber)
     .maybeSingle();
   if (beforeErr) {
@@ -71,12 +75,39 @@ export async function PATCH(
   const beforeRow = before as unknown as Record<string, unknown>;
   const priorStatus = (beforeRow[statusCol] as string | null) ?? null;
   const fileUrl = (beforeRow[urlCol] as string | null) ?? null;
+  const priorExpiry = expiryCol ? ((beforeRow[expiryCol] as string | null) ?? null) : null;
 
   if (!fileUrl) {
     return NextResponse.json(
       { error: 'Cannot validate a slot with no uploaded file' },
       { status: 400 },
     );
+  }
+
+  // Block manual approval of an expired document. Per KD #60, expiring
+  // slots flow null → 'Valid' → 'Expired' (auto-flip when expiry passes);
+  // the proper recovery is parent re-upload, which auto-sets the status
+  // back to 'Valid' with a fresh expiry. Manually flipping Expired →
+  // Valid here would resurrect a stale doc and bypass the re-upload
+  // signal. We catch two cases:
+  //   1. priorStatus === 'Expired' (auto-flip already ran)
+  //   2. priorStatus === 'Valid' but the expiry has already passed (the
+  //      auto-flip's 60s cache hasn't expired yet, but the document is
+  //      logically expired)
+  if (parsed.data.status === 'Valid') {
+    const expiryPassed =
+      priorExpiry !== null && new Date(priorExpiry).getTime() < Date.now();
+    if (priorStatus === 'Expired' || expiryPassed) {
+      return NextResponse.json(
+        {
+          error:
+            'Cannot approve an expired document. Parent must re-upload before re-validation.',
+          priorStatus,
+          expiry: priorExpiry,
+        },
+        { status: 422 },
+      );
+    }
   }
 
   const { error: upErr } = await supabase

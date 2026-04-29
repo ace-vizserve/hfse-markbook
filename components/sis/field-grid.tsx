@@ -55,7 +55,18 @@ function renderValue(f: Field): React.ReactNode {
   return String(f.value);
 }
 
-export function FieldGrid({ fields }: { fields: Field[] }) {
+export function FieldGrid({
+  fields,
+  dimEmpty = false,
+}: {
+  fields: Field[];
+  /**
+   * When true, empty fields render with their entire row at lower contrast
+   * (label + value both muted/60) so eyes skip past them. Defaults to
+   * false so existing call sites keep their current treatment.
+   */
+  dimEmpty?: boolean;
+}) {
   const visible = fields;
   if (visible.length === 0) {
     return <p className="text-sm text-muted-foreground">{EMPTY_PLACEHOLDER}</p>;
@@ -64,15 +75,25 @@ export function FieldGrid({ fields }: { fields: Field[] }) {
     <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
       {visible.map((f, i) => {
         const empty = !f.asDate && typeof f.value !== 'boolean' && isEmpty(f.value);
+        const dim = dimEmpty && empty;
         return (
           <div key={`${f.label}-${i}`} className={cn('min-w-0 space-y-0.5', f.wide && 'sm:col-span-2')}>
-            <dt className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            <dt
+              className={cn(
+                'font-mono text-[10px] font-semibold uppercase tracking-[0.12em]',
+                dim ? 'text-muted-foreground/60' : 'text-muted-foreground',
+              )}
+            >
               {f.label}
             </dt>
             <dd
               className={cn(
-                'break-words text-sm leading-relaxed text-foreground',
-                empty && 'text-muted-foreground',
+                'break-words text-sm leading-relaxed',
+                dim
+                  ? 'text-muted-foreground/60'
+                  : empty
+                    ? 'text-muted-foreground'
+                    : 'text-foreground',
                 f.multiline && 'whitespace-pre-line',
               )}
             >

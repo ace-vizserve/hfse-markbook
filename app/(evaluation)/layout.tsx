@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { getSessionUser } from '@/lib/supabase/server';
 import { ModuleSidebar } from '@/components/module-sidebar';
-import { TestModeBanner } from '@/components/sis/test-mode-banner';
+import { AyBanner } from '@/components/sis/ay-banner';
 import {
   SidebarInset,
   SidebarProvider,
@@ -34,7 +34,7 @@ export default async function EvaluationLayout({ children }: { children: React.R
     <SidebarProvider defaultOpen={defaultOpen}>
       <ModuleSidebar module="evaluation" role={role} email={email} userId={id} />
       <SidebarInset>
-        <TestModeBanner />
+        <AyBanner />
         <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/85 px-4 backdrop-blur-md">
           <SidebarTrigger className="-ml-1" />
         </header>

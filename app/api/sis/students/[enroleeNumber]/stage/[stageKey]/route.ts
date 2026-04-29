@@ -13,9 +13,20 @@ import {
   type StageKey,
 } from '@/lib/schemas/sis';
 import { pickSectionForApplicant } from '@/lib/sis/class-assignment';
+import {
+  DOCUMENT_SLOTS,
+  OPTIONAL_DOCUMENT_SLOT_KEYS,
+  STP_CONDITIONAL_SLOT_KEYS,
+} from '@/lib/sis/queries';
 import { createServiceClient } from '@/lib/supabase/service';
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
 import { syncOneStudent } from '@/lib/sync/students';
+
+// Documents-stage gate: setting documentStatus to one of these "done"
+// values requires every required slot to be 'Valid' in the per-AY
+// documents table. Validation lives in P-Files (KD #31), so we read the
+// authoritative source there before letting admissions flip the stage.
+const DOCUMENT_VERIFIED_STATUSES: ReadonlySet<string> = new Set(['Verified', 'Finished']);
 
 // PATCH /api/sis/students/[enroleeNumber]/stage/[stageKey]?ay=AY2026
 //
@@ -115,7 +126,84 @@ export async function PATCH(
     }
   }
 
-  // 2a) Enrolled-prereq gate + auto class assignment.
+  // 2a) Documents-Verified/Finished gate.
+  // Setting documentStatus to 'Verified' or 'Finished' means the admissions
+  // team is asserting "documents are done." That assertion is only valid if
+  // every required slot has been validated — `<slot>Status === 'Valid'` —
+  // via the applicant-detail page's Documents tab. P-Files (KD #31) reads
+  // those validated docs but doesn't write the validation flag itself.
+  // Required = every slot EXCEPT:
+  //   - medical + educCert (always-optional admissions-side, see
+  //     `OPTIONAL_DOCUMENT_SLOT_KEYS`)
+  //   - the 3 STP-conditional slots when the applications row's
+  //     stpApplicationType is null (KD #61)
+  // Block the stage flip with 422 + a slot-level breakdown so the UI can
+  // surface what's still pending.
+  if (stageKey === 'documents' && status && DOCUMENT_VERIFIED_STATUSES.has(status)) {
+    const docsTable = `${prefix}_enrolment_documents`;
+    const appsTable = `${prefix}_enrolment_applications`;
+    const slotStatusCols = DOCUMENT_SLOTS.map((s) => s.statusCol);
+
+    const admissionsClient = createAdmissionsClient();
+    const [docsRes, appRes] = await Promise.all([
+      admissionsClient
+        .from(docsTable)
+        .select(['enroleeNumber', ...slotStatusCols].join(','))
+        .eq('enroleeNumber', enroleeNumber)
+        .maybeSingle(),
+      admissionsClient
+        .from(appsTable)
+        .select('enroleeNumber, stpApplicationType')
+        .eq('enroleeNumber', enroleeNumber)
+        .maybeSingle(),
+    ]);
+    if (docsRes.error) {
+      console.error('[sis stage PATCH] documents row fetch failed:', docsRes.error.message);
+      return NextResponse.json({ error: 'Documents lookup failed' }, { status: 500 });
+    }
+    if (appRes.error) {
+      console.error('[sis stage PATCH] application row fetch failed:', appRes.error.message);
+      return NextResponse.json({ error: 'Application lookup failed' }, { status: 500 });
+    }
+    const docsRow = (docsRes.data ?? null) as Record<string, string | null> | null;
+    const appsRow = (appRes.data ?? null) as { stpApplicationType: string | null } | null;
+    const stpEnabled = !!appsRow?.stpApplicationType;
+
+    const optionalKeys = new Set<string>(OPTIONAL_DOCUMENT_SLOT_KEYS);
+    const stpKeys = new Set<string>(STP_CONDITIONAL_SLOT_KEYS);
+
+    type Blocker = {
+      slot: string;
+      label: string;
+      current: string | null;
+      expected: 'Valid';
+    };
+    const blockers: Blocker[] = [];
+    for (const slot of DOCUMENT_SLOTS) {
+      if (optionalKeys.has(slot.key)) continue;
+      if (stpKeys.has(slot.key) && !stpEnabled) continue;
+      const current = docsRow?.[slot.statusCol] ?? null;
+      if (current !== 'Valid') {
+        blockers.push({
+          slot: slot.key,
+          label: slot.label,
+          current,
+          expected: 'Valid',
+        });
+      }
+    }
+    if (blockers.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Cannot set documents to ${status} — ${blockers.length} required slot(s) not yet validated.`,
+          blockers,
+        },
+        { status: 422 },
+      );
+    }
+  }
+
+  // 2b) Enrolled-prereq gate + auto class assignment.
   // Setting applicationStatus = 'Enrolled' requires all 5 prereq stages at
   // their terminal values AND a section with capacity. 'Enrolled (Conditional)'
   // deliberately bypasses this — it's the registrar override for edge cases

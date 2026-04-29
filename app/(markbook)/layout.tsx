@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { ModuleSidebar } from '@/components/module-sidebar';
-import { TestModeBanner } from '@/components/sis/test-mode-banner';
+import { AyBanner } from '@/components/sis/ay-banner';
 import {
   SidebarInset,
   SidebarProvider,
@@ -33,7 +33,7 @@ export default async function MarkbookLayout({ children }: { children: React.Rea
     <SidebarProvider defaultOpen={defaultOpen}>
       <ModuleSidebar module="markbook" role={role} email={email} userId={id} badges={sidebarBadges} />
       <SidebarInset>
-        <TestModeBanner />
+        <AyBanner />
         <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/85 px-4 backdrop-blur-md print:hidden">
           <SidebarTrigger className="-ml-1" />
         </header>

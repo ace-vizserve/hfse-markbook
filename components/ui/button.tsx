@@ -15,6 +15,11 @@ const buttonVariants = cva(
           "bg-gradient-to-b from-destructive to-destructive/80 text-white shadow-md transition-shadow hover:from-destructive/90 hover:to-destructive/70 hover:shadow-lg active:translate-y-px active:shadow-sm",
         warning:
           "bg-gradient-to-b from-brand-amber to-brand-amber/80 text-white shadow-md transition-shadow hover:from-brand-amber/90 hover:to-brand-amber/70 hover:shadow-lg active:translate-y-px active:shadow-sm",
+        // §9.3 healthy state — pairs with Badge variant="success" (mint→sky
+        // gradient + white text). Same craft as destructive/warning so the
+        // healthy/warning/blocked trio renders consistently across the app.
+        success:
+          "bg-gradient-to-b from-brand-mint to-brand-sky text-white shadow-md transition-shadow hover:from-brand-mint/90 hover:to-brand-sky/90 hover:shadow-lg active:translate-y-px active:shadow-sm",
         outline:
           "border border-brand-indigo-soft/60 bg-accent/60 text-brand-indigo-deep shadow-input hover:border-brand-indigo-soft hover:bg-accent hover:text-brand-indigo-deep hover:shadow-sm",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",

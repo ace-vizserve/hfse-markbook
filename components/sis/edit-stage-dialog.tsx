@@ -145,19 +145,42 @@ export function EditStageDialog({
       );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        // 422 with a `blockers` array = Enrolled-prereq gate. Surface the
-        // human-readable list so admissions knows which stages to finish
-        // before flipping to Enrolled.
-        const blockers = body.blockers as
-          | Array<{ stage: string; current: string | null; expected: string }>
-          | undefined;
-        if (res.status === 422 && Array.isArray(blockers) && blockers.length > 0) {
-          const lines = blockers.map(
+        // 422 + `blockers` covers two different server-side gates. Discriminate
+        // by stageKey:
+        //   - documents → per-slot validation gate (P-Files hasn't marked all
+        //     required slots as 'Valid'). Surface the slot list and offer a
+        //     one-click hop to the student's P-Files profile.
+        //   - application → Enrolled-prereq gate (one of the 5 prereq stages
+        //     is incomplete).
+        if (res.status === 422 && Array.isArray(body.blockers) && body.blockers.length > 0) {
+          if (stageKey === 'documents') {
+            const docBlockers = body.blockers as Array<{
+              slot: string;
+              label: string;
+              current: string | null;
+              expected: string;
+            }>;
+            const lines = docBlockers.map(
+              (b) => `${b.label} (${b.current ?? 'missing'})`,
+            );
+            toast.error(
+              `Documents not ready — ${docBlockers.length} slot${docBlockers.length === 1 ? '' : 's'} pending validation`,
+              { description: lines.join(' · ') },
+            );
+            return;
+          }
+          const enrolBlockers = body.blockers as Array<{
+            stage: string;
+            current: string | null;
+            expected: string;
+          }>;
+          const lines = enrolBlockers.map(
             (b) => `${b.stage}: ${b.current ?? 'not started'} → needs ${b.expected}`,
           );
-          toast.error(`Can't enroll yet — ${blockers.length} stage${blockers.length === 1 ? '' : 's'} still open`, {
-            description: lines.join(' · '),
-          });
+          toast.error(
+            `Can't enroll yet — ${enrolBlockers.length} stage${enrolBlockers.length === 1 ? '' : 's'} still open`,
+            { description: lines.join(' · ') },
+          );
           return;
         }
         throw new Error(body.error ?? 'Failed to save');

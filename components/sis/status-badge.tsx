@@ -1,68 +1,77 @@
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 
 // Status badges read severity at a glance through one of five semantic
-// recipes. Per docs/context/09a-design-patterns.md §9.1 + §9.3 — no
-// per-status bespoke colors, no raw Tailwind utilities. Anything the
-// admissions team sends that isn't mapped falls through to MUTED so it
-// surfaces rather than vanishes.
+// recipes. Per docs/context/09a-design-patterns.md §9.1 + §9.3 — gradient
+// Badge variants (success / warning / blocked / default / muted) carry the
+// non-flat status pill voice that's used app-wide for state pills
+// (change-request status, lifecycle widget, attendance, etc).
+//
+// Mapping rules:
+//   success  — healthy / verified / done / paid
+//   default  — informational / in-progress (indigo gradient)
+//   warning  — conditional / pending / needs attention
+//   blocked  — rejected / failed / hard-stop
+//   muted    — neutral terminal (withdrawn / archived / unknown)
+//
+// Anything not mapped falls through to MUTED so unfamiliar values surface
+// rather than vanish.
 
-const MINT     = 'bg-brand-mint/30 text-ink border-brand-mint';                 // healthy / active / verified
-const ACCENT   = 'bg-accent text-brand-indigo-deep border-brand-indigo-soft';   // informational / in-progress
-const AMBER    = 'bg-brand-amber-light/40 text-ink border-brand-amber-light';   // conditional / warning
-const DESTRUCT = 'bg-destructive/10 text-destructive border-destructive/30';    // cancelled / rejected / failed
-const MUTED    = 'bg-muted text-muted-foreground border-border';                // withdrawn / archived / unknown
+type StatusVariant = NonNullable<BadgeProps['variant']>;
 
-// applicationStatus — mirrors components/admissions/* tints so the SIS list
-// reads the same as the admissions pipeline dashboard.
-const TONE: Record<string, string> = {
-  'Submitted':              ACCENT,
-  'Ongoing Verification':   ACCENT,
-  'Processing':             ACCENT,
-  'Enrolled':               MINT,
-  'Enrolled (Conditional)': AMBER,
-  'Withdrawn':              MUTED,
-  'Cancelled':              DESTRUCT,
+const APPLICATION_VARIANT: Record<string, StatusVariant> = {
+  Submitted: 'default',
+  'Ongoing Verification': 'default',
+  Processing: 'default',
+  Enrolled: 'success',
+  'Enrolled (Conditional)': 'warning',
+  Withdrawn: 'muted',
+  Cancelled: 'blocked',
 };
 
 export function ApplicationStatusBadge({ status }: { status: string | null | undefined }) {
   const v = (status ?? '').trim();
   if (!v) {
-    return (
-      <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-        Unknown
-      </Badge>
-    );
+    return <Badge variant="outline">Unknown</Badge>;
   }
-  const tone = TONE[v] ?? MUTED;
-  return (
-    <Badge variant="outline" className={cn('font-mono text-[10px] uppercase tracking-wider', tone)}>
-      {v}
-    </Badge>
-  );
+  const variant = APPLICATION_VARIANT[v] ?? 'muted';
+  return <Badge variant={variant}>{v}</Badge>;
 }
 
-// Per-stage status (Registration / Documents / Fees / etc.).
-const STAGE_TONE: Record<string, string> = {
-  Pending:    AMBER,
-  Incomplete: AMBER,
-  Rejected:   DESTRUCT,
-  Finished:   MINT,
-  Signed:     MINT,
-  Valid:      MINT,
-  Invoiced:   ACCENT,
-  Uploaded:   ACCENT,
+const STAGE_VARIANT: Record<string, StatusVariant> = {
+  // Healthy / done states
+  Finished: 'success',
+  Signed: 'success',
+  Valid: 'success',
+  Verified: 'success',
+  Paid: 'success',
+  Claimed: 'success',
+  // Conditional / pending — needs admin action soon
+  Pending: 'warning',
+  Incomplete: 'warning',
+  Uploaded: 'warning',
+  'To follow': 'warning',
+  // Hard-stop terminal failures
+  Rejected: 'blocked',
+  Expired: 'blocked',
+  // In-progress — currently being worked on
+  'Ongoing Assessment': 'default',
+  Generated: 'default',
+  Sent: 'default',
+  Invoiced: 'default',
+  'Re-invoiced': 'default',
+  Unpaid: 'warning',
+  // Neutral terminal
+  Cancelled: 'muted',
+  Withdrawn: 'muted',
 };
 
 export function StageStatusBadge({ status }: { status: string | null | undefined }) {
   const v = (status ?? '').trim();
   if (!v) {
-    return <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">—</span>;
+    return (
+      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">—</span>
+    );
   }
-  const tone = STAGE_TONE[v] ?? MUTED;
-  return (
-    <Badge variant="outline" className={cn('font-mono text-[10px] uppercase tracking-wider', tone)}>
-      {v}
-    </Badge>
-  );
+  const variant = STAGE_VARIANT[v] ?? 'muted';
+  return <Badge variant={variant}>{v}</Badge>;
 }

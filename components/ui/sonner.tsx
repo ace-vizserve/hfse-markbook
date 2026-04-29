@@ -18,11 +18,29 @@ export function Toaster(props: ToasterProps) {
   return <SileoToaster theme={theme} {...rest} />;
 }
 
-type ToastOpts = Omit<SileoOptions, 'title' | 'type'>;
+// Sonner's `action: { label, onClick }` shape — translated below into
+// sileo's `button: { title, onClick }` so call sites can keep using the
+// sonner-shaped API without knowing about the underlying primitive.
+type SonnerAction = { label: string; onClick: () => void };
 
-function show(kind: 'success' | 'error' | 'warning' | 'info') {
+type ToastOpts = Omit<SileoOptions, 'title' | 'type'> & {
+  action?: SonnerAction;
+};
+
+// Convert the sonner-shaped `action` (if present) into sileo's `button`.
+// If both are passed, explicit `button` wins — escape hatch for callers
+// that need sileo-native semantics.
+function normalizeOpts(opts?: ToastOpts): Omit<SileoOptions, 'title' | 'type'> {
+  if (!opts) return {};
+  const { action, button, ...rest } = opts;
+  const resolvedButton =
+    button ?? (action ? { title: action.label, onClick: action.onClick } : undefined);
+  return resolvedButton ? { ...rest, button: resolvedButton } : rest;
+}
+
+function show(kind: 'success' | 'error' | 'warning' | 'info' | 'action') {
   return (title: string, opts?: ToastOpts) =>
-    sileo[kind]({ title, ...(opts ?? {}) });
+    sileo[kind]({ title, ...normalizeOpts(opts) });
 }
 
 type SonnerPromiseMessages<T> = {
@@ -36,6 +54,10 @@ export const toast = {
   error: show('error'),
   warning: show('warning'),
   info: show('info'),
+  // Sileo's "action" state — visually distinct toast with a built-in button
+  // slot. Pair with `button: { title, onClick }` (sileo-native) or the
+  // sonner-shaped `action: { label, onClick }` — both are normalised below.
+  action: show('action'),
   promise<T>(p: Promise<T>, msgs: SonnerPromiseMessages<T>) {
     const loading =
       typeof msgs.loading === 'string' ? { title: msgs.loading } : msgs.loading;
@@ -63,8 +85,8 @@ export const toast = {
     else sileo.clear();
   },
   loading: (title: string, opts?: ToastOpts) =>
-    sileo.show({ title, type: 'loading', ...(opts ?? {}) }),
+    sileo.show({ title, type: 'loading', ...normalizeOpts(opts) }),
   custom: (node: React.ReactNode) => sileo.show({ description: node }),
   message: (title: string, opts?: ToastOpts) =>
-    sileo.show({ title, ...(opts ?? {}) }),
+    sileo.show({ title, ...normalizeOpts(opts) }),
 };
