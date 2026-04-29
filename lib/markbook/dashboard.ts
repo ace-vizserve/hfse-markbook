@@ -445,31 +445,41 @@ async function loadMarkbookKpisForRange(input: RangeInput): Promise<MarkbookRang
   const fromIso = `${input.from}T00:00:00+08:00`;
   const toIso = `${input.to}T23:59:59+08:00`;
 
-  // All three queries scope to `input.ayCode` via the `section.ay_code`
-  // path (direct for grading_sheets, two hops for grade_entries +
+  // Resolve the AY's UUID — `sections` FKs the AY by uuid (`academic_year_id`),
+  // not text `ay_code`, so the nested filter has to use the uuid form.
+  const { data: ayRow } = await service
+    .from('academic_years')
+    .select('id')
+    .eq('ay_code', input.ayCode)
+    .maybeSingle();
+  const ayId = (ayRow as { id: string } | null)?.id ?? null;
+  if (!ayId) return emptyMarkbookKpis();
+
+  // All three queries scope to the AY via `section.academic_year_id`
+  // (direct for grading_sheets, two hops for grade_entries +
   // grade_change_requests via grading_sheet → section). PostgREST
   // requires `!inner` on every link in the chain or the filter is silently
   // dropped — without it the dashboard mixed counts from every AY.
   const [entriesRes, sheetsRes, changeReqRes] = await Promise.all([
     service
       .from('grade_entries')
-      .select('id, grading_sheet:grading_sheets!inner(section:sections!inner(ay_code))', {
-        count: 'exact',
-        head: true,
-      })
-      .eq('grading_sheet.section.ay_code', input.ayCode)
+      .select(
+        'id, grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))',
+        { count: 'exact', head: true },
+      )
+      .eq('grading_sheet.section.academic_year_id', ayId)
       .gte('created_at', fromIso)
       .lte('created_at', toIso),
     service
       .from('grading_sheets')
-      .select('is_locked, locked_at, section:sections!inner(ay_code)')
-      .eq('section.ay_code', input.ayCode),
+      .select('is_locked, locked_at, section:sections!inner(academic_year_id)')
+      .eq('section.academic_year_id', ayId),
     service
       .from('grade_change_requests')
       .select(
-        'status, requested_at, reviewed_at, grading_sheet:grading_sheets!inner(section:sections!inner(ay_code))',
+        'status, requested_at, reviewed_at, grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))',
       )
-      .eq('grading_sheet.section.ay_code', input.ayCode)
+      .eq('grading_sheet.section.academic_year_id', ayId)
       .gte('requested_at', fromIso)
       .lte('requested_at', toIso),
   ]);
@@ -578,12 +588,32 @@ async function loadGradeEntryVelocityRangeUncached(
   const earliest = input.cmpFrom < input.from ? input.cmpFrom : input.from;
   const latest = input.to > input.cmpTo ? input.to : input.cmpTo;
 
-  // AY-scoped via grading_sheet → section.ay_code. Without this filter the
-  // velocity chart blended grade entries across every AY in the date range.
+  // Resolve the AY's UUID — `sections.academic_year_id` is the FK column,
+  // not text `ay_code`. Without the correct column the filter silently
+  // matched zero rows.
+  const { data: ayRow } = await service
+    .from('academic_years')
+    .select('id')
+    .eq('ay_code', input.ayCode)
+    .maybeSingle();
+  const ayId = (ayRow as { id: string } | null)?.id ?? null;
+  if (!ayId) {
+    return {
+      current: [],
+      comparison: [],
+      delta: computeDelta(0, 0),
+      range: { from: input.from, to: input.to },
+      comparisonRange: { from: input.cmpFrom, to: input.cmpTo },
+    };
+  }
+
+  // AY-scoped via grading_sheet → section.academic_year_id.
   const { data } = await service
     .from('grade_entries')
-    .select('created_at, grading_sheet:grading_sheets!inner(section:sections!inner(ay_code))')
-    .eq('grading_sheet.section.ay_code', input.ayCode)
+    .select(
+      'created_at, grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))',
+    )
+    .eq('grading_sheet.section.academic_year_id', ayId)
     .gte('created_at', `${earliest}T00:00:00+08:00`)
     .lte('created_at', `${latest}T23:59:59+08:00`);
 
@@ -622,12 +652,30 @@ async function loadChangeRequestVelocityRangeUncached(
   const earliest = input.cmpFrom < input.from ? input.cmpFrom : input.from;
   const latest = input.to > input.cmpTo ? input.to : input.cmpTo;
 
-  // AY-scoped via grading_sheet → section.ay_code. Same fix as the grade
-  // entry velocity helper above.
+  // Resolve the AY's UUID — same fix as the grade-entry velocity helper.
+  const { data: ayRow } = await service
+    .from('academic_years')
+    .select('id')
+    .eq('ay_code', input.ayCode)
+    .maybeSingle();
+  const ayId = (ayRow as { id: string } | null)?.id ?? null;
+  if (!ayId) {
+    return {
+      current: [],
+      comparison: [],
+      delta: computeDelta(0, 0),
+      range: { from: input.from, to: input.to },
+      comparisonRange: { from: input.cmpFrom, to: input.cmpTo },
+    };
+  }
+
+  // AY-scoped via grading_sheet → section.academic_year_id.
   const { data } = await service
     .from('grade_change_requests')
-    .select('requested_at, grading_sheet:grading_sheets!inner(section:sections!inner(ay_code))')
-    .eq('grading_sheet.section.ay_code', input.ayCode)
+    .select(
+      'requested_at, grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))',
+    )
+    .eq('grading_sheet.section.academic_year_id', ayId)
     .gte('requested_at', `${earliest}T00:00:00+08:00`)
     .lte('requested_at', `${latest}T23:59:59+08:00`);
 

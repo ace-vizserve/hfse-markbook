@@ -24,13 +24,14 @@ export default async function AdminChangeRequestsPage({
   const service = createServiceClient();
 
   // Current AY — used to scope the queue. Without this filter admins saw
-  // change requests from every AY mixed in.
+  // change requests from every AY mixed in. `sections.academic_year_id`
+  // is the FK column (uuid), not text `ay_code`.
   const { data: ayData } = await service
     .from('academic_years')
-    .select('ay_code')
+    .select('id')
     .eq('is_current', true)
     .maybeSingle();
-  const currentAyCode = (ayData as { ay_code: string } | null)?.ay_code ?? null;
+  const currentAyId = (ayData as { id: string } | null)?.id ?? null;
 
   // Designated-approver scope: admins (and superadmins) see only requests
   // where they are the primary or secondary approver. Legacy rows with
@@ -38,7 +39,7 @@ export default async function AdminChangeRequestsPage({
   // nothing strands mid-migration. Registrar keeps full visibility —
   // they're the ones applying approved requests (Path A/B).
   //
-  // AY scope: nested `!inner` join via grading_sheet → section.ay_code.
+  // AY scope: nested `!inner` join via grading_sheet → section.academic_year_id.
   let query = service
     .from('grade_change_requests')
     .select(
@@ -48,12 +49,12 @@ export default async function AdminChangeRequestsPage({
        reviewed_by_email, reviewed_at, decision_note,
        applied_by, applied_at,
        primary_approver_id, secondary_approver_id,
-       grading_sheet:grading_sheets!inner(section:sections!inner(ay_code))`,
+       grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))`,
     )
     .order('requested_at', { ascending: false });
 
-  if (currentAyCode) {
-    query = query.eq('grading_sheet.section.ay_code', currentAyCode);
+  if (currentAyId) {
+    query = query.eq('grading_sheet.section.academic_year_id', currentAyId);
   }
 
   if (canDecide) {

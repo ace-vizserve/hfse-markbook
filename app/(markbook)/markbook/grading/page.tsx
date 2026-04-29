@@ -89,9 +89,10 @@ export default async function GradingListPage() {
         .eq('role', 'form_adviser')
     : Promise.resolve({ data: [] as unknown });
 
-  // Sheets are scoped to the current AY via `section.ay_code` — the
-  // `!inner` modifier is required for PostgREST to honour the nested
-  // filter (otherwise the join is LEFT and the filter is silently dropped).
+  // Sheets are scoped to the current AY via `section.academic_year_id`
+  // (the sections table FKs the AY by UUID, not `ay_code`). The `!inner`
+  // modifier is required for PostgREST to honour the nested filter —
+  // otherwise the join is LEFT and the filter is silently dropped.
   // Without this filter the table renders sheets across every AY.
   const sheetsPromise = currentAy
     ? supabase
@@ -100,9 +101,9 @@ export default async function GradingListPage() {
           `id, is_locked, teacher_name,
            term:terms(id, term_number, label),
            subject:subjects(id, code, name, is_examinable),
-           section:sections!inner(id, name, ay_code, level:levels(id, code, label, level_type))`,
+           section:sections!inner(id, name, academic_year_id, level:levels(id, code, label, level_type))`,
         )
-        .eq('section.ay_code', currentAy.ay_code)
+        .eq('section.academic_year_id', currentAy.id)
     : Promise.resolve({ data: [] as Array<{ id: string }> });
 
   const termLocksPromise = currentAy
