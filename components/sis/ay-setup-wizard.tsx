@@ -28,11 +28,20 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { CreateAySchema, type CreateAyInput } from '@/lib/schemas/ay-setup';
+import { TEMPLATE_SOURCE_SENTINEL } from '@/lib/sis/ay-setup/constants';
+
+// Source string from getCopyForwardPreview is either a real AY code
+// (`'AY2026'`) or the sentinel — render the sentinel as the human label.
+function formatSource(sourceAyCode: string): string {
+  return sourceAyCode === TEMPLATE_SOURCE_SENTINEL ? 'template' : sourceAyCode;
+}
 
 type Preview = {
   source_ay_code: string | null;
   sections_to_copy: number;
   subject_configs_to_copy: number;
+  ay_already_exists: boolean;
+  terms_to_insert: number;
 };
 
 type Props = {
@@ -80,12 +89,20 @@ export function AySetupWizard({ preview, children }: Props) {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? 'Failed to create AY');
       if (body.alreadyExisted) {
-        toast.info(`${values.ay_code} already exists — nothing to create.`);
+        toast.info(`${values.ay_code} is already fully set up — nothing to do.`);
         handleOpenChange(false);
         router.refresh();
         return;
       }
-      toast.success(`${values.ay_code} created`);
+      // The RPC is idempotent (migration 030). When `summary.ay_existed`
+      // is true here it means we filled in missing terms / sections /
+      // subject_configs against an already-existing AY row — phrase it
+      // as "completed" rather than "created" so the user understands
+      // their existing admissions data wasn't disturbed.
+      const ayExisted = body.summary?.ay_existed === true;
+      toast.success(
+        ayExisted ? `${values.ay_code} setup completed` : `${values.ay_code} created`,
+      );
       setCreatedAyCode(values.ay_code);
       setStep('follow-up');
       router.refresh();
@@ -177,28 +194,56 @@ export function AySetupWizard({ preview, children }: Props) {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-2 text-sm">
-              <ReviewRow label="AY row" value={`${ayCode} — ${form.getValues('label')}`} />
-              <ReviewRow label="Terms" value="4 terms (T1–T4, dates unset)" />
+              <ReviewRow
+                label="AY row"
+                value={
+                  preview.ay_already_exists
+                    ? `${ayCode} — already exists, will be reused`
+                    : `${ayCode} — ${form.getValues('label')}`
+                }
+              />
+              <ReviewRow
+                label="Terms"
+                value={
+                  preview.terms_to_insert === 4
+                    ? '4 terms (T1–T4, dates unset)'
+                    : preview.terms_to_insert === 0
+                      ? '4 already exist — none added'
+                      : `${preview.terms_to_insert} added (existing terms preserved)`
+                }
+              />
               {preview.source_ay_code ? (
                 <>
                   <ReviewRow
                     label="Sections"
-                    value={`${preview.sections_to_copy} copied from ${preview.source_ay_code}`}
+                    value={
+                      preview.sections_to_copy === 0
+                        ? 'Already configured — none copied'
+                        : `${preview.sections_to_copy} copied from ${formatSource(preview.source_ay_code)}`
+                    }
                   />
                   <ReviewRow
                     label="Subject configs"
-                    value={`${preview.subject_configs_to_copy} copied from ${preview.source_ay_code}`}
+                    value={
+                      preview.subject_configs_to_copy === 0
+                        ? 'Already configured — none copied'
+                        : `${preview.subject_configs_to_copy} copied from ${formatSource(preview.source_ay_code)}`
+                    }
                   />
                 </>
               ) : (
                 <ReviewRow
                   label="Sections & subject configs"
-                  value="None — no prior AY to copy from. Seed manually later."
+                  value="None — no template configured and no prior non-test AY to copy from. Seed manually later."
                 />
               )}
               <ReviewRow
                 label="Admissions tables"
-                value={`4 created: ${aySlug}_enrolment_applications, _status, _documents, ${aySlug}_discount_codes`}
+                value={
+                  preview.ay_already_exists
+                    ? `${aySlug}_enrolment_applications, _status, _documents, _discount_codes — created if missing, existing rows preserved`
+                    : `4 created: ${aySlug}_enrolment_applications, _status, _documents, ${aySlug}_discount_codes`
+                }
               />
             </div>
             <DialogFooter>

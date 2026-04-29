@@ -35,24 +35,11 @@ export async function POST(request: Request) {
   const { ay_code: ayCode, label } = parsed.data;
   const supabase = createServiceClient();
 
-  // Idempotent create: if the AY already exists, return a success response
-  // with `alreadyExisted: true` so the UI can show an informational message
-  // instead of an error. The unique constraint on academic_years.ay_code is
-  // still the ultimate safety net (concurrent submissions would race past
-  // this pre-check; the DB raises and we 500 in that edge case).
-  const { data: existing } = await supabase
-    .from('academic_years')
-    .select('id, label')
-    .eq('ay_code', ayCode)
-    .maybeSingle();
-  if (existing) {
-    return NextResponse.json({
-      ok: true,
-      alreadyExisted: true,
-      ay_code: ayCode,
-    });
-  }
-
+  // The RPC is fully idempotent (migration 030): if the AY row exists it
+  // is reused, terms/sections/subject_configs only get filled in if
+  // missing, admissions tables use CREATE IF NOT EXISTS. So we always
+  // call it — it correctly handles brand-new, partial, and fully-set-up
+  // states, and on a re-run nothing is duplicated or destroyed.
   const { data: result, error: rpcErr } = await supabase.rpc('create_academic_year', {
     p_ay_code: ayCode,
     p_label: label,
@@ -65,6 +52,17 @@ export async function POST(request: Request) {
 
   const summary = (result ?? {}) as Record<string, unknown>;
   const ayId = typeof summary.ay_id === 'string' ? summary.ay_id : null;
+  // alreadyExisted = the AY row was already there AND nothing else was
+  // missing. A "partial-state" run (row existed but terms/sections/configs
+  // were filled in) reports ok+summary but does NOT set alreadyExisted —
+  // the UI surfaces it as a normal success and advances to the follow-up.
+  const ayExisted = summary.ay_existed === true;
+  const termsInserted = typeof summary.terms_inserted === 'number' ? summary.terms_inserted : 0;
+  const sectionsCopied = typeof summary.sections_copied === 'number' ? summary.sections_copied : 0;
+  const configsCopied =
+    typeof summary.subject_configs_copied === 'number' ? summary.subject_configs_copied : 0;
+  const alreadyExisted =
+    ayExisted && termsInserted === 0 && sectionsCopied === 0 && configsCopied === 0;
 
   await logAction({
     service: supabase,
@@ -81,7 +79,7 @@ export async function POST(request: Request) {
 
   revalidateTag(`sis:${ayCode}`, 'max');
 
-  return NextResponse.json({ ok: true, summary });
+  return NextResponse.json({ ok: true, alreadyExisted, summary });
 }
 
 // PATCH /api/sis/ay-setup

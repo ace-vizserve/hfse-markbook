@@ -47,6 +47,17 @@ const PFILES_NAV: NavSection[] = [
     ],
   },
   {
+    // Renewal-outreach windows. `?expiring=N` pre-filters to students
+    // with at least one Valid expiring slot whose expiry falls within
+    // the next N days. Pairs with the table's bulk "Send reminders".
+    label: "Expiring soon",
+    items: [
+      { href: "/p-files?expiring=30", label: "Within 30 days" },
+      { href: "/p-files?expiring=60", label: "Within 60 days" },
+      { href: "/p-files?expiring=90", label: "Within 90 days" },
+    ],
+  },
+  {
     label: "Admin",
     items: [{ href: "/p-files/audit-log", label: "Audit Log" }],
   },
@@ -232,6 +243,7 @@ const SIS_NAV: NavSection[] = [
         requiresRoles: ["registrar", "school_admin", "admin", "superadmin"],
       },
       { href: "/sis/admin/subjects", label: "Subject Weights", requiresRoles: ["superadmin"] },
+      { href: "/sis/admin/template", label: "Class Template", requiresRoles: ["superadmin"] },
       { href: "/sis/admin/evaluation-checklists", label: "Eval Checklists", requiresRoles: ["superadmin"] },
       {
         href: "/sis/sync-students",
@@ -375,6 +387,7 @@ export const NAV_BY_MODULE: {
 export const ROUTE_ACCESS: Array<{ prefix: string; allowed: Role[] }> = [
   { prefix: "/sis/admin/approvers", allowed: ["superadmin"] },
   { prefix: "/sis/admin/subjects", allowed: ["superadmin"] },
+  { prefix: "/sis/admin/template", allowed: ["superadmin"] },
   { prefix: "/sis/admin/school-config", allowed: ["superadmin"] },
   { prefix: "/sis/admin/evaluation-checklists", allowed: ["superadmin"] },
   { prefix: "/sis/admin/users", allowed: ["superadmin"] },

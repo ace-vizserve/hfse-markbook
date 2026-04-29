@@ -2,8 +2,13 @@
 
 import { useState } from "react";
 
-import { ChartLegendChip } from "@/components/dashboard/chart-legend-chip";
 import { SubjectConfigEditDialog, type SubjectConfigDraft } from "@/components/sis/subject-config-edit-dialog";
+import {
+  classifyProfile,
+  PROFILE_CLASS,
+  PROFILE_TEXT,
+  ProfileLegendChip,
+} from "@/components/sis/weight-profile";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -23,29 +28,9 @@ type Config = {
   qa_max: number;
 };
 
-// Classify weight ratios into the canonical HFSE profiles (KD #4). Primary
-// levels use 40/40/20; Secondary levels use 30/50/20. Anything else is
-// flagged as "custom" so registrars can spot non-standard configs fast.
-type WeightProfile = "primary" | "secondary" | "custom";
-
-function classifyProfile(ww: number, pt: number, qa: number): WeightProfile {
-  if (ww === 40 && pt === 40 && qa === 20) return "primary";
-  if (ww === 30 && pt === 50 && qa === 20) return "secondary";
-  return "custom";
-}
-
-// Per-profile visual recipe — cells use the SAME gradient as the legend
-// ChartLegendChip below, full saturation + white text + inset highlight
-// shadow. Each cell reads as a large version of its corresponding legend
-// chip. Hover bumps brightness slightly; invalid-weight (sum ≠ 100)
-// overrides with the very-stale destructive gradient.
-const CHIP_BASE =
-  "border-transparent text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.18),0_1px_2px_rgba(15,23,42,0.08)] hover:brightness-105";
-const PROFILE_CLASS: Record<WeightProfile, string> = {
-  primary: cn(CHIP_BASE, "bg-gradient-to-b from-chart-5 to-chart-3"),
-  secondary: cn(CHIP_BASE, "bg-gradient-to-b from-brand-indigo to-brand-navy"),
-  custom: cn(CHIP_BASE, "bg-gradient-to-b from-brand-amber to-brand-amber/80"),
-};
+// Weight profile classification + chip styling shared with the
+// /sis/admin/template editor — see `@/components/sis/weight-profile`.
+// Edit the recipe there to update both surfaces at once.
 
 export function SubjectConfigMatrix({
   subjects,
@@ -156,7 +141,9 @@ export function SubjectConfigMatrix({
                       const ww = Math.round(cfg.ww_weight * 100);
                       const pt = Math.round(cfg.pt_weight * 100);
                       const qa = Math.round(cfg.qa_weight * 100);
-                      const weightsOk = ww + pt + qa === 100;
+                      // classifyProfile returns 'invalid' when sum != 100,
+                      // so the override-on-invalid logic the matrix used
+                      // to need lives inside PROFILE_CLASS now.
                       const profile = classifyProfile(ww, pt, qa);
                       return (
                         <TableCell key={l.id} className="p-2 text-center">
@@ -164,21 +151,24 @@ export function SubjectConfigMatrix({
                             type="button"
                             onClick={() => openCell(s, l, cfg)}
                             className={cn(
-                              "inline-flex w-full flex-col items-center gap-0.5 rounded-md border px-2 py-1.5 transition-all",
+                              "inline-flex w-full flex-col items-center gap-0.5 rounded-md px-2 py-1.5 transition-all",
                               "hover:-translate-y-0.5 hover:shadow-md",
                               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-indigo/40",
-                              // Profile gradient + white text (matches the legend ChartLegendChip)
                               PROFILE_CLASS[profile],
-                              // Invalid sum — destructive gradient + white text (matches
-                              // the very-stale legend chip)
-                              !weightsOk &&
-                                "border-transparent bg-gradient-to-b from-destructive to-destructive/80 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.18),0_1px_2px_rgba(15,23,42,0.08)] hover:brightness-105",
                             )}
                             title={`Edit ${s.name} × ${l.code} — weights ${ww}/${pt}/${qa} · slots ${cfg.ww_max_slots}/${cfg.pt_max_slots} · QA/${cfg.qa_max} · ${profile}`}>
-                            <span className="font-mono text-[12px] font-semibold tabular-nums text-white">
+                            <span
+                              className={cn(
+                                "font-mono text-[12px] font-semibold tabular-nums",
+                                PROFILE_TEXT[profile].code,
+                              )}>
                               {ww}·{pt}·{qa}
                             </span>
-                            <span className="font-mono text-[9px] tabular-nums text-white/80">
+                            <span
+                              className={cn(
+                                "font-mono text-[9px] tabular-nums",
+                                PROFILE_TEXT[profile].ratio,
+                              )}>
                               {cfg.ww_max_slots}/{cfg.pt_max_slots} · QA/{cfg.qa_max}
                             </span>
                           </button>
@@ -191,15 +181,14 @@ export function SubjectConfigMatrix({
             </TableBody>
           </Table>
         </div>
-        {/* Profile legend strip — uses ChartLegendChip per the app-wide
-            legend convention. Each chip here matches the tinted cell recipe
-            via shared color semantics (fresh=mint, primary=indigo, stale=
-            amber, very-stale=destructive). */}
-        <div className="flex flex-wrap items-center gap-3 border-t border-hairline bg-muted/25 px-4 py-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5)]">
-          <ChartLegendChip color="fresh" label="Primary · 40·40·20" />
-          <ChartLegendChip color="primary" label="Secondary · 30·50·20" />
-          <ChartLegendChip color="stale" label="Custom" />
-          <ChartLegendChip color="very-stale" label="Invalid · sum ≠ 100" />
+        {/* Profile legend strip — uses the same ProfileLegendChip the
+            template editor uses, so legend ↔ cell visual mapping is 1:1
+            across both surfaces. */}
+        <div className="flex flex-wrap items-center gap-1.5 border-t border-hairline bg-muted/25 px-4 py-2.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5)]">
+          <ProfileLegendChip profile="primary" label="Primary · 40·40·20" />
+          <ProfileLegendChip profile="secondary" label="Secondary · 30·50·20" />
+          <ProfileLegendChip profile="custom" label="Custom" />
+          <ProfileLegendChip profile="invalid" label="Invalid · sum ≠ 100" />
         </div>
       </Card>
 

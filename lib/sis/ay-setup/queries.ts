@@ -126,30 +126,108 @@ export async function listAcademicYears(): Promise<AcademicYearListItem[]> {
   return items;
 }
 
+import { TEMPLATE_SOURCE_SENTINEL } from './constants';
+
+export { TEMPLATE_SOURCE_SENTINEL };
+
 export type CopyForwardPreview = {
+  /**
+   * Where the new AY's sections + subject_configs will be sourced from:
+   * - `TEMPLATE_SOURCE_SENTINEL` (`'__TEMPLATE__'`) when the master template
+   *   has rows (migration 031).
+   * - An AY code (`'AY2026'`) when falling back to copy-from-prior-AY.
+   * - `null` when there's nothing to copy (target already has data, no
+   *   template, no prior AY).
+   */
   source_ay_code: string | null;
   sections_to_copy: number;
   subject_configs_to_copy: number;
+  /** True when an `academic_years` row already exists for the new AY code. */
+  ay_already_exists: boolean;
+  /** Count of terms (T1–T4) that will actually be inserted by the RPC. */
+  terms_to_insert: number;
 };
 
 /**
- * Returns the counts that the AY Setup wizard will copy from the most-recent
- * prior AY when creating the given new AY. If no prior AY exists, returns
- * zeros — the new AY will start empty and the admin can seed it manually.
+ * Returns the counts that the AY Setup wizard will copy from on creation.
+ * Mirrors `create_academic_year` post migration 031:
+ *
+ *   - Template tables (`template_sections` / `template_subject_configs`)
+ *     win when populated. The preview reports `source_ay_code =
+ *     TEMPLATE_SOURCE_SENTINEL` and the count of template rows.
+ *   - Otherwise falls back to the most-recent non-test prior AY (the
+ *     migration-030 behaviour, kept for empty-template installs).
+ *   - The RPC skips copying if the target AY already has sections (or
+ *     subject_configs). The preview reports 0 in that case.
  */
 export async function getCopyForwardPreview(newAyCode: string): Promise<CopyForwardPreview> {
   const service = createServiceClient();
 
+  // Look up the target AY row first — drives idempotent-state fields.
+  const { data: target } = await service
+    .from('academic_years')
+    .select('id')
+    .eq('ay_code', newAyCode)
+    .maybeSingle();
+  const targetId = (target as { id: string } | null)?.id ?? null;
+  const targetExistingTermsCount = targetId
+    ? (
+        await service
+          .from('terms')
+          .select('id', { count: 'exact', head: true })
+          .eq('academic_year_id', targetId)
+      ).count ?? 0
+    : 0;
+  const termsToInsert = Math.max(0, 4 - targetExistingTermsCount);
+
+  // Pre-compute target-side counts so we can skip-report for either source.
+  const [targetSectionsRes, targetConfigsRes] = await Promise.all([
+    targetId
+      ? service.from('sections').select('id', { count: 'exact', head: true }).eq('academic_year_id', targetId)
+      : Promise.resolve({ count: 0 }),
+    targetId
+      ? service.from('subject_configs').select('id', { count: 'exact', head: true }).eq('academic_year_id', targetId)
+      : Promise.resolve({ count: 0 }),
+  ]);
+  const targetHasSections = (targetSectionsRes.count ?? 0) > 0;
+  const targetHasConfigs = (targetConfigsRes.count ?? 0) > 0;
+
+  // Template wins when populated. Count rows directly from the template
+  // tables — same source the RPC actually copies from.
+  const [templateSectionsRes, templateConfigsRes] = await Promise.all([
+    service.from('template_sections').select('id', { count: 'exact', head: true }),
+    service.from('template_subject_configs').select('id', { count: 'exact', head: true }),
+  ]);
+  const templateSectionsCount = templateSectionsRes.count ?? 0;
+  const templateConfigsCount = templateConfigsRes.count ?? 0;
+  if (templateSectionsCount > 0 || templateConfigsCount > 0) {
+    return {
+      source_ay_code: TEMPLATE_SOURCE_SENTINEL,
+      sections_to_copy: targetHasSections ? 0 : templateSectionsCount,
+      subject_configs_to_copy: targetHasConfigs ? 0 : templateConfigsCount,
+      ay_already_exists: targetId !== null,
+      terms_to_insert: termsToInsert,
+    };
+  }
+
+  // Fallback: most recent non-test prior AY.
   const { data: prior } = await service
     .from('academic_years')
     .select('id, ay_code')
     .neq('ay_code', newAyCode)
+    .not('ay_code', 'ilike', 'AY9%')
     .order('ay_code', { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (!prior) {
-    return { source_ay_code: null, sections_to_copy: 0, subject_configs_to_copy: 0 };
+    return {
+      source_ay_code: null,
+      sections_to_copy: 0,
+      subject_configs_to_copy: 0,
+      ay_already_exists: targetId !== null,
+      terms_to_insert: termsToInsert,
+    };
   }
 
   const priorId = (prior as { id: string }).id;
@@ -160,8 +238,10 @@ export async function getCopyForwardPreview(newAyCode: string): Promise<CopyForw
 
   return {
     source_ay_code: (prior as { ay_code: string }).ay_code,
-    sections_to_copy: sectionsRes.count ?? 0,
-    subject_configs_to_copy: configsRes.count ?? 0,
+    sections_to_copy: targetHasSections ? 0 : (sectionsRes.count ?? 0),
+    subject_configs_to_copy: targetHasConfigs ? 0 : (configsRes.count ?? 0),
+    ay_already_exists: targetId !== null,
+    terms_to_insert: termsToInsert,
   };
 }
 
