@@ -80,23 +80,39 @@ export const GROUP_LABELS: Record<DocumentGroup, string> = {
 // P-Files is a repository, not a review queue — but it does render every
 // status SIS writes. SIS is the sole writer of `'rejected'` per the
 // cross-module contract (Phase 3). `uploaded` is "Pending review" for
-// parent self-serve uploads awaiting SIS validation.
-export type DocumentStatus = 'valid' | 'uploaded' | 'expired' | 'missing' | 'na' | 'rejected';
+// parent self-serve uploads awaiting SIS validation. `to-follow` is the
+// parent-acknowledged-pending state per KD #60 — it's the operational
+// focus of P-Files (active dialogue with the family), distinct from
+// `missing` (no contact yet).
+export type DocumentStatus = 'valid' | 'uploaded' | 'expired' | 'missing' | 'na' | 'rejected' | 'to-follow';
 
-/** Resolve the effective display status for a document slot. */
+/** Resolve the effective display status for a document slot.
+ *
+ * `<slot>Status` is the source of truth (KD #60). A `null` rawStatus is
+ * always 'missing' regardless of whether a URL happens to be present —
+ * legacy / partial-write rows that have a URL but no status need to read
+ * as Missing so they surface in the chase + urgency-sort flow rather
+ * than silently passing as Valid.
+ */
 export function resolveStatus(
-  url: string | null,
+  _url: string | null,
   rawStatus: string | null,
   expiryDate: string | null,
   expires: boolean,
 ): DocumentStatus {
-  if (!url && !rawStatus) return 'missing';
+  if (!rawStatus) return 'missing';
 
-  const s = (rawStatus ?? '').toLowerCase().trim();
+  const s = rawStatus.toLowerCase().trim();
 
   // Rejection is a deliberate SIS call — trumps expiry. A parent needs
   // to replace the file regardless of whether it's also out of date.
   if (s === 'rejected') return 'rejected';
+
+  // 'To follow' = parent has acknowledged the ask and committed to a
+  // re-upload. Trumps expiry: even if the underlying doc is past expiry,
+  // the operational signal is "we're already in dialogue." Surfaces as
+  // its own filter on the dashboard (KD #60).
+  if (s === 'to follow') return 'to-follow';
 
   // For expiring docs, check if expired
   if (expires && expiryDate) {
@@ -111,7 +127,9 @@ export function resolveStatus(
   // surfaces in legacy / mis-seeded data — treat it the same so the
   // P-Files "Pending review" quick filter doesn't silently miss rows.
   if (s === 'uploaded' || s === 'pending') return 'uploaded';
-  if (url) return 'valid';
+  if (s === 'valid') return 'valid';
 
+  // Unknown status string falls through to 'missing' so it lands in
+  // the chase queue rather than silently passing as Valid.
   return 'missing';
 }

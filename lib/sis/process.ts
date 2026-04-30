@@ -57,20 +57,38 @@ function tag(ayCode: string): string[] {
  * (lib/sis/document-chase-queue.ts). Overlap allowed — a row with both an
  * 'Uploaded' slot and a 'To follow' slot lights up multiple flags.
  *
- * Optional `options` parameter controls the expiring-soon threshold:
+ * Optional `options` parameter controls the expiring-soon threshold and
+ * the revalidation discriminator:
  * - `todayMs`: current time in milliseconds (defaults to Date.now())
  * - `expiringSoonThresholdDays`: window in days (defaults to 30)
+ * - `kindFilter.revalidation`: which statuses light up `hasRevalidation`:
+ *   - 'both' (default): 'Rejected' OR 'Expired' — original behavior, used
+ *     by the lifecycle aggregate so the cohort widget keeps a single
+ *     "needs re-upload" bucket regardless of cause.
+ *   - 'rejected': only 'Rejected' — admissions cares about parent uploads
+ *     the registrar bounced back. 'Expired' is rare pre-enrolment and
+ *     belongs to P-Files anyway.
+ *   - 'expired': only 'Expired' — P-Files renewal lifecycle. 'Rejected'
+ *     belongs to admissions (the parent never made it through validation).
  */
 export type DocStatusActionFlags = {
-  hasRevalidation: boolean; // any slot at 'Rejected' or 'Expired'
+  hasRevalidation: boolean; // any slot at 'Rejected' or 'Expired' (per kindFilter)
   hasValidation: boolean;   // any slot at 'Uploaded'
   hasPromised: boolean;     // any slot at 'To follow'
   hasExpiringSoon: boolean; // any Valid slot expiring within 30 days
 };
 
+export type DocStatusKindFilter = {
+  revalidation?: 'rejected' | 'expired' | 'both';
+};
+
 export function scanDocStatusForActionFlags(
   docs: Record<string, string | null> | undefined,
-  options?: { todayMs?: number; expiringSoonThresholdDays?: number },
+  options?: {
+    todayMs?: number;
+    expiringSoonThresholdDays?: number;
+    kindFilter?: DocStatusKindFilter;
+  },
 ): DocStatusActionFlags {
   const out: DocStatusActionFlags = {
     hasRevalidation: false,
@@ -83,13 +101,20 @@ export function scanDocStatusForActionFlags(
   const todayMs = options?.todayMs ?? Date.now();
   const thresholdDays = options?.expiringSoonThresholdDays ?? EXPIRING_SOON_THRESHOLD_DAYS;
   const thresholdMs = thresholdDays * 86_400_000;
+  const revalidationKind = options?.kindFilter?.revalidation ?? 'both';
 
   for (const slot of DOCUMENT_SLOTS) {
     const statusVal = (docs[slot.statusCol] ?? '').toString().trim();
 
-    // Existing 3 flags
-    if (statusVal === 'Rejected' || statusVal === 'Expired') {
-      out.hasRevalidation = true;
+    // Revalidation flag — gated by kindFilter.revalidation.
+    if (statusVal === 'Rejected') {
+      if (revalidationKind === 'rejected' || revalidationKind === 'both') {
+        out.hasRevalidation = true;
+      }
+    } else if (statusVal === 'Expired') {
+      if (revalidationKind === 'expired' || revalidationKind === 'both') {
+        out.hasRevalidation = true;
+      }
     } else if (statusVal === 'Uploaded') {
       out.hasValidation = true;
     } else if (statusVal === 'To follow') {

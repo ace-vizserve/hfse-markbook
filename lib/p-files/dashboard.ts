@@ -132,7 +132,12 @@ async function loadCompletionByLevelUncached(ayCode: string): Promise<LevelCompl
       const status = resolveStatus(url, rawStatus, expiry, slot.expires);
       switch (status) {
         case 'valid': bucket.valid += 1; break;
-        case 'uploaded': bucket.pending += 1; break;
+        case 'uploaded':
+        case 'to-follow':
+          // 'to-follow' counts as in-progress alongside 'uploaded' for
+          // level completion roll-ups.
+          bucket.pending += 1;
+          break;
         case 'rejected': bucket.rejected += 1; break;
         case 'expired':
         case 'missing': bucket.missing += 1; break;
@@ -279,7 +284,12 @@ export type TopMissingSlot = {
 
 export type PFilesRangeKpis = {
   revisionsInRange: number;
-  expiringSoon: number; // within 60 days from end of range
+  /** Within 60 days from end of range — used by the renewal-window MetricCard. */
+  expiringSoon: number;
+  /** Within 30 days from end of range — narrower urgency window. Surfaced as
+   *  its own MetricCard alongside the 60-day figure (Phase 2B subtractive
+   *  rebuild dropped the prior "Pending review" KPI). */
+  expiringSoon30: number;
   pendingReview: number;
   totalDocuments: number;
 };
@@ -315,8 +325,11 @@ async function loadPFilesKpisForRange(input: RangeInput): Promise<PFilesRangeKpi
   const endDate = parseLocalDate(input.to) ?? new Date();
   const sixtyDaysOut = new Date(endDate);
   sixtyDaysOut.setDate(sixtyDaysOut.getDate() + 60);
+  const thirtyDaysOut = new Date(endDate);
+  thirtyDaysOut.setDate(thirtyDaysOut.getDate() + 30);
 
   let expiringSoon = 0;
+  let expiringSoon30 = 0;
   let pending = 0;
   let total = 0;
 
@@ -340,6 +353,7 @@ async function loadPFilesKpisForRange(input: RangeInput): Promise<PFilesRangeKpi
       if (slot.expires && expiry) {
         const exp = parseLocalDate(expiry);
         if (exp && exp >= endDate && exp <= sixtyDaysOut) expiringSoon += 1;
+        if (exp && exp >= endDate && exp <= thirtyDaysOut) expiringSoon30 += 1;
       }
     }
   }
@@ -347,6 +361,7 @@ async function loadPFilesKpisForRange(input: RangeInput): Promise<PFilesRangeKpi
   return {
     revisionsInRange: revRes.count ?? 0,
     expiringSoon,
+    expiringSoon30,
     pendingReview: pending,
     totalDocuments: total,
   };
@@ -476,7 +491,12 @@ async function loadSlotStatusMixUncached(ayCode: string): Promise<SlotStatusMix>
       const status = resolveStatus(url, rawStatus, expiry, slot.expires);
       switch (status) {
         case 'valid': mix.valid += 1; break;
-        case 'uploaded': mix.pending += 1; break;
+        case 'uploaded':
+        case 'to-follow':
+          // 'to-follow' counts as in-progress alongside 'uploaded' for the
+          // donut "Pending" slice.
+          mix.pending += 1;
+          break;
         case 'rejected': mix.rejected += 1; break;
         case 'expired':
         case 'missing': mix.missing += 1; break;

@@ -6,6 +6,17 @@ import { Resend } from "resend";
 
 export type SlotStatusKind = "expired" | "expiringSoon" | "rejected" | "missing";
 
+// `kind` selects the email tone:
+//   - 'renewal' (default): post-enrolment chase aimed at parents whose
+//     valid documents are nearing expiry or already expired. Used by
+//     P-Files for enrolled-student renewal lifecycle.
+//   - 'initial-chase': pre-enrolment chase aimed at parents who haven't
+//     completed an applicant document slot yet (Pending/Rejected/Uploaded
+//     awaiting validation). Used by Admissions during the application
+//     funnel — copy stresses "completing the application" rather than
+//     "renewing existing docs".
+export type ReminderKind = "renewal" | "initial-chase";
+
 export type ReminderContext = {
   studentName: string;
   level: string | null;
@@ -14,6 +25,7 @@ export type ReminderContext = {
   slotLabel: string;
   statusKind: SlotStatusKind;
   expiryDateIso: string | null; // for expired / expiringSoon
+  kind?: ReminderKind; // default 'renewal' for back-compat
 };
 
 export type RecipientCandidate = {
@@ -81,7 +93,19 @@ export type RenderedReminder = {
 export function renderReminder(ctx: ReminderContext): RenderedReminder {
   const portalUrl = process.env.NEXT_PUBLIC_PARENT_PORTAL_URL ?? "https://enrol.hfse.edu.sg";
   const descriptor = statusDescriptor(ctx);
-  const subject = `Action required: ${ctx.slotLabel} for ${ctx.studentName} (${descriptor})`;
+  const kind: ReminderKind = ctx.kind ?? "renewal";
+
+  // Subject branching:
+  //   - 'renewal' (P-Files post-enrolment): emphasises renewal of an
+  //     existing valid document, with the descriptor (expired N days ago /
+  //     expires in N days / etc).
+  //   - 'initial-chase' (Admissions pre-enrolment): emphasises completing
+  //     the application — drops the expiry descriptor (rarely meaningful
+  //     pre-enrolment) in favour of the slot label alone.
+  const subject =
+    kind === "initial-chase"
+      ? `Document follow-up needed: ${ctx.slotLabel} for ${ctx.studentName}`
+      : `Document renewal needed: ${ctx.slotLabel} for ${ctx.studentName} (${descriptor})`;
 
   const sectionLabel =
     ctx.level && ctx.section ? `${ctx.level} ${ctx.section}` : ctx.level ?? ctx.section ?? "";
@@ -97,21 +121,51 @@ export function renderReminder(ctx: ReminderContext): RenderedReminder {
        </p>`
     : "";
 
+  // Headline + body branch on kind.
+  //   - renewal: "{slot} {descriptor}" — e.g. "Passport expired 12 days ago".
+  //   - initial-chase: "{slot} required to complete application" — neutral,
+  //     no expiry framing since these slots rarely carry an expiry date.
+  const headline =
+    kind === "initial-chase"
+      ? `${ctx.slotLabel} required to complete application`
+      : `${ctx.slotLabel} ${descriptor}`;
+
+  const bodyParagraph =
+    kind === "initial-chase"
+      ? `Please upload the <strong>${ctx.slotLabel}</strong> for
+         <strong>${ctx.studentName}</strong>${sectionLabel ? ` (${sectionLabel})` : ""}
+         to continue the application. Our records show this document ${descriptor}.`
+      : `Please re-upload the <strong>${ctx.slotLabel}</strong> for
+         <strong>${ctx.studentName}</strong>${sectionLabel ? ` (${sectionLabel})` : ""}.
+         Our records show this document ${descriptor}.`;
+
+  const footerParagraph =
+    kind === "initial-chase"
+      ? `Sign in at the parent portal with the same email and password you use
+         for enrolment, then upload the document under your enrolment
+         details page. If you have already submitted this document, please
+         contact the school admissions office to confirm receipt.`
+      : `Sign in at the parent portal with the same email and password you use
+         for enrolment, then re-upload the document under your enrolment
+         details page. If you have already submitted this document, please
+         contact the school registrar to confirm receipt.`;
+
+  const stripLabel =
+    kind === "initial-chase" ? "HFSE International School · Admissions" : "HFSE International School · Records";
+
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; color: #0F172A;">
       <p style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #64748B; margin: 0 0 12px;">
-        HFSE International School · Records
+        ${stripLabel}
       </p>
       <h1 style="font-size: 22px; margin: 0 0 16px; color: #0F172A;">
-        ${ctx.slotLabel} ${descriptor}
+        ${headline}
       </h1>
       <p style="line-height: 1.6; margin: 0 0 12px;">
         Dear Parent / Guardian,
       </p>
       <p style="line-height: 1.6; margin: 0 0 12px;">
-        Please re-upload the <strong>${ctx.slotLabel}</strong> for
-        <strong>${ctx.studentName}</strong>${sectionLabel ? ` (${sectionLabel})` : ""}.
-        Our records show this document ${descriptor}.
+        ${bodyParagraph}
       </p>
       ${expiryLine}
       <p style="margin: 24px 0;">
@@ -120,10 +174,7 @@ export function renderReminder(ctx: ReminderContext): RenderedReminder {
         </a>
       </p>
       <p style="line-height: 1.6; font-size: 13px; color: #64748B; margin: 24px 0 0;">
-        Sign in at the parent portal with the same email and password you use
-        for enrolment, then re-upload the document under your enrolment
-        details page. If you have already submitted this document, please
-        contact the school registrar to confirm receipt.
+        ${footerParagraph}
       </p>
     </div>
   `;

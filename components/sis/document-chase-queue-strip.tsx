@@ -14,14 +14,24 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Sheet, SheetTrigger } from '@/components/ui/sheet';
-import { getDocumentChaseQueueCounts } from '@/lib/sis/document-chase-queue';
+import {
+  getDocumentChaseQueueCounts,
+  type ChaseQueueModule,
+} from '@/lib/sis/document-chase-queue';
 import type { LifecycleDrillTarget } from '@/lib/sis/drill';
 
 // ──────────────────────────────────────────────────────────────────────────
 // DocumentChaseQueueStrip — top-of-fold "documents needing action" surface
-// for the 3 dashboards that own document chase work: /p-files, /admissions,
-// /records. Three cards in a flex row, each click-to-drill into the matching
-// LifecycleDrillSheet target (KD #56).
+// for the dashboards that own document chase work. Module-aware:
+//
+//   admissions  → revalidation (Rejected) · validation · promised
+//                 (expiringSoon hidden — admissions doesn't chase renewals)
+//   p-files     → revalidation (Expired) · expiringSoon
+//                 (validation + promised hidden — those are admissions-side)
+//
+// Each tile is click-to-drill into the matching LifecycleDrillSheet target
+// (KD #56). Defaults to 'admissions' for back-compat with existing
+// /records + /admissions mounts.
 //
 // Spec: docs/superpowers/specs/2026-04-28-to-follow-document-flag-design.md
 //       § 4 (Top-of-fold dashboard chase queue).
@@ -29,6 +39,7 @@ import type { LifecycleDrillTarget } from '@/lib/sis/drill';
 
 export type DocumentChaseQueueStripProps = {
   ayCode: string;
+  module?: ChaseQueueModule;
 };
 
 type ChaseTile = {
@@ -87,8 +98,9 @@ const CHIP_COLOR_BY_SEVERITY: Record<ChaseTile['severity'], ChartLegendChipColor
 
 export async function DocumentChaseQueueStrip({
   ayCode,
+  module: moduleKey = 'admissions',
 }: DocumentChaseQueueStripProps) {
-  const counts = await getDocumentChaseQueueCounts(ayCode);
+  const counts = await getDocumentChaseQueueCounts(ayCode, moduleKey);
   const total = counts.promised + counts.validation + counts.revalidation + counts.expiringSoon;
 
   if (total === 0) return null;
@@ -106,9 +118,37 @@ export async function DocumentChaseQueueStrip({
     'new-applications': undefined,
   };
 
+  // Per-module tile filter — drop tiles whose backing count is zeroed out
+  // for this surface (validation + promised on p-files; expiringSoon on
+  // admissions). Tiles with a real zero value (no rows match) are also
+  // dropped to keep the strip from showing empty cards.
+  const visibleTiles = TILES.filter((tile) => {
+    const value = valueByTarget[tile.target] ?? 0;
+    if (value === 0) return false;
+    if (moduleKey === 'admissions' && tile.target === 'awaiting-expiring-documents') return false;
+    if (
+      moduleKey === 'p-files' &&
+      (tile.target === 'awaiting-document-validation' || tile.target === 'awaiting-promised-documents')
+    ) {
+      return false;
+    }
+    return true;
+  });
+
+  if (visibleTiles.length === 0) return null;
+
+  // Adapt grid to tile count — keeps the layout balanced across both
+  // modules without an awkward 4-col grid for 2 tiles.
+  const gridClass =
+    visibleTiles.length >= 4
+      ? 'grid gap-4 md:grid-cols-2 lg:grid-cols-4'
+      : visibleTiles.length === 3
+        ? 'grid gap-4 md:grid-cols-3'
+        : 'grid gap-4 md:grid-cols-2';
+
   return (
-    <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4" aria-label="Documents needing action">
-      {TILES.map((tile) => {
+    <section className={gridClass} aria-label="Documents needing action">
+      {visibleTiles.map((tile) => {
         const value = valueByTarget[tile.target] ?? 0;
         const Icon = tile.icon;
         return (

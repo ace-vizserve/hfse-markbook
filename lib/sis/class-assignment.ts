@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { canonicalizeLevelLabel } from '@/lib/sis/levels';
+
 // Max active students per section. Mirrors Hard Rule #5. Kept as a local
 // constant so this helper is self-contained without pulling a central
 // constants module.
@@ -64,15 +66,21 @@ export async function pickSectionForApplicant(
   }
   const ayId = (ayRow as { id: string }).id;
 
+  // `application.levelApplied` is the word-form label after migration 029
+  // ("Primary One", not "P1"). The `levels` table stores both the short
+  // `code` (FK identifier — 'P1') and the `label` (display string — 'Primary
+  // One'). Look up by label, defending against any legacy digit-form rows
+  // ("Primary 1") via `canonicalizeLevelLabel`.
+  const labelLookup = canonicalizeLevelLabel(application.levelApplied);
   const { data: levelRow, error: levelErr } = await service
     .from('levels')
-    .select('id, code')
-    .eq('code', application.levelApplied)
+    .select('id, code, label')
+    .eq('label', labelLookup ?? application.levelApplied)
     .maybeSingle();
   if (levelErr || !levelRow) {
     return { error: `Level ${application.levelApplied} has no section` };
   }
-  const level = levelRow as { id: string; code: string };
+  const level = levelRow as { id: string; code: string; label: string };
 
   // 2. Load sections + active counts.
   const { data: sectionRows, error: sectionsErr } = await service
@@ -89,7 +97,7 @@ export async function pickSectionForApplicant(
     class_type: string | null;
   }>;
   if (sections.length === 0) {
-    return { error: `No sections configured at ${level.code} for ${ayCode}` };
+    return { error: `No sections configured at ${level.label} for ${ayCode}` };
   }
 
   const sectionIds = sections.map((s) => s.id);
@@ -111,7 +119,7 @@ export async function pickSectionForApplicant(
     .map((s) => ({ ...s, activeCount: activeCountBySection.get(s.id) ?? 0 }))
     .filter((s) => s.activeCount < MAX_ACTIVE_PER_SECTION);
   if (candidates.length === 0) {
-    return { error: `All sections at ${level.code} are at capacity (${MAX_ACTIVE_PER_SECTION} active)` };
+    return { error: `All sections at ${level.label} are at capacity (${MAX_ACTIVE_PER_SECTION} active)` };
   }
 
   // 4. Score.
@@ -127,9 +135,13 @@ export async function pickSectionForApplicant(
   );
   const winner = scored[0];
 
+  // Write back the WORD-form label to `classLevel` to match migration 029's
+  // post-state on `ay{YY}_enrolment_status.classLevel`. Writing the short
+  // code here would silently corrupt the data shape for every downstream
+  // consumer that expects "Primary One"/"Secondary Two"/etc.
   return {
     section_id: winner.id,
-    classLevel: level.code,
+    classLevel: level.label,
     classSection: winner.name,
   };
 }

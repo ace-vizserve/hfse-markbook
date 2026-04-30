@@ -1,11 +1,5 @@
 import Link from 'next/link';
-import {
-  CalendarCheck,
-  ChevronRight,
-  GraduationCap,
-  School,
-  Users,
-} from 'lucide-react';
+import { GraduationCap, School, Users } from 'lucide-react';
 
 import { createClient, getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -20,6 +14,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
+import { compareLevelLabels } from '@/lib/sis/levels';
 
 type LevelLite = { id: string; code: string; label: string; level_type: 'primary' | 'secondary' };
 type SectionCard = {
@@ -105,7 +100,15 @@ export default async function AttendanceSectionsListPage() {
     if (!grouped.has(c.level_label)) grouped.set(c.level_label, []);
     grouped.get(c.level_label)!.push(c);
   }
-  const sortedLevels = Array.from(grouped.entries()).sort(([a], [b]) => a.localeCompare(b));
+  // Canonical pedagogical order (YS-L → YS-J → YS-S → P1 → … → S4 → CS1
+  // → CS2) per `lib/sis/levels.ts`. localeCompare gave alphabetical
+  // ordering which read wrong ("Primary Five" before "Primary One").
+  const sortedLevels = Array.from(grouped.entries()).sort(([a], [b]) =>
+    compareLevelLabels(a, b),
+  );
+  for (const [, sects] of sortedLevels) {
+    sects.sort((a, b) => a.name.localeCompare(b.name));
+  }
 
   const totalSections = cards.length;
   const totalActive = cards.reduce((n, c) => n + c.active, 0);
@@ -187,57 +190,77 @@ export default async function AttendanceSectionsListPage() {
           <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             By level
           </h2>
-          <div className="space-y-5">
-            {sortedLevels.map(([level, sects]) => {
-              const sorted = sects.slice().sort((a, b) => a.name.localeCompare(b.name));
-              return (
-                <Card key={level} className="@container/card gap-0 py-0">
-                  <CardHeader className="border-b border-border py-5">
-                    <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-                      Level
-                    </CardDescription>
-                    <CardTitle className="font-serif text-[22px] font-semibold tracking-tight text-foreground">
-                      {level}
-                    </CardTitle>
-                    <CardAction>
-                      <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
-                        <CalendarCheck className="size-5" />
-                      </div>
-                    </CardAction>
-                  </CardHeader>
-                  <ul className="divide-y divide-border">
-                    {sorted.map((s) => (
-                      <li key={s.id}>
-                        <Link
-                          href={`/attendance/${s.id}?date=${today}`}
-                          className="group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-muted/40"
-                        >
-                          <div className="flex size-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
-                            <GraduationCap className="size-5" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="font-serif text-[17px] font-semibold leading-snug tracking-tight text-foreground">
-                              {s.name}
-                            </div>
-                            <div className="mt-0.5 text-xs">
-                              <span className="font-mono tabular-nums text-foreground">
-                                {s.active}
-                                <span className="ml-1 text-muted-foreground">active</span>
-                              </span>
-                            </div>
-                          </div>
-                          <ChevronRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </Card>
-              );
-            })}
+          <div className="space-y-4">
+            {sortedLevels.map(([level, sects]) => (
+              <LevelGroup key={level} levelLabel={level} sections={sects} today={today} />
+            ))}
           </div>
         </div>
       )}
     </PageShell>
+  );
+}
+
+function LevelGroup({
+  levelLabel,
+  sections,
+  today,
+}: {
+  levelLabel: string;
+  sections: SectionCard[];
+  today: string;
+}) {
+  const levelCode = sections[0]?.level_code ?? '';
+  const totalActive = sections.reduce((n, s) => n + s.active, 0);
+  return (
+    <Card className="@container/card gap-0 overflow-hidden py-0">
+      <div className="flex items-center gap-3 border-b border-border bg-muted/30 px-5 py-3">
+        {levelCode && (
+          <Badge
+            variant="outline"
+            className="h-6 border-border bg-white px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground"
+          >
+            {levelCode}
+          </Badge>
+        )}
+        <div className="font-serif text-[15px] font-semibold tracking-tight text-foreground">
+          {levelLabel}
+        </div>
+        <Badge variant="muted" className="ml-auto">
+          {sections.length} section{sections.length === 1 ? '' : 's'}
+          <span className="ml-1.5 text-muted-foreground">·</span>
+          <span className="ml-1.5 font-mono tabular-nums text-muted-foreground">
+            {totalActive} active
+          </span>
+        </Badge>
+      </div>
+      <div className="flex flex-wrap gap-2 p-4">
+        {sections.map((s) => (
+          <SectionPill key={s.id} section={s} today={today} />
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function SectionPill({ section, today }: { section: SectionCard; today: string }) {
+  return (
+    <Link
+      href={`/attendance/${section.id}?date=${today}`}
+      className="group/pill inline-flex items-center gap-2.5 rounded-xl border border-hairline bg-gradient-to-b from-card to-muted/20 py-2 pl-2.5 pr-3 shadow-xs transition-all hover:-translate-y-0.5 hover:border-brand-indigo/40 hover:shadow-md"
+    >
+      <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
+        <GraduationCap className="size-3.5" />
+      </div>
+      <div className="flex flex-col leading-tight">
+        <span className="font-serif text-[14px] font-semibold tracking-tight text-foreground">
+          {section.name}
+        </span>
+        <span className="font-mono text-[9px] uppercase tracking-[0.12em] tabular-nums text-muted-foreground">
+          {section.active} active
+        </span>
+      </div>
+    </Link>
   );
 }
 

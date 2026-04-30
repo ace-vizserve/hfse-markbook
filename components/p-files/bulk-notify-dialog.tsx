@@ -28,9 +28,21 @@ type BulkNotifyDialogProps = {
   onOpenChange: (open: boolean) => void;
   /** Called after a successful (or partial) send to clear the parent's selection. */
   onSuccess?: () => void;
+  /**
+   * Discriminator forwarded to the API so the route picks the right
+   * audit action + email tone. Defaults to 'p-files' for back-compat
+   * with existing renewal-lifecycle callers.
+   */
+  module?: 'p-files' | 'admissions';
 };
 
-export function BulkNotifyDialog({ items, open, onOpenChange, onSuccess }: BulkNotifyDialogProps) {
+export function BulkNotifyDialog({
+  items,
+  open,
+  onOpenChange,
+  onSuccess,
+  module = 'p-files',
+}: BulkNotifyDialogProps) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -43,6 +55,7 @@ export function BulkNotifyDialog({ items, open, onOpenChange, onSuccess }: BulkN
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: items.map((i) => ({ enroleeNumber: i.enroleeNumber, slotKey: i.slotKey })),
+          module,
         }),
       });
       const body = await res.json().catch(() => ({}));

@@ -220,6 +220,9 @@ async function loadDocumentValidationBacklogUncached(ayCode: string): Promise<Do
           bucket.valid += 1;
           break;
         case 'uploaded':
+        case 'to-follow':
+          // 'to-follow' = parent acknowledged, awaiting upload — counts as
+          // "in progress" alongside 'uploaded' for dashboard aggregates.
           bucket.pending += 1;
           break;
         case 'rejected':

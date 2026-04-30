@@ -48,6 +48,7 @@ export function classifyUrgency(slot: SlotUrgencyInput): SlotUrgencyKind {
   if (slot.status === "expired") return "expired";
   if (slot.status === "rejected") return "rejected";
   if (slot.status === "missing") return "missing";
+  if (slot.status === "to-follow") return "to-follow";
   if (slot.status === "uploaded") return "uploaded";
   if (slot.status === "na") return "na";
   if (slot.status === "valid" && slot.expiryDate) {
@@ -85,6 +86,7 @@ export function isActionable(kind: SlotUrgencyKind): boolean {
     kind === "expired" ||
     kind === "rejected" ||
     kind === "missing" ||
+    kind === "to-follow" ||
     kind === "expiring-30" ||
     kind === "expiring-60"
   );

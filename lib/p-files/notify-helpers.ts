@@ -6,6 +6,7 @@ import { DOCUMENT_SLOTS } from "@/lib/p-files/document-config";
 import {
   type SlotStatusKind,
   type RecipientCandidate,
+  type ReminderKind,
   resolveRecipients,
   sendReminder,
 } from "@/lib/notifications/email-pfile-reminder";
@@ -21,6 +22,15 @@ import { getActiveCooldown } from "@/lib/p-files/outreach";
 // log a single bulk-totals entry instead of N per-item entries.
 
 const ENROLLED_STATUSES = new Set(["Enrolled", "Enrolled (Conditional)"]);
+// Admissions pre-enrolment funnel statuses — used when kind='initial-chase'
+// to gate the chase to active applicants. Cancelled / Withdrawn are
+// excluded (no point chasing a closed application). Enrolled* are excluded
+// because that's the renewal-lifecycle scope (P-Files).
+const ADMISSIONS_FUNNEL_STATUSES = new Set([
+  "Submitted",
+  "Ongoing Verification",
+  "Processing",
+]);
 
 const EXPIRING_SOON_DAYS = 60;
 
@@ -45,6 +55,9 @@ export type NotifyContext = {
   ayCode: string;
   enroleeNumber: string;
   slotKey: string;
+  // Optional email tone — defaults to 'renewal' for back-compat with the
+  // existing P-Files routes. Admissions callers pass 'initial-chase'.
+  kind?: ReminderKind;
 };
 
 function prefixFor(ayCode: string): string {
@@ -114,7 +127,15 @@ export async function runNotify(
   const docsRow = (docsRes.data ?? {}) as unknown as Record<string, unknown>;
 
   const applicationStatus = (statusRow.applicationStatus as string | null) ?? null;
-  if (!applicationStatus || !ENROLLED_STATUSES.has(applicationStatus)) {
+  // Per-kind scope gate. P-Files (default 'renewal') chases enrolled
+  // students only (KD #31). Admissions ('initial-chase') chases the
+  // active pre-enrolment funnel (Submitted / Ongoing Verification /
+  // Processing). The 'not_enrolled' reason name is preserved for
+  // back-compat with existing P-Files callers; admissions surfaces map
+  // it to a generic "not in chaseable scope" message.
+  const kind: ReminderKind = ctx.kind ?? "renewal";
+  const allowedStatuses = kind === "initial-chase" ? ADMISSIONS_FUNNEL_STATUSES : ENROLLED_STATUSES;
+  if (!applicationStatus || !allowedStatuses.has(applicationStatus)) {
     return { ok: false, reason: "not_enrolled" };
   }
 
@@ -151,6 +172,7 @@ export async function runNotify(
       slotLabel: slot.label,
       statusKind,
       expiryDateIso: slotExpiry,
+      kind: ctx.kind ?? "renewal",
     },
     recipients,
   );

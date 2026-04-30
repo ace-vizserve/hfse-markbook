@@ -174,3 +174,99 @@ export function getNewApplicationsPriority(ayCode: string): Promise<PriorityPayl
     { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS },
   )(ayCode);
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+// Admissions chase PriorityPanel (Workstream A) — top-of-fold "which
+// applicants need an admissions-team chase right now?". Mirrors P-Files'
+// `getPFilesPriority` shape but uses the admissions-side chase signals
+// instead of expiry. Reuses `getAdmissionsCompletenessForChase` so we
+// don't introduce a second pass over the same docs/status tables.
+// ──────────────────────────────────────────────────────────────────────────
+
+export type AdmissionsPriorityInput = {
+  ayCode: string;
+};
+
+const PRIORITY_CACHE_TTL = 600;
+
+async function loadAdmissionsPriorityUncached(
+  input: AdmissionsPriorityInput,
+): Promise<PriorityPayload> {
+  // Lazy import to keep the priority module decoupled from dashboard.ts
+  // at type-resolution time (dashboard.ts already imports priority.ts via
+  // the priority panel wrapper, so a direct top-level import here would
+  // create a cycle).
+  const { getAdmissionsCompletenessForChase } = await import('@/lib/admissions/dashboard');
+  const { students } = await getAdmissionsCompletenessForChase(input.ayCode, 'all');
+
+  // Rank by total chase pressure (toFollow + rejected + expired) desc;
+  // tiebreak by oldest submitted date asc — surfaces the
+  // most-overdue-and-most-needy applicants first. Uploaded is intentionally
+  // excluded — it's the awaiting-validation queue (registrar work), not a
+  // chase trigger; surfacing it would inflate the chase headline.
+  const ranked = students
+    .filter((s) => s.toFollow + s.rejected + s.expired > 0)
+    .sort((a, b) => {
+      const aScore = a.toFollow + a.rejected + a.expired;
+      const bScore = b.toFollow + b.rejected + b.expired;
+      if (aScore !== bScore) return bScore - aScore;
+      const aDate = a.submittedDate ? Date.parse(a.submittedDate) : Number.POSITIVE_INFINITY;
+      const bDate = b.submittedDate ? Date.parse(b.submittedDate) : Number.POSITIVE_INFINITY;
+      return aDate - bDate;
+    });
+
+  const total = ranked.length;
+  const top = ranked.slice(0, 5);
+
+  if (total === 0) {
+    return {
+      eyebrow: 'Priority · today',
+      title: 'No applicant documents need a chase',
+      headline: { value: 0, label: 'inbox is clear', severity: 'good' },
+      chips: [],
+      iconKey: 'check',
+    };
+  }
+
+  const chips = top.map((row) => {
+    const signalCount = row.toFollow + row.rejected + row.expired;
+    return {
+      label: row.fullName || row.enroleeNumber,
+      count: signalCount,
+      href: `/admissions/applications/${encodeURIComponent(row.enroleeNumber)}?ay=${encodeURIComponent(input.ayCode)}`,
+      // Rejected + Expired are hard "registrar said no" / "doc lapsed"
+      // signals — escalate to 'bad'. To-follow alone is a soft commitment
+      // signal — 'warn'.
+      severity: row.rejected > 0 || row.expired > 0 ? ('bad' as const) : ('warn' as const),
+    };
+  });
+
+  return {
+    eyebrow: 'Priority · today',
+    title:
+      total === 1
+        ? '1 applicant has documents needing a chase'
+        : `${total.toLocaleString('en-SG')} applicants have documents needing a chase`,
+    headline: {
+      value: total,
+      label: total === 1 ? 'applicant in chase queue' : 'applicants in chase queue',
+      severity: 'warn',
+    },
+    chips,
+    cta: {
+      label: 'Open To-follow list',
+      href: `/admissions?ay=${encodeURIComponent(input.ayCode)}&status=to-follow`,
+    },
+    iconKey: 'list',
+  };
+}
+
+export function getAdmissionsPriority(
+  input: AdmissionsPriorityInput,
+): Promise<PriorityPayload> {
+  return unstable_cache(
+    () => loadAdmissionsPriorityUncached(input),
+    ['admissions', 'priority-chase', input.ayCode],
+    { tags: tag(input.ayCode), revalidate: PRIORITY_CACHE_TTL },
+  )();
+}

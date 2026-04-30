@@ -327,7 +327,13 @@ export default async function SisStudentDetailPage({
             />
           )}
           <DocumentsViewer
-            application={application}
+            application={{
+              stpApplicationType: application.stpApplicationType,
+              applicationStatus: status?.applicationStatus ?? null,
+              motherEmail: application.motherEmail,
+              fatherEmail: application.fatherEmail,
+              guardianEmail: application.guardianEmail,
+            }}
             documents={documents}
             enroleeNumber={application.enroleeNumber}
             ayCode={selectedAy}

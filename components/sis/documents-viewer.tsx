@@ -8,6 +8,7 @@ import {
   FileCheck,
   FileText,
   Inbox,
+  Mail,
   ShieldCheck,
   Users,
   X,
@@ -15,6 +16,8 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
+import { NotifyDialog } from '@/components/p-files/notify-dialog';
+import { PromiseDialog } from '@/components/p-files/promise-dialog';
 import { DocumentValidationActions } from '@/components/sis/document-validation-actions';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -55,6 +58,16 @@ import { cn } from '@/lib/utils';
 
 type ApplicationLite = {
   stpApplicationType: string | null;
+  /**
+   * Used to gate the admissions chase actions (Notify / Promise) on per-slot
+   * cards — only un-enrolled applicants in the active funnel scope can be
+   * chased here. Enrolled rows belong to the P-Files renewal lifecycle,
+   * which surfaces its own actions on /p-files/[enroleeNumber].
+   */
+  applicationStatus?: string | null;
+  motherEmail?: string | null;
+  fatherEmail?: string | null;
+  guardianEmail?: string | null;
 };
 
 type Props = {
@@ -63,6 +76,23 @@ type Props = {
   enroleeNumber: string;
   ayCode: string;
 };
+
+// Active funnel statuses where the admissions team may chase parents
+// to act on outstanding documents. Mirrors the gate in
+// lib/sis/document-chase-queue.ts + lib/p-files/notify-helpers.ts.
+const ADMISSIONS_CHASE_STATUSES = new Set([
+  'Submitted',
+  'Ongoing Verification',
+  'Processing',
+]);
+
+// Slot statuses on which the admissions team can usefully fire chase
+// actions (Notify / Promise). Excludes Valid (no action needed) +
+// Expired (renewal lens — that's P-Files territory per KD #60).
+function isAdmissionsChaseable(status: string | null): boolean {
+  const s = (status ?? '').trim().toLowerCase();
+  return s === 'to follow' || s === 'rejected' || s === 'uploaded' || s === '';
+}
 
 type FilterKey = 'all' | 'pending' | 'valid' | 'rejected' | 'expiring';
 
@@ -181,6 +211,17 @@ export function DocumentsViewer({ application, documents, enroleeNumber, ayCode 
     [stpEnabled, documents],
   );
 
+  const isAdmissionsScope =
+    !!application.applicationStatus && ADMISSIONS_CHASE_STATUSES.has(application.applicationStatus);
+  const recipients = useMemo(
+    () => ({
+      motherEmail: application.motherEmail ?? null,
+      fatherEmail: application.fatherEmail ?? null,
+      guardianEmail: application.guardianEmail ?? null,
+    }),
+    [application.motherEmail, application.fatherEmail, application.guardianEmail],
+  );
+
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>('all');
 
@@ -292,6 +333,8 @@ export function DocumentsViewer({ application, documents, enroleeNumber, ayCode 
             enroleeNumber={enroleeNumber}
             ayCode={ayCode}
             onClose={() => setSelectedKey(null)}
+            isAdmissionsScope={isAdmissionsScope}
+            recipients={recipients}
           />
         )}
       </div>
@@ -634,14 +677,24 @@ function PreviewPane({
   enroleeNumber,
   ayCode,
   onClose,
+  isAdmissionsScope,
+  recipients,
 }: {
   doc: DocumentSlot;
   enroleeNumber: string;
   ayCode: string;
   onClose: () => void;
+  isAdmissionsScope: boolean;
+  recipients: { motherEmail: string | null; fatherEmail: string | null; guardianEmail: string | null };
 }) {
   const kind = fileKind(doc.url);
   const filename = fileNameFromUrl(doc.url);
+
+  // Show Notify + Promise per-slot when this is an active-funnel applicant
+  // and the slot is in a chaseable state. Hidden for enrolled rows — those
+  // are P-Files territory and surface their own renewal actions on the
+  // /p-files/[enroleeNumber] detail page.
+  const showAdmissionsChase = isAdmissionsScope && isAdmissionsChaseable(doc.status);
 
   return (
     <div className="hidden lg:block">
@@ -693,6 +746,35 @@ function PreviewPane({
               status={doc.status}
               url={doc.url}
             />
+            {showAdmissionsChase && (
+              <>
+                <NotifyDialog
+                  enroleeNumber={enroleeNumber}
+                  slotKey={doc.key}
+                  label={doc.label}
+                  recipients={recipients}
+                  module="admissions"
+                  trigger={
+                    <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                      <Mail className="size-3" />
+                      Notify parent
+                    </Button>
+                  }
+                />
+                <PromiseDialog
+                  enroleeNumber={enroleeNumber}
+                  slotKey={doc.key}
+                  label={doc.label}
+                  module="admissions"
+                  trigger={
+                    <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                      <CalendarClock className="size-3" />
+                      Mark as promised
+                    </Button>
+                  }
+                />
+              </>
+            )}
           </div>
           {doc.url && (
             <a

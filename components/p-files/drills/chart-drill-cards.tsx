@@ -34,13 +34,16 @@ export function SlotStatusDrillCard({
   ayCode,
 }: CommonProps & { slotMix: SlotStatusMix }) {
   const [status, setStatus] = React.useState<string | null>(null);
+  // Renewal-only donut (Phase 2B): On file (Valid) vs Expired. Pending +
+  // Rejected slices belong on the admissions dashboard. `slotMix.missing`
+  // already lumps Expired + Missing together via the dashboard switch in
+  // lib/p-files/dashboard.ts — for enrolled-only data the Missing share is
+  // effectively all Expired.
   const slices = [
     { name: 'On file', value: slotMix.valid },
-    { name: 'Pending review', value: slotMix.pending },
-    { name: 'Expired', value: slotMix.rejected },
-    { name: 'Missing', value: slotMix.missing },
+    { name: 'Expired', value: slotMix.missing },
   ];
-  const total = slotMix.valid + slotMix.pending + slotMix.rejected + slotMix.missing;
+  const total = slotMix.valid + slotMix.missing;
   return (
     <Sheet open={!!status} onOpenChange={(o) => !o && setStatus(null)}>
       <Card>

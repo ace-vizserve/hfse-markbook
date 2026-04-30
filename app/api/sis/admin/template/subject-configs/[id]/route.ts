@@ -95,3 +95,68 @@ export async function PATCH(
 
   return NextResponse.json({ ok: true });
 }
+
+// DELETE /api/sis/admin/template/subject-configs/[id]
+//
+// Removes a (subject × level) entry from the template — used by the
+// "Remove from this level" action in the matrix's edit dialog. Existing
+// AYs are unaffected (template propagation is UPSERT-only per KD #66);
+// only NEW AYs created after this point will skip the (subject × level).
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const auth = await requireRole(['superadmin']);
+  if ('error' in auth) return auth.error;
+
+  const { id } = await params;
+  const service = createServiceClient();
+
+  // Pre-fetch the row joined to subjects + levels so the audit context
+  // captures the human-readable identifiers (codes), not just UUIDs.
+  const { data: before, error: loadErr } = await service
+    .from('template_subject_configs')
+    .select(
+      'id, subject_id, level_id, ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots, qa_max, subject:subjects(code, name), level:levels(code, label)',
+    )
+    .eq('id', id)
+    .maybeSingle();
+  if (loadErr) return NextResponse.json({ error: loadErr.message }, { status: 500 });
+  if (!before) {
+    return NextResponse.json({ error: 'template config not found' }, { status: 404 });
+  }
+
+  const { error: deleteErr } = await service
+    .from('template_subject_configs')
+    .delete()
+    .eq('id', id);
+  if (deleteErr) return NextResponse.json({ error: deleteErr.message }, { status: 500 });
+
+  type Joined = { code: string; name?: string; label?: string };
+  const subj = (Array.isArray(before.subject) ? before.subject[0] : before.subject) as Joined | null;
+  const lvl = (Array.isArray(before.level) ? before.level[0] : before.level) as Joined | null;
+
+  await logAction({
+    service,
+    actor: { id: auth.user.id, email: auth.user.email ?? null },
+    action: 'template.subject_config.delete',
+    entityType: 'template_subject_config',
+    entityId: id,
+    context: {
+      subject_id: before.subject_id,
+      level_id: before.level_id,
+      subject_code: subj?.code ?? null,
+      level_code: lvl?.code ?? null,
+      removed: {
+        ww_weight: Number(before.ww_weight),
+        pt_weight: Number(before.pt_weight),
+        qa_weight: Number(before.qa_weight),
+        ww_max_slots: before.ww_max_slots,
+        pt_max_slots: before.pt_max_slots,
+        qa_max: before.qa_max,
+      },
+    },
+  });
+
+  return NextResponse.json({ ok: true });
+}

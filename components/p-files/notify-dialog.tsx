@@ -60,6 +60,12 @@ type NotifyDialogProps = {
   /** ISO timestamp of the most recent reminder, if within cooldown window. */
   lastReminderAt?: string | null;
   trigger?: React.ReactNode;
+  /**
+   * Discriminator forwarded to the API so the route picks the right
+   * audit action + email tone. Defaults to 'p-files' for back-compat
+   * with existing renewal-lifecycle callers.
+   */
+  module?: 'p-files' | 'admissions';
 };
 
 export function NotifyDialog({
@@ -69,6 +75,7 @@ export function NotifyDialog({
   recipients,
   lastReminderAt,
   trigger,
+  module = 'p-files',
 }: NotifyDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -88,7 +95,7 @@ export function NotifyDialog({
       const res = await fetch(`/api/p-files/${encodeURIComponent(enroleeNumber)}/notify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slotKey }),
+        body: JSON.stringify({ slotKey, module }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -119,7 +126,9 @@ export function NotifyDialog({
       </DialogTrigger>
       <DialogContent className="sm:max-w-md!">
         <DialogHeader>
-          <DialogTitle className="font-serif tracking-tight">Send renewal reminder</DialogTitle>
+          <DialogTitle className="font-serif tracking-tight">
+            {module === 'admissions' ? 'Send chase reminder' : 'Send renewal reminder'}
+          </DialogTitle>
           <DialogDescription className="text-[13px] leading-relaxed">
             Email the parent / guardian to action <strong>{label}</strong>. The full message includes
             the student name, document, expiry date (if any), and a link to the parent portal.

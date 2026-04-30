@@ -34,9 +34,21 @@ type PromiseDialogProps = {
   slotKey: string;
   label: string;
   trigger?: React.ReactNode;
+  /**
+   * Discriminator forwarded to the API so the route picks the right
+   * audit action + scope gate. Defaults to 'p-files' for back-compat
+   * with existing renewal-lifecycle callers.
+   */
+  module?: 'p-files' | 'admissions';
 };
 
-export function PromiseDialog({ enroleeNumber, slotKey, label, trigger }: PromiseDialogProps) {
+export function PromiseDialog({
+  enroleeNumber,
+  slotKey,
+  label,
+  trigger,
+  module = 'p-files',
+}: PromiseDialogProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -61,7 +73,7 @@ export function PromiseDialog({ enroleeNumber, slotKey, label, trigger }: Promis
       const res = await fetch(`/api/p-files/${encodeURIComponent(enroleeNumber)}/promise`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slotKey, promisedUntil, note: note.trim() || undefined }),
+        body: JSON.stringify({ slotKey, promisedUntil, note: note.trim() || undefined, module }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {

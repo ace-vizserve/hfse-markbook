@@ -793,3 +793,245 @@ export function getDocumentCompletionByLevel(ayCode: string): Promise<DocComplet
     { revalidate: CACHE_TTL_SECONDS, tags: tag(ayCode) },
   )();
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+// Admissions chase view (Workstream A) — un-enrolled completeness rolled up
+// per applicant for the focused-view branch on /admissions and the chase
+// table embedded in /admissions/applications. Mirrors P-Files'
+// `getDocumentDashboardData` shape, but:
+//
+//   * scope filter = active funnel only (Submitted / Ongoing Verification /
+//     Processing) per KD #51 — Cancelled / Withdrawn / Enrolled fall out.
+//   * per-row counters surface the 4 admissions chase signals (toFollow /
+//     rejected / uploaded / expired). The first 3 are pre-enrolment chase
+//     statuses; expired = un-enrolled applicant whose passport / pass /
+//     guardian doc lapsed mid-pipeline (genuine chase trigger — parent
+//     must re-upload before enrollment can finish).
+//   * uses the same `DOCUMENT_SLOTS` + `resolveStatus` from
+//     `lib/p-files/document-config.ts` so emitted statuses agree with the
+//     SIS lifecycle widget + the chase strip counts.
+//
+// Cached per-(AY, statusFilter) under the existing
+// `admissions-dashboard:${ayCode}` tag so writes that already revalidate
+// admissions data also flush these reads.
+// ──────────────────────────────────────────────────────────────────────────
+
+export type AdmissionsChaseStatusFilter = 'all' | 'to-follow' | 'rejected' | 'uploaded' | 'expired';
+
+const ADMISSIONS_CHASE_STATUSES: ReadonlySet<string> = new Set([
+  'Submitted',
+  'Ongoing Verification',
+  'Processing',
+]);
+
+export type AdmissionsCompletenessSlot = {
+  key: string;
+  label: string;
+  status: import('@/lib/p-files/document-config').DocumentStatus;
+  expiryDate: string | null;
+};
+
+export type AdmissionsCompleteness = {
+  enroleeNumber: string;
+  studentNumber: string | null;
+  fullName: string;
+  level: string | null;
+  section: string | null;
+  applicationStatus: string | null;
+  submittedDate: string | null;
+  total: number;
+  complete: number;
+  toFollow: number;
+  rejected: number;
+  uploaded: number;
+  /** Slots whose `<slot>Status === 'Expired'` for this un-enrolled applicant —
+   *  passport / pass / guardian doc lapsed mid-pipeline. Genuine chase trigger:
+   *  parent must re-upload before enrollment can finish. */
+  expired: number;
+  slots: AdmissionsCompletenessSlot[];
+};
+
+export type AdmissionsChaseSummary = {
+  totalApplicants: number;
+  withToFollow: number;
+  withRejected: number;
+  withUploaded: number;
+  withExpired: number;
+};
+
+async function loadAdmissionsCompletenessForChaseUncached(
+  ayCode: string,
+  statusFilter: AdmissionsChaseStatusFilter,
+): Promise<{ students: AdmissionsCompleteness[]; summary: AdmissionsChaseSummary }> {
+  // Lazy-import p-files config to avoid circular collisions if this module
+  // is ever re-imported from p-files queries.
+  const { DOCUMENT_SLOTS: PFILES_SLOTS, resolveStatus } = await import('@/lib/p-files/document-config');
+
+  const prefix = prefixFor(ayCode);
+  const supabase = createAdmissionsClient();
+
+  const [appsRes, statusRes, docsRes] = await Promise.all([
+    supabase
+      .from(`${prefix}_enrolment_applications`)
+      .select(
+        '"enroleeNumber", "studentNumber", "firstName", "lastName", "fatherEmail", "guardianEmail", "stpApplicationType", "created_at"',
+      ),
+    supabase
+      .from(`${prefix}_enrolment_status`)
+      .select('"enroleeNumber", "applicationStatus", "classLevel", "classSection"'),
+    supabase
+      .from(`${prefix}_enrolment_documents`)
+      .select(
+        PFILES_SLOTS.flatMap((s) => {
+          const cols = ['"enroleeNumber"', `"${s.key}Status"`, `"${s.key}"`];
+          if (s.expires) cols.push(`"${s.key}Expiry"`);
+          return cols;
+        })
+          .filter((c, i, a) => a.indexOf(c) === i)
+          .join(', '),
+      ),
+  ]);
+
+  if (appsRes.error || statusRes.error || docsRes.error) {
+    console.error(
+      '[admissions] getAdmissionsCompletenessForChase fetch failed:',
+      appsRes.error?.message ?? statusRes.error?.message ?? docsRes.error?.message,
+    );
+    return {
+      students: [],
+      summary: {
+        totalApplicants: 0,
+        withToFollow: 0,
+        withRejected: 0,
+        withUploaded: 0,
+        withExpired: 0,
+      },
+    };
+  }
+
+  type AppRow = Record<string, unknown>;
+  type StatusRow = Record<string, unknown>;
+  type DocRow = Record<string, unknown>;
+
+  const apps = (appsRes.data ?? []) as AppRow[];
+  const statuses = (statusRes.data ?? []) as StatusRow[];
+  const docs = (docsRes.data ?? []) as unknown as DocRow[];
+
+  const statusByEnrolee = new Map<string, StatusRow>();
+  for (const s of statuses) {
+    const en = s.enroleeNumber as string | null;
+    if (en) statusByEnrolee.set(en, s);
+  }
+  const docsByEnrolee = new Map<string, DocRow>();
+  for (const d of docs) {
+    const en = d.enroleeNumber as string | null;
+    if (en) docsByEnrolee.set(en, d);
+  }
+
+  const students: AdmissionsCompleteness[] = [];
+  for (const a of apps) {
+    const enroleeNumber = (a.enroleeNumber as string | null) ?? '';
+    if (!enroleeNumber) continue;
+    const statusRow = statusByEnrolee.get(enroleeNumber);
+    const applicationStatus = (statusRow?.applicationStatus as string | null) ?? null;
+    if (!applicationStatus || !ADMISSIONS_CHASE_STATUSES.has(applicationStatus)) continue;
+
+    const docRow = docsByEnrolee.get(enroleeNumber);
+    const firstName = (a.firstName as string | null) ?? '';
+    const lastName = (a.lastName as string | null) ?? '';
+    const fullName = `${lastName}, ${firstName}`.trim().replace(/^,\s*/, '');
+    const level = (statusRow?.classLevel as string | null) ?? null;
+    const section = (statusRow?.classSection as string | null) ?? null;
+    const studentNumber = (a.studentNumber as string | null) ?? null;
+    const submittedDate = (a.created_at as string | null) ?? null;
+
+    // Per-slot resolution mirrors P-Files queries.computeForStudent — the
+    // conditional gate (fatherEmail / guardianEmail / stpApplicationType)
+    // hides slots not relevant for this applicant so chase counts only
+    // surface the documents the parent is actually expected to upload.
+    const applicableSlots = PFILES_SLOTS.filter((slot) => {
+      if (!slot.conditional) return true;
+      const gate = a[slot.conditional as keyof AppRow] as string | null | undefined;
+      return !!gate && String(gate).trim().length > 0;
+    });
+
+    const slots = applicableSlots.map((slot) => {
+      const url = (docRow?.[slot.key] as string | null) ?? null;
+      const rawStatus = (docRow?.[`${slot.key}Status`] as string | null) ?? null;
+      const expiryDate = slot.expires
+        ? ((docRow?.[`${slot.key}Expiry`] as string | null) ?? null)
+        : null;
+      const status = resolveStatus(url, rawStatus, expiryDate, slot.expires);
+      return { key: slot.key, label: slot.label, status, expiryDate };
+    });
+
+    const total = slots.length;
+    const complete = slots.filter((s) => s.status === 'valid').length;
+    const toFollow = slots.filter((s) => s.status === 'to-follow').length;
+    const rejected = slots.filter((s) => s.status === 'rejected').length;
+    const uploaded = slots.filter((s) => s.status === 'uploaded').length;
+    const expired = slots.filter((s) => s.status === 'expired').length;
+
+    students.push({
+      enroleeNumber,
+      studentNumber,
+      fullName,
+      level,
+      section,
+      applicationStatus,
+      submittedDate,
+      total,
+      complete,
+      toFollow,
+      rejected,
+      uploaded,
+      expired,
+      slots,
+    });
+  }
+
+  // Apply the status pre-filter (the table component also exposes a
+  // dropdown to flip between filters, but pre-filtering at the helper
+  // keeps the focused-view payload smaller + cache-key-distinct).
+  let visible = students;
+  if (statusFilter === 'to-follow') visible = students.filter((s) => s.toFollow > 0);
+  else if (statusFilter === 'rejected') visible = students.filter((s) => s.rejected > 0);
+  else if (statusFilter === 'uploaded') visible = students.filter((s) => s.uploaded > 0);
+  else if (statusFilter === 'expired') visible = students.filter((s) => s.expired > 0);
+
+  // Sort: highest chase pressure first. Chase = parent-action-required
+  // signals (toFollow + rejected + expired). Uploaded is awaiting-validation
+  // (registrar work, not chase) and is intentionally excluded from the
+  // ranking — it still surfaces in the dropdown filter + the chase strip's
+  // `validation` tile.
+  visible.sort((a, b) => {
+    const aPressure = a.toFollow + a.rejected + a.expired;
+    const bPressure = b.toFollow + b.rejected + b.expired;
+    if (aPressure !== bPressure) return bPressure - aPressure;
+    const aDate = a.submittedDate ? Date.parse(a.submittedDate) : Number.POSITIVE_INFINITY;
+    const bDate = b.submittedDate ? Date.parse(b.submittedDate) : Number.POSITIVE_INFINITY;
+    if (aDate !== bDate) return aDate - bDate;
+    return a.fullName.localeCompare(b.fullName);
+  });
+
+  const summary: AdmissionsChaseSummary = {
+    totalApplicants: students.length,
+    withToFollow: students.filter((s) => s.toFollow > 0).length,
+    withRejected: students.filter((s) => s.rejected > 0).length,
+    withUploaded: students.filter((s) => s.uploaded > 0).length,
+    withExpired: students.filter((s) => s.expired > 0).length,
+  };
+
+  return { students: visible, summary };
+}
+
+export function getAdmissionsCompletenessForChase(
+  ayCode: string,
+  statusFilter: AdmissionsChaseStatusFilter = 'all',
+): Promise<{ students: AdmissionsCompleteness[]; summary: AdmissionsChaseSummary }> {
+  return unstable_cache(
+    () => loadAdmissionsCompletenessForChaseUncached(ayCode, statusFilter),
+    ['admissions', 'completeness-chase', ayCode, statusFilter],
+    { revalidate: CACHE_TTL_SECONDS, tags: tag(ayCode) },
+  )();
+}

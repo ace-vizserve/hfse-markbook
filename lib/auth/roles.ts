@@ -58,6 +58,21 @@ const PFILES_NAV: NavSection[] = [
     ],
   },
   {
+    // Workflow shortcut — symmetric with Admissions's "Document validation"
+    // quicklink. P-Files validates Expired + Rejected slots for ENROLLED
+    // students (post-enrolment renewals); the Expired bucket is the most
+    // common trigger so the link routes there. Rejected is reachable via
+    // the dashboard chase strip drill until a dedicated focused-view lands.
+    label: "Quicklinks",
+    items: [
+      {
+        href: "/p-files?status=expired",
+        label: "Document validation",
+        requiresRoles: ["p-file", "admin", "superadmin"],
+      },
+    ],
+  },
+  {
     label: "Admin",
     items: [{ href: "/p-files/audit-log", label: "Audit Log" }],
   },
@@ -172,9 +187,14 @@ const ADMISSIONS_NAV: NavSection[] = [
         requiresRoles: ["registrar", "school_admin", "admin", "superadmin"],
       },
       {
-        href: "/p-files",
+        href: "/admissions?status=uploaded",
         label: "Document validation",
-        requiresRoles: ["p-file", "admin", "superadmin"],
+        requiresRoles: ["admissions", "registrar", "admin", "superadmin"],
+      },
+      {
+        href: "/admissions?status=expired",
+        label: "Expired documents",
+        requiresRoles: ["admissions", "registrar", "admin", "superadmin"],
       },
       {
         href: "/sis/ay-setup",

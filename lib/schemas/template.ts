@@ -37,6 +37,27 @@ export const TemplateSubjectConfigUpdateSchema = z
   });
 export type TemplateSubjectConfigUpdateInput = z.infer<typeof TemplateSubjectConfigUpdateSchema>;
 
+// POST /api/sis/admin/template/subject-configs — enable a (subject × level)
+// in the template. Mirrors `TemplateSubjectConfigUpdateSchema` but adds the
+// foreign-key fields the INSERT needs. Same percent → numeric(4,2)
+// conversion + sum-constraint guard.
+export const TemplateSubjectConfigCreateSchema = z
+  .object({
+    subject_id: uuidString,
+    level_id: uuidString,
+    ww_weight: z.number().int().min(0).max(100),
+    pt_weight: z.number().int().min(0).max(100),
+    qa_weight: z.number().int().min(0).max(100),
+    ww_max_slots: z.number().int().min(1).max(5),
+    pt_max_slots: z.number().int().min(1).max(5),
+    qa_max: z.number().int().min(1).max(100),
+  })
+  .refine((v) => v.ww_weight + v.pt_weight + v.qa_weight === 100, {
+    message: 'WW + PT + QA must sum to 100',
+    path: ['qa_weight'],
+  });
+export type TemplateSubjectConfigCreateInput = z.infer<typeof TemplateSubjectConfigCreateSchema>;
+
 // POST /api/sis/admin/template/apply — propagate template to selected AYs.
 export const ApplyTemplateSchema = z.object({
   ay_codes: z

@@ -126,6 +126,43 @@ export async function PATCH(
     }
   }
 
+  // 2.0) Post-Enrolled section-change guard.
+  // Section transfers for enrolled students must go through the dedicated
+  // /transfer-section route, which atomically withdraws from the source
+  // section + inserts into the target section in section_students. The
+  // legacy class-stage path here only updates the admissions classSection
+  // string and leaves section_students untouched, producing a silent
+  // dual-section bug where the student appears in both sections' grading
+  // rosters until the next bulk sync. Reject the change and point callers
+  // to the correct endpoint.
+  if (stageKey === 'class' && extras?.classSection !== undefined) {
+    const beforeRow = before as unknown as Record<string, unknown>;
+    const currentSection = (beforeRow.classSection as string | null) ?? null;
+    const requestedSection = extras.classSection === '' ? null : extras.classSection;
+    if (
+      currentSection !== requestedSection &&
+      requestedSection !== null
+    ) {
+      // Read applicationStatus to know if this is a post-Enrolled change.
+      const { data: appStatusRow } = await supabase
+        .from(statusTable)
+        .select('applicationStatus')
+        .eq('enroleeNumber', enroleeNumber)
+        .maybeSingle();
+      const appStatus = (appStatusRow as { applicationStatus: string | null } | null)
+        ?.applicationStatus;
+      if (appStatus === 'Enrolled' || appStatus === 'Enrolled (Conditional)') {
+        return NextResponse.json(
+          {
+            error:
+              `Use POST /api/sis/students/${enroleeNumber}/transfer-section to move enrolled students between sections — this keeps section_students in sync atomically.`,
+          },
+          { status: 422 },
+        );
+      }
+    }
+  }
+
   // 2a) Documents-Verified/Finished gate.
   // Setting documentStatus to 'Verified' or 'Finished' means the admissions
   // team is asserting "documents are done." That assertion is only valid if
@@ -137,6 +174,11 @@ export async function PATCH(
   //     `OPTIONAL_DOCUMENT_SLOT_KEYS`)
   //   - the 3 STP-conditional slots when the applications row's
   //     stpApplicationType is null (KD #61)
+  //   - father slots (fatherPassport, fatherPass) when fatherEmail is empty
+  //     on the apps row (single-mother household)
+  //   - guardian slots (guardianPassport, guardianPass) when guardianEmail
+  //     is empty on the apps row (no third-party guardian on file)
+  // Mother slots are always required — mother is the anchor parent.
   // Block the stage flip with 422 + a slot-level breakdown so the UI can
   // surface what's still pending.
   if (stageKey === 'documents' && status && DOCUMENT_VERIFIED_STATUSES.has(status)) {
@@ -153,7 +195,7 @@ export async function PATCH(
         .maybeSingle(),
       admissionsClient
         .from(appsTable)
-        .select('enroleeNumber, stpApplicationType')
+        .select('enroleeNumber, stpApplicationType, fatherEmail, guardianEmail')
         .eq('enroleeNumber', enroleeNumber)
         .maybeSingle(),
     ]);
@@ -166,11 +208,19 @@ export async function PATCH(
       return NextResponse.json({ error: 'Application lookup failed' }, { status: 500 });
     }
     const docsRow = (docsRes.data ?? null) as Record<string, string | null> | null;
-    const appsRow = (appRes.data ?? null) as { stpApplicationType: string | null } | null;
+    const appsRow = (appRes.data ?? null) as {
+      stpApplicationType: string | null;
+      fatherEmail: string | null;
+      guardianEmail: string | null;
+    } | null;
     const stpEnabled = !!appsRow?.stpApplicationType;
+    const fatherRequired = !!appsRow?.fatherEmail?.trim();
+    const guardianRequired = !!appsRow?.guardianEmail?.trim();
 
     const optionalKeys = new Set<string>(OPTIONAL_DOCUMENT_SLOT_KEYS);
     const stpKeys = new Set<string>(STP_CONDITIONAL_SLOT_KEYS);
+    const fatherKeys = new Set<string>(['fatherPassport', 'fatherPass']);
+    const guardianKeys = new Set<string>(['guardianPassport', 'guardianPass']);
 
     type Blocker = {
       slot: string;
@@ -182,6 +232,8 @@ export async function PATCH(
     for (const slot of DOCUMENT_SLOTS) {
       if (optionalKeys.has(slot.key)) continue;
       if (stpKeys.has(slot.key) && !stpEnabled) continue;
+      if (fatherKeys.has(slot.key) && !fatherRequired) continue;
+      if (guardianKeys.has(slot.key) && !guardianRequired) continue;
       const current = docsRow?.[slot.statusCol] ?? null;
       if (current !== 'Valid') {
         blockers.push({

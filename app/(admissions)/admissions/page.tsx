@@ -1,7 +1,8 @@
-import { ArrowRight, ChartBar, FileStack, Hourglass, TrendingUp, UserPlus, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChartBar, FileStack, Hourglass, TrendingUp, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { AdmissionsCompletenessTable, type StatusFilter as AdmissionsChaseStatusFilter } from "@/components/admissions/completeness-table";
 import { ApplicationsByLevelCard } from "@/components/admissions/applications-by-level-card";
 import { DocumentCompletionCard } from "@/components/admissions/document-completion-card";
 import { AdmissionsDrillSheet } from "@/components/admissions/drills/admissions-drill-sheet";
@@ -9,7 +10,6 @@ import { DocumentChaseQueueStrip } from "@/components/sis/document-chase-queue-s
 import { NewApplicationsPriority } from "@/components/admissions/new-applications-priority";
 import {
   AssessmentDrillCard,
-  FunnelDrillCard,
   PipelineDrillCard,
   ReferralDrillCard,
   TimeToEnrollDrillCard,
@@ -22,7 +22,7 @@ import { ComparisonToolbar } from "@/components/dashboard/comparison-toolbar";
 import { DashboardHero } from "@/components/dashboard/dashboard-hero";
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
 import { MetricCard } from "@/components/dashboard/metric-card";
-import { PipelineStageChart } from "@/components/sis/pipeline-stage-chart";
+import { PriorityPanel } from "@/components/dashboard/priority-panel";
 import {
   Card,
   CardAction,
@@ -35,6 +35,7 @@ import {
 import { PageShell } from "@/components/ui/page-shell";
 import { getCurrentAcademicYear, listAyCodes as listAcademicAyCodes } from "@/lib/academic-year";
 import {
+  getAdmissionsCompletenessForChase,
   getAdmissionsKpisRange,
   getApplicationsByLevelRange,
   getApplicationsVelocityRange,
@@ -46,8 +47,9 @@ import {
   getReferralSourceBreakdown,
   getTimeToEnrollHistogram,
 } from "@/lib/admissions/dashboard";
+import { getAdmissionsPriority } from "@/lib/admissions/priority";
 import { buildDrillRows } from "@/lib/admissions/drill";
-import { admissionsInsights } from "@/lib/dashboard/insights";
+import { admissionsChaseInsights, admissionsInsights } from "@/lib/dashboard/insights";
 import { formatRangeLabel, resolveRange, type DashboardSearchParams } from "@/lib/dashboard/range";
 import { getDashboardWindows } from "@/lib/dashboard/windows";
 import { getPipelineStageBreakdown } from "@/lib/sis/dashboard";
@@ -56,10 +58,64 @@ import { freshenAyDocuments } from "@/lib/sis/freshen-document-statuses";
 import { getSessionUser } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
+// Sidebar Quicklink status filters that flip the page into a focused
+// chase view (KD #64 mirrored for admissions). When `?status=` matches
+// one of these, the page renders only DashboardHero + ComparisonToolbar +
+// back-link + AdmissionsCompletenessTable + trust strip — KPIs / charts /
+// chase strip / etc. are skipped because they always show AY-wide data
+// and would mislead users who expected a focused list.
+const FOCUSED_VIEW_STATUSES: ReadonlyArray<AdmissionsChaseStatusFilter> = [
+  'to-follow',
+  'rejected',
+  'uploaded',
+  'expired',
+];
+
+function parseChaseStatusFilter(raw: string | undefined): AdmissionsChaseStatusFilter | undefined {
+  if (!raw) return undefined;
+  return (FOCUSED_VIEW_STATUSES as readonly string[]).includes(raw)
+    ? (raw as AdmissionsChaseStatusFilter)
+    : undefined;
+}
+
+const STATUS_VIEW_META: Record<
+  Exclude<AdmissionsChaseStatusFilter, 'all'>,
+  { eyebrow: string; title: string; description: string }
+> = {
+  'to-follow': {
+    eyebrow: 'Admissions · To follow',
+    title: 'Applicants with documents to follow',
+    description:
+      "Parents committed to upload but haven't sent the file yet. Use the bulk action to chase the entire list at once.",
+  },
+  rejected: {
+    eyebrow: 'Admissions · Rejected documents',
+    title: 'Applicants with rejected documents',
+    description:
+      'Documents bounced by the registrar — re-notify parents so they can re-upload before the funnel stalls.',
+  },
+  uploaded: {
+    eyebrow: 'Admissions · Pending review',
+    title: 'Applicants with documents pending review',
+    description:
+      'Parent uploads waiting for registrar validation. Validate from the applicant detail page or chase if a file is malformed.',
+  },
+  expired: {
+    eyebrow: 'Admissions · Expired documents',
+    title: 'Applicants with expired documents',
+    description:
+      'Un-enrolled applicants whose passport, pass, or guardian docs lapsed mid-pipeline. Chase parents to re-upload before enrollment can complete.',
+  },
+};
+
 // Admissions-module dashboard: pre-enrolment funnel metrics only. Enrolled
 // student analytics live on /records. This is the admissions team's home
 // surface — they track conversion, time-to-enroll, outdated apps here.
-export default async function AdmissionsDashboard({ searchParams }: { searchParams: Promise<DashboardSearchParams> }) {
+export default async function AdmissionsDashboard({
+  searchParams,
+}: {
+  searchParams: Promise<DashboardSearchParams & { status?: string }>;
+}) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect("/login");
   if (
@@ -84,9 +140,11 @@ export default async function AdmissionsDashboard({ searchParams }: { searchPara
 
   const resolvedSearch = await searchParams;
   const ayParam = typeof resolvedSearch.ay === "string" ? resolvedSearch.ay : undefined;
+  const statusParam = typeof resolvedSearch.status === "string" ? resolvedSearch.status : undefined;
   const ayCodes = await listAcademicAyCodes(service);
   const selectedAy = ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
   const isCurrentAy = selectedAy === currentAy.ay_code;
+  const focusedStatus = parseChaseStatusFilter(statusParam);
 
   const windows = await getDashboardWindows(selectedAy);
   const rangeInput = resolveRange(resolvedSearch, windows, selectedAy);
@@ -95,6 +153,72 @@ export default async function AdmissionsDashboard({ searchParams }: { searchPara
   // the dashboard reads the column. Cached 60s; existing PATCH routes
   // invalidate via the sis:${ayCode} tag.
   await freshenAyDocuments(selectedAy);
+
+  // ──────────────────────────────────────────────────────────────────
+  // Focused-view branch — when a sidebar Quicklink set ?status=to-follow
+  // | rejected | uploaded, render a stripped-down operational list
+  // (hero + AY/range toolbar + filtered table + back link). KPIs,
+  // charts, and the rest of the analytical dashboard are dropped because
+  // they would always show AY-wide data and would mislead users who
+  // expected a focused list view.
+  // ──────────────────────────────────────────────────────────────────
+  if (focusedStatus && focusedStatus !== 'all') {
+    const meta = STATUS_VIEW_META[focusedStatus];
+    const { students, summary } = await getAdmissionsCompletenessForChase(selectedAy, focusedStatus);
+
+    return (
+      <PageShell>
+        <DashboardHero
+          eyebrow={meta.eyebrow}
+          title={meta.title}
+          description={meta.description}
+          badges={[
+            { label: selectedAy },
+            { label: isCurrentAy ? "Current" : "Historical", tone: isCurrentAy ? "mint" : "muted" },
+          ]}
+        />
+
+        <ComparisonToolbar
+          ayCode={selectedAy}
+          ayCodes={ayCodes}
+          range={{ from: rangeInput.from, to: rangeInput.to }}
+          comparison={{ from: rangeInput.cmpFrom, to: rangeInput.cmpTo }}
+          termWindows={windows.term}
+          ayWindows={windows.ay}
+        />
+
+        <Link
+          href={`/admissions?ay=${encodeURIComponent(selectedAy)}`}
+          className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to dashboard
+        </Link>
+
+        <AdmissionsCompletenessTable
+          key={`${selectedAy}:${focusedStatus}`}
+          students={students}
+          ayCode={isCurrentAy ? undefined : selectedAy}
+          initialStatusFilter={focusedStatus}
+          bulkRemindEnabled
+        />
+
+        <div className="mt-2 flex items-center gap-2 border-t border-border pt-5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+          <FileStack className="size-3" strokeWidth={2.25} />
+          <span>{selectedAy}</span>
+          <span className="text-border">·</span>
+          <span>
+            {students.length.toLocaleString("en-SG")} of {summary.totalApplicants.toLocaleString("en-SG")}{" "}
+            applicants
+          </span>
+          <span className="text-border">·</span>
+          <span>Filter: {focusedStatus}</span>
+          <span className="text-border">·</span>
+          <span>Audit-logged</span>
+        </div>
+      </PageShell>
+    );
+  }
 
   const [
     summary,
@@ -110,6 +234,8 @@ export default async function AdmissionsDashboard({ searchParams }: { searchPara
     appsByLevel,
     docCompletion,
     drillRows,
+    chaseSummary,
+    admissionsChasePriority,
   ] = await Promise.all([
     getSisDashboardSummary(selectedAy),
     getPipelineStageBreakdown(selectedAy),
@@ -136,7 +262,19 @@ export default async function AdmissionsDashboard({ searchParams }: { searchPara
       },
       { withDocs: true },
     ),
+    // Workstream A — chase summary feeds the chase insights panel; the
+    // priority panel + chase strip do their own internal fetch.
+    getAdmissionsCompletenessForChase(selectedAy, "all").then((r) => r.summary),
+    getAdmissionsPriority({ ayCode: selectedAy }),
   ]);
+
+  const chaseInsights = admissionsChaseInsights({
+    chaseToFollow: chaseSummary.withToFollow,
+    chaseRejected: chaseSummary.withRejected,
+    chaseUploaded: chaseSummary.withUploaded,
+    chaseExpired: chaseSummary.withExpired,
+    totalApplicants: chaseSummary.totalApplicants,
+  });
 
   const comparisonLabel = `vs ${formatRangeLabel({ from: rangeInput.cmpFrom, to: rangeInput.cmpTo })}`;
 
@@ -193,9 +331,18 @@ export default async function AdmissionsDashboard({ searchParams }: { searchPara
       {/* Operational top-of-fold (KD #57) — new applications waiting on triage. */}
       <NewApplicationsPriority ayCode={selectedAy} />
 
-      {/* Document chase queue (spec 2026-04-28) — top-of-fold navigation
-          to revalidation / validation / promised drill sheets. */}
-      <DocumentChaseQueueStrip ayCode={selectedAy} />
+      {/* Document chase queue (spec 2026-04-28; Workstream A 2026-04-29) —
+          admissions surface gates buckets to revalidation (Rejected only),
+          validation (Uploaded), promised (To follow). expiringSoon hidden
+          per the un-enrolled vs enrolled split. */}
+      <DocumentChaseQueueStrip ayCode={selectedAy} module="admissions" />
+
+      {/* Workstream A — chase priority + chase narrative panel sit
+          immediately after the chase strip so the operator's eye flows
+          from "what buckets are full?" to "which applicants are heaviest?"
+          to "what should I do about it?" without scrolling. */}
+      <PriorityPanel payload={admissionsChasePriority} />
+      <InsightsPanel insights={chaseInsights} />
 
       <InsightsPanel insights={insights} />
 
@@ -306,16 +453,15 @@ export default async function AdmissionsDashboard({ searchParams }: { searchPara
         </div>
       </section>
 
-      {/* Bento row 2: conversion funnel (wide) + time-to-enroll histogram (narrow) */}
+      {/* Bento row 2: pipeline stage (wide, current-state breakdown — the
+          glance-level "where is our intake right now") + time-to-enroll
+          histogram (narrow). The conversion-funnel cumulative chart was
+          dropped because its cumulative-counting interpretation contradicted
+          the at-a-glance "current status" purpose; the biggest drop-off
+          survives as an `admissionsInsights` narrative below. */}
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <FunnelDrillCard
-            data={funnel}
-            ayCode={selectedAy}
-            rangeFrom={rangeInput.from}
-            rangeTo={rangeInput.to}
-            drillRows={drillRows}
-          />
+          <PipelineDrillCard data={pipelineStages} ayCode={selectedAy} drillRows={drillRows} />
         </div>
         <div className="lg:col-span-1">
           <TimeToEnrollDrillCard
@@ -326,12 +472,10 @@ export default async function AdmissionsDashboard({ searchParams }: { searchPara
         </div>
       </section>
 
-      {/* Bento row 3: pipeline stage (wide) + assessment outcomes (narrow) */}
+      {/* Bento row 3: assessment outcomes (full width — Pipeline graduated to
+          row 2's wide slot above). */}
       <section className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <PipelineDrillCard data={pipelineStages} ayCode={selectedAy} drillRows={drillRows} />
-        </div>
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-3">
           <AssessmentDrillCard data={assessment} ayCode={selectedAy} drillRows={drillRows} />
         </div>
       </section>

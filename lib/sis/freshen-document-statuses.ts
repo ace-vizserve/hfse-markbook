@@ -11,12 +11,18 @@ import { DOCUMENT_SLOTS } from '@/lib/sis/queries';
 // freshen-document-statuses — KD #60 reactive auto-flip.
 //
 // Implements the "auto-flip when expiry passes" half of KD #60's expiring-
-// document contract. Called at the top of every page RSC that displays
-// document status. Each call runs 8 parallel idempotent UPDATEs (one per
-// expiring slot) and flips `<slot>Status = 'Valid'` rows whose `<slot>Expiry`
-// is in the past to `'Expired'`. Cached for 60s per AY so rapid refreshes
-// don't repeat work; tag-invalidated by `sis:${ayCode}` so manual edits via
-// existing PATCH routes don't see stale freshen results.
+// document contract, in both directions. Called at the top of every page RSC
+// that displays document status. Each call runs 16 parallel idempotent
+// UPDATEs (8 expiring slots × 2 directions):
+//   • expire:  `<slot>Status = 'Valid'`   AND `<slot>Expiry < today`  → 'Expired'
+//   • revive:  `<slot>Status = 'Expired'` AND `<slot>Expiry >= today` → 'Valid'
+//
+// The revive direction is a backstop for cases where a future-dated expiry
+// lands on a row whose status wasn't updated alongside it (e.g. parent-portal
+// direct write that only touches the URL + expiry columns, or a manual edit
+// that fixed the date but missed the status pill). Cached for 60s per AY so
+// rapid refreshes don't repeat work; tag-invalidated by `sis:${ayCode}` so
+// manual edits via existing PATCH routes don't see stale freshen results.
 //
 // Spec: docs/superpowers/specs/2026-04-28-document-expiry-auto-flip-design.md
 // ──────────────────────────────────────────────────────────────────────────
@@ -25,6 +31,9 @@ export type FreshenResult = {
   flippedCount: number;
   flippedBySlot: Record<string, number>;
   enroleeNumbers: string[]; // capped at 50 in the audit context
+  revivedCount: number;
+  revivedBySlot: Record<string, number>;
+  revivedEnroleeNumbers: string[];
 };
 
 const EXPIRING_SLOTS = DOCUMENT_SLOTS.filter((s) => s.expiryCol);
@@ -34,54 +43,76 @@ function prefixFor(ayCode: string): string {
   return `ay${ayCode.replace(/^AY/i, '').toLowerCase()}`;
 }
 
+type Direction = 'expire' | 'revive';
+
 async function freshenAyDocumentsUncached(ayCode: string): Promise<FreshenResult> {
   const result: FreshenResult = {
     flippedCount: 0,
     flippedBySlot: {},
     enroleeNumbers: [],
+    revivedCount: 0,
+    revivedBySlot: {},
+    revivedEnroleeNumbers: [],
   };
 
   const admissions = createAdmissionsClient();
   const prefix = prefixFor(ayCode);
-  const seen = new Set<string>();
+  const expiredSeen = new Set<string>();
+  const revivedSeen = new Set<string>();
   const today = new Date().toISOString().slice(0, 10);
 
   try {
-    // 8 per-slot UPDATEs in parallel — single Supabase roundtrip latency
-    // dominates instead of 8x sequential. Each UPDATE is independent and
-    // idempotent; concurrent execution is safe.
-    const slotResults = await Promise.all(
-      EXPIRING_SLOTS.map(async (slot) => {
-        const { data, error } = await admissions
+    // 16 UPDATEs in parallel (8 expiring slots × {expire, revive}). All are
+    // independent and idempotent; the WHERE clauses are mutually exclusive on
+    // the status column so the two directions never race for the same row.
+    const tasks: Array<{ slotKey: string; direction: Direction }> = [];
+    for (const slot of EXPIRING_SLOTS) {
+      tasks.push({ slotKey: slot.key, direction: 'expire' });
+      tasks.push({ slotKey: slot.key, direction: 'revive' });
+    }
+
+    const taskResults = await Promise.all(
+      tasks.map(async ({ slotKey, direction }) => {
+        const slot = EXPIRING_SLOTS.find((s) => s.key === slotKey)!;
+        const query = admissions
           .from(`${prefix}_enrolment_documents`)
-          .update({ [slot.statusCol]: 'Expired' })
-          .eq(slot.statusCol, 'Valid')
-          .lt(slot.expiryCol!, today)
-          .not(slot.expiryCol!, 'is', null)
-          .select('enroleeNumber');
+          .update({
+            [slot.statusCol]: direction === 'expire' ? 'Expired' : 'Valid',
+          })
+          .eq(slot.statusCol, direction === 'expire' ? 'Valid' : 'Expired')
+          .not(slot.expiryCol!, 'is', null);
+
+        const { data, error } =
+          direction === 'expire'
+            ? await query.lt(slot.expiryCol!, today).select('enroleeNumber')
+            : await query.gte(slot.expiryCol!, today).select('enroleeNumber');
 
         if (error) {
           console.warn(
-            `[sis/freshen-documents] flip failed for ${slot.key} in ${ayCode}:`,
+            `[sis/freshen-documents] ${direction} failed for ${slotKey} in ${ayCode}:`,
             error.message,
           );
-          return { slotKey: slot.key, flipped: [] as Array<{ enroleeNumber: string | null }> };
+          return { slotKey, direction, rows: [] as Array<{ enroleeNumber: string | null }> };
         }
 
         return {
-          slotKey: slot.key,
-          flipped: (data ?? []) as Array<{ enroleeNumber: string | null }>,
+          slotKey,
+          direction,
+          rows: (data ?? []) as Array<{ enroleeNumber: string | null }>,
         };
       }),
     );
 
-    for (const { slotKey, flipped } of slotResults) {
-      if (flipped.length > 0) {
-        result.flippedCount += flipped.length;
-        result.flippedBySlot[slotKey] = flipped.length;
-        for (const row of flipped) {
-          if (row.enroleeNumber) seen.add(row.enroleeNumber);
-        }
+    for (const { slotKey, direction, rows } of taskResults) {
+      if (rows.length === 0) continue;
+      if (direction === 'expire') {
+        result.flippedCount += rows.length;
+        result.flippedBySlot[slotKey] = rows.length;
+        for (const row of rows) if (row.enroleeNumber) expiredSeen.add(row.enroleeNumber);
+      } else {
+        result.revivedCount += rows.length;
+        result.revivedBySlot[slotKey] = rows.length;
+        for (const row of rows) if (row.enroleeNumber) revivedSeen.add(row.enroleeNumber);
       }
     }
   } catch (e) {
@@ -93,12 +124,16 @@ async function freshenAyDocumentsUncached(ayCode: string): Promise<FreshenResult
     return result;
   }
 
-  result.enroleeNumbers = Array.from(seen).slice(0, 50);
+  result.enroleeNumbers = Array.from(expiredSeen).slice(0, 50);
+  result.revivedEnroleeNumbers = Array.from(revivedSeen).slice(0, 50);
 
+  // Two audit rows when both directions had flips, so each is independently
+  // filterable on /sis/audit-log.
+  const service = createServiceClient();
   if (result.flippedCount > 0) {
     try {
       await logAction({
-        service: createServiceClient(),
+        service,
         actor: { id: null, email: '(system:freshen)' },
         action: 'sis.documents.auto-expire',
         entityType: 'enrolment_document',
@@ -108,12 +143,36 @@ async function freshenAyDocumentsUncached(ayCode: string): Promise<FreshenResult
           flippedCount: result.flippedCount,
           flippedBySlot: result.flippedBySlot,
           enroleeNumbers: result.enroleeNumbers,
-          truncated: seen.size > 50 ? seen.size - 50 : 0,
+          truncated: expiredSeen.size > 50 ? expiredSeen.size - 50 : 0,
         },
       });
     } catch (e) {
       console.warn(
         `[sis/freshen-documents] audit log failed for ${ayCode}:`,
+        e instanceof Error ? e.message : String(e),
+      );
+    }
+  }
+
+  if (result.revivedCount > 0) {
+    try {
+      await logAction({
+        service,
+        actor: { id: null, email: '(system:freshen)' },
+        action: 'sis.documents.auto-revive',
+        entityType: 'enrolment_document',
+        entityId: null,
+        context: {
+          ayCode,
+          revivedCount: result.revivedCount,
+          revivedBySlot: result.revivedBySlot,
+          enroleeNumbers: result.revivedEnroleeNumbers,
+          truncated: revivedSeen.size > 50 ? revivedSeen.size - 50 : 0,
+        },
+      });
+    } catch (e) {
+      console.warn(
+        `[sis/freshen-documents] revive audit log failed for ${ayCode}:`,
         e instanceof Error ? e.message : String(e),
       );
     }

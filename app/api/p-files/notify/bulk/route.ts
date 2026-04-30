@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { requireRole } from "@/lib/auth/require-role";
 import { requireCurrentAyCode } from "@/lib/academic-year";
-import { logAction } from "@/lib/audit/log-action";
+import { logAction, type AuditAction } from "@/lib/audit/log-action";
 import { createServiceClient } from "@/lib/supabase/service";
 import { DOCUMENT_SLOTS } from "@/lib/p-files/document-config";
 import { runNotify, type NotifyOutcome } from "@/lib/p-files/notify-helpers";
@@ -11,19 +11,41 @@ const MAX_BULK_ITEMS = 50;
 
 type BulkItem = { enroleeNumber: string; slotKey: string };
 
+const MODULE_VALUES = new Set(["p-files", "admissions"]);
+
+type ChaseModule = "p-files" | "admissions";
+
+function resolveModule(raw: unknown): ChaseModule {
+  if (typeof raw === "string" && MODULE_VALUES.has(raw)) return raw as ChaseModule;
+  return "p-files";
+}
+
 // POST /api/p-files/notify/bulk
-// Body: { items: Array<{ enroleeNumber: string; slotKey: string }> }
+// Body: {
+//   items: Array<{ enroleeNumber: string; slotKey: string }>;
+//   module?: 'p-files' | 'admissions';
+// }
 //
 // Fans out single-slot notifies for the registrar's bulk action. Each
-// item runs the same gating as the single endpoint (enrolled, actionable
-// status, 24h cooldown). Cooldown / no-recipient / not-enrolled
+// item runs the same gating as the single endpoint (scope-status,
+// actionable status, 24h cooldown). Cooldown / no-recipient / not-in-scope
 // failures are tallied as 'skipped' rather than aborting the whole call.
+// `module` (default 'p-files') selects audit action + email tone exactly
+// like the single-slot route.
 export async function POST(request: NextRequest) {
-  const auth = await requireRole(["p-file", "superadmin"]);
+  const auth = await requireRole([
+    "p-file",
+    "admissions",
+    "registrar",
+    "school_admin",
+    "admin",
+    "superadmin",
+  ]);
   if ("error" in auth) return auth.error;
 
   const body = await request.json().catch(() => null);
   const items = body && Array.isArray(body.items) ? (body.items as unknown[]) : null;
+  const moduleKey = resolveModule(body?.module);
   if (!items || items.length === 0) {
     return NextResponse.json({ error: "items[] is required" }, { status: 400 });
   }
@@ -70,6 +92,7 @@ export async function POST(request: NextRequest) {
       ayCode,
       enroleeNumber: item.enroleeNumber,
       slotKey: item.slotKey,
+      kind: moduleKey === "admissions" ? "initial-chase" : "renewal",
     });
     rowResults.push({ item, outcome });
 
@@ -101,14 +124,17 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const action: AuditAction =
+    moduleKey === "admissions" ? "admissions.reminder.bulk" : "pfile.reminder.bulk";
   await logAction({
     service,
     actor: { id: auth.user.id, email: auth.user.email ?? null },
-    action: "pfile.reminder.bulk",
+    action,
     entityType: "enrolment_document",
     entityId: `${ayCode}:bulk`,
     context: {
       ay_code: ayCode,
+      module: moduleKey,
       requested: validItems.length,
       sent,
       failed,

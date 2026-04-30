@@ -1,17 +1,20 @@
-import { CheckCircle2, AlertTriangle, XCircle, Users } from 'lucide-react';
+import { CheckCircle2, CalendarClock, Users } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import type { DashboardSummary } from '@/lib/p-files/queries';
 
 export function SummaryCards({ summary }: { summary: DashboardSummary }) {
+  // Phase 2B (subtractive): "Has Missing" replaced with "Expiring ≤90d" and
+  // "Has Expired" dropped — that count is already covered by the "Awaiting
+  // revalidation" tile in the chase strip + the Expiring KPIs above the
+  // fold. P-Files is renewal-lens only; missing docs are admissions-side.
   const cards = [
     { label: 'Total Students', value: summary.totalStudents, icon: Users },
     { label: 'Fully Complete', value: summary.fullyComplete, icon: CheckCircle2 },
-    { label: 'Has Expired', value: summary.hasExpired, icon: AlertTriangle },
-    { label: 'Has Missing', value: summary.hasMissing, icon: XCircle },
+    { label: 'Expiring ≤90d', value: summary.expiringSoon90, icon: CalendarClock },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
       {cards.map((c) => {
         const Icon = c.icon;
         return (

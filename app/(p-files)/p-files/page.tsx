@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, Clock, FileStack, FolderKanban, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CalendarClock, FileStack, FolderKanban, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -14,7 +14,6 @@ import {
   CompletenessCsvButton,
   CompletionByLevelDrillCard,
   SlotStatusDrillCard,
-  TopMissingDrillCard,
 } from "@/components/p-files/drills/chart-drill-cards";
 import { PFilesDrillSheet } from "@/components/p-files/drills/pfiles-drill-sheet";
 import { RevisionsHeatmapCard } from "@/components/p-files/revisions-heatmap-card";
@@ -38,13 +37,15 @@ import {
 } from "@/lib/p-files/dashboard";
 import { getDocumentDashboardData } from "@/lib/p-files/queries";
 import { freshenAyDocuments } from "@/lib/sis/freshen-document-statuses";
-import { getDocumentValidationBacklog, getExpiringDocuments } from "@/lib/sis/dashboard";
+import { getExpiringDocuments } from "@/lib/sis/dashboard";
 import { getSessionUser } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
 // Canonical set of status-filter values the sidebar Quicklinks use as
-// `?status=...`. Keeps the validation + initial-filter computation honest.
-const STATUS_FILTER_VALUES: readonly StatusFilter[] = ["all", "complete", "missing", "expired", "uploaded"];
+// `?status=...`. P-Files only chases the renewal lens for enrolled
+// students — initial-chase statuses (To follow, Rejected, Pending review)
+// belong on Admissions, so 'expired' is the only focused-view target here.
+const STATUS_FILTER_VALUES: readonly StatusFilter[] = ["all", "expired"];
 
 function parseStatusFilter(raw: string | undefined): StatusFilter | undefined {
   if (!raw) return undefined;
@@ -66,25 +67,10 @@ function parseExpiringWindow(raw: string | undefined): ExpiringWindow | undefine
 // layout — no KPIs, no charts, just the table + filters at the top — using
 // these strings for the hero title/description.
 const STATUS_VIEW_META: Record<Exclude<StatusFilter, "all">, { eyebrow: string; title: string; description: string }> = {
-  missing: {
-    eyebrow: "P-Files · Missing documents",
-    title: "Students missing documents",
-    description: "Students with at least one document slot not yet uploaded. Filter further by AY, level, section, or search.",
-  },
   expired: {
     eyebrow: "P-Files · Expired documents",
     title: "Students with expired documents",
-    description: "Passport, pass, or guardian docs whose expiry date has passed. Filter further by AY, level, section, or search.",
-  },
-  uploaded: {
-    eyebrow: "P-Files · Pending review",
-    title: "Documents awaiting registrar review",
-    description: "Parent uploaded — registrar to validate. Filter further by AY, level, section, or search.",
-  },
-  complete: {
-    eyebrow: "P-Files · Fully validated",
-    title: "Fully validated students",
-    description: "Students whose required document slots are all validated and on file.",
+    description: "Passport, pass, or guardian docs whose expiry date has passed. Chase parents to re-upload current documents.",
   },
 };
 
@@ -159,6 +145,10 @@ export default async function PFilesDashboard({
 
     let visibleStudents = students;
     if (expiringWindow) {
+      // Force-dynamic server component (cookies + searchParams); fresh
+      // Date.now() per request is intentional — the page is never cached
+      // on the client, so render-time impurity is fine here.
+      // eslint-disable-next-line react-hooks/purity
       const todayMs = Date.now();
       const horizonMs = todayMs + expiringWindow * 86_400_000;
       visibleStudents = students.filter((s) =>
@@ -233,7 +223,6 @@ export default async function PFilesDashboard({
   const [
     { students, summary },
     byLevel,
-    backlog,
     expiring,
     revisions,
     kpisResult,
@@ -244,7 +233,6 @@ export default async function PFilesDashboard({
   ] = await Promise.all([
     getDocumentDashboardData(selectedAy),
     getCompletionByLevel(selectedAy),
-    getDocumentValidationBacklog(selectedAy),
     getExpiringDocuments(selectedAy, 60, 6),
     getRevisionsOverTime(selectedAy, 12),
     getPFilesKpisRange(rangeInput),
@@ -260,17 +248,9 @@ export default async function PFilesDashboard({
     revisionsInRange: kpisResult.current.revisionsInRange,
     revisionsInRangePrior: kpisResult.comparison.revisionsInRange,
     expiringSoon: kpisResult.current.expiringSoon,
-    pendingReview: kpisResult.current.pendingReview,
     totalDocuments: kpisResult.current.totalDocuments,
     revisionsDelta: kpisResult.delta,
   });
-
-  const donutSlices = [
-    { name: "On file", value: slotMix.valid },
-    { name: "Pending", value: slotMix.pending },
-    { name: "Rejected", value: slotMix.rejected },
-    { name: "Missing/Expired", value: slotMix.missing },
-  ];
 
   return (
     <PageShell>
@@ -296,8 +276,10 @@ export default async function PFilesDashboard({
       <PriorityPanel payload={priority} />
 
       {/* Document chase queue (spec 2026-04-28) — sibling to the expiring-docs
-          PriorityPanel. Together they form "Documents needing attention". */}
-      <DocumentChaseQueueStrip ayCode={selectedAy} />
+          PriorityPanel. Together they form "Documents needing attention".
+          Phase 2B: P-Files only chases renewal (revalidation=Expired +
+          expiringSoon); validation + promised tiles are admissions-side. */}
+      <DocumentChaseQueueStrip ayCode={selectedAy} module="p-files" />
 
       <InsightsPanel insights={insights} />
 
@@ -321,10 +303,10 @@ export default async function PFilesDashboard({
           }
         />
         <MetricCard
-          label="Expiring ≤60d"
-          value={kpisResult.current.expiringSoon}
-          icon={AlertTriangle}
-          intent={kpisResult.current.expiringSoon > 0 ? "warning" : "good"}
+          label="Expiring ≤30d"
+          value={kpisResult.current.expiringSoon30}
+          icon={CalendarClock}
+          intent={kpisResult.current.expiringSoon30 > 0 ? "warning" : "good"}
           subtext="From end of range"
           drillSheet={
             <PFilesDrillSheet
@@ -335,15 +317,14 @@ export default async function PFilesDashboard({
           }
         />
         <MetricCard
-          label="Pending review"
-          value={kpisResult.current.pendingReview}
-          icon={Clock}
-          intent={kpisResult.current.pendingReview > 0 ? "warning" : "good"}
-          subtext={`${kpisResult.comparison.pendingReview} prior`}
+          label="Expiring ≤60d"
+          value={kpisResult.current.expiringSoon}
+          icon={AlertTriangle}
+          intent={kpisResult.current.expiringSoon > 0 ? "warning" : "good"}
+          subtext="From end of range"
           drillSheet={
             <PFilesDrillSheet
-              target="slot-by-status"
-              segment="Pending review"
+              target="expired-docs"
               ayCode={selectedAy}
               initialScope="ay"
             />
@@ -383,38 +364,38 @@ export default async function PFilesDashboard({
         </div>
       </section>
 
-      {/* Row 8 — top missing (1/2) + expiring docs (1/2) */}
-      <section className="grid gap-4 lg:grid-cols-2">
-        <TopMissingDrillCard data={backlog} ayCode={selectedAy} />
-        <Card>
-          <CardHeader>
-            <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-              Expiring documents
-            </CardDescription>
-            <CardTitle className="font-serif text-xl">Next 60 days</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ExpiringDocumentsPanel
-              rows={expiring}
-              ayCode={selectedAy}
-              windowDays={60}
-              studentHrefBase="/p-files"
-              viewAllHref={`/p-files?ay=${selectedAy}`}
-            />
-          </CardContent>
-        </Card>
-      </section>
+      {/* Row 8 — expiring docs (full width). Phase 2B dropped the
+          TopMissingDrillCard because "missing" is admissions-side initial
+          chase; P-Files is renewal-only now. */}
+      <Card>
+        <CardHeader>
+          <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
+            Expiring documents
+          </CardDescription>
+          <CardTitle className="font-serif text-xl">Next 60 days</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ExpiringDocumentsPanel
+            rows={expiring}
+            ayCode={selectedAy}
+            windowDays={60}
+            studentHrefBase="/p-files"
+            viewAllHref={`/p-files?ay=${selectedAy}`}
+          />
+        </CardContent>
+      </Card>
 
-      {/* Legend — placed immediately above the table it documents */}
+      {/* Legend — placed immediately above the table it documents. Phase 2B
+          collapsed the legend to the renewal-only states (On file vs
+          Expired); Pending review + Missing belong on the admissions
+          dashboard. */}
       <section className="rounded-xl border border-hairline bg-background p-4">
         <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
           Document Status Legend
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <ChartLegendChip color="fresh" label="On file" />
-          <ChartLegendChip color="stale" label="Pending review" />
           <ChartLegendChip color="very-stale" label="Expired" />
-          <ChartLegendChip color="chart-2" label="Missing" />
         </div>
       </section>
 

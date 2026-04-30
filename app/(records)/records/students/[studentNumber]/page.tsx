@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft, CalendarCheck, GraduationCap, Layers, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, CalendarCheck, GraduationCap, Layers, Users } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import {
@@ -22,6 +22,11 @@ import {
 } from '@/lib/sis/records-history';
 import { getEnrollmentHistory, getStudentDetail } from '@/lib/sis/queries';
 import { getStudentLifecycle } from '@/lib/sis/process';
+import {
+  getSectionTransfersForStudent,
+  type SectionTransferEntry,
+} from '@/lib/sis/section-history';
+import { preloadTermsForAYs, termForDateInPreloaded } from '@/lib/sis/terms';
 import { getCurrentAcademicYear } from '@/lib/academic-year';
 import { StpApplicationCard } from '@/components/sis/stp-application-card';
 import { StudentLifecycleTimeline } from '@/components/sis/student-lifecycle-timeline';
@@ -87,6 +92,20 @@ export default async function RecordsStudentCrossYearPage({
     getEnrollmentHistory(studentNumber),
     getCurrentAcademicYear(),
   ]);
+
+  // Section transfers — audit-log-derived intra-AY moves between sections.
+  // Keyed off every AY's enroleeNumber for this student so cross-year
+  // history surfaces too.
+  const sectionTransfers = await getSectionTransfersForStudent(
+    studentNumber,
+    history.map((h) => h.enroleeNumber),
+  );
+
+  // Preload terms for every AY in the placement list so the placement table
+  // can derive the joining term for late enrollees in one shot (each
+  // placement is a different AY; one round-trip vs N).
+  const placementAyCodes = Array.from(new Set(placements.map((p) => p.ayCode)));
+  const termsByAy = await preloadTermsForAYs(placementAyCodes);
 
   const ayCount = new Set(placements.map((p) => p.ayCode)).size;
   const activePlacement = placements.find((p) => p.enrollmentStatus === 'active');
@@ -186,7 +205,8 @@ export default async function RecordsStudentCrossYearPage({
         </div>
       </section>
 
-      <PlacementSection rows={placements} />
+      <PlacementSection rows={placements} termsByAy={termsByAy} />
+      <SectionTransferSection rows={sectionTransfers} />
       <AcademicSection rows={academics} />
       <AttendanceSection rows={attendance} />
       {stpDetail?.application.stpApplicationType && (
@@ -244,7 +264,13 @@ function Stat({
   );
 }
 
-function PlacementSection({ rows }: { rows: PlacementRow[] }) {
+function PlacementSection({
+  rows,
+  termsByAy,
+}: {
+  rows: PlacementRow[];
+  termsByAy: Map<string, Array<{ termNumber: number; startDate: string; endDate: string }>>;
+}) {
   return (
     <Card>
       <CardHeader>
@@ -273,23 +299,50 @@ function PlacementSection({ rows }: { rows: PlacementRow[] }) {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
-                  <tr key={`${r.ayCode}-${r.sectionName}-${r.indexNumber}`} className="border-b border-hairline last:border-0">
-                    <td className="py-2 pr-3 font-mono tabular-nums">{r.ayCode}</td>
-                    <td className="py-2 pr-3">{r.levelCode}</td>
-                    <td className="py-2 pr-3">{r.sectionName}</td>
-                    <td className="py-2 pr-3 text-right font-mono tabular-nums">#{r.indexNumber}</td>
-                    <td className="py-2 pr-3">
-                      <StatusBadge status={r.enrollmentStatus} />
-                    </td>
-                    <td className="py-2 pr-3 font-mono text-xs tabular-nums text-muted-foreground">
-                      {r.enrollmentDate ?? '—'}
-                    </td>
-                    <td className="py-2 font-mono text-xs tabular-nums text-muted-foreground">
-                      {r.withdrawalDate ?? '—'}
-                    </td>
-                  </tr>
-                ))}
+                {rows.map((r) => {
+                  // Late enrollees: derive the joining term from the
+                  // enrollment_date (which the PATCH route refreshes to
+                  // today on the active → late_enrollee transition). Non-
+                  // late rows skip the lookup.
+                  const lateTerm =
+                    r.enrollmentStatus === 'late_enrollee' && r.enrollmentDate
+                      ? termForDateInPreloaded(r.enrollmentDate, r.ayCode, termsByAy)
+                      : null;
+                  return (
+                    <tr
+                      key={`${r.ayCode}-${r.sectionName}-${r.indexNumber}`}
+                      className="border-b border-hairline last:border-0"
+                    >
+                      <td className="py-2 pr-3 font-mono tabular-nums">{r.ayCode}</td>
+                      <td className="py-2 pr-3">{r.levelCode}</td>
+                      <td className="py-2 pr-3">{r.sectionName}</td>
+                      <td className="py-2 pr-3 text-right font-mono tabular-nums">
+                        #{r.indexNumber}
+                      </td>
+                      <td className="py-2 pr-3">
+                        <span className="inline-flex items-center gap-1.5">
+                          <StatusBadge status={r.enrollmentStatus} />
+                          {lateTerm && (
+                            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-brand-amber">
+                              · {lateTerm.termLabel}
+                            </span>
+                          )}
+                          {r.enrollmentStatus === 'late_enrollee' && !lateTerm && r.enrollmentDate && (
+                            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                              · between terms
+                            </span>
+                          )}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-3 font-mono text-xs tabular-nums text-muted-foreground">
+                        {r.enrollmentDate ?? '—'}
+                      </td>
+                      <td className="py-2 font-mono text-xs tabular-nums text-muted-foreground">
+                        {r.withdrawalDate ?? '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -314,6 +367,57 @@ function StatusBadge({ status }: { status: PlacementRow['enrollmentStatus'] }) {
     <Badge variant="outline" className="border-muted-foreground/40 text-muted-foreground">
       Withdrawn
     </Badge>
+  );
+}
+
+function SectionTransferSection({ rows }: { rows: SectionTransferEntry[] }) {
+  if (rows.length === 0) return null;
+  return (
+    <Card>
+      <CardHeader>
+        <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
+          Section transfers
+        </CardDescription>
+        <CardTitle className="font-serif text-lg font-semibold tracking-tight text-foreground">
+          Mid-year section moves
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-3">
+          {rows.map((r) => (
+            <li
+              key={r.id}
+              className="flex flex-col gap-1.5 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2 font-serif text-[15px] text-foreground">
+                  <span>{r.fromSection || '—'}</span>
+                  <ArrowRightLeft className="size-3.5 text-brand-indigo" />
+                  <span>{r.toSection || '—'}</span>
+                  <Badge
+                    variant="outline"
+                    className="ml-1 h-5 border-border bg-muted/40 px-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+                  >
+                    {r.ayCode || '—'}
+                  </Badge>
+                </div>
+                <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                  {r.transferDate || '—'}
+                  <span className="mx-1.5 text-border">·</span>
+                  {r.termLabel ?? 'Between terms'}
+                  {r.actorEmail && (
+                    <>
+                      <span className="mx-1.5 text-border">·</span>
+                      <span className="lowercase">by {r.actorEmail}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
   );
 }
 

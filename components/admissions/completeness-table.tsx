@@ -34,12 +34,18 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { BulkNotifyDialog, type BulkNotifyItem } from '@/components/p-files/bulk-notify-dialog';
-import type { StudentCompleteness } from '@/lib/p-files/queries';
+import type { AdmissionsCompleteness } from '@/lib/admissions/dashboard';
 import { DOCUMENT_SLOTS, type DocumentStatus } from '@/lib/p-files/document-config';
 
-// P-Files only owns the renewal lens for enrolled students. Initial-chase
-// statuses (To follow, Rejected, Pending review) live on Admissions.
-export type StatusFilter = 'all' | 'expired';
+// Admissions chase variant of the P-Files completeness table. Same UX
+// (filterable, sortable, paged roster of applicants × document slots)
+// but scoped to the un-enrolled funnel and surfacing the 3 admissions
+// chase signals (To follow / Rejected / Pending review) instead of
+// P-Files' renewal lens (Expired / expiring soon).
+//
+// `module="admissions"` is threaded through to the Bulk + per-row
+// dialogs so all writes land on the admissions audit + email tone.
+export type StatusFilter = 'all' | 'to-follow' | 'rejected' | 'uploaded' | 'expired';
 
 function StatusDot({ status }: { status: DocumentStatus }) {
   switch (status) {
@@ -47,12 +53,15 @@ function StatusDot({ status }: { status: DocumentStatus }) {
       return <span className="inline-block size-2.5 rounded-full bg-brand-mint" title="On file" />;
     case 'uploaded':
       return <span className="inline-block size-2.5 rounded-full bg-brand-amber" title="Pending review" />;
-    case 'expired':
-      return <span className="inline-block size-2.5 rounded-full bg-destructive" title="Expired" />;
     case 'rejected':
       return <span className="inline-block size-2.5 rounded-full bg-destructive" title="Rejected" />;
     case 'to-follow':
       return <span className="inline-block size-2.5 rounded-full bg-primary" title="To follow" />;
+    case 'expired':
+      // Un-enrolled applicant whose passport / pass / guardian doc lapsed
+      // mid-pipeline — chase trigger (parent must re-upload before
+      // enrollment can finish).
+      return <span className="inline-block size-2.5 rounded-full bg-destructive" title="Expired" />;
     case 'missing':
       return <span className="inline-block size-2.5 rounded-full border border-border bg-muted" title="Missing" />;
     case 'na':
@@ -60,130 +69,107 @@ function StatusDot({ status }: { status: DocumentStatus }) {
   }
 }
 
-function completenessPercent(s: StudentCompleteness): number {
+function completenessPercent(s: AdmissionsCompleteness): number {
   return s.total > 0 ? Math.round((s.complete / s.total) * 100) : 0;
 }
 
-// Build the bulk-reminder targets for a single row. Returns one entry
-// per slot that's eligible for a reminder under the current filter:
-//   - Expired status (always actionable)
-//   - Rejected status (always actionable)
-//   - Valid + expiry within `windowDays` (when windowDays is set — i.e.
-//     the page is in a `?expiring=N` focused view)
-function targetsForRow(
-  student: StudentCompleteness,
-  windowDays: number | null,
-): BulkNotifyItem[] {
+// Build the bulk-reminder targets for a single row. The admissions
+// initial-chase lens fires reminders on the 4 chase-actionable statuses:
+//   - To follow (parent committed but file not sent)
+//   - Rejected (parent uploaded but registrar bounced)
+//   - Expired (passport / pass / guardian doc lapsed mid-pipeline)
+//   - Uploaded (parent uploaded, awaiting validation — included so the
+//     admissions team can ping if the upload sat unattended on the
+//     parent's side; the runNotify gate may still skip these as
+//     "no_actionable_status" when the slot transitions before send,
+//     which the bulk dialog's `skipped` counts surface to the user).
+//
+// Missing slots (no upload + no commitment) are deliberately excluded —
+// the chase strip uses the "Awaiting promised" + "Awaiting validation"
+// + "Awaiting revalidation" buckets for the visible signals; chasing
+// an applicant on a slot they have no commitment for is the parent
+// portal's job, not bulk reminders.
+function targetsForRow(student: AdmissionsCompleteness): BulkNotifyItem[] {
   const slotMeta = new Map(DOCUMENT_SLOTS.map((s) => [s.key, s]));
-  const todayMs = Date.now();
-  const horizonMs = windowDays ? todayMs + windowDays * 86_400_000 : null;
   const out: BulkNotifyItem[] = [];
   for (const slot of student.slots) {
-    // P-Files renewal lens: bulk reminders fire on Expired only (plus
-    // Valid+expiring-within-window when the page is in ?expiring=N mode).
-    // Initial-chase statuses (To follow, Rejected) are Admissions-side.
-    if (slot.status === 'expired') {
+    if (
+      slot.status === 'to-follow' ||
+      slot.status === 'rejected' ||
+      slot.status === 'uploaded' ||
+      slot.status === 'expired'
+    ) {
       out.push({
         enroleeNumber: student.enroleeNumber,
         studentName: student.fullName,
         slotKey: slot.key,
         slotLabel: slotMeta.get(slot.key)?.label ?? slot.label,
       });
-      continue;
-    }
-    if (
-      horizonMs !== null &&
-      slot.status === 'valid' &&
-      slot.expiryDate
-    ) {
-      const t = new Date(slot.expiryDate).getTime();
-      if (t >= todayMs && t <= horizonMs) {
-        out.push({
-          enroleeNumber: student.enroleeNumber,
-          studentName: student.fullName,
-          slotKey: slot.key,
-          slotLabel: slotMeta.get(slot.key)?.label ?? slot.label,
-        });
-      }
     }
   }
   return out;
 }
 
-export function CompletenessTable({
+export function AdmissionsCompletenessTable({
   students,
   ayCode,
   initialStatusFilter,
   bulkRemindEnabled = false,
-  bulkRemindWindowDays,
 }: {
-  students: StudentCompleteness[];
+  students: AdmissionsCompleteness[];
   /**
-   * Current-scope AY. Threaded through to `/p-files/[enroleeNumber]` as
-   * `?ay=...` so historical-AY browsing on the dashboard resolves against
-   * the right admissions table on the detail page.
+   * AY threaded through to the applicant detail page so historical-AY
+   * browsing on the dashboard resolves against the right admissions
+   * tables on the detail page.
    */
   ayCode?: string;
   /**
-   * Preset status filter from a sidebar Quicklink (`?status=missing` /
-   * `expired` / `uploaded` / `complete`). The user can still change it
-   * via the toolbar `Select`; we just seed the initial state.
+   * Preset status filter from a sidebar Quicklink (`?status=to-follow` /
+   * `?status=rejected` / `?status=uploaded`). The user can change it via
+   * the toolbar Select; this just seeds the initial state.
    */
   initialStatusFilter?: StatusFilter;
   /**
    * When true, render the row-selection checkbox column + sticky bulk
-   * "Send reminders" footer. Page enables this for `?status=expired` and
-   * `?expiring=N` views.
+   * "Send reminders" footer. Page enables this on the focused-view
+   * branches so the admissions team can fan out reminders in one go.
    */
   bulkRemindEnabled?: boolean;
-  /**
-   * Optional 30/60/90-day window — when set, slot eligibility for a
-   * bulk reminder also includes Valid slots whose expiry falls within
-   * the window. When null, only Expired / Rejected count.
-   */
-  bulkRemindWindowDays?: number;
 }) {
   const querySuffix = ayCode ? `?ay=${encodeURIComponent(ayCode)}` : '';
   const [search, setSearch] = React.useState('');
   const [levelFilter, setLevelFilter] = React.useState('all');
-  const [sectionFilter, setSectionFilter] = React.useState('all');
-  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>(
-    initialStatusFilter ?? 'all',
-  );
+  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>(initialStatusFilter ?? 'all');
   const [pageIndex, setPageIndex] = React.useState(0);
   const [pageSize, setPageSize] = React.useState(25);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = React.useState(false);
-  const windowDaysOrNull = bulkRemindWindowDays ?? null;
 
   const levels = React.useMemo(
     () => [...new Set(students.map((s) => s.level).filter((l): l is string => !!l))].sort(),
     [students],
   );
 
-  const sections = React.useMemo(() => {
-    const base = levelFilter === 'all' ? students : students.filter((s) => s.level === levelFilter);
-    return [...new Set(base.map((s) => s.section).filter((s): s is string => !!s))].sort();
-  }, [students, levelFilter]);
-
   const filtered = React.useMemo(() => {
     return students.filter((s) => {
       if (levelFilter !== 'all' && s.level !== levelFilter) return false;
-      if (sectionFilter !== 'all' && s.section !== sectionFilter) return false;
       if (search) {
         const needle = search.toLowerCase();
         const haystack = `${s.fullName} ${s.studentNumber ?? ''} ${s.enroleeNumber}`.toLowerCase();
         if (!haystack.includes(needle)) return false;
       }
+      if (statusFilter === 'to-follow' && s.toFollow === 0) return false;
+      if (statusFilter === 'rejected' && s.rejected === 0) return false;
+      if (statusFilter === 'uploaded' && s.uploaded === 0) return false;
       if (statusFilter === 'expired' && s.expired === 0) return false;
       return true;
     });
-  }, [students, search, levelFilter, sectionFilter, statusFilter]);
+  }, [students, search, levelFilter, statusFilter]);
 
   // Reset to page 0 when filters change
   React.useEffect(() => {
     setPageIndex(0);
-  }, [search, levelFilter, sectionFilter, statusFilter]);
+  }, [search, levelFilter, statusFilter]);
 
   // Drop selections that no longer match the visible filtered set.
   React.useEffect(() => {
@@ -222,21 +208,20 @@ export function CompletenessTable({
     });
   }
 
-  // Expand selected students into BulkNotifyItem[] (one entry per
-  // eligible slot per student, scoped by the active window filter).
+  // Expand selected applicants into BulkNotifyItem[] (one entry per
+  // chaseable slot per applicant under the active filter scope).
   const bulkItems = React.useMemo(() => {
     if (!bulkRemindEnabled || selected.size === 0) return [] as BulkNotifyItem[];
     const idSet = selected;
     const out: BulkNotifyItem[] = [];
     for (const s of filtered) {
       if (!idSet.has(s.enroleeNumber)) continue;
-      out.push(...targetsForRow(s, windowDaysOrNull));
+      out.push(...targetsForRow(s));
     }
     return out;
-  }, [bulkRemindEnabled, selected, filtered, windowDaysOrNull]);
+  }, [bulkRemindEnabled, selected, filtered]);
 
-  const hasFilter =
-    search.length > 0 || levelFilter !== 'all' || sectionFilter !== 'all' || statusFilter !== 'all';
+  const hasFilter = search.length > 0 || levelFilter !== 'all' || statusFilter !== 'all';
 
   const slotHeaders = React.useMemo(() => {
     const seen = new Map<string, string>();
@@ -251,8 +236,11 @@ export function CompletenessTable({
   return (
     <Card>
       <CardHeader className="gap-2">
-        <CardTitle>Document Completeness</CardTitle>
-        <CardDescription>Per-student breakdown. Click a row to view details.</CardDescription>
+        <CardTitle>Applicant Document Completeness</CardTitle>
+        <CardDescription>
+          Pre-enrolment scope — Submitted / Ongoing Verification / Processing. Click a row to view
+          the application.
+        </CardDescription>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-auto sm:min-w-[240px]">
@@ -265,13 +253,7 @@ export function CompletenessTable({
             />
           </div>
 
-          <Select
-            value={levelFilter}
-            onValueChange={(v) => {
-              setLevelFilter(v);
-              setSectionFilter('all');
-            }}
-          >
+          <Select value={levelFilter} onValueChange={setLevelFilter}>
             <SelectTrigger className="h-9 w-[160px]">
               <SelectValue />
             </SelectTrigger>
@@ -285,26 +267,15 @@ export function CompletenessTable({
             </SelectContent>
           </Select>
 
-          <Select value={sectionFilter} onValueChange={setSectionFilter}>
-            <SelectTrigger className="h-9 w-[160px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All sections</SelectItem>
-              {sections.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-            <SelectTrigger className="h-9 w-[160px]">
+            <SelectTrigger className="h-9 w-[180px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="to-follow">Has To follow</SelectItem>
+              <SelectItem value="rejected">Has rejected</SelectItem>
+              <SelectItem value="uploaded">Pending review</SelectItem>
               <SelectItem value="expired">Has expired</SelectItem>
             </SelectContent>
           </Select>
@@ -316,7 +287,6 @@ export function CompletenessTable({
               onClick={() => {
                 setSearch('');
                 setLevelFilter('all');
-                setSectionFilter('all');
                 setStatusFilter('all');
               }}
             >
@@ -345,9 +315,9 @@ export function CompletenessTable({
                     />
                   </TableHead>
                 )}
-                <TableHead className="sticky left-0 bg-muted/40 px-4">Student</TableHead>
+                <TableHead className="sticky left-0 bg-muted/40 px-4">Applicant</TableHead>
                 <TableHead className="whitespace-nowrap px-2">Level</TableHead>
-                <TableHead className="whitespace-nowrap px-2">Section</TableHead>
+                <TableHead className="whitespace-nowrap px-2">Status</TableHead>
                 {slotHeaders.map((h) => (
                   <TableHead key={h.key} className="px-1 text-center" title={h.label}>
                     <span className="inline-block max-w-[60px] truncate text-[10px]">
@@ -371,7 +341,7 @@ export function CompletenessTable({
                     colSpan={slotHeaders.length + 5 + (bulkRemindEnabled ? 1 : 0)}
                     className="py-10 text-center text-sm text-muted-foreground"
                   >
-                    No students match the current filters.
+                    No applicants match the current filters.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -400,7 +370,7 @@ export function CompletenessTable({
                         {s.level ?? '—'}
                       </TableCell>
                       <TableCell className="whitespace-nowrap px-2 text-xs text-muted-foreground">
-                        {s.section ?? '—'}
+                        {s.applicationStatus ?? '—'}
                       </TableCell>
                       {slotHeaders.map((h) => {
                         const status = slotMap.get(h.key);
@@ -432,7 +402,7 @@ export function CompletenessTable({
                       </TableCell>
                       <TableCell className="px-2 text-right">
                         <Link
-                          href={`/p-files/${s.enroleeNumber}${querySuffix}`}
+                          href={`/admissions/applications/${s.enroleeNumber}${querySuffix}`}
                           className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
                         >
                           View
@@ -451,7 +421,7 @@ export function CompletenessTable({
       {/* Pagination */}
       <div className="flex flex-col-reverse items-start gap-3 border-t border-border px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="font-mono text-[11px] tabular-nums text-muted-foreground">
-          {filtered.length} {filtered.length === 1 ? 'student' : 'students'}
+          {filtered.length} {filtered.length === 1 ? 'applicant' : 'applicants'}
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
@@ -528,7 +498,7 @@ export function CompletenessTable({
           <div className="flex items-center gap-3">
             <Mail className="size-4 text-brand-amber" />
             <span className="text-sm">
-              {selected.size} student{selected.size === 1 ? '' : 's'} selected
+              {selected.size} applicant{selected.size === 1 ? '' : 's'} selected
               {' · '}
               <span className="font-mono text-[11px] text-muted-foreground">
                 {bulkItems.length} reminder{bulkItems.length === 1 ? '' : 's'} queued
@@ -554,6 +524,7 @@ export function CompletenessTable({
       {bulkRemindEnabled && (
         <BulkNotifyDialog
           items={bulkItems}
+          module="admissions"
           open={bulkOpen}
           onOpenChange={setBulkOpen}
           onSuccess={() => setSelected(new Set())}

@@ -113,29 +113,12 @@ export default async function SubjectConfigPage({
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardHeader>
-            <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-              {currentAy.ay_code} · {subjects.length} subjects × {levels.length} levels
-            </CardDescription>
-            <CardTitle className="font-serif text-[20px] font-semibold tracking-tight text-foreground">
-              Weight matrix
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <SubjectConfigMatrix
-              subjects={subjects}
-              levels={levels}
-              configs={configs}
-              ayCode={currentAy.ay_code}
-            />
-            <p className="mt-4 text-[11px] text-muted-foreground">
-              Cells show <code className="font-mono">WW · PT · QA</code> as percentages plus max slots.
-              Click any cell to edit. A dash means no config for that (subject × level) in this
-              AY — copy-forward from a prior AY via AY Setup or seed via SQL.
-            </p>
-          </CardContent>
-        </Card>
+        <SubjectConfigMatrix
+          subjects={subjects}
+          levels={levels}
+          configs={configs}
+          ayCode={currentAy.ay_code}
+        />
       )}
     </PageShell>
   );

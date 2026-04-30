@@ -30,9 +30,38 @@ export type StudentCompleteness = {
 export type DashboardSummary = {
   totalStudents: number;
   fullyComplete: number;
-  hasExpired: number;
-  hasMissing: number;
+  /** Count of enrolled students with at least one Valid expiring slot whose
+   *  expiry falls within the next 90 days. Used by the SummaryCards
+   *  "Expiring ≤90d" tile — a renewal-lens figure that complements the
+   *  expired/expired-soon KPIs above the fold. */
+  expiringSoon90: number;
 };
+
+/**
+ * Strict enrolment gate for the detail page (B1). Returns true when the
+ * student's status row exists AND `applicationStatus IN ('Enrolled',
+ * 'Enrolled (Conditional)')` AND `classSection` is set. Affirmative
+ * (whitelist) — distinct from the dashboard's permissive gate which only
+ * excludes Cancelled/Withdrawn. P-Files is enrolled-only (KD #31) so the
+ * detail page hides pre-enrolment applicants entirely.
+ */
+export async function isStudentEnrolled(
+  ayCode: string,
+  enroleeNumber: string,
+): Promise<boolean> {
+  const service = createServiceClient();
+  const prefix = prefixFor(ayCode);
+  const { data } = await service
+    .from(`${prefix}_enrolment_status`)
+    .select('"applicationStatus", "classSection"')
+    .eq('enroleeNumber', enroleeNumber)
+    .maybeSingle();
+  if (!data) return false;
+  const status = (data as Record<string, unknown>).applicationStatus;
+  const section = (data as Record<string, unknown>).classSection;
+  if (status !== 'Enrolled' && status !== 'Enrolled (Conditional)') return false;
+  return typeof section === 'string' && section.length > 0;
+}
 
 // ── Raw fetch ─────────────────────────────────────────────────────────────
 
@@ -171,11 +200,23 @@ export async function getDocumentDashboardData(ayCode: string): Promise<{
   // Sort by completeness ascending (least complete first)
   students.sort((a, b) => (a.complete / a.total) - (b.complete / b.total));
 
+  // Renewal-lens count for SummaryCards (B6): students with at least one
+  // Valid expiring slot whose expiry falls within the next 90 days. P-Files
+  // is renewal-focused now — admissions owns initial-chase signals.
+  const todayMs = Date.now();
+  const ninetyMs = todayMs + 90 * 86_400_000;
+  const expiringSoon90 = students.filter((s) =>
+    s.slots.some((slot) => {
+      if (slot.status !== 'valid' || !slot.expiryDate) return false;
+      const t = new Date(slot.expiryDate).getTime();
+      return t >= todayMs && t <= ninetyMs;
+    }),
+  ).length;
+
   const summary: DashboardSummary = {
     totalStudents: students.length,
     fullyComplete: students.filter((s) => s.complete === s.total).length,
-    hasExpired: students.filter((s) => s.expired > 0).length,
-    hasMissing: students.filter((s) => s.missing > 0).length,
+    expiringSoon90,
   };
 
   return { students, summary };

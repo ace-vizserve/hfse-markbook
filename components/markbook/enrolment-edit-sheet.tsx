@@ -86,7 +86,19 @@ export function EnrolmentEditSheet({
       );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error ?? 'save failed');
-      toast.success(`Updated ${studentName}`);
+      // When the registrar just tagged this student as a late enrollee, the
+      // server resolves the joining term from `terms` and returns it so the
+      // toast can confirm WHICH term they joined ("Late enrollee · T2"). Falls
+      // back gracefully when the date sits outside any defined term window.
+      const lateTerm = (body as { lateEnrolleeTerm?: { termLabel: string } | null })
+        .lateEnrolleeTerm;
+      if (lateTerm?.termLabel) {
+        toast.success(`Tagged ${studentName} as late enrollee · ${lateTerm.termLabel}`);
+      } else if (status === 'late_enrollee') {
+        toast.success(`Tagged ${studentName} as late enrollee · between terms`);
+      } else {
+        toast.success(`Updated ${studentName}`);
+      }
       setOpen(false);
       router.refresh();
     } catch (err) {

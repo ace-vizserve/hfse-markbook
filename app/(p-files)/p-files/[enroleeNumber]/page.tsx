@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { PageShell } from '@/components/ui/page-shell';
 import { getCurrentAcademicYear, listAyCodes } from '@/lib/academic-year';
 import { DOCUMENT_SLOTS, GROUP_LABELS, type DocumentGroup } from '@/lib/p-files/document-config';
-import { getStudentDocumentDetail } from '@/lib/p-files/queries';
+import { getStudentDocumentDetail, isStudentEnrolled } from '@/lib/p-files/queries';
 import { compareSlotsByUrgency, isActionable, classifyUrgency } from '@/lib/p-files/urgency';
 import { freshenAyDocuments } from '@/lib/sis/freshen-document-statuses';
 import { getSessionUser } from '@/lib/supabase/server';
@@ -52,6 +52,13 @@ export default async function StudentDocumentDetailPage({
   // `sis:${ayCode}` tag.
   await freshenAyDocuments(selectedAy);
 
+  // P-Files is enrolled-only (KD #31). Hide pre-enrolment applicants from
+  // the detail surface entirely — they belong on /admissions during the
+  // initial-chase phase. Strict whitelist (Enrolled / Enrolled (Conditional)
+  // + classSection set) — admissions surfaces show the rest.
+  const enrolled = await isStudentEnrolled(selectedAy, enroleeNumber);
+  if (!enrolled) notFound();
+
   const student = await getStudentDocumentDetail(selectedAy, enroleeNumber);
   if (!student) notFound();
 
@@ -73,6 +80,10 @@ export default async function StudentDocumentDetailPage({
   const remindedCount = student.slots.filter((s) => {
     const o = student.outreach[s.key];
     if (!o?.lastReminderAt) return false;
+    // This is a force-dynamic server component (cookies + searchParams);
+    // calling Date.now() at render time is intentional — the page renders
+    // fresh on every request, no client-side re-render to worry about.
+    // eslint-disable-next-line react-hooks/purity
     const days = (Date.now() - new Date(o.lastReminderAt).getTime()) / 86_400_000;
     return days < 30;
   }).length;

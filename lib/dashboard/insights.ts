@@ -127,6 +127,80 @@ export function admissionsInsights(input: AdmissionsInsightInput): Insight[] {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Admissions chase (Workstream A) — un-enrolled document chase lens that
+// runs alongside the funnel-conversion `admissionsInsights` above. Drives
+// the InsightsPanel mount on /admissions for the chase strip + new
+// PriorityPanel pair (KD #57 operational top-of-fold).
+// ─────────────────────────────────────────────────────────────────────────
+
+export type AdmissionsChaseInsightInput = {
+  chaseToFollow: number;
+  chaseRejected: number;
+  chaseUploaded: number;
+  chaseExpired: number;
+  totalApplicants: number;
+};
+
+export function admissionsChaseInsights(input: AdmissionsChaseInsightInput): Insight[] {
+  const out: Insight[] = [];
+
+  if (input.chaseRejected >= 1) {
+    out.push({
+      severity: input.chaseRejected >= 5 ? 'bad' : 'warn',
+      title: `${pluralize(input.chaseRejected, 'applicant', 'applicants')} need re-uploads`,
+      detail:
+        'Documents rejected by registrar — re-notify parents to re-upload before the funnel stalls',
+      cta: { label: 'View rejected', href: '?status=rejected' },
+    });
+  }
+
+  if (input.chaseExpired >= 1) {
+    out.push({
+      severity: 'bad',
+      title: `${pluralize(input.chaseExpired, 'applicant has', 'applicants have')} expired documents`,
+      detail:
+        'Passport / pass / guardian docs lapsed mid-pipeline — chase parents before enrollment can finish',
+      cta: { label: 'View expired', href: '?status=expired' },
+    });
+  }
+
+  if (input.chaseToFollow >= 5) {
+    out.push({
+      severity: input.chaseToFollow >= 15 ? 'warn' : 'info',
+      title: `${pluralize(input.chaseToFollow, 'applicant', 'applicants')} marked 'To follow'`,
+      detail:
+        'Parents committed to upload — chase up before the promise goes stale',
+      cta: { label: 'View To follow', href: '?status=to-follow' },
+    });
+  }
+
+  if (input.chaseUploaded >= 10) {
+    out.push({
+      severity: input.chaseUploaded >= 30 ? 'warn' : 'info',
+      title: `${pluralize(input.chaseUploaded, 'document', 'documents')} awaiting registrar review`,
+      detail: 'Parents uploaded — the validation backlog is growing',
+      cta: { label: 'View pending review', href: '?status=uploaded' },
+    });
+  }
+
+  if (
+    input.chaseToFollow === 0 &&
+    input.chaseRejected === 0 &&
+    input.chaseUploaded === 0 &&
+    input.chaseExpired === 0 &&
+    input.totalApplicants > 0
+  ) {
+    out.push({
+      severity: 'good',
+      title: 'No chase signals today',
+      detail: `${input.totalApplicants.toLocaleString('en-SG')} applicants in scope · all docs in steady state`,
+    });
+  }
+
+  return sortInsights(out).slice(0, 4);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Records — enrolled-student lens.
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -206,7 +280,6 @@ export type PfilesInsightInput = {
   revisionsInRange: number;
   revisionsInRangePrior: number;
   expiringSoon: number;
-  pendingReview: number;
   totalDocuments: number;
   revisionsDelta: Delta;
 };
@@ -222,13 +295,9 @@ export function pfilesInsights(input: PfilesInsightInput): Insight[] {
     });
   }
 
-  if (input.pendingReview >= 3) {
-    out.push({
-      severity: input.pendingReview >= 15 ? 'warn' : 'info',
-      title: `${pluralize(input.pendingReview, 'doc', 'docs')} pending review`,
-      detail: 'Uploaded but not validated by admissions team',
-    });
-  }
+  // Phase 2B drop: the prior "pending review" + validation-coverage insights
+  // both belonged to admissions (initial chase). P-Files surfaces the
+  // renewal lens only — expiring-soon above + revision-volume below.
 
   if (input.revisionsInRange > 0 && input.revisionsDelta.pct !== null && Math.abs(input.revisionsDelta.pct) >= 20) {
     const up = input.revisionsDelta.direction === 'up';
@@ -237,23 +306,6 @@ export function pfilesInsights(input: PfilesInsightInput): Insight[] {
       title: up ? 'Upload volume up' : 'Upload volume down',
       detail: `${pluralize(input.revisionsInRange, 'revision', 'revisions')} in range (${pct(input.revisionsDelta.pct)})`,
     });
-  }
-
-  if (input.totalDocuments > 0) {
-    const completionPct = ((input.totalDocuments - input.pendingReview) / input.totalDocuments) * 100;
-    if (completionPct < 75 && input.pendingReview > 0) {
-      out.push({
-        severity: 'warn',
-        title: 'Validation coverage low',
-        detail: `${completionPct.toFixed(0)}% of tracked docs validated`,
-      });
-    } else if (completionPct >= 90) {
-      out.push({
-        severity: 'good',
-        title: 'Validation on track',
-        detail: `${completionPct.toFixed(0)}% of tracked docs validated`,
-      });
-    }
   }
 
   return sortInsights(out).slice(0, 4);

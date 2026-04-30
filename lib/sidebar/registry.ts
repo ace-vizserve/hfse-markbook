@@ -7,7 +7,6 @@ import {
   CalendarCog,
   CalendarDays,
   CalendarRange,
-  CheckCircle2,
   ClipboardCheck,
   ClipboardList,
   Copy,
@@ -17,7 +16,6 @@ import {
   FileStack,
   FileText,
   FileUp,
-  FileX,
   FolderOpen,
   History,
   LayoutDashboard,
@@ -29,6 +27,7 @@ import {
   Tag,
   UserCog,
   Users,
+  XCircle,
   type LucideIcon,
 } from "lucide-react";
 
@@ -126,17 +125,21 @@ export const SIDEBAR_REGISTRY: Record<SidebarModule, ModuleSidebarConfig> = {
     iconByHref: {
       "/p-files": LayoutDashboard,
       "/p-files/audit-log": History,
-      "/p-files?status=missing": FileX,
+      // P-Files only surfaces the renewal lens for enrolled students:
+      // already-expired + the 30/60/90-day expiring window. Initial-chase
+      // statuses (To follow, Rejected, Uploaded/Pending review) belong on
+      // Admissions per the un-enrolled vs enrolled scope split.
       "/p-files?status=expired": AlertTriangle,
-      "/p-files?status=uploaded": FileSearch,
-      "/p-files?status=complete": CheckCircle2,
       "/p-files?expiring=30": CalendarClock,
       "/p-files?expiring=60": CalendarClock,
       "/p-files?expiring=90": CalendarClock,
     },
     quickActionByRole: {
-      "p-file": { label: "Missing documents", href: "/p-files?status=missing", icon: FileX },
-      // School admin / admin / superadmin are read-only on P-Files (KD #31).
+      // P-Files quick action = the most-actionable renewal bucket: docs
+      // expiring within 30 days. Already-expired surfaces as a sidebar
+      // nav item one click away. School admin / admin / superadmin are
+      // read-only on P-Files (KD #31).
+      "p-file": { label: "Expiring ≤30 days", href: "/p-files?expiring=30", icon: CalendarClock },
     },
   },
 
@@ -169,12 +172,22 @@ export const SIDEBAR_REGISTRY: Record<SidebarModule, ModuleSidebarConfig> = {
       "/admissions": LayoutDashboard,
       "/admissions/applications": FileStack,
       "/admissions/audit-log": History,
+      // Pre-enrolment chase quicklinks (Workstream A) — focused-view
+      // filters on the dashboard for the un-enrolled scope. Mirror the
+      // P-Files renewal quicklinks pattern from KD #64.
+      "/admissions?status=to-follow": CalendarClock,
+      "/admissions?status=rejected": XCircle,
+      "/admissions?status=uploaded": FileSearch,
+      "/admissions?status=expired": AlertTriangle,
       "/records/students": Users,
       "/p-files": FolderOpen,
       "/sis/ay-setup": CalendarRange,
     },
     quickActionByRole: {
-      admissions: { label: "Open applications", href: "/admissions/applications", icon: FileStack },
+      // Admissions team's most-actionable bucket: parents committed but
+      // file not yet sent. Other roles still get the generic "Open
+      // applications" CTA — they don't own the chase loop day-to-day.
+      admissions: { label: "To follow", href: "/admissions?status=to-follow", icon: CalendarClock },
       registrar: { label: "Open applications", href: "/admissions/applications", icon: FileStack },
       school_admin: { label: "Open applications", href: "/admissions/applications", icon: FileStack },
       admin: { label: "Open applications", href: "/admissions/applications", icon: FileStack },

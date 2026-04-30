@@ -74,6 +74,12 @@ function StatusBadge({ status }: { status: DocumentStatus }) {
           <XCircle /> Rejected
         </Badge>
       );
+    case 'to-follow':
+      return (
+        <Badge variant="default">
+          <CalendarClock /> To follow
+        </Badge>
+      );
     case 'missing':
       return (
         <Badge variant="outline" className="border-dashed text-muted-foreground">
@@ -115,6 +121,8 @@ function urgencyLine(
       return { text: 'Rejected — needs replacement', tone: 'text-destructive' };
     case 'missing':
       return { text: 'Missing — never uploaded', tone: 'text-muted-foreground' };
+    case 'to-follow':
+      return { text: 'To follow — parent committed', tone: 'text-primary' };
     case 'expiring-30':
       if (days === 0) return { text: 'Expires today', tone: 'text-brand-amber' };
       return { text: `Expires in ${days} days`, tone: 'text-brand-amber' };
@@ -143,7 +151,7 @@ function promiseBadgeText(promisedUntil: string | null | undefined): string | nu
   return `Promised by ${formatted}`;
 }
 
-const ACTIONABLE_STATUSES: DocumentStatus[] = ['expired', 'rejected', 'missing'];
+const ACTIONABLE_STATUSES: DocumentStatus[] = ['expired', 'rejected', 'missing', 'to-follow'];
 
 function isExpiringSoon(status: DocumentStatus, expiryDate: string | null | undefined): boolean {
   if (status !== 'valid' || !expiryDate) return false;

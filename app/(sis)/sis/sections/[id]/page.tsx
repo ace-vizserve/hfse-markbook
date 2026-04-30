@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, ArrowUpRight, UserCheck, UserMinus, Users } from 'lucide-react';
 
 import { createClient, getSessionUser } from '@/lib/supabase/server';
+import { createAdmissionsClient } from '@/lib/supabase/admissions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,9 +19,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GenerateSheetsDialog } from '@/components/sis/generate-sheets-dialog';
 import { SectionRenameDialog } from '@/components/sis/section-rename-dialog';
 import { TeacherAssignmentsPanel } from '@/components/sis/section-teachers-tab';
+import {
+  SectionRosterTable,
+  type SectionRosterRow,
+} from '@/components/sis/section-roster-table';
+import type { SiblingSection } from '@/components/sis/section-transfer-dialog';
 
 type LevelLite = { id: string; code: string; label: string; level_type: 'primary' | 'secondary' };
 type EnrolmentLite = { enrollment_status: 'active' | 'late_enrollee' | 'withdrawn' };
+
+const MAX_PER_SECTION = 50;
 
 // SIS Admin section detail. Tabs: Overview + Teachers.
 // Bite 4 (2026-04-22) pulled the teacher-assignments editor out of
@@ -61,9 +69,21 @@ export default async function SisSectionDetailPage({
 
   const { data: rows } = await supabase
     .from('section_students')
-    .select('enrollment_status')
-    .eq('section_id', id);
-  const enrolments = (rows ?? []) as EnrolmentLite[];
+    .select(
+      'id, index_number, enrollment_status, student:students(id, student_number, last_name, first_name, middle_name)',
+    )
+    .eq('section_id', id)
+    .order('index_number', { ascending: true });
+  type RosterFetchRow = {
+    id: string;
+    index_number: number;
+    enrollment_status: 'active' | 'late_enrollee' | 'withdrawn';
+    student:
+      | { id: string; student_number: string; last_name: string; first_name: string; middle_name: string | null }
+      | { id: string; student_number: string; last_name: string; first_name: string; middle_name: string | null }[]
+      | null;
+  };
+  const enrolments = (rows ?? []) as RosterFetchRow[];
   const activeCount = enrolments.filter((e) => e.enrollment_status === 'active').length;
   const lateCount = enrolments.filter((e) => e.enrollment_status === 'late_enrollee').length;
   const withdrawnCount = enrolments.filter((e) => e.enrollment_status === 'withdrawn').length;
@@ -93,6 +113,88 @@ export default async function SisSectionDetailPage({
     .map((c) => (Array.isArray(c.subject) ? c.subject[0] : c.subject))
     .filter((s): s is { id: string; code: string; name: string } => !!s)
     .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Sibling sections at the same level + AY for the Move dialog. Only used
+  // when this section has a level; sections without one can't be the target
+  // of a same-level transfer regardless. Active counts inform the capacity
+  // hint + disabled state in the dialog.
+  let siblings: SiblingSection[] = [];
+  if (level && ay) {
+    const { data: sibRows } = await supabase
+      .from('sections')
+      .select('id, name')
+      .eq('academic_year_id', section.academic_year_id)
+      .eq('level_id', level.id)
+      .neq('id', id);
+    const sibList = (sibRows ?? []) as Array<{ id: string; name: string }>;
+    if (sibList.length > 0) {
+      const sibIds = sibList.map((s) => s.id);
+      const { data: countRows } = await supabase
+        .from('section_students')
+        .select('section_id')
+        .eq('enrollment_status', 'active')
+        .in('section_id', sibIds);
+      const counts = new Map<string, number>();
+      for (const r of (countRows ?? []) as Array<{ section_id: string }>) {
+        counts.set(r.section_id, (counts.get(r.section_id) ?? 0) + 1);
+      }
+      siblings = sibList
+        .map((s) => {
+          const c = counts.get(s.id) ?? 0;
+          return { id: s.id, name: s.name, activeCount: c, isAtCapacity: c >= MAX_PER_SECTION };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name));
+    }
+  }
+
+  // Resolve enroleeNumber per active student in this AY's admissions roster
+  // — needed so the transfer dialog can POST to the correct API path. Lookup
+  // by student_number (Hard Rule #4 — the stable cross-AY ID).
+  const rosterStudents = enrolments
+    .map((r) => {
+      const s = Array.isArray(r.student) ? r.student[0] : r.student;
+      if (!s) return null;
+      return {
+        enrolmentId: r.id,
+        indexNumber: r.index_number,
+        status: r.enrollment_status,
+        student_number: s.student_number,
+        last_name: s.last_name,
+        first_name: s.first_name,
+        middle_name: s.middle_name,
+      };
+    })
+    .filter((s): s is NonNullable<typeof s> => !!s);
+  const enroleeByStudentNumber = new Map<string, string>();
+  if (ay && rosterStudents.length > 0) {
+    const studentNumbers = rosterStudents
+      .map((r) => r.student_number)
+      .filter((sn): sn is string => !!sn);
+    if (studentNumbers.length > 0) {
+      const year = ay.ay_code.replace(/^AY/i, '').toLowerCase();
+      const admissions = createAdmissionsClient();
+      const { data: appRows } = await admissions
+        .from(`ay${year}_enrolment_applications`)
+        .select('enroleeNumber, studentNumber')
+        .in('studentNumber', studentNumbers);
+      for (const a of (appRows ?? []) as Array<{ enroleeNumber: string; studentNumber: string }>) {
+        if (a.studentNumber) enroleeByStudentNumber.set(a.studentNumber, a.enroleeNumber);
+      }
+    }
+  }
+
+  function composeName(last: string, first: string, middle: string | null): string {
+    const m = middle?.trim() ? ` ${middle.trim().charAt(0)}.` : '';
+    return `${last}, ${first}${m}`.trim();
+  }
+  const rosterRows: SectionRosterRow[] = rosterStudents.map((s) => ({
+    enrolmentId: s.enrolmentId,
+    indexNumber: s.indexNumber,
+    studentName: composeName(s.last_name, s.first_name, s.middle_name),
+    studentNumber: s.student_number,
+    enroleeNumber: enroleeByStudentNumber.get(s.student_number) ?? null,
+    enrollmentStatus: s.status,
+  }));
 
   return (
     <PageShell>
@@ -189,6 +291,19 @@ export default async function SisSectionDetailPage({
               />
             </div>
           </div>
+
+          {/* Roster — admin lens with the Move action. The full grading
+              roster (with edit-enrolment metadata: bus, classroom officer,
+              status flips) lives at /markbook/sections/[id]; this surface
+              focuses on section-level admin moves. */}
+          {ay && (
+            <SectionRosterTable
+              rows={rosterRows}
+              ayCode={ay.ay_code}
+              sectionName={section.name}
+              siblings={siblings}
+            />
+          )}
 
           {/* Pointer card to operational surface */}
           <Card className="border-dashed">

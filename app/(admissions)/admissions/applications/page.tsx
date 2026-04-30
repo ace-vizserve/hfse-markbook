@@ -1,14 +1,11 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
-  AlertTriangle,
   ArrowLeft,
-  CheckCircle2,
   ClipboardList,
   FileStack,
-  HandHeart,
+  Hourglass,
   Mail,
-  MessageSquare,
   Search,
   Table2,
 } from 'lucide-react';
@@ -28,33 +25,57 @@ import {
 } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
 import { getCurrentAcademicYear, listAyCodes } from '@/lib/academic-year';
+import { getAdmissionsCompletenessForChase } from '@/lib/admissions/dashboard';
 import { listStudents } from '@/lib/sis/queries';
 import { getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 
-// Applications = pre-enrolment rows. Anything with stage `Enrolled`,
-// `Enrolled (Conditional)` or `Withdrawn` belongs on Records, not here.
-// This is the admissions team's operational list.
-const ENROLLED_STAGES = new Set(['Enrolled', 'Enrolled (Conditional)']);
+// Mirrors the dashboard's chase Quicklink filters. When the URL contains
+// one of these `?status=` values, the applicant list pre-filters to rows
+// with at least one slot in that bucket so the admissions team can chase
+// straight from this page.
+const CHASE_STATUS_VALUES = ['to-follow', 'rejected', 'uploaded', 'expired'] as const;
+type ChaseStatusFilter = (typeof CHASE_STATUS_VALUES)[number];
 
-// Ordered funnel stages. Anything not in this list falls into "Other".
+const CHASE_STATUS_LABEL: Record<ChaseStatusFilter, string> = {
+  'to-follow': 'To follow',
+  rejected: 'Rejected',
+  uploaded: 'Pending review',
+  expired: 'Expired',
+};
+
+function parseChaseStatus(raw: string | undefined): ChaseStatusFilter | undefined {
+  if (!raw) return undefined;
+  return (CHASE_STATUS_VALUES as readonly string[]).includes(raw)
+    ? (raw as ChaseStatusFilter)
+    : undefined;
+}
+
+// Applications = pre-enrolment, actively-in-pipeline rows. The funnel here
+// is the canonical SIS-side `applicationStatus` value space (KD #59) limited
+// to the un-enrolled / non-terminal subset:
+//   `Submitted` → `Ongoing Verification` → `Processing` → (Enrolled handled
+//   by Records). `Cancelled` and `Withdrawn` are terminal failures and don't
+//   belong on the in-flight list.
+// This is the admissions team's operational list — drop-off% across the 3
+// stages surfaces on the /admissions dashboard's InsightsPanel narrative.
+const ACTIVE_FUNNEL_STAGES = new Set(['Submitted', 'Ongoing Verification', 'Processing']);
+
 const STAGES: Array<{
   key: string;
+  status: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  match: (s: string) => boolean;
 }> = [
-  { key: 'inquiry', label: 'Inquiry', icon: Mail, match: (s) => /inquiry/i.test(s) },
-  { key: 'applied', label: 'Applied', icon: ClipboardList, match: (s) => /^applied/i.test(s) },
-  { key: 'interviewed', label: 'Interviewed', icon: MessageSquare, match: (s) => /interview/i.test(s) },
-  { key: 'offered', label: 'Offered', icon: HandHeart, match: (s) => /^offer/i.test(s) },
-  { key: 'accepted', label: 'Accepted', icon: CheckCircle2, match: (s) => /accept/i.test(s) },
+  { key: 'submitted', status: 'Submitted', label: 'Submitted', icon: Mail },
+  { key: 'ongoing-verification', status: 'Ongoing Verification', label: 'Ongoing Verification', icon: ClipboardList },
+  { key: 'processing', status: 'Processing', label: 'Processing', icon: Hourglass },
 ];
 
 export default async function AdmissionsApplicationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ay?: string }>;
+  searchParams: Promise<{ ay?: string; status?: string }>;
 }) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
@@ -78,30 +99,40 @@ export default async function AdmissionsApplicationsPage({
     );
   }
 
-  const { ay: ayParam } = await searchParams;
+  const { ay: ayParam, status: statusParam } = await searchParams;
   const ayCodes = await listAyCodes(service);
   const selectedAy = ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
   const isCurrentAy = selectedAy === currentAy.ay_code;
+  const chaseStatus = parseChaseStatus(statusParam);
 
   const allStudents = await listStudents(selectedAy, 'created_at_desc');
-  const applications = allStudents.filter(
-    (s) => !ENROLLED_STAGES.has((s.applicationStatus ?? '').trim()),
+  let applications = allStudents.filter((s) =>
+    ACTIVE_FUNNEL_STAGES.has((s.applicationStatus ?? '').trim()),
   );
 
-  // Stage breakdown. Counts match case-insensitively; rows with a status that
-  // doesn't match any known funnel stage (including null) go to "unstaged".
+  // Optional chase pre-filter — when ?status=to-follow|rejected|uploaded is
+  // set, narrow the table to applicants whose docs row has at least one
+  // slot in the matching state. Reuses the same helper that powers the
+  // dashboard focused view so the row sets agree.
+  if (chaseStatus) {
+    const { students: chaseRows } = await getAdmissionsCompletenessForChase(selectedAy, chaseStatus);
+    const allowed = new Set(chaseRows.map((r) => r.enroleeNumber));
+    applications = applications.filter((s) => allowed.has(s.enroleeNumber));
+  }
+
+  // Current-state stage breakdown — direct equality match against the
+  // canonical applicationStatus values (KD #59). The `applications` list is
+  // already pre-filtered to ACTIVE_FUNNEL_STAGES so every row maps cleanly
+  // to one of the 3 stage cards; no "unstaged" bucket needed.
   const stageCounts: Record<string, number> = {
-    inquiry: 0,
-    applied: 0,
-    interviewed: 0,
-    offered: 0,
-    accepted: 0,
-    unstaged: 0,
+    submitted: 0,
+    'ongoing-verification': 0,
+    processing: 0,
   };
   for (const row of applications) {
     const s = (row.applicationStatus ?? '').trim();
-    const stage = STAGES.find((x) => s && x.match(s))?.key ?? 'unstaged';
-    stageCounts[stage] = (stageCounts[stage] ?? 0) + 1;
+    const stage = STAGES.find((x) => x.status === s)?.key;
+    if (stage) stageCounts[stage] = (stageCounts[stage] ?? 0) + 1;
   }
 
   return (
@@ -118,15 +149,29 @@ export default async function AdmissionsApplicationsPage({
       <header className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div className="space-y-3">
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Admissions · Applications
+            {chaseStatus ? `Admissions · ${CHASE_STATUS_LABEL[chaseStatus]}` : 'Admissions · Applications'}
           </p>
           <h1 className="font-serif text-[38px] font-semibold leading-[1.05] tracking-tight text-foreground md:text-[44px]">
-            Applications in flight.
+            {chaseStatus
+              ? `Applicants with ${CHASE_STATUS_LABEL[chaseStatus]} docs.`
+              : 'Applications in flight.'}
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            Every application that is not yet enrolled — inquiry, applied, interviewed,
-            offered, accepted. Once a student is classified as <strong>Enrolled</strong>,
-            their permanent cross-year record moves to Records.
+            {chaseStatus ? (
+              <>
+                Pre-enrolment scope only. Applicants below have at least one document slot in the{' '}
+                <strong>{CHASE_STATUS_LABEL[chaseStatus]}</strong> state. Open the application to chase
+                from the Documents tab, or clear the filter to see every application in flight.
+              </>
+            ) : (
+              <>
+                Every application currently in the un-enrolled pipeline —{' '}
+                <strong>Submitted</strong>, <strong>Ongoing Verification</strong>, or{' '}
+                <strong>Processing</strong>. Once a student is classified as{' '}
+                <strong>Enrolled</strong>, their permanent cross-year record moves to Records.
+                Cancelled and Withdrawn applications are excluded from this list.
+              </>
+            )}
           </p>
         </div>
         <div className="flex flex-col items-start gap-2 md:items-end">
@@ -154,9 +199,12 @@ export default async function AdmissionsApplicationsPage({
         </div>
       </header>
 
-      {/* Funnel stage breakdown */}
+      {/* Current-state pipeline breakdown — 3 canonical funnel stages
+          (Submitted → Ongoing Verification → Processing). At-a-glance "where
+          is our intake right now". Drop-off% across the 3 stages surfaces
+          on the /admissions dashboard's InsightsPanel narrative. */}
       <section className="@container/main">
-        <div className="grid grid-cols-2 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-3 @5xl/main:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-3">
           {STAGES.map((stage) => (
             <StageStat
               key={stage.key}
@@ -167,19 +215,6 @@ export default async function AdmissionsApplicationsPage({
             />
           ))}
         </div>
-        {stageCounts.unstaged > 0 && (
-          <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-brand-amber/40 bg-brand-amber-light/40 p-3">
-            <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-brand-amber" />
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              <span className="font-medium text-foreground">
-                {stageCounts.unstaged.toLocaleString('en-SG')} application
-                {stageCounts.unstaged === 1 ? '' : 's'}
-              </span>{' '}
-              have no funnel stage set. They&apos;ll appear in the table below and should
-              be advanced to Inquiry or beyond.
-            </p>
-          </div>
-        )}
       </section>
 
       {/* Cross-AY search */}
