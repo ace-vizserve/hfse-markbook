@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { seedDemoExtras, type DemoExtrasResult } from './demo-extras';
+
 import { computeQuarterly } from '@/lib/compute/quarterly';
 import {
   LEVEL_LABELS,
@@ -32,11 +34,12 @@ export type PopulatedSeedResult = {
   discount_codes_inserted: number;
   publications_inserted: number;
   documents_inserted: number;
+  demo_extras: DemoExtrasResult | null;
 };
 
 // Deterministic PRNG — seeded per-call so the same AY always produces the
 // same "random" scores on a cold seed. Matches the pattern in names.ts.
-function mulberry32(seed: number) {
+export function mulberry32(seed: number) {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -46,7 +49,7 @@ function mulberry32(seed: number) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-function hashString(s: string): number {
+export function hashString(s: string): number {
   let h = 2166136261 >>> 0;
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
@@ -55,7 +58,7 @@ function hashString(s: string): number {
   return h >>> 0;
 }
 
-function prefixFor(ayCode: string): string {
+export function prefixFor(ayCode: string): string {
   return `ay${ayCode.replace(/^AY/i, '').toLowerCase()}`;
 }
 
@@ -75,6 +78,7 @@ export async function seedPopulated(
     discount_codes_inserted: 0,
     publications_inserted: 0,
     documents_inserted: 0,
+    demo_extras: null,
   };
 
   // ---- 1. Grade entries ----
@@ -111,6 +115,14 @@ export async function seedPopulated(
 
   // ---- 9. Admissions documents (P-Files dashboards + lifecycle widget) ----
   result.documents_inserted = await seedAdmissionsDocuments(service, testAy);
+
+  // ---- 10. Demo-extras pass — fills dashboard charts + KPIs that the base
+  //          seeder leaves thin (extra publications, parent accounts,
+  //          P-File outreach + wider expiry buckets, evaluation lifecycle,
+  //          typed calendar events + audience overrides). Idempotent;
+  //          safe to re-run on a partially-seeded AY9999. See
+  //          `lib/sis/seeder/demo-extras.ts`.
+  result.demo_extras = await seedDemoExtras(service, testAy);
 
   return result;
 }
