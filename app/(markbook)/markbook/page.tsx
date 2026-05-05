@@ -1,7 +1,6 @@
 import {
   ArrowUpRight,
   BarChart3,
-  CheckCircle2,
   ClipboardList,
   Clock,
   FileText,
@@ -351,16 +350,13 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
         </section>
       )}
 
-      {/* Static school-wide counters (AY-scoped, not range-scoped) */}
+      {/* Static school-wide counters — Markbook scope only. "Students enrolled"
+          and "Active sections" were dropped (Records-territory per KD #51);
+          "Publications live" was dropped because the actionable surface is
+          the publishing checklist on /report-cards, not a count card on the
+          Markbook dashboard (KD #75). Remaining: total sheets + locked %. */}
       <div className="@container/main">
-        <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
-          <StatCard
-            description="Students enrolled"
-            value={stats ? formatNumber(stats.studentsActive) : "—"}
-            icon={Users}
-            footerTitle={stats ? `${formatNumber(stats.sectionsActive)} active sections` : "No data"}
-            footerDetail={currentAy?.label ?? "—"}
-          />
+        <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2">
           <StatCard
             description="Grading sheets"
             value={stats ? formatNumber(stats.sheetsOpen + stats.sheetsLocked) : "—"}
@@ -371,7 +367,7 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
             footerDetail="Across all terms"
           />
           <StatCard
-            description="Sheets locked"
+            description="% sheets locked"
             value={stats ? formatPercent(stats.sheetsLocked, stats.sheetsOpen + stats.sheetsLocked) : "—"}
             icon={Lock}
             footerTitle={
@@ -380,17 +376,6 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
                 : "No sheets yet"
             }
             footerDetail="Locked = finalized for parents"
-          />
-          <StatCard
-            description="Publications live"
-            value={stats ? formatNumber(stats.publicationsActive) : "—"}
-            icon={CheckCircle2}
-            footerTitle={
-              stats && stats.publicationsScheduled > 0
-                ? `${stats.publicationsScheduled} scheduled next`
-                : "No upcoming windows"
-            }
-            footerDetail="Report cards visible to parents"
           />
         </div>
       </div>

@@ -108,6 +108,12 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
         }
       />
 
+      {/* Operational top-of-fold per KD #57 — registrar's first question is
+          "what needs action right now?" (sections still unmarked, students
+          near the compassionate-quota threshold), not "monitor school health
+          across this range." Range-aware analytics live below the fold. */}
+      <PriorityPanel payload={priority} />
+
       <ComparisonToolbar
         ayCode={selectedAy}
         ayCodes={ayCodes}
@@ -121,10 +127,6 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
         ayWindows={windows.ay}
         showAySwitcher={false}
       />
-
-      <PriorityPanel payload={priority} />
-
-      <InsightsPanel insights={insights} />
 
       {/* KPIs */}
       <section className="grid gap-4 xl:grid-cols-4">
@@ -209,6 +211,11 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
           }
         />
       </section>
+
+      {/* Insights — narrative commentary on the KPIs above. Sits below the
+          KPIs (and the operational PriorityPanel up top) so the operational
+          surface comes first per KD #57's archetype. */}
+      <InsightsPanel insights={insights} />
 
       {/* Daily attendance % trend */}
       {dailySeries.current.length > 1 && (

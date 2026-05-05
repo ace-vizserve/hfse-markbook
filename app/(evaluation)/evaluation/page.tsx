@@ -256,8 +256,8 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
               deltaGoodWhen="down"
               subtext={
                 kpisResult.comparison
-                  ? `${kpisResult.comparison.lateSubmissions} prior`
-                  : undefined
+                  ? `${kpisResult.comparison.lateSubmissions} prior · submitted >14d after creation`
+                  : "Submitted >14d after writeup was created"
               }
               drillSheet={
                 <EvaluationDrillSheet
@@ -311,8 +311,12 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
           href="/evaluation/sections"
           icon={SquarePen}
           eyebrow="Write-ups"
-          title="My sections"
-          description="Write or revise the adviser paragraph for each student in your section. Guided by the term's virtue theme. Autosaves per keystroke; Submit marks a write-up finalised."
+          title={isTeacher ? "My sections" : "Section roster"}
+          description={
+            isTeacher
+              ? "Write or revise the adviser paragraph for each student in your section. Guided by the term's virtue theme. Autosaves per keystroke; Submit marks a write-up finalised."
+              : "Browse every section's adviser writeups school-wide. Filter by term, virtue theme, or completion state. Read-only oversight unless you're the assigned form adviser."
+          }
           cta="Open roster"
         />
         <HubCard

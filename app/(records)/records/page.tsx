@@ -24,7 +24,6 @@ import {
   DocumentBacklogDrillCard,
   ExpiringDocsDrillCard,
   LevelDistributionDrillCard,
-  PipelineStageDrillCard,
 } from "@/components/sis/drills/chart-drill-cards";
 import { RecordsDrillSheet } from "@/components/sis/drills/records-drill-sheet";
 import { RecentActivityFeed } from "@/components/sis/recent-activity-feed";
@@ -48,7 +47,6 @@ import {
   getEnrollmentVelocityRange,
   getExpiringDocuments,
   getLevelDistribution,
-  getPipelineStageBreakdown,
   getRecentSisActivity,
   getRecordsKpisRange,
   getWithdrawalVelocityRange,
@@ -115,7 +113,6 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
     levels,
     expiring,
     activity,
-    pipelineStages,
     kpisResult,
     enrolVelocity,
     withdrawVelocity,
@@ -126,7 +123,6 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
     getLevelDistribution(selectedAy),
     getExpiringDocuments(selectedAy, EXPIRY_WINDOW_DAYS, 8),
     getRecentSisActivity(8),
-    getPipelineStageBreakdown(selectedAy),
     getRecordsKpisRange(rangeInput),
     getEnrollmentVelocityRange(rangeInput),
     getWithdrawalVelocityRange(rangeInput),
@@ -311,20 +307,17 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
         )}
       </section>
 
-      {/* All-time AY counters — dashboard-01 SectionCards pattern */}
+      {/* All-time AY counters — enrolled-only per KD #51. "Total applications"
+          previously surfaced here; dropped because it conflated pre-enrolment
+          funnel state (admissions territory) with the enrolled-only Records
+          dashboard. Funnel counts live on /admissions. */}
       <section className="@container/main">
-        <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-3">
           <SummaryStat
             label="Enrolled (all)"
             value={summary.enrolled}
             icon={GraduationCap}
             footnote="Active + conditional"
-          />
-          <SummaryStat
-            label="Total applications"
-            value={summary.totalStudents}
-            icon={Users}
-            footnote="All stages — see Admissions"
           />
           <SummaryStat
             label="Withdrawn (all)"
@@ -371,14 +364,11 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
         </div>
       </section>
 
-      {/* Spec §2 row 8 — pipeline breakdown + expiring docs panel (2+1) */}
-      <section className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <PipelineStageDrillCard data={pipelineStages} ayCode={selectedAy} />
-        </div>
-        <div className="lg:col-span-1">
-          <ExpiringDocsDrillCard rows={expiring} ayCode={selectedAy} />
-        </div>
+      {/* Expiring documents panel — full-width on Records (the previous
+          PipelineStageDrillCard was dropped per KD #51; pre-enrolment funnel
+          state belongs on /admissions, not on the enrolled-only dashboard). */}
+      <section className="grid gap-4">
+        <ExpiringDocsDrillCard rows={expiring} ayCode={selectedAy} />
       </section>
 
       {/* Operational action lists — registrar-only. Oversight roles see the
