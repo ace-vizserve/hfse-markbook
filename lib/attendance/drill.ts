@@ -255,19 +255,21 @@ async function loadEntryRowsUncached(ayCode: string): Promise<AttendanceEntryRow
   // Chunk attendance_daily fetch to avoid URL length limits.
   const chunks: string[][] = [];
   for (let i = 0; i < ssIds.length; i += 500) chunks.push(ssIds.slice(i, i + 500));
+  // Column is `date` on the schema (migration 014); the camelCase alias
+  // `attendanceDate` on the public row shape is mapped below. `notes` was
+  // referenced here but isn't a real column on attendance_daily — dropped.
   type EntryLite = {
     id: string;
-    attendance_date: string;
+    date: string;
     section_student_id: string;
     status: string;
     ex_reason: string | null;
-    notes: string | null;
   };
   const all: EntryLite[] = [];
   for (const chunk of chunks) {
     const { data } = await service
       .from('attendance_daily')
-      .select('id, attendance_date, section_student_id, status, ex_reason, notes')
+      .select('id, date, section_student_id, status, ex_reason')
       .in('section_student_id', chunk);
     if (data) all.push(...(data as EntryLite[]));
   }
@@ -282,7 +284,7 @@ async function loadEntryRowsUncached(ayCode: string): Promise<AttendanceEntryRow
     if (!student) continue;
     out.push({
       entryId: e.id,
-      attendanceDate: e.attendance_date,
+      attendanceDate: e.date,
       sectionId: section.id,
       sectionName: section.name,
       studentSectionId: ss.id,
@@ -291,7 +293,7 @@ async function loadEntryRowsUncached(ayCode: string): Promise<AttendanceEntryRow
       level: ctx.levels.get(section.level_id) ?? null,
       status: e.status as AttendanceEntryRow['status'],
       exReason: e.ex_reason,
-      notes: e.notes,
+      notes: null,
     });
   }
   return out;
@@ -313,13 +315,16 @@ async function loadCalendarRowsUncached(ayCode: string): Promise<CalendarDayRow[
   for (const t of ctx.terms) termById.set(t.id, t);
   const termIds = ctx.terms.map((t) => t.id);
 
+  // Column is `date` per migration 015 (school_calendar) — earlier code
+  // referenced `calendar_date` which doesn't exist; PostgREST 400'd and
+  // the calendar drill silently returned an empty array.
   const { data } = await service
     .from('school_calendar')
-    .select('term_id, calendar_date, day_type, label')
+    .select('term_id, date, day_type, label')
     .in('term_id', termIds);
   type CalLite = {
     term_id: string;
-    calendar_date: string;
+    date: string;
     day_type: string;
     label: string | null;
   };
@@ -330,7 +335,7 @@ async function loadCalendarRowsUncached(ayCode: string): Promise<CalendarDayRow[
       if (!term) return null;
       const dt = r.day_type as CalendarDayRow['dayType'];
       return {
-        date: r.calendar_date,
+        date: r.date,
         termId: r.term_id,
         termNumber: term.term_number,
         dayType: dt,
