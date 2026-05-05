@@ -12,7 +12,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -42,7 +42,13 @@ import { NewSheetSchema, type NewSheetInput } from "@/lib/schemas/new-sheet";
 import { cn } from "@/lib/utils";
 
 type Term = { id: string; term_number: number; label: string; is_current: boolean };
-type Level = { id: string; code: string; label: string; level_type: "primary" | "secondary" };
+type Level = {
+  id: string;
+  code: string;
+  label: string;
+  // Includes 'preschool' per migration 029 — KD #50.
+  level_type: "primary" | "secondary" | "preschool";
+};
 type Section = { id: string; name: string; level: Level | Level[] | null };
 type Subject = { id: string; code: string; name: string; is_examinable: boolean };
 type Config = {
@@ -50,8 +56,13 @@ type Config = {
   level_id: string;
   ww_max_slots: number;
   pt_max_slots: number;
+  qa_max: number;
 };
 type Teacher = { id: string; email: string; name: string };
+
+// QA fallback when no subject_config exists for the picked (subject × level).
+// Matches subject_configs.qa_max default from migration 021 + Hard Rule #1.
+const QA_TOTAL_FALLBACK = 30;
 
 const first = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null));
 
@@ -69,28 +80,29 @@ export function NewSheetForm({
   subjects,
   configs,
   teachers,
+  defaultTermId,
 }: {
   terms: Term[];
   sections: Section[];
   subjects: Subject[];
   configs: Config[];
   teachers: Teacher[];
+  defaultTermId: string;
 }) {
   const router = useRouter();
   const [teacherOpen, setTeacherOpen] = useState(false);
-  const defaultTerm = terms.find((t) => t.is_current) ?? terms[0];
 
   const form = useForm<NewSheetInput>({
     resolver: zodResolver(NewSheetSchema),
     defaultValues: {
-      term_id: defaultTerm?.id ?? "",
+      term_id: defaultTermId,
       section_id: "",
       subject_id: "",
       ww_slots: 3,
       ww_each: 10,
       pt_slots: 3,
       pt_each: 10,
-      qa_total: 50,
+      qa_total: QA_TOTAL_FALLBACK,
       teacher_name: "",
     },
   });
@@ -114,6 +126,21 @@ export function NewSheetForm({
     if (!sectionLevelId) return new Set<string>();
     return new Set(configs.filter((c) => c.level_id === sectionLevelId).map((c) => c.subject_id));
   }, [configs, sectionLevelId]);
+
+  // Auto-fill qa_total from subject_configs.qa_max for the selected
+  // (subject × level). subject_configs is the source of truth per
+  // migration 021 — fall back to the canonical 30 only when no config
+  // row exists for this pair.
+  useEffect(() => {
+    if (!sectionLevelId || !subjectId) return;
+    const cfg = configs.find(
+      (c) => c.level_id === sectionLevelId && c.subject_id === subjectId,
+    );
+    form.setValue("qa_total", cfg?.qa_max ?? QA_TOTAL_FALLBACK, {
+      shouldDirty: false,
+      shouldValidate: false,
+    });
+  }, [sectionLevelId, subjectId, configs, form]);
 
   const sectionsGrouped = useMemo(() => {
     const map = new Map<string, Section[]>();
