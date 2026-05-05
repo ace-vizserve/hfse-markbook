@@ -53,16 +53,16 @@ export default async function StudentDocumentDetailPage({
   const ayCodes = await listAyCodes(service);
   const selectedAy = ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
 
-  // Auto-flip any expired-but-still-Valid statuses for this AY before
-  // the page reads the column. Cached 60s; PATCH routes invalidate via
-  // `sis:${ayCode}` tag.
-  await freshenAyDocuments(selectedAy);
-
+  // Auto-flip + the enrollment whitelist run in parallel — both are
+  // gating the detail render and have no shared state. Cached 60s.
   // P-Files is enrolled-only (KD #31). Hide pre-enrolment applicants from
   // the detail surface entirely — they belong on /admissions during the
   // initial-chase phase. Strict whitelist (Enrolled / Enrolled (Conditional)
   // + classSection set) — admissions surfaces show the rest.
-  const enrolled = await isStudentEnrolled(selectedAy, enroleeNumber);
+  const [, enrolled] = await Promise.all([
+    freshenAyDocuments(selectedAy),
+    isStudentEnrolled(selectedAy, enroleeNumber),
+  ]);
   if (!enrolled) notFound();
 
   const student = await getStudentDocumentDetail(selectedAy, enroleeNumber);

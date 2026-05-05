@@ -91,12 +91,12 @@ export default async function SisStudentDetailPage({
   const ayCodes = await listAyCodes(service);
   const selectedAy = ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
 
-  // Auto-flip any expired-but-still-Valid doc statuses for this AY before
-  // the page reads them. Cached 60s; existing PATCH routes invalidate via
-  // the sis:${ayCode} tag.
-  await freshenAyDocuments(selectedAy);
-
-  const detail = await getStudentDetail(selectedAy, enroleeNumber);
+  // Auto-flip + detail fetch run in parallel; both are needed before
+  // render and don't share state.
+  const [, detail] = await Promise.all([
+    freshenAyDocuments(selectedAy),
+    getStudentDetail(selectedAy, enroleeNumber),
+  ]);
   if (!detail) notFound();
 
   const { application, status, documents } = detail;

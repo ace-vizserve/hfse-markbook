@@ -101,10 +101,13 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
   const windows = await getDashboardWindows(selectedAy);
   const rangeInput = resolveRange(resolvedSearch, windows, selectedAy);
 
-  // Auto-flip any expired-but-still-Valid doc statuses for this AY before
-  // the dashboard reads the column. Cached 60s; existing PATCH routes
-  // invalidate via the sis:${ayCode} tag.
-  await freshenAyDocuments(selectedAy);
+  // Auto-flip expired/revived doc statuses runs in parallel with the
+  // dashboard data fetches instead of serially before them. Cached 60s
+  // and tag-invalidated by `sis:${ayCode}`, so this is mostly a no-op
+  // anyway. We still await it (after the data Promise.all) so audit-log
+  // entries are guaranteed before render returns; by then the parallel
+  // pass is usually complete.
+  const freshenPromise = freshenAyDocuments(selectedAy);
 
   const [
     summary,
@@ -129,6 +132,8 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
     getWithdrawalVelocityRange(rangeInput),
     getClassAssignmentReadiness(selectedAy),
   ]);
+
+  await freshenPromise;
 
   const comparisonLabel = kpisResult.comparisonRange
     ? `vs ${formatRangeLabel(kpisResult.comparisonRange)}`

@@ -160,10 +160,11 @@ export default async function AdmissionsDashboard({
   const windows = await getDashboardWindows(selectedAy);
   const rangeInput = resolveRange(resolvedSearch, windows, selectedAy);
 
-  // Auto-flip any expired-but-still-Valid doc statuses for this AY before
-  // the dashboard reads the column. Cached 60s; existing PATCH routes
-  // invalidate via the sis:${ayCode} tag.
-  await freshenAyDocuments(selectedAy);
+  // Auto-flip runs in parallel with subsequent fetches instead of blocking
+  // serially. Cached 60s, tag-invalidated by sis:${ayCode}, so most
+  // navigations are a no-op anyway. We await later to guarantee the
+  // audit-log entries land before render returns.
+  const freshenPromise = freshenAyDocuments(selectedAy);
 
   // ──────────────────────────────────────────────────────────────────
   // Focused-view branch — when a sidebar Quicklink set ?status=to-follow
@@ -175,7 +176,11 @@ export default async function AdmissionsDashboard({
   // ──────────────────────────────────────────────────────────────────
   if (focusedStatus && focusedStatus !== 'all') {
     const meta = STATUS_VIEW_META[focusedStatus];
-    const { students, summary } = await getAdmissionsCompletenessForChase(selectedAy, focusedStatus);
+    // freshen runs in parallel with the focused-view chase fetch.
+    const [{ students, summary }] = await Promise.all([
+      getAdmissionsCompletenessForChase(selectedAy, focusedStatus),
+      freshenPromise,
+    ]);
 
     return (
       <PageShell>
@@ -280,6 +285,10 @@ export default async function AdmissionsDashboard({
     getAdmissionsCompletenessForChase(selectedAy, "all").then((r) => r.summary),
     getAdmissionsPriority({ ayCode: selectedAy }),
   ]);
+
+  // Freshen runs in parallel with the data fetches above; awaited here so
+  // audit-log entries land before render returns.
+  await freshenPromise;
 
   // KD #77 — surface early-bird volume on the current-AY view so registrars
   // notice activity without manually flipping the AY switcher. Only fetched

@@ -136,10 +136,11 @@ export default async function PFilesDashboard({
   const windows = await getDashboardWindows(selectedAy);
   const rangeInput = resolveRange(resolvedSearch, windows, selectedAy);
 
-  // Auto-flip any expired-but-still-Valid doc statuses for this AY before
-  // the dashboard reads the column. Cached 60s; existing PATCH routes
-  // invalidate via the sis:${ayCode} tag.
-  await freshenAyDocuments(selectedAy);
+  // Auto-flip runs in parallel with subsequent fetches instead of blocking
+  // serially. Cached 60s, tag-invalidated by sis:${ayCode}, so most
+  // navigations are a no-op anyway. We await later to guarantee the
+  // audit-log entries land before render returns.
+  const freshenPromise = freshenAyDocuments(selectedAy);
 
   // ──────────────────────────────────────────────────────────────────
   // Focused-view branch — when a sidebar Quicklink set ?status=missing |
@@ -153,7 +154,11 @@ export default async function PFilesDashboard({
     const meta = expiringWindow
       ? EXPIRING_VIEW_META[expiringWindow]
       : STATUS_VIEW_META[initialStatusFilter as Exclude<StatusFilter, "all">];
-    const { students, summary } = await getDocumentDashboardData(selectedAy);
+    // freshen runs in parallel with the focused-view dashboard fetch.
+    const [{ students, summary }] = await Promise.all([
+      getDocumentDashboardData(selectedAy),
+      freshenPromise,
+    ]);
 
     let visibleStudents = students;
     if (expiringWindow) {
@@ -260,6 +265,10 @@ export default async function PFilesDashboard({
     // roles so the dashboard renders one fewer trip on every load.
     isOfficer ? getPFilesPriority({ ayCode: selectedAy }) : Promise.resolve(null),
   ]);
+
+  // Freshen runs in parallel with the data fetches above; awaited here so
+  // audit-log entries land before render returns.
+  await freshenPromise;
 
   const comparisonLabel = kpisResult.comparisonRange
     ? `vs ${formatRangeLabel(kpisResult.comparisonRange)}`
