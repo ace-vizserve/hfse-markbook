@@ -41,6 +41,14 @@ import { createServiceClient } from "@/lib/supabase/service";
 // Evaluation module landing page. The real work happens on /evaluation/sections
 // (Bite 4) — this page is a light orientation surface describing what the
 // module does + jumping into the writeup roster.
+// Architectural note (KD #57 two-view split): teacher-vs-registrar branches
+// currently render via inline conditionals (`isTeacher`, `canToggle &&
+// rangeInput`). The full split into
+// `components/evaluation/evaluation-{teacher,registrar}-view.tsx` is queued
+// as architectural debt — pure code organisation, no behaviour change.
+// Deferred because the inline pattern is functionally correct and the split
+// is regression-risky for zero user-facing benefit. Revisit when this file
+// crosses ~600 lines or a third role enters the mix.
 export default async function EvaluationHub({ searchParams }: { searchParams: Promise<DashboardSearchParams> }) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect("/login");

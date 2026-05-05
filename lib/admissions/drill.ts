@@ -337,7 +337,14 @@ export function applyTargetFilter(
 ): DrillRow[] {
   switch (target) {
     case 'applications':
-      return rows.filter((r) => ACTIVE_FUNNEL_STATUSES.has(r.status));
+      // Time-based target: matches the card aggregator (rows where
+      // applicationDate is in the range, regardless of current status —
+      // a row submitted in January and enrolled in March still counts as
+      // a January application). Funnel-only filtering would hide rows
+      // that have since progressed to Enrolled / Cancelled / Withdrawn.
+      // Funnel-shape targets (`pipeline-stage`, `doc-completion`, chase)
+      // still narrow to ACTIVE_FUNNEL_STATUSES below.
+      return rows;
     case 'enrolled':
       return rows.filter(
         (r) => r.status === 'Enrolled' || r.status === 'Enrolled (Conditional)',

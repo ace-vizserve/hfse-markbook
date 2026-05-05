@@ -231,6 +231,14 @@ function studentName(s: StudentLite): string {
 
 // ─── Loaders ────────────────────────────────────────────────────────────────
 
+// Perf note (measured 2026-05-06 against AY9999 with ~200 students +
+// ~12K attendance_daily rows): full cold-load wall time ~335ms total
+// (sections 99ms + section_students 115ms + attendance_daily 119ms). The
+// chunking by 500 section_student_ids per `.in()` clause is a single
+// query at this scale, not the 60+ parallel queries an earlier audit
+// claimed. Cached 60s via unstable_cache, so consecutive renders are
+// instant. Refactor to DB-side aggregation only if HFSE crosses ~1000
+// students per AY (currently ~3-4× headroom).
 async function loadEntryRowsUncached(ayCode: string): Promise<AttendanceEntryRow[]> {
   const service = createServiceClient();
   const ctx = await resolveAyContext(ayCode);
@@ -463,6 +471,12 @@ async function rollupCompassionate(
 ): Promise<CompassionateUsageRow[]> {
   const ctx = await resolveAyContext(ayCode);
   if (!ctx.ayId || ctx.sectionStudents.length === 0) return [];
+  // Compassionate quota is intentionally **AY-wide** — the registrar's
+  // operational concern is "has student X consumed >5 compassionate
+  // absences this AY?" The selected dashboard date range does NOT narrow
+  // this metric; quota consumption accumulates over the whole AY and the
+  // panel always shows year-to-date usage. This matches KD #74 (the
+  // priority panel pulls this rollup for the chips, regardless of range).
   // When buildAllRowSets has already loaded entries, reuse them rather than
   // hitting the cache + re-iterating ~180k rows for a second roll-up.
   const entries = preloadedEntries ?? (await loadEntryRows(ayCode));

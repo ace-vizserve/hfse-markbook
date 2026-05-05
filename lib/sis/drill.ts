@@ -40,7 +40,7 @@ export type RecordsDrillRow = {
   enroleeNumber: string;
   studentNumber: string | null;
   fullName: string;
-  enrollmentStatus: string; // 'active' | 'conditional' | 'withdrawn' | etc
+  enrollmentStatus: string; // 'active' | 'late_enrollee' | 'withdrawn' | 'graduated'
   applicationStatus: string;
   level: string | null;
   sectionId: string | null;
@@ -63,7 +63,13 @@ const CORE_DOC_STATUS_COLUMNS = [
   'idPictureStatus',
 ] as const;
 
-const ENROLLED_STATUSES = new Set(['active', 'conditional']);
+// Matches the card aggregator in `lib/sis/dashboard.ts::loadRecordsKpisForRange`
+// (KD #68: late enrollees are real new enrollments). The earlier value
+// 'conditional' wasn't a real `section_students.enrollment_status` — the
+// only legal values today are 'active', 'late_enrollee', 'withdrawn',
+// 'graduated'. Using 'conditional' here silently dropped every late
+// enrollee from drill results, producing card-vs-drill mismatches.
+const ENROLLED_STATUSES = new Set(['active', 'late_enrollee']);
 const SOFT_CLOSED_APPLICATION_STATUSES = new Set(['Cancelled', 'Withdrawn']);
 
 // ─── Range input ────────────────────────────────────────────────────────────
@@ -120,7 +126,7 @@ function studentName(s: StudentLite): string {
 }
 
 function deriveStage(applicationStatus: string | null, enrollmentStatus: string): string {
-  if (enrollmentStatus === 'active' || enrollmentStatus === 'conditional') return 'Enrolled';
+  if (enrollmentStatus === 'active' || enrollmentStatus === 'late_enrollee') return 'Enrolled';
   if (enrollmentStatus === 'withdrawn') return 'Withdrawn';
   if (enrollmentStatus === 'graduated') return 'Graduated';
   return (applicationStatus ?? '').trim() || 'Not started';

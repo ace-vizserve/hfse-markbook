@@ -98,6 +98,14 @@ const ADMIN_TOOLS: Tool[] = [
   },
 ];
 
+// Architectural note (KD #57 two-view split): teacher-vs-registrar branches
+// currently render via inline conditionals (`canSeeAdmin && ...`,
+// `isTeacher && ...`). The full split into
+// `components/markbook/markbook-{teacher,registrar}-view.tsx` is queued as
+// architectural debt — pure code organisation, no behaviour change. Deferred
+// because the inline pattern is functionally correct and the split is
+// regression-risky for zero user-facing benefit. Revisit when this file
+// crosses ~800 lines or a third role enters the mix.
 export default async function MarkbookHome({ searchParams }: { searchParams: Promise<DashboardSearchParams> }) {
   const resolvedSearchParams = await searchParams;
   const supabase = await createClient();

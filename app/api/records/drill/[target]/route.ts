@@ -59,10 +59,20 @@ export async function GET(
     return NextResponse.json({ error: 'invalid_ay' }, { status: 400 });
   }
 
-  const scopeParam = (url.searchParams.get('scope') ?? 'range') as DrillScope;
-  const scope = VALID_SCOPES.includes(scopeParam) ? scopeParam : 'range';
-  const from = url.searchParams.get('from') ?? undefined;
-  const to = url.searchParams.get('to') ?? undefined;
+  // Resolve scope deterministically. If the caller asked for 'range' but
+  // didn't supply both from + to, downgrade to 'ay' so target filters get
+  // a clean signal — avoids the half-state where scope says 'range' but
+  // range params are undefined (which silently flips some filters to
+  // unfiltered AY-wide and confuses callers expecting range semantics).
+  const rawScope = (url.searchParams.get('scope') ?? 'range') as DrillScope;
+  const fromRaw = url.searchParams.get('from') ?? undefined;
+  const toRaw = url.searchParams.get('to') ?? undefined;
+  const scope: DrillScope =
+    rawScope === 'range' && (!fromRaw || !toRaw)
+      ? 'ay'
+      : VALID_SCOPES.includes(rawScope) ? rawScope : 'range';
+  const from = scope === 'range' ? fromRaw : undefined;
+  const to = scope === 'range' ? toRaw : undefined;
   const segment = url.searchParams.get('segment');
   const format = url.searchParams.get('format') ?? 'json';
   const columnsParam = url.searchParams.get('columns');
