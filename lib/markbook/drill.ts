@@ -420,7 +420,27 @@ async function loadSheetRowsUncached(ayCode: string): Promise<SheetRow[]> {
     .in('term_id', ctx.termIds);
   const sheetIdsForRollup = (sheetsData ?? []).map((s) => (s as { id: string }).id);
 
-  const [{ data: pubsData }, { data: ssRollupData }, { data: entriesRollupData }] = await Promise.all([
+  // Chunk the sheet-IDs IN-clause so the URL doesn't blow past PostgREST's
+  // URL length cap when an AY has many sheets (sibling pattern in
+  // loadEntryRowsUncached above). Run all three rollups in parallel still.
+  const ROLLUP_CHUNK = 200;
+  async function loadEntriesRollup(): Promise<{ grading_sheet_id: string }[]> {
+    if (sheetIdsForRollup.length === 0) return [];
+    const out: { grading_sheet_id: string }[] = [];
+    for (let i = 0; i < sheetIdsForRollup.length; i += ROLLUP_CHUNK) {
+      const slice = sheetIdsForRollup.slice(i, i + ROLLUP_CHUNK);
+      const rows = await fetchAllPages<{ grading_sheet_id: string }>((from, to) =>
+        service
+          .from('grade_entries')
+          .select('grading_sheet_id')
+          .in('grading_sheet_id', slice)
+          .range(from, to),
+      );
+      out.push(...rows);
+    }
+    return out;
+  }
+  const [{ data: pubsData }, { data: ssRollupData }, entriesRollupData] = await Promise.all([
     sectionIds.length > 0
       ? service
           .from('report_card_publications')
@@ -433,15 +453,7 @@ async function loadSheetRowsUncached(ayCode: string): Promise<SheetRow[]> {
           .select('section_id, enrollment_status')
           .in('section_id', sectionIds)
       : Promise.resolve({ data: [] }),
-    sheetIdsForRollup.length > 0
-      ? fetchAllPages<{ grading_sheet_id: string }>((from, to) =>
-          service
-            .from('grade_entries')
-            .select('grading_sheet_id')
-            .in('grading_sheet_id', sheetIdsForRollup)
-            .range(from, to),
-        ).then((data) => ({ data }))
-      : Promise.resolve({ data: [] as { grading_sheet_id: string }[] }),
+    loadEntriesRollup(),
   ]);
 
   type SheetLite = {
@@ -469,9 +481,8 @@ async function loadSheetRowsUncached(ayCode: string): Promise<SheetRow[]> {
     activeStudentsBySection.set(r.section_id, (activeStudentsBySection.get(r.section_id) ?? 0) + 1);
   }
 
-  type EntryLite = { grading_sheet_id: string };
   const entriesPerSheet = new Map<string, number>();
-  for (const e of (entriesRollupData ?? []) as EntryLite[]) {
+  for (const e of entriesRollupData) {
     entriesPerSheet.set(e.grading_sheet_id, (entriesPerSheet.get(e.grading_sheet_id) ?? 0) + 1);
   }
 
