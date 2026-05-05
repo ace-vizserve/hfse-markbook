@@ -2,6 +2,7 @@ import { unstable_cache } from 'next/cache';
 
 import { getTeacherEmailMap } from '@/lib/auth/teacher-emails';
 import { applyDateRangeFilter } from '@/lib/dashboard/drill-range';
+import { fetchAllPages } from '@/lib/supabase/paginate';
 import { createServiceClient } from '@/lib/supabase/service';
 
 // Markbook drill-down primitives — sibling of `lib/admissions/drill.ts`.
@@ -296,7 +297,10 @@ async function loadEntryRowsUncached(ayCode: string): Promise<GradeEntryRow[]> {
 
   const teacherEmailById = new Map<string, string>(await getTeacherEmailMap());
 
-  // Entries — split into chunks to avoid PostgREST URL length limits.
+  // Entries — chunk by grading_sheet_id to bound the IN-clause, then
+  // paginate inside each chunk so PostgREST's 1000-row response cap
+  // doesn't silently drop entries (HFSE has 700+ sheets × ~20 students =
+  // 14K+ entries per AY).
   type EntryLite = {
     id: string;
     grading_sheet_id: string;
@@ -309,11 +313,14 @@ async function loadEntryRowsUncached(ayCode: string): Promise<GradeEntryRow[]> {
   const CHUNK = 200;
   for (let i = 0; i < sheetIds.length; i += CHUNK) {
     const slice = sheetIds.slice(i, i + CHUNK);
-    const { data } = await service
-      .from('grade_entries')
-      .select('id, grading_sheet_id, section_student_id, qa_score, quarterly_grade, created_at')
-      .in('grading_sheet_id', slice);
-    entries.push(...((data ?? []) as EntryLite[]));
+    const rows = await fetchAllPages<EntryLite>((from, to) =>
+      service
+        .from('grade_entries')
+        .select('id, grading_sheet_id, section_student_id, qa_score, quarterly_grade, created_at')
+        .in('grading_sheet_id', slice)
+        .range(from, to),
+    );
+    entries.push(...rows);
   }
 
   // section_students → student_id + section_id resolution.
@@ -427,11 +434,14 @@ async function loadSheetRowsUncached(ayCode: string): Promise<SheetRow[]> {
           .in('section_id', sectionIds)
       : Promise.resolve({ data: [] }),
     sheetIdsForRollup.length > 0
-      ? service
-          .from('grade_entries')
-          .select('grading_sheet_id')
-          .in('grading_sheet_id', sheetIdsForRollup)
-      : Promise.resolve({ data: [] }),
+      ? fetchAllPages<{ grading_sheet_id: string }>((from, to) =>
+          service
+            .from('grade_entries')
+            .select('grading_sheet_id')
+            .in('grading_sheet_id', sheetIdsForRollup)
+            .range(from, to),
+        ).then((data) => ({ data }))
+      : Promise.resolve({ data: [] as { grading_sheet_id: string }[] }),
   ]);
 
   type SheetLite = {

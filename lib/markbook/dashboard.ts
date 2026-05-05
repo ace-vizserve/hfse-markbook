@@ -1,5 +1,6 @@
 import { unstable_cache } from 'next/cache';
 
+import { fetchAllPages } from '@/lib/supabase/paginate';
 import { createServiceClient } from '@/lib/supabase/service';
 import { loadAssignmentsForUser } from '@/lib/auth/teacher-assignments';
 import { getAyIdByCode } from '@/lib/dashboard/ay-id';
@@ -84,13 +85,21 @@ async function loadGradeDistributionUncached(
   const sheetIds = (sheetRows ?? []).map((r) => r.id as string);
   if (sheetIds.length === 0) return emptyGradeBuckets();
 
-  const { data: entryRows, error: entryErr } = await service
-    .from('grade_entries')
-    .select('quarterly_grade')
-    .in('grading_sheet_id', sheetIds)
-    .not('quarterly_grade', 'is', null);
-  if (entryErr) {
-    console.error('[markbook] getGradeDistribution entries fetch failed:', entryErr.message);
+  // Paginate around PostgREST's 1000-row response cap — at HFSE scale
+  // grade_entries can hit 14K+ rows per term.
+  let entryRows: Array<{ quarterly_grade: number | null }> = [];
+  try {
+    entryRows = await fetchAllPages<{ quarterly_grade: number | null }>(
+      (from, to) =>
+        service
+          .from('grade_entries')
+          .select('quarterly_grade')
+          .in('grading_sheet_id', sheetIds)
+          .not('quarterly_grade', 'is', null)
+          .range(from, to),
+    );
+  } catch (entryErr) {
+    console.error('[markbook] getGradeDistribution entries fetch failed:', entryErr);
     return emptyGradeBuckets();
   }
 
@@ -630,18 +639,22 @@ async function loadGradeEntryVelocityRangeUncached(
     };
   }
 
-  // AY-scoped via grading_sheet → section.academic_year_id.
-  const { data } = await service
-    .from('grade_entries')
-    .select(
-      'created_at, grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))',
-    )
-    .eq('grading_sheet.section.academic_year_id', ayId)
-    .gte('created_at', `${earliest}T00:00:00+08:00`)
-    .lte('created_at', `${latest}T23:59:59+08:00`);
-
+  // AY-scoped via grading_sheet → section.academic_year_id. Paginate
+  // around the 1000-row response cap.
   type Row = { created_at: string };
-  const rows = ((data ?? []) as Row[]).map((r) => ({ ts: r.created_at }));
+  const data = await fetchAllPages<Row>((from, to) =>
+    service
+      .from('grade_entries')
+      .select(
+        'created_at, grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))',
+      )
+      .eq('grading_sheet.section.academic_year_id', ayId)
+      .gte('created_at', `${earliest}T00:00:00+08:00`)
+      .lte('created_at', `${latest}T23:59:59+08:00`)
+      .range(from, to),
+  );
+
+  const rows = data.map((r) => ({ ts: r.created_at }));
   const current = bucketByDay(rows, input.from, input.to);
   if (!hasCmp) {
     return {

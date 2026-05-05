@@ -6,6 +6,7 @@ import {
   ENROLLED_PREREQ_STAGES,
 } from '@/lib/schemas/sis';
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
+import { fetchAllPages } from '@/lib/supabase/paginate';
 import { createServiceClient } from '@/lib/supabase/service';
 import { DOCUMENT_SLOTS } from '@/lib/sis/queries';
 import { EXPIRING_SOON_THRESHOLD_DAYS } from '@/lib/sis/process';
@@ -149,18 +150,27 @@ async function loadRecordsRowsUncached(ayCode: string): Promise<RecordsDrillRow[
   const ayId = (ayRow?.id as string | undefined) ?? null;
   if (!ayId) return [];
 
-  const [sectionsRes, levelsRes, ssRes] = await Promise.all([
+  // Resolve section IDs first so we can scope section_students by them and
+  // paginate the response (PostgREST caps responses at 1000 rows; HFSE
+  // scale comfortably exceeds that across populated AYs).
+  const sectionsForFilterRes = await service
+    .from('sections')
+    .select('id')
+    .eq('academic_year_id', ayId);
+  const sectionIdsForFilter = (sectionsForFilterRes.data ?? []).map((r) => r.id as string);
+
+  const [sectionsRes, levelsRes, ssRows] = await Promise.all([
     service.from('sections').select('id, name, level_id').eq('academic_year_id', ayId),
     service.from('levels').select('id, code'),
-    service
-      .from('section_students')
-      .select('id, section_id, student_id, enrollment_status, enrollment_date, withdrawal_date, enrolee_number')
-      .in(
-        'section_id',
-        (
-          (await service.from('sections').select('id').eq('academic_year_id', ayId)).data ?? []
-        ).map((r) => r.id as string),
-      ),
+    sectionIdsForFilter.length > 0
+      ? fetchAllPages<SectionStudentLite>((from, to) =>
+          service
+            .from('section_students')
+            .select('id, section_id, student_id, enrollment_status, enrollment_date, withdrawal_date, enrolee_number')
+            .in('section_id', sectionIdsForFilter)
+            .range(from, to),
+        )
+      : Promise.resolve([] as SectionStudentLite[]),
   ]);
 
   const sections = (sectionsRes.data ?? []) as SectionLite[];
@@ -170,7 +180,7 @@ async function loadRecordsRowsUncached(ayCode: string): Promise<RecordsDrillRow[
   const levels = new Map<string, string>();
   for (const l of (levelsRes.data ?? []) as LevelLite[]) levels.set(l.id, l.code);
 
-  const ss = (ssRes.data ?? []) as SectionStudentLite[];
+  const ss = ssRows as SectionStudentLite[];
   const studentIds = Array.from(new Set(ss.map((s) => s.student_id)));
 
   const studentMap = new Map<string, StudentLite>();

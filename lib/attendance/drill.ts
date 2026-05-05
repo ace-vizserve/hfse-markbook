@@ -1,6 +1,7 @@
 import { unstable_cache } from 'next/cache';
 
 import { applyDateRangeFilter } from '@/lib/dashboard/drill-range';
+import { fetchAllPages } from '@/lib/supabase/paginate';
 import { createServiceClient } from '@/lib/supabase/service';
 
 // Attendance drill primitives — sibling of `lib/markbook/drill.ts`.
@@ -252,7 +253,10 @@ async function loadEntryRowsUncached(ayCode: string): Promise<AttendanceEntryRow
   const ssIds = ctx.sectionStudents.map((ss) => ss.id);
   if (ssIds.length === 0) return [];
 
-  // Chunk attendance_daily fetch to avoid URL length limits.
+  // Chunk by section_student_id to bound each PostgREST IN-clause, then
+  // paginate via .range() inside each chunk so the server's 1000-row
+  // response cap doesn't silently truncate at HFSE scale (200 students ×
+  // 60+ school days = 12K+ rows for a full term per AY).
   const chunks: string[][] = [];
   for (let i = 0; i < ssIds.length; i += 500) chunks.push(ssIds.slice(i, i + 500));
   // Column is `date` on the schema (migration 014); the camelCase alias
@@ -267,11 +271,14 @@ async function loadEntryRowsUncached(ayCode: string): Promise<AttendanceEntryRow
   };
   const all: EntryLite[] = [];
   for (const chunk of chunks) {
-    const { data } = await service
-      .from('attendance_daily')
-      .select('id, date, section_student_id, status, ex_reason')
-      .in('section_student_id', chunk);
-    if (data) all.push(...(data as EntryLite[]));
+    const rows = await fetchAllPages<EntryLite>((from, to) =>
+      service
+        .from('attendance_daily')
+        .select('id, date, section_student_id, status, ex_reason')
+        .in('section_student_id', chunk)
+        .range(from, to),
+    );
+    all.push(...rows);
   }
 
   const out: AttendanceEntryRow[] = [];

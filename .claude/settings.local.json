@@ -98,7 +98,12 @@
       "Bash(npx eslint *)",
       "Bash(npx --no-install --yes)",
       "Read(//c/c/Users/Ace/OneDrive - HFSE International School/Desktop/hfse-vizserve projects/hfse-markbook/docs/sprints/**)",
-      "Bash(python3)"
+      "Bash(python3)",
+      "Bash(grep -l \"RecordsDrillSheet\" app/ -r)",
+      "Bash(grep -l \"RecordsDrillSheet\" components/ -r)",
+      "Bash(cat)",
+      "Bash(node verify-pagination.mjs)",
+      "Bash(rm verify-pagination.mjs)"
     ],
     "deny": [
       "Read(./.env.local)"

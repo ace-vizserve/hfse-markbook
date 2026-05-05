@@ -1,6 +1,7 @@
 import { unstable_cache } from 'next/cache';
 
 import { getAyIdByCode } from '@/lib/dashboard/ay-id';
+import { fetchAllPages } from '@/lib/supabase/paginate';
 import { createServiceClient } from '@/lib/supabase/service';
 import {
   computeDelta,
@@ -56,19 +57,24 @@ async function loadDailyRowsUncached(ayCode: string): Promise<DailyRow[]> {
   const studentRowIds = (ss ?? []).map((r) => r.id as string);
   if (studentRowIds.length === 0) return [];
 
-  // attendance_daily can be large — we fetch in chunks of 1000 IDs to keep
-  // each PostgREST call bounded.
+  // attendance_daily can exceed PostgREST's 1000-row response cap on the
+  // HFSE instance (200 students × 60+ school days = 12K+ rows for a full
+  // term). Chunk by 500 IDs to bound the IN-clause, then paginate each
+  // chunk's response via .range() so the cap doesn't truncate.
   const chunks: string[][] = [];
-  for (let i = 0; i < studentRowIds.length; i += 1000) {
-    chunks.push(studentRowIds.slice(i, i + 1000));
+  for (let i = 0; i < studentRowIds.length; i += 500) {
+    chunks.push(studentRowIds.slice(i, i + 500));
   }
   const all: DailyRow[] = [];
   for (const chunk of chunks) {
-    const { data } = await service
-      .from('attendance_daily')
-      .select('date, status, ex_reason, section_student_id')
-      .in('section_student_id', chunk);
-    for (const row of (data ?? []) as DailyRow[]) all.push(row);
+    const rows = await fetchAllPages<DailyRow>((from, to) =>
+      service
+        .from('attendance_daily')
+        .select('date, status, ex_reason, section_student_id')
+        .in('section_student_id', chunk)
+        .range(from, to),
+    );
+    all.push(...rows);
   }
   return all;
 }
