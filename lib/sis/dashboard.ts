@@ -625,16 +625,34 @@ async function loadRecordsKpisForRange(input: RangeInput): Promise<RecordsRangeK
       .select('id, sections!inner(academic_year_id)', { count: 'exact', head: true })
       .eq('sections.academic_year_id', ayId)
       .in('enrollment_status', ['active', 'late_enrollee']),
-    admissions
-      .from(`${prefix}_enrolment_documents`)
-      .select(
-        [
-          'enroleeNumber',
-          ...DOCUMENT_SLOTS.flatMap((s) =>
-            s.expires ? [`${s.key}Expiry`] : [],
-          ),
-        ].join(', '),
-      ),
+    // Records is enrolled-only per KD #51 — narrow the docs scan to the
+    // enrolled set so the "Docs expiring ≤60d" KPI doesn't count slots
+    // belonging to pre-enrolment funnel applicants. Without this filter
+    // the card was showing 47 when the drill (which IS enrolled-filtered)
+    // would show 3 — classic card-vs-drill disagreement.
+    (async () => {
+      const { data: enrolledStatus } = await admissions
+        .from(`${prefix}_enrolment_status`)
+        .select('enroleeNumber, applicationStatus')
+        .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']);
+      const enrolledNumbers = ((enrolledStatus ?? []) as { enroleeNumber: string | null }[])
+        .map((s) => s.enroleeNumber)
+        .filter((v): v is string => v !== null);
+      if (enrolledNumbers.length === 0) {
+        return { data: [] as Array<Record<string, string | null>>, error: null };
+      }
+      return admissions
+        .from(`${prefix}_enrolment_documents`)
+        .select(
+          [
+            'enroleeNumber',
+            ...DOCUMENT_SLOTS.flatMap((s) =>
+              s.expires ? [`${s.key}Expiry`] : [],
+            ),
+          ].join(', '),
+        )
+        .in('enroleeNumber', enrolledNumbers);
+    })(),
   ]);
 
   type DocRow = Record<string, string | null>;

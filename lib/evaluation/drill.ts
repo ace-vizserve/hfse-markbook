@@ -107,11 +107,16 @@ type StudentLite = { id: string; first_name: string | null; middle_name: string 
 type TermLite = { id: string; term_number: number };
 type LevelLite = { id: string; code: string };
 
+// Schema: evaluation_writeups (migration 018) uses `student_id` + `section_id`
+// (not `section_student_id`) and `writeup` (not `draft_text`). The earlier
+// shape with the wrong column names returned a 400 from PostgREST, leaving
+// every drill empty across all AYs.
 type WriteupRecord = {
   id: string;
-  section_student_id: string;
+  student_id: string;
+  section_id: string;
   term_id: string;
-  draft_text: string | null;
+  writeup: string | null;
   submitted: boolean;
   submitted_at: string | null;
   created_at: string;
@@ -198,12 +203,15 @@ async function loadWriteupRowsUncached(ayCode: string): Promise<WriteupRow[]> {
 
   const { data: writeupsRows } = await service
     .from('evaluation_writeups')
-    .select('id, section_student_id, term_id, draft_text, submitted, submitted_at, created_at, updated_at')
+    .select('id, student_id, section_id, term_id, writeup, submitted, submitted_at, created_at, updated_at')
     .in('term_id', termIds);
   const writeups = (writeupsRows ?? []) as WriteupRecord[];
-  const writeupKey = (ssId: string, termId: string) => `${ssId}|${termId}`;
+  // Writeup uniqueness in DB is (term_id, student_id) per migration 018 —
+  // key the lookup map by student id, not section_student id, so the join
+  // below resolves correctly.
+  const writeupKey = (studentId: string, termId: string) => `${studentId}|${termId}`;
   const writeupByKey = new Map<string, WriteupRecord>();
-  for (const w of writeups) writeupByKey.set(writeupKey(w.section_student_id, w.term_id), w);
+  for (const w of writeups) writeupByKey.set(writeupKey(w.student_id, w.term_id), w);
 
   const { data: evalTermRows } = await service
     .from('evaluation_terms')
@@ -227,8 +235,8 @@ async function loadWriteupRowsUncached(ayCode: string): Promise<WriteupRow[]> {
       if (!section) continue;
       const student = studentMap.get(sectionStudent.student_id);
       if (!student) continue;
-      const w = writeupByKey.get(writeupKey(sectionStudent.id, term.id));
-      const draftLen = (w?.draft_text ?? '').trim().length;
+      const w = writeupByKey.get(writeupKey(sectionStudent.student_id, term.id));
+      const draftLen = (w?.writeup ?? '').trim().length;
       let status: WriteupRow['status'] = 'missing';
       if (w?.submitted) status = 'submitted';
       else if (draftLen > 0) status = 'draft';

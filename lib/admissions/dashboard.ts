@@ -355,7 +355,11 @@ export async function getAssessmentOutcomes(ayCode: string): Promise<AssessmentO
     engFail: 0,
     engUnknown: 0,
   };
+  // Skip terminal statuses — Cancelled/Withdrawn applicants drag the pass
+  // rate down with assessments they never completed. Donut should reflect
+  // the active funnel + enrolled cohort only.
   for (const r of rows) {
+    if (r.applicationStatus === 'Cancelled' || r.applicationStatus === 'Withdrawn') continue;
     const m = classifyAssessment(r.assessmentGradeMath);
     const e = classifyAssessment(r.assessmentGradeEnglish);
     if (m === 'pass') out.mathPass += 1;
@@ -376,7 +380,10 @@ export type ReferralSource = {
 export async function getReferralSourceBreakdown(ayCode: string): Promise<ReferralSource[]> {
   const rows = await loadJoinedRows(ayCode);
   const counts = new Map<string, number>();
+  // Skip terminal statuses — referral attribution should reflect the funnel
+  // marketing actually drove forward, not all-time inquiry inputs.
   for (const r of rows) {
+    if (r.applicationStatus === 'Cancelled' || r.applicationStatus === 'Withdrawn') continue;
     const raw = (r.howDidYouKnowAboutHFSEIS ?? '').trim();
     const key = raw || 'Not specified';
     counts.set(key, (counts.get(key) ?? 0) + 1);
@@ -791,6 +798,11 @@ async function loadDocumentCompletionByLevelUncached(
   const byLevel = new Map<string, Bucket>();
   for (const r of joinedRows) {
     if (!r.enroleeNumber) continue;
+    // Skip terminal statuses — Cancelled/Withdrawn applicants who never
+    // uploaded inflate the "missing" bucket and tank the per-level
+    // completion %. The donut should reflect funnel + enrolled cohort
+    // upload progress, not all-time inquiry submissions.
+    if (r.applicationStatus === 'Cancelled' || r.applicationStatus === 'Withdrawn') continue;
     const level = resolveLevel(r);
     const bucket = byLevel.get(level) ?? { total: 0, complete: 0, partial: 0, missing: 0 };
     bucket.total += 1;

@@ -22,9 +22,14 @@ function tag(ayCode: string): string[] {
   return ['evaluation-dashboard', `evaluation-dashboard:${ayCode}`];
 }
 
+// Schema: evaluation_writeups (migration 018) is keyed (term_id, student_id)
+// — there is no `section_student_id` column. The earlier shape selected one,
+// PostgREST 400'd, the helper silently returned an empty array, and every
+// Evaluation KPI rendered as 0 / 0% across all AYs.
 type WriteupRow = {
   id: string;
-  section_student_id: string;
+  student_id: string;
+  section_id: string;
   term_id: string;
   submitted: boolean;
   submitted_at: string | null;
@@ -75,7 +80,7 @@ async function loadWriteupsUncached(ayCode: string): Promise<{
 
   const { data: rows } = await service
     .from('evaluation_writeups')
-    .select('id, section_student_id, term_id, submitted, submitted_at, created_at, updated_at')
+    .select('id, student_id, section_id, term_id, submitted, submitted_at, created_at, updated_at')
     .in('term_id', termIds);
 
   return {

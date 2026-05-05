@@ -322,6 +322,32 @@ async function loadPFilesKpisForRange(input: RangeInput): Promise<PFilesRangeKpi
   const fromIso = `${input.from}T00:00:00+08:00`;
   const toIso = `${input.to}T23:59:59+08:00`;
 
+  // P-Files is enrolled-only per KD #71 — narrow the docs query to the
+  // enrolled set so the top-of-fold KPIs (Total docs, Expiring ≤30d /
+  // ≤60d, Revisions) stay consistent with the SummaryCards + the
+  // Expiring panel below. Without this, the top KPIs counted slots
+  // across every applicant in the AY (including pre-enrolment funnel
+  // rows) — manifested as "Expiring ≤60d: 7" while the panel below said
+  // "Nothing expiring soon" because the panel was correctly enrolled-
+  // filtered.
+  const { data: statusRows, error: statusErr } = await admissions
+    .from(`${prefix}_enrolment_status`)
+    .select('enroleeNumber, applicationStatus')
+    .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']);
+  if (statusErr) {
+    console.error('[p-files] getPFilesKpisRange status fetch failed:', statusErr.message);
+    return {
+      revisionsInRange: 0,
+      expiringSoon: 0,
+      expiringSoon30: 0,
+      pendingReview: 0,
+      totalDocuments: 0,
+    };
+  }
+  const enrolledNumbers = ((statusRows ?? []) as { enroleeNumber: string | null }[])
+    .map((s) => s.enroleeNumber)
+    .filter((v): v is string => v !== null);
+
   const [revRes, docsRes] = await Promise.all([
     service
       .from('p_file_revisions')
@@ -329,16 +355,19 @@ async function loadPFilesKpisForRange(input: RangeInput): Promise<PFilesRangeKpi
       .eq('ay_code', input.ayCode)
       .gte('replaced_at', fromIso)
       .lte('replaced_at', toIso),
-    admissions
-      .from(`${prefix}_enrolment_documents`)
-      .select(
-        [
-          'enroleeNumber',
-          ...DOCUMENT_SLOTS.flatMap((s) =>
-            s.expires ? [s.key, `${s.key}Status`, `${s.key}Expiry`] : [s.key, `${s.key}Status`],
-          ),
-        ].join(', '),
-      ),
+    enrolledNumbers.length === 0
+      ? Promise.resolve({ data: [] as Array<Record<string, string | null>>, error: null })
+      : admissions
+          .from(`${prefix}_enrolment_documents`)
+          .select(
+            [
+              'enroleeNumber',
+              ...DOCUMENT_SLOTS.flatMap((s) =>
+                s.expires ? [s.key, `${s.key}Status`, `${s.key}Expiry`] : [s.key, `${s.key}Status`],
+              ),
+            ].join(', '),
+          )
+          .in('enroleeNumber', enrolledNumbers),
   ]);
 
   type DocRow = Record<string, string | null>;
