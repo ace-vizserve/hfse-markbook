@@ -1,5 +1,6 @@
 import { unstable_cache } from 'next/cache';
 
+import { getAyIdByCode } from '@/lib/dashboard/ay-id';
 import { loadActorActivity } from '@/lib/sis/drill';
 import { DOCUMENT_SLOTS, resolveStatus, type DocumentGroup } from '@/lib/p-files/document-config';
 import { STAGE_COLUMN_MAP, STAGE_KEYS, STAGE_LABELS, type StageKey } from '@/lib/schemas/sis';
@@ -524,12 +525,8 @@ async function loadRecordsKpisForRange(input: RangeInput): Promise<RecordsRangeK
   // span every AY whose enrollment_date falls in the range, contaminating
   // the dashboard when multiple AYs coexist (e.g. AY9999 test + AY2026
   // production). When the AY can't be resolved, return zero counts.
-  const { data: ayRow } = await service
-    .from('academic_years')
-    .select('id')
-    .eq('ay_code', input.ayCode)
-    .maybeSingle();
-  const ayId = (ayRow as { id: string } | null)?.id ?? null;
+  // Uses request-scoped cache so parallel helpers share one round-trip.
+  const ayId = await getAyIdByCode(input.ayCode);
 
   if (ayId == null) {
     return {
@@ -677,12 +674,7 @@ async function loadEnrollmentVelocityRangeUncached(
   const earliest = hasCmp && input.cmpFrom! < input.from ? input.cmpFrom! : input.from;
   const latest = hasCmp && input.to < input.cmpTo! ? input.cmpTo! : input.to;
 
-  const { data: ayRow } = await service
-    .from('academic_years')
-    .select('id')
-    .eq('ay_code', input.ayCode)
-    .maybeSingle();
-  const ayId = (ayRow as { id: string } | null)?.id ?? null;
+  const ayId = await getAyIdByCode(input.ayCode);
   if (ayId == null) {
     return {
       current: [],
@@ -752,12 +744,7 @@ async function loadWithdrawalVelocityRangeUncached(
   const earliest = hasCmp && input.cmpFrom! < input.from ? input.cmpFrom! : input.from;
   const latest = hasCmp && input.to < input.cmpTo! ? input.cmpTo! : input.to;
 
-  const { data: ayRow } = await service
-    .from('academic_years')
-    .select('id')
-    .eq('ay_code', input.ayCode)
-    .maybeSingle();
-  const ayId = (ayRow as { id: string } | null)?.id ?? null;
+  const ayId = await getAyIdByCode(input.ayCode);
   if (ayId == null) {
     return {
       current: [],

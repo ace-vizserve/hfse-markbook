@@ -173,20 +173,21 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
     : undefined;
 
   // Role-aware PriorityPanel payload — teacher gets "your open subject sheets",
-  // registrar gets "decisions queued + per-term unlocked sheets".
+  // registrar gets "decisions queued + per-term unlocked sheets". Run in
+  // parallel so navigation doesn't serialise two priority queries.
   const userId = (claims?.sub as string | undefined) ?? null;
   const isTeacher = role === "teacher";
-  const teacherPriority =
+  const [teacherPriority, registrarPriority] = await Promise.all([
     isTeacher && userId && ayCode
-      ? await getMarkbookTeacherPriority({ ayCode, teacherUserId: userId })
-      : null;
-  const registrarPriority =
+      ? getMarkbookTeacherPriority({ ayCode, teacherUserId: userId })
+      : Promise.resolve(null),
     canSeeAdmin && ayCode && kpisResult
-      ? await getMarkbookRegistrarPriority({
+      ? getMarkbookRegistrarPriority({
           ayCode,
           changeRequestsPending: kpisResult.current.changeRequestsPending,
         })
-      : null;
+      : Promise.resolve(null),
+  ]);
 
   const insights = kpisResult
     ? markbookInsights({

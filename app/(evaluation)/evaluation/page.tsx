@@ -106,13 +106,16 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
 
   // Role-aware PriorityPanel payload — teacher gets pending writeups across
   // their advisory sections; registrar gets pending writeups school-wide.
+  // Run in parallel — neither depends on the other.
   const isTeacher = sessionUser.role === "teacher";
-  const teacherPriority =
+  const [teacherPriority, registrarPriority] = await Promise.all([
     isTeacher && ayCode
-      ? await getEvaluationTeacherPriority({ ayCode, teacherUserId: sessionUser.id })
-      : null;
-  const registrarPriority =
-    canToggle && ayCode ? await getEvaluationRegistrarPriority({ ayCode }) : null;
+      ? getEvaluationTeacherPriority({ ayCode, teacherUserId: sessionUser.id })
+      : Promise.resolve(null),
+    canToggle && ayCode
+      ? getEvaluationRegistrarPriority({ ayCode })
+      : Promise.resolve(null),
+  ]);
 
   const insights = kpisResult
     ? evaluationInsights({

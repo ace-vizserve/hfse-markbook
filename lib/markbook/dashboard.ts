@@ -2,6 +2,7 @@ import { unstable_cache } from 'next/cache';
 
 import { createServiceClient } from '@/lib/supabase/service';
 import { loadAssignmentsForUser } from '@/lib/auth/teacher-assignments';
+import { getAyIdByCode } from '@/lib/dashboard/ay-id';
 import type { PriorityPayload } from '@/lib/dashboard/priority';
 import {
   computeDelta,
@@ -230,15 +231,11 @@ async function loadChangeRequestSummaryUncached(
     cancelled: 0,
   };
 
-  // Resolve AY id once. grade_change_requests joins to grading_sheets
-  // joins to sections.academic_year_id; without scoping by AY this query
-  // counts requests from every AY simultaneously.
-  const { data: ayRow } = await service
-    .from('academic_years')
-    .select('id')
-    .eq('ay_code', ayCode)
-    .maybeSingle();
-  const ayId = (ayRow as { id: string } | null)?.id ?? null;
+  // Resolve AY id (request-scoped cache dedupes across helpers).
+  // grade_change_requests joins to grading_sheets joins to
+  // sections.academic_year_id; without scoping by AY this query counts
+  // requests from every AY simultaneously.
+  const ayId = await getAyIdByCode(ayCode);
   if (ayId == null) {
     return { byStatus, total: 0, avgDecisionHours: null, windowDays: days };
   }

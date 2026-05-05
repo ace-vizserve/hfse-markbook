@@ -1,5 +1,6 @@
 import { unstable_cache } from 'next/cache';
 
+import { getAyIdByCode } from '@/lib/dashboard/ay-id';
 import { createServiceClient } from '@/lib/supabase/service';
 import {
   computeDelta,
@@ -331,12 +332,8 @@ async function loadDayTypeDistributionRangeUncached(
   // term_id; without this filter the donut would include calendar rows
   // from every AY whose dates fall in the range (e.g. AY9999 test +
   // AY2026 production overlapping in test environments).
-  const { data: ayRow } = await service
-    .from('academic_years')
-    .select('id')
-    .eq('ay_code', input.ayCode)
-    .maybeSingle();
-  const ayId = (ayRow as { id: string } | null)?.id ?? null;
+  // ayId resolution uses request-scoped cache to dedupe across helpers.
+  const ayId = await getAyIdByCode(input.ayCode);
   if (ayId == null) return [];
 
   const { data: termRows } = await service
