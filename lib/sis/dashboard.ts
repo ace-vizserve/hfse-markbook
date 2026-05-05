@@ -144,9 +144,27 @@ async function loadDocumentValidationBacklogUncached(ayCode: string): Promise<Do
     if (slot.expires) selectCols.add(`${slot.key}Expiry`);
   }
 
+  // Records is enrolled-only per KD #51 — first resolve the set of enrolled
+  // enroleeNumbers, then narrow both the docs + apps fetches to that set.
+  // Without this, the backlog tally counted every Submitted/Cancelled/etc.
+  // row's documents, inflating "missing"/"pending" buckets with funnel
+  // applicants that aren't Records's responsibility.
+  const { data: statusRows, error: statusErr } = await supabase
+    .from(`${prefix}_enrolment_status`)
+    .select('enroleeNumber, applicationStatus')
+    .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']);
+  if (statusErr) {
+    console.error('[sis] getDocumentValidationBacklog status fetch failed:', statusErr.message);
+    return emptyBacklogRows();
+  }
+  const enrolledNumbers = ((statusRows ?? []) as { enroleeNumber: string | null }[])
+    .map((s) => s.enroleeNumber)
+    .filter((v): v is string => v !== null);
+  if (enrolledNumbers.length === 0) return emptyBacklogRows();
+
   // Documents table holds url + status + expiry; conditional columns
   // (fatherEmail / guardianEmail / stpApplicationType) live on the apps row.
-  // Fetch both.
+  // Both narrowed to the enrolled set.
   const [docsRes, appsRes] = await Promise.all([
     supabase
       .from(`${prefix}_enrolment_documents`)
@@ -157,10 +175,12 @@ async function loadDocumentValidationBacklogUncached(ayCode: string): Promise<Do
             s.expires ? [s.key, `${s.key}Status`, `${s.key}Expiry`] : [s.key, `${s.key}Status`],
           ),
         ].join(', '),
-      ),
+      )
+      .in('enroleeNumber', enrolledNumbers),
     supabase
       .from(`${prefix}_enrolment_applications`)
-      .select('enroleeNumber, fatherEmail, guardianEmail, stpApplicationType'),
+      .select('enroleeNumber, fatherEmail, guardianEmail, stpApplicationType')
+      .in('enroleeNumber', enrolledNumbers),
   ]);
 
   if (docsRes.error) {
@@ -271,38 +291,56 @@ export type LevelCount = {
   count: number;
 };
 
-// Counts students per level. Prefers `classLevel` (post-enrollment assignment)
-// and falls back to `levelApplied` (pre-enrollment) when a student hasn't
-// been placed yet. `Unknown` bucket absorbs rows with neither.
+// Counts students per level. Records is enrolled-only per KD #51 — filter
+// to applicationStatus IN ('Enrolled', 'Enrolled (Conditional)') so the
+// donut shows enrolled cohort breakdown, not pre-enrolment funnel volume.
+// Prefers `classLevel` (post-enrollment assignment); falls back to
+// `levelApplied` if the registrar hasn't assigned a class yet.
 async function loadLevelDistributionUncached(ayCode: string): Promise<LevelCount[]> {
   const prefix = prefixFor(ayCode);
   const supabase = createAdmissionsClient();
 
-  const [appsRes, statusRes] = await Promise.all([
-    supabase.from(`${prefix}_enrolment_applications`).select('enroleeNumber, levelApplied'),
-    supabase.from(`${prefix}_enrolment_status`).select('enroleeNumber, classLevel'),
-  ]);
-
-  if (appsRes.error || statusRes.error) {
-    console.error(
-      '[sis] getLevelDistribution fetch failed:',
-      appsRes.error?.message ?? statusRes.error?.message,
-    );
+  const { data: statusRows, error: statusErr } = await supabase
+    .from(`${prefix}_enrolment_status`)
+    .select('enroleeNumber, classLevel, applicationStatus')
+    .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']);
+  if (statusErr) {
+    console.error('[sis] getLevelDistribution status fetch failed:', statusErr.message);
     return [];
   }
 
-  type AppLite = { enroleeNumber: string | null; levelApplied: string | null };
-  type StatusLite = { enroleeNumber: string | null; classLevel: string | null };
+  type StatusLite = {
+    enroleeNumber: string | null;
+    classLevel: string | null;
+    applicationStatus: string | null;
+  };
+  const enrolledRows = (statusRows ?? []) as StatusLite[];
+  const enrolledNumbers = enrolledRows
+    .map((s) => s.enroleeNumber)
+    .filter((v): v is string => v !== null);
+  if (enrolledNumbers.length === 0) return [];
 
   const classLevelByEnrolee = new Map<string, string>();
-  for (const s of (statusRes.data ?? []) as StatusLite[]) {
+  for (const s of enrolledRows) {
     if (s.enroleeNumber && s.classLevel) {
       classLevelByEnrolee.set(s.enroleeNumber, s.classLevel);
     }
   }
 
+  // Fetch the apps row only for enrolled enroleeNumbers — fallback to
+  // levelApplied when classLevel hasn't been assigned yet.
+  const { data: appsRows, error: appsErr } = await supabase
+    .from(`${prefix}_enrolment_applications`)
+    .select('enroleeNumber, levelApplied')
+    .in('enroleeNumber', enrolledNumbers);
+  if (appsErr) {
+    console.error('[sis] getLevelDistribution apps fetch failed:', appsErr.message);
+    return [];
+  }
+
+  type AppLite = { enroleeNumber: string | null; levelApplied: string | null };
   const counts = new Map<string, number>();
-  for (const a of (appsRes.data ?? []) as AppLite[]) {
+  for (const a of (appsRows ?? []) as AppLite[]) {
     const level =
       (a.enroleeNumber && classLevelByEnrolee.get(a.enroleeNumber)) ||
       (a.levelApplied?.trim() || 'Unknown');
@@ -348,6 +386,21 @@ async function loadExpiringDocumentsUncached(
   const prefix = prefixFor(ayCode);
   const supabase = createAdmissionsClient();
 
+  // Records is enrolled-only per KD #51 — narrow to the enrolled set so the
+  // expiring-docs panel doesn't surface pre-enrolment funnel applicants.
+  const { data: statusRows, error: statusErr } = await supabase
+    .from(`${prefix}_enrolment_status`)
+    .select('enroleeNumber, applicationStatus')
+    .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']);
+  if (statusErr) {
+    console.error('[sis] getExpiringDocuments status fetch failed:', statusErr.message);
+    return [];
+  }
+  const enrolledNumbers = ((statusRows ?? []) as { enroleeNumber: string | null }[])
+    .map((s) => s.enroleeNumber)
+    .filter((v): v is string => v !== null);
+  if (enrolledNumbers.length === 0) return [];
+
   const expiringSlots = DOCUMENT_SLOTS.filter((s) => s.expires);
   const selectCols = [
     'enroleeNumber',
@@ -355,10 +408,14 @@ async function loadExpiringDocumentsUncached(
   ].join(', ');
 
   const [docsRes, appsRes] = await Promise.all([
-    supabase.from(`${prefix}_enrolment_documents`).select(selectCols),
+    supabase
+      .from(`${prefix}_enrolment_documents`)
+      .select(selectCols)
+      .in('enroleeNumber', enrolledNumbers),
     supabase
       .from(`${prefix}_enrolment_applications`)
-      .select('enroleeNumber, enroleeFullName, firstName, lastName'),
+      .select('enroleeNumber, enroleeFullName, firstName, lastName')
+      .in('enroleeNumber', enrolledNumbers),
   ]);
 
   if (docsRes.error || appsRes.error) {

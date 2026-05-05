@@ -51,11 +51,26 @@ async function loadCompletionByLevelUncached(ayCode: string): Promise<LevelCompl
   const prefix = prefixFor(ayCode);
   const supabase = createAdmissionsClient();
 
-  const [appsRes, statusRes, docsRes] = await Promise.all([
+  // P-Files is enrolled-only per KD #71 — first resolve the enrolled set so
+  // pre-enrolment funnel applicants don't inflate per-level completion %.
+  const { data: statusRows, error: statusErr } = await supabase
+    .from(`${prefix}_enrolment_status`)
+    .select('enroleeNumber, classLevel, applicationStatus')
+    .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']);
+  if (statusErr) {
+    console.error('[p-files] getCompletionByLevel status fetch failed:', statusErr.message);
+    return [];
+  }
+  const enrolledNumbers = ((statusRows ?? []) as { enroleeNumber: string | null }[])
+    .map((s) => s.enroleeNumber)
+    .filter((v): v is string => v !== null);
+  if (enrolledNumbers.length === 0) return [];
+
+  const [appsRes, docsRes] = await Promise.all([
     supabase
       .from(`${prefix}_enrolment_applications`)
-      .select('enroleeNumber, levelApplied, fatherEmail, guardianEmail, stpApplicationType'),
-    supabase.from(`${prefix}_enrolment_status`).select('enroleeNumber, classLevel'),
+      .select('enroleeNumber, levelApplied, fatherEmail, guardianEmail, stpApplicationType')
+      .in('enroleeNumber', enrolledNumbers),
     supabase
       .from(`${prefix}_enrolment_documents`)
       .select(
@@ -67,13 +82,19 @@ async function loadCompletionByLevelUncached(ayCode: string): Promise<LevelCompl
               : [s.key, `${s.key}Status`],
           ),
         ].join(', '),
-      ),
+      )
+      .in('enroleeNumber', enrolledNumbers),
   ]);
 
-  if (appsRes.error || statusRes.error || docsRes.error) {
+  // Re-shape statusRows into the same Promise.all-style result for the
+  // existing downstream code (kept the variable name `statusRes` to
+  // minimise diff below).
+  const statusRes = { data: statusRows, error: null as null };
+
+  if (appsRes.error || docsRes.error) {
     console.error(
       '[p-files] getCompletionByLevel fetch failed:',
-      appsRes.error?.message ?? statusRes.error?.message ?? docsRes.error?.message,
+      appsRes.error?.message ?? docsRes.error?.message,
     );
     return [];
   }
@@ -488,6 +509,23 @@ export type SlotStatusMix = {
 async function loadSlotStatusMixUncached(ayCode: string): Promise<SlotStatusMix> {
   const prefix = prefixFor(ayCode);
   const admissions = createAdmissionsClient();
+  // P-Files is enrolled-only per KD #71 — narrow the docs query to the
+  // enrolled set so the donut shows actual on-file vs expired distribution
+  // for the renewal cohort, not inflated counts that include pre-enrolment
+  // funnel rows.
+  const { data: statusRows, error: statusErr } = await admissions
+    .from(`${prefix}_enrolment_status`)
+    .select('enroleeNumber, applicationStatus')
+    .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']);
+  if (statusErr) {
+    console.error('[p-files] getSlotStatusMix status fetch failed:', statusErr.message);
+    return { valid: 0, pending: 0, rejected: 0, missing: 0 };
+  }
+  const enrolledNumbers = ((statusRows ?? []) as { enroleeNumber: string | null }[])
+    .map((s) => s.enroleeNumber)
+    .filter((v): v is string => v !== null);
+  if (enrolledNumbers.length === 0) return { valid: 0, pending: 0, rejected: 0, missing: 0 };
+
   const { data } = await admissions
     .from(`${prefix}_enrolment_documents`)
     .select(
@@ -497,7 +535,8 @@ async function loadSlotStatusMixUncached(ayCode: string): Promise<SlotStatusMix>
           s.expires ? [s.key, `${s.key}Status`, `${s.key}Expiry`] : [s.key, `${s.key}Status`],
         ),
       ].join(', '),
-    );
+    )
+    .in('enroleeNumber', enrolledNumbers);
   type Row = Record<string, string | null>;
   const mix: SlotStatusMix = { valid: 0, pending: 0, rejected: 0, missing: 0 };
   for (const row of ((data ?? []) as unknown as Row[])) {
