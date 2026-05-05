@@ -1,6 +1,7 @@
 import { unstable_cache } from 'next/cache';
 
 import { getTeacherEmailMap } from '@/lib/auth/teacher-emails';
+import { applyDateRangeFilter } from '@/lib/dashboard/drill-range';
 import { createServiceClient } from '@/lib/supabase/service';
 
 // Evaluation drill primitives — single row shape (WriteupRow). Simpler than
@@ -350,11 +351,11 @@ export type BuildDrillRowsInput = DrillRangeInput & {
 };
 
 function applyScope(rows: WriteupRow[], input: DrillRangeInput): WriteupRow[] {
-  if (input.scope !== 'range' || !input.from || !input.to) return rows;
-  return rows.filter((r) => {
-    if (!r.submittedAt) return true; // include missing/drafts in range view
-    const d = r.submittedAt.slice(0, 10);
-    return d >= input.from! && d <= input.to!;
+  // Drafts / never-submitted writeups always pass — they're "in progress"
+  // and a date-range view should still surface them.
+  return applyDateRangeFilter(rows, input, (r) => r.submittedAt, {
+    caller: 'evaluation/drill',
+    includeMissingDate: true,
   });
 }
 

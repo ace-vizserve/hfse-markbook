@@ -1,5 +1,6 @@
 import { unstable_cache } from 'next/cache';
 
+import { applyDateRangeFilter } from '@/lib/dashboard/drill-range';
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
 
 // Drill-down primitives shared across every Admissions drill target.
@@ -285,14 +286,11 @@ async function enrichWithDocs(rows: DrillRow[], ayCode: string): Promise<DrillRo
 }
 
 function applyScopeFilter(rows: DrillRow[], input: DrillRangeInput): DrillRow[] {
-  if (input.scope !== 'range') return rows;
-  const from = input.from;
-  const to = input.to;
-  if (!from || !to) return rows;
-  return rows.filter((r) => {
-    if (!r.applicationDate) return false;
-    const d = r.applicationDate.slice(0, 10);
-    return d >= from && d <= to;
+  // Admissions excludes rows missing applicationDate — an application
+  // without a date is malformed and shouldn't appear in a range view.
+  return applyDateRangeFilter(rows, input, (r) => r.applicationDate, {
+    caller: 'admissions/drill',
+    includeMissingDate: false,
   });
 }
 

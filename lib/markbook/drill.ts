@@ -1,6 +1,7 @@
 import { unstable_cache } from 'next/cache';
 
 import { getTeacherEmailMap } from '@/lib/auth/teacher-emails';
+import { applyDateRangeFilter } from '@/lib/dashboard/drill-range';
 import { createServiceClient } from '@/lib/supabase/service';
 
 // Markbook drill-down primitives — sibling of `lib/admissions/drill.ts`.
@@ -731,22 +732,23 @@ function applyScopeFilter(
   kind: MarkbookDrillRowKind,
   input: DrillRangeInput,
 ): MarkbookDrillRow[] {
-  if (input.scope !== 'range') return rows;
-  const from = input.from;
-  const to = input.to;
-  if (!from || !to) return rows;
   if (kind === 'entry') {
-    return (rows as GradeEntryRow[]).filter((r) => {
-      const d = r.enteredAt.slice(0, 10);
-      return d >= from && d <= to;
-    }) as MarkbookDrillRow[];
+    return applyDateRangeFilter(
+      rows as GradeEntryRow[],
+      input,
+      (r) => r.enteredAt,
+      { caller: 'markbook/drill:entry' },
+    ) as MarkbookDrillRow[];
   }
   if (kind === 'sheet') {
-    // For sheets, "in range" = lockedAt OR publishedAt in range. If neither,
-    // include only when scope explicitly requests "range" and one of the
-    // timestamps fell into it. We default to including unlocked, unpublished
-    // sheets in 'range' too — they remain visible when nothing has happened
-    // yet, matching how operators think about a "what's in this range" view.
+    // Sheet "in range" = lockedAt OR publishedAt in range. Unlocked +
+    // unpublished sheets always pass — they remain visible when nothing
+    // has happened yet, matching how operators think about "what's in
+    // this range." Custom OR-logic doesn't fit applyDateRangeFilter; the
+    // missing-range guard is replicated here.
+    if (input.scope !== 'range' || !input.from || !input.to) return rows;
+    const from = input.from;
+    const to = input.to;
     return (rows as SheetRow[]).filter((r) => {
       if (!r.lockedAt && !r.publishedAt) return true;
       const lockIn = r.lockedAt && r.lockedAt.slice(0, 10) >= from && r.lockedAt.slice(0, 10) <= to;
@@ -755,10 +757,12 @@ function applyScopeFilter(
     }) as MarkbookDrillRow[];
   }
   // change-request
-  return (rows as ChangeRequestRow[]).filter((r) => {
-    const d = r.requestedAt.slice(0, 10);
-    return d >= from && d <= to;
-  }) as MarkbookDrillRow[];
+  return applyDateRangeFilter(
+    rows as ChangeRequestRow[],
+    input,
+    (r) => r.requestedAt,
+    { caller: 'markbook/drill:change-request' },
+  ) as MarkbookDrillRow[];
 }
 
 // Teacher-scope filter — for non-registrar+ users, narrow rows to sections in

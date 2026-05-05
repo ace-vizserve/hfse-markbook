@@ -327,6 +327,25 @@ async function loadDayTypeDistributionRangeUncached(
   input: RangeInput,
 ): Promise<DayTypePoint[]> {
   const service = createServiceClient();
+  // Resolve the AY's term ids first. school_calendar rows are scoped via
+  // term_id; without this filter the donut would include calendar rows
+  // from every AY whose dates fall in the range (e.g. AY9999 test +
+  // AY2026 production overlapping in test environments).
+  const { data: ayRow } = await service
+    .from('academic_years')
+    .select('id')
+    .eq('ay_code', input.ayCode)
+    .maybeSingle();
+  const ayId = (ayRow as { id: string } | null)?.id ?? null;
+  if (ayId == null) return [];
+
+  const { data: termRows } = await service
+    .from('terms')
+    .select('id')
+    .eq('academic_year_id', ayId);
+  const termIds = ((termRows ?? []) as Array<{ id: string }>).map((t) => t.id);
+  if (termIds.length === 0) return [];
+
   // Filter to the school-wide baseline (`audience='all'`) so the donut
   // counts each calendar date exactly once. Migration 037 (KD #76) lets
   // primary + secondary each have their own row for the same date; without
@@ -337,6 +356,7 @@ async function loadDayTypeDistributionRangeUncached(
   const { data } = await service
     .from('school_calendar')
     .select('day_type, date')
+    .in('term_id', termIds)
     .eq('audience', 'all')
     .gte('date', input.from)
     .lte('date', input.to);

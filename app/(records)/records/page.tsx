@@ -329,9 +329,9 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
           />
           <SummaryStat
             label="Doc expiring ≤ 60d"
-            value={expiring.length}
+            value={kpisResult.current.expiringSoon}
             icon={History}
-            footnote="Per-student, top 8 shown"
+            footnote="Across all enrolled students"
           />
         </div>
       </section>

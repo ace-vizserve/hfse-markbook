@@ -1,5 +1,6 @@
 import { unstable_cache } from 'next/cache';
 
+import { applyDateRangeFilter } from '@/lib/dashboard/drill-range';
 import { createServiceClient } from '@/lib/supabase/service';
 
 // Attendance drill primitives — sibling of `lib/markbook/drill.ts`.
@@ -510,12 +511,12 @@ function applyScopeFilter<T extends { attendanceDate?: string; date?: string }>(
   rows: T[],
   input: DrillRangeInput,
 ): T[] {
-  if (input.scope !== 'range' || !input.from || !input.to) return rows;
-  return rows.filter((r) => {
-    const d = (r.attendanceDate ?? r.date ?? '').slice(0, 10);
-    if (!d) return true;
-    return d >= input.from! && d <= input.to!;
-  });
+  return applyDateRangeFilter(
+    rows,
+    input,
+    (r) => r.attendanceDate ?? r.date ?? null,
+    { caller: 'attendance/drill' },
+  );
 }
 
 export async function buildAttendanceDrillRows(

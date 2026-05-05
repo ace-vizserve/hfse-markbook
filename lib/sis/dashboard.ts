@@ -519,31 +519,57 @@ async function loadRecordsKpisForRange(input: RangeInput): Promise<RecordsRangeK
   const admissions = createAdmissionsClient();
   const prefix = prefixFor(input.ayCode);
 
+  // Resolve AY id once. `section_students` has no `academic_year_id` column
+  // — AY-scoping requires a `sections!inner` join. Without this, counts
+  // span every AY whose enrollment_date falls in the range, contaminating
+  // the dashboard when multiple AYs coexist (e.g. AY9999 test + AY2026
+  // production). When the AY can't be resolved, return zero counts.
+  const { data: ayRow } = await service
+    .from('academic_years')
+    .select('id')
+    .eq('ay_code', input.ayCode)
+    .maybeSingle();
+  const ayId = (ayRow as { id: string } | null)?.id ?? null;
+
+  if (ayId == null) {
+    return {
+      enrollmentsInRange: 0,
+      lateEnroleesInRange: 0,
+      withdrawalsInRange: 0,
+      activeEnrolled: 0,
+      expiringSoon: 0,
+    };
+  }
+
   // KD #68: late enrollees are real new enrollments tagged for term-of-entry
   // visibility — count them in both `enrollmentsInRange` (so the headline
   // KPI is honest) and `lateEnroleesInRange` (so the breakdown surfaces).
   const [enrolRes, lateRes, withdrawRes, activeRes, docsRes] = await Promise.all([
     service
       .from('section_students')
-      .select('id', { count: 'exact', head: true })
+      .select('id, sections!inner(academic_year_id)', { count: 'exact', head: true })
+      .eq('sections.academic_year_id', ayId)
       .in('enrollment_status', ['active', 'late_enrollee'])
       .gte('enrollment_date', input.from)
       .lte('enrollment_date', input.to),
     service
       .from('section_students')
-      .select('id', { count: 'exact', head: true })
+      .select('id, sections!inner(academic_year_id)', { count: 'exact', head: true })
+      .eq('sections.academic_year_id', ayId)
       .eq('enrollment_status', 'late_enrollee')
       .gte('enrollment_date', input.from)
       .lte('enrollment_date', input.to),
     service
       .from('section_students')
-      .select('id', { count: 'exact', head: true })
+      .select('id, sections!inner(academic_year_id)', { count: 'exact', head: true })
+      .eq('sections.academic_year_id', ayId)
       .eq('enrollment_status', 'withdrawn')
       .gte('withdrawal_date', input.from)
       .lte('withdrawal_date', input.to),
     service
       .from('section_students')
-      .select('id', { count: 'exact', head: true })
+      .select('id, sections!inner(academic_year_id)', { count: 'exact', head: true })
+      .eq('sections.academic_year_id', ayId)
       .in('enrollment_status', ['active', 'late_enrollee']),
     admissions
       .from(`${prefix}_enrolment_documents`)
@@ -651,10 +677,30 @@ async function loadEnrollmentVelocityRangeUncached(
   const earliest = hasCmp && input.cmpFrom! < input.from ? input.cmpFrom! : input.from;
   const latest = hasCmp && input.to < input.cmpTo! ? input.cmpTo! : input.to;
 
+  const { data: ayRow } = await service
+    .from('academic_years')
+    .select('id')
+    .eq('ay_code', input.ayCode)
+    .maybeSingle();
+  const ayId = (ayRow as { id: string } | null)?.id ?? null;
+  if (ayId == null) {
+    return {
+      current: [],
+      comparison: null,
+      delta: null,
+      range: { from: input.from, to: input.to },
+      comparisonRange: null,
+    };
+  }
+
+  // KD #68: late enrollees are real enrollments — include them so the
+  // velocity chart aligns with the New Enrollments KPI. AY-scope via
+  // sections!inner so counts don't span other AYs.
   const { data } = await service
     .from('section_students')
-    .select('enrollment_date')
-    .eq('enrollment_status', 'active')
+    .select('enrollment_date, sections!inner(academic_year_id)')
+    .eq('sections.academic_year_id', ayId)
+    .in('enrollment_status', ['active', 'late_enrollee'])
     .gte('enrollment_date', earliest)
     .lte('enrollment_date', latest);
 
@@ -706,9 +752,27 @@ async function loadWithdrawalVelocityRangeUncached(
   const earliest = hasCmp && input.cmpFrom! < input.from ? input.cmpFrom! : input.from;
   const latest = hasCmp && input.to < input.cmpTo! ? input.cmpTo! : input.to;
 
+  const { data: ayRow } = await service
+    .from('academic_years')
+    .select('id')
+    .eq('ay_code', input.ayCode)
+    .maybeSingle();
+  const ayId = (ayRow as { id: string } | null)?.id ?? null;
+  if (ayId == null) {
+    return {
+      current: [],
+      comparison: null,
+      delta: null,
+      range: { from: input.from, to: input.to },
+      comparisonRange: null,
+    };
+  }
+
+  // AY-scope via sections!inner so counts don't span other AYs.
   const { data } = await service
     .from('section_students')
-    .select('withdrawal_date')
+    .select('withdrawal_date, sections!inner(academic_year_id)')
+    .eq('sections.academic_year_id', ayId)
     .eq('enrollment_status', 'withdrawn')
     .gte('withdrawal_date', earliest)
     .lte('withdrawal_date', latest);

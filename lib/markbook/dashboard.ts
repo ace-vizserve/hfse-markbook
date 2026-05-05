@@ -213,6 +213,7 @@ export type ChangeRequestSummary = {
 };
 
 async function loadChangeRequestSummaryUncached(
+  ayCode: string,
   days: number,
 ): Promise<ChangeRequestSummary> {
   const service = createServiceClient();
@@ -221,11 +222,6 @@ async function loadChangeRequestSummaryUncached(
   since.setDate(since.getDate() - days);
   const sinceIso = since.toISOString();
 
-  const { data, error } = await service
-    .from('grade_change_requests')
-    .select('status, requested_at, reviewed_at')
-    .gte('requested_at', sinceIso);
-
   const byStatus: Record<ChangeRequestStatus, number> = {
     pending: 0,
     approved: 0,
@@ -233,6 +229,27 @@ async function loadChangeRequestSummaryUncached(
     applied: 0,
     cancelled: 0,
   };
+
+  // Resolve AY id once. grade_change_requests joins to grading_sheets
+  // joins to sections.academic_year_id; without scoping by AY this query
+  // counts requests from every AY simultaneously.
+  const { data: ayRow } = await service
+    .from('academic_years')
+    .select('id')
+    .eq('ay_code', ayCode)
+    .maybeSingle();
+  const ayId = (ayRow as { id: string } | null)?.id ?? null;
+  if (ayId == null) {
+    return { byStatus, total: 0, avgDecisionHours: null, windowDays: days };
+  }
+
+  const { data, error } = await service
+    .from('grade_change_requests')
+    .select(
+      'status, requested_at, reviewed_at, grading_sheets!inner(sections!inner(academic_year_id))',
+    )
+    .eq('grading_sheets.sections.academic_year_id', ayId)
+    .gte('requested_at', sinceIso);
 
   if (error) {
     console.error('[markbook] getChangeRequestSummary fetch failed:', error.message);
@@ -270,14 +287,15 @@ async function loadChangeRequestSummaryUncached(
   return { byStatus, total, avgDecisionHours, windowDays: days };
 }
 
-const loadChangeRequestSummary = unstable_cache(
-  loadChangeRequestSummaryUncached,
-  ['markbook', 'change-request-summary'],
-  { tags: ['markbook'], revalidate: CACHE_TTL_SECONDS },
-);
-
-export function getChangeRequestSummary(days: number = 30): Promise<ChangeRequestSummary> {
-  return loadChangeRequestSummary(days);
+export function getChangeRequestSummary(
+  ayCode: string,
+  days: number = 30,
+): Promise<ChangeRequestSummary> {
+  return unstable_cache(
+    loadChangeRequestSummaryUncached,
+    ['markbook', 'change-request-summary', ayCode, String(days)],
+    { tags: ['markbook'], revalidate: CACHE_TTL_SECONDS },
+  )(ayCode, days);
 }
 
 // ──────────────────────────────────────────────────────────────────────────
