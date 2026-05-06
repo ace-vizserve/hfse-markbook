@@ -74,13 +74,11 @@ export default async function SisCalendarPage({
   const selectedTerm = terms.find((t) => t.id === defaultTermId) ?? null;
   const selectedTermHasDates =
     !!selectedTerm && !!selectedTerm.start_date && !!selectedTerm.end_date;
-  let calendar = selectedTerm ? await getSchoolCalendarForTerm(selectedTerm.id, audience) : [];
-
-  // Auto-seed: every weekday in the term is a school day by default. The
-  // allowlist-model backend needs rows to exist, but the registrar never
-  // sees the seeding step — it happens silently on first visit. Seeded
-  // rows always land at audience='all'.
-  if (selectedTerm && selectedTermHasDates && calendar.length === 0) {
+  // Auto-seed every visit: every weekday in the term is a school day by
+  // default. ensureTermSeeded is idempotent — it inserts only the dates
+  // missing from school_calendar, so existing overrides (public_holiday,
+  // hbl, etc.) are preserved and partially-seeded terms get backfilled.
+  if (selectedTerm && selectedTermHasDates) {
     const inserted = await ensureTermSeeded(
       selectedTerm.id,
       selectedTerm.start_date as string,
@@ -100,9 +98,11 @@ export default async function SisCalendarPage({
           inserted,
         },
       });
-      calendar = await getSchoolCalendarForTerm(selectedTerm.id, audience);
     }
   }
+  const calendar = selectedTerm
+    ? await getSchoolCalendarForTerm(selectedTerm.id, audience)
+    : [];
 
   const events = selectedTerm ? await getCalendarEventsForTerm(selectedTerm.id, audience) : [];
 

@@ -303,14 +303,19 @@ export function shiftYearPreserveMonthDay(iso: string, targetYear: number): stri
   return `${targetYear}-${pad(month)}-${pad(day)}`;
 }
 
-// Idempotent auto-seed: if a term has zero school_calendar rows, insert
-// one row per weekday in [startIso, endIso] with day_type='school_day'
-// and audience='all'. Returns the number of rows actually inserted (0 if
-// the term already had rows, or if the term has no weekdays in the range).
+// Idempotent auto-seed: backfills missing school_day rows for every
+// weekday in [startIso, endIso]. Existing rows (overrides like
+// public_holiday / hbl / etc.) are preserved by the upsert's
+// ignoreDuplicates against the (term_id, audience, date) unique key.
+// Returns the number of rows actually inserted.
 //
 // Called from the calendar admin page RSC on every visit so the registrar
-// never sees an empty allowlist. Safe under concurrent loads thanks to the
-// ignoreDuplicates upsert.
+// never sees an empty allowlist — the prior count>0 early-bail meant a
+// partially-seeded term (e.g. a few HBL rows but no school_day rows for
+// the rest of the term) would silently leave the calendar sparse, and
+// the report card's school-days denominator would collapse to 0/1
+// because `getEncodableDatesForTerm` counts only rows that actually
+// exist. Idempotent under concurrent loads.
 export async function ensureTermSeeded(
   termId: string,
   startIso: string,
@@ -318,12 +323,6 @@ export async function ensureTermSeeded(
   userId: string,
 ): Promise<number> {
   const service = createServiceClient();
-
-  const { count: existing } = await service
-    .from('school_calendar')
-    .select('*', { count: 'exact', head: true })
-    .eq('term_id', termId);
-  if ((existing ?? 0) > 0) return 0;
 
   const dates = weekdaysBetween(startIso, endIso);
   if (dates.length === 0) return 0;

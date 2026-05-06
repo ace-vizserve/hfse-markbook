@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarOff, CalendarPlus, CheckCheck, ChevronLeft, ChevronRight, Loader2, Trash2, X } from "lucide-react";
+import { CalendarOff, CalendarPlus, CheckCheck, ChevronLeft, ChevronRight, Loader2, Pencil, Trash2, X } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -175,6 +175,7 @@ export function CalendarAdminClient({
 
   const [dateDialogIso, setDateDialogIso] = useState<string | null>(null);
   const [addEventOpen, setAddEventOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<CalendarEventRow | null>(null);
   const [tentativeOnly, setTentativeOnly] = useState(false);
 
   // Multi-select bulk-classify flow. When `multiSelect` is true, clicking a
@@ -602,6 +603,7 @@ export function CalendarAdminClient({
         <EventsPanel
           events={visibleEvents}
           busy={busy}
+          onEdit={(event) => setEditingEvent(event)}
           onConfirmDates={confirmEventDates}
           onDelete={async (id) => {
             setBusy(true);
@@ -647,14 +649,19 @@ export function CalendarAdminClient({
       />
 
       <AddEventDialog
-        open={addEventOpen}
+        open={addEventOpen || editingEvent !== null}
         termId={selectedTerm?.id ?? ""}
         termStart={selectedTerm?.startDate ?? ""}
         termEnd={selectedTerm?.endDate ?? ""}
         defaultAudience={audience}
-        onClose={() => setAddEventOpen(false)}
+        editing={editingEvent}
+        onClose={() => {
+          setAddEventOpen(false);
+          setEditingEvent(null);
+        }}
         onCreated={() => {
           setAddEventOpen(false);
+          setEditingEvent(null);
           router.refresh();
         }}
       />
@@ -1718,6 +1725,7 @@ function AddEventDialog({
   termStart,
   termEnd,
   defaultAudience,
+  editing,
   onClose,
   onCreated,
 }: {
@@ -1726,9 +1734,12 @@ function AddEventDialog({
   termStart: string;
   termEnd: string;
   defaultAudience: Audience;
+  /** When set, the dialog edits this event (PATCH) instead of creating one (POST). */
+  editing: CalendarEventRow | null;
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const isEdit = editing !== null;
   const [start, setStart] = useState(termStart);
   const [end, setEnd] = useState(termEnd);
   const [label, setLabel] = useState("");
@@ -1737,21 +1748,33 @@ function AddEventDialog({
   const [tentative, setTentative] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Reset when the dialog opens for a new term.
-  const key = `${termId}-${termStart}-${termEnd}-${defaultAudience}`;
+  // Reset when the dialog opens — values come from `editing` in edit mode,
+  // or from term defaults in create mode.
+  const key = isEdit
+    ? `edit:${editing.id}`
+    : `new:${termId}-${termStart}-${termEnd}-${defaultAudience}`;
   const [initKey, setInitKey] = useState<string | null>(null);
   if (open && initKey !== key) {
     setInitKey(key);
-    setStart(termStart);
-    setEnd(termEnd);
-    setLabel("");
-    setCategory("school_event");
-    setEventAudience(defaultAudience);
-    setTentative(false);
+    if (isEdit) {
+      setStart(editing.startDate);
+      setEnd(editing.endDate);
+      setLabel(editing.label);
+      setCategory(editing.category);
+      setEventAudience(editing.audience);
+      setTentative(editing.tentative);
+    } else {
+      setStart(termStart);
+      setEnd(termEnd);
+      setLabel("");
+      setCategory("school_event");
+      setEventAudience(defaultAudience);
+      setTentative(false);
+    }
   }
   if (!open && initKey !== null) setInitKey(null);
 
-  async function create() {
+  async function save() {
     if (!label.trim()) {
       toast.error("Label is required");
       return;
@@ -1763,24 +1786,36 @@ function AddEventDialog({
     setSaving(true);
     try {
       const res = await fetch("/api/attendance/calendar/events", {
-        method: "POST",
+        method: isEdit ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          termId,
-          startDate: start,
-          endDate: end,
-          label: label.trim(),
-          category,
-          audience: eventAudience,
-          tentative,
-        }),
+        body: JSON.stringify(
+          isEdit
+            ? {
+                id: editing.id,
+                startDate: start,
+                endDate: end,
+                label: label.trim(),
+                category,
+                audience: eventAudience,
+                tentative,
+              }
+            : {
+                termId,
+                startDate: start,
+                endDate: end,
+                label: label.trim(),
+                category,
+                audience: eventAudience,
+                tentative,
+              },
+        ),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ?? "create failed");
-      toast.success("Event added");
+      if (!res.ok) throw new Error(body?.error ?? (isEdit ? "update failed" : "create failed"));
+      toast.success(isEdit ? "Event updated" : "Event added");
       onCreated();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "create failed");
+      toast.error(e instanceof Error ? e.message : isEdit ? "update failed" : "create failed");
     } finally {
       setSaving(false);
     }
@@ -1790,11 +1825,13 @@ function AddEventDialog({
     <Dialog open={open} onOpenChange={(next) => (!next ? onClose() : null)}>
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
-          <DialogTitle className="font-serif text-[18px] font-semibold tracking-tight">Add a date range</DialogTitle>
+          <DialogTitle className="font-serif text-[18px] font-semibold tracking-tight">
+            {isEdit ? "Edit date range" : "Add a date range"}
+          </DialogTitle>
           <DialogDescription>
-            Adds a colored event chip across the matching dates. Doesn&apos;t block attendance — teachers
-            still mark students as usual. Pick a category to color-code (term exams, subject weeks,
-            parents dialogue, etc.).
+            {isEdit
+              ? "Update the event's dates, label, category, audience, or tentative flag. Changes apply immediately."
+              : "Adds a colored event chip across the matching dates. Doesn't block attendance — teachers still mark students as usual. Pick a category to color-code (term exams, subject weeks, parents dialogue, etc.)."}
           </DialogDescription>
         </DialogHeader>
 
@@ -1819,7 +1856,7 @@ function AddEventDialog({
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !saving) {
                   e.preventDefault();
-                  create();
+                  save();
                 }
               }}
             />
@@ -1866,9 +1903,9 @@ function AddEventDialog({
           <Button type="button" variant="outline" size="sm" disabled={saving} onClick={onClose}>
             Cancel
           </Button>
-          <Button type="button" size="sm" disabled={saving} onClick={create}>
+          <Button type="button" size="sm" disabled={saving} onClick={save}>
             {saving ? <Loader2 className="size-3.5 animate-spin" /> : null}
-            Save
+            {isEdit ? "Update" : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1879,11 +1916,13 @@ function AddEventDialog({
 function EventsPanel({
   events,
   busy,
+  onEdit,
   onDelete,
   onConfirmDates,
 }: {
   events: CalendarEventRow[];
   busy: boolean;
+  onEdit: (event: CalendarEventRow) => void;
   onDelete: (id: string) => Promise<void>;
   onConfirmDates: (id: string) => Promise<void>;
 }) {
@@ -1943,6 +1982,16 @@ function EventsPanel({
                     Confirm dates
                   </Button>
                 )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => onEdit(e)}
+                  className="gap-1">
+                  <Pencil className="size-3.5" />
+                  Edit
+                </Button>
                 <Button
                   type="button"
                   size="sm"
