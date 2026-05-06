@@ -252,22 +252,29 @@ export function DrillDownSheet<T>({
   // headers with rows of variable height, which is awkward to virtualize
   // cleanly; group views are typically smaller anyway (rows partitioned
   // by level/status/stage), so flat render stays acceptable.
-  const tableContainerRef = React.useRef<HTMLDivElement>(null);
+  //
+  // Scroll element is tracked via callback ref + useState (NOT useRef) so
+  // that mount/unmount cycles inside the Radix Sheet portal force a
+  // re-render. Without this the virtualizer holds a stale scrollElement
+  // across Sheet close→reopen — _willUpdate never re-fires because
+  // DrillDownSheet doesn't re-render on its own — and virtualItems stays
+  // empty even though the row data is intact.
+  const [scrollEl, setScrollEl] = React.useState<HTMLDivElement | null>(null);
+  const setScrollRef = React.useCallback((el: HTMLDivElement | null) => {
+    setScrollEl(el);
+  }, []);
   const isCompact = density === 'compact';
   const estimatedRowHeight = isCompact ? 32 : 48;
   const useVirtualization = !grouped;
 
   const rowVirtualizer = useVirtualizer({
     count: useVirtualization ? visibleRows.length : 0,
-    getScrollElement: () => tableContainerRef.current,
+    getScrollElement: () => scrollEl,
     estimateSize: () => estimatedRowHeight,
     overscan: 8,
     // Defensive default so the first render produces virtual items even
-    // before the scroll container has been measured. Without this, the
-    // virtualizer's `outerSize === 0` branch returns `range = null` →
-    // `virtualItems = []` → empty body until a re-render is triggered
-    // (e.g. by a sort click). The fallback is replaced by real measurements
-    // as soon as `_willUpdate`'s ResizeObserver fires.
+    // before the scroll container has been measured. Real measurements
+    // replace the fallback as soon as _willUpdate's ResizeObserver fires.
     initialRect: { width: 700, height: 500 },
   });
 
@@ -474,7 +481,7 @@ export function DrillDownSheet<T>({
 
       {/* Table */}
       <div
-        ref={tableContainerRef}
+        ref={setScrollRef}
         className="flex-1 overflow-auto px-6 py-4"
       >
         {visibleRows.length === 0 ? (

@@ -95,6 +95,14 @@ function ComparisonBarChartImpl({
               tickLine={false}
               axisLine={false}
               interval={0}
+              // Tilt category labels so longer level / status names don't
+              // collide on charts with 6+ buckets (e.g. "Applications by
+              // level", "Documents collected by level"). Anchor at the end
+              // of the rotated text + reserve enough axis height to avoid
+              // clipping.
+              angle={-30}
+              textAnchor="end"
+              height={56}
             />
             <YAxis
               tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}

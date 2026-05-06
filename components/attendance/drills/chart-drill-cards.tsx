@@ -251,6 +251,9 @@ export function TopAbsentDrillCard({
               </TabsList>
             </Tabs>
             <Button asChild variant="outline" size="sm">
+              <a href="/attendance/sections">Mark today's attendance</a>
+            </Button>
+            <Button asChild variant="outline" size="sm">
               <a href={csvHref} download>Export CSV</a>
             </Button>
             <Button variant="outline" size="sm" onClick={() => setOpen(true)}>

@@ -666,9 +666,21 @@ export function applyTargetFilter(
         return isOther ? r.exReason == null : r.exReason === segment.toLowerCase();
       }) as AttendanceDrillRow[];
     }
-    case 'day-type':
+    case 'day-type': {
       if (!segment) return rows;
-      return (rows as CalendarDayRow[]).filter((r) => r.dayType === segment) as AttendanceDrillRow[];
+      // Day-type donut sends the human-readable LABEL as segment
+      // (e.g. 'School day'), but `r.dayType` stores the raw DB enum value
+      // (e.g. 'school_day'). Reverse-lookup so segment clicks match.
+      const labelToEnum: Record<string, string> = {
+        'School day': 'school_day',
+        'HBL': 'hbl',
+        'Public holiday': 'public_holiday',
+        'School holiday': 'school_holiday',
+        'No class': 'no_class',
+      };
+      const target = labelToEnum[segment] ?? segment;
+      return (rows as CalendarDayRow[]).filter((r) => r.dayType === target) as AttendanceDrillRow[];
+    }
     case 'top-absent':
       return rows;
     case 'top-active': {
@@ -765,17 +777,17 @@ export function drillHeaderForTarget(
   segment: string | null,
 ): { eyebrow: string; title: string } {
   switch (target) {
-    case 'attendance-summary': return { eyebrow: 'Drill · Attendance', title: 'Encoded entries in scope' };
-    case 'lates': return { eyebrow: 'Drill · Late', title: 'Late entries' };
-    case 'excused': return { eyebrow: 'Drill · Excused', title: 'Excused entries' };
-    case 'absent': return { eyebrow: 'Drill · Absent', title: 'Absent entries' };
-    case 'daily-attendance-day': return { eyebrow: 'Drill · Daily', title: segment ? `Entries on ${segment}` : 'Daily entries' };
-    case 'ex-reason': return { eyebrow: 'Drill · EX reason', title: segment ? `EX reason: ${segment}` : 'Excused breakdown' };
-    case 'day-type': return { eyebrow: 'Drill · Calendar', title: segment ? `Day type: ${segment}` : 'Calendar make-up' };
-    case 'top-absent': return { eyebrow: 'Drill · Needs attention', title: 'Top-absent students' };
-    case 'top-active': return { eyebrow: 'Drill · Needs attention', title: 'Top-active students' };
-    case 'attendance-by-section': return { eyebrow: 'Drill · By section', title: 'Attendance by section' };
-    case 'compassionate-quota': return { eyebrow: 'Drill · Compassionate', title: 'Compassionate quota usage' };
+    case 'attendance-summary': return { eyebrow: 'Attendance', title: 'All daily attendance marks for this date range' };
+    case 'lates': return { eyebrow: 'Attendance', title: 'Students who arrived late on each date' };
+    case 'excused': return { eyebrow: 'Attendance', title: 'Excused absences (with reason category)' };
+    case 'absent': return { eyebrow: 'Attendance', title: 'Students absent on each date' };
+    case 'daily-attendance-day': return { eyebrow: 'Attendance', title: segment ? `Attendance on ${segment}` : 'Daily attendance' };
+    case 'ex-reason': return { eyebrow: 'Attendance', title: segment ? `Excused absences — reason: ${segment}` : 'Excused absences by reason' };
+    case 'day-type': return { eyebrow: 'School calendar', title: segment ? `Calendar days — type: ${segment}` : 'School calendar by day type' };
+    case 'top-absent': return { eyebrow: 'Needs attention', title: 'Students with the most absences' };
+    case 'top-active': return { eyebrow: 'Needs attention', title: 'Students with the best attendance' };
+    case 'attendance-by-section': return { eyebrow: 'Attendance', title: 'Attendance percentage by section' };
+    case 'compassionate-quota': return { eyebrow: 'Attendance', title: 'Compassionate-leave quota usage by student' };
     default: return { eyebrow: 'Drill', title: 'Attendance' };
   }
 }

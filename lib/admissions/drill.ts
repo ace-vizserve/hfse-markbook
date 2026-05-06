@@ -331,9 +331,35 @@ async function enrichWithDocs(rows: DrillRow[], ayCode: string): Promise<DrillRo
   });
 }
 
-function applyScopeFilter(rows: DrillRow[], input: DrillRangeInput): DrillRow[] {
-  // Admissions excludes rows missing applicationDate — an application
-  // without a date is malformed and shouldn't appear in a range view.
+function applyScopeFilter(
+  rows: DrillRow[],
+  input: DrillRangeInput,
+  target?: DrillTarget,
+): DrillRow[] {
+  // Different drill targets anchor the date range to different timestamps
+  // — pick the anchor that matches the chart whose segment was clicked.
+  //
+  //   - 'enrolled' / 'avg-time': enrollmentDate (the KPI counts enrolments
+  //     completed in the range, not applications submitted in the range).
+  //   - 'time-to-enroll-bucket': AY-wide (no date filter) — the chart's
+  //     histogram is computed over the whole AY's enrolled cohort.
+  //   - everything else: applicationDate (the canonical "which applications
+  //     entered the funnel in this window" anchor).
+  //
+  // Without these per-target overrides the chart would show non-zero
+  // counts but the drill would open empty when no row's applicationDate
+  // happens to land in the picker window even though the chart's anchor
+  // does.
+  if (target === 'time-to-enroll-bucket') {
+    // Chart is AY-wide. Drill mirrors that.
+    return rows;
+  }
+  if (target === 'enrolled' || target === 'avg-time') {
+    return applyDateRangeFilter(rows, input, (r) => r.enrollmentDate, {
+      caller: 'admissions/drill:enrolled',
+      includeMissingDate: false,
+    });
+  }
   return applyDateRangeFilter(rows, input, (r) => r.applicationDate, {
     caller: 'admissions/drill',
     includeMissingDate: false,
@@ -342,7 +368,7 @@ function applyScopeFilter(rows: DrillRow[], input: DrillRangeInput): DrillRow[] 
 
 export async function buildDrillRows(
   input: DrillRangeInput,
-  options?: { withDocs?: boolean },
+  options?: { withDocs?: boolean; target?: DrillTarget },
 ): Promise<DrillRow[]> {
   // Cache the AY-wide row set once per AY; apply range filtering post-cache.
   // Cheap because applyScopeFilter is a single .filter() over the cached
@@ -359,7 +385,7 @@ export async function buildDrillRows(
     ['admissions-drill', 'rows', input.ayCode],
     { revalidate: CACHE_TTL_SECONDS, tags: tags(input.ayCode) },
   )();
-  const scoped = applyScopeFilter(cached, input);
+  const scoped = applyScopeFilter(cached, input, options?.target);
   return options?.withDocs ? enrichWithDocs(scoped, input.ayCode) : scoped;
 }
 
@@ -610,42 +636,60 @@ export function drillHeaderForTarget(
 ): { eyebrow: string; title: string } {
   switch (target) {
     case 'applications':
-      return { eyebrow: 'Drill · Applications', title: 'Applications in scope' };
+      return { eyebrow: 'Admissions', title: 'Applications received in this date range' };
     case 'enrolled':
-      return { eyebrow: 'Drill · Enrolled', title: 'Applicants enrolled' };
+      return { eyebrow: 'Admissions', title: 'Students enrolled in this date range' };
     case 'conversion':
-      return { eyebrow: 'Drill · Conversion rate', title: 'Conversion-rate cohort' };
+      return {
+        eyebrow: 'Admissions',
+        title: 'Cohort behind the conversion rate (applicants and their enrolment outcome)',
+      };
     case 'avg-time':
-      return { eyebrow: 'Drill · Time to enroll', title: 'Days from application to enrollment' };
+      return {
+        eyebrow: 'Admissions',
+        title: 'Students with their days from application to enrollment',
+      };
     case 'funnel-stage':
       return {
-        eyebrow: 'Drill · Funnel stage',
-        title: segment ? `Reached: ${segment}` : 'Funnel stage',
+        eyebrow: 'Admissions funnel',
+        title: segment
+          ? `Applicants who reached the ${segment} stage`
+          : 'Applicants by funnel stage reached',
       };
     case 'pipeline-stage':
       return {
-        eyebrow: 'Drill · Pipeline stage',
-        title: segment ? `Currently at: ${segment}` : 'Pipeline stage',
+        eyebrow: 'Admissions pipeline',
+        title: segment
+          ? `Applicants currently at the ${segment} stage`
+          : 'Applicants by current pipeline stage',
       };
     case 'referral':
       return {
-        eyebrow: 'Drill · Referral source',
-        title: segment ? `From: ${segment}` : 'Referral source',
+        eyebrow: 'Admissions',
+        title: segment
+          ? `Applicants who heard about HFSE from ${segment}`
+          : 'Applicants by referral source',
       };
     case 'assessment':
       return {
-        eyebrow: 'Drill · Assessment',
-        title: segment ? `Assessment: ${segment}` : 'Assessment outcome',
+        eyebrow: 'Admissions',
+        title: segment
+          ? `Applicants whose assessment outcome was ${segment}`
+          : 'Applicants by entrance assessment outcome',
       };
     case 'time-to-enroll-bucket':
       return {
-        eyebrow: 'Drill · Time-to-enroll bucket',
-        title: segment ? `Bucket: ${segment}` : 'Time-to-enroll bucket',
+        eyebrow: 'Admissions',
+        title: segment
+          ? `Students who took ${segment} from application to enrollment`
+          : 'Time-to-enroll cohort',
       };
     case 'applications-by-level':
       return {
-        eyebrow: 'Drill · By level',
-        title: segment ? `Level: ${segment}` : 'Applications by level',
+        eyebrow: 'Admissions',
+        title: segment
+          ? `Applicants for ${segment}`
+          : 'Applicants by level applied for',
       };
     case 'doc-completion':
       return {

@@ -881,7 +881,12 @@ const CLASS_TYPES = [
 const PAYMENT_OPTIONS = ['Option 1', 'Option 2'] as const;
 const CONTRACT_SIGNATORIES = ['Father', 'Mother', 'Guardian'] as const;
 const PASS_TYPES = ['Singapore PR', 'S-PASS', 'Dependent Pass', null] as const;
-const PLACEHOLDER_PHOTO = 'https://placeholder.test/student-photo.png';
+// Real sample image URL — keeps every funnel + enrolled row's
+// `applications.enroleePhoto` clickable / renderable in the SIS Records
+// + admissions detail surfaces. Same asset the docs seeder uses for
+// idPicture / icaPhoto slots.
+const PLACEHOLDER_PHOTO =
+  'https://vnhklhppftebbcuupfjw.supabase.co/storage/v1/object/public/parent-portal/ay2027/documents/1774407491653_favicon.png';
 
 // Yes/No string flags — real production rows store these as strings, not bools.
 const YES_NO = ['Yes', 'No'] as const;

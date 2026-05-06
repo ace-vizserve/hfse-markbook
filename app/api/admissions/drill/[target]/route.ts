@@ -79,7 +79,7 @@ export async function GET(
   // Only enrich with doc data when the target actually surfaces it.
   const all = await buildDrillRows(
     { ayCode, from, to },
-    { withDocs: DOC_TARGETS.has(target) },
+    { withDocs: DOC_TARGETS.has(target), target },
   );
   const rows = applyTargetFilter(all, target, segment);
 

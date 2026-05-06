@@ -82,6 +82,10 @@ function MultiSeriesComparisonBarChartImpl({
           tickLine={false}
           axisLine={false}
           interval={0}
+          // Tilt category labels so longer names don't overlap.
+          angle={-30}
+          textAnchor="end"
+          height={56}
         />
         <YAxis
           tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
