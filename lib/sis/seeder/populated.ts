@@ -1777,7 +1777,16 @@ async function seedAdmissionsDocuments(
   }
 
   const rand = mulberry32(hashString(`${testAy.ay_code}:documents`));
-  const PLACEHOLDER_URL = 'test://document.pdf';
+  // Real sample assets so the P-Files dashboard shows clickable thumbnails
+  // / downloads instead of dead `test://` links. Photo-shaped slots get
+  // the image; everything else gets the PDF.
+  const IMAGE_URL =
+    'https://vnhklhppftebbcuupfjw.supabase.co/storage/v1/object/public/parent-portal/ay2027/documents/1774407491653_favicon.png';
+  const PDF_URL =
+    'https://vnhklhppftebbcuupfjw.supabase.co/storage/v1/object/public/parent-portal/ay2025/documents/1766798602565_Sample%20document.pdf';
+  const PHOTO_SLOT_KEYS = new Set(['idPicture', 'icaPhoto']);
+  const urlForSlot = (slotKey: string): string =>
+    PHOTO_SLOT_KEYS.has(slotKey) ? IMAGE_URL : PDF_URL;
   const REJECTION_REASONS = [
     'Image too blurry — please re-scan with better lighting.',
     'Document expired — upload the latest version.',
@@ -1817,7 +1826,7 @@ async function seedAdmissionsDocuments(
         const k = slots[idx].key;
         fill[k] = {
           status,
-          url: hasUrl ? PLACEHOLDER_URL : null,
+          url: hasUrl ? urlForSlot(k) : null,
           rejection: withRejection ? pickRejection() : null,
         };
       }
@@ -1900,6 +1909,41 @@ async function seedAdmissionsDocuments(
         assign(rejectIdx, 'Rejected', true, true);
         return fill;
       }
+      case 'enrolled-realistic': {
+        // Per-slot independent rolls. Status pool depends on whether the
+        // slot is expiring (KD #60). URL is written when status is one of
+        // the document-present states; 'To follow' and null leave URL null.
+        // Distribution: 50% Valid / 20% (Uploaded|Expired) / 15% To follow /
+        // 10% Rejected / 5% null. Optional slots (medical/educCert/form12)
+        // get an extra ~30% null skew per KD #60.
+        const OPTIONAL = new Set(['medical', 'educCert', 'form12']);
+        for (const s of slots) {
+          const isExpiring = !!s.expiryCol;
+          if (OPTIONAL.has(s.key) && rand() < 0.3) {
+            // Already null from the default fill — skip.
+            continue;
+          }
+          const r = rand();
+          let status: string | null;
+          if (r < 0.5) status = 'Valid';
+          else if (r < 0.7) status = isExpiring ? 'Expired' : 'Uploaded';
+          else if (r < 0.85) status = 'To follow';
+          else if (r < 0.95) status = 'Rejected';
+          else status = null;
+          if (status === null) continue;
+          const hasUrl =
+            status === 'Valid' ||
+            status === 'Uploaded' ||
+            status === 'Expired' ||
+            status === 'Rejected';
+          fill[s.key] = {
+            status,
+            url: hasUrl ? urlForSlot(s.key) : null,
+            rejection: status === 'Rejected' ? pickRejection() : null,
+          };
+        }
+        return fill;
+      }
       default:
         return fill;
     }
@@ -1920,8 +1964,12 @@ async function seedAdmissionsDocuments(
         return 'withdrawn-pre-enrolment';
       case 'Enrolled':
       case 'Enrolled (Conditional)':
-        // ~5 of every ~200 enrolled get the needs-revalidation flavor.
-        return idx % 40 === 0 ? 'enrolled-needs-revalidation' : 'enrolled-clean';
+        // Realistic per-slot rolls so the P-Files dashboard (KD #71 enrolled-
+        // only scope) shows the full mix of Valid / Uploaded / To follow /
+        // Rejected / Expired / null. ~3% of enrolled rows get the legacy
+        // needs-revalidation skew (mostly-Valid + 1-2 Rejected) for the
+        // pastoral-care chase-strip demo.
+        return idx % 30 === 0 ? 'enrolled-needs-revalidation' : 'enrolled-realistic';
       default:
         return 'submitted';
     }
@@ -1983,6 +2031,17 @@ async function seedAdmissionsDocuments(
       }
       row[slot.statusCol] = status;
       row[slot.urlCol] = f.url;
+      // Stamp realistic expiry dates per KD #60 — every Valid expiring slot
+      // gets a future date; every Expired slot gets a past date. Without
+      // this the Records pass-expiry cohort + P-Files expiring buckets
+      // would show every enrolled row as "expiry: —".
+      if (isExpiring && slot.expiryCol) {
+        if (status === 'Valid') {
+          row[slot.expiryCol] = isoDateOffset(30 + Math.floor(rand() * 336));
+        } else if (status === 'Expired') {
+          row[slot.expiryCol] = isoDateOffset(-(1 + Math.floor(rand() * 180)));
+        }
+      }
       // Rejection reason column convention: `${slotKey}RejectionReason`.
       // Some historical AYs may not have this column; PostgREST will silently
       // drop the field on insert if absent, which is fine for the seeder.
