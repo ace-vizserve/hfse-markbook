@@ -307,9 +307,24 @@ export function applyTargetFilter(
       return rows.filter((r) => (r.level ?? 'Unknown') === segment);
     }
     case 'revisions-on-day': {
-      // segment = ISO date 'YYYY-MM-DD'
-      if (!segment) return rows.filter((r) => r.lastRevisionAt !== null);
-      return rows.filter((r) => r.lastRevisionAt?.slice(0, 10) === segment);
+      // segment = ISO date 'YYYY-MM-DD' for a specific-day click on the
+      // revisions trend chart. Without segment, use the range (matches
+      // the "Revisions (range)" KPI card scope) — only rows whose
+      // most-recent revision lands inside the active picker window.
+      // No range either → return all rows that have any revision.
+      if (segment) {
+        return rows.filter((r) => r.lastRevisionAt?.slice(0, 10) === segment);
+      }
+      if (range?.from && range?.to) {
+        const from = range.from;
+        const to = range.to;
+        return rows.filter((r) => {
+          if (!r.lastRevisionAt) return false;
+          const day = r.lastRevisionAt.slice(0, 10);
+          return day >= from && day <= to;
+        });
+      }
+      return rows.filter((r) => r.lastRevisionAt !== null);
     }
     default: {
       const _exhaustive: never = target;
@@ -369,7 +384,7 @@ export function defaultColumnsForTarget(target: PFilesDrillTarget): DrillColumnK
     case 'level-applicants':
       return ['fullName', 'level', 'slotLabel', 'status'];
     case 'revisions-on-day':
-      return ['fullName', 'level', 'slotLabel', 'status', 'revisionCount', 'lastRevisionAt'];
+      return ['fullName', 'level', 'slotLabel', 'revisionCount', 'lastRevisionAt'];
   }
 }
 
@@ -390,12 +405,32 @@ export function drillHeaderForTarget(
       };
     case 'missing-docs': return { eyebrow: 'P-Files', title: 'Documents not yet uploaded' };
     case 'slot-by-status':
-      return { eyebrow: 'Drill · Status', title: segment ? `Status: ${segment}` : 'By status' };
+      return {
+        eyebrow: 'P-Files',
+        title: segment
+          ? `Documents with status: ${segment}`
+          : 'Documents grouped by status',
+      };
     case 'missing-by-slot':
-      return { eyebrow: 'Drill · Slot', title: segment ? `Missing: ${segment}` : 'Missing by slot' };
+      return {
+        eyebrow: 'P-Files',
+        title: segment
+          ? `Students missing their ${segment} document`
+          : 'Students missing documents (grouped by slot)',
+      };
     case 'level-applicants':
-      return { eyebrow: 'Drill · Level', title: segment ? `Level: ${segment}` : 'By level' };
+      return {
+        eyebrow: 'P-Files',
+        title: segment
+          ? `Documents for ${segment} students`
+          : 'Documents grouped by grade level',
+      };
     case 'revisions-on-day':
-      return { eyebrow: 'Drill · Revisions', title: segment ? `Revisions on ${segment}` : 'Revisions' };
+      return {
+        eyebrow: 'P-Files',
+        title: segment
+          ? `Documents revised on ${segment}`
+          : 'Documents revised in this date range',
+      };
   }
 }

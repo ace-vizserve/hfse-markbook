@@ -339,8 +339,10 @@ export default async function PFilesDashboard({
           sparkline={velocity.current.slice(-14)}
           drillSheet={() => (
             <PFilesDrillSheet
-              target="all-docs"
+              target="revisions-on-day"
               ayCode={selectedAy}
+              initialFrom={rangeInput.from}
+              initialTo={rangeInput.to}
             />
           )}
         />
