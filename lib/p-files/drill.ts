@@ -76,12 +76,31 @@ function appName(a: AppLite): string {
   );
 }
 
+// Map raw `<slot>Status` values written by the parent portal + populated
+// seeder (KD #60: 'Valid' / 'Uploaded' / 'To follow' / 'Rejected' /
+// 'Expired') to the 5-state display enum the P-Files drill UI expects.
+//   - 'Valid'                → 'On file' (registrar has validated)
+//   - 'Uploaded' / 'Pending' → 'Pending review' (parent uploaded, awaiting review)
+//   - 'To follow' / 'Rejected' → 'Pending review' (parent owes a re-upload — same chase queue)
+//   - 'Expired'              → 'Expired'
+//   - null / 'Missing'       → 'Missing'
+//   - 'N/A' / 'NA'           → 'N/A'
+//   - anything else          → 'On file' (defensive fallback for legacy data)
 function normaliseStatus(raw: string | null): PFilesDrillRow['status'] {
   const s = (raw ?? '').trim().toLowerCase();
   if (s === '' || s === 'missing') return 'Missing';
-  if (s === 'pending' || s === 'pending review') return 'Pending review';
   if (s === 'expired') return 'Expired';
   if (s === 'n/a' || s === 'na' || s === 'not applicable') return 'N/A';
+  if (
+    s === 'pending' ||
+    s === 'pending review' ||
+    s === 'uploaded' ||
+    s === 'to follow' ||
+    s === 'rejected'
+  ) {
+    return 'Pending review';
+  }
+  if (s === 'valid') return 'On file';
   return 'On file';
 }
 
@@ -99,7 +118,7 @@ async function loadPFilesRowsUncached(ayCode: string): Promise<PFilesDrillRow[]>
       .select('enroleeNumber, enroleeFullName, firstName, lastName, levelApplied'),
     admissions
       .from(docsTable)
-      .select(`enroleeNumber, ${CORE_SLOTS.map((s) => s.column).join(', ')}, passportExpiryDate`),
+      .select(`enroleeNumber, ${CORE_SLOTS.map((s) => s.column).join(', ')}, passportExpiry`),
     // Enrollment gate at the loader (practical rule: P-Files = enrolled-only,
     // KD #71). Filter at the SQL layer so funnel rows never enter the cache.
     admissions
@@ -165,7 +184,7 @@ async function loadPFilesRowsUncached(ayCode: string): Promise<PFilesDrillRow[]>
     if (!enrolledEnrolees.has(app.enroleeNumber)) continue;
     const docRow = docByEnrolee.get(app.enroleeNumber);
     const level = classLevelByEnrolee.get(app.enroleeNumber) ?? app.levelApplied ?? null;
-    const expiryDate = (docRow?.['passportExpiryDate'] as string | null | undefined) ?? null;
+    const expiryDate = (docRow?.['passportExpiry'] as string | null | undefined) ?? null;
     const expiryMs = expiryDate ? Date.parse(expiryDate) : NaN;
     const daysToExpiry = !Number.isNaN(expiryMs)
       ? Math.floor((expiryMs - today) / 86_400_000)
