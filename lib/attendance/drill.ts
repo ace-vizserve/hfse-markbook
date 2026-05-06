@@ -306,12 +306,19 @@ async function loadEntryRowsUncached(ayCode: string): Promise<AttendanceEntryRow
   return out;
 }
 
+// loadEntryRows: uncached on purpose. The full AY's attendance_daily set
+// runs ~12K rows now and ~50K at a full school year — well past Next.js's
+// 2MB unstable_cache limit. Wrapping this in unstable_cache silently failed
+// the cache write and made every drill render re-hit Supabase from cold.
+//
+// Per KD #56: pre-fetch returns ROLLED-UP shapes (which DO get cached, see
+// buildAllRowSets below). Raw entries are consumed by:
+//   1. The dashboard pre-fetch (buildAllRowSets) — same-render React
+//      request dedup means the multi-rollup pass shares one DB fetch.
+//   2. Drill API routes for entry-kind drills — already lazy-fetch on
+//      demand, the per-request latency is acceptable.
 function loadEntryRows(ayCode: string): Promise<AttendanceEntryRow[]> {
-  return unstable_cache(
-    () => loadEntryRowsUncached(ayCode),
-    ['attendance-drill', 'entries', ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tags(ayCode) },
-  )();
+  return loadEntryRowsUncached(ayCode);
 }
 
 async function loadCalendarRowsUncached(ayCode: string): Promise<CalendarDayRow[]> {
@@ -574,17 +581,19 @@ export async function buildAttendanceDrillRows(
   return (await rollupCompassionate(input.ayCode)) as AttendanceDrillRow[];
 }
 
-export async function buildAllRowSets(input: {
-  ayCode: string;
-  scope: DrillScope;
-  from?: string;
-  to?: string;
-}): Promise<{
+type AllRowSets = {
   topAbsent: TopAbsentDrillRow[];
   sectionAttendance: SectionAttendanceRow[];
   calendar: CalendarDayRow[];
   compassionate: CompassionateUsageRow[];
-}> {
+};
+
+async function buildAllRowSetsUncached(input: {
+  ayCode: string;
+  scope: DrillScope;
+  from?: string;
+  to?: string;
+}): Promise<AllRowSets> {
   // We still need entries internally to build the rolled-up shapes, but we
   // do NOT return them — at 1000 students × 180 school days that's 180k
   // rows we'd ship through the RSC payload for nothing. Drill sheets that
@@ -604,6 +613,31 @@ export async function buildAllRowSets(input: {
     calendar,
     compassionate,
   };
+}
+
+// Cached at the OUTPUT level — rolled-up shapes are tiny (sectionAttendance
+// is ~21 rows; topAbsent is ~50; calendar is ~220; compassionate is ~10),
+// total << 2MB so the cache write succeeds. Per-call key includes scope +
+// from/to since those affect the filtered output. Replaces the prior
+// inner-loadEntryRows cache which kept busting Next.js's 2MB limit.
+export function buildAllRowSets(input: {
+  ayCode: string;
+  scope: DrillScope;
+  from?: string;
+  to?: string;
+}): Promise<AllRowSets> {
+  return unstable_cache(
+    () => buildAllRowSetsUncached(input),
+    [
+      'attendance-drill',
+      'all-row-sets',
+      input.ayCode,
+      input.scope,
+      input.from ?? '',
+      input.to ?? '',
+    ],
+    { revalidate: CACHE_TTL_SECONDS, tags: tags(input.ayCode) },
+  )();
 }
 
 // ─── Target filter ──────────────────────────────────────────────────────────

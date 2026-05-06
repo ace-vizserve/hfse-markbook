@@ -603,12 +603,20 @@ async function loadChangeRequestRowsUncached(ayCode: string): Promise<ChangeRequ
 // work (the underlying tables are the same regardless of date scope).
 // See lib/admissions/drill.ts::buildDrillRows for the same rationale.
 
+// loadEntryRows: uncached on purpose. The full AY's grade_entries set runs
+// ~28K rows (21 sections × ~13 students × 10 subjects × 4 terms) and ~7MB
+// serialized — well past Next.js's 2MB unstable_cache limit. Wrapping this
+// in unstable_cache silently failed the cache write and made every drill
+// re-hit Supabase from cold.
+//
+// Per KD #56: pre-fetch returns ROLLED-UP shapes (loadSheetRows + change
+// requests cached separately, both << 2MB). Raw entries are consumed by:
+//   1. getTeacherEntryVelocity — wraps its own small rolled-up output in
+//      unstable_cache below.
+//   2. Drill API routes for entry-kind drills — already lazy-fetch per
+//      request; per-request latency is acceptable.
 async function loadEntryRows(ayCode: string): Promise<GradeEntryRow[]> {
-  return unstable_cache(
-    () => loadEntryRowsUncached(ayCode),
-    ['markbook-drill', 'entry-rows', ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tags(ayCode) },
-  )();
+  return loadEntryRowsUncached(ayCode);
 }
 
 async function loadSheetRows(ayCode: string): Promise<SheetRow[]> {
@@ -639,7 +647,7 @@ export type TeacherVelocityRow = {
   lastEntryAt: string | null;
 };
 
-export async function getTeacherEntryVelocity(
+async function getTeacherEntryVelocityUncached(
   ayCode: string,
   range?: { from: string; to: string },
 ): Promise<TeacherVelocityRow[]> {
@@ -670,6 +678,22 @@ export async function getTeacherEntryVelocity(
   }
   out.sort((a, b) => b.entryCount - a.entryCount);
   return out;
+}
+
+// Cached at the OUTPUT level — at most ~50 teachers per AY × 4 fields each
+// is well under 2MB. Per-call key includes the optional date range so a
+// scoped trend (e.g. "T1 only") doesn't share a cache slot with the full
+// AY rollup. Replaces the prior inner-loadEntryRows cache which kept
+// failing the 2MB write limit and forced every render to re-fetch.
+export function getTeacherEntryVelocity(
+  ayCode: string,
+  range?: { from: string; to: string },
+): Promise<TeacherVelocityRow[]> {
+  return unstable_cache(
+    () => getTeacherEntryVelocityUncached(ayCode, range),
+    ['markbook-drill', 'teacher-velocity', ayCode, range?.from ?? '', range?.to ?? ''],
+    { revalidate: CACHE_TTL_SECONDS, tags: tags(ayCode) },
+  )();
 }
 
 // ---------------------------------------------------------------------------
