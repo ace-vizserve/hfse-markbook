@@ -52,10 +52,13 @@ export async function ensureTestStructure(
 
   // ---- 1. levels (global reference) ----
   {
-    const { data } = await service
+    const { data, error } = await service
       .from('levels')
       .upsert(LEVELS, { onConflict: 'code', ignoreDuplicates: true })
       .select('id, code');
+    if (error) {
+      console.error('[structural seeder] levels upsert failed:', error.message);
+    }
     result.levels_inserted = data?.length ?? 0;
   }
 
@@ -74,10 +77,13 @@ export async function ensureTestStructure(
       name: s.name,
       is_examinable: s.is_examinable,
     }));
-    const { data } = await service
+    const { data, error } = await service
       .from('subjects')
       .upsert(rows, { onConflict: 'code', ignoreDuplicates: true })
       .select('id, code');
+    if (error) {
+      console.error('[structural seeder] subjects upsert failed:', error.message);
+    }
     result.subjects_inserted = data?.length ?? 0;
   }
 
@@ -93,13 +99,16 @@ export async function ensureTestStructure(
       return [{ academic_year_id: testAy.id, level_id: lv.id, name: s.name }];
     });
     if (rows.length > 0) {
-      const { data } = await service
+      const { data, error } = await service
         .from('sections')
         .upsert(rows, {
           onConflict: 'academic_year_id,level_id,name',
           ignoreDuplicates: true,
         })
         .select('id');
+      if (error) {
+        console.error('[structural seeder] sections upsert failed:', error.message);
+      }
       result.sections_inserted = data?.length ?? 0;
     }
   }
@@ -136,13 +145,16 @@ export async function ensureTestStructure(
     }
 
     if (rows.length > 0) {
-      const { data } = await service
+      const { data, error } = await service
         .from('subject_configs')
         .upsert(rows, {
           onConflict: 'academic_year_id,subject_id,level_id',
           ignoreDuplicates: true,
         })
         .select('id');
+      if (error) {
+        console.error('[structural seeder] subject_configs upsert failed:', error.message);
+      }
       result.subject_configs_inserted = data?.length ?? 0;
     }
   }
@@ -205,12 +217,20 @@ export async function ensureTestStructure(
       overlay.set(c.date, { day_type: c.day_type, label: c.label });
     }
 
+    // Migration 037 widened the unique key from (term_id, date) to
+    // (term_id, audience, date) so primary + secondary can each carry a
+    // row on the same date. The seeder writes audience='all' rows; the
+    // upsert's onConflict target must match the post-037 key or PostgREST
+    // skips inserts silently (no error, no rows) — which then leaves
+    // school_calendar empty and downstream attendance seeding inserts
+    // zero rows because schoolDays.length === 0.
     const rows: Array<{
       term_id: string;
       date: string;
       day_type: string;
       is_holiday: boolean;
       label: string | null;
+      audience: 'all';
     }> = [];
 
     for (const t of termsWithDates) {
@@ -233,6 +253,7 @@ export async function ensureTestStructure(
             day_type: overlayEntry.day_type,
             is_holiday: overlayEntry.day_type !== 'school_day' && overlayEntry.day_type !== 'hbl',
             label: overlayEntry.label,
+            audience: 'all',
           });
         } else if (!isWeekend) {
           rows.push({
@@ -241,6 +262,7 @@ export async function ensureTestStructure(
             day_type: 'school_day',
             is_holiday: false,
             label: null,
+            audience: 'all',
           });
         }
 
@@ -249,13 +271,16 @@ export async function ensureTestStructure(
     }
 
     if (rows.length > 0) {
-      const { data } = await service
+      const { data, error } = await service
         .from('school_calendar')
         .upsert(rows, {
-          onConflict: 'term_id,date',
+          onConflict: 'term_id,audience,date',
           ignoreDuplicates: true,
         })
         .select('id');
+      if (error) {
+        console.error('[structural seeder] school_calendar upsert failed:', error.message);
+      }
       result.calendar_days_inserted = data?.length ?? 0;
     }
   }
@@ -305,7 +330,13 @@ export async function ensureTestStructure(
       );
       const toInsert = eventRows.filter((r) => !existingSet.has(key(r)));
       if (toInsert.length > 0) {
-        const { data } = await service.from('calendar_events').insert(toInsert).select('id');
+        const { data, error } = await service
+          .from('calendar_events')
+          .insert(toInsert)
+          .select('id');
+        if (error) {
+          console.error('[structural seeder] calendar_events insert failed:', error.message);
+        }
         result.calendar_events_inserted = data?.length ?? 0;
       }
     }
