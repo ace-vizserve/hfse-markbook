@@ -56,7 +56,7 @@ import {
 import { getAdmissionsPriority } from "@/lib/admissions/priority";
 import { buildDrillRows } from "@/lib/admissions/drill";
 import { admissionsChaseInsights, admissionsInsights } from "@/lib/dashboard/insights";
-import { formatRangeLabel, resolveRange, type DashboardSearchParams } from "@/lib/dashboard/range";
+import { formatRangeLabel, resolveRange, FLEXIBLE_PRESETS, type DashboardSearchParams } from "@/lib/dashboard/range";
 import { getDashboardWindows } from "@/lib/dashboard/windows";
 import { getPipelineStageBreakdown } from "@/lib/sis/dashboard";
 import { getSisDashboardSummary } from "@/lib/sis/queries";
@@ -205,6 +205,7 @@ export default async function AdmissionsDashboard({
           }
           termWindows={windows.term}
           ayWindows={windows.ay}
+          presets={FLEXIBLE_PRESETS}
         />
 
         <Link
@@ -387,6 +388,7 @@ export default async function AdmissionsDashboard({
         }
         termWindows={windows.term}
         ayWindows={windows.ay}
+        presets={FLEXIBLE_PRESETS}
       />
 
       {/* KD #77 — early-bird signal. Renders only when an upcoming AY is

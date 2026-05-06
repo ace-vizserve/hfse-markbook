@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
 import { evaluationInsights } from "@/lib/dashboard/insights";
-import { formatRangeLabel, resolveRange, type DashboardSearchParams } from "@/lib/dashboard/range";
+import { formatRangeLabel, resolveRange, TERM_SCOPED_PRESETS, type DashboardSearchParams } from "@/lib/dashboard/range";
 import { getDashboardWindows } from "@/lib/dashboard/windows";
 import {
   getEvaluationKpisRange,
@@ -176,6 +176,12 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
 
       {canToggle && rangeInput && kpisResult && velocity && (
         <>
+          {windows.activeTermFallback && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-900 dark:text-amber-100">
+              Active term hasn&apos;t started yet. Showing the previous term&apos;s data as a default — pick a different range above to override.
+            </div>
+          )}
+
           <ComparisonToolbar
             ayCode={ayCode}
             ayCodes={[ayCode]}
@@ -188,6 +194,7 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
             termWindows={windows.term}
             ayWindows={windows.ay}
             showAySwitcher={false}
+            presets={TERM_SCOPED_PRESETS}
           />
 
           {insights.length > 0 && <InsightsPanel insights={insights} />}

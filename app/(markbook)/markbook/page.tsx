@@ -44,7 +44,7 @@ import { PageShell } from "@/components/ui/page-shell";
 import { getCurrentAcademicYear, listAyCodes } from "@/lib/academic-year";
 import { getRoleFromClaims } from "@/lib/auth/roles";
 import { markbookInsights } from "@/lib/dashboard/insights";
-import { formatRangeLabel, resolveRange, type DashboardSearchParams } from "@/lib/dashboard/range";
+import { formatRangeLabel, resolveRange, TERM_SCOPED_PRESETS, type DashboardSearchParams } from "@/lib/dashboard/range";
 import { getDashboardWindows } from "@/lib/dashboard/windows";
 import {
   getChangeRequestSummary,
@@ -219,6 +219,12 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
 
       {teacherPriority && <PriorityPanel payload={teacherPriority} />}
 
+      {canSeeAdmin && ayCode && windows.activeTermFallback && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-900 dark:text-amber-100">
+          Active term hasn&apos;t started yet. Showing the previous term&apos;s data as a default — pick a different range above to override.
+        </div>
+      )}
+
       {canSeeAdmin && ayCode && (
         <ComparisonToolbar
           ayCode={ayCode}
@@ -232,6 +238,7 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
           termWindows={windows.term}
           ayWindows={windows.ay}
           showAySwitcher={false}
+          presets={TERM_SCOPED_PRESETS}
         />
       )}
 

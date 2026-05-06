@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
-import { formatRangeLabel, type AYWindows, type DateRange, type TermWindows } from '@/lib/dashboard/range';
+import { formatRangeLabel, type AYWindows, type DateRange, type Preset, type TermWindows } from '@/lib/dashboard/range';
 
 /**
  * ComparisonToolbar — the URL-param contract executor shared by every
@@ -38,6 +38,8 @@ export type ComparisonToolbarProps = {
   showAySwitcher?: boolean;
   trustStrip?: React.ReactNode;
   className?: string;
+  /** Preset shortlist passed to the inner DateRangePicker. Defaults to picker's own DEFAULT_PRESETS. */
+  presets?: Preset[];
 };
 
 function updateParams(
@@ -67,6 +69,7 @@ export function ComparisonToolbar({
   showAySwitcher = true,
   trustStrip,
   className,
+  presets,
 }: ComparisonToolbarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -163,6 +166,7 @@ export function ComparisonToolbar({
           onComparisonChange={onComparisonChange}
           termWindows={termWindows}
           ayWindows={ayWindows}
+          presets={presets}
         />
         {comparison && (
           <div className="hidden items-center gap-1.5 text-[11px] text-ink-4 sm:flex">

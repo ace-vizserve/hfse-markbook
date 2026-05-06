@@ -24,7 +24,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PageShell } from "@/components/ui/page-shell";
 import { getCurrentAcademicYear, listAyCodes as listAcademicAyCodes } from "@/lib/academic-year";
 import { pfilesInsights } from "@/lib/dashboard/insights";
-import { formatRangeLabel, resolveRange, type DashboardSearchParams } from "@/lib/dashboard/range";
+import { formatRangeLabel, resolveRange, FLEXIBLE_PRESETS, type DashboardSearchParams } from "@/lib/dashboard/range";
 import { getDashboardWindows } from "@/lib/dashboard/windows";
 import {
   getCompletionByLevel,
@@ -208,6 +208,7 @@ export default async function PFilesDashboard({
           }
           termWindows={windows.term}
           ayWindows={windows.ay}
+          presets={FLEXIBLE_PRESETS}
         />
 
         {/* Escape hatch back to the full dashboard. The AY param is preserved
@@ -309,6 +310,7 @@ export default async function PFilesDashboard({
         }
         termWindows={windows.term}
         ayWindows={windows.ay}
+        presets={FLEXIBLE_PRESETS}
       />
 
       {/* Officer-only operational top-of-fold (KD #57) — chase priority +

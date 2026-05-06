@@ -39,7 +39,7 @@ import {
 import { PageShell } from "@/components/ui/page-shell";
 import { getCurrentAcademicYear, listAyCodes as listAcademicAyCodes } from "@/lib/academic-year";
 import { recordsInsights } from "@/lib/dashboard/insights";
-import { formatRangeLabel, resolveRange, type DashboardSearchParams } from "@/lib/dashboard/range";
+import { formatRangeLabel, resolveRange, FLEXIBLE_PRESETS, type DashboardSearchParams } from "@/lib/dashboard/range";
 import { getDashboardWindows } from "@/lib/dashboard/windows";
 import {
   getClassAssignmentReadiness,
@@ -181,6 +181,7 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
         }
         termWindows={windows.term}
         ayWindows={windows.ay}
+        presets={FLEXIBLE_PRESETS}
       />
 
       {/* Document chase queue — registrar-only operational top-of-fold.
