@@ -158,7 +158,9 @@ export default async function AdmissionsDashboard({
   const focusedStatus = parseChaseStatusFilter(statusParam);
 
   const windows = await getDashboardWindows(selectedAy);
-  const rangeInput = resolveRange(resolvedSearch, windows, selectedAy);
+  const rangeInput = resolveRange(resolvedSearch, windows, selectedAy, undefined, {
+    defaultPreset: 'thisMonth',
+  });
 
   // Auto-flip runs in parallel with subsequent fetches instead of blocking
   // serially. Cached 60s, tag-invalidated by sis:${ayCode}, so most

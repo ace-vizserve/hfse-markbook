@@ -134,7 +134,9 @@ export default async function PFilesDashboard({
   const expiringWindow = parseExpiringWindow(expiringParam);
 
   const windows = await getDashboardWindows(selectedAy);
-  const rangeInput = resolveRange(resolvedSearch, windows, selectedAy);
+  const rangeInput = resolveRange(resolvedSearch, windows, selectedAy, undefined, {
+    defaultPreset: 'thisMonth',
+  });
 
   // Auto-flip runs in parallel with subsequent fetches instead of blocking
   // serially. Cached 60s, tag-invalidated by sis:${ayCode}, so most

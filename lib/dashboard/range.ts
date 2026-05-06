@@ -22,6 +22,7 @@ export type Preset =
   | 't4'
   | 'lastWeek'
   | 'last15d'
+  | 'thisMonth'
   | 'lastMonth'
   | 'last7d'
   | 'last30d'
@@ -39,6 +40,7 @@ export const PRESET_LABEL: Record<Preset, string> = {
   t4: 'Term 4',
   lastWeek: 'Last week',
   last15d: 'Last 15 days',
+  thisMonth: 'This month',
   lastMonth: 'Last month',
   last7d: 'Last 7 days',
   last30d: 'Last 30 days',
@@ -51,8 +53,11 @@ export const PRESET_LABEL: Record<Preset, string> = {
 };
 
 // Preset arrays exported so each module's page RSC picks the right shortlist.
-export const TERM_SCOPED_PRESETS: Preset[] = ['t1', 't2', 't3', 't4', 'thisAY', 'custom'];
-export const FLEXIBLE_PRESETS: Preset[] = ['lastWeek', 'last15d', 'lastMonth', 'thisAY', 'custom'];
+// Flexible-module default is `thisMonth` (1st of current month → today, MTD)
+// — picked first in the array so pages can use `presets[0]` as the implicit
+// default. Term-scoped default is `thisTerm` for the same reason.
+export const TERM_SCOPED_PRESETS: Preset[] = ['thisTerm', 't1', 't2', 't3', 't4', 'thisAY', 'custom'];
+export const FLEXIBLE_PRESETS: Preset[] = ['thisMonth', 'lastMonth', 'lastWeek', 'last15d', 'thisAY', 'custom'];
 
 export type TermWindows = {
   thisTerm: DateRange | null;
@@ -261,6 +266,13 @@ function lastCalendarMonth(today = new Date()): DateRange {
   return { from: toISODate(firstDayPrev), to: toISODate(lastDayPrev) };
 }
 
+/** Current calendar month, MTD: 1st of current month → today (inclusive). */
+function thisCalendarMonth(today = new Date()): DateRange {
+  const t = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const firstOfMonth = new Date(t.getFullYear(), t.getMonth(), 1);
+  return { from: toISODate(firstOfMonth), to: toISODate(t) };
+}
+
 export function resolvePreset(
   preset: Preset,
   windows: { term: TermWindows; ay: AYWindows },
@@ -279,6 +291,8 @@ export function resolvePreset(
       return lastCalendarWeek(today);
     case 'last15d':
       return lastNDays(15, today);
+    case 'thisMonth':
+      return thisCalendarMonth(today);
     case 'lastMonth':
       return lastCalendarMonth(today);
     case 'last7d':
@@ -302,20 +316,28 @@ export function resolvePreset(
 
 /**
  * Reverse-map a range to the preset it matches (if any). Used by the
- * DateRangePicker to highlight the active preset row.
+ * DateRangePicker to highlight the active preset chip.
+ *
+ * Pass the picker's visible `presets` shortlist so the chip never lights up
+ * on a preset the user can't see. Without this, a flexible-module picker
+ * would still match `t2` (when the range happens to coincide with T2's
+ * dates) and show "Term 2" — wrong for a module that doesn't expose term
+ * presets. Defaults to the full preset list for callers that don't care.
  */
 export function detectPreset(
   range: DateRange,
   windows: { term: TermWindows; ay: AYWindows },
   today?: Date,
+  presets?: Preset[],
 ): Preset {
-  const presets: Preset[] = [
+  const candidates: Preset[] = presets ?? [
     't1', 't2', 't3', 't4',
-    'lastWeek', 'last15d', 'lastMonth',
+    'lastWeek', 'last15d', 'thisMonth', 'lastMonth',
     'last7d', 'last30d', 'last90d',
     'thisTerm', 'lastTerm', 'thisAY', 'lastAY',
   ];
-  for (const p of presets) {
+  for (const p of candidates) {
+    if (p === 'custom') continue;
     const candidate = resolvePreset(p, windows, today);
     if (candidate && candidate.from === range.from && candidate.to === range.to) return p;
   }
@@ -360,6 +382,7 @@ export function resolveRange(
   windows: { term: TermWindows; ay: AYWindows },
   defaultAy: string,
   today?: Date,
+  options?: { defaultPreset?: Preset },
 ): RangeInput {
   const ayCode = pickString(params.ay) || defaultAy;
 
@@ -381,10 +404,18 @@ export function resolveRange(
     explicitRange && ayWindow ? rangesOverlap(explicitRange, ayWindow) : true;
   const explicitRangeAccepted = explicitRange != null && explicitInAy;
 
+  // Default-preset takes precedence over the legacy thisTerm cascade when
+  // the page passes one. Lets flexible modules (Admissions/P-Files/Records)
+  // default to `thisMonth` instead of resolving thisTerm — which is the
+  // active term in AY9999, but irrelevant on a flexible picker.
+  const fallbackFromPreset = options?.defaultPreset
+    ? resolvePreset(options.defaultPreset, windows, today)
+    : null;
+
   const current: DateRange =
     explicitRangeAccepted
       ? explicitRange!
-      : windows.term.thisTerm ?? windows.ay.thisAY ?? lastNDays(30, today);
+      : fallbackFromPreset ?? windows.term.thisTerm ?? windows.ay.thisAY ?? lastNDays(30, today);
 
   // Comparison is OPT-IN. The server only honors a comparison range when
   // the URL explicitly carries `cmpFrom` + `cmpTo`. No auto-compute,

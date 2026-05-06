@@ -97,7 +97,9 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
   const isCurrentAy = selectedAy === currentAy.ay_code;
 
   const windows = await getDashboardWindows(selectedAy);
-  const rangeInput = resolveRange(resolvedSearch, windows, selectedAy);
+  const rangeInput = resolveRange(resolvedSearch, windows, selectedAy, undefined, {
+    defaultPreset: 'thisMonth',
+  });
 
   // Auto-flip expired/revived doc statuses runs in parallel with the
   // dashboard data fetches instead of serially before them. Cached 60s

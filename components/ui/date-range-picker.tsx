@@ -95,7 +95,11 @@ export function DateRangePicker({
     () => ({ term: termWindows, ay: ayWindows }),
     [termWindows, ayWindows],
   );
-  const activePreset = detectPreset(value, windows);
+  // Pass the picker's visible preset shortlist to detectPreset so the
+  // active-preset chip never lights up on a preset the user can't see
+  // (e.g. flexible-module picker matching `t2` because today happens to
+  // sit inside Term 2 — wrong chip for a module that doesn't expose terms).
+  const activePreset = detectPreset(value, windows, undefined, presets);
 
   const calendarValue: DayPickerRange | undefined = React.useMemo(() => {
     const from = parseLocalDate(value.from);
