@@ -67,7 +67,7 @@ export async function GET(
   const columnsParam = url.searchParams.get('columns');
 
   const all = await buildRecordsDrillRows(
-    { ayCode, scope: 'range' as const, from, to },
+    { ayCode, from, to },
     { withDocs: DOC_TARGETS.has(target) },
   );
   const rangeForFilter = from && to ? { from, to } : undefined;

@@ -78,7 +78,7 @@ export async function GET(
   // Build the universal row set (scope-clamped), then apply target filter.
   // Only enrich with doc data when the target actually surfaces it.
   const all = await buildDrillRows(
-    { ayCode, scope: 'range' as const, from, to },
+    { ayCode, from, to },
     { withDocs: DOC_TARGETS.has(target) },
   );
   const rows = applyTargetFilter(all, target, segment);

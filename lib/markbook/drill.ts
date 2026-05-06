@@ -60,8 +60,6 @@ export function rowKindForTarget(t: MarkbookDrillTarget): MarkbookDrillRowKind {
   }
 }
 
-export type DrillScope = 'range' | 'ay' | 'all';
-
 // ---------------------------------------------------------------------------
 // Row shapes
 
@@ -166,8 +164,7 @@ function findBucketByLabel(label: string): GradeBucketKey | null {
 
 export type DrillRangeInput = {
   ayCode: string;
-  scope: DrillScope;
-  /** When scope='range', clamp the dataset by these dates. */
+  /** When set, clamp the dataset by these dates. Both must be present. */
   from?: string;
   to?: string;
   /** Teacher-scoping: when set, only rows for sections in this list are kept. */
@@ -729,7 +726,6 @@ export async function buildMarkbookDrillRows(
  */
 export async function buildAllRowSets(input: {
   ayCode: string;
-  scope: DrillScope;
   from?: string;
   to?: string;
   allowedSectionIds?: string[] | null;
@@ -748,7 +744,6 @@ export async function buildAllRowSets(input: {
   ]);
   const rangeInput: DrillRangeInput = {
     ayCode: input.ayCode,
-    scope: input.scope,
     from: input.from,
     to: input.to,
     allowedSectionIds: input.allowedSectionIds ?? null,
@@ -791,7 +786,7 @@ function applyScopeFilter(
     // has happened yet, matching how operators think about "what's in
     // this range." Custom OR-logic doesn't fit applyDateRangeFilter; the
     // missing-range guard is replicated here.
-    if (input.scope !== 'range' || !input.from || !input.to) return rows;
+    if (!input.from || !input.to) return rows;
     const from = input.from;
     const to = input.to;
     return (rows as SheetRow[]).filter((r) => {

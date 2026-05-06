@@ -140,7 +140,6 @@ export function CompassionateQuotaCard({
         <AttendanceDrillSheet
           target="compassionate-quota"
           ayCode={ayCode}
-          initialScope="ay"
           initialCompassionate={data}
         />
       )}

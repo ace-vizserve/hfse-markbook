@@ -82,7 +82,6 @@ export function SubmissionVelocityDrillCard({
           target="submission-velocity-day"
           segment={segment}
           ayCode={ayCode}
-          initialScope="range"
           initialFrom={rangeFrom}
           initialTo={rangeTo}
           initialWriteups={initialWriteups}
@@ -140,7 +139,6 @@ export function WriteupsBySectionCard({
         <EvaluationDrillSheet
           target="writeups-by-section"
           ayCode={ayCode}
-          initialScope="range"
           initialFrom={rangeFrom}
           initialTo={rangeTo}
           initialBySection={initialBySection}
@@ -197,7 +195,6 @@ export function TimeToSubmitHistogramCard({
           target="time-to-submit-bucket"
           segment={segment}
           ayCode={ayCode}
-          initialScope="range"
           initialFrom={rangeFrom}
           initialTo={rangeTo}
           initialBuckets={initialBuckets}

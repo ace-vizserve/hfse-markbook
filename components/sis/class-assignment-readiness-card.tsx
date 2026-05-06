@@ -118,7 +118,6 @@ export function ClassAssignmentReadinessCard({
         <RecordsDrillSheet
           target="class-assignment-readiness"
           ayCode={ayCode}
-          initialScope="ay"
         />
       )}
     </Sheet>

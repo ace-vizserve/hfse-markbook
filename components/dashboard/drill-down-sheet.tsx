@@ -47,12 +47,12 @@ import {
  * component renders the `<SheetContent>` with a header / filters / table
  * layout. Columns + rows are supplied per drill-down target.
  *
- * The component ships with a universal toolkit of filter controls — range
- * scope, status / level multi-selects, group-by, density, and column
- * visibility. All toolkit props are optional; when absent the relevant
- * control is hidden.
+ * The component ships with a universal toolkit of filter controls — status /
+ * level multi-selects, group-by, density, and column visibility. All toolkit
+ * props are optional; when absent the relevant control is hidden. Time-scope
+ * is owned by the page-level date range picker; drills always reflect the
+ * page-level from/to window.
  */
-export type DrillDownScope = 'range' | 'ay' | 'all';
 export type DrillDownGroupBy = 'none' | 'level' | 'status' | 'stage';
 export type DrillDownDensity = 'comfortable' | 'compact';
 
@@ -73,10 +73,6 @@ export type DrillDownSheetProps<T> = {
   filters?: React.ReactNode;
   searchable?: boolean;
   emptyMessage?: string;
-
-  // --- Range scope (controlled) -------------------------------------------
-  scope?: DrillDownScope;
-  onScopeChange?: (scope: DrillDownScope) => void;
 
   // --- Status multi-select -------------------------------------------------
   statusOptions?: string[];
@@ -144,12 +140,6 @@ function toggleInArray(arr: string[], value: string): string[] {
     : [...arr, value];
 }
 
-const SCOPE_TABS: Array<{ value: DrillDownScope; label: string }> = [
-  { value: 'range', label: 'This range' },
-  { value: 'ay', label: 'Current AY' },
-  { value: 'all', label: 'All time' },
-];
-
 const GROUP_BY_TABS: Array<{ value: DrillDownGroupBy; label: string }> = [
   { value: 'none', label: 'None' },
   { value: 'level', label: 'Level' },
@@ -168,9 +158,6 @@ export function DrillDownSheet<T>({
   filters,
   searchable = true,
   emptyMessage = 'No rows to show for this filter.',
-
-  scope,
-  onScopeChange,
 
   statusOptions,
   selectedStatuses,
@@ -287,7 +274,6 @@ export function DrillDownSheet<T>({
       : 0;
 
   // --- Toolkit visibility flags -----------------------------------------
-  const showScope = scope !== undefined && Boolean(onScopeChange);
   const showStatus = Array.isArray(statusOptions) && statusOptions.length > 0;
   const showLevel = Array.isArray(levelOptions) && levelOptions.length > 0;
   const showGroupByCtl = showGroupBy && groupBy !== undefined && Boolean(onGroupByChange);
@@ -295,7 +281,7 @@ export function DrillDownSheet<T>({
   const showColumns =
     Array.isArray(columnOptions) && columnOptions.length > 0;
 
-  const showRow1 = searchable || showScope || Boolean(filters);
+  const showRow1 = searchable || Boolean(filters);
   const showRow2 =
     showStatus || showLevel || showGroupByCtl || showDensityCtl || showColumns;
   const showFilterBar = showRow1 || showRow2;
@@ -326,7 +312,7 @@ export function DrillDownSheet<T>({
         </div>
       </div>
 
-      {/* Filter bar — Row 1 (search + scope + CSV) and Row 2 (secondary) */}
+      {/* Filter bar — Row 1 (search + CSV) and Row 2 (secondary) */}
       {showFilterBar && (
         <div className="flex flex-col gap-3 border-b border-border px-6 py-3">
           {showRow1 && (
@@ -338,20 +324,6 @@ export function DrillDownSheet<T>({
                   placeholder="Search rows"
                   className="h-9 max-w-xs"
                 />
-              )}
-              {showScope && scope && (
-                <Tabs
-                  value={scope}
-                  onValueChange={(v) => onScopeChange?.(v as DrillDownScope)}
-                >
-                  <TabsList variant="segmented">
-                    {SCOPE_TABS.map((t) => (
-                      <TabsTrigger key={t.value} value={t.value}>
-                        {t.label}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                </Tabs>
               )}
               <div className="ml-auto flex items-center gap-2">
                 {filters}

@@ -24,7 +24,6 @@ import {
   defaultColumnsForTarget,
   drillHeaderForTarget,
   type DrillColumnKey,
-  type DrillScope,
   type PFilesDrillRow,
   type PFilesDrillTarget,
 } from '@/lib/p-files/drill';
@@ -35,7 +34,6 @@ export type PFilesDrillSheetProps = {
   target: PFilesDrillTarget;
   segment?: string | null;
   ayCode: string;
-  initialScope?: DrillScope;
   initialFrom?: string;
   initialTo?: string;
   initialRows?: PFilesDrillRow[];
@@ -230,7 +228,6 @@ export function PFilesDrillSheet(props: PFilesDrillSheetProps) {
     target,
     segment,
     ayCode,
-    initialScope = 'range',
     initialFrom,
     initialTo,
     initialRows,
@@ -238,7 +235,6 @@ export function PFilesDrillSheet(props: PFilesDrillSheetProps) {
 
   const seedRows = initialRows ?? [];
 
-  const [scope, setScope] = React.useState<DrillScope>(initialScope);
   const [rows, setRows] = React.useState<PFilesDrillRow[]>(seedRows);
   const [loading, setLoading] = React.useState(seedRows.length === 0);
   const [selectedStatuses, setSelectedStatuses] = React.useState<string[]>([]);
@@ -258,7 +254,7 @@ export function PFilesDrillSheet(props: PFilesDrillSheetProps) {
     }
     let cancelled = false;
     setLoading(true);
-    const params = new URLSearchParams({ ay: ayCode, scope });
+    const params = new URLSearchParams({ ay: ayCode });
     if (initialFrom) params.set('from', initialFrom);
     if (initialTo) params.set('to', initialTo);
     if (segment) params.set('segment', segment);
@@ -280,7 +276,7 @@ export function PFilesDrillSheet(props: PFilesDrillSheetProps) {
         }
       });
     return () => { cancelled = true; };
-  }, [target, segment, ayCode, scope, initialFrom, initialTo]);
+  }, [target, segment, ayCode, initialFrom, initialTo]);
 
   // Filter options derived from unfiltered rows
   const statusOptions = React.useMemo(() => {
@@ -333,7 +329,7 @@ export function PFilesDrillSheet(props: PFilesDrillSheetProps) {
     return <DrillSheetSkeleton title={header.title} />;
   }
 
-  const csvParams = new URLSearchParams({ ay: ayCode, scope, format: 'csv' });
+  const csvParams = new URLSearchParams({ ay: ayCode, format: 'csv' });
   if (initialFrom) csvParams.set('from', initialFrom);
   if (initialTo) csvParams.set('to', initialTo);
   if (segment) csvParams.set('segment', segment);
@@ -348,8 +344,6 @@ export function PFilesDrillSheet(props: PFilesDrillSheetProps) {
       csvHref={csvHref}
       columns={columns}
       rows={preFiltered}
-      scope={scope}
-      onScopeChange={setScope}
       statusOptions={statusOptions}
       selectedStatuses={selectedStatuses}
       onStatusesChange={setSelectedStatuses}

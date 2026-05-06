@@ -166,7 +166,7 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
           .then((r) => (r.data?.term_number as number | undefined) ?? null)
       : Promise.resolve(null),
     canSeeAdmin && ayCode
-      ? buildAllRowSets({ ayCode, scope: "range", from: rangeInput.from, to: rangeInput.to })
+      ? buildAllRowSets({ ayCode, from: rangeInput.from, to: rangeInput.to })
       : Promise.resolve(null),
     // Teacher velocity is registrar+ only (gated by canSeeAdmin); the rollup
     // uses the same loadEntryRows cache as the entry-kind drills.
@@ -262,7 +262,6 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
               <MarkbookDrillSheet
                 target="grade-entries"
                 ayCode={ayCode}
-                initialScope="range"
                 initialFrom={rangeInput.from}
                 initialTo={rangeInput.to}
               />
@@ -278,7 +277,6 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
               <MarkbookDrillSheet
                 target="sheets-locked"
                 ayCode={ayCode}
-                initialScope="range"
                 initialFrom={rangeInput.from}
                 initialTo={rangeInput.to}
                 initialSheets={drillRowSets?.sheets}
@@ -299,7 +297,6 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
               <MarkbookDrillSheet
                 target="change-requests"
                 ayCode={ayCode}
-                initialScope="range"
                 initialFrom={rangeInput.from}
                 initialTo={rangeInput.to}
                 initialChangeRequests={drillRowSets?.changeRequests}
@@ -323,7 +320,6 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
               <MarkbookDrillSheet
                 target="change-requests"
                 ayCode={ayCode}
-                initialScope="range"
                 initialFrom={rangeInput.from}
                 initialTo={rangeInput.to}
                 initialChangeRequests={drillRowSets?.changeRequests}

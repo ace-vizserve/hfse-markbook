@@ -20,7 +20,6 @@ import {
   rowKindForTarget,
   type ChangeRequestRow,
   type DrillColumnKey,
-  type DrillScope,
   type GradeEntryRow,
   type MarkbookDrillRow,
   type MarkbookDrillRowKind,
@@ -32,7 +31,6 @@ export type MarkbookDrillSheetProps = {
   target: MarkbookDrillTarget;
   segment?: string | null;
   ayCode: string;
-  initialScope?: DrillScope;
   initialFrom?: string;
   initialTo?: string;
   /** Pre-fetched rows keyed by kind. The component uses the kind matching the target. */
@@ -319,7 +317,6 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
     target,
     segment,
     ayCode,
-    initialScope = 'range',
     initialFrom,
     initialTo,
     initialEntries,
@@ -334,7 +331,6 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
     return initialChangeRequests ?? [];
   }, [kind, initialEntries, initialSheets, initialChangeRequests]);
 
-  const [scope, setScope] = React.useState<DrillScope>(initialScope);
   const [rows, setRows] = React.useState<MarkbookDrillRow[]>(seedRows);
   const [loading, setLoading] = React.useState(seedRows.length === 0);
   const [globalFilter, _setGlobalFilter] = React.useState('');
@@ -356,7 +352,7 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
     }
     let cancelled = false;
     setLoading(true);
-    const params = new URLSearchParams({ ay: ayCode, scope });
+    const params = new URLSearchParams({ ay: ayCode });
     if (initialFrom) params.set('from', initialFrom);
     if (initialTo) params.set('to', initialTo);
     if (segment) params.set('segment', segment);
@@ -385,7 +381,7 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
     return () => {
       cancelled = true;
     };
-  }, [target, segment, ayCode, scope, initialFrom, initialTo]);
+  }, [target, segment, ayCode, initialFrom, initialTo]);
 
   // Status + level options derived from the unfiltered rows.
   const statusOptions = React.useMemo(() => {
@@ -476,7 +472,7 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
     return <DrillSheetSkeleton title={header.title} />;
   }
 
-  const csvParams = new URLSearchParams({ ay: ayCode, scope, format: 'csv' });
+  const csvParams = new URLSearchParams({ ay: ayCode, format: 'csv' });
   if (initialFrom) csvParams.set('from', initialFrom);
   if (initialTo) csvParams.set('to', initialTo);
   if (segment) csvParams.set('segment', segment);
@@ -491,8 +487,6 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
       csvHref={csvHref}
       columns={columns}
       rows={preFiltered}
-      scope={scope}
-      onScopeChange={setScope}
       statusOptions={statusOptions}
       selectedStatuses={selectedStatuses}
       onStatusesChange={setSelectedStatuses}

@@ -93,7 +93,6 @@ export function TeacherEntryVelocityCard({
           target="teacher-entry-velocity"
           segment={openTeacher}
           ayCode={ayCode}
-          initialScope="ay"
         />
       )}
     </Sheet>

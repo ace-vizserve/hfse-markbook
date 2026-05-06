@@ -23,7 +23,6 @@ import {
   defaultColumnsForTarget,
   drillHeaderForTarget,
   type DrillColumnKey,
-  type DrillScope,
   type RecordsDrillRow,
   type RecordsDrillTarget,
 } from '@/lib/sis/drill';
@@ -35,14 +34,12 @@ export type RecordsDrillSheetProps = {
   target: RecordsDrillTarget;
   segment?: string | null;
   ayCode: string;
-  /** Initial scope; the drill manages its own scope state and refetches when it changes. */
-  initialScope?: DrillScope;
-  /** When initialScope='range', these clamp the dataset. */
+  /** When set, these clamp the dataset to the page-level date range. */
   initialFrom?: string;
   initialTo?: string;
   /** Pre-fetched rows — when provided, the drill renders immediately without
    *  a network call. Used by the page (Server Component) to avoid loading
-   *  spinners on first open. Subsequent scope changes still hit the API. */
+   *  spinners on first open. */
   initialRows?: RecordsDrillRow[];
 };
 
@@ -204,7 +201,6 @@ function compareLevels(a: string, b: string): number {
 function buildDrillUrl(
   target: RecordsDrillTarget,
   ayCode: string,
-  scope: DrillScope,
   from: string | undefined,
   to: string | undefined,
   segment: string | null | undefined,
@@ -213,11 +209,8 @@ function buildDrillUrl(
 ): string {
   const params = new URLSearchParams();
   params.set('ay', ayCode);
-  params.set('scope', scope);
-  if (scope === 'range') {
-    if (from) params.set('from', from);
-    if (to) params.set('to', to);
-  }
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
   if (segment) params.set('segment', segment);
   if (format === 'csv') {
     params.set('format', 'csv');
@@ -402,13 +395,11 @@ export function RecordsDrillSheet({
   target,
   segment,
   ayCode,
-  initialScope = 'range',
   initialFrom,
   initialTo,
   initialRows,
 }: RecordsDrillSheetProps) {
   // ── State ────────────────────────────────────────────────────────────────
-  const [scope, setScope] = React.useState<DrillScope>(initialScope);
   const [rows, setRows] = React.useState<RecordsDrillRow[]>(initialRows ?? []);
   const [loading, setLoading] = React.useState<boolean>(
     initialRows === undefined,
@@ -421,9 +412,9 @@ export function RecordsDrillSheet({
     () => defaultColumnsForTarget(target),
   );
 
-  // ── Fetch on scope change ────────────────────────────────────────────────
-  // Skip the first effect run when initialRows is provided AND scope hasn't
-  // changed yet — the parent already handed us hydrated rows.
+  // ── Fetch on range change ────────────────────────────────────────────────
+  // Skip the first effect run when initialRows is provided — the parent
+  // already handed us hydrated rows.
   const skipNextFetchRef = React.useRef<boolean>(
     initialRows !== undefined,
   );
@@ -438,7 +429,6 @@ export function RecordsDrillSheet({
     const url = buildDrillUrl(
       target,
       ayCode,
-      scope,
       initialFrom,
       initialTo,
       segment,
@@ -467,7 +457,7 @@ export function RecordsDrillSheet({
     return () => {
       cancelled = true;
     };
-  }, [target, ayCode, scope, segment, initialFrom, initialTo]);
+  }, [target, ayCode, segment, initialFrom, initialTo]);
 
   // ── Pre-filter rows by status + level ───────────────────────────────────
   const preFiltered = React.useMemo<RecordsDrillRow[]>(() => {
@@ -537,7 +527,6 @@ export function RecordsDrillSheet({
   const csvHref = buildDrillUrl(
     target,
     ayCode,
-    scope,
     initialFrom,
     initialTo,
     segment,
@@ -554,8 +543,6 @@ export function RecordsDrillSheet({
       columns={columns}
       rows={preFiltered}
       // Toolkit
-      scope={scope}
-      onScopeChange={setScope}
       statusOptions={statusOptions}
       selectedStatuses={selectedStatuses}
       onStatusesChange={setSelectedStatuses}

@@ -17,7 +17,6 @@ import {
   DRILL_COLUMN_LABELS,
   rowKindForTarget,
   type DrillColumnKey,
-  type DrillScope,
   type EvaluationDrillRow,
   type EvaluationDrillRowKind,
   type EvaluationDrillTarget,
@@ -30,7 +29,6 @@ export type EvaluationDrillSheetProps = {
   target: EvaluationDrillTarget;
   segment?: string | null;
   ayCode: string;
-  initialScope?: DrillScope;
   initialFrom?: string;
   initialTo?: string;
   initialWriteups?: WriteupRow[];
@@ -193,7 +191,7 @@ function buildBucketColumns(visible: DrillColumnKey[]): ColumnDef<TimeToSubmitBu
 export function EvaluationDrillSheet(props: EvaluationDrillSheetProps) {
   const {
     target, segment, ayCode,
-    initialScope = 'range', initialFrom, initialTo,
+    initialFrom, initialTo,
     initialWriteups, initialBySection, initialBuckets,
   } = props;
 
@@ -204,7 +202,6 @@ export function EvaluationDrillSheet(props: EvaluationDrillSheetProps) {
     return initialBuckets ?? [];
   }, [kind, initialWriteups, initialBySection, initialBuckets]);
 
-  const [scope, setScope] = React.useState<DrillScope>(initialScope);
   const [rows, setRows] = React.useState<EvaluationDrillRow[]>(seedRows);
   const [selectedStatuses, setSelectedStatuses] = React.useState<string[]>([]);
   const [selectedLevels, setSelectedLevels] = React.useState<string[]>([]);
@@ -222,7 +219,7 @@ export function EvaluationDrillSheet(props: EvaluationDrillSheetProps) {
       return;
     }
     let cancelled = false;
-    const params = new URLSearchParams({ ay: ayCode, scope });
+    const params = new URLSearchParams({ ay: ayCode });
     if (initialFrom) params.set('from', initialFrom);
     if (initialTo) params.set('to', initialTo);
     if (segment) params.set('segment', segment);
@@ -237,7 +234,7 @@ export function EvaluationDrillSheet(props: EvaluationDrillSheetProps) {
       })
       .catch(() => { if (!cancelled) toast.error('Failed to load drill data'); });
     return () => { cancelled = true; };
-  }, [target, segment, ayCode, scope, initialFrom, initialTo]);
+  }, [target, segment, ayCode, initialFrom, initialTo]);
 
   const statusOptions = React.useMemo(() => {
     if (kind !== 'writeup') return undefined;
@@ -302,7 +299,7 @@ export function EvaluationDrillSheet(props: EvaluationDrillSheetProps) {
 
   const header = drillHeaderForTarget(target, segment ?? null);
 
-  const csvParams = new URLSearchParams({ ay: ayCode, scope, format: 'csv' });
+  const csvParams = new URLSearchParams({ ay: ayCode, format: 'csv' });
   if (initialFrom) csvParams.set('from', initialFrom);
   if (initialTo) csvParams.set('to', initialTo);
   if (segment) csvParams.set('segment', segment);
@@ -317,8 +314,6 @@ export function EvaluationDrillSheet(props: EvaluationDrillSheetProps) {
       csvHref={csvHref}
       columns={columns}
       rows={preFiltered}
-      scope={scope}
-      onScopeChange={setScope}
       statusOptions={statusOptions}
       selectedStatuses={selectedStatuses}
       onStatusesChange={setSelectedStatuses}

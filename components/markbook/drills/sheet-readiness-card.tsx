@@ -199,7 +199,6 @@ export function SheetReadinessCard({
           target="sheet-readiness-section"
           segment={openSection}
           ayCode={ayCode}
-          initialScope="ay"
           initialSheets={sheets}
         />
       )}

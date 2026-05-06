@@ -341,7 +341,6 @@ export default async function PFilesDashboard({
             <PFilesDrillSheet
               target="all-docs"
               ayCode={selectedAy}
-              initialScope="ay"
             />
           }
         />
@@ -355,7 +354,6 @@ export default async function PFilesDashboard({
             <PFilesDrillSheet
               target="expired-docs"
               ayCode={selectedAy}
-              initialScope="ay"
             />
           }
         />
@@ -369,7 +367,6 @@ export default async function PFilesDashboard({
             <PFilesDrillSheet
               target="expired-docs"
               ayCode={selectedAy}
-              initialScope="ay"
             />
           }
         />
@@ -383,7 +380,6 @@ export default async function PFilesDashboard({
             <PFilesDrillSheet
               target="all-docs"
               ayCode={selectedAy}
-              initialScope="ay"
             />
           }
         />

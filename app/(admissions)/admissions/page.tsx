@@ -277,7 +277,6 @@ export default async function AdmissionsDashboard({
     buildDrillRows(
       {
         ayCode: selectedAy,
-        scope: "range",
         from: rangeInput.from,
         to: rangeInput.to,
       },
@@ -431,7 +430,6 @@ export default async function AdmissionsDashboard({
             <AdmissionsDrillSheet
               target="applications"
               ayCode={selectedAy}
-              initialScope="range"
               initialFrom={rangeInput.from}
               initialTo={rangeInput.to}
               initialRows={drillRows}
@@ -452,7 +450,6 @@ export default async function AdmissionsDashboard({
             <AdmissionsDrillSheet
               target="enrolled"
               ayCode={selectedAy}
-              initialScope="range"
               initialFrom={rangeInput.from}
               initialTo={rangeInput.to}
               initialRows={drillRows}
@@ -474,7 +471,6 @@ export default async function AdmissionsDashboard({
             <AdmissionsDrillSheet
               target="conversion"
               ayCode={selectedAy}
-              initialScope="range"
               initialFrom={rangeInput.from}
               initialTo={rangeInput.to}
               initialRows={drillRows}
@@ -497,7 +493,6 @@ export default async function AdmissionsDashboard({
             <AdmissionsDrillSheet
               target="avg-time"
               ayCode={selectedAy}
-              initialScope="range"
               initialFrom={rangeInput.from}
               initialTo={rangeInput.to}
               initialRows={drillRows}

@@ -59,7 +59,6 @@ export function FunnelDrillCard({
           target="funnel-stage"
           segment={segment}
           ayCode={ayCode}
-          initialScope="range"
           initialFrom={rangeFrom}
           initialTo={rangeTo}
           initialRows={drillRows}
@@ -85,7 +84,6 @@ export function PipelineDrillCard({
           target="pipeline-stage"
           segment={segment}
           ayCode={ayCode}
-          initialScope="ay"
           initialRows={drillRows}
         />
       )}
@@ -109,7 +107,6 @@ export function AssessmentDrillCard({
           target="assessment"
           segment={segment}
           ayCode={ayCode}
-          initialScope="ay"
           initialRows={drillRows}
         />
       )}
@@ -133,7 +130,6 @@ export function ReferralDrillCard({
           target="referral"
           segment={segment}
           ayCode={ayCode}
-          initialScope="ay"
           initialRows={drillRows}
         />
       )}
@@ -173,7 +169,6 @@ export function TimeToEnrollDrillCard({
           target="time-to-enroll-bucket"
           segment={segment}
           ayCode={ayCode}
-          initialScope="ay"
           initialRows={drillRows}
         />
       )}

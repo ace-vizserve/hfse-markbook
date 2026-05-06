@@ -66,7 +66,7 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
     getExReasonMixRange(rangeInput),
     getTopAbsentRange(rangeInput, 10),
     getDayTypeDistributionRange(rangeInput),
-    buildAllRowSets({ ayCode: selectedAy, scope: "range", from: rangeInput.from, to: rangeInput.to }),
+    buildAllRowSets({ ayCode: selectedAy, from: rangeInput.from, to: rangeInput.to }),
   ]);
 
   // Priority depends on the freshly-loaded compassionate roll-up; compute
@@ -151,7 +151,6 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
             <AttendanceDrillSheet
               target="attendance-summary"
               ayCode={selectedAy}
-              initialScope="range"
               initialFrom={rangeInput.from}
               initialTo={rangeInput.to}
             />
@@ -174,7 +173,6 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
             <AttendanceDrillSheet
               target="lates"
               ayCode={selectedAy}
-              initialScope="range"
               initialFrom={rangeInput.from}
               initialTo={rangeInput.to}
             />
@@ -192,7 +190,6 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
             <AttendanceDrillSheet
               target="excused"
               ayCode={selectedAy}
-              initialScope="range"
               initialFrom={rangeInput.from}
               initialTo={rangeInput.to}
             />
@@ -211,7 +208,6 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
             <AttendanceDrillSheet
               target="absent"
               ayCode={selectedAy}
-              initialScope="range"
               initialFrom={rangeInput.from}
               initialTo={rangeInput.to}
             />

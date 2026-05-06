@@ -82,7 +82,6 @@ export function AttendanceBySectionCard({
           target="attendance-by-section"
           segment={openSection}
           ayCode={ayCode}
-          initialScope="range"
           initialFrom={rangeFrom}
           initialTo={rangeTo}
           initialSectionAttendance={data}

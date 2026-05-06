@@ -25,8 +25,6 @@ export type PFilesDrillTarget =
   | 'level-applicants'
   | 'revisions-on-day';
 
-export type DrillScope = 'range' | 'ay' | 'all';
-
 // ─── Row shape ──────────────────────────────────────────────────────────────
 
 export type PFilesDrillRow = {
@@ -197,17 +195,16 @@ async function loadPFilesRowsUncached(ayCode: string): Promise<PFilesDrillRow[]>
 
 export async function buildPFilesDrillRows(input: {
   ayCode: string;
-  scope: DrillScope;
   from?: string;
   to?: string;
 }): Promise<PFilesDrillRow[]> {
   // Loader is AY-scoped; range filtering is target-specific (revisions /
   // expiry dates) and applied by `applyTargetFilter` in the API route via
-  // the `range` parameter. The `scope` / `from` / `to` props on this
-  // builder are accepted for API consistency with sibling builders, but
-  // intentionally not applied at load time — P-Files renders all enrolled
-  // students every render so the slot-status mix and completion-by-level
-  // are full-AY views regardless of the user's selected range.
+  // the `range` parameter. The `from` / `to` props on this builder are
+  // accepted for API consistency with sibling builders, but intentionally
+  // not applied at load time — P-Files renders all enrolled students every
+  // render so the slot-status mix and completion-by-level are full-AY
+  // views regardless of the user's selected range.
   return unstable_cache(
     () => loadPFilesRowsUncached(input.ayCode),
     ['p-files-drill', 'rows', input.ayCode],

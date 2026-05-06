@@ -69,7 +69,6 @@ export async function GET(
 
   const rows = await buildAttendanceDrillRows({
     ayCode,
-    scope: 'range' as const,
     from,
     to,
     target,

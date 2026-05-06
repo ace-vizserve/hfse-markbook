@@ -73,7 +73,7 @@ export async function GET(
   }
 
   const rows = await buildEvaluationDrillRows({
-    ayCode, scope: 'range' as const, from, to, target, segment, allowedSectionIds,
+    ayCode, from, to, target, segment, allowedSectionIds,
   });
 
   if (format === 'csv') {

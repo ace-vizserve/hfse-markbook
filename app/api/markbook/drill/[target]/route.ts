@@ -87,7 +87,6 @@ export async function GET(
 
   const rows = await buildMarkbookDrillRows({
     ayCode,
-    scope: 'range' as const,
     from,
     to,
     target,

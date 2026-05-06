@@ -172,7 +172,6 @@ export function DocumentCompletionCard({
           target="doc-completion"
           segment={openLevel}
           ayCode={ayCode}
-          initialScope="ay"
           initialRows={drillRows}
         />
       )}

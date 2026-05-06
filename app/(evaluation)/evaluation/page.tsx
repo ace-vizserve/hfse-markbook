@@ -105,7 +105,7 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
     ? await Promise.all([
         getEvaluationKpisRange(rangeInput),
         getSubmissionVelocityRange(rangeInput),
-        buildAllRowSets({ ayCode, scope: "range", from: rangeInput.from, to: rangeInput.to }),
+        buildAllRowSets({ ayCode, from: rangeInput.from, to: rangeInput.to }),
       ])
     : [null, null, null];
   const comparisonLabel = kpisResult?.comparisonRange
@@ -214,7 +214,6 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
                 <EvaluationDrillSheet
                   target="submission-status"
                   ayCode={ayCode}
-                  initialScope="range"
                   initialFrom={rangeInput.from}
                   initialTo={rangeInput.to}
                   initialWriteups={drillRowSets?.writeups}
@@ -231,7 +230,6 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
                 <EvaluationDrillSheet
                   target="submitted"
                   ayCode={ayCode}
-                  initialScope="range"
                   initialFrom={rangeInput.from}
                   initialTo={rangeInput.to}
                   initialWriteups={drillRowSets?.writeups}
@@ -256,7 +254,6 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
                 <EvaluationDrillSheet
                   target="time-to-submit"
                   ayCode={ayCode}
-                  initialScope="range"
                   initialFrom={rangeInput.from}
                   initialTo={rangeInput.to}
                   initialWriteups={drillRowSets?.writeups}
@@ -278,7 +275,6 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
                 <EvaluationDrillSheet
                   target="late"
                   ayCode={ayCode}
-                  initialScope="range"
                   initialFrom={rangeInput.from}
                   initialTo={rangeInput.to}
                   initialWriteups={drillRowSets?.writeups}

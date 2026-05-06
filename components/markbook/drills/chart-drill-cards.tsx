@@ -43,7 +43,6 @@ export function GradeDistributionDrillCard({
           target="grade-bucket-entries"
           segment={segment}
           ayCode={ayCode}
-          initialScope="range"
           initialFrom={rangeFrom}
           initialTo={rangeTo}
         />
@@ -68,7 +67,6 @@ export function SheetProgressDrillCard({
           target="term-sheet-status"
           segment={segment}
           ayCode={ayCode}
-          initialScope="ay"
           initialSheets={initialSheets}
         />
       )}
@@ -92,7 +90,6 @@ export function PublicationCoverageDrillCard({
           target="term-publication-status"
           segment={segment}
           ayCode={ayCode}
-          initialScope="ay"
           initialSheets={initialSheets}
         />
       )}

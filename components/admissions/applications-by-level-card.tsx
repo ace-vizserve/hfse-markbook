@@ -109,7 +109,6 @@ export function ApplicationsByLevelCard({
           target="applications-by-level"
           segment={openLevel}
           ayCode={ayCode}
-          initialScope="range"
           initialFrom={rangeFrom}
           initialTo={rangeTo}
           initialRows={drillRows}

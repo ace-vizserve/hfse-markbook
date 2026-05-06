@@ -215,7 +215,6 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
             <RecordsDrillSheet
               target="enrollments-range"
               ayCode={selectedAy}
-              initialScope="range"
               initialFrom={rangeInput.from}
               initialTo={rangeInput.to}
             />
@@ -236,7 +235,6 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
             <RecordsDrillSheet
               target="withdrawals-range"
               ayCode={selectedAy}
-              initialScope="range"
               initialFrom={rangeInput.from}
               initialTo={rangeInput.to}
             />
@@ -252,7 +250,6 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
             <RecordsDrillSheet
               target="active-enrolled"
               ayCode={selectedAy}
-              initialScope="ay"
             />
           }
         />
@@ -266,7 +263,6 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
             <RecordsDrillSheet
               target="expiring-docs"
               ayCode={selectedAy}
-              initialScope="ay"
             />
           }
         />

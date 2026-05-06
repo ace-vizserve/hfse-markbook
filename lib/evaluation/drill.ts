@@ -24,8 +24,6 @@ export type EvaluationDrillTarget =
   | 'writeups-by-section'       // section × counts
   | 'time-to-submit-bucket';    // bucket bars (0-3d/4-7d/8-14d/>14d)
 
-export type DrillScope = 'range' | 'ay' | 'all';
-
 // ─── Row shapes ─────────────────────────────────────────────────────────────
 
 export type WriteupRow = {
@@ -92,7 +90,6 @@ export function rowKindForTarget(t: EvaluationDrillTarget): EvaluationDrillRowKi
 
 export type DrillRangeInput = {
   ayCode: string;
-  scope: DrillScope;
   from?: string;
   to?: string;
   /** When set, only include sections in this list (form-adviser scoping). */
@@ -392,7 +389,6 @@ export async function buildEvaluationDrillRows(
 
 export async function buildAllRowSets(input: {
   ayCode: string;
-  scope: DrillScope;
   from?: string;
   to?: string;
   allowedSectionIds?: string[] | null;
@@ -403,7 +399,7 @@ export async function buildAllRowSets(input: {
 }> {
   const all = await loadWriteupRows(input.ayCode);
   const scoped = applyAllowedSections(
-    applyScope(all, { ayCode: input.ayCode, scope: input.scope, from: input.from, to: input.to }),
+    applyScope(all, { ayCode: input.ayCode, from: input.from, to: input.to }),
     input.allowedSectionIds ?? null,
   );
   return {

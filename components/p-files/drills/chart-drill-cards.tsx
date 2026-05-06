@@ -67,7 +67,6 @@ export function SlotStatusDrillCard({
           target="slot-by-status"
           segment={status}
           ayCode={ayCode}
-          initialScope="ay"
         />
       )}
     </Sheet>
@@ -89,7 +88,6 @@ export function TopMissingDrillCard({
           target="missing-by-slot"
           segment={slotKey}
           ayCode={ayCode}
-          initialScope="ay"
         />
       )}
     </Sheet>
@@ -111,7 +109,6 @@ export function CompletionByLevelDrillCard({
           target="level-applicants"
           segment={level}
           ayCode={ayCode}
-          initialScope="ay"
         />
       )}
     </Sheet>

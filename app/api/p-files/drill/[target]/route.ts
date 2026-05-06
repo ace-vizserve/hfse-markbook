@@ -60,7 +60,7 @@ export async function GET(
   const format = url.searchParams.get('format') ?? 'json';
   const columnsParam = url.searchParams.get('columns');
 
-  const all = await buildPFilesDrillRows({ ayCode, scope: 'range' as const, from, to });
+  const all = await buildPFilesDrillRows({ ayCode, from, to });
   const rangeForFilter = from && to ? { from, to } : undefined;
   const rows = applyTargetFilter(all, target, segment, rangeForFilter);
 

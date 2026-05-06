@@ -39,8 +39,6 @@ export type DrillTarget =
   | 'doc-completion'
   | 'outdated';
 
-export type DrillScope = 'range' | 'ay' | 'all';
-
 export type DrillRow = {
   enroleeNumber: string;
   studentNumber: string | null;
@@ -64,8 +62,7 @@ export type DrillRow = {
 
 export type DrillRangeInput = {
   ayCode: string;
-  scope: DrillScope;
-  /** When scope='range', clamp by these dates. Ignored for 'ay'/'all'. */
+  /** When set, clamp by these dates. Both must be present. */
   from?: string;
   to?: string;
 };
@@ -124,7 +121,7 @@ const CORE_DOC_STATUS_COLUMNS = [
 
 type DocRow = Record<(typeof CORE_DOC_STATUS_COLUMNS)[number] | 'enroleeNumber', string | null>;
 
-async function loadDrillRowsUncached(input: DrillRangeInput): Promise<DrillRow[]> {
+async function loadDrillRowsUncached(input: { ayCode: string }): Promise<DrillRow[]> {
   // Core rows fetch — no docs. Doc enrichment is layered on top via
   // `enrichWithDocs` for the targets that need it. Of 12 drill targets, only
   // 5 surface doc fields (applications, enrolled, outdated, doc-completion,
@@ -298,18 +295,18 @@ export async function buildDrillRows(
   input: DrillRangeInput,
   options?: { withDocs?: boolean },
 ): Promise<DrillRow[]> {
-  // Cache the AY-wide row set once per AY; apply scope (range / ay / all)
-  // post-cache. Cheap because applyScopeFilter is a single .filter() over
-  // the cached array. We deliberately do NOT include scope/from/to in the
-  // cache key — they would fragment the cache without saving any DB work
-  // (the underlying tables are the same regardless of date scope).
+  // Cache the AY-wide row set once per AY; apply range filtering post-cache.
+  // Cheap because applyScopeFilter is a single .filter() over the cached
+  // array. We deliberately do NOT include from/to in the cache key — they
+  // would fragment the cache without saving any DB work (the underlying
+  // tables are the same regardless of date range).
   //
   // The cached row set has placeholder doc fields. Callers that need
   // doc-completeness data pass `withDocs: true` and get the docs table
   // queried + layered on. The 7 of 12 targets that don't surface doc
   // fields skip that query entirely.
   const cached = await unstable_cache(
-    () => loadDrillRowsUncached({ ayCode: input.ayCode, scope: 'all' }),
+    () => loadDrillRowsUncached({ ayCode: input.ayCode }),
     ['admissions-drill', 'rows', input.ayCode],
     { revalidate: CACHE_TTL_SECONDS, tags: tags(input.ayCode) },
   )();

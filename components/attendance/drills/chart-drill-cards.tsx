@@ -96,7 +96,6 @@ export function DailyAttendanceDrillCard({
           target="daily-attendance-day"
           segment={segment}
           ayCode={ayCode}
-          initialScope="range"
           initialFrom={rangeFrom}
           initialTo={rangeTo}
           initialEntries={initialEntries}
@@ -145,7 +144,6 @@ export function ExReasonDrillCard({
           target="ex-reason"
           segment={segment}
           ayCode={ayCode}
-          initialScope="range"
           initialFrom={rangeFrom}
           initialTo={rangeTo}
           initialEntries={initialEntries}
@@ -192,7 +190,6 @@ export function DayTypeDrillCard({
           target="day-type"
           segment={segment}
           ayCode={ayCode}
-          initialScope="range"
           initialFrom={rangeFrom}
           initialTo={rangeTo}
           initialCalendar={initialCalendar}
@@ -263,7 +260,6 @@ export function TopAbsentDrillCard({
         <AttendanceDrillSheet
           target="top-absent"
           ayCode={ayCode}
-          initialScope="range"
           initialFrom={rangeFrom}
           initialTo={rangeTo}
           initialTopAbsent={initialTopAbsent}

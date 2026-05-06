@@ -33,8 +33,6 @@ export type RecordsDrillTarget =
   | 'students-by-level'
   | 'class-assignment-readiness';
 
-export type DrillScope = 'range' | 'ay' | 'all';
-
 // ─── Row shape ──────────────────────────────────────────────────────────────
 
 export type RecordsDrillRow = {
@@ -77,7 +75,6 @@ const SOFT_CLOSED_APPLICATION_STATUSES = new Set(['Cancelled', 'Withdrawn']);
 
 export type DrillRangeInput = {
   ayCode: string;
-  scope: DrillScope;
   from?: string;
   to?: string;
 };

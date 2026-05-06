@@ -44,7 +44,6 @@ export function PipelineStageDrillCard({
           target="students-by-pipeline-stage"
           segment={stage}
           ayCode={ayCode}
-          initialScope="ay"
         />
       )}
     </Sheet>
@@ -66,7 +65,6 @@ export function DocumentBacklogDrillCard({
           target="backlog-by-document"
           segment={segment}
           ayCode={ayCode}
-          initialScope="ay"
         />
       )}
     </Sheet>
@@ -88,7 +86,6 @@ export function LevelDistributionDrillCard({
           target="students-by-level"
           segment={level}
           ayCode={ayCode}
-          initialScope="ay"
         />
       )}
     </Sheet>

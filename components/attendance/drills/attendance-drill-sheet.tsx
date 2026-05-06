@@ -26,7 +26,6 @@ import {
   type CalendarDayRow,
   type CompassionateUsageRow,
   type DrillColumnKey,
-  type DrillScope,
   type SectionAttendanceRow,
   type TopAbsentDrillRow,
 } from '@/lib/attendance/drill';
@@ -35,7 +34,6 @@ export type AttendanceDrillSheetProps = {
   target: AttendanceDrillTarget;
   segment?: string | null;
   ayCode: string;
-  initialScope?: DrillScope;
   initialFrom?: string;
   initialTo?: string;
   initialEntries?: AttendanceEntryRow[];
@@ -297,7 +295,6 @@ export function AttendanceDrillSheet(props: AttendanceDrillSheetProps) {
     target,
     segment,
     ayCode,
-    initialScope = 'range',
     initialFrom,
     initialTo,
     initialEntries,
@@ -317,7 +314,6 @@ export function AttendanceDrillSheet(props: AttendanceDrillSheetProps) {
     return initialCalendar ?? [];
   }, [kind, initialEntries, initialTopAbsent, initialSectionAttendance, initialCompassionate, initialCalendar]);
 
-  const [scope, setScope] = React.useState<DrillScope>(initialScope);
   const [rows, setRows] = React.useState<AttendanceDrillRow[]>(seedRows);
   const [loading, setLoading] = React.useState(seedRows.length === 0);
   const [selectedStatuses, setSelectedStatuses] = React.useState<string[]>([]);
@@ -337,7 +333,7 @@ export function AttendanceDrillSheet(props: AttendanceDrillSheetProps) {
     }
     let cancelled = false;
     setLoading(true);
-    const params = new URLSearchParams({ ay: ayCode, scope });
+    const params = new URLSearchParams({ ay: ayCode });
     if (initialFrom) params.set('from', initialFrom);
     if (initialTo) params.set('to', initialTo);
     if (segment) params.set('segment', segment);
@@ -364,7 +360,7 @@ export function AttendanceDrillSheet(props: AttendanceDrillSheetProps) {
         }
       });
     return () => { cancelled = true; };
-  }, [target, segment, ayCode, scope, initialFrom, initialTo]);
+  }, [target, segment, ayCode, initialFrom, initialTo]);
 
   const statusOptions = React.useMemo(() => {
     if (kind !== 'entry') return undefined;
@@ -441,7 +437,7 @@ export function AttendanceDrillSheet(props: AttendanceDrillSheetProps) {
     return <DrillSheetSkeleton title={header.title} />;
   }
 
-  const csvParams = new URLSearchParams({ ay: ayCode, scope, format: 'csv' });
+  const csvParams = new URLSearchParams({ ay: ayCode, format: 'csv' });
   if (initialFrom) csvParams.set('from', initialFrom);
   if (initialTo) csvParams.set('to', initialTo);
   if (segment) csvParams.set('segment', segment);
@@ -456,8 +452,6 @@ export function AttendanceDrillSheet(props: AttendanceDrillSheetProps) {
       csvHref={csvHref}
       columns={columns}
       rows={preFiltered}
-      scope={scope}
-      onScopeChange={setScope}
       statusOptions={statusOptions}
       selectedStatuses={selectedStatuses}
       onStatusesChange={setSelectedStatuses}

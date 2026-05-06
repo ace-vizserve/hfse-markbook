@@ -54,8 +54,6 @@ export function rowKindForTarget(t: AttendanceDrillTarget): AttendanceDrillRowKi
   }
 }
 
-export type DrillScope = 'range' | 'ay' | 'all';
-
 // ─── Row shapes ─────────────────────────────────────────────────────────────
 
 export type AttendanceEntryRow = {
@@ -130,7 +128,6 @@ export type AttendanceDrillRow =
 
 export type DrillRangeInput = {
   ayCode: string;
-  scope: DrillScope;
   from?: string;
   to?: string;
 };
@@ -590,7 +587,6 @@ type AllRowSets = {
 
 async function buildAllRowSetsUncached(input: {
   ayCode: string;
-  scope: DrillScope;
   from?: string;
   to?: string;
 }): Promise<AllRowSets> {
@@ -617,12 +613,11 @@ async function buildAllRowSetsUncached(input: {
 
 // Cached at the OUTPUT level — rolled-up shapes are tiny (sectionAttendance
 // is ~21 rows; topAbsent is ~50; calendar is ~220; compassionate is ~10),
-// total << 2MB so the cache write succeeds. Per-call key includes scope +
-// from/to since those affect the filtered output. Replaces the prior
+// total << 2MB so the cache write succeeds. Per-call key includes from/to
+// since those affect the filtered output. Replaces the prior
 // inner-loadEntryRows cache which kept busting Next.js's 2MB limit.
 export function buildAllRowSets(input: {
   ayCode: string;
-  scope: DrillScope;
   from?: string;
   to?: string;
 }): Promise<AllRowSets> {
@@ -632,7 +627,6 @@ export function buildAllRowSets(input: {
       'attendance-drill',
       'all-row-sets',
       input.ayCode,
-      input.scope,
       input.from ?? '',
       input.to ?? '',
     ],

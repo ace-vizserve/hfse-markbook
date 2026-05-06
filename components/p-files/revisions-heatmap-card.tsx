@@ -131,7 +131,6 @@ export function RevisionsHeatmapCard({
           target="revisions-on-day"
           segment={openDate}
           ayCode={ayCode}
-          initialScope="ay"
         />
       )}
     </Sheet>
