@@ -55,7 +55,7 @@ export async function GET(
   }
 
   const header = lifecycleDrillHeaderForTarget(target);
-  return NextResponse.json({
+  const res = NextResponse.json({
     rows,
     total: rows.length,
     target,
@@ -63,6 +63,11 @@ export async function GET(
     eyebrow: header.eyebrow,
     title: header.title,
   });
+  res.headers.set(
+    'Cache-Control',
+    'private, max-age=60, stale-while-revalidate=300',
+  );
+  return res;
 }
 
 function pickColumns(

@@ -1,7 +1,9 @@
 ﻿import { NextResponse, type NextRequest } from 'next/server';
 
 import { requireRole } from '@/lib/auth/require-role';
+import { requireCurrentAyCode } from '@/lib/academic-year';
 import { logAction } from '@/lib/audit/log-action';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 import { createServiceClient } from '@/lib/supabase/service';
 
 // POST /api/grading-sheets/bulk-create
@@ -65,6 +67,8 @@ export async function POST(request: NextRequest) {
       sheets_seeded: sheetsSeeded,
     },
   });
+
+  invalidateDrillTags('markbook', await requireCurrentAyCode(service));
 
   return NextResponse.json({
     ok: true,
