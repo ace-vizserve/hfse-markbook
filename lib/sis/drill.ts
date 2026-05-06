@@ -239,7 +239,18 @@ async function loadRecordsRowsUncached(ayCode: string): Promise<RecordsDrillRow[
 
     const enrollmentStatus = enrol.enrollment_status;
     const pipelineStage = deriveStage(applicationStatus, enrollmentStatus);
-    const level = section ? levels.get(section.level_id) ?? null : status?.classLevel ?? app?.levelApplied ?? null;
+    // Level resolver MUST mirror the chart's `loadLevelDistributionUncached`
+    // resolver in lib/sis/dashboard.ts so segment clicks on the donut land
+    // on rows whose `level` field matches the bucket label exactly. Chart
+    // priority: `status.classLevel` → `app.levelApplied` → 'Unknown'.
+    // The previous version preferred `levels.get(section.level_id)` (the
+    // level CODE like "P1") and fell through to classLevel (the LABEL like
+    // "Primary 1"); donut buckets keyed on labels then matched zero rows
+    // when the section table resolved to a code. KD #82 lays out the
+    // pattern — when a chart and drill diverge on row counts, check
+    // shared scope anchor + segment-key vocabulary.
+    const level =
+      (status?.classLevel ?? app?.levelApplied ?? '').trim() || 'Unknown';
 
     out.push({
       enroleeNumber: enroleeNumber || student.student_number,
