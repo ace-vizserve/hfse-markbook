@@ -10,6 +10,7 @@ import {
   type LevelCode,
 } from '@/lib/sis/levels';
 import { DOCUMENT_SLOTS, STP_CONDITIONAL_SLOT_KEYS } from '@/lib/sis/queries';
+import { fetchAllPages } from '@/lib/supabase/paginate';
 
 import { pickNames } from './names';
 
@@ -18,9 +19,13 @@ import { pickNames } from './names';
 // writeups, admissions-funnel rows, discount codes, and a demo publication
 // window so every module renders populated screens instead of empty states.
 //
-// Each step is idempotent: checks for existing data keyed on AY9999-scoped
-// identifiers and bails early when content is already present. Re-running
-// `switchEnvironment('test')` doesn't duplicate anything.
+// Each step is self-healing: computes the expected row set, subtracts what
+// already exists keyed on the natural identifier (grading_sheet ×
+// section_student, term × student, enroleeNumber, etc.), and inserts the
+// remainder. Re-running fills in gaps from a previously-aborted seed
+// without duplicating existing rows. Tables with a true unique constraint
+// use `upsert({ ignoreDuplicates: true })`; append-only tables filter
+// in JS before insert.
 
 export type PopulatedSeedResult = {
   grade_entries_inserted: number;
@@ -156,11 +161,10 @@ async function seedGradeEntries(
   }>;
   if (sheets.length === 0) return 0;
 
-  const { count: existing } = await service
-    .from('grade_entries')
-    .select('id', { count: 'exact', head: true })
-    .in('grading_sheet_id', sheets.map((s) => s.id));
-  if ((existing ?? 0) > 0) return 0;
+  // Idempotent: rely on the migration-035 unique index
+  // `(grading_sheet_id, section_student_id)` — duplicate insert attempts
+  // are silently dropped by the upsert below. Re-runs only fill in the
+  // rows missing from a partial prior seed.
 
   // Narrow to T1 only — we want T1 publishable-ready, T2+ mostly empty so
   // the registrar can exercise the entry flow. Fetch terms to identify T1.
@@ -277,12 +281,17 @@ async function seedGradeEntries(
     }
   }
 
-  // Chunked insert — 500 rows per round-trip keeps us well under request limits.
+  // Chunked upsert — 500 rows per round-trip. ignoreDuplicates against the
+  // migration-035 unique index lets re-runs fill in only the rows missing
+  // from a prior partial seed.
   let inserted = 0;
   const CHUNK = 500;
   for (let i = 0; i < inserts.length; i += CHUNK) {
     const slice = inserts.slice(i, i + CHUNK);
-    const { error } = await service.from('grade_entries').insert(slice);
+    const { error } = await service.from('grade_entries').upsert(slice, {
+      onConflict: 'grading_sheet_id,section_student_id',
+      ignoreDuplicates: true,
+    });
     if (!error) inserted += slice.length;
   }
   return inserted;
@@ -307,16 +316,11 @@ async function seedAttendanceSummary(
   const t1 = termRows as { id: string; term_number: number } | null;
   if (!t1) return { daily: 0, rollups: 0 };
 
-  // Skip if daily rows already exist for T1. Note: this intentionally
-  // ignores `attendance_records`. A previous seed may have inserted summary
-  // rows but zero daily rows — the wide-grid would then show empty even
-  // though Markbook's rollup showed data. Re-running lets the daily layer
-  // repopulate and the RPC upsert the rollup consistently.
-  const { count: existingDaily } = await service
-    .from('attendance_daily')
-    .select('id', { count: 'exact', head: true })
-    .eq('term_id', t1.id);
-  if ((existingDaily ?? 0) > 0) return { daily: 0, rollups: 0 };
+  // Idempotent: build the full expected (section_student × date) set for
+  // T1's encodable days, subtract any tuples that already exist in
+  // attendance_daily, and insert the remainder. attendance_daily has no
+  // unique constraint (append-only — corrections insert a new row and
+  // latest recorded_at wins), so we filter manually before inserting.
 
   // Encodable school days in T1 (school_day + hbl).
   const { data: calendarRows } = await service
@@ -360,8 +364,9 @@ async function seedAttendanceSummary(
     return 'EX';
   }
 
-  // Build the ~9,400-row insert set.
-  const rows: Array<{
+  // Build the ~9,400-row expected set, then exclude tuples that already
+  // exist (re-runs only fill in the diff).
+  const allRows: Array<{
     section_student_id: string;
     term_id: string;
     date: string;
@@ -369,7 +374,7 @@ async function seedAttendanceSummary(
   }> = [];
   for (const enrolmentId of enrolList) {
     for (const date of schoolDays) {
-      rows.push({
+      allRows.push({
         section_student_id: enrolmentId,
         term_id: t1.id,
         date,
@@ -377,6 +382,26 @@ async function seedAttendanceSummary(
       });
     }
   }
+
+  // Page over existing tuples for this term so we don't insert duplicates.
+  // PostgREST caps single responses at 1000 rows; use the shared paginate
+  // helper (KD note in lib/supabase/paginate.ts).
+  const existingDailyRows = await fetchAllPages<{
+    section_student_id: string;
+    date: string;
+  }>((from, to) =>
+    service
+      .from('attendance_daily')
+      .select('section_student_id, date')
+      .eq('term_id', t1.id)
+      .range(from, to),
+  );
+  const existingTuples = new Set(
+    existingDailyRows.map((r) => `${r.section_student_id}|${r.date}`),
+  );
+  const rows = allRows.filter(
+    (r) => !existingTuples.has(`${r.section_student_id}|${r.date}`),
+  );
 
   const CHUNK = 500;
   let insertedDaily = 0;
@@ -388,16 +413,6 @@ async function seedAttendanceSummary(
       continue;
     }
     insertedDaily += slice.length;
-  }
-
-  // If every insert failed, don't bother with rollups — they'd upsert zeros
-  // and make the Markbook summary look broken. Surface the mismatch via a
-  // clear console warning; caller returns 0/0 so the toast shows it.
-  if (insertedDaily === 0) {
-    console.error(
-      '[populated seeder] attendance: all attendance_daily inserts failed — see earlier error',
-    );
-    return { daily: 0, rollups: 0 };
   }
 
   // Fire the rollup RPC once per section_student × T1 so
@@ -439,11 +454,8 @@ async function seedEvaluationWriteups(
   if (!t1) return 0;
   const termId = (t1 as { id: string }).id;
 
-  const { count: existing } = await service
-    .from('evaluation_writeups')
-    .select('id', { count: 'exact', head: true })
-    .eq('term_id', termId);
-  if ((existing ?? 0) > 0) return 0;
+  // Idempotent: migration-018 unique `(term_id, student_id)` lets the
+  // upsert below silently drop duplicates on re-run.
 
   const { data: sections } = await service
     .from('sections')
@@ -493,7 +505,10 @@ async function seedEvaluationWriteups(
   if (writeupRows.length === 0) return 0;
   const { error } = await service
     .from('evaluation_writeups')
-    .insert(writeupRows);
+    .upsert(writeupRows, {
+      onConflict: 'term_id,student_id',
+      ignoreDuplicates: true,
+    });
   return error ? 0 : writeupRows.length;
 }
 
@@ -728,12 +743,9 @@ async function seedAdmissionsFunnel(
   const appsTable = `${prefix}_enrolment_applications`;
   const statusTable = `${prefix}_enrolment_status`;
 
-  // Skip if non-enrolled rows already exist.
-  const { count: nonEnrolled } = await service
-    .from(statusTable)
-    .select('id', { count: 'exact', head: true })
-    .not('applicationStatus', 'in', '("Enrolled","Enrolled (Conditional)")');
-  if ((nonEnrolled ?? 0) > 0) return 0;
+  // Idempotent: enroleeNumbers are deterministic for a given AY code (same
+  // mulberry32 seed → same sequence). Build the full row set, then drop any
+  // enroleeNumbers that already exist before inserting the remainder.
 
   const REFERRALS = [
     'Facebook',
@@ -842,16 +854,40 @@ async function seedAdmissionsFunnel(
     }
   }
 
-  const { error: appsErr } = await service.from(appsTable).insert(appRows);
+  // Filter out enroleeNumbers that already exist on either table — the
+  // AY-prefixed tables have no unique constraint on enroleeNumber so we
+  // can't rely on upsert ignoreDuplicates. Existence on either side counts
+  // as "this funnel row was already seeded".
+  const existingApps = await fetchAllPages<{ enroleeNumber: string | null }>(
+    (from, to) =>
+      service.from(appsTable).select('enroleeNumber').range(from, to),
+  );
+  const existingStatus = await fetchAllPages<{ enroleeNumber: string | null }>(
+    (from, to) =>
+      service.from(statusTable).select('enroleeNumber').range(from, to),
+  );
+  const existingNums = new Set<string>([
+    ...existingApps.map((r) => r.enroleeNumber).filter((n): n is string => !!n),
+    ...existingStatus.map((r) => r.enroleeNumber).filter((n): n is string => !!n),
+  ]);
+  const appRowsToInsert = appRows.filter(
+    (r) => !existingNums.has(String(r.enroleeNumber)),
+  );
+  const statusRowsToInsert = statusRows.filter(
+    (r) => !existingNums.has(String(r.enroleeNumber)),
+  );
+  if (appRowsToInsert.length === 0) return 0;
+
+  const { error: appsErr } = await service.from(appsTable).insert(appRowsToInsert);
   if (appsErr) {
     console.error('[populated seeder] admissions apps insert failed:', appsErr.message);
     return 0;
   }
-  const { error: statusErr } = await service.from(statusTable).insert(statusRows);
+  const { error: statusErr } = await service.from(statusTable).insert(statusRowsToInsert);
   if (statusErr) {
     console.error('[populated seeder] admissions status insert failed:', statusErr.message);
   }
-  return appRows.length;
+  return appRowsToInsert.length;
 }
 
 // Seeds 7 plausible discount codes in the test AY's discount-codes table.
@@ -865,10 +901,15 @@ async function seedDiscountCodes(
   const prefix = prefixFor(testAy.ay_code);
   const table = `${prefix}_discount_codes`;
 
-  const { count: existing } = await service
+  // Idempotent: filter by discountCode (the natural key) before insert.
+  const { data: existingRows } = await service
     .from(table)
-    .select('discountCode', { count: 'exact', head: true });
-  if ((existing ?? 0) > 0) return 0;
+    .select('discountCode');
+  const existingCodes = new Set(
+    ((existingRows ?? []) as Array<{ discountCode: string | null }>)
+      .map((r) => r.discountCode)
+      .filter((c): c is string => !!c),
+  );
 
   const today = new Date();
   const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
@@ -928,12 +969,15 @@ async function seedDiscountCodes(
     },
   ];
 
-  const { error } = await service.from(table).insert(rows);
+  const rowsToInsert = rows.filter((r) => !existingCodes.has(r.discountCode));
+  if (rowsToInsert.length === 0) return 0;
+
+  const { error } = await service.from(table).insert(rowsToInsert);
   if (error) {
     console.error('[populated seeder] discount codes insert failed:', error.message);
     return 0;
   }
-  return rows.length;
+  return rowsToInsert.length;
 }
 
 // Creates one publish-window for the first section × T1 so the parent
@@ -961,27 +1005,28 @@ async function seedPublication(
   if (!firstSection) return 0;
   const sectionId = (firstSection as { id: string }).id;
 
-  const { count: existing } = await service
-    .from('report_card_publications')
-    .select('id', { count: 'exact', head: true })
-    .eq('section_id', sectionId)
-    .eq('term_id', termId);
-  if ((existing ?? 0) > 0) return 0;
-
+  // Idempotent: migration-007 unique `(section_id, term_id)` lets the
+  // upsert below silently drop the duplicate on re-run.
   const from = new Date();
   const until = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-  const { error } = await service.from('report_card_publications').insert({
-    section_id: sectionId,
-    term_id: termId,
-    publish_from: from.toISOString(),
-    publish_until: until.toISOString(),
-    published_by: 'test-seeder@hfse.edu.sg',
-  });
+  const { error, data } = await service
+    .from('report_card_publications')
+    .upsert(
+      {
+        section_id: sectionId,
+        term_id: termId,
+        publish_from: from.toISOString(),
+        publish_until: until.toISOString(),
+        published_by: 'test-seeder@hfse.edu.sg',
+      },
+      { onConflict: 'section_id,term_id', ignoreDuplicates: true },
+    )
+    .select('id');
   if (error) {
     console.error('[populated seeder] publication insert failed:', error.message);
     return 0;
   }
-  return 1;
+  return data?.length ?? 0;
 }
 
 // Round-robin assigns existing staff users as form_advisers + subject_teachers
@@ -1000,12 +1045,33 @@ async function seedTeacherAssignments(
   const sectionRows = ((sections ?? []) as Array<{ id: string; level_id: string }>);
   if (sectionRows.length === 0) return { form_adviser: 0, subject_teacher: 0 };
 
-  // Skip if any teacher_assignments row already exists for these sections.
-  const { count: existing } = await service
+  // Idempotent: pull every existing assignment for these sections so we
+  // can filter out duplicates per-row. Migration 003's unique indexes are
+  // partial (WHERE role='form_adviser' / 'subject_teacher'), which
+  // PostgREST upsert can't target with a simple onConflict — manual diff
+  // is the correct workaround.
+  const { data: existingAssigns } = await service
     .from('teacher_assignments')
-    .select('id', { count: 'exact', head: true })
-    .in('section_id', sectionRows.map((s) => s.id));
-  if ((existing ?? 0) > 0) return { form_adviser: 0, subject_teacher: 0 };
+    .select('section_id, subject_id, role')
+    .in(
+      'section_id',
+      sectionRows.map((s) => s.id),
+    );
+  type ExistingAssign = {
+    section_id: string;
+    subject_id: string | null;
+    role: string;
+  };
+  const existingFAs = new Set(
+    ((existingAssigns ?? []) as ExistingAssign[])
+      .filter((r) => r.role === 'form_adviser')
+      .map((r) => r.section_id),
+  );
+  const existingSTs = new Set(
+    ((existingAssigns ?? []) as ExistingAssign[])
+      .filter((r) => r.role === 'subject_teacher' && r.subject_id)
+      .map((r) => `${r.section_id}|${r.subject_id}`),
+  );
 
   // Pool of candidate users. Supabase JS `auth.admin.listUsers` returns
   // everyone including parents (role=null). Filter to staff roles.
@@ -1039,20 +1105,25 @@ async function seedTeacherAssignments(
   }
 
   // ---- Form advisers: one per section, round-robin ----
-  const faRows = sectionRows.map((s, i) => ({
-    teacher_user_id: pool[i % pool.length].id,
-    section_id: s.id,
-    subject_id: null as string | null,
-    role: 'form_adviser' as const,
-  }));
-  const { error: faErr, data: faInserted } = await service
-    .from('teacher_assignments')
-    .insert(faRows)
-    .select('id');
-  if (faErr) {
-    console.error('[populated seeder] form_adviser insert failed:', faErr.message);
+  const faRows = sectionRows
+    .map((s, i) => ({
+      teacher_user_id: pool[i % pool.length].id,
+      section_id: s.id,
+      subject_id: null as string | null,
+      role: 'form_adviser' as const,
+    }))
+    .filter((r) => !existingFAs.has(r.section_id));
+  let formAdviserCount = 0;
+  if (faRows.length > 0) {
+    const { error: faErr, data: faInserted } = await service
+      .from('teacher_assignments')
+      .insert(faRows)
+      .select('id');
+    if (faErr) {
+      console.error('[populated seeder] form_adviser insert failed:', faErr.message);
+    }
+    formAdviserCount = faInserted?.length ?? 0;
   }
-  const formAdviserCount = faInserted?.length ?? 0;
 
   // ---- Subject teachers: one per (section × subject) from subject_configs ----
   // Pull the full matrix then round-robin. subject_configs scopes by
@@ -1077,6 +1148,11 @@ async function seedTeacherAssignments(
   for (const section of sectionRows) {
     const subjectIds = cfgByLevel.get(section.level_id) ?? [];
     for (const subjectId of subjectIds) {
+      const key = `${section.id}|${subjectId}`;
+      if (existingSTs.has(key)) {
+        rotation += 1; // keep rotation stable so unrelated re-runs assign the same teacher
+        continue;
+      }
       stRows.push({
         teacher_user_id: pool[rotation % pool.length].id,
         section_id: section.id,
@@ -1123,12 +1199,9 @@ async function seedEnrolledAdmissionsRows(
   const appsTable = `${prefix}_enrolment_applications`;
   const statusTable = `${prefix}_enrolment_status`;
 
-  // Skip if any Enrolled row already exists.
-  const { count: existing } = await service
-    .from(statusTable)
-    .select('id', { count: 'exact', head: true })
-    .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']);
-  if ((existing ?? 0) > 0) return 0;
+  // Idempotent: enroleeNumbers here are deterministic (`<PREFIX>-ENR-<NNNN>`
+  // sequenced by row index). Pull existing enroleeNumbers up front so the
+  // chunked insert below skips rows that have already landed.
 
   // Pull every TEST-% student + their section placement + level code.
   const { data: enrolmentRows } = await service
@@ -1338,11 +1411,31 @@ async function seedEnrolledAdmissionsRows(
     };
   });
 
+  // Filter out enroleeNumbers that already exist on either table.
+  const existingApps = await fetchAllPages<{ enroleeNumber: string | null }>(
+    (from, to) =>
+      service.from(appsTable).select('enroleeNumber').range(from, to),
+  );
+  const existingStatus = await fetchAllPages<{ enroleeNumber: string | null }>(
+    (from, to) =>
+      service.from(statusTable).select('enroleeNumber').range(from, to),
+  );
+  const existingNums = new Set<string>([
+    ...existingApps.map((r) => r.enroleeNumber).filter((n): n is string => !!n),
+    ...existingStatus.map((r) => r.enroleeNumber).filter((n): n is string => !!n),
+  ]);
+  const filteredApps = appInserts.filter(
+    (r) => !existingNums.has(r.enroleeNumber),
+  );
+  const filteredStatus = statusInserts.filter(
+    (r) => !existingNums.has(r.enroleeNumber),
+  );
+
   let inserted = 0;
   const CHUNK = 200;
-  for (let i = 0; i < appInserts.length; i += CHUNK) {
-    const appSlice = appInserts.slice(i, i + CHUNK);
-    const statusSlice = statusInserts.slice(i, i + CHUNK);
+  for (let i = 0; i < filteredApps.length; i += CHUNK) {
+    const appSlice = filteredApps.slice(i, i + CHUNK);
+    const statusSlice = filteredStatus.slice(i, i + CHUNK);
     const { error: appsErr } = await service.from(appsTable).insert(appSlice);
     if (appsErr) {
       console.error(
@@ -1382,7 +1475,8 @@ async function seedEnrolledAdmissionsRows(
 //   - 3 enrolled students:  passportExpiry already in the past.
 //   - 5 enrolled students:  passExpiry mixed (3 expiring soon, 2 expired).
 //
-// Idempotent — bails entirely if any rows already exist for the AY.
+// Idempotent — fills in document rows only for enroleeNumbers that
+// don't have one yet, so re-runs after a partial seed complete the set.
 async function seedAdmissionsDocuments(
   service: SupabaseClient,
   testAy: { id: string; ay_code: string },
@@ -1392,11 +1486,15 @@ async function seedAdmissionsDocuments(
   const statusTable = `${prefix}_enrolment_status`;
   const docsTable = `${prefix}_enrolment_documents`;
 
-  // Skip-guard: any rows already → bail.
-  const { count: existing } = await service
-    .from(docsTable)
-    .select('enroleeNumber', { count: 'exact', head: true });
-  if ((existing ?? 0) > 0) return 0;
+  // Existing enroleeNumbers in the docs table — these already have a row
+  // and we leave them alone.
+  const existingDocs = await fetchAllPages<{ enroleeNumber: string | null }>(
+    (from, to) =>
+      service.from(docsTable).select('enroleeNumber').range(from, to),
+  );
+  const existingDocNums = new Set(
+    existingDocs.map((r) => r.enroleeNumber).filter((n): n is string => !!n),
+  );
 
   // Pull every application row + matching status (need applicationStatus to
   // pick the per-row fill profile). Status rows are joined in JS to keep the
@@ -1673,10 +1771,15 @@ async function seedAdmissionsDocuments(
     inserts.push(row);
   }
 
+  // Filter out enroleeNumbers that already have a docs row.
+  const filteredInserts = inserts.filter(
+    (r) => !existingDocNums.has(String(r.enroleeNumber)),
+  );
+
   let inserted = 0;
   const CHUNK = 200;
-  for (let i = 0; i < inserts.length; i += CHUNK) {
-    const slice = inserts.slice(i, i + CHUNK);
+  for (let i = 0; i < filteredInserts.length; i += CHUNK) {
+    const slice = filteredInserts.slice(i, i + CHUNK);
     const { error } = await service.from(docsTable).insert(slice);
     if (error) {
       console.error(
