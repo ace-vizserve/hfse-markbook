@@ -7,6 +7,8 @@ import {
   CalendarEventCreateSchema,
   CalendarEventUpdateSchema,
 } from '@/lib/schemas/attendance';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
+import { requireCurrentAyCode } from '@/lib/academic-year';
 
 // POST /api/attendance/calendar/events
 // Body: { termId, startDate, endDate, label, category?, audience?, tentative? }
@@ -54,6 +56,8 @@ export async function POST(request: NextRequest) {
     entityId: data.id,
     context: { termId, startDate, endDate, label, category, audience, tentative },
   });
+
+  invalidateDrillTags('attendance', await requireCurrentAyCode(service));
 
   return NextResponse.json({ ok: true, id: data.id });
 }
@@ -104,6 +108,8 @@ export async function PATCH(request: NextRequest) {
     context: { id, ...fields },
   });
 
+  invalidateDrillTags('attendance', await requireCurrentAyCode(service));
+
   return NextResponse.json({ ok: true });
 }
 
@@ -129,6 +135,8 @@ export async function DELETE(request: NextRequest) {
     entityId: id,
     context: {},
   });
+
+  invalidateDrillTags('attendance', await requireCurrentAyCode(service));
 
   return NextResponse.json({ ok: true });
 }

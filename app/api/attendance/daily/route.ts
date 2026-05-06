@@ -12,6 +12,8 @@ import {
   type Audience,
   type DayType,
 } from '@/lib/schemas/attendance';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
+import { requireCurrentAyCode } from '@/lib/academic-year';
 
 // PATCH /api/attendance/daily
 //
@@ -277,6 +279,10 @@ export async function PATCH(request: NextRequest) {
         { status: 500 },
       );
     }
+  }
+
+  if (results.length > 0) {
+    invalidateDrillTags('attendance', await requireCurrentAyCode(service));
   }
 
   return NextResponse.json({ ok: true, count: results.length, results });

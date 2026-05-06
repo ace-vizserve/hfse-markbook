@@ -11,6 +11,7 @@ import {
   type ParentSlot,
 } from '@/lib/schemas/sis';
 import { createServiceClient } from '@/lib/supabase/service';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 
 const SCHEMAS = {
   father: FatherUpdateSchema,
@@ -104,5 +105,7 @@ export async function PATCH(
   });
 
   revalidateTag(`sis:${ayCode}`, 'max');
+  invalidateDrillTags('admissions', ayCode);
+  invalidateDrillTags('records', ayCode);
   return NextResponse.json({ ok: true, changed: changes.length });
 }

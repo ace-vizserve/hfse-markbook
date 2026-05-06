@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { requireRole } from '@/lib/auth/require-role';
 import { createServiceClient } from '@/lib/supabase/service';
 import { logAction } from '@/lib/audit/log-action';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
+import { requireCurrentAyCode } from '@/lib/academic-year';
 
 // POST /api/grading-sheets/[id]/lock — registrar+ only.
 // Locks a grading sheet. Teachers become read-only; registrar can still edit,
@@ -40,6 +42,8 @@ export async function POST(
     entityId: id,
     context: { locked_at: data.locked_at, locked_by: data.locked_by },
   });
+
+  invalidateDrillTags('markbook', await requireCurrentAyCode(service));
 
   return NextResponse.json({ sheet: data });
 }

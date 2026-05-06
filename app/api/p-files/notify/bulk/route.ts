@@ -6,6 +6,7 @@ import { logAction, type AuditAction } from "@/lib/audit/log-action";
 import { createServiceClient } from "@/lib/supabase/service";
 import { DOCUMENT_SLOTS } from "@/lib/p-files/document-config";
 import { runNotify, type NotifyOutcome } from "@/lib/p-files/notify-helpers";
+import { invalidateDrillTags } from "@/lib/cache/invalidate-drill-tags";
 
 const MAX_BULK_ITEMS = 50;
 
@@ -144,6 +145,10 @@ export async function POST(request: NextRequest) {
       skipped_not_actionable: skippedNotActionable,
     },
   });
+
+  if (sent > 0) {
+    invalidateDrillTags(moduleKey, ayCode);
+  }
 
   return NextResponse.json({
     ok: true,

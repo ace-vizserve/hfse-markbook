@@ -6,6 +6,7 @@ import { loadGradingSnapshot } from '@/lib/sync/snapshot';
 import { buildSyncPlan } from '@/lib/sync/students';
 import { logAction } from '@/lib/audit/log-action';
 import { requireCurrentAyCode } from '@/lib/academic-year';
+import { invalidateAllOperationalDrills } from '@/lib/cache/invalidate-drill-tags';
 
 // Commit endpoint â€” applies the sync plan to the grading DB.
 // Hard rules:
@@ -116,6 +117,19 @@ export async function POST() {
         errors: plan.errors.length,
       },
     });
+
+    // Sync may have added/withdrawn/reactivated students, all of which
+    // affect every operational module's roster-based drill rollups.
+    if (
+      plan.stats.students_to_add +
+        plan.stats.students_to_update +
+        plan.stats.enrollments_to_add +
+        plan.stats.enrollments_to_withdraw +
+        plan.stats.enrollments_to_reactivate >
+      0
+    ) {
+      invalidateAllOperationalDrills(ayCode);
+    }
 
     return NextResponse.json({
       success: true,

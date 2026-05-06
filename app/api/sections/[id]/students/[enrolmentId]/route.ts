@@ -5,6 +5,7 @@ import { logAction } from '@/lib/audit/log-action';
 import { createServiceClient } from '@/lib/supabase/service';
 import { EnrolmentMetadataSchema } from '@/lib/schemas/enrolment';
 import { getTermForDate } from '@/lib/sis/terms';
+import { invalidateAllOperationalDrills } from '@/lib/cache/invalidate-drill-tags';
 
 // PATCH /api/sections/[id]/students/[enrolmentId]
 //
@@ -144,6 +145,20 @@ export async function PATCH(
         : {}),
     },
   });
+
+  // Resolve the section's AY so we invalidate the right operational drills.
+  // Reuse the join we already do on late-enrollee transitions; cheap when not.
+  const { data: ayLookup } = await service
+    .from('sections')
+    .select('academic_year:academic_years!inner(ay_code)')
+    .eq('id', sectionId)
+    .maybeSingle();
+  const ayLookupRow = (ayLookup as { academic_year: { ay_code: string } | { ay_code: string }[] } | null)
+    ?.academic_year;
+  const ayCodeForInvalidate = Array.isArray(ayLookupRow) ? ayLookupRow[0]?.ay_code : ayLookupRow?.ay_code;
+  if (ayCodeForInvalidate) {
+    invalidateAllOperationalDrills(ayCodeForInvalidate);
+  }
 
   return NextResponse.json({
     ok: true,

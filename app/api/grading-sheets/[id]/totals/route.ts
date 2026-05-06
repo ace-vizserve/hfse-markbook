@@ -9,6 +9,8 @@ import {
   CORRECTION_REASON_LABELS,
   type CorrectionReason,
 } from '@/lib/schemas/change-request';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
+import { requireCurrentAyCode } from '@/lib/academic-year';
 
 // PATCH /api/grading-sheets/[id]/totals — registrar+ only.
 // Updates WW/PT/QA max totals on a sheet. After updating totals we MUST
@@ -213,6 +215,8 @@ export async function PATCH(
       }
     }
   }
+
+  invalidateDrillTags('markbook', await requireCurrentAyCode(service));
 
   return NextResponse.json({ ok: true, totals: after });
 }

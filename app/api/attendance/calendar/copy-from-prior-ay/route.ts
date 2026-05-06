@@ -4,6 +4,8 @@ import { requireRole } from '@/lib/auth/require-role';
 import { logAction } from '@/lib/audit/log-action';
 import { createServiceClient } from '@/lib/supabase/service';
 import { CopyFromPriorAyPayloadSchema } from '@/lib/schemas/attendance';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
+import { requireCurrentAyCode } from '@/lib/academic-year';
 
 // POST /api/attendance/calendar/copy-from-prior-ay
 //
@@ -115,6 +117,8 @@ export async function POST(request: NextRequest) {
       markTentative,
     },
   });
+
+  invalidateDrillTags('attendance', await requireCurrentAyCode(service));
 
   return NextResponse.json({ ok: true, dayTypeRowsCopied, eventsCopied });
 }

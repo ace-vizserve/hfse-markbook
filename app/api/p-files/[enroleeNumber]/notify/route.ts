@@ -6,6 +6,7 @@ import { logAction, type AuditAction } from "@/lib/audit/log-action";
 import { createServiceClient } from "@/lib/supabase/service";
 import { DOCUMENT_SLOTS } from "@/lib/p-files/document-config";
 import { runNotify } from "@/lib/p-files/notify-helpers";
+import { invalidateDrillTags } from "@/lib/cache/invalidate-drill-tags";
 
 // POST /api/p-files/[enroleeNumber]/notify
 // Body: { slotKey: string; module?: 'p-files' | 'admissions' }
@@ -132,6 +133,8 @@ export async function POST(
       failed: result.failed,
     },
   });
+
+  invalidateDrillTags(moduleKey, ayCode);
 
   return NextResponse.json({
     ok: true,

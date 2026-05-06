@@ -21,6 +21,7 @@ import {
 import { createServiceClient } from '@/lib/supabase/service';
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
 import { syncOneStudent } from '@/lib/sync/students';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 
 // Documents-stage gate: setting documentStatus to one of these "done"
 // values requires every required slot to be 'Valid' in the per-AY
@@ -377,6 +378,10 @@ export async function PATCH(
 
   // 4) Invalidate the per-AY cache so detail + list re-render with new data.
   revalidateTag(`sis:${ayCode}`, 'max');
+  // Stage updates write the admissions-side enrolment_status row; both
+  // admissions (funnel) and records (post-Enrolled view) drill on it.
+  invalidateDrillTags('admissions', ayCode);
+  invalidateDrillTags('records', ayCode);
 
   // 5) Auto-sync the grading roster when class placement is now complete.
   // Fires in two paths:

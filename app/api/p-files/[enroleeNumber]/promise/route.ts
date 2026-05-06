@@ -6,6 +6,7 @@ import { requireCurrentAyCode } from "@/lib/academic-year";
 import { logAction, type AuditAction } from "@/lib/audit/log-action";
 import { createServiceClient } from "@/lib/supabase/service";
 import { DOCUMENT_SLOTS } from "@/lib/p-files/document-config";
+import { invalidateDrillTags } from "@/lib/cache/invalidate-drill-tags";
 
 // PATCH /api/p-files/[enroleeNumber]/promise
 // Body: {
@@ -191,6 +192,9 @@ export async function PATCH(
   });
 
   revalidateTag(`sis:${ayCode}`, 'max');
+  // P-Files surface owns the chase-strip + completeness panels; admissions
+  // owns the early-stage funnel doc tracker. Both modules drill on this row.
+  invalidateDrillTags(moduleKey, ayCode);
 
   return NextResponse.json({
     ok: true,

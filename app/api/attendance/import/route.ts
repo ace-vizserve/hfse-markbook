@@ -10,6 +10,8 @@ import {
   type AttendanceStatus,
   ImportConfigSchema,
 } from '@/lib/schemas/attendance';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
+import { requireCurrentAyCode } from '@/lib/academic-year';
 
 // POST /api/attendance/import
 //
@@ -420,6 +422,10 @@ export async function POST(request: NextRequest) {
     }
 
     sheetsReport.push(report);
+  }
+
+  if (!dryRun && totalDailyWritten > 0) {
+    invalidateDrillTags('attendance', await requireCurrentAyCode(service));
   }
 
   return NextResponse.json({

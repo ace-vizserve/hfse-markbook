@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { logAction } from '@/lib/audit/log-action';
 import { emailParentsPublication } from '@/lib/notifications/email-parents-publication';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
+import { requireCurrentAyCode } from '@/lib/academic-year';
 
 // GET /api/report-card-publications?section_id=...
 // Registrar+ only. Returns all publications for a section.
@@ -114,6 +116,8 @@ export async function POST(request: NextRequest) {
       notification,
     },
   });
+
+  invalidateDrillTags('markbook', await requireCurrentAyCode(service));
 
   return NextResponse.json({ publication: data, notification });
 }

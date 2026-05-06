@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { requireRole } from '@/lib/auth/require-role';
 import { createServiceClient } from '@/lib/supabase/service';
 import { logAction } from '@/lib/audit/log-action';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
+import { requireCurrentAyCode } from '@/lib/academic-year';
 
 // DELETE /api/report-card-publications/[id] — registrar+ only.
 // Revokes a publication window. Parents immediately lose access to the
@@ -40,6 +42,8 @@ export async function DELETE(
         }
       : {},
   });
+
+  invalidateDrillTags('markbook', await requireCurrentAyCode(service));
 
   return NextResponse.json({ ok: true });
 }

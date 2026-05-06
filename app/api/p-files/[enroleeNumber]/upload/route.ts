@@ -7,6 +7,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { DOCUMENT_SLOTS } from '@/lib/p-files/document-config';
 import { createRevision } from '@/lib/p-files/mutations';
 import { isStudentEnrolled } from '@/lib/p-files/queries';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB per file
 const MAX_TOTAL_SIZE = 30 * 1024 * 1024; // 30 MB total
@@ -334,6 +335,7 @@ export async function POST(
     if (appError) {
       // Best-effort: file is uploaded, warn but don't fail
       console.error(`[p-files] enrolment_applications update failed for ${enroleeNumber}:`, appError.message);
+      invalidateDrillTags('p-files', ayCode);
       return NextResponse.json({
         ok: true,
         url: publicUrl,
@@ -362,6 +364,8 @@ export async function POST(
       ...(slot.meta?.kind === 'pass' ? { passType } : {}),
     },
   });
+
+  invalidateDrillTags('p-files', ayCode);
 
   return NextResponse.json({ ok: true, url: publicUrl, replaced: didReplace });
 }

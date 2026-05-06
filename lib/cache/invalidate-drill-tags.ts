@@ -17,5 +17,18 @@ export type DrillModule =
  * this multiple times — once per affected module.
  */
 export function invalidateDrillTags(module: DrillModule, ayCode: string): void {
-  revalidateTag(`${module}-drill:${ayCode}`);
+  revalidateTag(`${module}-drill:${ayCode}`, 'max');
+}
+
+/**
+ * Cross-cutting convenience for mutations that touch every operational
+ * module's rolled-up data — section roster changes, student sync, atomic
+ * mid-year section transfers. Calls invalidateDrillTags() once per module.
+ */
+export function invalidateAllOperationalDrills(ayCode: string): void {
+  invalidateDrillTags('markbook', ayCode);
+  invalidateDrillTags('attendance', ayCode);
+  invalidateDrillTags('evaluation', ayCode);
+  invalidateDrillTags('records', ayCode);
+  invalidateDrillTags('p-files', ayCode);
 }

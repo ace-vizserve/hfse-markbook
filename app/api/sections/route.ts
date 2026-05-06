@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { logAction } from '@/lib/audit/log-action';
 import { SectionCreateSchema } from '@/lib/schemas/section';
+import { invalidateAllOperationalDrills } from '@/lib/cache/invalidate-drill-tags';
 
 // List sections for the current academic year, annotated with enrolment counts.
 export async function GET() {
@@ -133,6 +134,9 @@ export async function POST(request: NextRequest) {
       grading_sheets_created: sheetsInserted,
     },
   });
+
+  // New section affects every operational module's roster/drill rollups.
+  invalidateAllOperationalDrills(ay.ay_code);
 
   return NextResponse.json({
     ok: true,

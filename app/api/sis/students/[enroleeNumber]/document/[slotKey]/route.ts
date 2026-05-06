@@ -6,6 +6,7 @@ import { logAction } from '@/lib/audit/log-action';
 import { DocumentValidationSchema } from '@/lib/schemas/sis';
 import { DOCUMENT_SLOTS } from '@/lib/sis/queries';
 import { createServiceClient } from '@/lib/supabase/service';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 
 // Allowlist of valid slot keys — guards against writing arbitrary
 // `${anythingStatus}` columns via the URL segment.
@@ -138,5 +139,10 @@ export async function PATCH(
   });
 
   revalidateTag(`sis:${ayCode}`, 'max');
+  // Document validation feeds both the admissions completeness panels and
+  // the P-Files renewal queue; records also drills on doc-related counts.
+  invalidateDrillTags('admissions', ayCode);
+  invalidateDrillTags('p-files', ayCode);
+  invalidateDrillTags('records', ayCode);
   return NextResponse.json({ ok: true });
 }

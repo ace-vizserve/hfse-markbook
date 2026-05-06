@@ -4,6 +4,8 @@ import { requireRole } from '@/lib/auth/require-role';
 import { logAction } from '@/lib/audit/log-action';
 import { createServiceClient } from '@/lib/supabase/service';
 import { EvaluationWriteupUpsertSchema } from '@/lib/schemas/evaluation';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
+import { requireCurrentAyCode } from '@/lib/academic-year';
 
 // PATCH /api/evaluation/writeups — upsert one writeup by (term, student).
 //
@@ -131,6 +133,10 @@ export async function PATCH(request: NextRequest) {
         submitted_at: nextSubmittedAt,
       },
     });
+  }
+
+  if (textChanged || submitFlipped) {
+    invalidateDrillTags('evaluation', await requireCurrentAyCode(service));
   }
 
   return NextResponse.json({

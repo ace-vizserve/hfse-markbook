@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { loadAssignmentsForUser, subjectTeacherPairs } from '@/lib/auth/teacher-assignments';
 import { logAction } from '@/lib/audit/log-action';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 
 // GET /api/grading-sheets?term_id=...
 // Lists grading sheets for the current AY (or a specific term).
@@ -181,6 +182,15 @@ export async function POST(request: NextRequest) {
       entries_seeded: enrolments?.length ?? 0,
     },
   });
+
+  // Resolve ayCode from the section's academic year for drill cache invalidation.
+  const { data: ayRow } = await service
+    .from('academic_years')
+    .select('ay_code')
+    .eq('id', section.academic_year_id)
+    .maybeSingle();
+  const ayCode = (ayRow as { ay_code: string } | null)?.ay_code ?? null;
+  if (ayCode) invalidateDrillTags('markbook', ayCode);
 
   return NextResponse.json({ id: sheet.id });
 }

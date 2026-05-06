@@ -5,6 +5,7 @@ import { requireRole } from '@/lib/auth/require-role';
 import { logAction } from '@/lib/audit/log-action';
 import { ProfileUpdateSchema, type ProfileUpdateInput } from '@/lib/schemas/sis';
 import { createServiceClient } from '@/lib/supabase/service';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 
 // PATCH /api/sis/students/[enroleeNumber]/profile?ay=AY2026
 //
@@ -89,5 +90,7 @@ export async function PATCH(
   });
 
   revalidateTag(`sis:${ayCode}`, 'max');
+  invalidateDrillTags('admissions', ayCode);
+  invalidateDrillTags('records', ayCode);
   return NextResponse.json({ ok: true, changed: changes.length });
 }

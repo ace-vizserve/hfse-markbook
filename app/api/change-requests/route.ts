@@ -13,6 +13,8 @@ import {
 import { notifyRequestFiled } from '@/lib/notifications/email-change-request';
 import { createClient } from '@/lib/supabase/server';
 import { listApproversForFlow } from '@/lib/sis/approvers/queries';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
+import { requireCurrentAyCode } from '@/lib/academic-year';
 
 // GET /api/change-requests
 // Query params:
@@ -228,6 +230,8 @@ export async function POST(request: NextRequest) {
       secondary_approver_id: body.secondary_approver_id,
     },
   });
+
+  invalidateDrillTags('markbook', await requireCurrentAyCode(service));
 
   // Fire-and-forget notification to designated approvers only. The email
   // scope narrows from "all school_admin+" (old broadcast) to just the

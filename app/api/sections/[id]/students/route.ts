@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
 import { createServiceClient } from '@/lib/supabase/service';
 import { logAction } from '@/lib/audit/log-action';
+import { invalidateAllOperationalDrills } from '@/lib/cache/invalidate-drill-tags';
 
 // Roster for a single section — ordered by index number (immutable).
 export async function GET(
@@ -338,6 +339,8 @@ export async function POST(
   ]
     .filter(Boolean)
     .join(', ');
+
+  invalidateAllOperationalDrills(ayCode);
 
   return NextResponse.json({
     success: true,

@@ -6,6 +6,7 @@ import { logAction } from '@/lib/audit/log-action';
 import { requireRole } from '@/lib/auth/require-role';
 import { transferStudentSection } from '@/lib/sis/section-transfer';
 import { createServiceClient } from '@/lib/supabase/service';
+import { invalidateAllOperationalDrills } from '@/lib/cache/invalidate-drill-tags';
 
 // POST /api/sis/students/[enroleeNumber]/transfer-section?ay=AY2026
 //
@@ -82,6 +83,7 @@ export async function POST(
   });
 
   revalidateTag(`sis:${ayCode}`, 'max');
+  invalidateAllOperationalDrills(ayCode);
 
   return NextResponse.json({
     ok: true,

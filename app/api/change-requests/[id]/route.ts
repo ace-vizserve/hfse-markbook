@@ -11,6 +11,8 @@ import {
   fetchLabels,
   fetchRegistrarEmails,
 } from '../route';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
+import { requireCurrentAyCode } from '@/lib/academic-year';
 
 // PATCH /api/change-requests/[id]
 // Body: { action: 'approve' | 'reject' | 'cancel', decision_note?: string }
@@ -146,6 +148,8 @@ export async function PATCH(
       decision_note: updated.decision_note ?? null,
     },
   });
+
+  invalidateDrillTags('markbook', await requireCurrentAyCode(service));
 
   // Fire-and-forget notifications for approve/reject. Cancel is silent.
   if (action === 'approve' || action === 'reject') {

@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { requireRole } from '@/lib/auth/require-role';
 import { createServiceClient } from '@/lib/supabase/service';
 import { logAction } from '@/lib/audit/log-action';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
+import { requireCurrentAyCode } from '@/lib/academic-year';
 
 // POST /api/grading-sheets/[id]/unlock — registrar+ only.
 // Unlocking restores teacher edit access. The audit log is NEVER purged;
@@ -39,6 +41,8 @@ export async function POST(
     entityId: id,
     context: {},
   });
+
+  invalidateDrillTags('markbook', await requireCurrentAyCode(service));
 
   return NextResponse.json({ sheet: data });
 }

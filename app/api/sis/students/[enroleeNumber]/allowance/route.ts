@@ -6,6 +6,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
 import { AllowanceSchema } from '@/lib/schemas/sis';
 import { requireCurrentAyCode } from '@/lib/academic-year';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 
 // PATCH /api/sis/students/[enroleeNumber]/allowance
 //
@@ -100,6 +101,8 @@ export async function PATCH(
       after: allowance,
     },
   });
+
+  invalidateDrillTags('records', ayCode);
 
   return NextResponse.json({ ok: true, changed: true, allowance });
 }

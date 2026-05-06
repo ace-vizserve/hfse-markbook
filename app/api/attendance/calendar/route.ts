@@ -10,6 +10,8 @@ import {
   SchoolCalendarUpsertSchema,
   type Audience,
 } from '@/lib/schemas/attendance';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
+import { requireCurrentAyCode } from '@/lib/academic-year';
 
 // POST /api/attendance/calendar
 // Body â€” either:
@@ -80,6 +82,7 @@ export async function POST(request: NextRequest) {
       entityId: termId,
       context: { action: 'autofill_weekdays', audience, start, end, inserted: count ?? rows.length },
     });
+    invalidateDrillTags('attendance', await requireCurrentAyCode(service));
     return NextResponse.json({ ok: true, seeded: rows.length, inserted: count });
   }
 
@@ -151,6 +154,8 @@ export async function POST(request: NextRequest) {
     context: { action: 'upsert', audience, rows: rows.length, diffs },
   });
 
+  invalidateDrillTags('attendance', await requireCurrentAyCode(service));
+
   return NextResponse.json({ ok: true, upserted: rows.length });
 }
 
@@ -190,6 +195,8 @@ export async function DELETE(request: NextRequest) {
     entityId: termId,
     context: { date, audience },
   });
+
+  invalidateDrillTags('attendance', await requireCurrentAyCode(service));
 
   return NextResponse.json({ ok: true });
 }

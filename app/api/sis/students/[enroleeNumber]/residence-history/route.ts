@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { logAction } from '@/lib/audit/log-action';
 import { requireRole } from '@/lib/auth/require-role';
 import { createServiceClient } from '@/lib/supabase/service';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 
 // PATCH /api/sis/students/[enroleeNumber]/residence-history?ay=AY2026
 //
@@ -107,5 +108,6 @@ export async function PATCH(
   });
 
   revalidateTag(`sis:${ayCode}`, 'max');
+  invalidateDrillTags('admissions', ayCode);
   return NextResponse.json({ ok: true });
 }

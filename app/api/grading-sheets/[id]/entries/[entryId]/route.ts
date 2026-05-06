@@ -11,6 +11,8 @@ import {
 } from '@/lib/schemas/change-request';
 import { notifyRequestApplied } from '@/lib/notifications/email-change-request';
 import { fetchApproverEmails, fetchLabels } from '@/app/api/change-requests/route';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
+import { requireCurrentAyCode } from '@/lib/academic-year';
 
 // PATCH /api/grading-sheets/[id]/entries/[entryId]
 // Rules (Sprint 9):
@@ -300,6 +302,7 @@ export async function PATCH(
       entryId,
       service,
     });
+    invalidateDrillTags('markbook', await requireCurrentAyCode(service));
     return NextResponse.json({ entry: updated });
   }
 
@@ -433,6 +436,8 @@ export async function PATCH(
     entryId,
     service,
   });
+
+  invalidateDrillTags('markbook', await requireCurrentAyCode(service));
 
   return NextResponse.json({ entry: updated, computed });
 }
