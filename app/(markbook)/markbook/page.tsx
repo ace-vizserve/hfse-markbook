@@ -296,6 +296,7 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
             drillSheet={() => (
               <MarkbookDrillSheet
                 target="change-requests"
+                segment="pending"
                 ayCode={ayCode}
                 initialFrom={rangeInput.from}
                 initialTo={rangeInput.to}

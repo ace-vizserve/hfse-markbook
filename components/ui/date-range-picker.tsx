@@ -161,30 +161,15 @@ export function DateRangePicker({
   }
 
   function onRangeSelect(next: DayPickerRange | undefined) {
+    // Always defer to the explicit Apply button — never auto-commit. The
+    // previous auto-commit-on-second-click closed the popover before the
+    // user could navigate to a third month, blocking multi-month custom
+    // ranges.
     setPendingRange(next);
-    // Auto-commit when the user has picked two distinct days. Single-day
-    // selection still requires Apply.
-    if (next?.from && next.to && +next.from !== +next.to) {
-      const range: DateRange = {
-        from: toISODate(next.from),
-        to: toISODate(next.to),
-      };
-      onChange(range, autoCmpIfEnabled(range));
-      setPendingRange(undefined);
-      setOpen(false);
-    }
   }
 
   function onComparisonSelect(next: DayPickerRange | undefined) {
     setPendingComparison(next);
-    if (next?.from && next.to && +next.from !== +next.to && onComparisonChange) {
-      onComparisonChange({
-        from: toISODate(next.from),
-        to: toISODate(next.to),
-      });
-      setPendingComparison(undefined);
-      setEditingComparison(false);
-    }
   }
 
   function applyPending() {

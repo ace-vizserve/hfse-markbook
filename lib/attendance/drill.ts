@@ -653,9 +653,17 @@ export function applyTargetFilter(
     case 'daily-attendance-day':
       if (!segment) return rows;
       return (rows as AttendanceEntryRow[]).filter((r) => r.attendanceDate.slice(0, 10) === segment) as AttendanceDrillRow[];
-    case 'ex-reason':
+    case 'ex-reason': {
       if (!segment) return (rows as AttendanceEntryRow[]).filter((r) => r.status === 'EX') as AttendanceDrillRow[];
-      return (rows as AttendanceEntryRow[]).filter((r) => r.exReason === segment.toLowerCase()) as AttendanceDrillRow[];
+      // The dashboard donut groups null `ex_reason` rows under "Other".
+      // Mirror that here — `'Other'` matches null, every other label
+      // matches the lowercased reason value.
+      const isOther = segment.toLowerCase() === 'other';
+      return (rows as AttendanceEntryRow[]).filter((r) => {
+        if (r.status !== 'EX') return false;
+        return isOther ? r.exReason == null : r.exReason === segment.toLowerCase();
+      }) as AttendanceDrillRow[];
+    }
     case 'day-type':
       if (!segment) return rows;
       return (rows as CalendarDayRow[]).filter((r) => r.dayType === segment) as AttendanceDrillRow[];
@@ -730,6 +738,13 @@ export function allColumnsForKind(kind: AttendanceDrillRowKind): DrillColumnKey[
 }
 
 export function defaultColumnsForTarget(target: AttendanceDrillTarget): DrillColumnKey[] {
+  // Late and Absent rows can never carry an `ex_reason` — the schema only
+  // allows that column for `status='EX'`. Strip it from the defaults so the
+  // drill doesn't render an always-blank Reason column. The Columns
+  // dropdown can still surface it on demand.
+  if (target === 'lates' || target === 'absent') {
+    return ENTRY_COLUMNS.filter((c) => c !== 'exReason');
+  }
   return allColumnsForKind(rowKindForTarget(target));
 }
 

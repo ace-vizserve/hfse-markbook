@@ -1,6 +1,12 @@
 import { unstable_cache } from 'next/cache';
 
 import { applyDateRangeFilter } from '@/lib/dashboard/drill-range';
+import {
+  STAGE_COLUMN_MAP,
+  STAGE_KEYS,
+  STAGE_LABELS,
+  type StageKey,
+} from '@/lib/schemas/sis';
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
 
 // Drill-down primitives shared across every Admissions drill target.
@@ -46,6 +52,15 @@ export type DrillRow = {
   status: string;
   level: string | null;
   stage: string | null;
+  /**
+   * Pipeline stage label derived from the rightmost-set `*UpdatedDate`
+   * column on the status row — matches the bucket the
+   * `getPipelineStageBreakdown` chart computes. The drill filter for
+   * `pipeline-stage` uses this so segment clicks (e.g. "Assessment") align
+   * with chart segments instead of relying on `applicationStatus` (which
+   * the chart doesn't read).
+   */
+  pipelineStage: string;
   referralSource: string | null;
   assessmentMath: string | null;
   assessmentEnglish: string | null;
@@ -141,7 +156,16 @@ async function loadDrillRowsUncached(input: { ayCode: string }): Promise<DrillRo
     supabase
       .from(statusTable)
       .select(
-        'enroleeNumber, applicationStatus, applicationUpdatedDate, classLevel, levelApplied, assessmentGradeMath, assessmentGradeEnglish',
+        [
+          'enroleeNumber',
+          'applicationStatus',
+          'applicationUpdatedDate',
+          'classLevel',
+          'levelApplied',
+          'assessmentGradeMath',
+          'assessmentGradeEnglish',
+          ...STAGE_KEYS.map((k) => STAGE_COLUMN_MAP[k].updatedDateCol),
+        ].join(', '),
       ),
   ]);
 
@@ -172,10 +196,26 @@ async function loadDrillRowsUncached(input: { ayCode: string }): Promise<DrillRo
     levelApplied: string | null;
     assessmentGradeMath: string | number | null;
     assessmentGradeEnglish: string | number | null;
-  };
+  } & Record<string, string | null | number>;
+
+  // Compute the pipeline stage label the same way `loadPipelineStageBreakdown`
+  // does: rightmost stage in `STAGE_KEYS` whose `*UpdatedDate` is non-null.
+  // No stages touched → 'Not started'. The chart and the drill must agree
+  // on this value or segment clicks miss every row.
+  function derivePipelineStage(s: StatusLite | undefined): string {
+    if (!s) return 'Not started';
+    let current: StageKey | null = null;
+    for (const k of STAGE_KEYS) {
+      const col = STAGE_COLUMN_MAP[k].updatedDateCol;
+      if (s[col]) current = k;
+    }
+    return current ? STAGE_LABELS[current] : 'Not started';
+  }
 
   const apps = (appsRes.data ?? []) as AppLite[];
-  const statuses = (statusRes.data ?? []) as StatusLite[];
+  // Cast via unknown — the dynamic SELECT (joined with the per-stage
+  // updatedDate columns) defeats supabase-js's row-shape inference.
+  const statuses = (statusRes.data ?? []) as unknown as StatusLite[];
 
   const statusByEnrolee = new Map<string, StatusLite>();
   for (const s of statuses) {
@@ -219,8 +259,17 @@ async function loadDrillRowsUncached(input: { ayCode: string }): Promise<DrillRo
         `${a.firstName ?? ''} ${a.lastName ?? ''}`.trim() ||
         a.enroleeNumber,
       status: status || 'No status',
-      level: s?.classLevel ?? a.levelApplied ?? s?.levelApplied ?? null,
+      // Level resolver mirrors the chart's `bucketByLevel` (see
+      // dashboard.ts → resolveLevel): prefer status.classLevel, then
+      // status.levelApplied, then apps.levelApplied; blank → 'Unknown'
+      // (NOT null). Without the same precedence + Unknown fallback the
+      // chart and drill key on different values and segment-clicks miss
+      // every row whose source columns disagree (Investigation #1).
+      level:
+        ((s?.classLevel ?? s?.levelApplied ?? a.levelApplied ?? '') as string).trim() ||
+        'Unknown',
       stage: deriveStage(status),
+      pipelineStage: derivePipelineStage(s),
       referralSource: (a.howDidYouKnowAboutHFSEIS ?? '').trim() || null,
       assessmentMath: s?.assessmentGradeMath != null ? String(s.assessmentGradeMath) : null,
       assessmentEnglish: s?.assessmentGradeEnglish != null ? String(s.assessmentGradeEnglish) : null,
@@ -374,7 +423,14 @@ export function applyTargetFilter(
     }
     case 'pipeline-stage':
       if (!segment) return rows;
-      return rows.filter((r) => r.stage === segment || r.status === segment);
+      // The chart's segments are STAGE_LABELS values (e.g. "Assessment",
+      // "Documents") plus "Not started". Filter on the derived
+      // `pipelineStage` so the drill matches the chart bucket exactly.
+      // Legacy fallback to `r.status === segment` preserved in case any
+      // caller still passes an applicationStatus value.
+      return rows.filter(
+        (r) => r.pipelineStage === segment || r.status === segment,
+      );
     case 'referral':
       if (!segment) return rows;
       if (segment === 'Not specified') {
@@ -431,8 +487,11 @@ export function applyTargetFilter(
 }
 
 function parseTimeToEnrollBucket(segment: string): { lo: number; hi: number | null } | null {
-  // Matches "0–7d", "8–14d", "31–60d", ">180d".
-  const range = /^(\d+)[–-](\d+)d$/.exec(segment);
+  // Matches "0–7d", "8–14d", "31–60d", ">180d". Use alternation (not a
+  // character class) so the en-dash U+2013 in the bucket label and a plain
+  // hyphen both match — `[–-]` is a degenerate character-class range and
+  // silently fails on some engines.
+  const range = /^(\d+)(?:–|-)(\d+)d$/.exec(segment);
   if (range) return { lo: Number(range[1]), hi: Number(range[2]) };
   const open = /^>\s*(\d+)d$/.exec(segment);
   if (open) return { lo: Number(open[1]) + 1, hi: null };

@@ -9,6 +9,7 @@ import {
   LEVEL_TYPE_BY_CODE,
   type LevelCode,
 } from '@/lib/sis/levels';
+import { invalidateAllOperationalDrills } from '@/lib/cache/invalidate-drill-tags';
 import { DOCUMENT_SLOTS, STP_CONDITIONAL_SLOT_KEYS } from '@/lib/sis/queries';
 import { fetchAllPages } from '@/lib/supabase/paginate';
 
@@ -151,6 +152,13 @@ export async function seedPopulated(
   //          `lib/sis/seeder/demo-extras.ts`.
   result.demo_extras = await seedDemoExtras(service, testAy);
 
+  // ---- 11. Bust the per-AY drill caches so a freshly-seeded environment
+  //          renders without waiting for the 60s unstable_cache TTL.
+  //          Critical for the Top-absent dashboard tile, which reads from
+  //          buildAllRowSets — a stale snapshot would show 0 absences while
+  //          the lazy-fetched drill sheet shows the real rows.
+  invalidateAllOperationalDrills(testAy.ay_code);
+
   return result;
 }
 
@@ -194,10 +202,15 @@ async function seedGradeEntries(
   // the registrar can exercise the entry flow. Fetch terms to identify T1.
   const { data: termRows } = await service
     .from('terms')
-    .select('id, term_number')
+    .select('id, term_number, start_date, end_date')
     .eq('academic_year_id', testAy.id)
     .order('term_number');
-  const terms = (termRows ?? []) as Array<{ id: string; term_number: number }>;
+  const terms = (termRows ?? []) as Array<{
+    id: string;
+    term_number: number;
+    start_date: string | null;
+    end_date: string | null;
+  }>;
   const t1 = terms.find((t) => t.term_number === 1);
   const t2 = terms.find((t) => t.term_number === 2);
   if (!t1) return 0;
@@ -248,6 +261,7 @@ async function seedGradeEntries(
     initial_grade: number | null;
     quarterly_grade: number | null;
     is_na: boolean;
+    created_at: string;
   };
   const inserts: InsertRow[] = [];
 
@@ -256,6 +270,25 @@ async function seedGradeEntries(
   const scoreFor = (max: number) => {
     const pct = 0.70 + rand() * 0.25; // 70–95%
     return Math.round(pct * max);
+  };
+
+  // Spread `created_at` across the term window so the per-day velocity
+  // chart shows a distribution instead of one spike. T1 (closed): full
+  // start→end span. T2 (active): start→today. Falls back to seed-time
+  // if the term lacks dates.
+  const todayMs = Date.now();
+  const createdAtForTerm = (termId: string): string => {
+    const term = termId === t1.id ? t1 : t2;
+    if (!term?.start_date) return new Date().toISOString();
+    const startMs = new Date(`${term.start_date}T00:00:00+08:00`).getTime();
+    const upperIso =
+      termId === t1.id && term.end_date
+        ? `${term.end_date}T23:59:59+08:00`
+        : null;
+    const upperMs = upperIso ? new Date(upperIso).getTime() : todayMs;
+    if (upperMs <= startMs) return new Date().toISOString();
+    const ms = startMs + Math.floor(rand() * (upperMs - startMs));
+    return new Date(ms).toISOString();
   };
 
   for (const sheet of targetSheets) {
@@ -301,6 +334,7 @@ async function seedGradeEntries(
           initial_grade: computed.initial_grade,
           quarterly_grade: computed.quarterly_grade,
           is_na: false,
+          created_at: createdAtForTerm(sheet.term_id),
         });
       } else {
         // T2 (active): seed a PARTIAL entry — one WW slot only, empty
@@ -336,6 +370,7 @@ async function seedGradeEntries(
           initial_grade: computed.initial_grade,
           quarterly_grade: computed.quarterly_grade,
           is_na: false,
+          created_at: createdAtForTerm(sheet.term_id),
         });
       }
     }
@@ -410,14 +445,26 @@ async function seedAttendanceSummary(
   }
 
   // Weighted random status picker (P heavy, small mix of L/A/EX). Single
-  // PRNG instance threaded across both terms so determinism holds.
+  // PRNG instance threaded across both terms so determinism holds. EX rows
+  // also get an `ex_reason` from the migration-015 enum so the donut /
+  // compassionate-quota drill have meaningful spread (KD #50).
   const rand = mulberry32(hashString(`${testAy.ay_code}:attendance-daily`));
-  function pickStatus(): 'P' | 'L' | 'A' | 'EX' {
+  type ExReason = 'mc' | 'compassionate' | 'school_activity';
+  function pickExReason(): ExReason {
     const r = rand();
-    if (r < 0.9) return 'P';
-    if (r < 0.94) return 'L';
-    if (r < 0.97) return 'A';
-    return 'EX';
+    if (r < 0.6) return 'mc';
+    if (r < 0.85) return 'school_activity';
+    return 'compassionate';
+  }
+  function pickStatus(): {
+    status: 'P' | 'L' | 'A' | 'EX';
+    ex_reason: ExReason | null;
+  } {
+    const r = rand();
+    if (r < 0.9) return { status: 'P', ex_reason: null };
+    if (r < 0.94) return { status: 'L', ex_reason: null };
+    if (r < 0.97) return { status: 'A', ex_reason: null };
+    return { status: 'EX', ex_reason: pickExReason() };
   }
 
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -466,14 +513,17 @@ async function seedAttendanceSummary(
       term_id: string;
       date: string;
       status: 'P' | 'L' | 'A' | 'EX';
+      ex_reason: ExReason | null;
     }> = [];
     for (const enrolmentId of enrolList) {
       for (const date of schoolDays) {
+        const picked = pickStatus();
         allRows.push({
           section_student_id: enrolmentId,
           term_id: term.id,
           date,
-          status: pickStatus(),
+          status: picked.status,
+          ex_reason: picked.ex_reason,
         });
       }
     }
@@ -979,6 +1029,26 @@ async function seedAdmissionsFunnel(
         contractStatus: stageFill.contractStatus,
         feeStatus: stageFill.feeStatus,
       };
+      // Seed assessment grades for rows that have plausibly progressed past
+      // the assessment stage. Without these the AssessmentOutcomes donut
+      // shows 100% "unknown". Roughly 80% pass mix (both ≥60), 20% with at
+      // least one fail < 60 → realistic pass-rate spread.
+      if (
+        applicationStatus === 'Processing' ||
+        applicationStatus === 'Enrolled' ||
+        applicationStatus === 'Enrolled (Conditional)'
+      ) {
+        const passingMath = rand() < 0.8;
+        const passingEnglish = rand() < 0.8;
+        const mathScore = passingMath
+          ? 60 + Math.floor(rand() * 36) // 60–95
+          : 50 + Math.floor(rand() * 10); // 50–59
+        const engScore = passingEnglish
+          ? 60 + Math.floor(rand() * 36)
+          : 50 + Math.floor(rand() * 10);
+        statusRow.assessmentGradeMath = String(mathScore);
+        statusRow.assessmentGradeEnglish = String(engScore);
+      }
       // For Processing rows that landed on the fee stage with feeStatus='Paid'
       // (i.e. the ungated-to-enroll branch), stamp a recent feePaymentDate so
       // the lifecycle widget's payment-recency slice has data.
@@ -1460,14 +1530,41 @@ async function seedEnrolledAdmissionsRows(
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10);
-  const personaUpdatedDate = (i: number): string => {
-    if (i >= WITHDRAWN_RANGE.start && i < WITHDRAWN_RANGE.end) return thirtyDaysAgo;
-    return todayIso;
-  };
 
   // Deterministic per-AY rand for category / classType / pass / STP picks. Same
   // pattern as funnel — keeps re-runs stable.
   const enrolledRand = mulberry32(hashString(`${testAy.ay_code}:enrolled-personas`));
+
+  // Spread `applicationUpdatedDate` across the current calendar month for
+  // ~35% of enrolled rows so the Conversion Rate KPI's `thisMonth` range
+  // window catches enough samples to show a non-zero average.
+  const now = new Date();
+  const monthStartDay = 1;
+  const monthMaxDay = now.getDate();
+  const personaUpdatedDate = (i: number): string => {
+    if (i >= WITHDRAWN_RANGE.start && i < WITHDRAWN_RANGE.end) return thirtyDaysAgo;
+    if (enrolledRand() < 0.35) {
+      const day = monthStartDay + Math.floor(enrolledRand() * monthMaxDay);
+      return new Date(now.getFullYear(), now.getMonth(), day)
+        .toISOString()
+        .slice(0, 10);
+    }
+    return todayIso;
+  };
+
+  // Backdate `applications.created_at` to N days before each row's
+  // updatedDate so `daysToEnroll = updatedAt - createdAt` has realistic
+  // positive variance (14–90 days). Without this every row's daysToEnroll
+  // would be 0 (created_at defaults to seed-time, updatedDate is also
+  // ~today). Withdrawn rows backdate further so they don't pollute
+  // averages of healthy enrol times.
+  const personaCreatedAtIso = (i: number): string => {
+    const daysAgo =
+      i >= WITHDRAWN_RANGE.start && i < WITHDRAWN_RANGE.end
+        ? 60 + Math.floor(enrolledRand() * 60) // 60–120d for withdrawn
+        : 14 + Math.floor(enrolledRand() * 76); // 14–90d for active
+    return new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toISOString();
+  };
 
   // Per-row metadata computed once, then shared between appInserts and
   // statusInserts so apps.category + status.enroleeType always agree (they
@@ -1526,6 +1623,9 @@ async function seedEnrolledAdmissionsRows(
       residenceHistory: m.isStpApplicant ? STP_RESIDENCE_HISTORY : null,
       paracetamolConsent: true,
       socialMediaConsent: m.socialMediaConsent,
+      // Backdate created_at so `daysToEnroll` (updatedAt − createdAt) has
+      // realistic positive variance for the conversion-rate cohort drill.
+      created_at: personaCreatedAtIso(i),
     };
   });
   const statusInserts = rows.map((r, i) => {

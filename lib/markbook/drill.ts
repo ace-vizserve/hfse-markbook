@@ -715,7 +715,10 @@ export async function buildMarkbookDrillRows(
   }
   rows = applyScopeFilter(rows, kind, input);
   rows = applyTeacherFilter(rows, kind, input.allowedSectionIds ?? null);
-  rows = applyTargetFilter(rows, input.target, input.segment ?? null);
+  rows = applyTargetFilter(rows, input.target, input.segment ?? null, {
+    from: input.from,
+    to: input.to,
+  });
   return rows;
 }
 
@@ -830,12 +833,28 @@ export function applyTargetFilter(
   rows: MarkbookDrillRow[],
   target: MarkbookDrillTarget,
   segment?: string | null,
+  range?: { from?: string; to?: string },
 ): MarkbookDrillRow[] {
   switch (target) {
     case 'grade-entries':
       return rows;
-    case 'sheets-locked':
+    case 'sheets-locked': {
+      // Match the dashboard KPI exactly: only sheets that were LOCKED inside
+      // the active range count. The scope filter at applyScopeFilter()
+      // intentionally lets unlocked sheets through (so the UI can show
+      // pending work), so the target filter has to enforce the range gate
+      // for this drill specifically.
+      const from = range?.from;
+      const to = range?.to;
+      if (from && to) {
+        return (rows as SheetRow[]).filter((r) => {
+          if (!r.isLocked || !r.lockedAt) return false;
+          const day = r.lockedAt.slice(0, 10);
+          return day >= from && day <= to;
+        }) as MarkbookDrillRow[];
+      }
       return (rows as SheetRow[]).filter((r) => r.isLocked) as MarkbookDrillRow[];
+    }
     case 'change-requests':
       if (!segment) return rows;
       return (rows as ChangeRequestRow[]).filter((r) => r.status === segment) as MarkbookDrillRow[];
