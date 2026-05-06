@@ -192,11 +192,17 @@ async function resolveAyContext(ayCode: string) {
   let sectionStudents: StudentSectionLite[] = [];
   const studentMap = new Map<string, StudentLite>();
   if (sectionIds.length > 0) {
-    const { data: ssRows } = await service
-      .from('section_students')
-      .select('id, section_id, student_id, enrollment_status')
-      .in('section_id', sectionIds);
-    sectionStudents = (ssRows ?? []) as StudentSectionLite[];
+    // Paginate — same reasoning as lib/attendance/dashboard.ts: AY9999's
+    // section_students count can exceed 1000 with transfers + re-enrols,
+    // and a silent truncation halves the drill's row set.
+    const ssRows = await fetchAllPages<StudentSectionLite>((from, to) =>
+      service
+        .from('section_students')
+        .select('id, section_id, student_id, enrollment_status')
+        .in('section_id', sectionIds)
+        .range(from, to),
+    );
+    sectionStudents = ssRows;
     const studentIds = Array.from(new Set(sectionStudents.map((s) => s.student_id)));
     if (studentIds.length > 0) {
       // chunk to avoid URL length limits

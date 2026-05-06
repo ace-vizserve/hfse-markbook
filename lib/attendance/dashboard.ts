@@ -50,11 +50,20 @@ async function loadDailyRowsUncached(ayCode: string): Promise<DailyRow[]> {
   const sectionIds = (sectionRows ?? []).map((r) => r.id as string);
   if (sectionIds.length === 0) return [];
 
-  const { data: ss } = await service
-    .from('section_students')
-    .select('id')
-    .in('section_id', sectionIds);
-  const studentRowIds = (ss ?? []).map((r) => r.id as string);
+  // Paginate via fetchAllPages — section_students in a busy AY can exceed
+  // PostgREST's 1000-row default cap (mid-year transfers per KD #67 leave
+  // both old + new rows; long-running AYs accumulate withdraws + re-
+  // enrolments). A truncated SELECT here silently halves the attendance
+  // row set the dashboard sees, producing card-vs-drill mismatches that
+  // look like cache staleness but are actually data-volume truncation.
+  const ss = await fetchAllPages<{ id: string }>((from, to) =>
+    service
+      .from('section_students')
+      .select('id')
+      .in('section_id', sectionIds)
+      .range(from, to),
+  );
+  const studentRowIds = ss.map((r) => r.id);
   if (studentRowIds.length === 0) return [];
 
   // attendance_daily can exceed PostgREST's 1000-row response cap on the
