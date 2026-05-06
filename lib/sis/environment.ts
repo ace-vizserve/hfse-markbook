@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { seedPopulated, type PopulatedSeedResult } from './seeder/populated';
+import { seedPriorYearTestAy } from './seeder/prior-year';
 import { seedTestAy, type SeedResult } from './seeder/students';
 import { ensureTestStructure, type StructureSeedResult } from './seeder/structural';
 
@@ -204,8 +205,7 @@ export async function switchEnvironment(
     const populated = await seedPopulated(service, testAy);
 
     // 5) Prior-year fixture: provision AY9998 students + populated data.
-    // TODO Task 6: import + call seedPriorYearTestAy(service, priorTestAy)
-    // For now this is stubbed so Task 5 can build clean. Restored in Task 6.
+    await seedPriorYearTestAy(service, priorTestAy);
 
     return {
       fromAyCode: flip.fromAyCode,
