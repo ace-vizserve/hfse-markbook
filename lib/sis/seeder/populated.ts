@@ -89,6 +89,28 @@ export async function seedPopulated(
   // ---- 1. Grade entries ----
   result.grade_entries_inserted = await seedGradeEntries(service, testAy);
 
+  // Lock all T1 sheets to reflect the closed-term state. T2 stays unlocked
+  // so the registrar can demo entry edits, change-request submission, etc.
+  {
+    const { data: t1 } = await service
+      .from('terms')
+      .select('id, end_date')
+      .eq('academic_year_id', testAy.id)
+      .eq('term_number', 1)
+      .maybeSingle();
+    if (t1 && (t1 as { end_date: string | null }).end_date) {
+      const endDateIso = `${(t1 as { end_date: string }).end_date}T23:59:59+08:00`;
+      const { error } = await service
+        .from('grading_sheets')
+        .update({ is_locked: true, locked_at: endDateIso })
+        .eq('term_id', (t1 as { id: string }).id)
+        .eq('is_locked', false);
+      if (error) {
+        console.error('[populated seeder] T1 lock pass failed:', error.message);
+      }
+    }
+  }
+
   // ---- 2. Attendance daily + rollups ----
   const att = await seedAttendanceSummary(service, testAy);
   result.attendance_daily_inserted = att.daily;
@@ -132,10 +154,12 @@ export async function seedPopulated(
   return result;
 }
 
-// For every (grading_sheet × section_student) pair in T1 + first subject
-// of T2, insert a grade_entry with plausible scores and the computed
-// quarterly via `computeQuarterly`. Skips entirely if the AY already has
-// grade_entries (measured via a count query).
+// For every (grading_sheet × section_student) pair in T1, insert a
+// fully-computed grade_entry (plausible scores + quarterly via
+// `computeQuarterly`). For T2 (the active term), insert a PARTIAL entry
+// — one WW slot only, empty pt_scores, null qa_score — so the registrar
+// can demo entry edits + change-request submission against an "in
+// progress" sheet. T3+T4 stay untouched.
 async function seedGradeEntries(
   service: SupabaseClient,
   testAy: { id: string; ay_code: string },
@@ -244,40 +268,76 @@ async function seedGradeEntries(
       (sheet.pt_totals ?? [10, 10, 10]).length > 0 ? sheet.pt_totals! : [10, 10, 10];
     const qa_total = sheet.qa_total ?? 30;
 
-    // For T1: fill 100% (publishable). For T2: fill 30% (mid-entry demo).
-    const fillProb = sheet.term_id === t1.id ? 1.0 : 0.3;
+    const isT1 = sheet.term_id === t1.id;
 
     for (const e of enrolments) {
-      if (rand() > fillProb) continue;
-      const ww_scores = ww_totals.map((max) => scoreFor(max));
-      const pt_scores = pt_totals.map((max) => scoreFor(max));
-      const qa_score = scoreFor(qa_total);
+      if (isT1) {
+        // T1 (closed): fill 100% — full WW + PT + QA, computed quarterly.
+        const ww_scores = ww_totals.map((max) => scoreFor(max));
+        const pt_scores = pt_totals.map((max) => scoreFor(max));
+        const qa_score = scoreFor(qa_total);
 
-      const computed = computeQuarterly({
-        ww_scores,
-        ww_totals,
-        pt_scores,
-        pt_totals,
-        qa_score,
-        qa_total,
-        ww_weight: cfg.ww_weight,
-        pt_weight: cfg.pt_weight,
-        qa_weight: cfg.qa_weight,
-      });
+        const computed = computeQuarterly({
+          ww_scores,
+          ww_totals,
+          pt_scores,
+          pt_totals,
+          qa_score,
+          qa_total,
+          ww_weight: cfg.ww_weight,
+          pt_weight: cfg.pt_weight,
+          qa_weight: cfg.qa_weight,
+        });
 
-      inserts.push({
-        grading_sheet_id: sheet.id,
-        section_student_id: e.id,
-        ww_scores,
-        pt_scores,
-        qa_score,
-        ww_ps: computed.ww_ps,
-        pt_ps: computed.pt_ps,
-        qa_ps: computed.qa_ps,
-        initial_grade: computed.initial_grade,
-        quarterly_grade: computed.quarterly_grade,
-        is_na: false,
-      });
+        inserts.push({
+          grading_sheet_id: sheet.id,
+          section_student_id: e.id,
+          ww_scores,
+          pt_scores,
+          qa_score,
+          ww_ps: computed.ww_ps,
+          pt_ps: computed.pt_ps,
+          qa_ps: computed.qa_ps,
+          initial_grade: computed.initial_grade,
+          quarterly_grade: computed.quarterly_grade,
+          is_na: false,
+        });
+      } else {
+        // T2 (active): seed a PARTIAL entry — one WW slot only, empty
+        // PT, null QA. Sheets look "in progress"; quarterly stays null
+        // until the rest of the slots are filled. Still call
+        // computeQuarterly so ww_ps reflects the single slot recorded.
+        const firstMax = ww_totals[0] ?? 10;
+        const ww_scores = [scoreFor(firstMax)];
+        const pt_scores: number[] = [];
+        const qa_score = null;
+
+        const computed = computeQuarterly({
+          ww_scores,
+          ww_totals,
+          pt_scores,
+          pt_totals,
+          qa_score,
+          qa_total,
+          ww_weight: cfg.ww_weight,
+          pt_weight: cfg.pt_weight,
+          qa_weight: cfg.qa_weight,
+        });
+
+        inserts.push({
+          grading_sheet_id: sheet.id,
+          section_student_id: e.id,
+          ww_scores,
+          pt_scores,
+          qa_score,
+          ww_ps: computed.ww_ps,
+          pt_ps: computed.pt_ps,
+          qa_ps: computed.qa_ps,
+          initial_grade: computed.initial_grade,
+          quarterly_grade: computed.quarterly_grade,
+          is_na: false,
+        });
+      }
     }
   }
 
@@ -297,47 +357,42 @@ async function seedGradeEntries(
   return inserted;
 }
 
-// Daily attendance for T1. Inserts one `attendance_daily` row per
-// (section_student × encodable school day) with a P-heavy random status
-// distribution, then calls the `recompute_attendance_rollup` RPC per
-// section_student so `attendance_records` mirrors what the wide-grid shows.
-// Production uses the same rollup path — seeding via the same pipeline
-// keeps the two views consistent.
+// Daily attendance for T1+T2 with a temporal split. T1 (closed term):
+// every encodable school day is seeded. T2 (active term): only dates up
+// to today, so the demo AY shows a partial-month-in-progress state. T3+T4
+// stay empty.
+//
+// Inserts one `attendance_daily` row per (section_student × encodable
+// school day in window) with a P-heavy random status distribution, then
+// calls the `recompute_attendance_rollup` RPC per (section_student, term)
+// so `attendance_records` mirrors what the wide-grid shows. Production
+// uses the same rollup path — seeding via the same pipeline keeps the
+// two views consistent.
 async function seedAttendanceSummary(
   service: SupabaseClient,
   testAy: { id: string; ay_code: string },
 ): Promise<{ daily: number; rollups: number }> {
   const { data: termRows } = await service
     .from('terms')
-    .select('id, term_number')
+    .select('id, term_number, start_date, end_date')
     .eq('academic_year_id', testAy.id)
-    .eq('term_number', 1)
-    .maybeSingle();
-  const t1 = termRows as { id: string; term_number: number } | null;
-  if (!t1) return { daily: 0, rollups: 0 };
+    .in('term_number', [1, 2])
+    .order('term_number');
+  const terms = (termRows ?? []) as Array<{
+    id: string;
+    term_number: number;
+    start_date: string | null;
+    end_date: string | null;
+  }>;
+  if (terms.length === 0) return { daily: 0, rollups: 0 };
 
   // Idempotent: build the full expected (section_student × date) set for
-  // T1's encodable days, subtract any tuples that already exist in
+  // each term's encodable days, subtract any tuples that already exist in
   // attendance_daily, and insert the remainder. attendance_daily has no
   // unique constraint (append-only — corrections insert a new row and
   // latest recorded_at wins), so we filter manually before inserting.
 
-  // Encodable school days in T1 (school_day + hbl).
-  const { data: calendarRows } = await service
-    .from('school_calendar')
-    .select('date, day_type')
-    .eq('term_id', t1.id)
-    .in('day_type', ['school_day', 'hbl'])
-    .order('date');
-  const schoolDays = ((calendarRows ?? []) as Array<{ date: string; day_type: string }>).map(
-    (r) => r.date,
-  );
-  if (schoolDays.length === 0) {
-    console.warn('[populated seeder] attendance: no encodable school days in T1 — skipping');
-    return { daily: 0, rollups: 0 };
-  }
-
-  // All enrolments in the AY.
+  // All enrolments in the AY (shared across both terms).
   const { data: sections } = await service
     .from('sections')
     .select('id')
@@ -354,7 +409,8 @@ async function seedAttendanceSummary(
     return { daily: 0, rollups: 0 };
   }
 
-  // Weighted random status picker (P heavy, small mix of L/A/EX).
+  // Weighted random status picker (P heavy, small mix of L/A/EX). Single
+  // PRNG instance threaded across both terms so determinism holds.
   const rand = mulberry32(hashString(`${testAy.ay_code}:attendance-daily`));
   function pickStatus(): 'P' | 'L' | 'A' | 'EX' {
     const r = rand();
@@ -364,95 +420,145 @@ async function seedAttendanceSummary(
     return 'EX';
   }
 
-  // Build the ~9,400-row expected set, then exclude tuples that already
-  // exist (re-runs only fill in the diff).
-  const allRows: Array<{
-    section_student_id: string;
-    term_id: string;
-    date: string;
-    status: 'P' | 'L' | 'A' | 'EX';
-  }> = [];
-  for (const enrolmentId of enrolList) {
-    for (const date of schoolDays) {
-      allRows.push({
-        section_student_id: enrolmentId,
-        term_id: t1.id,
-        date,
-        status: pickStatus(),
-      });
-    }
-  }
+  const todayIso = new Date().toISOString().slice(0, 10);
 
-  // Page over existing tuples for this term so we don't insert duplicates.
-  // PostgREST caps single responses at 1000 rows; use the shared paginate
-  // helper (KD note in lib/supabase/paginate.ts).
-  const existingDailyRows = await fetchAllPages<{
-    section_student_id: string;
-    date: string;
-  }>((from, to) =>
-    service
-      .from('attendance_daily')
-      .select('section_student_id, date')
-      .eq('term_id', t1.id)
-      .range(from, to),
-  );
-  const existingTuples = new Set(
-    existingDailyRows.map((r) => `${r.section_student_id}|${r.date}`),
-  );
-  const rows = allRows.filter(
-    (r) => !existingTuples.has(`${r.section_student_id}|${r.date}`),
-  );
-
-  const CHUNK = 500;
   let insertedDaily = 0;
-  for (let i = 0; i < rows.length; i += CHUNK) {
-    const slice = rows.slice(i, i + CHUNK);
-    const { error } = await service.from('attendance_daily').insert(slice);
-    if (error) {
-      console.error('[populated seeder] attendance_daily insert failed:', error.message);
-      continue;
-    }
-    insertedDaily += slice.length;
-  }
-
-  // Fire the rollup RPC once per section_student × T1 so
-  // `attendance_records` reflects the daily ledger. Same path production
-  // uses after each daily write. ~200 RPCs; each is a single aggregate +
-  // upsert, cheap.
   let rollupCount = 0;
-  for (const enrolmentId of enrolList) {
-    const { error } = await service.rpc('recompute_attendance_rollup', {
-      p_term_id: t1.id,
-      p_section_student_id: enrolmentId,
-    });
-    if (error) {
-      console.error(
-        `[populated seeder] rollup RPC failed for ${enrolmentId}:`,
-        error.message,
+
+  for (const term of terms) {
+    // Encodable school days in this term (school_day + hbl).
+    const { data: calendarRows } = await service
+      .from('school_calendar')
+      .select('date, day_type')
+      .eq('term_id', term.id)
+      .in('day_type', ['school_day', 'hbl'])
+      .order('date');
+    let schoolDays = ((calendarRows ?? []) as Array<{ date: string; day_type: string }>).map(
+      (r) => r.date,
+    );
+    if (schoolDays.length === 0) {
+      console.warn(
+        `[populated seeder] attendance: no encodable school days in T${term.term_number} — skipping`,
       );
       continue;
     }
-    rollupCount += 1;
+
+    // Temporal split: if today falls inside this term's window, only seed
+    // dates up to today. T1 closed (today > end_date) → no filter, all
+    // dates seeded. T2 active (start_date <= today <= end_date) → today
+    // is the upper bound. Term entirely in the future (today < start_date)
+    // → schoolDays becomes empty and we skip.
+    if (term.start_date && term.end_date) {
+      if (todayIso >= term.start_date && todayIso <= term.end_date) {
+        schoolDays = schoolDays.filter((d) => d <= todayIso);
+      } else if (todayIso < term.start_date) {
+        // Entirely future — leave T-future empty.
+        continue;
+      }
+      // else: entirely past (todayIso > end_date) → no filter.
+    }
+    if (schoolDays.length === 0) continue;
+
+    // Build the expected set for this term, then exclude tuples that
+    // already exist (re-runs only fill in the diff).
+    const allRows: Array<{
+      section_student_id: string;
+      term_id: string;
+      date: string;
+      status: 'P' | 'L' | 'A' | 'EX';
+    }> = [];
+    for (const enrolmentId of enrolList) {
+      for (const date of schoolDays) {
+        allRows.push({
+          section_student_id: enrolmentId,
+          term_id: term.id,
+          date,
+          status: pickStatus(),
+        });
+      }
+    }
+
+    // Page over existing tuples for this term so we don't insert
+    // duplicates. PostgREST caps single responses at 1000 rows; use the
+    // shared paginate helper (KD note in lib/supabase/paginate.ts).
+    const existingDailyRows = await fetchAllPages<{
+      section_student_id: string;
+      date: string;
+    }>((from, to) =>
+      service
+        .from('attendance_daily')
+        .select('section_student_id, date')
+        .eq('term_id', term.id)
+        .range(from, to),
+    );
+    const existingTuples = new Set(
+      existingDailyRows.map((r) => `${r.section_student_id}|${r.date}`),
+    );
+    const rows = allRows.filter(
+      (r) => !existingTuples.has(`${r.section_student_id}|${r.date}`),
+    );
+
+    const CHUNK = 500;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const slice = rows.slice(i, i + CHUNK);
+      const { error } = await service.from('attendance_daily').insert(slice);
+      if (error) {
+        console.error(
+          `[populated seeder] attendance_daily T${term.term_number} insert failed:`,
+          error.message,
+        );
+        continue;
+      }
+      insertedDaily += slice.length;
+    }
+
+    // Fire the rollup RPC once per section_student × term so
+    // `attendance_records` reflects the daily ledger. Same path
+    // production uses after each daily write.
+    for (const enrolmentId of enrolList) {
+      const { error } = await service.rpc('recompute_attendance_rollup', {
+        p_term_id: term.id,
+        p_section_student_id: enrolmentId,
+      });
+      if (error) {
+        console.error(
+          `[populated seeder] rollup RPC failed for T${term.term_number} ${enrolmentId}:`,
+          error.message,
+        );
+        continue;
+      }
+      rollupCount += 1;
+    }
   }
 
   return { daily: insertedDaily, rollups: rollupCount };
 }
 
-// Seeds ~5 submitted evaluation writeups per section for T1 so the
+// Seeds evaluation writeups across T1 (closed) + T2 (active). T1: 5
+// submitted writeups per section, submitted_at = T1.end_date so the
 // pre-publish checklist on the publish-window panel shows green on the
-// "adviser comments" line for the demo section.
+// "adviser comments" line for the demo section. T2: 3 writeups per
+// section — 2 submitted (submitted_at = today − 7 days) + 1 still in
+// draft (submitted=false, submitted_at=null) — so the demo shows an
+// active term with mixed progress. T3+T4 stay untouched.
 async function seedEvaluationWriteups(
   service: SupabaseClient,
   testAy: { id: string; ay_code: string },
 ): Promise<number> {
-  const { data: t1 } = await service
+  const { data: termRows } = await service
     .from('terms')
-    .select('id')
+    .select('id, term_number, end_date')
     .eq('academic_year_id', testAy.id)
-    .eq('term_number', 1)
-    .maybeSingle();
-  if (!t1) return 0;
-  const termId = (t1 as { id: string }).id;
+    .in('term_number', [1, 2])
+    .order('term_number');
+  const terms = (termRows ?? []) as Array<{
+    id: string;
+    term_number: number;
+    end_date: string | null;
+  }>;
+  if (terms.length === 0) return 0;
+  const t1 = terms.find((t) => t.term_number === 1);
+  const t2 = terms.find((t) => t.term_number === 2);
 
   // Idempotent: migration-018 unique `(term_id, student_id)` lets the
   // upsert below silently drop duplicates on re-run.
@@ -479,25 +585,59 @@ async function seedEvaluationWriteups(
     section_id: string;
     writeup: string;
     submitted: boolean;
-    submitted_at: string;
+    submitted_at: string | null;
   }> = [];
 
+  // T1 timestamp: prefer the term's end_date (closed-term semantics);
+  // fall back to now() if the AY hasn't filled term dates yet.
+  const t1SubmittedAt =
+    t1 && t1.end_date
+      ? `${t1.end_date}T17:00:00+08:00`
+      : new Date().toISOString();
+  // T2 "submitted recently" timestamp: today − 7 days.
+  const t2SubmittedAt = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
   for (const sectionId of sectionIds) {
-    const { data: enrolments } = await service
-      .from('section_students')
-      .select('student_id')
-      .eq('section_id', sectionId)
-      .limit(5);
-    const students = (enrolments ?? []) as Array<{ student_id: string }>;
-    for (const s of students) {
-      const tmpl = TEMPLATES[Math.floor(rand() * TEMPLATES.length)];
-      writeupRows.push({
-        term_id: termId,
-        student_id: s.student_id,
-        section_id: sectionId,
-        writeup: tmpl,
-        submitted: true,
-        submitted_at: new Date().toISOString(),
+    // T1 — 5 submitted writeups per section (end-of-term snapshot).
+    if (t1) {
+      const { data: enrolments } = await service
+        .from('section_students')
+        .select('student_id')
+        .eq('section_id', sectionId)
+        .limit(5);
+      const students = (enrolments ?? []) as Array<{ student_id: string }>;
+      for (const s of students) {
+        const tmpl = TEMPLATES[Math.floor(rand() * TEMPLATES.length)];
+        writeupRows.push({
+          term_id: t1.id,
+          student_id: s.student_id,
+          section_id: sectionId,
+          writeup: tmpl,
+          submitted: true,
+          submitted_at: t1SubmittedAt,
+        });
+      }
+    }
+
+    // T2 — 3 writeups per section: 2 submitted ~7 days ago + 1 draft.
+    if (t2) {
+      const { data: enrolments } = await service
+        .from('section_students')
+        .select('student_id')
+        .eq('section_id', sectionId)
+        .limit(3);
+      const students = (enrolments ?? []) as Array<{ student_id: string }>;
+      students.forEach((s, idx) => {
+        const tmpl = TEMPLATES[Math.floor(rand() * TEMPLATES.length)];
+        const isDraft = idx === 2; // last of the 3 is still in draft
+        writeupRows.push({
+          term_id: t2.id,
+          student_id: s.student_id,
+          section_id: sectionId,
+          writeup: tmpl,
+          submitted: !isDraft,
+          submitted_at: isDraft ? null : t2SubmittedAt,
+        });
       });
     }
   }
