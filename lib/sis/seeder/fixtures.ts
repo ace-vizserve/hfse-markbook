@@ -88,8 +88,9 @@ export const SECTIONS: SectionSeed[] = [
   { level_code: 'S4', name: 'Excellence' },
 ];
 
-// Term templates pinned to the AY9999 academic calendar. Registrar can
-// re-edit via /sis/ay-setup → Dates.
+// Term templates pinned to a single academic calendar year (KD #13: HFSE
+// AY runs January through November). Registrar can re-edit via
+// /sis/ay-setup → Dates.
 export type TermTemplate = {
   term_number: 1 | 2 | 3 | 4;
   start_date: string;  // ISO
@@ -98,15 +99,52 @@ export type TermTemplate = {
   grading_lock_date: string;
 };
 
-export const TERM_TEMPLATES: TermTemplate[] = [
-  { term_number: 1, start_date: '2026-08-03', end_date: '2026-10-30', virtue_theme: 'Faith',  grading_lock_date: '2026-10-26' },
-  { term_number: 2, start_date: '2026-11-02', end_date: '2027-01-29', virtue_theme: 'Hope',   grading_lock_date: '2027-01-25' },
-  { term_number: 3, start_date: '2027-02-01', end_date: '2027-04-30', virtue_theme: 'Love',   grading_lock_date: '2027-04-26' },
-  // T4 has no FCA comment section per KD #49 — virtue_theme left null.
-  { term_number: 4, start_date: '2027-05-03', end_date: '2027-07-30', virtue_theme: null,     grading_lock_date: '2027-07-26' },
-];
+/**
+ * Builds the four-term calendar for `targetYear`. HFSE AY runs January
+ * through November of a single calendar year per KD #13. Layout is
+ * today-anchored when `targetYear` is the current year — T1 closed by Apr 3,
+ * T2 active (Apr 13–Jul 3), T3+T4 future. For prior years (AY9998), all
+ * four terms fall in the past so they all have full data.
+ */
+export function buildTermTemplates(targetYear: number): TermTemplate[] {
+  const y = String(targetYear);
+  return [
+    {
+      term_number: 1,
+      start_date: `${y}-01-13`,
+      end_date: `${y}-04-03`,
+      virtue_theme: 'Faith',
+      grading_lock_date: `${y}-03-30`,
+    },
+    {
+      term_number: 2,
+      start_date: `${y}-04-13`,
+      end_date: `${y}-07-03`,
+      virtue_theme: 'Hope',
+      grading_lock_date: `${y}-06-29`,
+    },
+    {
+      term_number: 3,
+      start_date: `${y}-07-13`,
+      end_date: `${y}-10-02`,
+      virtue_theme: 'Love',
+      grading_lock_date: `${y}-09-28`,
+    },
+    // T4 has no FCA comment section per KD #49 — virtue_theme left null.
+    {
+      term_number: 4,
+      start_date: `${y}-10-13`,
+      end_date: `${y}-11-27`,
+      virtue_theme: null,
+      grading_lock_date: `${y}-11-23`,
+    },
+  ];
+}
 
-// Synthetic holidays & special days pinned to AY9999 term windows.
+/** Backwards-compat alias — points at current calendar year. Existing callers keep working. */
+export const TERM_TEMPLATES: TermTemplate[] = buildTermTemplates(new Date().getFullYear());
+
+// Synthetic holidays & special days pinned to AY term windows.
 // Not an attempt at the real SG calendar — defensible stand-ins so the grid
 // has a mix of day-types to demo. Registrar can re-classify via the UI.
 export type CannedCalendarEntry = {
@@ -115,36 +153,39 @@ export type CannedCalendarEntry = {
   label: string;
 };
 
-export const CANNED_CALENDAR: CannedCalendarEntry[] = [
-  // ---- T1 (Aug–Oct 2026) ----
-  { date: '2026-08-10', day_type: 'no_class',       label: 'Teacher retreat' },
-  { date: '2026-09-14', day_type: 'school_holiday', label: 'Staff PD Day' },
-  { date: '2026-09-15', day_type: 'school_holiday', label: 'Staff PD Day' },
-  { date: '2026-10-19', day_type: 'public_holiday', label: 'Deepavali' },
+/**
+ * Synthetic holidays + special days, year-parametric. Substitutes
+ * `targetYear` for the literal year in each ISO date. Dates fall within
+ * the Jan–Nov term windows defined by `buildTermTemplates(targetYear)`.
+ */
+export function buildCannedCalendar(targetYear: number): CannedCalendarEntry[] {
+  const y = String(targetYear);
+  return [
+    { date: `${y}-02-13`, day_type: 'public_holiday', label: 'Chinese New Year (Day 1)' },
+    { date: `${y}-02-14`, day_type: 'public_holiday', label: 'Chinese New Year (Day 2)' },
+    { date: `${y}-03-31`, day_type: 'public_holiday', label: 'Hari Raya Puasa' },
+    { date: `${y}-05-01`, day_type: 'public_holiday', label: 'Labour Day' },
+    { date: `${y}-06-08`, day_type: 'public_holiday', label: 'Hari Raya Haji' },
+    { date: `${y}-08-09`, day_type: 'public_holiday', label: 'National Day' },
+    { date: `${y}-10-26`, day_type: 'public_holiday', label: 'Deepavali' },
+    { date: `${y}-11-12`, day_type: 'no_class',       label: 'Teacher Planning Day' },
+  ];
+}
 
-  // ---- T2 (Nov 2026 – Jan 2027) ----
-  { date: '2026-12-25', day_type: 'public_holiday', label: 'Christmas Day' },
-  { date: '2026-12-28', day_type: 'school_holiday', label: "Founder's Day" },
-  { date: '2027-01-01', day_type: 'public_holiday', label: "New Year's Day" },
-
-  // ---- T3 (Feb–Apr 2027) ----
-  { date: '2027-02-17', day_type: 'public_holiday', label: 'CNY Day 1' },
-  { date: '2027-02-18', day_type: 'public_holiday', label: 'CNY Day 2' },
-  { date: '2027-03-15', day_type: 'hbl',            label: 'HBL Day' },
-  { date: '2027-04-02', day_type: 'public_holiday', label: 'Good Friday' },
-
-  // ---- T4 (May–Jul 2027) ----
-  { date: '2027-05-13', day_type: 'public_holiday', label: 'Hari Raya Puasa' },
-  { date: '2027-05-31', day_type: 'public_holiday', label: 'Labour Day (obs.)' },
-  { date: '2027-07-09', day_type: 'public_holiday', label: 'National Day (obs.)' },
-];
+/** Backwards-compat alias. */
+export const CANNED_CALENDAR: CannedCalendarEntry[] = buildCannedCalendar(new Date().getFullYear());
 
 export type CannedEvent = { start_date: string; end_date: string; label: string };
 
-export const CANNED_EVENTS: CannedEvent[] = [
-  { start_date: '2026-10-05', end_date: '2026-10-09', label: 'Assessment Week' },
-  { start_date: '2027-03-22', end_date: '2027-03-26', label: 'Mathematics Week' },
-];
+export function buildCannedEvents(targetYear: number): CannedEvent[] {
+  const y = String(targetYear);
+  return [
+    { start_date: `${y}-03-23`, end_date: `${y}-03-27`, label: 'Assessment Week' },
+    { start_date: `${y}-09-21`, end_date: `${y}-09-25`, label: 'Mathematics Week' },
+  ];
+}
+
+export const CANNED_EVENTS: CannedEvent[] = buildCannedEvents(new Date().getFullYear());
 
 // School config defaults. Only applied if the singleton row has empty
 // strings — never overwrites registrar-edited values.
