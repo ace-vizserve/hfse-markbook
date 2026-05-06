@@ -92,7 +92,7 @@ export async function getDashboardWindows(
     (t) => t.start_date! <= today && today <= t.end_date!,
   );
   let priorAyLastTerm: DateRange | null = null;
-  if (!hasTodayInCurrent) {
+  if (!hasTodayInCurrent && !sortedAy.some((t) => t.is_current)) {
     const priorFinished = terms
       .filter((t) => t.ay_code !== ayCode && t.start_date && t.end_date && t.end_date! < today)
       .sort((a, b) => (a.end_date! < b.end_date! ? 1 : -1))[0];
