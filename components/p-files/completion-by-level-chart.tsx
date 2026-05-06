@@ -68,7 +68,18 @@ export function CompletionByLevelChart({
           <ResponsiveContainer width="100%" height={340}>
             <BarChart data={chartData} margin={{ top: 16, right: 16, bottom: 8, left: 0 }}>
               <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis dataKey="short" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} />
+              <XAxis
+                dataKey="short"
+                stroke="var(--muted-foreground)"
+                fontSize={12}
+                tickLine={false}
+                interval={0}
+                // Tilt category labels so longer level codes (e.g. "YS-L",
+                // "YS-J") don't overlap when the chart has 10+ bars.
+                angle={-30}
+                textAnchor="end"
+                height={56}
+              />
               <YAxis stroke="var(--muted-foreground)" fontSize={12} allowDecimals={false} tickLine={false} />
               <Tooltip
                 cursor={{ fill: 'var(--accent)' }}

@@ -317,16 +317,40 @@ async function enrichWithDocs(rows: RecordsDrillRow[], ayCode: string): Promise<
   const docsTable = `${prefix}_enrolment_documents`;
   const admissions = createAdmissionsClient();
   const enroleeNumbers = rows.map((r) => r.enroleeNumber);
+
+  // Pull the same expiry columns the dashboard `expiringSoon` KPI uses,
+  // alongside the core status columns. Without these the drill row's
+  // `expiringDocsCount` stays at sentinel 0 and the `expiring-docs` target
+  // filter (`r.expiringDocsCount > 0`) returns 0 rows even when the card
+  // count is non-zero.
+  const expiryColumns = DOCUMENT_SLOTS.filter((s) => s.expiryCol).map(
+    (s) => s.expiryCol!,
+  );
+  const selectColumns = [
+    'enroleeNumber',
+    ...CORE_DOC_STATUS_COLUMNS,
+    ...expiryColumns,
+  ].join(', ');
+
   const { data, error } = await admissions
     .from(docsTable)
-    .select(`enroleeNumber, ${CORE_DOC_STATUS_COLUMNS.join(', ')}`)
+    .select(selectColumns)
     .in('enroleeNumber', enroleeNumbers);
   if (error) return rows;
-  type DocRow = Record<(typeof CORE_DOC_STATUS_COLUMNS)[number] | 'enroleeNumber', string | null>;
+  type DocRow = Record<string, string | null>;
   const docsByEnrolee = new Map<string, DocRow>();
   for (const d of (data ?? []) as unknown as DocRow[]) {
-    if (d.enroleeNumber) docsByEnrolee.set(d.enroleeNumber, d);
+    const en = d['enroleeNumber'];
+    if (typeof en === 'string') docsByEnrolee.set(en, d);
   }
+
+  // 60-day window matching `dashboard.ts::loadRecordsKpisRangeUncached` —
+  // anchored to today since the drill is range-agnostic at row build
+  // time (range-shaped filters happen at `applyTargetFilter`).
+  const today = new Date();
+  const windowEnd = new Date(today);
+  windowEnd.setDate(windowEnd.getDate() + 60);
+
   return rows.map((r) => {
     const d = docsByEnrolee.get(r.enroleeNumber);
     if (!d) return r;
@@ -337,10 +361,20 @@ async function enrichWithDocs(rows: RecordsDrillRow[], ayCode: string): Promise<
         documentsComplete += 1;
       }
     }
+    let expiringDocsCount = 0;
+    for (const slot of DOCUMENT_SLOTS) {
+      if (!slot.expiryCol) continue;
+      const exp = d[slot.expiryCol];
+      if (!exp) continue;
+      const dt = new Date(exp);
+      if (Number.isNaN(dt.getTime())) continue;
+      if (dt >= today && dt <= windowEnd) expiringDocsCount += 1;
+    }
     return {
       ...r,
       documentsComplete,
       hasMissingDocs: documentsComplete < r.documentsTotal,
+      expiringDocsCount,
     };
   });
 }
