@@ -337,12 +337,12 @@ export default async function PFilesDashboard({
           deltaGoodWhen="up"
           comparisonLabel={comparisonLabel}
           sparkline={velocity.current.slice(-14)}
-          drillSheet={
+          drillSheet={() => (
             <PFilesDrillSheet
               target="all-docs"
               ayCode={selectedAy}
             />
-          }
+          )}
         />
         <MetricCard
           label="Expiring ≤30d"
@@ -350,12 +350,12 @@ export default async function PFilesDashboard({
           icon={CalendarClock}
           intent={kpisResult.current.expiringSoon30 > 0 ? "warning" : "good"}
           subtext="From end of range"
-          drillSheet={
+          drillSheet={() => (
             <PFilesDrillSheet
               target="expired-docs"
               ayCode={selectedAy}
             />
-          }
+          )}
         />
         <MetricCard
           label="Expiring ≤60d"
@@ -363,12 +363,12 @@ export default async function PFilesDashboard({
           icon={AlertTriangle}
           intent={kpisResult.current.expiringSoon > 0 ? "warning" : "good"}
           subtext="From end of range"
-          drillSheet={
+          drillSheet={() => (
             <PFilesDrillSheet
               target="expired-docs"
               ayCode={selectedAy}
             />
-          }
+          )}
         />
         <MetricCard
           label="Total docs tracked"
@@ -376,12 +376,12 @@ export default async function PFilesDashboard({
           icon={TrendingUp}
           intent="default"
           subtext="All slots · all levels"
-          drillSheet={
+          drillSheet={() => (
             <PFilesDrillSheet
               target="all-docs"
               ayCode={selectedAy}
             />
-          }
+          )}
         />
       </section>
 

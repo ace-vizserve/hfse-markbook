@@ -426,7 +426,7 @@ export default async function AdmissionsDashboard({
           deltaGoodWhen="up"
           comparisonLabel={comparisonLabel}
           sparkline={velocity.current.slice(-14)}
-          drillSheet={
+          drillSheet={() => (
             <AdmissionsDrillSheet
               target="applications"
               ayCode={selectedAy}
@@ -434,7 +434,7 @@ export default async function AdmissionsDashboard({
               initialTo={rangeInput.to}
               initialRows={drillRows}
             />
-          }
+          )}
         />
         <MetricCard
           label="Enrolled (range)"
@@ -446,7 +446,7 @@ export default async function AdmissionsDashboard({
               ? `${kpisResult.comparison.enrolledInRange} prior`
               : undefined
           }
-          drillSheet={
+          drillSheet={() => (
             <AdmissionsDrillSheet
               target="enrolled"
               ayCode={selectedAy}
@@ -454,7 +454,7 @@ export default async function AdmissionsDashboard({
               initialTo={rangeInput.to}
               initialRows={drillRows}
             />
-          }
+          )}
         />
         <MetricCard
           label="Conversion rate"
@@ -467,7 +467,7 @@ export default async function AdmissionsDashboard({
               ? `${kpisResult.comparison.conversionPct.toFixed(1)}% prior`
               : undefined
           }
-          drillSheet={
+          drillSheet={() => (
             <AdmissionsDrillSheet
               target="conversion"
               ayCode={selectedAy}
@@ -475,7 +475,7 @@ export default async function AdmissionsDashboard({
               initialTo={rangeInput.to}
               initialRows={drillRows}
             />
-          }
+          )}
         />
         <MetricCard
           label="Avg time to enroll"
@@ -489,7 +489,7 @@ export default async function AdmissionsDashboard({
               : `n=${kpisResult.current.sampleSize}`
           }
           deltaGoodWhen="down"
-          drillSheet={
+          drillSheet={() => (
             <AdmissionsDrillSheet
               target="avg-time"
               ayCode={selectedAy}
@@ -497,7 +497,7 @@ export default async function AdmissionsDashboard({
               initialTo={rangeInput.to}
               initialRows={drillRows}
             />
-          }
+          )}
         />
       </section>
 

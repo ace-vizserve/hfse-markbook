@@ -258,14 +258,14 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
             deltaGoodWhen="up"
             comparisonLabel={comparisonLabel}
             sparkline={velocity?.current.slice(-14)}
-            drillSheet={
+            drillSheet={() => (
               <MarkbookDrillSheet
                 target="grade-entries"
                 ayCode={ayCode}
                 initialFrom={rangeInput.from}
                 initialTo={rangeInput.to}
               />
-            }
+            )}
           />
           <MetricCard
             label="Sheets locked (range)"
@@ -273,7 +273,7 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
             icon={Lock}
             intent="good"
             comparisonLabel={`${kpisResult.current.lockedPct.toFixed(0)}% of ${kpisResult.current.sheetsTotal}`}
-            drillSheet={
+            drillSheet={() => (
               <MarkbookDrillSheet
                 target="sheets-locked"
                 ayCode={ayCode}
@@ -281,7 +281,7 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
                 initialTo={rangeInput.to}
                 initialSheets={drillRowSets?.sheets}
               />
-            }
+            )}
           />
           <MetricCard
             label="Change requests pending"
@@ -293,7 +293,7 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
                 ? `${kpisResult.comparison.changeRequestsPending} in prior period`
                 : undefined
             }
-            drillSheet={
+            drillSheet={() => (
               <MarkbookDrillSheet
                 target="change-requests"
                 ayCode={ayCode}
@@ -301,7 +301,7 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
                 initialTo={rangeInput.to}
                 initialChangeRequests={drillRowSets?.changeRequests}
               />
-            }
+            )}
           />
           <MetricCard
             label="Avg decision time"
@@ -316,7 +316,7 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
                   ? "No prior decisions"
                   : undefined
             }
-            drillSheet={
+            drillSheet={() => (
               <MarkbookDrillSheet
                 target="change-requests"
                 ayCode={ayCode}
@@ -324,7 +324,7 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
                 initialTo={rangeInput.to}
                 initialChangeRequests={drillRowSets?.changeRequests}
               />
-            }
+            )}
           />
         </section>
       )}

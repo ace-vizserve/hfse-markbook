@@ -52,7 +52,7 @@ export type MetricCardProps = {
    * Mutually exclusive with `href`; `drillSheet` takes precedence if both
    * are set (a runtime console.warn is emitted in that case).
    */
-  drillSheet?: React.ReactNode;
+  drillSheet?: () => React.ReactNode;
   subtext?: string;
   className?: string;
 };
@@ -202,7 +202,7 @@ function MetricCardImpl({
             {inner}
           </button>
         </SheetTrigger>
-        {drillSheet}
+        {drillSheet()}
       </Sheet>
     );
   }

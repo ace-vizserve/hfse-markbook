@@ -147,14 +147,14 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
           deltaGoodWhen="up"
           comparisonLabel={comparisonLabel}
           sparkline={dailySeries.current.slice(-14)}
-          drillSheet={
+          drillSheet={() => (
             <AttendanceDrillSheet
               target="attendance-summary"
               ayCode={selectedAy}
               initialFrom={rangeInput.from}
               initialTo={rangeInput.to}
             />
-          }
+          )}
         />
         <MetricCard
           label="Late incidents"
@@ -169,14 +169,14 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
           subtext={
             kpisResult.comparison ? `${kpisResult.comparison.late} prior` : undefined
           }
-          drillSheet={
+          drillSheet={() => (
             <AttendanceDrillSheet
               target="lates"
               ayCode={selectedAy}
               initialFrom={rangeInput.from}
               initialTo={rangeInput.to}
             />
-          }
+          )}
         />
         <MetricCard
           label="Excused"
@@ -186,14 +186,14 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
           subtext={
             kpisResult.comparison ? `${kpisResult.comparison.excused} prior` : undefined
           }
-          drillSheet={
+          drillSheet={() => (
             <AttendanceDrillSheet
               target="excused"
               ayCode={selectedAy}
               initialFrom={rangeInput.from}
               initialTo={rangeInput.to}
             />
-          }
+          )}
         />
         <MetricCard
           label="Absences"
@@ -204,14 +204,14 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
           subtext={
             kpisResult.comparison ? `${kpisResult.comparison.absent} prior` : undefined
           }
-          drillSheet={
+          drillSheet={() => (
             <AttendanceDrillSheet
               target="absent"
               ayCode={selectedAy}
               initialFrom={rangeInput.from}
               initialTo={rangeInput.to}
             />
-          }
+          )}
         />
       </section>
 

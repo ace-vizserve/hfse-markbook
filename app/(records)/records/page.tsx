@@ -211,14 +211,14 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
                 } (KD #68)`
               : undefined
           }
-          drillSheet={
+          drillSheet={() => (
             <RecordsDrillSheet
               target="enrollments-range"
               ayCode={selectedAy}
               initialFrom={rangeInput.from}
               initialTo={rangeInput.to}
             />
-          }
+          )}
         />
         <MetricCard
           label="Withdrawals"
@@ -231,14 +231,14 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
               ? `${kpisResult.comparison.withdrawalsInRange} prior`
               : undefined
           }
-          drillSheet={
+          drillSheet={() => (
             <RecordsDrillSheet
               target="withdrawals-range"
               ayCode={selectedAy}
               initialFrom={rangeInput.from}
               initialTo={rangeInput.to}
             />
-          }
+          )}
         />
         <MetricCard
           label="Active enrolled"
@@ -246,12 +246,12 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
           icon={GraduationCap}
           intent="good"
           subtext="Total headcount"
-          drillSheet={
+          drillSheet={() => (
             <RecordsDrillSheet
               target="active-enrolled"
               ayCode={selectedAy}
             />
-          }
+          )}
         />
         <MetricCard
           label="Docs expiring ≤60d"
@@ -259,12 +259,12 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
           icon={AlertTriangle}
           intent={kpisResult.current.expiringSoon > 0 ? "warning" : "good"}
           subtext="From end of range"
-          drillSheet={
+          drillSheet={() => (
             <RecordsDrillSheet
               target="expiring-docs"
               ayCode={selectedAy}
             />
-          }
+          )}
         />
       </section>
 

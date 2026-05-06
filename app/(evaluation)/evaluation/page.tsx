@@ -210,7 +210,7 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
               deltaGoodWhen="up"
               comparisonLabel={comparisonLabel}
               sparkline={velocity.current.slice(-14)}
-              drillSheet={
+              drillSheet={() => (
                 <EvaluationDrillSheet
                   target="submission-status"
                   ayCode={ayCode}
@@ -218,7 +218,7 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
                   initialTo={rangeInput.to}
                   initialWriteups={drillRowSets?.writeups}
                 />
-              }
+              )}
             />
             <MetricCard
               label="Submitted"
@@ -226,7 +226,7 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
               icon={CheckCircle2}
               intent="default"
               subtext={`of ${kpisResult.current.expected} expected`}
-              drillSheet={
+              drillSheet={() => (
                 <EvaluationDrillSheet
                   target="submitted"
                   ayCode={ayCode}
@@ -234,7 +234,7 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
                   initialTo={rangeInput.to}
                   initialWriteups={drillRowSets?.writeups}
                 />
-              }
+              )}
             />
             <MetricCard
               label="Median time-to-submit"
@@ -250,7 +250,7 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
                     ? "No prior data"
                     : undefined
               }
-              drillSheet={
+              drillSheet={() => (
                 <EvaluationDrillSheet
                   target="time-to-submit"
                   ayCode={ayCode}
@@ -258,7 +258,7 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
                   initialTo={rangeInput.to}
                   initialWriteups={drillRowSets?.writeups}
                 />
-              }
+              )}
             />
             <MetricCard
               label="Late submissions"
@@ -271,7 +271,7 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
                   ? `${kpisResult.comparison.lateSubmissions} prior · submitted >14d after creation`
                   : "Submitted >14d after writeup was created"
               }
-              drillSheet={
+              drillSheet={() => (
                 <EvaluationDrillSheet
                   target="late"
                   ayCode={ayCode}
@@ -279,7 +279,7 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
                   initialTo={rangeInput.to}
                   initialWriteups={drillRowSets?.writeups}
                 />
-              }
+              )}
             />
           </section>
 
