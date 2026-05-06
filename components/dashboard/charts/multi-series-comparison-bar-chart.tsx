@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import {
   Bar,
   BarChart,
@@ -49,7 +50,7 @@ export type MultiSeriesComparisonBarChartProps = {
   yFormat?: YFormat;
 };
 
-export function MultiSeriesComparisonBarChart({
+function MultiSeriesComparisonBarChartImpl({
   data,
   series,
   height = 260,
@@ -116,3 +117,6 @@ export function MultiSeriesComparisonBarChart({
     </ResponsiveContainer>
   );
 }
+
+export const MultiSeriesComparisonBarChart = React.memo(MultiSeriesComparisonBarChartImpl);
+MultiSeriesComparisonBarChart.displayName = 'MultiSeriesComparisonBarChart';

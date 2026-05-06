@@ -347,13 +347,21 @@ export function AttendanceDrillSheet(props: AttendanceDrillSheetProps) {
         return r.json();
       })
       .then((data: { rows: AttendanceDrillRow[] }) => {
-        if (!cancelled) setRows(data.rows ?? []);
+        if (!cancelled) {
+          React.startTransition(() => {
+            setRows(data.rows ?? []);
+          });
+        }
       })
       .catch(() => {
         if (!cancelled) toast.error('Failed to load drill data');
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          React.startTransition(() => {
+            setLoading(false);
+          });
+        }
       });
     return () => { cancelled = true; };
   }, [target, segment, ayCode, scope, initialFrom, initialTo]);

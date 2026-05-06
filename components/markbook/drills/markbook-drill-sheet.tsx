@@ -366,13 +366,21 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
         return r.json();
       })
       .then((data: { rows: MarkbookDrillRow[] }) => {
-        if (!cancelled) setRows(data.rows ?? []);
+        if (!cancelled) {
+          React.startTransition(() => {
+            setRows(data.rows ?? []);
+          });
+        }
       })
       .catch(() => {
         if (!cancelled) toast.error('Failed to load drill data');
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          React.startTransition(() => {
+            setLoading(false);
+          });
+        }
       });
     return () => {
       cancelled = true;

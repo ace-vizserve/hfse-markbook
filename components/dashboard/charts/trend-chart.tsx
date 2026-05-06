@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import {
   Area,
   AreaChart,
@@ -40,7 +41,7 @@ export type TrendChartProps = {
   alignComparison?: boolean;
 };
 
-export function TrendChart({
+function TrendChartImpl({
   label,
   current,
   comparison,
@@ -135,3 +136,6 @@ export function TrendChart({
     </ResponsiveContainer>
   );
 }
+
+export const TrendChart = React.memo(TrendChartImpl);
+TrendChart.displayName = 'TrendChart';

@@ -1,10 +1,11 @@
 'use client';
 
+import * as React from 'react';
 import { Area, AreaChart, ResponsiveContainer } from 'recharts';
 
 export type SparkPoint = { x: string; y: number };
 
-export function SparklineChart({ points }: { points: SparkPoint[] }) {
+function SparklineChartImpl({ points }: { points: SparkPoint[] }) {
   const gradientId = `spark-${points.length}-${points[0]?.x ?? 'n'}`;
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -28,3 +29,6 @@ export function SparklineChart({ points }: { points: SparkPoint[] }) {
     </ResponsiveContainer>
   );
 }
+
+export const SparklineChart = React.memo(SparklineChartImpl);
+SparklineChart.displayName = 'SparklineChart';

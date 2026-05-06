@@ -195,6 +195,11 @@ export function DrillDownSheet<T>({
 }: DrillDownSheetProps<T>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = React.useState('');
+  // Defer the filter value handed to react-table so fast typing stays
+  // responsive. The input itself stays bound to `globalFilter` (instant
+  // feedback); the row-model rebuild lags slightly during a typing burst
+  // and converges when the user pauses.
+  const deferredGlobalFilter = React.useDeferredValue(globalFilter);
 
   // Filter columns by visibility before handing to react-table so the table
   // header / cells stay in lock-step with the columns dropdown.
@@ -212,7 +217,7 @@ export function DrillDownSheet<T>({
   const table = useReactTable<T>({
     data: rows,
     columns: effectiveColumns,
-    state: { sorting, globalFilter },
+    state: { sorting, globalFilter: deferredGlobalFilter },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),

@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 
 export type DonutSlice = { name: string; value: number };
@@ -23,7 +24,7 @@ const DEFAULT_COLORS = [
   'var(--color-brand-amber)',
 ];
 
-export function DonutChart({
+function DonutChartImpl({
   data,
   height = 220,
   colors = DEFAULT_COLORS,
@@ -150,3 +151,6 @@ export function DonutChart({
     </div>
   );
 }
+
+export const DonutChart = React.memo(DonutChartImpl);
+DonutChart.displayName = 'DonutChart';

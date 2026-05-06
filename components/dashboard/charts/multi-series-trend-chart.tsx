@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import {
   Area,
   AreaChart,
@@ -47,7 +48,7 @@ export type MultiSeriesTrendChartProps = {
   yFormat?: YFormat;
 };
 
-export function MultiSeriesTrendChart({
+function MultiSeriesTrendChartImpl({
   series,
   data,
   height = 240,
@@ -117,3 +118,6 @@ export function MultiSeriesTrendChart({
     </ResponsiveContainer>
   );
 }
+
+export const MultiSeriesTrendChart = React.memo(MultiSeriesTrendChartImpl);
+MultiSeriesTrendChart.displayName = 'MultiSeriesTrendChart';

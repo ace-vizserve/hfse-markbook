@@ -264,9 +264,21 @@ export function PFilesDrillSheet(props: PFilesDrillSheetProps) {
     if (segment) params.set('segment', segment);
     fetch(`/api/p-files/drill/${target}?${params.toString()}`)
       .then((r) => { if (!r.ok) throw new Error('drill_fetch_failed'); return r.json(); })
-      .then((data: { rows: PFilesDrillRow[] }) => { if (!cancelled) setRows(data.rows ?? []); })
+      .then((data: { rows: PFilesDrillRow[] }) => {
+        if (!cancelled) {
+          React.startTransition(() => {
+            setRows(data.rows ?? []);
+          });
+        }
+      })
       .catch(() => { if (!cancelled) toast.error('Failed to load drill data'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      .finally(() => {
+        if (!cancelled) {
+          React.startTransition(() => {
+            setLoading(false);
+          });
+        }
+      });
     return () => { cancelled = true; };
   }, [target, segment, ayCode, scope, initialFrom, initialTo]);
 

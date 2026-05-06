@@ -1,3 +1,4 @@
+import * as React from 'react';
 import Link from 'next/link';
 import {
   ArrowDownIcon,
@@ -112,7 +113,7 @@ function DeltaChip({ delta, goodWhen }: { delta: Delta; goodWhen: 'up' | 'down' 
   );
 }
 
-export function MetricCard({
+function MetricCardImpl({
   label,
   value,
   format = 'number',
@@ -215,3 +216,6 @@ export function MetricCard({
   }
   return inner;
 }
+
+export const MetricCard = React.memo(MetricCardImpl);
+MetricCard.displayName = 'MetricCard';

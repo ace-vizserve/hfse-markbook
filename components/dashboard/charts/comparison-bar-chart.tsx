@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import {
   Bar,
   BarChart,
@@ -42,7 +43,7 @@ export type ComparisonBarChartProps = {
   onSegmentClick?: (category: string) => void;
 };
 
-export function ComparisonBarChart({
+function ComparisonBarChartImpl({
   data,
   height = 260,
   orientation = 'vertical',
@@ -151,3 +152,6 @@ export function ComparisonBarChart({
     </ResponsiveContainer>
   );
 }
+
+export const ComparisonBarChart = React.memo(ComparisonBarChartImpl);
+ComparisonBarChart.displayName = 'ComparisonBarChart';

@@ -449,14 +449,20 @@ export function RecordsDrillSheet({
         if (!res.ok) throw new Error(`status ${res.status}`);
         const json = (await res.json()) as { rows?: RecordsDrillRow[] };
         if (cancelled) return;
-        setRows(Array.isArray(json.rows) ? json.rows : []);
+        React.startTransition(() => {
+          setRows(Array.isArray(json.rows) ? json.rows : []);
+        });
       })
       .catch(() => {
         if (cancelled) return;
         toast.error('Failed to load drill data');
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          React.startTransition(() => {
+            setLoading(false);
+          });
+        }
       });
     return () => {
       cancelled = true;

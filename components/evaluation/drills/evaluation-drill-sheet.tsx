@@ -228,7 +228,13 @@ export function EvaluationDrillSheet(props: EvaluationDrillSheetProps) {
     if (segment) params.set('segment', segment);
     fetch(`/api/evaluation/drill/${target}?${params.toString()}`)
       .then((r) => { if (!r.ok) throw new Error('drill_fetch_failed'); return r.json(); })
-      .then((data: { rows: EvaluationDrillRow[] }) => { if (!cancelled) setRows(data.rows ?? []); })
+      .then((data: { rows: EvaluationDrillRow[] }) => {
+        if (!cancelled) {
+          React.startTransition(() => {
+            setRows(data.rows ?? []);
+          });
+        }
+      })
       .catch(() => { if (!cancelled) toast.error('Failed to load drill data'); });
     return () => { cancelled = true; };
   }, [target, segment, ayCode, scope, initialFrom, initialTo]);
