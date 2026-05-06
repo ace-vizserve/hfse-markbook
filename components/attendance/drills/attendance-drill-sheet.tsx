@@ -96,7 +96,12 @@ function buildEntryColumns(visible: DrillColumnKey[]): ColumnDef<AttendanceEntry
         cols.push({ id: 'studentName', accessorKey: 'studentName', header: DRILL_COLUMN_LABELS.studentName,
           cell: ({ row }) => (
             <div className="space-y-0.5">
-              <div className="font-medium text-foreground">{row.original.studentName}</div>
+              <Link
+                href={`/attendance/students/${encodeURIComponent(row.original.studentNumber)}`}
+                className="font-medium text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
+              >
+                {row.original.studentName}
+              </Link>
               <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{row.original.studentNumber}</div>
             </div>
           ) });
@@ -131,7 +136,12 @@ function buildTopAbsentColumns(visible: DrillColumnKey[]): ColumnDef<TopAbsentDr
         cols.push({ id: 'studentName', accessorKey: 'studentName', header: DRILL_COLUMN_LABELS.studentName,
           cell: ({ row }) => (
             <div className="space-y-0.5">
-              <div className="font-medium text-foreground">{row.original.studentName}</div>
+              <Link
+                href={`/attendance/students/${encodeURIComponent(row.original.studentNumber)}`}
+                className="font-medium text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
+              >
+                {row.original.studentName}
+              </Link>
               <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{row.original.studentNumber}</div>
             </div>
           ) });
@@ -176,7 +186,14 @@ function buildSectionColumns(visible: DrillColumnKey[]): ColumnDef<SectionAttend
     switch (key) {
       case 'sectionName':
         cols.push({ id: 'sectionName', accessorKey: 'sectionName', header: DRILL_COLUMN_LABELS.sectionName,
-          cell: ({ row }) => <span className="font-medium">{row.original.sectionName}</span> });
+          cell: ({ row }) => (
+            <Link
+              href={`/attendance/${encodeURIComponent(row.original.sectionId)}`}
+              className="font-medium text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
+            >
+              {row.original.sectionName}
+            </Link>
+          ) });
         break;
       case 'level':
         cols.push({ id: 'level', accessorKey: 'level', header: DRILL_COLUMN_LABELS.level,
@@ -212,7 +229,12 @@ function buildCompassionateColumns(visible: DrillColumnKey[]): ColumnDef<Compass
         cols.push({ id: 'studentName', accessorKey: 'studentName', header: DRILL_COLUMN_LABELS.studentName,
           cell: ({ row }) => (
             <div className="space-y-0.5">
-              <div className="font-medium text-foreground">{row.original.studentName}</div>
+              <Link
+                href={`/attendance/students/${encodeURIComponent(row.original.studentNumber)}`}
+                className="font-medium text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
+              >
+                {row.original.studentName}
+              </Link>
               <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{row.original.studentNumber}</div>
             </div>
           ) });

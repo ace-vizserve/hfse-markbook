@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
   AlertCircle,
@@ -232,14 +233,27 @@ function buildColumnDef(key: DrillColumnKey): ColumnDef<RecordsDrillRow, unknown
         id: 'fullName',
         accessorKey: 'fullName',
         header,
-        cell: ({ row }) => (
-          <div className="space-y-0.5">
-            <div className="font-medium text-foreground">{row.original.fullName}</div>
-            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-              {row.original.enroleeNumber}
+        cell: ({ row }) => {
+          // KD #4: studentNumber is the cross-year stable URL. Fall back to
+          // the enroleeNumber-scoped detail page when studentNumber hasn't
+          // been synced yet (matches student-data-table.tsx behavior).
+          const href = row.original.studentNumber
+            ? `/records/students/${encodeURIComponent(row.original.studentNumber)}`
+            : `/records/students/by-enrolee/${encodeURIComponent(row.original.enroleeNumber)}`;
+          return (
+            <div className="space-y-0.5">
+              <Link
+                href={href}
+                className="font-medium text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
+              >
+                {row.original.fullName}
+              </Link>
+              <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                {row.original.enroleeNumber}
+              </div>
             </div>
-          </div>
-        ),
+          );
+        },
         enableSorting: true,
       };
     case 'studentNumber':

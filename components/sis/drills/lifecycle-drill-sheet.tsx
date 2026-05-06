@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import type { ColumnDef } from '@tanstack/react-table';
 import { AlertCircle, AlertTriangle, CheckCircle2, HelpCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -175,16 +176,38 @@ function buildColumnDef(
         id: 'enroleeFullName',
         accessorKey: 'enroleeFullName',
         header,
-        cell: ({ row }) => (
-          <div className="space-y-0.5">
-            <div className="font-medium text-foreground">
-              {row.original.enroleeFullName ?? '—'}
+        cell: ({ row }) => {
+          // Stage-conditional destination per KD #59: enrolled rows route to
+          // Records (cross-year via studentNumber, KD #4); pre-enrolled rows
+          // route to the Admissions application detail. Fall back to
+          // by-enrolee when studentNumber hasn't been synced yet.
+          const isEnrolled =
+            row.original.applicationStatus === 'Enrolled' ||
+            row.original.applicationStatus === 'Enrolled (Conditional)';
+          const href = isEnrolled
+            ? row.original.studentNumber
+              ? `/records/students/${encodeURIComponent(row.original.studentNumber)}`
+              : `/records/students/by-enrolee/${encodeURIComponent(row.original.enroleeNumber)}`
+            : `/admissions/applications/${encodeURIComponent(row.original.enroleeNumber)}`;
+          const name = row.original.enroleeFullName;
+          return (
+            <div className="space-y-0.5">
+              {name ? (
+                <Link
+                  href={href}
+                  className="font-medium text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
+                >
+                  {name}
+                </Link>
+              ) : (
+                <div className="font-medium text-foreground">—</div>
+              )}
+              <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                {row.original.enroleeNumber}
+              </div>
             </div>
-            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-              {row.original.enroleeNumber}
-            </div>
-          </div>
-        ),
+          );
+        },
         enableSorting: true,
       };
     case 'enroleeNumber':

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 
@@ -84,7 +85,12 @@ function buildWriteupColumns(visible: DrillColumnKey[]): ColumnDef<WriteupRow, u
         cols.push({ id: 'studentName', accessorKey: 'studentName', header: DRILL_COLUMN_LABELS.studentName,
           cell: ({ row }) => (
             <div className="space-y-0.5">
-              <div className="font-medium text-foreground">{row.original.studentName}</div>
+              <Link
+                href={`/records/students/${encodeURIComponent(row.original.studentNumber)}`}
+                className="font-medium text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
+              >
+                {row.original.studentName}
+              </Link>
               <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{row.original.studentNumber}</div>
             </div>
           ) });

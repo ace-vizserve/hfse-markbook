@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
   AlertTriangle,
@@ -135,7 +136,12 @@ function buildColumns(visible: DrillColumnKey[]): ColumnDef<PFilesDrillRow, unkn
           header: DRILL_COLUMN_LABELS.fullName,
           cell: ({ row }) => (
             <div className="space-y-0.5">
-              <div className="font-medium text-foreground">{row.original.fullName}</div>
+              <Link
+                href={`/p-files/${encodeURIComponent(row.original.enroleeNumber)}`}
+                className="font-medium text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
+              >
+                {row.original.fullName}
+              </Link>
               <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
                 {row.original.enroleeNumber}
               </div>

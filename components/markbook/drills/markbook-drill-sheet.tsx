@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import type { ColumnDef } from '@tanstack/react-table';
 import { CheckCircle2, Lock, Unlock } from 'lucide-react';
 import { toast } from 'sonner';
@@ -128,7 +129,12 @@ function buildEntryColumns(visible: DrillColumnKey[]): ColumnDef<GradeEntryRow, 
           header: DRILL_COLUMN_LABELS.studentName,
           cell: ({ row }) => (
             <div className="space-y-0.5">
-              <div className="font-medium text-foreground">{row.original.studentName}</div>
+              <Link
+                href={`/records/students/${encodeURIComponent(row.original.studentNumber)}`}
+                className="font-medium text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
+              >
+                {row.original.studentName}
+              </Link>
               <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
                 {row.original.studentNumber}
               </div>
@@ -150,7 +156,14 @@ function buildEntryColumns(visible: DrillColumnKey[]): ColumnDef<GradeEntryRow, 
       case 'sectionName':
         cols.push({ id: 'sectionName', accessorKey: 'sectionName',
           header: DRILL_COLUMN_LABELS.sectionName,
-          cell: ({ row }) => <span className="text-sm">{row.original.sectionName}</span> });
+          cell: ({ row }) => (
+            <Link
+              href={`/markbook/grading?section=${encodeURIComponent(row.original.sectionId)}`}
+              className="text-sm text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
+            >
+              {row.original.sectionName}
+            </Link>
+          ) });
         break;
       case 'subjectCode':
         cols.push({ id: 'subjectCode', accessorKey: 'subjectCode',
@@ -217,7 +230,14 @@ function buildSheetColumns(visible: DrillColumnKey[]): ColumnDef<SheetRow, unkno
       case 'sectionName':
         cols.push({ id: 'sectionName', accessorKey: 'sectionName',
           header: DRILL_COLUMN_LABELS.sectionName,
-          cell: ({ row }) => <span className="text-sm">{row.original.sectionName}</span> });
+          cell: ({ row }) => (
+            <Link
+              href={`/markbook/grading?section=${encodeURIComponent(row.original.sectionId)}`}
+              className="text-sm text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
+            >
+              {row.original.sectionName}
+            </Link>
+          ) });
         break;
       case 'level':
         cols.push({ id: 'level', accessorKey: 'level',
@@ -273,7 +293,14 @@ function buildChangeRequestColumns(visible: DrillColumnKey[]): ColumnDef<ChangeR
     switch (key) {
       case 'sectionName':
         cols.push({ id: 'sectionName', accessorKey: 'sectionName', header: DRILL_COLUMN_LABELS.sectionName,
-          cell: ({ row }) => <span className="text-sm">{row.original.sectionName}</span> });
+          cell: ({ row }) => (
+            <Link
+              href={`/markbook/grading?section=${encodeURIComponent(row.original.sectionId)}`}
+              className="text-sm text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
+            >
+              {row.original.sectionName}
+            </Link>
+          ) });
         break;
       case 'subjectCode':
         cols.push({ id: 'subjectCode', accessorKey: 'subjectCode', header: DRILL_COLUMN_LABELS.subjectCode,
