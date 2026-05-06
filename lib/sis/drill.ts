@@ -194,9 +194,40 @@ async function loadRecordsRowsUncached(ayCode: string): Promise<RecordsDrillRow[
   }
 
   // Admissions tables — for application-side metadata + days-since-update.
+  //
+  // Per migration 041's stated intent, drill loaders fall back to
+  // `students.student_number` as the join key when
+  // `section_students.enrolee_number` is null (Hard Rule #4 — studentNumber
+  // is the cross-year stable ID). The migration deliberately did not run a
+  // backfill UPDATE; rows seeded by `lib/sis/seeder/students.ts` and any
+  // pre-041 production rows have `enrolee_number = null`. Without the
+  // fallback, every drill row's apps/status lookup misses, which silently
+  // collapses `level` / `applicationStatus` / `daysSinceUpdate` to defaults
+  // and breaks segment-click filters that depend on those fields.
   const enroleeNumbers = ss
     .map((r) => r.enrolee_number)
     .filter((v): v is string => v !== null);
+  const enroleeByStudentNumber = new Map<string, string>();
+  const studentsNeedingFallback = ss
+    .filter((s) => !s.enrolee_number)
+    .map((s) => studentMap.get(s.student_id)?.student_number)
+    .filter((sn): sn is string => !!sn);
+  if (studentsNeedingFallback.length > 0) {
+    const { data: fallbackApps } = await admissions
+      .from(appsTable)
+      .select('studentNumber, enroleeNumber')
+      .in('studentNumber', studentsNeedingFallback);
+    for (const r of (fallbackApps ?? []) as Array<{
+      studentNumber: string | null;
+      enroleeNumber: string | null;
+    }>) {
+      if (r.studentNumber && r.enroleeNumber) {
+        enroleeByStudentNumber.set(r.studentNumber, r.enroleeNumber);
+        enroleeNumbers.push(r.enroleeNumber);
+      }
+    }
+  }
+
   const appByEnrolee = new Map<string, ApplicationLite>();
   const statusByEnrolee = new Map<string, StatusLite>();
   if (enroleeNumbers.length > 0) {
@@ -224,7 +255,12 @@ async function loadRecordsRowsUncached(ayCode: string): Promise<RecordsDrillRow[
     const student = studentMap.get(enrol.student_id);
     if (!student) continue;
     const section = sectionById.get(enrol.section_id);
-    const enroleeNumber = enrol.enrolee_number ?? '';
+    // Resolve enroleeNumber via the section_students column first; fall
+    // back to the studentNumber → enroleeNumber map built above.
+    const enroleeNumber =
+      enrol.enrolee_number ??
+      enroleeByStudentNumber.get(student.student_number) ??
+      '';
     const app = enroleeNumber ? appByEnrolee.get(enroleeNumber) : undefined;
     const status = enroleeNumber ? statusByEnrolee.get(enroleeNumber) : undefined;
 
