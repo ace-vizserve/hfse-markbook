@@ -15,7 +15,9 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Sheet } from '@/components/ui/sheet';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type {
+  AttendanceDrillTarget,
   AttendanceEntryRow,
   CalendarDayRow,
   CompassionateUsageRow,
@@ -199,7 +201,9 @@ export function DayTypeDrillCard({
   );
 }
 
-// ─── Top-absent table — adopted CSV button + click to drill ─────────────────
+// ─── Needs Attention card — tabbed Top-absent | Top-active ──────────────────
+
+type NeedsAttentionTab = 'absent' | 'active';
 
 export function TopAbsentDrillCard({
   data,
@@ -209,7 +213,23 @@ export function TopAbsentDrillCard({
   initialTopAbsent,
 }: CommonProps & { data: TopAbsentDrillRow[] }) {
   const [open, setOpen] = React.useState(false);
-  const csvHref = `/api/attendance/drill/top-absent?ay=${ayCode}&scope=range&from=${rangeFrom ?? ''}&to=${rangeTo ?? ''}&format=csv`;
+  const [tab, setTab] = React.useState<NeedsAttentionTab>('absent');
+  // Top-active is the same row set sorted ascending by absences (then desc
+  // by attendance %). Lets the registrar acknowledge perfect attenders
+  // alongside the chase list — both views answer "who needs attention".
+  const activeData = React.useMemo(
+    () =>
+      [...data].sort(
+        (a, b) => a.absences - b.absences || b.attendancePct - a.attendancePct,
+      ),
+    [data],
+  );
+  const tableRows = tab === 'absent' ? data.slice(0, 10) : activeData.slice(0, 10);
+  const drillTarget: AttendanceDrillTarget = tab === 'absent' ? 'top-absent' : 'top-active';
+  const emptyMessage =
+    tab === 'absent' ? 'No absences in range.' : 'No attendance encoded in range.';
+  const csvHref = `/api/attendance/drill/${drillTarget}?ay=${ayCode}&from=${rangeFrom ?? ''}&to=${rangeTo ?? ''}&format=csv`;
+  const rightColLabel = tab === 'absent' ? 'Lates' : 'Attendance %';
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <Card>
@@ -217,8 +237,19 @@ export function TopAbsentDrillCard({
           <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
             Needs attention
           </CardDescription>
-          <CardTitle className="font-serif text-xl">Top-absent students</CardTitle>
+          <CardTitle className="font-serif text-xl">
+            {tab === 'absent' ? 'Top-absent students' : 'Top-active students'}
+          </CardTitle>
           <CardAction className="flex items-center gap-2">
+            <Tabs
+              value={tab}
+              onValueChange={(v) => setTab(v as NeedsAttentionTab)}
+            >
+              <TabsList variant="segmented">
+                <TabsTrigger value="absent">Top-absent</TabsTrigger>
+                <TabsTrigger value="active">Top-active</TabsTrigger>
+              </TabsList>
+            </Tabs>
             <Button asChild variant="outline" size="sm">
               <a href={csvHref} download>Export CSV</a>
             </Button>
@@ -228,9 +259,9 @@ export function TopAbsentDrillCard({
           </CardAction>
         </CardHeader>
         <CardContent>
-          {data.length === 0 ? (
+          {tableRows.length === 0 ? (
             <div className="flex h-32 items-center justify-center text-xs text-ink-4">
-              No absences in range.
+              {emptyMessage}
             </div>
           ) : (
             <table className="w-full text-sm">
@@ -239,16 +270,18 @@ export function TopAbsentDrillCard({
                   <th className="py-2">Student</th>
                   <th className="py-2">Section</th>
                   <th className="py-2 text-right">Absences</th>
-                  <th className="py-2 text-right">Lates</th>
+                  <th className="py-2 text-right">{rightColLabel}</th>
                 </tr>
               </thead>
               <tbody>
-                {data.slice(0, 10).map((r) => (
+                {tableRows.map((r) => (
                   <tr key={r.studentSectionId} className="border-b border-border/60">
                     <td className="py-2 font-medium text-foreground">{r.studentName}</td>
                     <td className="py-2 text-ink-4">{r.sectionName}</td>
                     <td className="py-2 text-right font-mono tabular-nums">{r.absences}</td>
-                    <td className="py-2 text-right font-mono tabular-nums text-ink-4">{r.lates}</td>
+                    <td className="py-2 text-right font-mono tabular-nums text-ink-4">
+                      {tab === 'absent' ? r.lates : `${r.attendancePct}%`}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -258,7 +291,7 @@ export function TopAbsentDrillCard({
       </Card>
       {open && (
         <AttendanceDrillSheet
-          target="top-absent"
+          target={drillTarget}
           ayCode={ayCode}
           initialFrom={rangeFrom}
           initialTo={rangeTo}

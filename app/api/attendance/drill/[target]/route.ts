@@ -28,6 +28,7 @@ const VALID_TARGETS: AttendanceDrillTarget[] = [
   'ex-reason',
   'day-type',
   'top-absent',
+  'top-active',
   'attendance-by-section',
   'compassionate-quota',
 ];

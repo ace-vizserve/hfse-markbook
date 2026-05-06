@@ -25,6 +25,7 @@ export type AttendanceDrillTarget =
   | 'ex-reason'              // entries with that EX reason
   | 'day-type'               // calendar days of that type
   | 'top-absent'             // student × absences in range
+  | 'top-active'             // student × attendance % (highest attenders)
   | 'attendance-by-section'  // section × attendance %
   | 'compassionate-quota';   // student × quota usage
 
@@ -42,6 +43,7 @@ export function rowKindForTarget(t: AttendanceDrillTarget): AttendanceDrillRowKi
     case 'day-type':
       return 'calendar-day';
     case 'top-absent':
+    case 'top-active':
       return 'top-absent';
     case 'attendance-by-section':
       return 'section-rollup';
@@ -668,6 +670,16 @@ export function applyTargetFilter(
       if (!segment) return rows;
       return (rows as CalendarDayRow[]).filter((r) => r.dayType === segment) as AttendanceDrillRow[];
     case 'top-absent':
+      return rows;
+    case 'top-active': {
+      // Same row shape as top-absent — registrar's sibling lens. Sort
+      // ascending by absences (then desc by attendancePct) so the front
+      // of the list is the perfect-attender / honor-roll cohort.
+      const sorted = [...(rows as TopAbsentDrillRow[])].sort(
+        (a, b) => a.absences - b.absences || b.attendancePct - a.attendancePct,
+      );
+      return sorted as AttendanceDrillRow[];
+    }
     case 'attendance-by-section':
     case 'compassionate-quota':
       return rows;
@@ -761,6 +773,7 @@ export function drillHeaderForTarget(
     case 'ex-reason': return { eyebrow: 'Drill · EX reason', title: segment ? `EX reason: ${segment}` : 'Excused breakdown' };
     case 'day-type': return { eyebrow: 'Drill · Calendar', title: segment ? `Day type: ${segment}` : 'Calendar make-up' };
     case 'top-absent': return { eyebrow: 'Drill · Needs attention', title: 'Top-absent students' };
+    case 'top-active': return { eyebrow: 'Drill · Needs attention', title: 'Top-active students' };
     case 'attendance-by-section': return { eyebrow: 'Drill · By section', title: 'Attendance by section' };
     case 'compassionate-quota': return { eyebrow: 'Drill · Compassionate', title: 'Compassionate quota usage' };
     default: return { eyebrow: 'Drill', title: 'Attendance' };
