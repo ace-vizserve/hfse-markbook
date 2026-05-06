@@ -1,5 +1,6 @@
 import { unstable_cache } from 'next/cache';
 
+import { DOCUMENT_SLOTS, STP_CONDITIONAL_SLOT_KEYS } from '@/lib/sis/queries';
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
 import { createServiceClient } from '@/lib/supabase/service';
 
@@ -41,13 +42,15 @@ export type PFilesDrillRow = {
   lastRevisionAt: string | null; // ISO
 };
 
-const CORE_SLOTS: Array<{ key: string; column: string; label: string }> = [
-  { key: 'medical', column: 'medicalStatus', label: 'Medical' },
-  { key: 'passport', column: 'passportStatus', label: 'Passport' },
-  { key: 'birth-cert', column: 'birthCertStatus', label: 'Birth cert' },
-  { key: 'educ-cert', column: 'educCertStatus', label: 'Educ cert' },
-  { key: 'id-picture', column: 'idPictureStatus', label: 'ID picture' },
-];
+// Slots the P-Files drill iterates per enrolled student. All 16
+// `DOCUMENT_SLOTS` minus `form12` (deliberately excluded — not part of the
+// per-student chase queue). The 3 STP-conditional slots (icaPhoto,
+// financialSupportDocs, vaccinationInformation per KD #61) are present in
+// this list but skipped per-row when the app row's `stpApplicationType`
+// is null/empty — they only apply to applicants whose Student Pass
+// is being sponsored by HFSE.
+const ELIGIBLE_SLOTS = DOCUMENT_SLOTS.filter((s) => s.key !== 'form12');
+const STP_SLOT_KEYS_SET = new Set<string>(STP_CONDITIONAL_SLOT_KEYS);
 
 // ─── Loader ─────────────────────────────────────────────────────────────────
 
@@ -58,6 +61,7 @@ type AppLite = {
   lastName: string | null;
   levelApplied: string | null;
   classLevel: string | null;
+  stpApplicationType: string | null;
 };
 type DocLite = Record<string, string | null>;
 type RevisionLite = {
@@ -112,13 +116,26 @@ async function loadPFilesRowsUncached(ayCode: string): Promise<PFilesDrillRow[]>
   const admissions = createAdmissionsClient();
   const service = createServiceClient();
 
+  // Build the docs SELECT from ELIGIBLE_SLOTS — pull every slot's status
+  // column plus the expiry column for the 8 expiring slots so each drill
+  // row carries its own per-slot expiry.
+  const docColumns = Array.from(
+    new Set(
+      ELIGIBLE_SLOTS.flatMap((s) =>
+        s.expiryCol ? [s.statusCol, s.expiryCol] : [s.statusCol],
+      ),
+    ),
+  ).join(', ');
+
   const [appsRes, docsRes, statusRes, revRes] = await Promise.all([
     admissions
       .from(appsTable)
-      .select('enroleeNumber, enroleeFullName, firstName, lastName, levelApplied'),
+      .select(
+        'enroleeNumber, enroleeFullName, firstName, lastName, levelApplied, stpApplicationType',
+      ),
     admissions
       .from(docsTable)
-      .select(`enroleeNumber, ${CORE_SLOTS.map((s) => s.column).join(', ')}, passportExpiry`),
+      .select(`enroleeNumber, ${docColumns}`),
     // Enrollment gate at the loader (practical rule: P-Files = enrolled-only,
     // KD #71). Filter at the SQL layer so funnel rows never enter the cache.
     admissions
@@ -184,15 +201,30 @@ async function loadPFilesRowsUncached(ayCode: string): Promise<PFilesDrillRow[]>
     if (!enrolledEnrolees.has(app.enroleeNumber)) continue;
     const docRow = docByEnrolee.get(app.enroleeNumber);
     const level = classLevelByEnrolee.get(app.enroleeNumber) ?? app.levelApplied ?? null;
-    const expiryDate = (docRow?.['passportExpiry'] as string | null | undefined) ?? null;
-    const expiryMs = expiryDate ? Date.parse(expiryDate) : NaN;
-    const daysToExpiry = !Number.isNaN(expiryMs)
-      ? Math.floor((expiryMs - today) / 86_400_000)
-      : null;
+    const isStpApplicant = !!(app.stpApplicationType ?? '').trim();
 
-    for (const slot of CORE_SLOTS) {
-      const raw = (docRow?.[slot.column] as string | null | undefined) ?? null;
+    for (const slot of ELIGIBLE_SLOTS) {
+      // STP-conditional slots only apply to STP applicants per KD #61.
+      // Non-STP students don't have an icaPhoto / financialSupportDocs /
+      // vaccinationInformation requirement, so they shouldn't generate
+      // drill rows for those slots — would inflate "Missing" counts.
+      if (STP_SLOT_KEYS_SET.has(slot.key) && !isStpApplicant) continue;
+
+      const raw = (docRow?.[slot.statusCol] as string | null | undefined) ?? null;
       const status = normaliseStatus(raw);
+
+      // Per-slot expiry — every expiring slot carries its own date.
+      let expiryDate: string | null = null;
+      let daysToExpiry: number | null = null;
+      if (slot.expiryCol) {
+        const raw = (docRow?.[slot.expiryCol] as string | null | undefined) ?? null;
+        expiryDate = raw;
+        const expiryMs = raw ? Date.parse(raw) : NaN;
+        daysToExpiry = !Number.isNaN(expiryMs)
+          ? Math.floor((expiryMs - today) / 86_400_000)
+          : null;
+      }
+
       const k = revKey(app.enroleeNumber, slot.key);
       out.push({
         enroleeNumber: app.enroleeNumber,
@@ -202,8 +234,8 @@ async function loadPFilesRowsUncached(ayCode: string): Promise<PFilesDrillRow[]>
         slotLabel: slot.label,
         status,
         fileUrl: null, // not surfaced in drill rows; the detail page handles file urls
-        expiryDate: slot.key === 'passport' ? expiryDate : null,
-        daysToExpiry: slot.key === 'passport' ? daysToExpiry : null,
+        expiryDate,
+        daysToExpiry,
         revisionCount: revCount.get(k) ?? 0,
         lastRevisionAt: revLastAt.get(k) ?? null,
       });
