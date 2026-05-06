@@ -10,6 +10,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from '@tanstack/react-table';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   ArrowDown,
   ArrowUp,
@@ -249,6 +250,37 @@ export function DrillDownSheet<T>({
   const densityClass =
     density === 'compact' ? '[&_td]:py-1 [&_th]:py-1' : '';
 
+  // --- Virtualization ----------------------------------------------------
+  // Renders only the rows in the visible scroll window + an overscan band.
+  // Critical for large drill targets (Markbook grade-entries, Attendance
+  // attendance-summary) where a flat .map(...) was producing 200-500ms
+  // long-task render commits.
+  //
+  // Active only on the ungrouped path. Grouped mode interleaves group
+  // headers with rows of variable height, which is awkward to virtualize
+  // cleanly; group views are typically smaller anyway (rows partitioned
+  // by level/status/stage), so flat render stays acceptable.
+  const tableContainerRef = React.useRef<HTMLDivElement>(null);
+  const isCompact = density === 'compact';
+  const estimatedRowHeight = isCompact ? 32 : 48;
+  const useVirtualization = !grouped;
+
+  const rowVirtualizer = useVirtualizer({
+    count: useVirtualization ? visibleRows.length : 0,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => estimatedRowHeight,
+    overscan: 8,
+  });
+
+  const virtualItems = useVirtualization ? rowVirtualizer.getVirtualItems() : [];
+  const totalSize = useVirtualization ? rowVirtualizer.getTotalSize() : 0;
+  const paddingTop =
+    virtualItems.length > 0 ? virtualItems[0]!.start : 0;
+  const paddingBottom =
+    virtualItems.length > 0
+      ? totalSize - virtualItems[virtualItems.length - 1]!.end
+      : 0;
+
   // --- Toolkit visibility flags -----------------------------------------
   const showScope = scope !== undefined && Boolean(onScopeChange);
   const showStatus = Array.isArray(statusOptions) && statusOptions.length > 0;
@@ -457,7 +489,10 @@ export function DrillDownSheet<T>({
       )}
 
       {/* Table */}
-      <div className="flex-1 overflow-auto px-6 py-4">
+      <div
+        ref={tableContainerRef}
+        className="flex-1 overflow-auto px-6 py-4"
+      >
         {visibleRows.length === 0 ? (
           <div className="py-12 text-center text-sm text-muted-foreground">
             {emptyMessage}
@@ -513,40 +548,67 @@ export function DrillDownSheet<T>({
               ))}
             </TableHeader>
             <TableBody>
-              {grouped
-                ? grouped.map(([groupName, groupRows]) => (
-                    <React.Fragment key={`grp-${groupName}`}>
-                      <TableRow className="bg-muted/30 hover:bg-muted/30">
-                        <TableCell
-                          colSpan={visibleColCount}
-                          className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4"
-                        >
-                          {groupName} <span className="text-ink-5">·</span>{' '}
-                          <span className="text-foreground">
-                            {groupRows.length.toLocaleString('en-SG')}
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                      {groupRows.map((row) => (
-                        <TableRow key={row.id}>
-                          {row.getVisibleCells().map((cell) => (
-                            <TableCell key={cell.id}>
-                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
-                    </React.Fragment>
-                  ))
-                : visibleRows.map((row) => (
-                    <TableRow key={row.id}>
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                      ))}
+              {grouped ? (
+                grouped.map(([groupName, groupRows]) => (
+                  <React.Fragment key={`grp-${groupName}`}>
+                    <TableRow className="bg-muted/30 hover:bg-muted/30">
+                      <TableCell
+                        colSpan={visibleColCount}
+                        className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4"
+                      >
+                        {groupName} <span className="text-ink-5">·</span>{' '}
+                        <span className="text-foreground">
+                          {groupRows.length.toLocaleString('en-SG')}
+                        </span>
+                      </TableCell>
                     </TableRow>
-                  ))}
+                    {groupRows.map((row) => (
+                      <TableRow key={row.id}>
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id}>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </React.Fragment>
+                ))
+              ) : (
+                <>
+                  {paddingTop > 0 && (
+                    <tr aria-hidden="true">
+                      <td
+                        colSpan={visibleColCount}
+                        style={{ height: paddingTop, padding: 0, border: 0 }}
+                      />
+                    </tr>
+                  )}
+                  {virtualItems.map((virtualRow) => {
+                    const row = visibleRows[virtualRow.index]!;
+                    return (
+                      <TableRow
+                        key={row.id}
+                        data-index={virtualRow.index}
+                        ref={rowVirtualizer.measureElement}
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id}>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    );
+                  })}
+                  {paddingBottom > 0 && (
+                    <tr aria-hidden="true">
+                      <td
+                        colSpan={visibleColCount}
+                        style={{ height: paddingBottom, padding: 0, border: 0 }}
+                      />
+                    </tr>
+                  )}
+                </>
+              )}
             </TableBody>
           </Table>
         )}
