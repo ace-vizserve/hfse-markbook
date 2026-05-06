@@ -73,10 +73,17 @@ export async function getDashboardWindows(
     .filter((t) => t.start_date && t.end_date)
     .sort((a, b) => (a.start_date! < b.start_date! ? -1 : 1));
 
+  // Resolve "the current term" with a deterministic fallback chain:
+  // 1) the term whose [start_date, end_date] contains today (data-driven —
+  //    immune to a stale is_current flag),
+  // 2) the term flagged is_current,
+  // 3) the FIRST term in sorted order. Previously fell back to the LAST
+  //    term, which landed dashboards on T4 of a freshly-seeded AY whose
+  //    terms are all in the future — never what the registrar wants.
   const current =
-    sortedAy.find((t) => t.is_current) ??
     sortedAy.find((t) => t.start_date! <= today && today <= t.end_date!) ??
-    sortedAy[sortedAy.length - 1] ??
+    sortedAy.find((t) => t.is_current) ??
+    sortedAy[0] ??
     null;
 
   const thisTerm: DateRange | null = current?.start_date && current.end_date
@@ -92,11 +99,36 @@ export async function getDashboardWindows(
     ? { from: prior.start_date, to: prior.end_date }
     : null;
 
-  // AY windows are derived from the AY code per KD #13 (single calendar year
-  // Jan–Nov). Robust to NULL term dates and matches the AY-label convention.
-  const thisAY = computeAyWindowFromCode(ayCode);
+  // thisAY: prefer the actual term-spanning window when the AY has terms
+  // with dates. Test AYs (e.g. AY9999) carry a code that doesn't match
+  // their seeded calendar year — `computeAyWindowFromCode` would return
+  // year-9999, which then makes `resolveRange` reject every URL date in
+  // the real (e.g. 2026) data range as "outside the AY". Falling back to
+  // the AY-code window per KD #13 only when no term has dates yet covers
+  // the freshly-created AY edge case.
+  const thisAY: DateRange | null =
+    sortedAy.length > 0
+      ? {
+          from: sortedAy[0].start_date!,
+          to: sortedAy[sortedAy.length - 1].end_date!,
+        }
+      : computeAyWindowFromCode(ayCode);
+
   const priorAyCode = computePriorAyCode(ayCode);
-  const lastAY = priorAyCode ? computeAyWindowFromCode(priorAyCode) : null;
+  const priorAyTerms = priorAyCode
+    ? terms
+        .filter((t) => t.ay_code === priorAyCode && t.start_date && t.end_date)
+        .sort((a, b) => (a.start_date! < b.start_date! ? -1 : 1))
+    : [];
+  const lastAY: DateRange | null =
+    priorAyTerms.length > 0
+      ? {
+          from: priorAyTerms[0].start_date!,
+          to: priorAyTerms[priorAyTerms.length - 1].end_date!,
+        }
+      : priorAyCode
+        ? computeAyWindowFromCode(priorAyCode)
+        : null;
 
   return {
     term: { thisTerm, lastTerm },
