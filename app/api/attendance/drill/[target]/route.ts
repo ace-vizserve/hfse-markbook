@@ -13,7 +13,6 @@ import {
   type CalendarDayRow,
   type CompassionateUsageRow,
   type DrillColumnKey,
-  type DrillScope,
   type SectionAttendanceRow,
   type TopAbsentDrillRow,
 } from '@/lib/attendance/drill';
@@ -32,8 +31,6 @@ const VALID_TARGETS: AttendanceDrillTarget[] = [
   'attendance-by-section',
   'compassionate-quota',
 ];
-
-const VALID_SCOPES: DrillScope[] = ['range', 'ay', 'all'];
 
 const ALLOWED_ROLES = [
   'registrar',
@@ -60,25 +57,19 @@ export async function GET(
     return NextResponse.json({ error: 'invalid_ay' }, { status: 400 });
   }
 
-  // Resolve scope deterministically. If the caller asked for 'range' but
-  // didn't supply both from + to, downgrade to 'ay' so target filters get
-  // a clean signal (no half-state where scope='range' but range is undef).
-  const rawScope = (url.searchParams.get('scope') ?? 'range') as DrillScope;
-  const fromRaw = url.searchParams.get('from') ?? undefined;
-  const toRaw = url.searchParams.get('to') ?? undefined;
-  const scope: DrillScope =
-    rawScope === 'range' && (!fromRaw || !toRaw)
-      ? 'ay'
-      : VALID_SCOPES.includes(rawScope) ? rawScope : 'range';
-  const from = scope === 'range' ? fromRaw : undefined;
-  const to = scope === 'range' ? toRaw : undefined;
+  // Drill always reflects the page-level from/to window. When both are
+  // present the dataset is range-clamped; otherwise it falls back to the
+  // full AY-wide row set. (The in-drill scope toggle was removed in favour
+  // of the page-level date picker as the single source of truth.)
+  const from = url.searchParams.get('from') ?? undefined;
+  const to = url.searchParams.get('to') ?? undefined;
   const segment = url.searchParams.get('segment');
   const format = url.searchParams.get('format') ?? 'json';
   const columnsParam = url.searchParams.get('columns');
 
   const rows = await buildAttendanceDrillRows({
     ayCode,
-    scope,
+    scope: 'range' as const,
     from,
     to,
     target,
@@ -90,17 +81,21 @@ export async function GET(
   }
 
   const header = drillHeaderForTarget(target, segment);
-  return NextResponse.json({
+  const res = NextResponse.json({
     rows,
     total: rows.length,
     target,
     segment,
-    scope,
     ayCode,
     eyebrow: header.eyebrow,
     title: header.title,
     rowKind: rowKindForTarget(target),
   });
+  res.headers.set(
+    'Cache-Control',
+    'private, max-age=60, stale-while-revalidate=300',
+  );
+  return res;
 }
 
 function pickColumns(target: AttendanceDrillTarget, columnsParam: string | null): DrillColumnKey[] {

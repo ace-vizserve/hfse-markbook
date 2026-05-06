@@ -9,7 +9,6 @@ import {
   DRILL_COLUMN_LABELS,
   rowKindForTarget,
   type DrillColumnKey,
-  type DrillScope,
   type EvaluationDrillRow,
   type EvaluationDrillRowKind,
   type EvaluationDrillTarget,
@@ -28,8 +27,6 @@ const VALID_TARGETS: EvaluationDrillTarget[] = [
   'writeups-by-section',
   'time-to-submit-bucket',
 ];
-
-const VALID_SCOPES: DrillScope[] = ['range', 'ay', 'all'];
 
 const ALLOWED_ROLES = ['teacher', 'registrar', 'school_admin', 'superadmin'] as const;
 const REGISTRAR_PLUS = new Set(['registrar', 'school_admin', 'superadmin']);
@@ -53,8 +50,10 @@ export async function GET(
     return NextResponse.json({ error: 'invalid_ay' }, { status: 400 });
   }
 
-  const scopeParam = (url.searchParams.get('scope') ?? 'range') as DrillScope;
-  const scope = VALID_SCOPES.includes(scopeParam) ? scopeParam : 'range';
+  // Drill always reflects the page-level from/to window. When both are
+  // present the dataset is range-clamped; otherwise it falls back to the
+  // full AY-wide row set. (The in-drill scope toggle was removed in favour
+  // of the page-level date picker as the single source of truth.)
   const from = url.searchParams.get('from') ?? undefined;
   const to = url.searchParams.get('to') ?? undefined;
   const segment = url.searchParams.get('segment');
@@ -74,7 +73,7 @@ export async function GET(
   }
 
   const rows = await buildEvaluationDrillRows({
-    ayCode, scope, from, to, target, segment, allowedSectionIds,
+    ayCode, scope: 'range' as const, from, to, target, segment, allowedSectionIds,
   });
 
   if (format === 'csv') {
@@ -82,10 +81,15 @@ export async function GET(
   }
 
   const header = drillHeaderForTarget(target, segment);
-  return NextResponse.json({
-    rows, total: rows.length, target, segment, scope, ayCode,
+  const res = NextResponse.json({
+    rows, total: rows.length, target, segment, ayCode,
     eyebrow: header.eyebrow, title: header.title, rowKind: rowKindForTarget(target),
   });
+  res.headers.set(
+    'Cache-Control',
+    'private, max-age=60, stale-while-revalidate=300',
+  );
+  return res;
 }
 
 function pickColumns(target: EvaluationDrillTarget, columnsParam: string | null): DrillColumnKey[] {
