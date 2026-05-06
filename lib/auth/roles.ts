@@ -31,7 +31,16 @@ export type SidebarBadgeKey = "changeRequests";
 export type SidebarBadges = Partial<Record<SidebarBadgeKey, number>>;
 
 const PFILES_NAV: NavSection[] = [
-  { items: [{ href: "/p-files", label: "Dashboard" }] },
+  {
+    items: [
+      { href: "/p-files", label: "Dashboard" },
+      {
+        href: "/p-files/compare",
+        label: "Compare",
+        requiresRoles: ["p-file", "school_admin", "superadmin"],
+      },
+    ],
+  },
   {
     // Quick filters land on the dashboard with a `?status=` preset so the
     // P-Files officer can jump straight to the work queue (oversight role —
@@ -97,7 +106,16 @@ const PFILES_NAV: NavSection[] = [
 // dashboard, not two. /admin/admissions redirects to /records for legacy
 // bookmark compatibility.
 const RECORDS_NAV: NavSection[] = [
-  { items: [{ href: "/records", label: "Dashboard" }] },
+  {
+    items: [
+      { href: "/records", label: "Dashboard" },
+      {
+        href: "/records/compare",
+        label: "Compare",
+        requiresRoles: ["registrar", "school_admin", "superadmin"],
+      },
+    ],
+  },
   {
     label: "Operations",
     items: [
@@ -144,6 +162,11 @@ const ATTENDANCE_NAV: NavSection[] = [
     items: [
       { href: "/attendance", label: "Dashboard" },
       { href: "/attendance/sections", label: "Sections" },
+      {
+        href: "/attendance/compare",
+        label: "Compare",
+        requiresRoles: ["registrar", "school_admin", "superadmin"],
+      },
     ],
   },
   {
@@ -173,7 +196,16 @@ const ATTENDANCE_NAV: NavSection[] = [
 // applications and conversion analytics. Once a student's stage hits
 // `Enrolled`, the cross-year permanent record lives in `/records/*` instead.
 const ADMISSIONS_NAV: NavSection[] = [
-  { items: [{ href: "/admissions", label: "Dashboard" }] },
+  {
+    items: [
+      { href: "/admissions", label: "Dashboard" },
+      {
+        href: "/admissions/compare",
+        label: "Compare",
+        requiresRoles: ["admissions", "registrar", "school_admin", "superadmin"],
+      },
+    ],
+  },
   {
     label: "Pipeline",
     items: [
@@ -248,7 +280,16 @@ const ADMISSIONS_NAV: NavSection[] = [
 // sees all sections. The writeup is the sole source of the FCA comment on
 // T1-T3 report cards — grades/attendance come from their own modules.
 const EVALUATION_NAV: NavSection[] = [
-  { items: [{ href: "/evaluation", label: "Dashboard" }] },
+  {
+    items: [
+      { href: "/evaluation", label: "Dashboard" },
+      {
+        href: "/evaluation/compare",
+        label: "Compare",
+        requiresRoles: ["registrar", "school_admin", "superadmin"],
+      },
+    ],
+  },
   {
     label: "Write-ups",
     items: [{ href: "/evaluation/sections", label: "All terms" }],
@@ -348,7 +389,7 @@ export const NAV_BY_MODULE: {
       },
     ],
     registrar: [
-      { items: [{ href: "/markbook", label: "Dashboard" }] },
+      { items: [{ href: "/markbook", label: "Dashboard" }, { href: "/markbook/compare", label: "Compare" }] },
       {
         label: "Grading",
         items: [
@@ -375,7 +416,7 @@ export const NAV_BY_MODULE: {
     // old `admin` twin was retired). Sees the Change Requests approval
     // inbox + audit log alongside the section/report-card surfaces.
     school_admin: [
-      { items: [{ href: "/markbook", label: "Dashboard" }] },
+      { items: [{ href: "/markbook", label: "Dashboard" }, { href: "/markbook/compare", label: "Compare" }] },
       {
         label: "Students",
         items: [{ href: "/markbook/sections", label: "Sections" }],
@@ -390,7 +431,7 @@ export const NAV_BY_MODULE: {
       },
     ],
     superadmin: [
-      { items: [{ href: "/markbook", label: "Dashboard" }] },
+      { items: [{ href: "/markbook", label: "Dashboard" }, { href: "/markbook/compare", label: "Compare" }] },
       {
         label: "Grading",
         items: [
