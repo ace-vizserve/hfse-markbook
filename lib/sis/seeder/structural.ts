@@ -1,13 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
-  CANNED_CALENDAR,
-  CANNED_EVENTS,
+  buildCannedCalendar,
+  buildCannedEvents,
+  buildTermTemplates,
   LEVELS,
   SCHOOL_CONFIG_DEFAULTS,
   SECTIONS,
   SUBJECTS,
-  TERM_TEMPLATES,
 } from './fixtures';
 
 // Structural seeder for the Test environment. Populates the reference +
@@ -36,7 +36,14 @@ export type StructureSeedResult = {
 export async function ensureTestStructure(
   service: SupabaseClient,
   testAy: { id: string; ay_code: string },
+  options?: { targetYear?: number; forceOverwriteDates?: boolean },
 ): Promise<StructureSeedResult> {
+  const targetYear = options?.targetYear ?? new Date().getFullYear();
+  const forceOverwrite = options?.forceOverwriteDates ?? /^AY9/.test(testAy.ay_code);
+  const templates = buildTermTemplates(targetYear);
+  const cannedCalendar = buildCannedCalendar(targetYear);
+  const cannedEvents = buildCannedEvents(targetYear);
+
   const result: StructureSeedResult = {
     levels_inserted: 0,
     subjects_inserted: 0,
@@ -176,21 +183,27 @@ export async function ensureTestStructure(
   }>;
   const termByNumber = new Map(terms.map((t) => [t.term_number, t]));
 
-  for (const tmpl of TERM_TEMPLATES) {
+  for (const tmpl of templates) {
     const existing = termByNumber.get(tmpl.term_number);
     if (!existing) continue;
 
-    // Only fill blanks — never overwrite registrar-edited values.
+    // For test AYs (^AY9 codes), force-overwrite term dates so re-running
+    // the seeder under new TERM_TEMPLATES values applies. For production
+    // AYs (^AY[0-8]), keep the existing fill-blanks behavior so registrar
+    // edits aren't clobbered.
     const patch: Record<string, unknown> = {};
-    if (!existing.start_date) patch.start_date = tmpl.start_date;
-    if (!existing.end_date) patch.end_date = tmpl.end_date;
-    if (!existing.virtue_theme && tmpl.virtue_theme) patch.virtue_theme = tmpl.virtue_theme;
-    if (!existing.grading_lock_date) patch.grading_lock_date = tmpl.grading_lock_date;
+    if (forceOverwrite || !existing.start_date) patch.start_date = tmpl.start_date;
+    if (forceOverwrite || !existing.end_date) patch.end_date = tmpl.end_date;
+    if (forceOverwrite || (!existing.virtue_theme && tmpl.virtue_theme))
+      patch.virtue_theme = tmpl.virtue_theme;
+    if (forceOverwrite || !existing.grading_lock_date)
+      patch.grading_lock_date = tmpl.grading_lock_date;
 
     if (Object.keys(patch).length === 0) continue;
 
     const { error } = await service.from('terms').update(patch).eq('id', existing.id);
     if (!error) result.terms_updated += 1;
+    else console.error('[structural seeder] terms update failed:', error.message);
   }
 
   // Re-read terms (in case dates were just filled in) — downstream calendar
@@ -213,7 +226,7 @@ export async function ensureTestStructure(
     // Build the weekday-school_day set first, then overlay canned entries
     // (holidays win when they collide with a weekday).
     const overlay = new Map<string, { day_type: string; label: string | null }>();
-    for (const c of CANNED_CALENDAR) {
+    for (const c of cannedCalendar) {
       overlay.set(c.date, { day_type: c.day_type, label: c.label });
     }
 
@@ -295,7 +308,7 @@ export async function ensureTestStructure(
       end_date: string;
       label: string;
     }> = [];
-    for (const ev of CANNED_EVENTS) {
+    for (const ev of cannedEvents) {
       const hostTerm = termsWithDates.find(
         (t) => ev.start_date >= t.start_date && ev.start_date <= t.end_date,
       );
