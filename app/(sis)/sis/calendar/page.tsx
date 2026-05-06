@@ -68,8 +68,17 @@ export default async function SisCalendarPage({
     is_current: boolean;
   };
   const terms = (termsRaw ?? []) as TermRow[];
+  // Default-term cascade mirrors lib/dashboard/windows.ts: today-anchored
+  // (term whose [start_date, end_date] contains today) → is_current flag
+  // → first term in the AY. Today wins so the calendar opens on the term
+  // the registrar is actually working in, even if the is_current flag
+  // hasn't been migrated.
+  const today = new Date().toISOString().slice(0, 10);
+  const todayTerm = terms.find(
+    (t) => t.start_date && t.end_date && t.start_date <= today && today <= t.end_date,
+  );
   const defaultTermId =
-    sp.term_id ?? terms.find((t) => t.is_current)?.id ?? terms[0]?.id ?? '';
+    sp.term_id ?? todayTerm?.id ?? terms.find((t) => t.is_current)?.id ?? terms[0]?.id ?? '';
 
   const selectedTerm = terms.find((t) => t.id === defaultTermId) ?? null;
   const selectedTermHasDates =
