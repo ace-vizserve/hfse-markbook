@@ -99,7 +99,7 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
   const ayCode = ay?.ay_code ?? "";
   const windows = ayCode
     ? await getDashboardWindows(ayCode)
-    : { term: { thisTerm: null, lastTerm: null }, ay: { thisAY: null, lastAY: null } };
+    : { term: { thisTerm: null, lastTerm: null, byNumber: { 1: null, 2: null, 3: null, 4: null } }, ay: { thisAY: null, lastAY: null }, activeTermFallback: false };
   const rangeInput = ayCode ? resolveRange(resolvedSearch, windows, ayCode) : null;
   const [kpisResult, velocity, drillRowSets] = rangeInput
     ? await Promise.all([

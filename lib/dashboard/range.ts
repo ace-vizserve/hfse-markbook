@@ -16,6 +16,13 @@ export type DateRange = {
 };
 
 export type Preset =
+  | 't1'
+  | 't2'
+  | 't3'
+  | 't4'
+  | 'lastWeek'
+  | 'last15d'
+  | 'lastMonth'
   | 'last7d'
   | 'last30d'
   | 'last90d'
@@ -26,6 +33,13 @@ export type Preset =
   | 'custom';
 
 export const PRESET_LABEL: Record<Preset, string> = {
+  t1: 'Term 1',
+  t2: 'Term 2',
+  t3: 'Term 3',
+  t4: 'Term 4',
+  lastWeek: 'Last week',
+  last15d: 'Last 15 days',
+  lastMonth: 'Last month',
   last7d: 'Last 7 days',
   last30d: 'Last 30 days',
   last90d: 'Last 90 days',
@@ -36,9 +50,15 @@ export const PRESET_LABEL: Record<Preset, string> = {
   custom: 'Custom',
 };
 
+// Preset arrays exported so each module's page RSC picks the right shortlist.
+export const TERM_SCOPED_PRESETS: Preset[] = ['t1', 't2', 't3', 't4', 'thisAY', 'custom'];
+export const FLEXIBLE_PRESETS: Preset[] = ['lastWeek', 'last15d', 'lastMonth', 'thisAY', 'custom'];
+
 export type TermWindows = {
   thisTerm: DateRange | null;
   lastTerm: DateRange | null;
+  /** Per-term-number lookup. null when that term doesn't exist or has no dates. */
+  byNumber: { 1: DateRange | null; 2: DateRange | null; 3: DateRange | null; 4: DateRange | null };
 };
 
 export type AYWindows = {
@@ -219,12 +239,48 @@ function lastNDays(n: number, today = new Date()): DateRange {
   return { from: toISODate(from), to: toISODate(to) };
 }
 
+/** Previous Monday–Sunday block (calendar-aligned). */
+function lastCalendarWeek(today = new Date()): DateRange {
+  const t = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  // getDay: Sun=0, Mon=1 ... Sat=6. Convert to Mon=0..Sun=6.
+  const dayMon0 = (t.getDay() + 6) % 7;
+  // This Monday:
+  const thisMon = addDays(t, -dayMon0);
+  // Last Sunday = thisMon - 1; Last Monday = thisMon - 7.
+  const lastSun = addDays(thisMon, -1);
+  const lastMon = addDays(thisMon, -7);
+  return { from: toISODate(lastMon), to: toISODate(lastSun) };
+}
+
+/** Previous full calendar month (1st through last day). */
+function lastCalendarMonth(today = new Date()): DateRange {
+  const t = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  // Last day of prior month = day 0 of current month
+  const lastDayPrev = new Date(t.getFullYear(), t.getMonth(), 0);
+  const firstDayPrev = new Date(lastDayPrev.getFullYear(), lastDayPrev.getMonth(), 1);
+  return { from: toISODate(firstDayPrev), to: toISODate(lastDayPrev) };
+}
+
 export function resolvePreset(
   preset: Preset,
   windows: { term: TermWindows; ay: AYWindows },
   today?: Date,
 ): DateRange | null {
   switch (preset) {
+    case 't1':
+      return windows.term.byNumber[1];
+    case 't2':
+      return windows.term.byNumber[2];
+    case 't3':
+      return windows.term.byNumber[3];
+    case 't4':
+      return windows.term.byNumber[4];
+    case 'lastWeek':
+      return lastCalendarWeek(today);
+    case 'last15d':
+      return lastNDays(15, today);
+    case 'lastMonth':
+      return lastCalendarMonth(today);
     case 'last7d':
       return lastNDays(7, today);
     case 'last30d':
@@ -254,13 +310,10 @@ export function detectPreset(
   today?: Date,
 ): Preset {
   const presets: Preset[] = [
-    'last7d',
-    'last30d',
-    'last90d',
-    'thisTerm',
-    'lastTerm',
-    'thisAY',
-    'lastAY',
+    't1', 't2', 't3', 't4',
+    'lastWeek', 'last15d', 'lastMonth',
+    'last7d', 'last30d', 'last90d',
+    'thisTerm', 'lastTerm', 'thisAY', 'lastAY',
   ];
   for (const p of presets) {
     const candidate = resolvePreset(p, windows, today);

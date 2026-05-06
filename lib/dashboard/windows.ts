@@ -64,7 +64,7 @@ const loadTerms = unstable_cache(loadTermsUncached, ['dashboard', 'windows', 'te
 
 export async function getDashboardWindows(
   ayCode: string,
-): Promise<{ term: TermWindows; ay: AYWindows }> {
+): Promise<{ term: TermWindows; ay: AYWindows; activeTermFallback: boolean }> {
   const terms = await loadTerms();
   const today = toISODate(new Date());
 
@@ -73,22 +73,48 @@ export async function getDashboardWindows(
     .filter((t) => t.start_date && t.end_date)
     .sort((a, b) => (a.start_date! < b.start_date! ? -1 : 1));
 
-  // Resolve "the current term" with a deterministic fallback chain:
-  // 1) the term whose [start_date, end_date] contains today (data-driven —
-  //    immune to a stale is_current flag),
-  // 2) the term flagged is_current,
-  // 3) the FIRST term in sorted order. Previously fell back to the LAST
-  //    term, which landed dashboards on T4 of a freshly-seeded AY whose
-  //    terms are all in the future — never what the registrar wants.
+  // Resolve "current" term (today-anchored → is_current flag → first term in AY).
   const current =
     sortedAy.find((t) => t.start_date! <= today && today <= t.end_date!) ??
     sortedAy.find((t) => t.is_current) ??
     sortedAy[0] ??
     null;
 
-  const thisTerm: DateRange | null = current?.start_date && current.end_date
+  const thisTermInAy: DateRange | null = current?.start_date && current.end_date
     ? { from: current.start_date, to: current.end_date }
     : null;
+
+  // Active-term fallback: when no term in CURRENT AY contains today and no
+  // is_current flag is set, look across prior AYs for the most recently
+  // finished term. The picker presets stay AY-scoped (T1–T4 of current AY)
+  // but `thisTerm` becomes useful for default-range purposes.
+  const hasTodayInCurrent = sortedAy.some(
+    (t) => t.start_date! <= today && today <= t.end_date!,
+  );
+  let priorAyLastTerm: DateRange | null = null;
+  if (!hasTodayInCurrent) {
+    const priorFinished = terms
+      .filter((t) => t.ay_code !== ayCode && t.start_date && t.end_date && t.end_date! < today)
+      .sort((a, b) => (a.end_date! < b.end_date! ? 1 : -1))[0];
+    if (priorFinished) {
+      priorAyLastTerm = { from: priorFinished.start_date!, to: priorFinished.end_date! };
+    }
+  }
+
+  // thisTerm prefers in-AY current term; falls back to prior-AY last term so
+  // dashboards always have a meaningful default range to land on.
+  const thisTerm: DateRange | null = thisTermInAy ?? priorAyLastTerm;
+
+  // Banner flag — page RSC renders "showing previous term" hint.
+  const activeTermFallback = !hasTodayInCurrent && priorAyLastTerm !== null;
+
+  // Per-term-number lookup for T1/T2/T3/T4 presets.
+  const byNumber: TermWindows['byNumber'] = { 1: null, 2: null, 3: null, 4: null };
+  for (const t of sortedAy) {
+    if (t.term_number >= 1 && t.term_number <= 4 && t.start_date && t.end_date) {
+      byNumber[t.term_number as 1 | 2 | 3 | 4] = { from: t.start_date, to: t.end_date };
+    }
+  }
 
   const prior = current
     ? sortedAy
@@ -131,8 +157,9 @@ export async function getDashboardWindows(
         : null;
 
   return {
-    term: { thisTerm, lastTerm },
+    term: { thisTerm, lastTerm, byNumber },
     ay: { thisAY, lastAY },
+    activeTermFallback,
   };
 }
 

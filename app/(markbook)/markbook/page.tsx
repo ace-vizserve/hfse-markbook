@@ -127,7 +127,7 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
   const [windows, ayCodes] = await Promise.all([
     ayCode
       ? getDashboardWindows(ayCode)
-      : Promise.resolve({ term: { thisTerm: null, lastTerm: null }, ay: { thisAY: null, lastAY: null } }),
+      : Promise.resolve({ term: { thisTerm: null, lastTerm: null, byNumber: { 1: null, 2: null, 3: null, 4: null } }, ay: { thisAY: null, lastAY: null }, activeTermFallback: false }),
     listAyCodes(service),
   ]);
   const rangeInput = resolveRange(resolvedSearchParams, windows, ayCode);

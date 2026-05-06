@@ -71,7 +71,7 @@ export default async function SisAdminHub({
     role === "superadmin" ? getSystemHealth() : Promise.resolve(null),
     ayCode
       ? getDashboardWindows(ayCode)
-      : Promise.resolve({ term: { thisTerm: null, lastTerm: null }, ay: { thisAY: null, lastAY: null } }),
+      : Promise.resolve({ term: { thisTerm: null, lastTerm: null, byNumber: { 1: null, 2: null, 3: null, 4: null } }, ay: { thisAY: null, lastAY: null }, activeTermFallback: false }),
     listAyCodes(service),
     ayCode ? getLifecycleAggregate(ayCode) : Promise.resolve([]),
   ]);
