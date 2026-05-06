@@ -38,11 +38,27 @@ export default async function AttendanceSectionsListPage() {
     .eq('is_current', true)
     .single();
 
-  const { data: currentTerm } = await supabase
-    .from('terms')
-    .select('id, label')
-    .eq('is_current', true)
-    .maybeSingle();
+  // Scope by academic_year_id — terms.is_current can be true across
+  // multiple AYs (the wipe-AY2026/27 script preserved terms rows along
+  // with their is_current flag, so an unscoped query returns the wrong
+  // AY's term). Pair with today's-date fallback so the badge stays
+  // honest even if no term has is_current set.
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: currentTerm } = ay
+    ? await supabase
+        .from('terms')
+        .select('id, label, start_date, end_date, is_current')
+        .eq('academic_year_id', ay.id)
+        .order('term_number', { ascending: true })
+    : { data: [] as Array<{ id: string; label: string; start_date: string | null; end_date: string | null; is_current: boolean }> };
+  type TermRow = { id: string; label: string; start_date: string | null; end_date: string | null; is_current: boolean };
+  const termRows = (currentTerm ?? []) as TermRow[];
+  const activeTerm =
+    termRows.find(
+      (t) => t.start_date && t.end_date && t.start_date <= today && t.end_date >= today,
+    ) ??
+    termRows.find((t) => t.is_current) ??
+    null;
 
   let allowedSectionIds: Set<string> | null = null;
   if (isTeacherOnly && session?.id && ay) {
@@ -113,8 +129,6 @@ export default async function AttendanceSectionsListPage() {
   const totalSections = cards.length;
   const totalActive = cards.reduce((n, c) => n + c.active, 0);
 
-  const today = new Date().toISOString().slice(0, 10);
-
   return (
     <PageShell>
       <header className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
@@ -140,12 +154,12 @@ export default async function AttendanceSectionsListPage() {
               {ay.ay_code}
             </Badge>
           )}
-          {currentTerm && (
+          {activeTerm && (
             <Badge
               variant="outline"
               className="h-7 border-border bg-white px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground"
             >
-              {currentTerm.label}
+              {activeTerm.label}
             </Badge>
           )}
         </div>
