@@ -18,6 +18,7 @@ const VALID_TARGETS: PFilesDrillTarget[] = [
   'all-docs',
   'complete-docs',
   'expired-docs',
+  'expiring-soon',
   'missing-docs',
   'slot-by-status',
   'missing-by-slot',

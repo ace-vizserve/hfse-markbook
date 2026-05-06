@@ -352,7 +352,8 @@ export default async function PFilesDashboard({
           subtext="From end of range"
           drillSheet={() => (
             <PFilesDrillSheet
-              target="expired-docs"
+              target="expiring-soon"
+              segment="30"
               ayCode={selectedAy}
             />
           )}
@@ -365,7 +366,8 @@ export default async function PFilesDashboard({
           subtext="From end of range"
           drillSheet={() => (
             <PFilesDrillSheet
-              target="expired-docs"
+              target="expiring-soon"
+              segment="60"
               ayCode={selectedAy}
             />
           )}

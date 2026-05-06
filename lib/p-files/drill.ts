@@ -20,6 +20,7 @@ export type PFilesDrillTarget =
   | 'all-docs'
   | 'complete-docs'
   | 'expired-docs'
+  | 'expiring-soon'
   | 'missing-docs'
   | 'slot-by-status'
   | 'missing-by-slot'
@@ -275,6 +276,21 @@ export function applyTargetFilter(
     case 'all-docs': return rows;
     case 'complete-docs': return rows.filter((r) => r.status === 'On file');
     case 'expired-docs': return rows.filter((r) => r.status === 'Expired');
+    case 'expiring-soon': {
+      // Future expiry within `segment` days. Default 60 if no segment.
+      // Excludes already-expired (daysToExpiry < 0) — that's the
+      // 'expired-docs' target's job. Only expiring slots have a
+      // non-null `daysToExpiry` so non-expiring slots are naturally
+      // filtered out.
+      const days = segment ? Number(segment) : 60;
+      const window = Number.isFinite(days) && days > 0 ? days : 60;
+      return rows.filter(
+        (r) =>
+          r.daysToExpiry !== null &&
+          r.daysToExpiry >= 0 &&
+          r.daysToExpiry <= window,
+      );
+    }
     case 'missing-docs': return rows.filter((r) => r.status === 'Missing');
     case 'slot-by-status': {
       // segment = a status string ('Missing', 'Expired', etc.)
@@ -343,11 +359,13 @@ export function defaultColumnsForTarget(target: PFilesDrillTarget): DrillColumnK
   switch (target) {
     case 'all-docs': return ['fullName', 'level', 'slotLabel', 'status'];
     case 'complete-docs':
-    case 'expired-docs':
     case 'missing-docs':
     case 'slot-by-status':
     case 'missing-by-slot':
       return ['fullName', 'level', 'slotLabel', 'status', 'lastRevisionAt'];
+    case 'expired-docs':
+    case 'expiring-soon':
+      return ['fullName', 'level', 'slotLabel', 'status', 'expiryDate', 'daysToExpiry'];
     case 'level-applicants':
       return ['fullName', 'level', 'slotLabel', 'status'];
     case 'revisions-on-day':
@@ -360,10 +378,17 @@ export function drillHeaderForTarget(
   segment: string | null,
 ): { eyebrow: string; title: string } {
   switch (target) {
-    case 'all-docs': return { eyebrow: 'Drill · All', title: 'All document slots' };
-    case 'complete-docs': return { eyebrow: 'Drill · Complete', title: 'On-file documents' };
-    case 'expired-docs': return { eyebrow: 'Drill · Expired', title: 'Expired documents' };
-    case 'missing-docs': return { eyebrow: 'Drill · Missing', title: 'Missing documents' };
+    case 'all-docs': return { eyebrow: 'P-Files', title: 'Every tracked document slot, per student' };
+    case 'complete-docs': return { eyebrow: 'P-Files', title: 'Documents validated and on file' };
+    case 'expired-docs': return { eyebrow: 'P-Files', title: 'Documents that have expired' };
+    case 'expiring-soon':
+      return {
+        eyebrow: 'P-Files',
+        title: segment
+          ? `Documents expiring within ${segment} days`
+          : 'Documents expiring soon',
+      };
+    case 'missing-docs': return { eyebrow: 'P-Files', title: 'Documents not yet uploaded' };
     case 'slot-by-status':
       return { eyebrow: 'Drill · Status', title: segment ? `Status: ${segment}` : 'By status' };
     case 'missing-by-slot':
