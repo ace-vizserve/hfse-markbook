@@ -2047,12 +2047,13 @@ async function seedAdmissionsDocuments(
           row[slot.expiryCol] = isoDateOffset(-(1 + Math.floor(rand() * 180)));
         }
       }
-      // Rejection reason column convention: `${slotKey}RejectionReason`.
-      // Some historical AYs may not have this column; PostgREST will silently
-      // drop the field on insert if absent, which is fine for the seeder.
-      if (f.rejection) {
-        row[`${slot.key}RejectionReason`] = f.rejection;
-      }
+      // Note: `${slot.key}RejectionReason` columns are NOT in the AY docs
+      // schema (per migration 026 — `ay{YYYY}_enrolment_documents` has only
+      // `<slot>` URL + `<slot>Status` + optional `<slot>Expiry`). The
+      // `f.rejection` text is computed for status colour/badge purposes
+      // elsewhere but deliberately not written to the row — PostgREST
+      // returns 400 on unknown column keys and would fail the whole
+      // chunked insert. Treat `f.rejection` as compute-time decoration only.
     }
 
     // Expiry stamps — only on enrolled rows that landed in the rosters.
