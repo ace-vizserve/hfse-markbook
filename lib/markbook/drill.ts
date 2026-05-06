@@ -911,12 +911,28 @@ export function applyTargetFilter(
           : raw === 'unpublished' || raw === 'not-published'
             ? 'not-published'
             : '';
-      return (rows as SheetRow[]).filter((r) => {
+      const filtered = (rows as SheetRow[]).filter((r) => {
         if (r.termNumber !== termNumber) return false;
         if (status === 'published') return r.isPublished;
         if (status === 'not-published') return !r.isPublished;
         return true;
-      }) as MarkbookDrillRow[];
+      });
+      // The chart counts SECTIONS-with-this-publication-status per term,
+      // not sheets. Dedupe by sectionId so the drill returns one row per
+      // section (matching the bar height the user clicked) instead of
+      // one row per (section × subject) sheet. Keeps the first sheet
+      // encountered as the section's representative — section-level
+      // fields (sectionName, level, termNumber, isPublished) are uniform
+      // across all of a section's sheets in the same term, so the choice
+      // of representative doesn't change the displayed data.
+      const seenSection = new Set<string>();
+      const out: SheetRow[] = [];
+      for (const r of filtered) {
+        if (seenSection.has(r.sectionId)) continue;
+        seenSection.add(r.sectionId);
+        out.push(r);
+      }
+      return out as MarkbookDrillRow[];
     }
     case 'sheet-readiness-section': {
       // Segment = section name. Show non-locked sheets in that section so
@@ -1056,8 +1072,12 @@ export function defaultColumnsForTarget(target: MarkbookDrillTarget): DrillColum
     case 'sheets-locked':
       return ['sectionName', 'subjectCode', 'termNumber', 'isLocked', 'lockedAt', 'completeness'];
     case 'publication-coverage':
-    case 'term-publication-status':
       return ['sectionName', 'subjectCode', 'termNumber', 'publishedAt', 'isLocked'];
+    case 'term-publication-status':
+      // One row per section after the dedupe in applyTargetFilter — drop
+      // subject-specific columns since a section's status is identical
+      // across all its subject sheets in a given term.
+      return ['sectionName', 'level', 'termNumber', 'publishedAt'];
     case 'term-sheet-status':
       return ['sectionName', 'subjectCode', 'termNumber', 'isLocked', 'lockedAt', 'completeness'];
     case 'sheet-readiness-section':
