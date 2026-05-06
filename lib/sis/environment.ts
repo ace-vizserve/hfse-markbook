@@ -16,6 +16,8 @@ export type Environment = 'production' | 'test' | null;
 
 const TEST_AY_CODE = 'AY9999';
 const TEST_AY_LABEL = 'Test Environment';
+const PRIOR_TEST_AY_CODE = 'AY9998';
+const PRIOR_TEST_AY_LABEL = 'Prior Test Year';
 const PROD_AY_CODE = 'AY2026';
 
 function isTestAyCode(code: string | null | undefined): boolean {
@@ -27,6 +29,7 @@ type AyRow = { id: string; ay_code: string; label: string; is_current: boolean }
 export async function listEnvironmentAys(service: SupabaseClient): Promise<{
   current: AyRow | null;
   testAy: AyRow | null;
+  priorTestAy: AyRow | null;
   prodAy: AyRow | null;
 }> {
   const { data, error } = await service
@@ -35,18 +38,17 @@ export async function listEnvironmentAys(service: SupabaseClient): Promise<{
     .order('ay_code', { ascending: false });
   if (error || !data) {
     console.error('[environment] list failed:', error?.message);
-    return { current: null, testAy: null, prodAy: null };
+    return { current: null, testAy: null, priorTestAy: null, prodAy: null };
   }
   const rows = data as AyRow[];
   const current = rows.find((r) => r.is_current) ?? null;
-  const testAy = rows.find((r) => isTestAyCode(r.ay_code)) ?? null;
-  // Prod = non-test, most-recent by sort (desc above). Falls back to
-  // anything non-test if AY2026 specifically isn't found.
+  const testAy = rows.find((r) => r.ay_code === TEST_AY_CODE) ?? null;
+  const priorTestAy = rows.find((r) => r.ay_code === PRIOR_TEST_AY_CODE) ?? null;
   const prodAy =
     rows.find((r) => r.ay_code === PROD_AY_CODE && !isTestAyCode(r.ay_code)) ??
     rows.find((r) => !isTestAyCode(r.ay_code)) ??
     null;
-  return { current, testAy, prodAy };
+  return { current, testAy, priorTestAy, prodAy };
 }
 
 export async function getCurrentEnvironment(
@@ -84,6 +86,39 @@ export async function ensureTestAy(service: SupabaseClient): Promise<AyRow> {
     .single();
   if (reErr || !fresh) {
     throw new Error(`ensureTestAy: post-RPC read failed — ${reErr?.message ?? 'no row'}`);
+  }
+  return fresh as AyRow;
+}
+
+/**
+ * Ensures the prior-year test AY (AY9998) exists. Created on demand via the
+ * same `create_academic_year` RPC. Used by switchEnvironment to provision a
+ * second test AY for compare-mode demos. Never marked `is_current` — it's a
+ * passive comparison fixture.
+ */
+export async function ensurePriorTestAy(service: SupabaseClient): Promise<AyRow> {
+  const { data: existing } = await service
+    .from('academic_years')
+    .select('id, ay_code, label, is_current')
+    .eq('ay_code', PRIOR_TEST_AY_CODE)
+    .maybeSingle();
+  if (existing) return existing as AyRow;
+
+  const { error: rpcErr } = await service.rpc('create_academic_year', {
+    p_ay_code: PRIOR_TEST_AY_CODE,
+    p_label: PRIOR_TEST_AY_LABEL,
+  });
+  if (rpcErr) {
+    throw new Error(`ensurePriorTestAy: RPC failed — ${rpcErr.message}`);
+  }
+
+  const { data: fresh, error: reErr } = await service
+    .from('academic_years')
+    .select('id, ay_code, label, is_current')
+    .eq('ay_code', PRIOR_TEST_AY_CODE)
+    .single();
+  if (reErr || !fresh) {
+    throw new Error(`ensurePriorTestAy: post-RPC read failed — ${reErr?.message ?? 'no row'}`);
   }
   return fresh as AyRow;
 }
@@ -131,19 +166,24 @@ export async function switchEnvironment(
 ): Promise<SwitchResult> {
   if (target === 'test') {
     const testAy = await ensureTestAy(service);
+    const priorTestAy = await ensurePriorTestAy(service);
     const flip = await flipIsCurrent(service, testAy.ay_code);
 
-    // 1) Structural config: levels, subjects, sections, subject_configs,
-    //    term dates, school_calendar, school_config. Idempotent — runs on
-    //    every switch-to-Test so new fixtures land even if AY9999 was
-    //    created before this seeder existed.
+    const currentYear = new Date().getFullYear();
+
+    // 1) Structural config for current-year test AY (AY9999).
     const structure = await ensureTestStructure(service, {
       id: testAy.id,
       ay_code: testAy.ay_code,
-    });
+    }, { targetYear: currentYear, forceOverwriteDates: true });
 
-    // 2) Student seed: fires when the test AY has zero enrolments. Skips
-    //    sections that are already populated so re-runs are safe.
+    // 2) Structural config for prior-year test AY (AY9998).
+    await ensureTestStructure(service, {
+      id: priorTestAy.id,
+      ay_code: priorTestAy.ay_code,
+    }, { targetYear: currentYear - 1, forceOverwriteDates: true });
+
+    // 3) Student seed for current AY.
     const { data: sectionRows } = await service
       .from('sections')
       .select('id')
@@ -160,10 +200,12 @@ export async function switchEnvironment(
       }
     }
 
-    // 3) Populated layer: grade entries, attendance, evaluations, admissions
-    //    funnel, discount codes, publications. Each step skips when data is
-    //    already present so this is safe on every switch-to-Test.
+    // 4) Populated layer for AY9999.
     const populated = await seedPopulated(service, testAy);
+
+    // 5) Prior-year fixture: provision AY9998 students + populated data.
+    // TODO Task 6: import + call seedPriorYearTestAy(service, priorTestAy)
+    // For now this is stubbed so Task 5 can build clean. Restored in Task 6.
 
     return {
       fromAyCode: flip.fromAyCode,
@@ -236,26 +278,74 @@ export type ResetResult = {
 };
 
 export async function resetTestEnvironment(service: SupabaseClient): Promise<ResetResult> {
-  const { testAy, prodAy, current } = await listEnvironmentAys(service);
-  if (!testAy) {
+  const { testAy, priorTestAy, prodAy, current } = await listEnvironmentAys(service);
+  const targets = [testAy, priorTestAy].filter((a): a is AyRow => a !== null);
+  if (targets.length === 0) {
     throw new Error('No Test AY (matching ^AY9) found.');
   }
-  if (!isTestAyCode(testAy.ay_code)) {
-    // Defense in depth — listEnvironmentAys filters but double-check.
-    throw new Error(`Refusing to reset non-test AY ${testAy.ay_code}.`);
+  for (const t of targets) {
+    if (!isTestAyCode(t.ay_code)) {
+      // Defense in depth — listEnvironmentAys filters but double-check.
+      throw new Error(`Refusing to reset non-test AY ${t.ay_code}.`);
+    }
   }
 
-  const ayId = testAy.id;
-  const ayCode = testAy.ay_code;
-
   let switchedFromActive = false;
-  if (current?.id === testAy.id) {
+  if (current && targets.some((t) => t.id === current.id)) {
     if (!prodAy) {
       throw new Error('Cannot reset Test AY: no Production AY to switch to.');
     }
     await flipIsCurrent(service, prodAy.ay_code);
     switchedFromActive = true;
   }
+
+  // Aggregate counters across both AYs.
+  const aggregateDeleted: ResetResult['deleted'] = {
+    grade_entries: 0,
+    grade_audit_log: 0,
+    grading_sheets: 0,
+    attendance_daily: 0,
+    attendance_records: 0,
+    school_calendar: 0,
+    calendar_events: 0,
+    evaluation_writeups: 0,
+    evaluation_subject_comments: 0,
+    evaluation_checklist_responses: 0,
+    evaluation_ptc_feedback: 0,
+    evaluation_checklist_items: 0,
+    evaluation_terms: 0,
+    report_card_publications: 0,
+    grade_change_requests: 0,
+    teacher_assignments: 0,
+    section_students: 0,
+    students_test: 0,
+    p_file_revisions: 0,
+    admissions_rows: 0,
+  };
+  const aggregateRpcSummary: unknown[] = [];
+
+  for (const target of targets) {
+    const perAy = await wipeOneTestAy(service, target);
+    for (const k of Object.keys(aggregateDeleted) as Array<keyof ResetResult['deleted']>) {
+      aggregateDeleted[k] += perAy.deleted[k];
+    }
+    aggregateRpcSummary.push(perAy.rpcSummary);
+  }
+
+  return {
+    ayCode: targets.map((t) => t.ay_code).join(','),
+    switchedFromActive,
+    deleted: aggregateDeleted,
+    rpcSummary: aggregateRpcSummary,
+  };
+}
+
+async function wipeOneTestAy(
+  service: SupabaseClient,
+  target: AyRow,
+): Promise<{ deleted: ResetResult['deleted']; rpcSummary: unknown }> {
+  const ayId = target.id;
+  const ayCode = target.ay_code;
 
   // ---- Collect scoped IDs ----
   const [{ data: termRows }, { data: sectionRows }] = await Promise.all([
@@ -430,8 +520,6 @@ export async function resetTestEnvironment(service: SupabaseClient): Promise<Res
   }
 
   return {
-    ayCode,
-    switchedFromActive,
     deleted,
     rpcSummary: rpcResult,
   };
