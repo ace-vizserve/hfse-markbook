@@ -657,14 +657,25 @@ export function applyTargetFilter(
       return (rows as AttendanceEntryRow[]).filter((r) => r.attendanceDate.slice(0, 10) === segment) as AttendanceDrillRow[];
     case 'ex-reason': {
       if (!segment) return (rows as AttendanceEntryRow[]).filter((r) => r.status === 'EX') as AttendanceDrillRow[];
-      // The dashboard donut groups null `ex_reason` rows under "Other".
-      // Mirror that here — `'Other'` matches null, every other label
-      // matches the lowercased reason value.
-      const isOther = segment.toLowerCase() === 'other';
-      return (rows as AttendanceEntryRow[]).filter((r) => {
-        if (r.status !== 'EX') return false;
-        return isOther ? r.exReason == null : r.exReason === segment.toLowerCase();
-      }) as AttendanceDrillRow[];
+      // Donut sends the LABEL form ('MC' / 'Compassionate' /
+      // 'School activity' / 'Other') from `lib/attendance/dashboard.ts`'s
+      // `LABEL` map. Reverse-lookup to the raw `ex_reason` enum so the
+      // filter actually matches. `'Other'` matches null (the dashboard
+      // groups null reasons under that bucket).
+      const labelToEnum: Record<string, string> = {
+        MC: 'mc',
+        Compassionate: 'compassionate',
+        'School activity': 'school_activity',
+      };
+      if (segment === 'Other' || segment.toLowerCase() === 'other') {
+        return (rows as AttendanceEntryRow[]).filter(
+          (r) => r.status === 'EX' && r.exReason == null,
+        ) as AttendanceDrillRow[];
+      }
+      const target = labelToEnum[segment] ?? segment.toLowerCase();
+      return (rows as AttendanceEntryRow[]).filter(
+        (r) => r.status === 'EX' && r.exReason === target,
+      ) as AttendanceDrillRow[];
     }
     case 'day-type': {
       if (!segment) return rows;

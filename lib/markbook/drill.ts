@@ -894,10 +894,23 @@ export function applyTargetFilter(
     }
     case 'term-publication-status': {
       if (!segment) return rows;
-      const m = /^T(\d+)(?::(published|not-published))?$/i.exec(segment);
+      // The chart (`PublicationCoverageChart`) emits human labels like
+      // 'Term 1 · Published' / 'Term 1 · Unpublished'. The legacy regex
+      // expected the compact 'T1:not-published' form and silently fell
+      // through to `return rows` (= every sheet) when the label form
+      // came in. Accept both formats.
+      const compact = /^T(\d+)(?::(published|not-published))?$/i.exec(segment);
+      const labelled = /^Term\s+(\d+)\s*[·.\-]\s*(Published|Unpublished)$/i.exec(segment);
+      const m = compact ?? labelled;
       if (!m) return rows;
       const termNumber = Number(m[1]);
-      const status = (m[2] ?? '').toLowerCase() as 'published' | 'not-published' | '';
+      const raw = (m[2] ?? '').toLowerCase();
+      const status: 'published' | 'not-published' | '' =
+        raw === 'published'
+          ? 'published'
+          : raw === 'unpublished' || raw === 'not-published'
+            ? 'not-published'
+            : '';
       return (rows as SheetRow[]).filter((r) => {
         if (r.termNumber !== termNumber) return false;
         if (status === 'published') return r.isPublished;
