@@ -363,9 +363,7 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
       })
       .then((data: { rows: MarkbookDrillRow[] }) => {
         if (!cancelled) {
-          React.startTransition(() => {
-            setRows(data.rows ?? []);
-          });
+          setRows(data.rows ?? []);
         }
       })
       .catch(() => {

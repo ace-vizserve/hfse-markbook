@@ -262,6 +262,13 @@ export function DrillDownSheet<T>({
     getScrollElement: () => tableContainerRef.current,
     estimateSize: () => estimatedRowHeight,
     overscan: 8,
+    // Defensive default so the first render produces virtual items even
+    // before the scroll container has been measured. Without this, the
+    // virtualizer's `outerSize === 0` branch returns `range = null` →
+    // `virtualItems = []` → empty body until a re-render is triggered
+    // (e.g. by a sort click). The fallback is replaced by real measurements
+    // as soon as `_willUpdate`'s ResizeObserver fires.
+    initialRect: { width: 700, height: 500 },
   });
 
   const virtualItems = useVirtualization ? rowVirtualizer.getVirtualItems() : [];

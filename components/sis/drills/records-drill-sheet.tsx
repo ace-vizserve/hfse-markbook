@@ -439,9 +439,7 @@ export function RecordsDrillSheet({
         if (!res.ok) throw new Error(`status ${res.status}`);
         const json = (await res.json()) as { rows?: RecordsDrillRow[] };
         if (cancelled) return;
-        React.startTransition(() => {
-          setRows(Array.isArray(json.rows) ? json.rows : []);
-        });
+        setRows(Array.isArray(json.rows) ? json.rows : []);
       })
       .catch(() => {
         if (cancelled) return;

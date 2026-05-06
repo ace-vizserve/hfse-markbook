@@ -271,12 +271,10 @@ export function SisAdminDrillSheet({
       })
       .then((data: { rows: AnyRow[]; target: SisAdminDrillTarget; title: string; eyebrow: string }) => {
         if (cancelled) return;
-        React.startTransition(() => {
-          setRows(data.rows ?? []);
-          setEffectiveTarget(data.target);
-          setTitle(data.title);
-          setEyebrow(data.eyebrow);
-        });
+        setRows(data.rows ?? []);
+        setEffectiveTarget(data.target);
+        setTitle(data.title);
+        setEyebrow(data.eyebrow);
       })
       .catch(() => {
         if (!cancelled) toast.error('Failed to load drill data');

@@ -344,9 +344,7 @@ export function AttendanceDrillSheet(props: AttendanceDrillSheetProps) {
       })
       .then((data: { rows: AttendanceDrillRow[] }) => {
         if (!cancelled) {
-          React.startTransition(() => {
-            setRows(data.rows ?? []);
-          });
+          setRows(data.rows ?? []);
         }
       })
       .catch(() => {

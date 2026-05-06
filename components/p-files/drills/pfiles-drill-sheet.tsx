@@ -262,9 +262,7 @@ export function PFilesDrillSheet(props: PFilesDrillSheetProps) {
       .then((r) => { if (!r.ok) throw new Error('drill_fetch_failed'); return r.json(); })
       .then((data: { rows: PFilesDrillRow[] }) => {
         if (!cancelled) {
-          React.startTransition(() => {
-            setRows(data.rows ?? []);
-          });
+          setRows(data.rows ?? []);
         }
       })
       .catch(() => { if (!cancelled) toast.error('Failed to load drill data'); })
