@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { seedDemoExtras, type DemoExtrasResult } from './demo-extras';
+import { seedMovements } from './movements';
 
 import { computeQuarterly } from '@/lib/compute/quarterly';
 import {
@@ -40,6 +41,7 @@ export type PopulatedSeedResult = {
   discount_codes_inserted: number;
   publications_inserted: number;
   documents_inserted: number;
+  movements_inserted: number;
   demo_extras: DemoExtrasResult | null;
 };
 
@@ -84,6 +86,7 @@ export async function seedPopulated(
     discount_codes_inserted: 0,
     publications_inserted: 0,
     documents_inserted: 0,
+    movements_inserted: 0,
     demo_extras: null,
   };
 
@@ -152,7 +155,13 @@ export async function seedPopulated(
   //          `lib/sis/seeder/demo-extras.ts`.
   result.demo_extras = await seedDemoExtras(service, testAy);
 
-  // ---- 11. Bust the per-AY drill caches so a freshly-seeded environment
+  // ---- 11. Enrolment movements — synthetic audit_log rows so the
+  //          /records/movements page renders populated demo data.
+  //          Audit-only writes; rosters are not mutated. See
+  //          `lib/sis/seeder/movements.ts`.
+  result.movements_inserted = await seedMovements(service, testAy);
+
+  // ---- 12. Bust the per-AY drill caches so a freshly-seeded environment
   //          renders without waiting for the 60s unstable_cache TTL.
   //          Critical for the Top-absent dashboard tile, which reads from
   //          buildAllRowSets — a stale snapshot would show 0 absences while

@@ -120,6 +120,7 @@ const RECORDS_NAV: NavSection[] = [
     label: "Operations",
     items: [
       { href: "/records/students", label: "Students" },
+      { href: "/records/movements", label: "Movements" },
       // Discount-codes catalogue is config — moved to SIS Admin
       // (2026-04-22). Cross-module link kept here for registrar convenience.
       {

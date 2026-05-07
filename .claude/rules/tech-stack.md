@@ -13,7 +13,7 @@ load: on-demand
 - **Tailwind v4** via `@tailwindcss/postcss` (no JS config) + `tw-animate-css`.
 - **RHF + zod + shadcn `Form`** for submit-based forms; schemas in `lib/schemas/`.
 - **sileo** for toasts via tsconfig path-alias shim (KD #58) — `'sonner'` is rewired in `tsconfig.json::compilerOptions.paths` to resolve to `components/ui/sonner.tsx`, which is a sonner-shaped facade over `sileo`. Call sites still `import { toast } from 'sonner'`. `<Toaster />` mounted once in `app/layout.tsx`.
-- **`@tanstack/react-table`** + **`recharts`** for filterable lists and dashboards.
+- **`@tanstack/react-table`** + **`@tanstack/react-virtual`** + **`recharts`** for filterable lists, virtualized drill sheets, and dashboards. `react-virtual` integrated in `components/dashboard/drill-down-sheet.tsx` via the spacer-row pattern (preserves native `<table>` semantics).
 - **`cmdk`** for the global Cmd+K command palette (`components/ui/command.tsx` is the shadcn-style wrapper; `components/sis/command-palette.tsx` is the wired-up palette mounted in the root layout). Trigger lives in the module-sidebar header + topbar.
 - **`pdf-merger-js`** (server-only) for P-Files upload merge.
 - **`xlsx`** / SheetJS (server-only, trusted registrar input only) for attendance bulk import.
