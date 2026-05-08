@@ -173,6 +173,8 @@ export async function runNotify(
       statusKind,
       expiryDateIso: slotExpiry,
       kind: ctx.kind ?? "renewal",
+      enroleeNumber: ctx.enroleeNumber,
+      ayCode: ctx.ayCode,
     },
     recipients,
   );

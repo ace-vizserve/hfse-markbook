@@ -1,5 +1,7 @@
 import { Resend } from "resend";
 
+import { escapeHtml, renderEmailFrame } from "@/lib/notifications/email-frame";
+
 // Server-only. Best-effort renewal-reminder email to the parent(s) tied
 // to a P-Files document slot. Mirrors the send/dev-redirect pattern of
 // `email-parents-publication.ts` per KD #16 + KD #29.
@@ -26,6 +28,12 @@ export type ReminderContext = {
   statusKind: SlotStatusKind;
   expiryDateIso: string | null; // for expired / expiringSoon
   kind?: ReminderKind; // default 'renewal' for back-compat
+  /** Enrolee number for the AY whose docs slot is being chased. Used to
+   *  build the parent-portal upload deep-link. */
+  enroleeNumber: string;
+  /** AY code in canonical uppercase form (e.g. 'AY2026'). Lower-cased to
+   *  the `ay{YYYY}` URL slug per KD #53 when constructing the deep-link. */
+  ayCode: string;
 };
 
 export type RecipientCandidate = {
@@ -90,18 +98,22 @@ export type RenderedReminder = {
   html: string;
 };
 
+function parentPortalUploadUrl(
+  portalUrl: string,
+  enroleeNumber: string,
+  ayCode: string,
+): string {
+  // Lowercased 4-digit AY slug per KD #53.
+  const ayCodeLower = `ay${ayCode.replace(/^AY/i, "").toLowerCase()}`;
+  return `${portalUrl}/admission/enrolments/application/${encodeURIComponent(enroleeNumber)}?academicYear=${ayCodeLower}`;
+}
+
 export function renderReminder(ctx: ReminderContext): RenderedReminder {
   const portalUrl = process.env.NEXT_PUBLIC_PARENT_PORTAL_URL ?? "https://enrol.hfse.edu.sg";
   const descriptor = statusDescriptor(ctx);
   const kind: ReminderKind = ctx.kind ?? "renewal";
 
-  // Subject branching:
-  //   - 'renewal' (P-Files post-enrolment): emphasises renewal of an
-  //     existing valid document, with the descriptor (expired N days ago /
-  //     expires in N days / etc).
-  //   - 'initial-chase' (Admissions pre-enrolment): emphasises completing
-  //     the application — drops the expiry descriptor (rarely meaningful
-  //     pre-enrolment) in favour of the slot label alone.
+  // Subject branching matches the existing kind split.
   const subject =
     kind === "initial-chase"
       ? `Document follow-up needed: ${ctx.slotLabel} for ${ctx.studentName}`
@@ -110,34 +122,43 @@ export function renderReminder(ctx: ReminderContext): RenderedReminder {
   const sectionLabel =
     ctx.level && ctx.section ? `${ctx.level} ${ctx.section}` : ctx.level ?? ctx.section ?? "";
 
-  const expiryLine = ctx.expiryDateIso
-    ? `<p style="line-height: 1.6; margin: 0 0 12px;">
-         <strong>Document expiry:</strong>
-         <span style="font-family: monospace; color: #475569;">${new Date(ctx.expiryDateIso).toLocaleDateString("en-SG", {
-           year: "numeric",
-           month: "long",
-           day: "numeric",
-         })}</span>
-       </p>`
-    : "";
-
-  // Headline + body branch on kind.
-  //   - renewal: "{slot} {descriptor}" — e.g. "Passport expired 12 days ago".
-  //   - initial-chase: "{slot} required to complete application" — neutral,
-  //     no expiry framing since these slots rarely carry an expiry date.
   const headline =
     kind === "initial-chase"
       ? `${ctx.slotLabel} required to complete application`
       : `${ctx.slotLabel} ${descriptor}`;
 
+  const ctaLabel =
+    kind === "initial-chase"
+      ? `Upload ${ctx.slotLabel} for ${ctx.studentName}`
+      : `Re-upload ${ctx.slotLabel} for ${ctx.studentName}`;
+
+  const ctaHref = parentPortalUploadUrl(portalUrl, ctx.enroleeNumber, ctx.ayCode);
+
+  const expiryLine = ctx.expiryDateIso
+    ? `<p style="font-size:16px;line-height:26px;color:#1d1c1d;margin:0 0 12px;">
+         <strong>Document expiry:</strong>
+         <span style="font-family:monospace;color:#475569;">${escapeHtml(
+           new Date(ctx.expiryDateIso).toLocaleDateString("en-SG", {
+             year: "numeric",
+             month: "long",
+             day: "numeric",
+           }),
+         )}</span>
+       </p>`
+    : "";
+
   const bodyParagraph =
     kind === "initial-chase"
-      ? `Please upload the <strong>${ctx.slotLabel}</strong> for
-         <strong>${ctx.studentName}</strong>${sectionLabel ? ` (${sectionLabel})` : ""}
-         to continue the application. Our records show this document ${descriptor}.`
-      : `Please re-upload the <strong>${ctx.slotLabel}</strong> for
-         <strong>${ctx.studentName}</strong>${sectionLabel ? ` (${sectionLabel})` : ""}.
-         Our records show this document ${descriptor}.`;
+      ? `Please upload the <strong>${escapeHtml(ctx.slotLabel)}</strong> for
+         <strong>${escapeHtml(ctx.studentName)}</strong>${
+           sectionLabel ? ` (${escapeHtml(sectionLabel)})` : ""
+         }
+         to continue the application. Our records show this document ${escapeHtml(descriptor)}.`
+      : `Please re-upload the <strong>${escapeHtml(ctx.slotLabel)}</strong> for
+         <strong>${escapeHtml(ctx.studentName)}</strong>${
+           sectionLabel ? ` (${escapeHtml(sectionLabel)})` : ""
+         }.
+         Our records show this document ${escapeHtml(descriptor)}.`;
 
   const footerParagraph =
     kind === "initial-chase"
@@ -150,34 +171,26 @@ export function renderReminder(ctx: ReminderContext): RenderedReminder {
          details page. If you have already submitted this document, please
          contact the school registrar to confirm receipt.`;
 
-  const stripLabel =
-    kind === "initial-chase" ? "HFSE International School · Admissions" : "HFSE International School · Records";
+  const bodyHtml = `
+    <p style="font-size:16px;line-height:26px;color:#1d1c1d;margin:0 0 16px;">
+      Dear Parent / Guardian,
+    </p>
+    <p style="font-size:16px;line-height:26px;color:#1d1c1d;margin:0 0 16px;">
+      ${bodyParagraph}
+    </p>
+    ${expiryLine}
+  `;
 
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; color: #0F172A;">
-      <p style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #64748B; margin: 0 0 12px;">
-        ${stripLabel}
-      </p>
-      <h1 style="font-size: 22px; margin: 0 0 16px; color: #0F172A;">
-        ${headline}
-      </h1>
-      <p style="line-height: 1.6; margin: 0 0 12px;">
-        Dear Parent / Guardian,
-      </p>
-      <p style="line-height: 1.6; margin: 0 0 12px;">
-        ${bodyParagraph}
-      </p>
-      ${expiryLine}
-      <p style="margin: 24px 0;">
-        <a href="${portalUrl}" style="display: inline-block; background: #4F46E5; color: white; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">
-          Open parent portal
-        </a>
-      </p>
-      <p style="line-height: 1.6; font-size: 13px; color: #64748B; margin: 24px 0 0;">
+  const html = renderEmailFrame({
+    headline,
+    bodyHtml,
+    ctas: [{ label: ctaLabel, href: ctaHref }],
+    reviewLinkHtml: `
+      <p style="font-size:14px;line-height:24px;color:#1d1c1d;margin:0 0 16px;">
         ${footerParagraph}
       </p>
-    </div>
-  `;
+    `,
+  });
 
   return { subject, html };
 }
