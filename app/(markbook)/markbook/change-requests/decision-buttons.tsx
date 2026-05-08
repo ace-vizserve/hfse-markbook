@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,18 +19,60 @@ import { Textarea } from '@/components/ui/textarea';
 
 type Action = 'approve' | 'reject';
 
-export function ChangeRequestDecisionButtons({ requestId }: { requestId: string }) {
+export type ControlledOpenRequest = {
+  action: Action;
+  nonce: string;
+};
+
+export function ChangeRequestDecisionButtons({
+  requestId,
+  controlledOpen,
+  onControlledOpenConsumed,
+}: {
+  requestId: string;
+  controlledOpen?: ControlledOpenRequest | null;
+  onControlledOpenConsumed?: () => void;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [action, setAction] = useState<Action>('approve');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
+  const noteRef = useRef<HTMLTextAreaElement | null>(null);
+  const confirmRef = useRef<HTMLButtonElement | null>(null);
+  const lastNonceRef = useRef<string | null>(null);
 
   function openDialog(next: Action) {
     setAction(next);
     setNote('');
     setOpen(true);
   }
+
+  // Controlled-open: when the parent sets controlledOpen with a fresh
+  // nonce, open the dialog and auto-focus per action. Reject focuses the
+  // textarea because rejectNeedsNote disables the Confirm button until a
+  // note is typed; auto-focusing Confirm would land on a disabled button.
+  useEffect(() => {
+    if (!controlledOpen) return;
+    if (lastNonceRef.current === controlledOpen.nonce) return;
+    lastNonceRef.current = controlledOpen.nonce;
+    openDialog(controlledOpen.action);
+    onControlledOpenConsumed?.();
+  }, [controlledOpen, onControlledOpenConsumed]);
+
+  // After the dialog opens, focus the appropriate control on the next
+  // tick (DialogContent mounts asynchronously inside a portal).
+  useEffect(() => {
+    if (!open) return;
+    const t = window.setTimeout(() => {
+      if (action === 'reject') {
+        noteRef.current?.focus();
+      } else {
+        confirmRef.current?.focus();
+      }
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [open, action]);
 
   const rejectNeedsNote = action === 'reject' && note.trim().length === 0;
 
@@ -100,6 +142,7 @@ export function ChangeRequestDecisionButtons({ requestId }: { requestId: string 
             </FieldLabel>
             <Textarea
               id="decision-note"
+              ref={noteRef}
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder={
@@ -115,6 +158,7 @@ export function ChangeRequestDecisionButtons({ requestId }: { requestId: string 
               Cancel
             </Button>
             <Button
+              ref={confirmRef}
               onClick={() => void submit()}
               disabled={busy || rejectNeedsNote}
               className={action === 'reject' ? 'bg-destructive text-white hover:bg-destructive/90' : ''}>
