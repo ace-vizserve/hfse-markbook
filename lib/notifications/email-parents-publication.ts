@@ -2,6 +2,7 @@ import { Resend } from 'resend';
 import { getParentEmailsForSection } from '@/lib/supabase/admissions';
 import { requireCurrentAyCode } from '@/lib/academic-year';
 import { createServiceClient } from '@/lib/supabase/service';
+import { escapeHtml, renderEmailFrame } from '@/lib/notifications/email-frame';
 
 // Server-only. Sends a "report card published" notification to every unique
 // parent email address linked to the given section. Best-effort: failures
@@ -70,37 +71,38 @@ export async function emailParentsPublication(args: {
   const windowLine = `${new Date(args.publishFrom).toLocaleString('en-SG')} → ${new Date(
     args.publishUntil,
   ).toLocaleString('en-SG')}`;
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; color: #0F172A;">
-      <p style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #64748B; margin: 0 0 12px;">
-        HFSE International School
-      </p>
-      <h1 style="font-size: 22px; margin: 0 0 16px; color: #0F172A;">
-        Your child's report card is available
-      </h1>
-      <p style="line-height: 1.6; margin: 0 0 12px;">
-        Dear Parent,
-      </p>
-      <p style="line-height: 1.6; margin: 0 0 12px;">
-        The ${termLabel} report card for <strong>${sectionLabel}</strong> is now
-        available to view on the HFSE parent portal.
-      </p>
-      <p style="line-height: 1.6; margin: 0 0 20px;">
-        <strong>Viewing window:</strong><br/>
-        <span style="font-family: monospace; color: #475569;">${windowLine}</span>
-      </p>
-      <p style="margin: 24px 0;">
-        <a href="${portalUrl}" style="display: inline-block; background: #4F46E5; color: white; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">
-          Open parent portal
-        </a>
-      </p>
-      <p style="line-height: 1.6; font-size: 13px; color: #64748B; margin: 24px 0 0;">
+
+  const bodyHtml = `
+    <p style="font-size:16px;line-height:26px;color:#1d1c1d;margin:0 0 16px;">
+      Dear Parent,
+    </p>
+    <p style="font-size:16px;line-height:26px;color:#1d1c1d;margin:0 0 16px;">
+      The ${escapeHtml(termLabel)} report card for <strong>${escapeHtml(sectionLabel)}</strong> is now
+      available to view on the HFSE parent portal.
+    </p>
+    <p style="font-size:16px;line-height:26px;color:#1d1c1d;margin:0 0 24px;">
+      <strong>Viewing window:</strong><br/>
+      <span style="font-family:monospace;color:#475569;">${escapeHtml(windowLine)}</span>
+    </p>
+  `;
+
+  const html = renderEmailFrame({
+    headline: "Your child's report card is available",
+    bodyHtml,
+    ctas: [
+      {
+        label: `View ${termLabel} report card`,
+        href: portalUrl,
+      },
+    ],
+    reviewLinkHtml: `
+      <p style="font-size:14px;line-height:24px;color:#1d1c1d;margin:0 0 16px;">
         Sign in at the parent portal with the same email and password you use
         for enrolment. If you have trouble signing in, please contact the
         school registrar.
       </p>
-    </div>
-  `;
+    `,
+  });
   const fromAddress =
     process.env.RESEND_FROM_EMAIL ?? 'HFSE SIS <noreply@hfse.edu.sg>';
 
