@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -42,11 +42,11 @@ export function ChangeRequestDecisionButtons({
   const confirmRef = useRef<HTMLButtonElement | null>(null);
   const lastNonceRef = useRef<string | null>(null);
 
-  function openDialog(next: Action) {
+  const openDialog = useCallback((next: Action) => {
     setAction(next);
     setNote('');
     setOpen(true);
-  }
+  }, []);
 
   // Controlled-open: when the parent sets controlledOpen with a fresh
   // nonce, open the dialog and auto-focus per action. Reject focuses the
@@ -58,7 +58,7 @@ export function ChangeRequestDecisionButtons({
     lastNonceRef.current = controlledOpen.nonce;
     openDialog(controlledOpen.action);
     onControlledOpenConsumed?.();
-  }, [controlledOpen, onControlledOpenConsumed]);
+  }, [controlledOpen, onControlledOpenConsumed, openDialog]);
 
   // After the dialog opens, focus the appropriate control on the next
   // tick (DialogContent mounts asynchronously inside a portal).
