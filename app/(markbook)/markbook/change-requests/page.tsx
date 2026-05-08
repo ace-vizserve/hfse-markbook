@@ -9,7 +9,7 @@ import { ChangeRequestsDataTable, type AdminRequestRow } from './change-requests
 export default async function AdminChangeRequestsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sheet_id?: string }>;
+  searchParams: Promise<{ sheet_id?: string; req?: string; action?: string }>;
 }) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
@@ -19,7 +19,7 @@ export default async function AdminChangeRequestsPage({
   }
   const canDecide = role === 'school_admin' || role === 'superadmin';
 
-  const { sheet_id } = await searchParams;
+  const { sheet_id, req: reqParam, action: actionParam } = await searchParams;
 
   const service = createServiceClient();
 
@@ -103,6 +103,10 @@ export default async function AdminChangeRequestsPage({
         rows={rows}
         canDecide={canDecide}
         initialSheetIdFilter={sheet_id}
+        initialRequestId={reqParam ?? null}
+        initialAction={
+          actionParam === 'approve' || actionParam === 'reject' ? actionParam : null
+        }
       />
     </PageShell>
   );

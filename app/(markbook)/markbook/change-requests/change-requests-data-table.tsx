@@ -2,8 +2,10 @@
 
 import { ArrowUpRight, CalendarIcon, Filter, X } from "lucide-react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import type { DateRange } from "react-day-picker";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -62,15 +64,94 @@ export function ChangeRequestsDataTable({
   rows,
   canDecide,
   initialSheetIdFilter,
+  initialRequestId,
+  initialAction,
 }: {
   rows: AdminRequestRow[];
   canDecide: boolean;
   initialSheetIdFilter?: string;
+  initialRequestId?: string | null;
+  initialAction?: 'approve' | 'reject' | null;
 }) {
   const [status, setStatus] = React.useState<StatusFilter>("all");
   const [range, setRange] = React.useState<DateRange | undefined>(undefined);
   const [rangeOpen, setRangeOpen] = React.useState(false);
   const [sheetIdFilter, setSheetIdFilter] = React.useState<string | null>(initialSheetIdFilter ?? null);
+
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Map of requestId → the controlledOpen request handed to the matching
+  // ChangeRequestDecisionButtons row. Setting an entry causes that row's
+  // dialog to open (with auto-focus per action). Cleared once consumed.
+  const [controlledByRow, setControlledByRow] = React.useState<
+    Record<string, { action: 'approve' | 'reject'; nonce: string }>
+  >({});
+
+  // Run once on mount. If `?req=<id>` is present, find the row and either
+  // open the action dialog (if action is set + status is pending + user
+  // can decide) or just scroll + toast otherwise. Always clear the URL
+  // params after handling so a refresh doesn't re-trigger.
+  React.useEffect(() => {
+    if (!initialRequestId) return;
+
+    const row = rows.find((r) => r.id === initialRequestId);
+
+    if (!row) {
+      toast.error("This request isn't visible in the current view.");
+      clearReqParams();
+      return;
+    }
+
+    // Scroll into view on the next tick so the table has rendered.
+    window.setTimeout(() => {
+      const el = document.getElementById(`change-request-row-${row.id}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 50);
+
+    if (!initialAction) {
+      // Just a review link — no dialog to open. Highlight only.
+      clearReqParams();
+      return;
+    }
+
+    if (row.status !== 'pending') {
+      toast.info(`This request was already ${row.status}.`);
+      clearReqParams();
+      return;
+    }
+
+    if (!canDecide) {
+      toast.error('You do not have permission to decide this request.');
+      clearReqParams();
+      return;
+    }
+
+    setControlledByRow((prev) => ({
+      ...prev,
+      [row.id]: { action: initialAction, nonce: `${row.id}:${Date.now()}` },
+    }));
+    clearReqParams();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function clearReqParams() {
+    const next = new URLSearchParams(searchParams?.toString() ?? '');
+    next.delete('req');
+    next.delete('action');
+    const queryString = next.toString();
+    router.replace(queryString ? `${pathname}?${queryString}` : pathname);
+  }
+
+  function consumeControlledFor(requestId: string) {
+    setControlledByRow((prev) => {
+      if (!(requestId in prev)) return prev;
+      const next = { ...prev };
+      delete next[requestId];
+      return next;
+    });
+  }
 
   const filtered = React.useMemo(() => {
     return rows.filter((r) => {
@@ -210,7 +291,7 @@ export function ChangeRequestsDataTable({
             </TableHeader>
             <TableBody>
               {filtered.map((r) => (
-                <TableRow key={r.id}>
+                <TableRow id={`change-request-row-${r.id}`} key={r.id}>
                   <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                     {new Date(r.requested_at).toLocaleString("en-SG", {
                       dateStyle: "medium",
@@ -252,7 +333,13 @@ export function ChangeRequestsDataTable({
                         Sheet
                         <ArrowUpRight className="size-3" />
                       </Link>
-                      {canDecide && r.status === "pending" && <ChangeRequestDecisionButtons requestId={r.id} />}
+                      {canDecide && r.status === "pending" && (
+                        <ChangeRequestDecisionButtons
+                          requestId={r.id}
+                          controlledOpen={controlledByRow[r.id] ?? null}
+                          onControlledOpenConsumed={() => consumeControlledFor(r.id)}
+                        />
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
