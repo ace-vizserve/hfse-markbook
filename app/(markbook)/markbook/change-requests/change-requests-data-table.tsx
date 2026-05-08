@@ -97,8 +97,9 @@ export function ChangeRequestsDataTable({
     if (!initialRequestId) return;
 
     const row = rows.find((r) => r.id === initialRequestId);
+    const isVisible = row != null && filtered.some((r) => r.id === initialRequestId);
 
-    if (!row) {
+    if (!row || !isVisible) {
       toast.error("This request isn't visible in the current view.");
       clearReqParams();
       return;
@@ -117,7 +118,14 @@ export function ChangeRequestsDataTable({
     }
 
     if (row.status !== 'pending') {
-      toast.info(`This request was already ${row.status}.`);
+      const pastLabel: Record<ChangeRequestStatus, string> = {
+        pending: 'pending',
+        approved: 'approved',
+        applied: 'applied (changes are live)',
+        rejected: 'declined',
+        cancelled: 'cancelled',
+      };
+      toast.info(`This request was already ${pastLabel[row.status]}.`);
       clearReqParams();
       return;
     }
