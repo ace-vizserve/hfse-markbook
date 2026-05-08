@@ -1,3 +1,5 @@
+import "server-only";
+
 import { Resend } from "resend";
 
 import { escapeHtml, renderEmailFrame } from "@/lib/notifications/email-frame";

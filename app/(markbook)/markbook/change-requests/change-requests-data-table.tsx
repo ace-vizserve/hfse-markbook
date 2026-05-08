@@ -78,6 +78,31 @@ export function ChangeRequestsDataTable({
   const [rangeOpen, setRangeOpen] = React.useState(false);
   const [sheetIdFilter, setSheetIdFilter] = React.useState<string | null>(initialSheetIdFilter ?? null);
 
+  const filtered = React.useMemo(() => {
+    return rows.filter((r) => {
+      if (sheetIdFilter && r.grading_sheet_id !== sheetIdFilter) return false;
+      if (status !== "all" && r.status !== status) return false;
+      if (range?.from) {
+        const ts = new Date(r.requested_at).getTime();
+        const from = startOfDay(range.from).getTime();
+        if (ts < from) return false;
+        if (range.to) {
+          const to = endOfDay(range.to).getTime();
+          if (ts > to) return false;
+        }
+      }
+      return true;
+    });
+  }, [rows, status, range, sheetIdFilter]);
+
+  const hasAnyFilter = status !== "all" || range?.from != null || sheetIdFilter != null;
+
+  function clearAll() {
+    setStatus("all");
+    setRange(undefined);
+    setSheetIdFilter(null);
+  }
+
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -159,31 +184,6 @@ export function ChangeRequestsDataTable({
       delete next[requestId];
       return next;
     });
-  }
-
-  const filtered = React.useMemo(() => {
-    return rows.filter((r) => {
-      if (sheetIdFilter && r.grading_sheet_id !== sheetIdFilter) return false;
-      if (status !== "all" && r.status !== status) return false;
-      if (range?.from) {
-        const ts = new Date(r.requested_at).getTime();
-        const from = startOfDay(range.from).getTime();
-        if (ts < from) return false;
-        if (range.to) {
-          const to = endOfDay(range.to).getTime();
-          if (ts > to) return false;
-        }
-      }
-      return true;
-    });
-  }, [rows, status, range, sheetIdFilter]);
-
-  const hasAnyFilter = status !== "all" || range?.from != null || sheetIdFilter != null;
-
-  function clearAll() {
-    setStatus("all");
-    setRange(undefined);
-    setSheetIdFilter(null);
   }
 
   return (

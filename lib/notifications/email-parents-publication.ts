@@ -1,3 +1,5 @@
+import "server-only";
+
 import { Resend } from 'resend';
 import { getParentEmailsForSection } from '@/lib/supabase/admissions';
 import { requireCurrentAyCode } from '@/lib/academic-year';
