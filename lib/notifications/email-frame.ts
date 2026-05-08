@@ -25,6 +25,9 @@ const COLOR_HAIRLINE = "#eaeaea";
 export type EmailCta = {
   label: string;
   href: string;
+  /** Defaults to `'primary'` when omitted. `'primary'` and `'destructive'`
+   *  render as buttons (side-by-side when more than one); `'secondary-text'`
+   *  renders as a centered text link below the button row. */
   variant?: "primary" | "destructive" | "secondary-text";
 };
 
@@ -51,10 +54,18 @@ export function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
+// Encode the two characters that matter inside an HTML attribute value.
+// HTML spec requires `&` to be `&amp;` in attribute values; Outlook's
+// strict parser misparses query-string ampersands without it. We also
+// encode `"` so a stray quote in the URL can't close the attribute.
+function safeHref(url: string): string {
+  return url.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+}
+
 function renderButton(cta: EmailCta): string {
   const bg = cta.variant === "destructive" ? COLOR_DESTRUCTIVE : COLOR_PRIMARY;
   return `
-    <a href="${cta.href}" style="background:${bg};color:white;padding:14px 24px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:600;display:inline-block;">
+    <a href="${safeHref(cta.href)}" style="background:${bg};color:white;padding:14px 24px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:600;display:inline-block;">
       ${escapeHtml(cta.label)}
     </a>
   `;
@@ -94,7 +105,7 @@ function renderCtas(ctas: EmailCta[]): string {
     .map(
       (t) => `
         <p style="text-align:center;font-size:14px;line-height:24px;margin:0 0 16px;">
-          <a href="${t.href}" style="color:${COLOR_PRIMARY};text-decoration:underline;">
+          <a href="${safeHref(t.href)}" style="color:${COLOR_PRIMARY};text-decoration:underline;">
             ${escapeHtml(t.label)}
           </a>
         </p>
