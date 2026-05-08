@@ -40,6 +40,13 @@ async function main() {
     process.exit(1);
   }
 
+  if (!process.env.NEXT_PUBLIC_SIS_URL) {
+    console.error(
+      "NEXT_PUBLIC_SIS_URL missing — change-request CTA buttons will be broken relative URLs. Set it in .env.local (any value works for visual, e.g. http://localhost:3000) before running this script.",
+    );
+    process.exit(1);
+  }
+
   const resend = new Resend(apiKey);
   const from = process.env.RESEND_FROM_EMAIL ?? "HFSE SIS <noreply@hfse.edu.sg>";
 
