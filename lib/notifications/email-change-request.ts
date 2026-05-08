@@ -1,12 +1,17 @@
 import { Resend } from 'resend';
 
+import { escapeHtml, renderEmailFrame } from '@/lib/notifications/email-frame';
+
 // Server-only. Four email notifications for the change-request workflow.
 // All functions are best-effort: they silently no-op when RESEND_API_KEY is
 // unset, and per-recipient errors are logged but never thrown. The workflow
 // state machine is the source of truth; email is a courtesy nudge.
 //
-// Templates are kept simple on purpose — Chandana and teachers already see
-// full context in-app, the email just tells them "go look at the app."
+// CTAs deep-link to /markbook/change-requests?req=<id>[&action=...]; the
+// page reads the params, scrolls to the row and (for the approver email)
+// auto-opens the decision dialog. Absolute URLs require NEXT_PUBLIC_SIS_URL;
+// when unset the build still ships but the buttons render relative URLs that
+// most email clients won't navigate from. Logged via console.warn at render.
 
 type RequestSummary = {
   id: string;
@@ -23,6 +28,19 @@ type RequestSummary = {
   student_label?: string | null;
   sheet_label?: string | null;
 };
+
+function changeRequestUrl(requestId: string, action?: 'approve' | 'reject'): string {
+  const base = process.env.NEXT_PUBLIC_SIS_URL;
+  if (!base) {
+    console.warn(
+      '[notify] NEXT_PUBLIC_SIS_URL unset — change-request email CTAs will use relative URLs and may not navigate from email clients',
+    );
+  }
+  const origin = base ?? '';
+  const path = `/markbook/change-requests?req=${encodeURIComponent(requestId)}`;
+  const suffix = action ? `&action=${action}` : '';
+  return `${origin}${path}${suffix}`;
+}
 
 function getTransport(): { resend: Resend; from: string } | null {
   const apiKey = process.env.RESEND_API_KEY;
@@ -62,21 +80,6 @@ async function sendAll(
   return { sent, failed };
 }
 
-function baseFrame(title: string, bodyHtml: string): string {
-  return `
-    <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; color: #0F172A;">
-      <p style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #64748B; margin: 0 0 12px;">
-        HFSE International School · Markbook
-      </p>
-      <h1 style="font-size: 20px; margin: 0 0 16px; color: #0F172A;">${title}</h1>
-      ${bodyHtml}
-      <p style="line-height: 1.6; font-size: 12px; color: #64748B; margin: 24px 0 0;">
-        This is an automated notification from the HFSE SIS.
-      </p>
-    </div>
-  `;
-}
-
 function summaryTable(req: RequestSummary): string {
   const rows: Array<[string, string]> = [
     ['Sheet', req.sheet_label ?? '(sheet)'],
@@ -94,7 +97,7 @@ function summaryTable(req: RequestSummary): string {
           ([label, value]) => `
         <tr>
           <td style="padding: 6px 12px 6px 0; color: #64748B; width: 140px; vertical-align: top;">${label}</td>
-          <td style="padding: 6px 0; color: #0F172A;">${escapeHtml(value)}</td>
+          <td style="padding: 6px 0; color: #1d1c1d;">${escapeHtml(value)}</td>
         </tr>`,
         )
         .join('')}
@@ -102,17 +105,9 @@ function summaryTable(req: RequestSummary): string {
   `;
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
 // Fired on: POST /api/change-requests (teacher files a request)
-// Recipients: all admin users (Chandana + superadmins).
+// Recipients: the request's primary + secondary approvers (per KD #41).
+// Has 2 primary buttons (Approve navy, Reject red) + 1 secondary text link.
 export async function notifyRequestFiled(
   req: RequestSummary,
   approverEmails: string[],
@@ -121,24 +116,35 @@ export async function notifyRequestFiled(
   if (!t || approverEmails.length === 0) return { sent: 0, failed: 0 };
 
   const subject = `New grade change request — ${req.student_label ?? 'student'}`;
-  const html = baseFrame(
-    'New grade change request',
-    `
-      <p style="line-height: 1.6; margin: 0 0 8px;">
-        A teacher has filed a request to edit a locked grading sheet. Please review it in the SIS.
-      </p>
-      ${summaryTable(req)}
-      <p style="line-height: 1.6; margin: 0 0 8px;">
-        <strong>Justification:</strong><br/>
-        <span style="color: #475569;">${escapeHtml(req.justification)}</span>
-      </p>
-    `,
-  );
+  const bodyHtml = `
+    <p style="font-size:16px;line-height:26px;color:#1d1c1d;margin:0 0 16px;">
+      A teacher has filed a request to edit a locked grading sheet.
+    </p>
+    ${summaryTable(req)}
+    <p style="font-size:16px;line-height:26px;color:#1d1c1d;margin:0 0 16px;">
+      <strong>Justification:</strong><br/>
+      <span style="color:#475569;">${escapeHtml(req.justification)}</span>
+    </p>
+  `;
+  const html = renderEmailFrame({
+    headline: 'New grade change request',
+    bodyHtml,
+    ctas: [
+      { label: 'Approve', href: changeRequestUrl(req.id, 'approve'), variant: 'primary' },
+      { label: 'Reject', href: changeRequestUrl(req.id, 'reject'), variant: 'destructive' },
+      {
+        label: 'To review the request, click here',
+        href: changeRequestUrl(req.id),
+        variant: 'secondary-text',
+      },
+    ],
+  });
+
   return sendAll(t.resend, t.from, approverEmails, subject, html);
 }
 
 // Fired on: PATCH approve
-// Recipients: the teacher who filed it + all registrar users (Joann).
+// Recipients: the teacher who filed it + all registrar users.
 export async function notifyRequestApproved(
   req: RequestSummary,
   teacherEmail: string,
@@ -151,22 +157,24 @@ export async function notifyRequestApproved(
   if (recipients.length === 0) return { sent: 0, failed: 0 };
 
   const subject = `Grade change approved — ${req.student_label ?? 'student'}`;
-  const html = baseFrame(
-    'Grade change request approved',
-    `
-      <p style="line-height: 1.6; margin: 0 0 8px;">
-        Your grade change request has been approved by
-        <strong>${escapeHtml(req.reviewed_by_email ?? 'an administrator')}</strong>.
-        The registrar will apply it shortly.
-      </p>
-      ${summaryTable(req)}
-      ${
-        req.decision_note
-          ? `<p style="line-height: 1.6; margin: 0 0 8px;"><strong>Note:</strong> ${escapeHtml(req.decision_note)}</p>`
-          : ''
-      }
-    `,
-  );
+  const bodyHtml = `
+    <p style="font-size:16px;line-height:26px;color:#1d1c1d;margin:0 0 16px;">
+      Your grade change request has been approved by
+      <strong>${escapeHtml(req.reviewed_by_email ?? 'an administrator')}</strong>.
+      The registrar will apply it shortly.
+    </p>
+    ${summaryTable(req)}
+    ${
+      req.decision_note
+        ? `<p style="font-size:16px;line-height:26px;color:#1d1c1d;margin:0 0 16px;"><strong>Note:</strong> ${escapeHtml(req.decision_note)}</p>`
+        : ''
+    }
+  `;
+  const html = renderEmailFrame({
+    headline: 'Grade change request approved',
+    bodyHtml,
+    ctas: [{ label: 'View approved request', href: changeRequestUrl(req.id) }],
+  });
   return sendAll(t.resend, t.from, recipients, subject, html);
 }
 
@@ -180,25 +188,27 @@ export async function notifyRequestRejected(
   if (!t || !teacherEmail) return { sent: 0, failed: 0 };
 
   const subject = `Grade change request declined — ${req.student_label ?? 'student'}`;
-  const html = baseFrame(
-    'Grade change request declined',
-    `
-      <p style="line-height: 1.6; margin: 0 0 8px;">
-        Your grade change request was declined by
-        <strong>${escapeHtml(req.reviewed_by_email ?? 'an administrator')}</strong>.
-      </p>
-      ${summaryTable(req)}
-      <p style="line-height: 1.6; margin: 0 0 8px;">
-        <strong>Reason given:</strong><br/>
-        <span style="color: #475569;">${escapeHtml(req.decision_note ?? '(no reason provided)')}</span>
-      </p>
-    `,
-  );
+  const bodyHtml = `
+    <p style="font-size:16px;line-height:26px;color:#1d1c1d;margin:0 0 16px;">
+      Your grade change request was declined by
+      <strong>${escapeHtml(req.reviewed_by_email ?? 'an administrator')}</strong>.
+    </p>
+    ${summaryTable(req)}
+    <p style="font-size:16px;line-height:26px;color:#1d1c1d;margin:0 0 16px;">
+      <strong>Reason given:</strong><br/>
+      <span style="color:#475569;">${escapeHtml(req.decision_note ?? '(no reason provided)')}</span>
+    </p>
+  `;
+  const html = renderEmailFrame({
+    headline: 'Grade change request declined',
+    bodyHtml,
+    ctas: [{ label: 'View declined request', href: changeRequestUrl(req.id) }],
+  });
   return sendAll(t.resend, t.from, [teacherEmail], subject, html);
 }
 
 // Fired on: PATCH entries (Path A) with change_request_id.
-// Recipients: the teacher + any approver emails provided (Chandana FYI).
+// Recipients: the teacher + any approver emails provided.
 export async function notifyRequestApplied(
   req: RequestSummary,
   teacherEmail: string,
@@ -211,14 +221,16 @@ export async function notifyRequestApplied(
   if (recipients.length === 0) return { sent: 0, failed: 0 };
 
   const subject = `Grade change applied — ${req.student_label ?? 'student'}`;
-  const html = baseFrame(
-    'Grade change applied',
-    `
-      <p style="line-height: 1.6; margin: 0 0 8px;">
-        An approved grade change has been applied to the locked sheet.
-      </p>
-      ${summaryTable(req)}
-    `,
-  );
+  const bodyHtml = `
+    <p style="font-size:16px;line-height:26px;color:#1d1c1d;margin:0 0 16px;">
+      An approved grade change has been applied to the locked sheet.
+    </p>
+    ${summaryTable(req)}
+  `;
+  const html = renderEmailFrame({
+    headline: 'Grade change applied',
+    bodyHtml,
+    ctas: [{ label: 'View applied change', href: changeRequestUrl(req.id) }],
+  });
   return sendAll(t.resend, t.from, recipients, subject, html);
 }
