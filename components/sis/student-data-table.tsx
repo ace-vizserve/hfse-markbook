@@ -31,7 +31,7 @@ import * as React from "react";
 
 import { SisEmptyState } from "@/components/sis/empty-state";
 
-import { ApplicationStatusBadge } from "@/components/sis/status-badge";
+import { ApplicationStatusBadge } from "@/components/ui/application-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";

@@ -18,25 +18,6 @@ import { Badge, type BadgeProps } from '@/components/ui/badge';
 
 type StatusVariant = NonNullable<BadgeProps['variant']>;
 
-const APPLICATION_VARIANT: Record<string, StatusVariant> = {
-  Submitted: 'default',
-  'Ongoing Verification': 'default',
-  Processing: 'default',
-  Enrolled: 'success',
-  'Enrolled (Conditional)': 'warning',
-  Withdrawn: 'muted',
-  Cancelled: 'blocked',
-};
-
-export function ApplicationStatusBadge({ status }: { status: string | null | undefined }) {
-  const v = (status ?? '').trim();
-  if (!v) {
-    return <Badge variant="outline">Unknown</Badge>;
-  }
-  const variant = APPLICATION_VARIANT[v] ?? 'muted';
-  return <Badge variant={variant}>{v}</Badge>;
-}
-
 const STAGE_VARIANT: Record<string, StatusVariant> = {
   // Healthy / done states
   Finished: 'success',
