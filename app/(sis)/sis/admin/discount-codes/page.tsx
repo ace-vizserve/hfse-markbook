@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, CalendarClock, CalendarRange, Check, Tag, Table2, X } from 'lucide-react';
 
 import { AySwitcher } from '@/components/admissions/ay-switcher';
-import { DiscountCodeStatusBadge } from '@/components/sis/discount-code-status-badge';
+import { DiscountCodeStatusBadge, classifyCodeStatus } from '@/components/ui/discount-code-status-badge';
 import { DiscountCodeRowActions } from '@/components/sis/discount-code-row-actions';
 import { NewDiscountCodeButton } from '@/components/sis/edit-discount-code-dialog';
 import { SisEmptyState } from '@/components/sis/empty-state';
@@ -231,7 +231,7 @@ export default async function SisDiscountCodesPage({
                       </span>
                     </TableCell>
                     <TableCell>
-                      <DiscountCodeStatusBadge startDate={c.startDate} endDate={c.endDate} />
+                      <DiscountCodeStatusBadge status={classifyCodeStatus(c.startDate, c.endDate)} />
                     </TableCell>
                     <TableCell className="max-w-md">
                       {c.details ? (
