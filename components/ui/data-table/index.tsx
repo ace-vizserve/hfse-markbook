@@ -51,6 +51,7 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
     getRowId,
     searchKeys,
     searchPlaceholder = 'Search…',
+    initialSearch,
     facets = [],
     statusTabs,
     meScope,
@@ -75,7 +76,7 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
   const defaultStatus = statusTabs?.find((t) => t.isDefault)?.value ?? statusTabs?.[0]?.value;
   const [statusTab, setStatusTab] = useState<string | undefined>(initial.status ?? defaultStatus);
   const [mineActive, setMineActive] = useState<boolean>(Boolean(initial.mine && meScope?.userId));
-  const [search, setSearch] = useState<string>(initial.search ?? '');
+  const [search, setSearch] = useState<string>(initial.search ?? initialSearch ?? '');
   const [sorting, setSorting] = useState<SortingState>(initialSort);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(initialColumnVisibility);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(

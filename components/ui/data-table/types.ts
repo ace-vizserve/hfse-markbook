@@ -55,6 +55,9 @@ export type DataTableProps<TRow> = {
 
   searchKeys?: Array<keyof TRow | ((row: TRow) => string)>;
   searchPlaceholder?: string;
+  /** Seed value for the search input when no URL `?q=` param is present.
+   *  Used for server-driven deep-links (e.g. open pre-filtered to a section). */
+  initialSearch?: string;
 
   facets?: FacetConfig[];
   statusTabs?: Array<StatusTabConfig<TRow>>;
