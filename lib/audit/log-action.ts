@@ -89,6 +89,7 @@ export type AuditAction =
   | 'template.apply'
   | 'school_config.update'
   | 'user.invite'
+  | 'user.create'
   | 'user.role.update'
   | 'user.disable'
   | 'user.enable'

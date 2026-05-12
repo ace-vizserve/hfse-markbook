@@ -1,6 +1,17 @@
 "use client";
 
-import { Ban, CheckCircle2, Loader2, Mail, Shield, UserPlus, Users } from "lucide-react";
+import {
+  Ban,
+  CheckCircle2,
+  Copy,
+  KeyRound,
+  Loader2,
+  Mail,
+  RefreshCw,
+  Shield,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -21,6 +32,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TABLE_COPY } from "@/lib/copy/data-table";
 import { ROLES, type Role } from "@/lib/auth/roles";
 import type { AdminUserRow } from "@/lib/sis/users/queries";
@@ -271,6 +283,34 @@ export function UsersAdminClient({ users, currentUserId }: { users: AdminUserRow
 
 // ─── Invite dialog ────────────────────────────────────────────────────────────
 
+type ProvisionMode = "create" | "invite";
+
+// Crypto-strong random password generator. 16 chars from a curated set
+// excluding visually-confusable glyphs (no 0/O, 1/l/I). Mix of upper +
+// lower + digit guaranteed by construction.
+function generatePassword(): string {
+  const upper = "ABCDEFGHJKMNPQRSTUVWXYZ";
+  const lower = "abcdefghijkmnpqrstuvwxyz";
+  const digit = "23456789";
+  const all = upper + lower + digit;
+  const buf = new Uint32Array(16);
+  crypto.getRandomValues(buf);
+  // Guarantee one from each category in the first 3 chars, fill the rest
+  // from the full pool. Order doesn't matter — the random fill scrambles.
+  const out: string[] = [
+    upper[buf[0] % upper.length],
+    lower[buf[1] % lower.length],
+    digit[buf[2] % digit.length],
+  ];
+  for (let i = 3; i < buf.length; i++) out.push(all[buf[i] % all.length]);
+  // Light shuffle so the category-anchored prefix isn't predictable.
+  return out
+    .map((ch) => ({ ch, k: Math.random() }))
+    .sort((a, b) => a.k - b.k)
+    .map((x) => x.ch)
+    .join("");
+}
+
 function InviteUserDialog({
   open,
   onOpenChange,
@@ -279,61 +319,130 @@ function InviteUserDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const router = useRouter();
+  const [mode, setMode] = useState<ProvisionMode>("create");
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [role, setRole] = useState<Role>("teacher");
+  const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
 
+  function resetForm() {
+    setEmail("");
+    setDisplayName("");
+    setRole("teacher");
+    setPassword("");
+    setMode("create");
+  }
+
+  function fillPassword() {
+    const p = generatePassword();
+    setPassword(p);
+    void navigator.clipboard?.writeText(p).then(
+      () => toast.success("Password generated + copied to clipboard"),
+      () => toast.success("Password generated. Copy it before submitting."),
+    );
+  }
+
+  async function copyPassword() {
+    if (!password) return;
+    try {
+      await navigator.clipboard.writeText(password);
+      toast.success("Password copied");
+    } catch {
+      toast.error("Couldn't copy — select + copy manually");
+    }
+  }
+
   async function submit() {
-    const trimmed = email.trim().toLowerCase();
-    if (!trimmed || !trimmed.includes("@")) {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
       toast.error("Valid email required");
+      return;
+    }
+    if (mode === "create" && password.length < 8) {
+      toast.error("Password must be at least 8 characters");
       return;
     }
     setSaving(true);
     try {
+      const payload: Record<string, unknown> = {
+        mode,
+        email: trimmedEmail,
+        role,
+        displayName: displayName.trim() || undefined,
+      };
+      if (mode === "create") payload.password = password;
       const res = await fetch("/api/sis/admin/users", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          email: trimmed,
-          role,
-          displayName: displayName.trim() || undefined,
-        }),
+        body: JSON.stringify(payload),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body?.error ?? "invite failed");
-      toast.success(`Invite sent to ${trimmed}`);
+      if (!res.ok) throw new Error(body?.error ?? "user provisioning failed");
+      toast.success(
+        mode === "create"
+          ? `Account created for ${trimmedEmail}. Share the password securely.`
+          : `Invite sent to ${trimmedEmail}`,
+      );
       onOpenChange(false);
-      setEmail("");
-      setDisplayName("");
-      setRole("teacher");
+      resetForm();
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "invite failed");
+      toast.error(e instanceof Error ? e.message : "user provisioning failed");
     } finally {
       setSaving(false);
     }
   }
 
+  const headerIcon = mode === "create" ? KeyRound : Mail;
+  const HeaderIcon = headerIcon;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o && !saving) resetForm();
+        onOpenChange(o);
+      }}>
       <DialogTrigger asChild>
         <Button size="sm" className="gap-1.5">
           <UserPlus className="size-3.5" />
-          Invite user
+          New user
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[440px]">
+      <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Mail className="size-4 text-primary" /> Invite user
+          <DialogTitle className="flex items-center gap-2 font-serif text-lg">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
+              <HeaderIcon className="size-4" />
+            </div>
+            New staff user
           </DialogTitle>
           <DialogDescription>
-            Sends a magic-link invitation. The invitee signs in once with the link; their role is assigned immediately
-            on the account.
+            Pick how the account gets activated. Both paths set the role
+            immediately; the difference is whether the user picks their own
+            password or you set one upfront.
           </DialogDescription>
         </DialogHeader>
+
+        <Tabs value={mode} onValueChange={(v) => setMode(v as ProvisionMode)}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="create" className="gap-1.5">
+              <KeyRound className="size-3.5" />
+              Create directly
+            </TabsTrigger>
+            <TabsTrigger value="invite" className="gap-1.5">
+              <Mail className="size-3.5" />
+              Send invite
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          {mode === "create"
+            ? "Account is active immediately with the password you set below. Email verification is bypassed — share the password with the user out-of-band (Slack, in-person)."
+            : "Sends a magic-link to the email address. The user clicks the link, sets their own password, and the account activates on first sign-in."}
+        </p>
 
         <div className="space-y-4">
           <div className="space-y-1.5">
@@ -376,15 +485,72 @@ function InviteUserDialog({
               </SelectContent>
             </Select>
           </div>
+          {mode === "create" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="invite-password">
+                <span className="inline-flex items-center gap-1.5">
+                  <KeyRound className="size-3.5" /> Initial password
+                </span>
+              </Label>
+              <div className="flex gap-1.5">
+                <Input
+                  id="invite-password"
+                  type="text"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Set a strong password"
+                  className="font-mono tabular-nums"
+                  minLength={8}
+                  maxLength={72}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={fillPassword}
+                  title="Generate strong password + copy">
+                  <RefreshCw className="size-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={copyPassword}
+                  disabled={!password}
+                  title="Copy current password">
+                  <Copy className="size-3.5" />
+                </Button>
+              </div>
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                Minimum 8 characters. Generated passwords avoid 0/O/1/l/I to reduce
+                share-out errors. The user can change it after first login.
+              </p>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
-          <Button type="button" onClick={submit} disabled={saving || !email}>
-            {saving ? <Loader2 className="size-3.5 animate-spin" /> : <UserPlus className="size-3.5" />}
-            {saving ? "Inviting…" : "Send invite"}
+          <Button
+            type="button"
+            onClick={submit}
+            disabled={saving || !email || (mode === "create" && password.length < 8)}>
+            {saving ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : mode === "create" ? (
+              <KeyRound className="size-3.5" />
+            ) : (
+              <Mail className="size-3.5" />
+            )}
+            {saving
+              ? mode === "create"
+                ? "Creating…"
+                : "Inviting…"
+              : mode === "create"
+                ? "Create account"
+                : "Send invite"}
           </Button>
         </DialogFooter>
       </DialogContent>
