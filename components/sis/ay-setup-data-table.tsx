@@ -1,6 +1,14 @@
 'use client';
 
-import { CalendarRange, FilePlus2, RefreshCw, Trash2, UserCheck } from 'lucide-react';
+import { useState } from 'react';
+import {
+  CalendarRange,
+  FilePlus2,
+  MoreHorizontal,
+  RefreshCw,
+  Trash2,
+  UserCheck,
+} from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 
 import { AyAcceptingApplicationsToggle } from '@/components/sis/ay-accepting-applications-toggle';
@@ -11,6 +19,13 @@ import { CopyTeacherAssignmentsDialog } from '@/components/sis/copy-teacher-assi
 import { TermDatesEditor } from '@/components/sis/term-dates-editor';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { TABLE_COPY } from '@/lib/copy/data-table';
 import type { AcademicYearListItem, TermRow } from '@/lib/sis/ay-setup/queries';
@@ -145,8 +160,25 @@ function AyRowActions({ row }: { row: AyTableRow }) {
       : `${termsWithDates}/${termsTotal} set`;
   const datesIncomplete = termsTotal > 0 && termsWithDates < termsTotal;
 
+  // Pain-point: a fully-populated row used to show up to 6 controls.
+  // Now: keep high-signal items inline (Dates chip carries status,
+  // Switch is a state toggle), collapse the rare/configurational
+  // actions into a single ⋯ More dropdown. Dialogs are rendered
+  // separately and orchestrated via controlled `open` state so the
+  // dropdown can close cleanly without unmounting the open dialog.
+  const [openDialog, setOpenDialog] = useState<
+    null | 'copy' | 'generate' | 'switch' | 'delete'
+  >(null);
+
+  const canCopy = row.otherAys.length > 0;
+  const canGenerate = row.counts.subject_configs > 0 && row.counts.sections > 0;
+  const canSwitch = !row.is_current;
+  const canDelete = row.role === 'superadmin';
+  const hasMoreActions = canCopy || canGenerate || canSwitch || canDelete;
+
   return (
-    <div className="flex flex-wrap justify-end gap-2">
+    <div className="flex items-center justify-end gap-2">
+      {/* Inline: Dates editor with at-a-glance status */}
       <TermDatesEditor ayCode={row.ay_code} ayLabel={row.label} terms={terms}>
         <Button
           size="sm"
@@ -158,50 +190,103 @@ function AyRowActions({ row }: { row: AyTableRow }) {
           <span className="ml-1 font-mono text-[10px] tabular-nums opacity-80">{datesStatus}</span>
         </Button>
       </TermDatesEditor>
-      {row.otherAys.length > 0 && (
-        <CopyTeacherAssignmentsDialog targetAyCode={row.ay_code} sourceOptions={row.otherAys}>
-          <Button size="sm" variant="outline" title={TABLE_COPY.copyTeacherAssignments}>
-            <UserCheck />
-            Copy teachers
-          </Button>
-        </CopyTeacherAssignmentsDialog>
-      )}
-      {row.counts.subject_configs > 0 && row.counts.sections > 0 && (
-        <GenerateSheetsDialog scope={{ kind: 'ay', ayId: row.id, ayCode: row.ay_code }}>
-          <Button
-            size="sm"
-            variant="outline"
-            title={TABLE_COPY.createGradingSheets}
-          >
-            <FilePlus2 />
-            Generate sheets
-          </Button>
-        </GenerateSheetsDialog>
-      )}
+
+      {/* Inline: Early-bird applications Switch (state toggle, not an action) */}
       <AyAcceptingApplicationsToggle
         ayCode={row.ay_code}
         current={row.accepting_applications}
         isCurrentAy={row.is_current}
       />
-      {!row.is_current && (
-        <AySwitchActiveDialog targetAyCode={row.ay_code} currentAyCode={row.activeAyCode}>
-          <Button size="sm" variant="outline" title={TABLE_COPY.setAsCurrentAy}>
-            <RefreshCw />
-            Switch active
-          </Button>
-        </AySwitchActiveDialog>
+
+      {/* Dropdown: rare / scope-changing / destructive actions */}
+      {hasMoreActions && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="size-8 p-0"
+              aria-label={`More actions for ${row.ay_code}`}
+            >
+              <MoreHorizontal className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-[200px]">
+            {canCopy && (
+              <DropdownMenuItem onSelect={() => setOpenDialog('copy')}>
+                <UserCheck className="size-4" />
+                {TABLE_COPY.copyTeacherAssignments}
+              </DropdownMenuItem>
+            )}
+            {canGenerate && (
+              <DropdownMenuItem onSelect={() => setOpenDialog('generate')}>
+                <FilePlus2 className="size-4" />
+                {TABLE_COPY.createGradingSheets}
+              </DropdownMenuItem>
+            )}
+            {canSwitch && (
+              <>
+                {(canCopy || canGenerate) && <DropdownMenuSeparator />}
+                <DropdownMenuItem onSelect={() => setOpenDialog('switch')}>
+                  <RefreshCw className="size-4" />
+                  {TABLE_COPY.setAsCurrentAy}
+                </DropdownMenuItem>
+              </>
+            )}
+            {canDelete && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => setOpenDialog('delete')}
+                  className="text-destructive focus:text-destructive"
+                  title={
+                    row.blockers.length > 0
+                      ? `Cannot delete: ${row.blockers.join(', ')}`
+                      : undefined
+                  }
+                >
+                  <Trash2 className="size-4" />
+                  Delete AY
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
-      {row.role === 'superadmin' && (
-        <AyDeleteDialog ayCode={row.ay_code} blockers={row.blockers}>
-          <Button
-            size="sm"
-            variant="destructive"
-            title={row.blockers.length > 0 ? `Cannot delete: ${row.blockers.join(', ')}` : undefined}
-          >
-            <Trash2 />
-            Delete
-          </Button>
-        </AyDeleteDialog>
+
+      {/* Controlled dialogs — rendered outside the dropdown so they survive
+          the menu's close-on-select. Each dialog is mounted only when its
+          slot is active, which avoids needless React subtree churn. */}
+      {canCopy && (
+        <CopyTeacherAssignmentsDialog
+          targetAyCode={row.ay_code}
+          sourceOptions={row.otherAys}
+          open={openDialog === 'copy'}
+          onOpenChange={(o) => setOpenDialog(o ? 'copy' : null)}
+        />
+      )}
+      {canGenerate && (
+        <GenerateSheetsDialog
+          scope={{ kind: 'ay', ayId: row.id, ayCode: row.ay_code }}
+          open={openDialog === 'generate'}
+          onOpenChange={(o) => setOpenDialog(o ? 'generate' : null)}
+        />
+      )}
+      {canSwitch && (
+        <AySwitchActiveDialog
+          targetAyCode={row.ay_code}
+          currentAyCode={row.activeAyCode}
+          open={openDialog === 'switch'}
+          onOpenChange={(o) => setOpenDialog(o ? 'switch' : null)}
+        />
+      )}
+      {canDelete && (
+        <AyDeleteDialog
+          ayCode={row.ay_code}
+          blockers={row.blockers}
+          open={openDialog === 'delete'}
+          onOpenChange={(o) => setOpenDialog(o ? 'delete' : null)}
+        />
       )}
     </div>
   );

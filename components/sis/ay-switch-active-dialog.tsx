@@ -22,12 +22,26 @@ import { Label } from '@/components/ui/label';
 type Props = {
   targetAyCode: string;
   currentAyCode: string | null;
-  children: ReactNode;
+  children?: ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
-export function AySwitchActiveDialog({ targetAyCode, currentAyCode, children }: Props) {
+export function AySwitchActiveDialog({
+  targetAyCode,
+  currentAyCode,
+  children,
+  open: openProp,
+  onOpenChange,
+}: Props) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : internalOpen;
+  const setOpen = (next: boolean) => {
+    if (!isControlled) setInternalOpen(next);
+    onOpenChange?.(next);
+  };
   const [confirm, setConfirm] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -64,7 +78,7 @@ export function AySwitchActiveDialog({ targetAyCode, currentAyCode, children }: 
         if (!next) setConfirm('');
       }}
     >
-      <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
+      {children && <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>}
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Switch active AY to {targetAyCode}?</AlertDialogTitle>

@@ -23,12 +23,26 @@ type Props = {
   ayCode: string;
   /** Pre-computed blockers; empty array means the delete is allowed. */
   blockers: string[];
-  children: ReactNode;
+  children?: ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
-export function AyDeleteDialog({ ayCode, blockers, children }: Props) {
+export function AyDeleteDialog({
+  ayCode,
+  blockers,
+  children,
+  open: openProp,
+  onOpenChange,
+}: Props) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : internalOpen;
+  const setOpen = (next: boolean) => {
+    if (!isControlled) setInternalOpen(next);
+    onOpenChange?.(next);
+  };
   const [confirm, setConfirm] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -66,7 +80,7 @@ export function AyDeleteDialog({ ayCode, blockers, children }: Props) {
         if (!next) setConfirm('');
       }}
     >
-      <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
+      {children && <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>}
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete {ayCode}?</AlertDialogTitle>

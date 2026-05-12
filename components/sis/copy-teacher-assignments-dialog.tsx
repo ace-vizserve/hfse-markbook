@@ -32,13 +32,23 @@ export function CopyTeacherAssignmentsDialog({
   targetAyCode,
   sourceOptions,
   children,
+  open: openProp,
+  onOpenChange,
 }: {
   targetAyCode: string;
   sourceOptions: Array<{ ayCode: string; label: string }>;
-  children: React.ReactNode;
+  children?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : internalOpen;
+  const setOpen = (next: boolean) => {
+    if (!isControlled) setInternalOpen(next);
+    onOpenChange?.(next);
+  };
   const [sourceAy, setSourceAy] = useState(sourceOptions[0]?.ayCode ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<null | {
@@ -87,9 +97,11 @@ export function CopyTeacherAssignmentsDialog({
         if (next) setResult(null);
       }}
     >
-      <DialogTrigger asChild>
-        <span>{children}</span>
-      </DialogTrigger>
+      {children && (
+        <DialogTrigger asChild>
+          <span>{children}</span>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

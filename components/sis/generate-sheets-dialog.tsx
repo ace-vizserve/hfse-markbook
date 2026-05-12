@@ -35,13 +35,23 @@ type Scope =
 export function GenerateSheetsDialog({
   scope,
   children,
+  open: openProp,
+  onOpenChange,
 }: {
   scope: Scope;
   children?: ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : internalOpen;
+  const setOpen = (next: boolean) => {
+    if (!isControlled) setInternalOpen(next);
+    onOpenChange?.(next);
+  };
 
   async function run() {
     setBusy(true);
@@ -111,7 +121,9 @@ export function GenerateSheetsDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger asChild>{children ?? defaultTrigger}</AlertDialogTrigger>
+      {(children || !isControlled) && (
+        <AlertDialogTrigger asChild>{children ?? defaultTrigger}</AlertDialogTrigger>
+      )}
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Generate grading sheets for {scopeLabel}?</AlertDialogTitle>
