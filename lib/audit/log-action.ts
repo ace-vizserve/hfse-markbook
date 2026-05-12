@@ -93,7 +93,8 @@ export type AuditAction =
   | 'user.disable'
   | 'user.enable'
   | 'environment.switch'
-  | 'environment.seed';
+  | 'environment.seed'
+  | 'environment.topup';
 
 export type AuditEntityType =
   | 'grading_sheet'
