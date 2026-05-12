@@ -1,20 +1,13 @@
 "use client";
 
-import { ArrowRightLeft } from "lucide-react";
 import * as React from "react";
+import { ArrowRightLeft, Users } from "lucide-react";
+import type { ColumnDef } from "@tanstack/react-table";
+import Link from "next/link";
 
-import { Badge } from "@/components/ui/badge";
+import { DataTable } from "@/components/ui/data-table";
+import { EnrollmentStatusBadge } from "@/components/ui/enrollment-status-badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import {
   SectionTransferDialog,
@@ -28,9 +21,22 @@ export type SectionRosterRow = {
   studentNumber: string;
   enroleeNumber: string | null; // null when admissions row missing — Move disabled
   enrollmentStatus: "active" | "late_enrollee" | "withdrawn";
+  // Optional date fields — promoted to hidden-by-default columns (KD #68 pattern).
+  // Pages that query enrollment_date + withdrawal_date from section_students
+  // can pass them; components that don't will see "—" in those columns.
+  enrollment_date?: string | null;
+  withdrawal_date?: string | null;
+  // termJoined is resolved server-side via lib/sis/terms.ts::getTermForDate.
+  // TODO: wire once the page passes it; for now left undefined → "—" in column.
+  termJoined?: string | null;
 };
 
-type StatusFilter = "all" | "active" | "late_enrollee" | "withdrawn";
+function formatDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso.replace(/-/g, '/'));
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("en-SG", { day: "2-digit", month: "short", year: "numeric" });
+}
 
 export function SectionRosterTable({
   rows,
@@ -43,138 +49,180 @@ export function SectionRosterTable({
   sectionName: string;
   siblings: SiblingSection[];
 }) {
-  const [status, setStatus] = React.useState<StatusFilter>("active");
+  const columns: ColumnDef<SectionRosterRow>[] = React.useMemo(
+    () => [
+      {
+        id: "indexNumber",
+        accessorKey: "indexNumber",
+        header: "#",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            {row.original.indexNumber}
+          </span>
+        ),
+        enableSorting: true,
+        enableHiding: false,
+      },
+      {
+        id: "studentName",
+        accessorKey: "studentName",
+        header: "Student",
+        cell: ({ row }) => {
+          const r = row.original;
+          // Link to records detail page via studentNumber (KD #81).
+          const nameEl = (
+            <div className="flex flex-col">
+              {r.enrollmentStatus === "withdrawn" ? (
+                <span className="font-medium line-through text-muted-foreground">{r.studentName}</span>
+              ) : (
+                <Link
+                  href={`/records/students/${encodeURIComponent(r.studentNumber)}`}
+                  className="font-medium text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
+                >
+                  {r.studentName}
+                </Link>
+              )}
+              <span className="font-mono text-[10px] text-muted-foreground">{r.studentNumber}</span>
+            </div>
+          );
+          return nameEl;
+        },
+        enableHiding: false,
+      },
+      {
+        id: "enrollmentStatus",
+        accessorKey: "enrollmentStatus",
+        header: "Status",
+        cell: ({ row }) => <EnrollmentStatusBadge status={row.original.enrollmentStatus} />,
+        filterFn: (row, _id, value) => {
+          if (!value || (Array.isArray(value) && value.length === 0)) return true;
+          return Array.isArray(value)
+            ? value.includes(row.original.enrollmentStatus)
+            : row.original.enrollmentStatus === value;
+        },
+      },
+      {
+        // enrollment_date: hidden-by-default, promoted per spec
+        id: "enrollment_date",
+        accessorKey: "enrollment_date",
+        header: "Date enrolled",
+        cell: ({ row }) => {
+          const d = formatDate(row.original.enrollment_date);
+          return d ? (
+            <span className="font-mono text-[11px] tabular-nums text-foreground">{d}</span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          );
+        },
+        enableSorting: true,
+      },
+      {
+        // withdrawal_date: hidden-by-default, promoted per spec
+        id: "withdrawal_date",
+        accessorKey: "withdrawal_date",
+        header: "Withdrawn on",
+        cell: ({ row }) => {
+          const d = formatDate(row.original.withdrawal_date);
+          return d ? (
+            <span className="font-mono text-[11px] tabular-nums text-foreground">{d}</span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          );
+        },
+        enableSorting: true,
+      },
+      {
+        // termJoined: hidden-by-default (KD #68 pattern — requires server-side
+        // lib/sis/terms.ts::getTermForDate; page passes it once wired)
+        id: "termJoined",
+        accessorKey: "termJoined",
+        header: "Term joined",
+        cell: ({ row }) =>
+          row.original.termJoined ? (
+            <span className="text-sm text-foreground">{row.original.termJoined}</span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+        enableSorting: true,
+      },
+      {
+        id: "action",
+        header: "",
+        cell: ({ row }) => {
+          const r = row.original;
+          if (r.enrollmentStatus === "active" && r.enroleeNumber) {
+            return (
+              <SectionTransferDialog
+                enroleeNumber={r.enroleeNumber}
+                studentName={r.studentName}
+                fromSectionName={sectionName}
+                ayCode={ayCode}
+                siblings={siblings}
+                trigger={
+                  <Button variant="ghost" size="sm" className="gap-1.5">
+                    <ArrowRightLeft className="size-3" />
+                    Move
+                  </Button>
+                }
+              />
+            );
+          }
+          return <span className="text-[10px] text-muted-foreground">—</span>;
+        },
+        enableSorting: false,
+        enableHiding: false,
+      },
+    ],
+    [ayCode, sectionName, siblings],
+  );
 
-  const filtered = React.useMemo(() => {
-    if (status === "all") return rows;
-    return rows.filter((r) => r.enrollmentStatus === status);
-  }, [rows, status]);
-
-  const counts = React.useMemo(() => {
-    let active = 0;
-    let late = 0;
-    let withdrawn = 0;
-    for (const r of rows) {
-      if (r.enrollmentStatus === "active") active += 1;
-      else if (r.enrollmentStatus === "late_enrollee") late += 1;
-      else withdrawn += 1;
-    }
-    return { all: rows.length, active, late, withdrawn };
-  }, [rows]);
+  const statusTabs = [
+    {
+      value: "active",
+      label: "Active",
+      isDefault: true,
+      predicate: (r: SectionRosterRow) => r.enrollmentStatus === "active",
+    },
+    {
+      value: "late_enrollee",
+      label: "Late",
+      predicate: (r: SectionRosterRow) => r.enrollmentStatus === "late_enrollee",
+    },
+    {
+      value: "withdrawn",
+      label: "Withdrawn",
+      predicate: (r: SectionRosterRow) => r.enrollmentStatus === "withdrawn",
+    },
+    {
+      value: "all",
+      label: "All",
+      predicate: () => true,
+    },
+  ];
 
   return (
-    <div className="space-y-3">
-      <Tabs value={status} onValueChange={(v) => setStatus(v as StatusFilter)}>
-        <TabsList>
-          <TabsTrigger value="active">
-            Active <span className="ml-1 font-mono text-[10px] text-muted-foreground">{counts.active}</span>
-          </TabsTrigger>
-          <TabsTrigger value="late_enrollee">
-            Late <span className="ml-1 font-mono text-[10px] text-muted-foreground">{counts.late}</span>
-          </TabsTrigger>
-          <TabsTrigger value="withdrawn">
-            Withdrawn <span className="ml-1 font-mono text-[10px] text-muted-foreground">{counts.withdrawn}</span>
-          </TabsTrigger>
-          <TabsTrigger value="all">
-            All <span className="ml-1 font-mono text-[10px] text-muted-foreground">{counts.all}</span>
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      <Card className="overflow-hidden p-0">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/40 hover:bg-muted/40">
-              <TableHead className="w-12 text-right">#</TableHead>
-              <TableHead>Student</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Action</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="h-24 text-center text-sm text-muted-foreground">
-                  No students match the current filter.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filtered.map((r) => (
-                <TableRow
-                  key={r.enrolmentId}
-                  className={r.enrollmentStatus === "withdrawn" ? "text-muted-foreground" : ""}
-                >
-                  <TableCell className="text-right font-mono text-xs tabular-nums text-muted-foreground">
-                    {r.indexNumber}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span
-                        className={
-                          "font-medium " +
-                          (r.enrollmentStatus === "withdrawn"
-                            ? "line-through text-muted-foreground"
-                            : "text-foreground")
-                        }
-                      >
-                        {r.studentName}
-                      </span>
-                      <span className="font-mono text-[10px] text-muted-foreground">
-                        {r.studentNumber}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {r.enrollmentStatus === "active" && (
-                      <Badge
-                        variant="outline"
-                        className="h-6 border-brand-mint bg-brand-mint/30 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ink"
-                      >
-                        Active
-                      </Badge>
-                    )}
-                    {r.enrollmentStatus === "late_enrollee" && (
-                      <Badge
-                        variant="outline"
-                        className="h-6 border-brand-indigo-soft/60 bg-accent px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-brand-indigo-deep"
-                      >
-                        Late
-                      </Badge>
-                    )}
-                    {r.enrollmentStatus === "withdrawn" && (
-                      <Badge
-                        variant="outline"
-                        className="h-6 border-destructive/40 bg-destructive/10 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-destructive"
-                      >
-                        Withdrawn
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {r.enrollmentStatus === "active" && r.enroleeNumber ? (
-                      <SectionTransferDialog
-                        enroleeNumber={r.enroleeNumber}
-                        studentName={r.studentName}
-                        fromSectionName={sectionName}
-                        ayCode={ayCode}
-                        siblings={siblings}
-                        trigger={
-                          <Button variant="ghost" size="sm" className="gap-1.5">
-                            <ArrowRightLeft className="size-3" />
-                            Move
-                          </Button>
-                        }
-                      />
-                    ) : (
-                      <span className="text-[10px] text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </Card>
-    </div>
+    <DataTable<SectionRosterRow>
+      data={rows}
+      columns={columns}
+      getRowId={(row) => row.enrolmentId}
+      searchKeys={["studentName", "studentNumber"]}
+      searchPlaceholder="Search student…"
+      statusTabs={statusTabs}
+      initialSort={[{ id: "indexNumber", desc: false }]}
+      initialColumnVisibility={{
+        enrollment_date: false,
+        withdrawal_date: false,
+        termJoined: false,
+      }}
+      hidePagination={true}
+      emptyState={{
+        icon: Users,
+        title: "No students in this section.",
+      }}
+      emptyFilteredState={{
+        title: "No students match.",
+        body: "Try a different tab or clear the search.",
+      }}
+    />
   );
 }
