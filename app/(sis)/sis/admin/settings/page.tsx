@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { EnvironmentCard } from "@/components/sis/environment-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
-import { getCurrentEnvironment } from "@/lib/sis/environment";
+import { getCurrentEnvironment, listEnvironmentAys } from "@/lib/sis/environment";
 import { getSessionUser } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -18,7 +18,17 @@ export default async function SettingsPage() {
   if (sessionUser.role !== "superadmin") redirect("/sis");
 
   const service = createServiceClient();
-  const { environment } = await getCurrentEnvironment(service);
+  const { environment, current } = await getCurrentEnvironment(service);
+  const { prodAys } = await listEnvironmentAys(service);
+  const prodAyOptions = prodAys.map((r) => ({
+    ayCode: r.ay_code,
+    label: r.label,
+    isCurrent: r.is_current,
+  }));
+  const defaultProdAyCode =
+    prodAyOptions.find((p) => p.isCurrent)?.ayCode ??
+    (current && !/^AY9/.test(current.ay_code) ? current.ay_code : prodAyOptions[0]?.ayCode) ??
+    null;
 
   return (
     <PageShell>
@@ -57,7 +67,11 @@ export default async function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <EnvironmentCard current={environment} />
+          <EnvironmentCard
+            current={environment}
+            prodAyOptions={prodAyOptions}
+            defaultProdAyCode={defaultProdAyCode}
+          />
         </CardContent>
       </Card>
     </PageShell>

@@ -32,6 +32,9 @@ export async function listEnvironmentAys(service: SupabaseClient): Promise<{
   testAy: AyRow | null;
   priorTestAy: AyRow | null;
   prodAy: AyRow | null;
+  /** Every non-test AY, ordered by ay_code DESC. Used by the Environment
+   *  switcher UI to render a picker when more than one production AY exists. */
+  prodAys: AyRow[];
 }> {
   const { data, error } = await service
     .from('academic_years')
@@ -39,17 +42,18 @@ export async function listEnvironmentAys(service: SupabaseClient): Promise<{
     .order('ay_code', { ascending: false });
   if (error || !data) {
     console.error('[environment] list failed:', error?.message);
-    return { current: null, testAy: null, priorTestAy: null, prodAy: null };
+    return { current: null, testAy: null, priorTestAy: null, prodAy: null, prodAys: [] };
   }
   const rows = data as AyRow[];
   const current = rows.find((r) => r.is_current) ?? null;
   const testAy = rows.find((r) => r.ay_code === TEST_AY_CODE) ?? null;
   const priorTestAy = rows.find((r) => r.ay_code === PRIOR_TEST_AY_CODE) ?? null;
+  const prodAys = rows.filter((r) => !isTestAyCode(r.ay_code));
   const prodAy =
     rows.find((r) => r.ay_code === PROD_AY_CODE && !isTestAyCode(r.ay_code)) ??
-    rows.find((r) => !isTestAyCode(r.ay_code)) ??
+    prodAys[0] ??
     null;
-  return { current, testAy, priorTestAy, prodAy };
+  return { current, testAy, priorTestAy, prodAy, prodAys };
 }
 
 export async function getCurrentEnvironment(
@@ -164,6 +168,7 @@ export type SwitchResult = {
 export async function switchEnvironment(
   service: SupabaseClient,
   target: Exclude<Environment, null>,
+  opts: { ayCode?: string } = {},
 ): Promise<SwitchResult> {
   if (target === 'test') {
     const testAy = await ensureTestAy(service);
@@ -218,13 +223,29 @@ export async function switchEnvironment(
   }
 
   // target === 'production'
-  const { prodAy } = await listEnvironmentAys(service);
-  if (!prodAy) {
+  const { prodAy, prodAys } = await listEnvironmentAys(service);
+  let target_ay: AyRow | null = null;
+  if (opts.ayCode) {
+    if (isTestAyCode(opts.ayCode)) {
+      throw new Error(
+        `Refusing to switch into a test AY (${opts.ayCode}) via the Production target. Use target='test' instead.`,
+      );
+    }
+    target_ay = prodAys.find((r) => r.ay_code === opts.ayCode) ?? null;
+    if (!target_ay) {
+      throw new Error(
+        `Production AY ${opts.ayCode} not found. Create it via /sis/ay-setup first.`,
+      );
+    }
+  } else {
+    target_ay = prodAy;
+  }
+  if (!target_ay) {
     throw new Error(
       'No Production AY found. Create an AY whose code does not start with AY9 before switching.',
     );
   }
-  const flip = await flipIsCurrent(service, prodAy.ay_code);
+  const flip = await flipIsCurrent(service, target_ay.ay_code);
   return {
     fromAyCode: flip.fromAyCode,
     toAyCode: flip.toAyCode,

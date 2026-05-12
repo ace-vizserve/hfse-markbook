@@ -14,6 +14,14 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -120,11 +128,30 @@ function describeTestSwitch(
   return `Seeded ${parts.join(' + ')}.`;
 }
 
-export function EnvironmentCard({ current }: { current: Environment | null }) {
+export type ProdAyOption = {
+  ayCode: string;
+  label: string;
+  isCurrent: boolean;
+};
+
+export function EnvironmentCard({
+  current,
+  prodAyOptions = [],
+  defaultProdAyCode = null,
+}: {
+  current: Environment | null;
+  prodAyOptions?: ProdAyOption[];
+  defaultProdAyCode?: string | null;
+}) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState<Environment | null>(null);
   const [resetting, setResetting] = useState(false);
   const [toppingUp, setToppingUp] = useState(false);
+  // Which prod AY the user has selected to switch INTO. Only meaningful when
+  // there are 2+ prod AYs; the single-AY case skips the picker and just sends
+  // the implicit default. The dropdown is rendered inside the Production
+  // tile (visible only when ≥2 options exist).
+  const [pickedProdAy, setPickedProdAy] = useState<string | null>(defaultProdAyCode);
 
   // Top up demo extras — re-runs seedPopulated against the current test AY
   // without wiping anything. Idempotent (every seeder step has a skip-guard
@@ -192,10 +219,17 @@ export function EnvironmentCard({ current }: { current: Environment | null }) {
   async function switchTo(target: Environment) {
     setSubmitting(target);
     try {
+      const payload: { target: Environment; ay_code?: string } = { target };
+      // For the production target, send the picked AY when 2+ options exist
+      // so the server doesn't fall back to its default-pick heuristic. The
+      // single-AY case omits ay_code and lets the lib pick.
+      if (target === 'production' && prodAyOptions.length >= 2 && pickedProdAy) {
+        payload.ay_code = pickedProdAy;
+      }
       const res = await fetch('/api/sis/admin/environment', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ target }),
+        body: JSON.stringify(payload),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? 'Environment switch failed');
@@ -230,6 +264,42 @@ export function EnvironmentCard({ current }: { current: Environment | null }) {
           active={current === 'production'}
           submitting={submitting === 'production'}
           onSwitch={() => switchTo('production')}
+          extras={
+            prodAyOptions.length >= 2 && current !== 'production' ? (
+              <div className="space-y-1.5">
+                <label className="block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Academic year
+                </label>
+                <Select
+                  value={pickedProdAy ?? undefined}
+                  onValueChange={setPickedProdAy}
+                  disabled={submitting !== null}
+                >
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue placeholder="Pick a production AY…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {prodAyOptions.map((p) => (
+                      <SelectItem key={p.ayCode} value={p.ayCode}>
+                        <span className="font-mono text-xs tabular-nums">{p.ayCode}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">{p.label}</span>
+                        {p.isCurrent && (
+                          <span className="ml-2 font-mono text-[9px] uppercase tracking-[0.12em] text-brand-mint">
+                            · last current
+                          </span>
+                        )}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  More than one production AY exists. Pick which one becomes
+                  the active operational year — typically the calendar year
+                  you&apos;re currently teaching against.
+                </p>
+              </div>
+            ) : null
+          }
         />
         <EnvironmentOption
           target="test"
@@ -347,6 +417,7 @@ function EnvironmentOption({
   active,
   submitting,
   onSwitch,
+  extras,
 }: {
   target: Environment;
   icon: React.ComponentType<{ className?: string }>;
@@ -356,6 +427,7 @@ function EnvironmentOption({
   active: boolean;
   submitting: boolean;
   onSwitch: () => void;
+  extras?: React.ReactNode;
 }) {
   return (
     <div
@@ -401,6 +473,8 @@ function EnvironmentOption({
       </div>
 
       <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
+
+      {extras}
 
       {!active && (
         <AlertDialog>

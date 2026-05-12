@@ -34,11 +34,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const { target } = parsed.data;
+  const { target, ay_code } = parsed.data;
   const service = createServiceClient();
 
   try {
-    const result = await switchEnvironment(service, target);
+    const result = await switchEnvironment(service, target, { ayCode: ay_code });
 
     // Resolve the destination AY id for audit.entity_id.
     const { current } = await listEnvironmentAys(service);
