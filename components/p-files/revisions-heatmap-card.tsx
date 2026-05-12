@@ -73,7 +73,7 @@ export function RevisionsHeatmapCard({
       <Card>
         <CardHeader>
           <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-            Revisions activity
+            Revisions activity · Rolling
           </CardDescription>
           <CardTitle className="font-serif text-xl font-semibold tracking-tight text-foreground">
             Last {weeks} weeks

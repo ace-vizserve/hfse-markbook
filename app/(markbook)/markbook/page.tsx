@@ -272,7 +272,7 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
             value={kpisResult.current.sheetsLocked}
             icon={Lock}
             intent="good"
-            comparisonLabel={`${kpisResult.current.lockedPct.toFixed(0)}% of ${kpisResult.current.sheetsTotal}`}
+            comparisonLabel={`of ${kpisResult.current.sheetsTotal} sheets in this AY`}
             drillSheet={() => (
               <MarkbookDrillSheet
                 target="sheets-locked"

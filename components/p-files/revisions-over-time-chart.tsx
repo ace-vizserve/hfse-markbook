@@ -24,7 +24,7 @@ export function RevisionsOverTimeChart({ data }: { data: RevisionWeek[] }) {
     <Card>
       <CardHeader>
         <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-          Activity · Last {data.length} weeks
+          Rolling · Last {data.length} weeks
         </CardDescription>
         <CardTitle className="font-serif text-xl font-semibold tracking-tight text-foreground">
           Document replacements over time
