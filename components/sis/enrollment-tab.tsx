@@ -408,15 +408,12 @@ export function EnrollmentTab({
         </div>
       )}
 
-      <ApplicationStatusCard
+      <EnrolmentOverviewCard
         applicationCard={applicationCard}
         applicationTone={applicationTone}
         s={s}
         ayCode={ayCode}
         enroleeNumber={enroleeNumber}
-      />
-
-      <ProgressOverviewCard
         prereqStages={[...intakeCards, ...commitmentsCards].filter((c) =>
           (ENROLLED_PREREQ_STAGES as readonly StageKey[]).includes(c.key),
         )}
@@ -459,59 +456,98 @@ export function EnrollmentTab({
   );
 }
 
-// ─── application status card ────────────────────────────────────────────────
+// ─── enrolment overview card ────────────────────────────────────────────────
+//
+// Top-of-tab hero. Single source of truth for "where is this enrollment
+// right now?" — combines the application outcome + the 5+3 stage journey
+// + a percent-complete KPI in one consolidated card. Replaces the prior
+// split between the standalone application card and a separate completion
+// rollup, which lived as two cards stacked.
+//
+// Three tiers, top → bottom:
+//   1. Status band — application tone-keyed background, application label
+//      + class chip + Edit-application CTA + percent-complete KPI on the
+//      right. Tone gradient earns the band (mint/amber/destructive/indigo
+//      per APPLICATION_TILE).
+//   2. Required-for-Enrolled rail — 5-node horizontal stepper. Discs are
+//      filled with the §9.3 status gradient per state (done = mint→sky,
+//      active = indigo→navy, pending = amber, failed = destructive,
+//      empty = hairline-bordered card). Connector segments between two
+//      done discs run mint, otherwise hairline — don't lie about partial
+//      progress. Readiness pill answers "ready for Enrolled?" in plain
+//      English.
+//   3. Post-enrollment rail — same pattern, 3 nodes.
+//   4. Optional details footer — application enrolment-date / enrolee-
+//      type chips + remarks. Hidden when empty.
+//
+// The horizontal connected-stepper pattern is the modern onboarding /
+// workflow visualisation: carries journey order, progress, and per-step
+// state in one dense row. ui-ux-pro-max §10 direct-labeling: every node
+// labels itself so the registrar never reads a legend.
 
-function ApplicationStatusCard({
+function EnrolmentOverviewCard({
   applicationCard,
   applicationTone,
   s,
   ayCode,
   enroleeNumber,
+  prereqStages,
+  postEnrolStages,
 }: {
   applicationCard: StageCard;
   applicationTone: ApplicationTone;
   s: StatusRow;
   ayCode: string;
   enroleeNumber: string;
+  prereqStages: StageCard[];
+  postEnrolStages: StageCard[];
 }) {
   const tile = APPLICATION_TILE[applicationTone];
   const TileIcon = tile.icon;
   const isEnrolled =
     applicationTone === 'enrolled' || applicationTone === 'enrolledConditional';
-
-  // Headline: status label (always) + class assignment when Enrolled.
-  // Single horizontal row — no nested "Current value" framing.
   const classChip =
     isEnrolled && s.classLevel && s.classSection ? `${s.classLevel} · ${s.classSection}` : null;
 
+  const prereqCounts = stageBucketCounts(prereqStages);
+  const postEnrolCounts = stageBucketCounts(postEnrolStages);
+  const totalStages = prereqStages.length + postEnrolStages.length;
+  const doneTotal = prereqCounts.done + postEnrolCounts.done;
+  const percentComplete = totalStages > 0 ? Math.round((doneTotal / totalStages) * 100) : 0;
+
+  const hasApplicationExtras =
+    applicationCard.extras?.some((e) => !isFieldEmpty(e)) ?? false;
+  const hasFooter = hasApplicationExtras || Boolean(applicationCard.remarks);
+
   return (
-    <Card className="gap-0 overflow-hidden p-0">
-      <CardHeader className={cn('border-b px-5 py-4', tile.bandBorder)}>
+    <Card className="@container/overview gap-0 overflow-hidden p-0">
+      <CardHeader className="border-b border-border px-5 py-4">
         <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-          Application status
+          Enrolment overview
         </CardDescription>
         <CardTitle className="font-serif text-[18px] font-semibold tracking-tight text-foreground">
-          {tile.label}
+          Stage progress
         </CardTitle>
         <CardAction>
-          <div
-            className={cn(
-              'flex size-10 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-brand-tile',
-              tile.gradient,
-            )}
-          >
-            <TileIcon className="size-5" />
+          <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
+            <Activity className="size-5" />
           </div>
         </CardAction>
       </CardHeader>
-      <CardContent className={cn('space-y-3 px-5 py-4', tile.bandTint)}>
-        <div className="flex flex-wrap items-center gap-4 rounded-xl border border-hairline bg-gradient-to-t from-primary/5 to-card p-4 shadow-xs">
+
+      {/* Status band — application outcome + percent KPI */}
+      <div
+        className={cn(
+          'grid gap-4 border-b px-5 py-4 @md/overview:grid-cols-[1fr_auto] @md/overview:items-center',
+          tile.bandTint,
+          tile.bandBorder,
+        )}>
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
           <div
             className={cn(
               'flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-brand-tile',
               tile.gradient,
-            )}
-          >
+            )}>
             <TileIcon className="size-6" />
           </div>
           <div className="min-w-0 flex-1 space-y-1">
@@ -519,16 +555,15 @@ function ApplicationStatusCard({
               <p className="font-serif text-base font-semibold leading-snug text-foreground">
                 {tile.label}
               </p>
-              {classChip && (
+              {classChip ? (
                 <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
                   · {classChip}
                 </span>
-              )}
-              {isEnrolled && !classChip && (
-                <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+              ) : isEnrolled ? (
+                <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                   · Class placement pending
                 </span>
-              )}
+              ) : null}
             </div>
             {applicationCard.updatedAt && (
               <p className="font-mono text-[10px] uppercase tracking-wider tabular-nums text-muted-foreground">
@@ -550,72 +585,51 @@ function ApplicationStatusCard({
             initialExtras={applicationCard.extrasInitial}
           />
         </div>
+        <div className="flex items-baseline gap-2 @md/overview:flex-col @md/overview:items-end @md/overview:gap-0">
+          <span className="font-serif text-[32px] font-semibold leading-none tabular-nums text-foreground">
+            {percentComplete}
+            <span className="text-lg font-medium text-muted-foreground">%</span>
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-wider tabular-nums text-muted-foreground">
+            {doneTotal} of {totalStages} stages done
+          </span>
+        </div>
+      </div>
 
-        {applicationCard.extras && applicationCard.extras.some((e) => !isFieldEmpty(e)) && (
-          <div className="rounded-lg border border-hairline bg-card px-3 py-2.5">
+      {/* Journey rails */}
+      <CardContent className="space-y-5 px-5 py-5">
+        <JourneyRail
+          eyebrow="Required for Enrolled"
+          stages={prereqStages}
+          variant="prereq"
+        />
+        <div className="border-t border-hairline" />
+        <JourneyRail
+          eyebrow="Post-enrollment"
+          stages={postEnrolStages}
+          variant="postEnrol"
+        />
+      </CardContent>
+
+      {/* Optional details footer — application extras + remarks */}
+      {hasFooter && (
+        <div className="space-y-2 border-t border-hairline bg-muted/20 px-5 py-3">
+          {hasApplicationExtras && applicationCard.extras && (
             <ExtrasChips fields={applicationCard.extras} />
-          </div>
-        )}
-        {applicationCard.remarks && (
-          <p className="whitespace-pre-line rounded-lg bg-muted/40 px-3 py-2 text-xs leading-relaxed text-foreground">
-            {applicationCard.remarks}
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ─── progress overview card ─────────────────────────────────────────────────
-//
-// Two clearly-separated rollups so the Enrolled-prereq gate is obvious:
-//   1. Required for Enrolled — the 5 prereq stages enforced server-side
-//      (ENROLLED_PREREQ_STAGES). Setting applicationStatus='Enrolled' is
-//      rejected unless every one is in its terminal-done state.
-//   2. Post-enrollment — Class / Supplies / Orientation. These activate
-//      after Enrolled and don't gate anything.
-//
-// Both sections are observational (status rollups, not sequence steppers)
-// — order doesn't matter, the bar just shows how many of each set are
-// currently in a done state. Single source of truth for color: every chip
-// dot, tile left-stripe, and bucket count reuses statusStripeClass.
-//
-// The application stage itself is excluded — it's the OUTCOME, surfaced by
-// ApplicationStatusCard above. Including it here would inflate the count
-// once the applicant flips to Enrolled.
-
-function ProgressOverviewCard({
-  prereqStages,
-  postEnrolStages,
-}: {
-  prereqStages: StageCard[];
-  postEnrolStages: StageCard[];
-}) {
-  return (
-    <Card className="@container/card gap-0 overflow-hidden p-0">
-      <CardHeader className="border-b border-border px-5 py-4">
-        <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-          Stage progress
-        </CardDescription>
-        <CardTitle className="font-serif text-[18px] font-semibold tracking-tight text-foreground">
-          Completion rollup
-        </CardTitle>
-        <CardAction>
-          <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
-            <Activity className="size-5" />
-          </div>
-        </CardAction>
-      </CardHeader>
-      <CardContent className="space-y-5 px-5 py-4">
-        <ProgressSection eyebrow="Required for Enrolled" stages={prereqStages} variant="prereq" />
-        <ProgressSection eyebrow="Post-enrollment" stages={postEnrolStages} variant="postEnrol" />
-      </CardContent>
+          )}
+          {applicationCard.remarks && (
+            <p className="whitespace-pre-line rounded-md bg-card px-3 py-2 text-xs leading-relaxed text-foreground">
+              {applicationCard.remarks}
+            </p>
+          )}
+        </div>
+      )}
     </Card>
   );
 }
 
 // Stage status → visual tone discriminator. Five buckets matching
-// `statusStripeClass` regex groups so the tile recipes stay in lockstep
+// `statusStripeClass` regex groups so the disc recipes stay in lockstep
 // with the §9.3 tone vocabulary used elsewhere on this page.
 type StageTone = 'done' | 'failed' | 'pending' | 'active' | 'empty';
 
@@ -639,61 +653,49 @@ function stageTone(status: string | null): StageTone {
   return 'empty';
 }
 
-// Per-tone visual recipe for stage tiles. Done tiles "earn" the gradient-
-// tile-icon project signature (brand-mint→sky); failed get the destructive
-// gradient; active gets brand-indigo; pending gets amber; empty stays
-// quiet with muted chrome. Recipe follows §9.3 status palette + project
-// gradient voice (KD #84-era flat → gradient sweep).
-const STAGE_TILE_RECIPE: Record<
+// Per-tone visual recipe for stepper discs. Done discs earn the project
+// signature gradient (mint→sky); failed get destructive; active gets
+// indigo→navy; pending gets amber; empty stays quiet with a hairline
+// outline + bg-card so the connector line visibly terminates at the
+// disc's solid edge. Matches §9.3 status palette + project gradient voice.
+const STAGE_DISC_RECIPE: Record<
   StageTone,
   {
-    border: string;
-    tint: string;
-    iconBg: string;
-    iconText: string;
+    discBg: string;
+    discIcon: string;
     statusText: string;
   }
 > = {
   done: {
-    border: 'border-brand-mint/50',
-    tint: 'bg-gradient-to-b from-brand-mint/12 to-brand-mint/0',
-    iconBg: 'bg-gradient-to-br from-brand-mint to-brand-sky shadow-brand-tile-mint',
-    iconText: 'text-white',
+    discBg: 'bg-gradient-to-br from-brand-mint to-brand-sky shadow-brand-tile-mint',
+    discIcon: 'text-white',
     statusText: 'text-brand-mint',
   },
   failed: {
-    border: 'border-destructive/40',
-    tint: 'bg-gradient-to-b from-destructive/10 to-destructive/0',
-    iconBg: 'bg-gradient-to-br from-destructive to-destructive/80 shadow-brand-tile-destructive',
-    iconText: 'text-white',
+    discBg: 'bg-gradient-to-br from-destructive to-destructive/80 shadow-brand-tile-destructive',
+    discIcon: 'text-white',
     statusText: 'text-destructive',
   },
   pending: {
-    border: 'border-brand-amber/40',
-    tint: 'bg-gradient-to-b from-brand-amber/10 to-brand-amber/0',
-    iconBg: 'bg-gradient-to-br from-brand-amber to-brand-amber/80 shadow-brand-tile-amber',
-    iconText: 'text-white',
+    discBg: 'bg-gradient-to-br from-brand-amber to-brand-amber/80 shadow-brand-tile-amber',
+    discIcon: 'text-white',
     statusText: 'text-brand-amber',
   },
   active: {
-    border: 'border-brand-indigo/40',
-    tint: 'bg-gradient-to-b from-accent/40 to-accent/0',
-    iconBg: 'bg-gradient-to-br from-brand-indigo to-brand-navy shadow-brand-tile',
-    iconText: 'text-white',
+    discBg: 'bg-gradient-to-br from-brand-indigo to-brand-navy shadow-brand-tile',
+    discIcon: 'text-white',
     statusText: 'text-brand-indigo',
   },
   empty: {
-    border: 'border-hairline',
-    tint: '',
-    iconBg: 'bg-muted',
-    iconText: 'text-muted-foreground',
+    discBg: 'border-2 border-hairline bg-card',
+    discIcon: 'text-muted-foreground',
     statusText: 'text-muted-foreground',
   },
 };
 
 // Rollup-level readiness signal. Maps the section's count buckets to one
 // of the §9.3 status pill tones — gives the registrar the at-a-glance
-// "ready / not yet" answer that the chip strip can't carry on its own.
+// "ready / not yet" answer that the disc row can't carry on its own.
 type RollupReadiness =
   | { tone: 'healthy'; label: string }
   | { tone: 'warning'; label: string }
@@ -721,7 +723,7 @@ function readinessForPostEnrol(
   return { tone: 'info', label: 'In progress' };
 }
 
-function ProgressSection({
+function JourneyRail({
   eyebrow,
   stages,
   variant,
@@ -748,48 +750,86 @@ function ProgressSection({
         </div>
         <StatusBadge tone={readiness.tone}>{readiness.label}</StatusBadge>
       </header>
-      <div className="grid grid-cols-2 gap-2 @sm/card:grid-cols-3 @md/card:grid-cols-4 @lg/card:grid-cols-5">
-        {stages.map((stage) => (
-          <StageTile key={stage.key} stage={stage} />
+      <div className="flex items-start">
+        {stages.map((stage, i) => (
+          <StageNode
+            key={stage.key}
+            stage={stage}
+            isFirst={i === 0}
+            isLast={i === stages.length - 1}
+            prevTone={i > 0 ? stageTone(stages[i - 1].status) : null}
+            nextTone={i < stages.length - 1 ? stageTone(stages[i + 1].status) : null}
+          />
         ))}
       </div>
     </section>
   );
 }
 
-function StageTile({ stage }: { stage: StageCard }) {
+function StageNode({
+  stage,
+  isFirst,
+  isLast,
+  prevTone,
+  nextTone,
+}: {
+  stage: StageCard;
+  isFirst: boolean;
+  isLast: boolean;
+  prevTone: StageTone | null;
+  nextTone: StageTone | null;
+}) {
   const tone = stageTone(stage.status);
-  const recipe = STAGE_TILE_RECIPE[tone];
+  const recipe = STAGE_DISC_RECIPE[tone];
   const Icon = STAGE_ICON[stage.key];
 
+  // Connector logic: a segment is "complete" (mint) when BOTH flanking
+  // nodes are in their terminal-done state. Anything else stays hairline
+  // — don't lie about partial progress.
+  const leftSegmentDone = !isFirst && prevTone === 'done' && tone === 'done';
+  const rightSegmentDone = !isLast && nextTone === 'done' && tone === 'done';
+
   return (
-    <div
-      className={cn(
-        'flex h-full flex-col gap-2 rounded-lg border p-3 transition-colors',
-        recipe.border,
-        recipe.tint,
-      )}>
-      <div className="flex items-start gap-2">
+    <div className="relative flex min-w-0 flex-1 flex-col items-center gap-2">
+      {!isFirst && (
         <span
           aria-hidden="true"
           className={cn(
-            'flex size-7 shrink-0 items-center justify-center rounded-lg',
-            recipe.iconBg,
-            recipe.iconText,
-          )}>
-          <Icon className="size-3.5" />
-        </span>
-        <span className="min-w-0 flex-1 font-serif text-[13px] font-semibold leading-tight tracking-tight text-foreground">
-          {stage.label}
-        </span>
-      </div>
-      <span
+            'absolute left-0 right-[calc(50%+1.375rem)] top-[22px] h-0.5 -translate-y-1/2',
+            leftSegmentDone ? 'bg-brand-mint' : 'bg-hairline',
+          )}
+        />
+      )}
+      {!isLast && (
+        <span
+          aria-hidden="true"
+          className={cn(
+            'absolute left-[calc(50%+1.375rem)] right-0 top-[22px] h-0.5 -translate-y-1/2',
+            rightSegmentDone ? 'bg-brand-mint' : 'bg-hairline',
+          )}
+        />
+      )}
+
+      <div
         className={cn(
-          'font-mono text-[10px] font-semibold uppercase tracking-[0.12em] tabular-nums',
-          recipe.statusText,
+          'relative z-10 flex size-11 items-center justify-center rounded-full transition-colors',
+          recipe.discBg,
+          recipe.discIcon,
         )}>
-        {stage.status?.trim() || 'Not set'}
-      </span>
+        <Icon className="size-[18px]" />
+      </div>
+      <div className="w-full min-w-0 px-1 text-center">
+        <p className="truncate font-serif text-[12px] font-semibold leading-tight text-foreground">
+          {stage.label}
+        </p>
+        <p
+          className={cn(
+            'mt-0.5 truncate font-mono text-[9px] font-semibold uppercase tracking-[0.12em] tabular-nums',
+            recipe.statusText,
+          )}>
+          {stage.status?.trim() || 'Not set'}
+        </p>
+      </div>
     </div>
   );
 }
