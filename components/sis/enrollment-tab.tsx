@@ -408,16 +408,19 @@ export function EnrollmentTab({
         </div>
       )}
 
-      <EnrolmentOverviewCard
+      <StageProgressCard
+        prereqStages={[...intakeCards, ...commitmentsCards].filter((c) =>
+          (ENROLLED_PREREQ_STAGES as readonly StageKey[]).includes(c.key),
+        )}
+        postEnrolStages={placementCards}
+      />
+
+      <ApplicationStatusCard
         applicationCard={applicationCard}
         applicationTone={applicationTone}
         s={s}
         ayCode={ayCode}
         enroleeNumber={enroleeNumber}
-        prereqStages={[...intakeCards, ...commitmentsCards].filter((c) =>
-          (ENROLLED_PREREQ_STAGES as readonly StageKey[]).includes(c.key),
-        )}
-        postEnrolStages={placementCards}
       />
 
       <StatusGroupCard
@@ -456,19 +459,13 @@ export function EnrollmentTab({
   );
 }
 
-// ─── enrolment overview card ────────────────────────────────────────────────
+// ─── stage progress card ────────────────────────────────────────────────────
 //
-// Top-of-tab hero. Single source of truth for "where is this enrollment
-// right now?" — combines the application outcome + the 5+3 stage journey
-// + a percent-complete KPI in one consolidated card. Replaces the prior
-// split between the standalone application card and a separate completion
-// rollup, which lived as two cards stacked.
+// Top-of-tab overview. Answers "where is this enrolment right now?" via:
 //
-// Three tiers, top → bottom:
-//   1. Status band — application tone-keyed background, application label
-//      + class chip + Edit-application CTA + percent-complete KPI on the
-//      right. Tone gradient earns the band (mint/amber/destructive/indigo
-//      per APPLICATION_TILE).
+//   1. KPI strip — large serif percent + linear progress bar + 'N of M
+//      stages done' caption. The bar gives the at-a-glance; the rails
+//      below give the per-stage detail.
 //   2. Required-for-Enrolled rail — 5-node horizontal stepper. Discs are
 //      filled with the §9.3 status gradient per state (done = mint→sky,
 //      active = indigo→navy, pending = amber, failed = destructive,
@@ -477,47 +474,24 @@ export function EnrollmentTab({
 //      progress. Readiness pill answers "ready for Enrolled?" in plain
 //      English.
 //   3. Post-enrollment rail — same pattern, 3 nodes.
-//   4. Optional details footer — application enrolment-date / enrolee-
-//      type chips + remarks. Hidden when empty.
 //
-// The horizontal connected-stepper pattern is the modern onboarding /
-// workflow visualisation: carries journey order, progress, and per-step
-// state in one dense row. ui-ux-pro-max §10 direct-labeling: every node
-// labels itself so the registrar never reads a legend.
+// Application status (label / Updated date / Edit dialog) lives in the
+// standalone ApplicationStatusCard immediately below this card. The two
+// are intentionally separate sections — stage progress is the journey,
+// application status is the outcome of step 1.
 
-function EnrolmentOverviewCard({
-  applicationCard,
-  applicationTone,
-  s,
-  ayCode,
-  enroleeNumber,
+function StageProgressCard({
   prereqStages,
   postEnrolStages,
 }: {
-  applicationCard: StageCard;
-  applicationTone: ApplicationTone;
-  s: StatusRow;
-  ayCode: string;
-  enroleeNumber: string;
   prereqStages: StageCard[];
   postEnrolStages: StageCard[];
 }) {
-  const tile = APPLICATION_TILE[applicationTone];
-  const TileIcon = tile.icon;
-  const isEnrolled =
-    applicationTone === 'enrolled' || applicationTone === 'enrolledConditional';
-  const classChip =
-    isEnrolled && s.classLevel && s.classSection ? `${s.classLevel} · ${s.classSection}` : null;
-
   const prereqCounts = stageBucketCounts(prereqStages);
   const postEnrolCounts = stageBucketCounts(postEnrolStages);
   const totalStages = prereqStages.length + postEnrolStages.length;
   const doneTotal = prereqCounts.done + postEnrolCounts.done;
   const percentComplete = totalStages > 0 ? Math.round((doneTotal / totalStages) * 100) : 0;
-
-  const hasApplicationExtras =
-    applicationCard.extras?.some((e) => !isFieldEmpty(e)) ?? false;
-  const hasFooter = hasApplicationExtras || Boolean(applicationCard.remarks);
 
   return (
     <Card className="@container/overview gap-0 overflow-hidden p-0">
@@ -535,14 +509,94 @@ function EnrolmentOverviewCard({
         </CardAction>
       </CardHeader>
 
-      {/* Status band — application outcome + percent KPI */}
-      <div
-        className={cn(
-          'grid gap-4 border-b px-5 py-4 @md/overview:grid-cols-[1fr_auto] @md/overview:items-center',
-          tile.bandTint,
-          tile.bandBorder,
-        )}>
-        <div className="flex min-w-0 flex-wrap items-center gap-3">
+      {/* KPI strip — percent + linear progress bar */}
+      <div className="border-b border-border bg-muted/20 px-5 py-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <div className="flex items-baseline gap-2">
+            <span className="font-serif text-[32px] font-semibold leading-none tabular-nums text-foreground">
+              {percentComplete}
+              <span className="text-lg font-medium text-muted-foreground">%</span>
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-wider tabular-nums text-muted-foreground">
+              {doneTotal} of {totalStages} stages done
+            </span>
+          </div>
+        </div>
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-hairline">
+          <div
+            aria-hidden="true"
+            className="h-full rounded-full bg-gradient-to-r from-brand-mint to-brand-sky transition-all duration-300"
+            style={{ width: `${percentComplete}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Journey rails */}
+      <CardContent className="space-y-5 px-5 py-5">
+        <JourneyRail
+          eyebrow="Required for Enrolled"
+          stages={prereqStages}
+          variant="prereq"
+        />
+        <div className="border-t border-hairline" />
+        <JourneyRail
+          eyebrow="Post-enrollment"
+          stages={postEnrolStages}
+          variant="postEnrol"
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── application status card ────────────────────────────────────────────────
+//
+// Rendered immediately below StageProgressCard. Carries the application
+// stage's status label, last-updated meta, Edit dialog, plus the
+// application-only extras (enrolmentDate, enroleeType) and remarks.
+// Tone-tinted band keys the card to the current applicationTone.
+
+function ApplicationStatusCard({
+  applicationCard,
+  applicationTone,
+  s,
+  ayCode,
+  enroleeNumber,
+}: {
+  applicationCard: StageCard;
+  applicationTone: ApplicationTone;
+  s: StatusRow;
+  ayCode: string;
+  enroleeNumber: string;
+}) {
+  const tile = APPLICATION_TILE[applicationTone];
+  const TileIcon = tile.icon;
+  const isEnrolled =
+    applicationTone === 'enrolled' || applicationTone === 'enrolledConditional';
+  const classChip =
+    isEnrolled && s.classLevel && s.classSection ? `${s.classLevel} · ${s.classSection}` : null;
+
+  return (
+    <Card className="gap-0 overflow-hidden p-0">
+      <CardHeader className={cn('border-b px-5 py-4', tile.bandBorder)}>
+        <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
+          Application status
+        </CardDescription>
+        <CardTitle className="font-serif text-[18px] font-semibold tracking-tight text-foreground">
+          {tile.label}
+        </CardTitle>
+        <CardAction>
+          <div
+            className={cn(
+              'flex size-10 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-brand-tile',
+              tile.gradient,
+            )}>
+            <TileIcon className="size-5" />
+          </div>
+        </CardAction>
+      </CardHeader>
+      <CardContent className={cn('space-y-3 px-5 py-4', tile.bandTint)}>
+        <div className="flex flex-wrap items-center gap-4 rounded-xl border border-hairline bg-gradient-to-t from-primary/5 to-card p-4 shadow-xs">
           <div
             className={cn(
               'flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-brand-tile',
@@ -555,15 +609,16 @@ function EnrolmentOverviewCard({
               <p className="font-serif text-base font-semibold leading-snug text-foreground">
                 {tile.label}
               </p>
-              {classChip ? (
+              {classChip && (
                 <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
                   · {classChip}
                 </span>
-              ) : isEnrolled ? (
-                <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              )}
+              {isEnrolled && !classChip && (
+                <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
                   · Class placement pending
                 </span>
-              ) : null}
+              )}
             </div>
             {applicationCard.updatedAt && (
               <p className="font-mono text-[10px] uppercase tracking-wider tabular-nums text-muted-foreground">
@@ -585,45 +640,18 @@ function EnrolmentOverviewCard({
             initialExtras={applicationCard.extrasInitial}
           />
         </div>
-        <div className="flex items-baseline gap-2 @md/overview:flex-col @md/overview:items-end @md/overview:gap-0">
-          <span className="font-serif text-[32px] font-semibold leading-none tabular-nums text-foreground">
-            {percentComplete}
-            <span className="text-lg font-medium text-muted-foreground">%</span>
-          </span>
-          <span className="font-mono text-[10px] uppercase tracking-wider tabular-nums text-muted-foreground">
-            {doneTotal} of {totalStages} stages done
-          </span>
-        </div>
-      </div>
 
-      {/* Journey rails */}
-      <CardContent className="space-y-5 px-5 py-5">
-        <JourneyRail
-          eyebrow="Required for Enrolled"
-          stages={prereqStages}
-          variant="prereq"
-        />
-        <div className="border-t border-hairline" />
-        <JourneyRail
-          eyebrow="Post-enrollment"
-          stages={postEnrolStages}
-          variant="postEnrol"
-        />
-      </CardContent>
-
-      {/* Optional details footer — application extras + remarks */}
-      {hasFooter && (
-        <div className="space-y-2 border-t border-hairline bg-muted/20 px-5 py-3">
-          {hasApplicationExtras && applicationCard.extras && (
+        {applicationCard.extras && applicationCard.extras.some((e) => !isFieldEmpty(e)) && (
+          <div className="rounded-lg border border-hairline bg-card px-3 py-2.5">
             <ExtrasChips fields={applicationCard.extras} />
-          )}
-          {applicationCard.remarks && (
-            <p className="whitespace-pre-line rounded-md bg-card px-3 py-2 text-xs leading-relaxed text-foreground">
-              {applicationCard.remarks}
-            </p>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+        {applicationCard.remarks && (
+          <p className="whitespace-pre-line rounded-lg bg-muted/40 px-3 py-2 text-xs leading-relaxed text-foreground">
+            {applicationCard.remarks}
+          </p>
+        )}
+      </CardContent>
     </Card>
   );
 }
