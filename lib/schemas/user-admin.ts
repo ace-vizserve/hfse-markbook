@@ -15,30 +15,14 @@ const RoleEnum = z.enum([
 ]);
 export type AssignableRole = z.infer<typeof RoleEnum>;
 
-// Two provisioning modes (selected by `mode` on the wire):
-//
-//   mode='invite' — sends a magic-link via Supabase Auth's
-//     inviteUserByEmail. The invitee signs in once with the link, sets
-//     their own password through the standard recovery flow. The role
-//     is assigned immediately on app_metadata. This is the existing
-//     flow.
-//
-//   mode='create' — directly provisions an active account via
-//     auth.admin.createUser with `email_confirm: true`. The superadmin
-//     sets the initial password upfront and shares it out-of-band
-//     (Slack, in-person, etc.). The account skips email verification
-//     entirely — useful for users who can't receive the invite email
-//     (e.g. shared inboxes, on-premise accounts, or staff who need
-//     immediate access without waiting for SMTP delivery).
-const InviteModeSchema = z.object({
-  mode: z.literal('invite').optional().default('invite'),
-  email: z.string().trim().toLowerCase().email('Valid email required'),
-  role: RoleEnum,
-  displayName: z.string().trim().max(120).optional(),
-});
-
-const CreateModeSchema = z.object({
-  mode: z.literal('create'),
+// Direct-create provisioning — sole path now that the magic-link invite
+// flow has been removed. The invite flow had no dedicated password-setup
+// landing page, which left invited users signed in once but unable to
+// reauthenticate from /login (which is signInWithPassword-only). The
+// direct-create path sets the password upfront + email_confirm: true, so
+// the user can sign in immediately with the credentials the superadmin
+// shares out-of-band.
+export const InviteUserSchema = z.object({
   email: z.string().trim().toLowerCase().email('Valid email required'),
   role: RoleEnum,
   displayName: z.string().trim().max(120).optional(),
@@ -47,8 +31,6 @@ const CreateModeSchema = z.object({
     .min(8, 'Password must be at least 8 characters')
     .max(72, 'Password must be 72 characters or fewer'),
 });
-
-export const InviteUserSchema = z.union([CreateModeSchema, InviteModeSchema]);
 export type InviteUserInput = z.infer<typeof InviteUserSchema>;
 
 // PATCH /api/sis/admin/users/[id] — partial update. All fields optional.
