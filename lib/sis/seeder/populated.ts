@@ -1460,6 +1460,12 @@ async function seedEnrolledAdmissionsRows(
       const level = Array.isArray(section.level) ? section.level[0] : section.level;
       if (!level) return null;
       return {
+        // Carried through so we can write the generated enroleeNumber back
+        // onto section_students.enrolee_number — migration 041 added the
+        // column but the seeder was never wired to populate it. Drill
+        // loaders that scope by enrolee_number + seedMovements's transfer
+        // eligibility filter both depend on this back-write.
+        sectionStudentId: r.id,
         studentNumber: student.student_number,
         firstName: student.first_name,
         lastName: student.last_name,
@@ -1683,6 +1689,30 @@ async function seedEnrolledAdmissionsRows(
       continue;
     }
     inserted += appSlice.length;
+  }
+
+  // Back-write the generated enroleeNumber onto section_students.enrolee_number
+  // so downstream consumers (seedMovements transfer eligibility, drill loaders
+  // per migration 041) can resolve a student's enrolee identity without
+  // joining back to the admissions table. Done as a per-row UPDATE because
+  // there's no FK-based bulk path; the row count is ≤200 so N round trips
+  // is fine. Skip rows whose enroleeNumber already landed before this run
+  // (idempotent — re-running the seeder on a partially-seeded AY won't
+  // duplicate work).
+  let backwritten = 0;
+  for (let i = 0; i < rows.length; i++) {
+    const enroleeNumber = `${upperPrefix}-ENR-${String(i + 1).padStart(4, '0')}`;
+    const { error } = await service
+      .from('section_students')
+      .update({ enrolee_number: enroleeNumber })
+      .eq('id', rows[i].sectionStudentId)
+      .is('enrolee_number', null);
+    if (!error) backwritten += 1;
+  }
+  if (backwritten > 0) {
+    console.info(
+      `[populated seeder] section_students.enrolee_number back-written for ${backwritten} row(s).`,
+    );
   }
 
   return inserted;

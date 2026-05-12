@@ -116,8 +116,12 @@ export async function seedMovements(
   // Only roster rows whose `enrolee_number` is populated are eligible for
   // transfers (the audit context needs it). Withdrawals + late-enrols use
   // the section_students.id UUID directly so they don't need it.
+  //
+  // Don't early-return when transferEligible is empty: withdrawals +
+  // late-enrols still get seeded against the raw roster (using
+  // section_students.id, which every row has). Only the transfer loop
+  // gets skipped.
   const transferEligible = roster.filter((r) => !!r.enroleeNumber);
-  if (transferEligible.length === 0) return 0;
 
   const rand = mulberry32(hashString(`${testAy.ay_code}:movements`));
   const pick = <T,>(arr: T[]): T => arr[Math.floor(rand() * arr.length)];
