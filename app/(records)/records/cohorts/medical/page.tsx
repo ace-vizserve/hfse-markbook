@@ -1,7 +1,7 @@
 ﻿import { redirect } from 'next/navigation';
 
 import { CohortPageShell } from '@/components/sis/cohorts/cohort-page-shell';
-import { MedicalCohortTable } from '@/components/sis/cohorts/medical-cohort-table';
+import { CohortTable } from '@/components/sis/cohorts/cohort-table';
 import type { Role } from '@/lib/auth/roles';
 import {
   COHORT_DESCRIPTIONS,
@@ -39,7 +39,7 @@ export default async function RecordsCohortsMedicalPage({
       scope="enrolled"
       ayCode={ayCode}
     >
-      <MedicalCohortTable rows={rows} scope="enrolled" ayCode={ayCode} />
+      <CohortTable kind="medical" scope="enrolled" ayCode={ayCode} rows={rows} />
     </CohortPageShell>
   );
 }
