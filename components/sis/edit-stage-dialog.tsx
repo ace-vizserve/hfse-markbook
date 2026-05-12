@@ -187,14 +187,37 @@ export function EditStageDialog({
       }
       const changed = body.changed as number | undefined;
       const classAutoAssigned = body.classAutoAssigned === true;
-      const autoSyncChange = body.autoSync?.change as string | undefined;
-      toast.success(
-        classAutoAssigned
-          ? `Enrolled · class auto-assigned${autoSyncChange && autoSyncChange !== 'skipped' ? ` · synced to roster` : ''}`
-          : changed === 0
-            ? `${STAGE_LABELS[stageKey]} saved (no changes)`
-            : `${STAGE_LABELS[stageKey]} updated`,
-      );
+      const autoSync = body.autoSync as
+        | { change?: string; reason?: string; error?: string }
+        | undefined;
+      const autoSyncChange = autoSync?.change;
+      const autoSyncSkipped =
+        classAutoAssigned && (!autoSyncChange || autoSyncChange === 'skipped');
+
+      // When the application was flipped to Enrolled and the class was auto-
+      // assigned but syncOneStudent didn't actually insert the section_students
+      // row, surface the reason loud. The student WILL appear as Enrolled in
+      // admissions but WON'T show up on the section's roster until the cause
+      // (usually a missing studentNumber on the apps row) is fixed.
+      if (autoSyncSkipped) {
+        toast.warning(
+          'Enrolled · class auto-assigned, but section roster sync was skipped',
+          {
+            description:
+              autoSync?.reason ??
+              autoSync?.error ??
+              'Unknown reason — check the server log for "[stage PATCH] auto-sync skipped".',
+          },
+        );
+      } else {
+        toast.success(
+          classAutoAssigned
+            ? `Enrolled · class auto-assigned · synced to roster`
+            : changed === 0
+              ? `${STAGE_LABELS[stageKey]} saved (no changes)`
+              : `${STAGE_LABELS[stageKey]} updated`,
+        );
+      }
       setOpen(false);
       router.refresh();
     } catch (e) {

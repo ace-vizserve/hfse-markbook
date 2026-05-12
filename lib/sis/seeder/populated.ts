@@ -885,6 +885,145 @@ const STP_APPLICATION_TYPE = 'New Student Pass Application';
 const STP_RESIDENCE_HISTORY =
   '[{"toYear":"Present","country":"Singapore","fromYear":2020,"cityOrTown":"Singapore","purposeOfStay":"Schooling"}]';
 
+// Parent / guardian name pools — small deterministic lists so seeded
+// applicants ship with realistic mother / father / guardian rows. In
+// production every application carries these from intake (parent portal
+// writes them alongside enroleeNumber + studentNumber); the seeder
+// mirrors that shape.
+const MOTHER_FIRST_NAMES = [
+  'Maria',
+  'Anna',
+  'Linda',
+  'Susan',
+  'Jennifer',
+  'Mary',
+  'Patricia',
+  'Karen',
+  'Nancy',
+  'Elizabeth',
+  'Margaret',
+  'Lisa',
+  'Helen',
+  'Sandra',
+  'Donna',
+  'Carol',
+  'Sharon',
+  'Michelle',
+  'Laura',
+  'Sarah',
+] as const;
+const FATHER_FIRST_NAMES = [
+  'John',
+  'David',
+  'Michael',
+  'James',
+  'Robert',
+  'William',
+  'Richard',
+  'Joseph',
+  'Thomas',
+  'Charles',
+  'Christopher',
+  'Daniel',
+  'Paul',
+  'Mark',
+  'Donald',
+  'Steven',
+  'Andrew',
+  'Kenneth',
+  'George',
+  'Brian',
+] as const;
+const GUARDIAN_FIRST_NAMES = [
+  'Antonio',
+  'Carlos',
+  'Eduardo',
+  'Felipe',
+  'Hector',
+  'Isabel',
+  'Sofia',
+  'Carmen',
+  'Lucia',
+  'Beatriz',
+] as const;
+const GUARDIAN_LAST_NAMES = [
+  'Tan',
+  'Lim',
+  'Cruz',
+  'Garcia',
+  'Reyes',
+  'Santos',
+  'Wong',
+  'Lee',
+] as const;
+const NATIONALITY_BY_PASS: Record<string, string> = {
+  'Singapore PR': 'Singaporean',
+  'S-PASS': 'Filipino',
+  'Dependent Pass': 'Indian',
+};
+const FALLBACK_NATIONALITY = 'Filipino';
+
+function sgMobile(rand: () => number): string {
+  // +65 9XXX XXXX — Singapore mobile format.
+  const a = 1000 + Math.floor(rand() * 9000);
+  const b = 1000 + Math.floor(rand() * 9000);
+  return `+65 9${a} ${b}`;
+}
+
+function fakeEmail(first: string, last: string): string {
+  return `${first.toLowerCase()}.${last.toLowerCase()}@example.test`;
+}
+
+// Builds parent + guardian columns for an apps row. Mother is always
+// present (KD #69 anchor parent). Father is present in ~85% of rows;
+// of the remainder, ~80% get a guardian on record (the other ~20% are
+// mother-only). All names + emails are deterministic per rand seed so
+// the seeder stays idempotent.
+function buildParentFields(
+  rand: () => number,
+  studentLastName: string | null,
+  passType: string | null,
+): Record<string, unknown> {
+  const lastName = studentLastName?.trim() ? studentLastName : 'Doe';
+  const motherFirst = MOTHER_FIRST_NAMES[Math.floor(rand() * MOTHER_FIRST_NAMES.length)];
+  const fatherFirst = FATHER_FIRST_NAMES[Math.floor(rand() * FATHER_FIRST_NAMES.length)];
+  const nationality = (passType && NATIONALITY_BY_PASS[passType]) ?? FALLBACK_NATIONALITY;
+
+  const hasFather = rand() < 0.85;
+  const hasGuardian = !hasFather && rand() < 0.80;
+
+  const fields: Record<string, unknown> = {
+    motherFirstName: motherFirst,
+    motherLastName: lastName,
+    motherFullName: `${motherFirst} ${lastName}`,
+    motherEmail: fakeEmail(motherFirst, lastName),
+    motherMobile: sgMobile(rand),
+    motherNationality: nationality,
+  };
+
+  if (hasFather) {
+    fields.fatherFirstName = fatherFirst;
+    fields.fatherLastName = lastName;
+    fields.fatherFullName = `${fatherFirst} ${lastName}`;
+    fields.fatherEmail = fakeEmail(fatherFirst, lastName);
+    fields.fatherMobile = sgMobile(rand);
+    fields.fatherNationality = nationality;
+  }
+
+  if (hasGuardian) {
+    const gFirst = GUARDIAN_FIRST_NAMES[Math.floor(rand() * GUARDIAN_FIRST_NAMES.length)];
+    const gLast = GUARDIAN_LAST_NAMES[Math.floor(rand() * GUARDIAN_LAST_NAMES.length)];
+    fields.guardianFirstName = gFirst;
+    fields.guardianLastName = gLast;
+    fields.guardianFullName = `${gFirst} ${gLast}`;
+    fields.guardianEmail = fakeEmail(gFirst, gLast);
+    fields.guardianMobile = sgMobile(rand);
+    fields.guardianNationality = nationality;
+  }
+
+  return fields;
+}
+
 // Funnel-row level distribution. Heaviest in P1-S4 (the canonical mass
 // market), with 1-2 Youngstarters + 1 Cambridge Secondary sprinkled in so
 // the dashboard's level breakdowns show every band populated.
@@ -973,8 +1112,16 @@ async function seedAdmissionsFunnel(
       // 10% of funnel rows have allergy data (realistic distribution).
       const hasAllergies = rand() < 0.10;
 
+      // studentNumber is generated alongside enroleeNumber in production
+      // (parent portal mints both at intake). syncOneStudent skips with
+      // 'no studentNumber' if this is null, so the section-roster insert
+      // would silently fail when the registrar later flips this applicant
+      // to Enrolled. Seed it now so the test env mirrors production.
+      const studentNumber = `TEST-${prefix.toUpperCase()}-SN-${seq}`;
+      const parentFields = buildParentFields(rand, n.last_name, passType);
       appRows.push({
         enroleeNumber,
+        studentNumber,
         category,
         firstName: n.first_name,
         lastName: n.last_name,
@@ -1003,6 +1150,7 @@ async function seedAdmissionsFunnel(
         allergyDetails: hasAllergies ? 'Test allergy details' : null,
         paracetamolConsent: true,
         socialMediaConsent: rand() < 0.7,
+        ...parentFields,
       });
 
       const applicationStatus: ApplicationStatus = profile.applicationStatus;
@@ -1594,6 +1742,7 @@ async function seedEnrolledAdmissionsRows(
 
   const appInserts = rows.map((r, i) => {
     const m = personaMeta[i];
+    const parentFields = buildParentFields(enrolledRand, r.lastName, m.passType);
     return {
       enroleeNumber: `${upperPrefix}-ENR-${String(i + 1).padStart(4, '0')}`,
       studentNumber: r.studentNumber,
@@ -1622,6 +1771,7 @@ async function seedEnrolledAdmissionsRows(
       // Backdate created_at so `daysToEnroll` (updatedAt − createdAt) has
       // realistic positive variance for the conversion-rate cohort drill.
       created_at: personaCreatedAtIso(i),
+      ...parentFields,
     };
   });
   const statusInserts = rows.map((r, i) => {

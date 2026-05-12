@@ -303,12 +303,18 @@ export async function PATCH(
     }
 
     // Gate passed — auto-assign a class. Need the application row's
-    // levelApplied / classType / preferredSchedule for the scoring.
+    // studentNumber + levelApplied / classType / preferredSchedule. The
+    // studentNumber is what syncOneStudent uses to upsert the public
+    // `students` row + section_students row; in production the parent
+    // portal writes it alongside enroleeNumber at intake, so a null here
+    // is anomalous. Fail loudly instead of letting syncOneStudent
+    // silently skip with 'no studentNumber' (which would land the row in
+    // an Enrolled status with no section roster placement).
     const admissionsClient = createAdmissionsClient();
     const appsTable = `${prefix}_enrolment_applications`;
     const { data: appRow, error: appErr } = await admissionsClient
       .from(appsTable)
-      .select('levelApplied, classType, preferredSchedule')
+      .select('studentNumber, levelApplied, classType, preferredSchedule')
       .eq('enroleeNumber', enroleeNumber)
       .maybeSingle();
     if (appErr || !appRow) {
@@ -319,10 +325,20 @@ export async function PATCH(
       );
     }
     const appLite = appRow as unknown as {
+      studentNumber: string | null;
       levelApplied: string | null;
       classType: string | null;
       preferredSchedule: string | null;
     };
+    if (!appLite.studentNumber) {
+      return NextResponse.json(
+        {
+          error:
+            'Cannot enroll: this applicant has no Student Number on file. Student numbers are normally generated at parent-portal submission alongside the enrolee number — contact admissions support to assign one before enrolling.',
+        },
+        { status: 422 },
+      );
+    }
     const pick = await pickSectionForApplicant(supabase, ayCode, appLite);
     if ('error' in pick) {
       return NextResponse.json(
