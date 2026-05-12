@@ -1,8 +1,10 @@
+import Link from 'next/link';
 import {
   AlertCircle,
   CalendarClock,
   CheckCircle2,
   Eye,
+  Printer,
   Users,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -430,10 +432,21 @@ export default async function ReportCardsListPage({
                 <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   {selectedLabel} · Roster
                 </h2>
-                <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-                  {rosterRows.length}{' '}
-                  {rosterRows.length === 1 ? 'student' : 'students'}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                    {rosterRows.length}{' '}
+                    {rosterRows.length === 1 ? 'student' : 'students'}
+                  </span>
+                  {rosterRows.length > 0 && (
+                    <Link
+                      href={`/markbook/report-cards/section/${q.section_id}/print`}
+                      className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                    >
+                      <Printer className="h-3 w-3" />
+                      Print all
+                    </Link>
+                  )}
+                </div>
               </div>
               <ReportCardsRosterTable data={rosterRows} />
             </section>
