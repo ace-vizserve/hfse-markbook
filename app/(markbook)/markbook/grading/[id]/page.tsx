@@ -231,6 +231,7 @@ export default async function GradingSheetPage({
         : '(missing)',
       student_number: stu?.student_number ?? '',
       withdrawn: ss?.enrollment_status === 'withdrawn',
+      late_enrollee: ss?.enrollment_status === 'late_enrollee',
       is_na: e.is_na,
       ww_scores: (e.ww_scores ?? []) as (number | null)[],
       pt_scores: (e.pt_scores ?? []) as (number | null)[],
