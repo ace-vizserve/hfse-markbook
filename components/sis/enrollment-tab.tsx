@@ -26,6 +26,7 @@ import { EditStageDialog } from '@/components/sis/edit-stage-dialog';
 import { type Field } from '@/components/sis/field-grid';
 import { StageStatusBadge } from '@/components/sis/status-badge';
 import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -606,106 +607,188 @@ function ProgressOverviewCard({
         </CardAction>
       </CardHeader>
       <CardContent className="space-y-5 px-5 py-4">
-        <ProgressSection eyebrow="Required for Enrolled" stages={prereqStages} />
-        <ProgressSection eyebrow="Post-enrollment" stages={postEnrolStages} />
+        <ProgressSection eyebrow="Required for Enrolled" stages={prereqStages} variant="prereq" />
+        <ProgressSection eyebrow="Post-enrollment" stages={postEnrolStages} variant="postEnrol" />
       </CardContent>
     </Card>
   );
 }
 
-// SVG ring showing `done / total` as a stroke arc + center text. Inline
-// because it's used in exactly one place. Mint stroke when 100% complete,
-// otherwise brand-indigo. Track in muted. Geometry: 80×80 viewport, r=34,
-// stroke-width=8 → outer reach 42, inner reach 26. Center text is two
-// lines: big "done/total" + small percentage below.
-function CircularProgress({ done, total }: { done: number; total: number }) {
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-  const isComplete = total > 0 && done === total;
-  const r = 34;
-  const c = 2 * Math.PI * r;
-  // -90deg start (12 o'clock) via SVG rotation on the arc circle.
-  const offset = c * (1 - pct / 100);
-  return (
-    <div className="relative flex size-20 shrink-0 items-center justify-center">
-      <svg
-        viewBox="0 0 80 80"
-        className="size-20 -rotate-90"
-        aria-hidden="true">
-        <circle
-          cx="40"
-          cy="40"
-          r={r}
-          fill="none"
-          strokeWidth="8"
-          className="stroke-muted"
-        />
-        <circle
-          cx="40"
-          cy="40"
-          r={r}
-          fill="none"
-          strokeWidth="8"
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={offset}
-          className={cn(
-            'transition-all duration-300',
-            isComplete ? 'stroke-brand-mint' : 'stroke-brand-indigo',
-          )}
-        />
-      </svg>
-      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center leading-none">
-        <span className="font-serif text-[15px] font-semibold tabular-nums text-foreground">
-          {done}/{total}
-        </span>
-        <span
-          className={cn(
-            'mt-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.1em] tabular-nums',
-            isComplete ? 'text-brand-mint' : 'text-muted-foreground',
-          )}>
-          {pct}%
-        </span>
-      </div>
-    </div>
-  );
+// Stage status → visual tone discriminator. Five buckets matching
+// `statusStripeClass` regex groups so the tile recipes stay in lockstep
+// with the §9.3 tone vocabulary used elsewhere on this page.
+type StageTone = 'done' | 'failed' | 'pending' | 'active' | 'empty';
+
+function stageTone(status: string | null): StageTone {
+  const s = (status ?? '').trim();
+  if (!s) return 'empty';
+  if (
+    /^(finished|verified|paid|signed|claimed|enrolled|enrolled \(conditional\))$/i.test(s)
+  ) {
+    return 'done';
+  }
+  if (/^(cancelled|withdrawn|rejected|expired)$/i.test(s)) return 'failed';
+  if (/^(pending|unpaid|incomplete)$/i.test(s)) return 'pending';
+  if (
+    /^(submitted|ongoing verification|processing|ongoing assessment|generated|sent|invoiced|re-invoiced)$/i.test(
+      s,
+    )
+  ) {
+    return 'active';
+  }
+  return 'empty';
+}
+
+// Per-tone visual recipe for stage tiles. Done tiles "earn" the gradient-
+// tile-icon project signature (brand-mint→sky); failed get the destructive
+// gradient; active gets brand-indigo; pending gets amber; empty stays
+// quiet with muted chrome. Recipe follows §9.3 status palette + project
+// gradient voice (KD #84-era flat → gradient sweep).
+const STAGE_TILE_RECIPE: Record<
+  StageTone,
+  {
+    border: string;
+    tint: string;
+    iconBg: string;
+    iconText: string;
+    statusText: string;
+  }
+> = {
+  done: {
+    border: 'border-brand-mint/50',
+    tint: 'bg-gradient-to-b from-brand-mint/12 to-brand-mint/0',
+    iconBg: 'bg-gradient-to-br from-brand-mint to-brand-sky shadow-brand-tile-mint',
+    iconText: 'text-white',
+    statusText: 'text-brand-mint',
+  },
+  failed: {
+    border: 'border-destructive/40',
+    tint: 'bg-gradient-to-b from-destructive/10 to-destructive/0',
+    iconBg: 'bg-gradient-to-br from-destructive to-destructive/80 shadow-brand-tile-destructive',
+    iconText: 'text-white',
+    statusText: 'text-destructive',
+  },
+  pending: {
+    border: 'border-brand-amber/40',
+    tint: 'bg-gradient-to-b from-brand-amber/10 to-brand-amber/0',
+    iconBg: 'bg-gradient-to-br from-brand-amber to-brand-amber/80 shadow-brand-tile-amber',
+    iconText: 'text-white',
+    statusText: 'text-brand-amber',
+  },
+  active: {
+    border: 'border-brand-indigo/40',
+    tint: 'bg-gradient-to-b from-accent/40 to-accent/0',
+    iconBg: 'bg-gradient-to-br from-brand-indigo to-brand-navy shadow-brand-tile',
+    iconText: 'text-white',
+    statusText: 'text-brand-indigo',
+  },
+  empty: {
+    border: 'border-hairline',
+    tint: '',
+    iconBg: 'bg-muted',
+    iconText: 'text-muted-foreground',
+    statusText: 'text-muted-foreground',
+  },
+};
+
+// Rollup-level readiness signal. Maps the section's count buckets to one
+// of the §9.3 status pill tones — gives the registrar the at-a-glance
+// "ready / not yet" answer that the chip strip can't carry on its own.
+type RollupReadiness =
+  | { tone: 'healthy'; label: string }
+  | { tone: 'warning'; label: string }
+  | { tone: 'locked'; label: string }
+  | { tone: 'info'; label: string }
+  | { tone: 'muted'; label: string };
+
+function readinessForPrereq(counts: ReturnType<typeof stageBucketCounts>): RollupReadiness {
+  if (counts.total === 0) return { tone: 'muted', label: 'No prereqs' };
+  if (counts.done === counts.total) return { tone: 'healthy', label: 'Ready for Enrolled' };
+  if (counts.failed > 0) return { tone: 'locked', label: `${counts.failed} cancelled` };
+  const remaining = counts.total - counts.done;
+  return { tone: 'warning', label: `${remaining} to complete` };
+}
+
+function readinessForPostEnrol(
+  counts: ReturnType<typeof stageBucketCounts>,
+): RollupReadiness {
+  if (counts.total === 0) return { tone: 'muted', label: 'Not applicable' };
+  if (counts.done === counts.total) return { tone: 'healthy', label: 'All done' };
+  if (counts.done === 0 && counts.active === 0) {
+    return { tone: 'muted', label: 'Activates after Enrolled' };
+  }
+  if (counts.failed > 0) return { tone: 'locked', label: `${counts.failed} cancelled` };
+  return { tone: 'info', label: 'In progress' };
 }
 
 function ProgressSection({
   eyebrow,
   stages,
+  variant,
 }: {
   eyebrow: string;
   stages: StageCard[];
+  variant: 'prereq' | 'postEnrol';
 }) {
   const counts = stageBucketCounts(stages);
+  const readiness =
+    variant === 'prereq' ? readinessForPrereq(counts) : readinessForPostEnrol(counts);
 
   return (
-    <div className="flex items-start gap-4">
-      <CircularProgress done={counts.done} total={counts.total} />
-      <div className="min-w-0 flex-1 space-y-2">
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          {eyebrow}
-        </span>
-        <div className="flex flex-wrap gap-1.5">
-          {stages.map((stage) => (
-            <StageProgressChip key={stage.key} stage={stage} />
-          ))}
+    <section className="space-y-3">
+      <header className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="flex items-baseline gap-3">
+          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            {eyebrow}
+          </span>
+          <span className="font-serif text-[15px] font-semibold tabular-nums text-foreground">
+            {counts.done}
+            <span className="text-muted-foreground"> / {counts.total}</span>
+          </span>
         </div>
+        <StatusBadge tone={readiness.tone}>{readiness.label}</StatusBadge>
+      </header>
+      <div className="grid grid-cols-2 gap-2 @sm/card:grid-cols-3 @md/card:grid-cols-4 @lg/card:grid-cols-5">
+        {stages.map((stage) => (
+          <StageTile key={stage.key} stage={stage} />
+        ))}
       </div>
-    </div>
+    </section>
   );
 }
 
-function StageProgressChip({ stage }: { stage: StageCard }) {
-  const stripe = statusStripeClass(stage.status);
+function StageTile({ stage }: { stage: StageCard }) {
+  const tone = stageTone(stage.status);
+  const recipe = STAGE_TILE_RECIPE[tone];
+  const Icon = STAGE_ICON[stage.key];
+
   return (
-    <div className="inline-flex items-center gap-2 rounded-md border border-hairline bg-card px-2.5 py-1.5 shadow-xs">
-      <span aria-hidden="true" className={cn('size-2 shrink-0 rounded-full', stripe)} />
-      <span className="font-serif text-xs font-semibold tracking-tight text-foreground">
-        {stage.label}
-      </span>
-      <span className="font-mono text-[10px] uppercase tracking-wider tabular-nums text-muted-foreground">
-        {stage.status ?? '—'}
+    <div
+      className={cn(
+        'flex h-full flex-col gap-2 rounded-lg border p-3 transition-colors',
+        recipe.border,
+        recipe.tint,
+      )}>
+      <div className="flex items-start gap-2">
+        <span
+          aria-hidden="true"
+          className={cn(
+            'flex size-7 shrink-0 items-center justify-center rounded-lg',
+            recipe.iconBg,
+            recipe.iconText,
+          )}>
+          <Icon className="size-3.5" />
+        </span>
+        <span className="min-w-0 flex-1 font-serif text-[13px] font-semibold leading-tight tracking-tight text-foreground">
+          {stage.label}
+        </span>
+      </div>
+      <span
+        className={cn(
+          'font-mono text-[10px] font-semibold uppercase tracking-[0.12em] tabular-nums',
+          recipe.statusText,
+        )}>
+        {stage.status?.trim() || 'Not set'}
       </span>
     </div>
   );
