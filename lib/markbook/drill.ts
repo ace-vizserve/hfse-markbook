@@ -878,10 +878,16 @@ function applyTargetFilter(
       return (rows as GradeEntryRow[]).filter((r) => r.gradeBucket === key) as MarkbookDrillRow[];
     }
     case 'term-sheet-status': {
-      // segment format: "T<n>:<status>" where status ∈ {locked, open}.
-      // Backwards-compatible: bare "T<n>" returns all sheets in that term.
+      // The chart (`SheetProgressChart`) emits human labels like
+      // 'Term 1 · Locked' / 'Term 1 · Open'. The legacy regex expected the
+      // compact 'T1:locked' form and silently fell through to `return rows`
+      // (= every sheet) when the label form came in — same class of bug as
+      // term-publication-status had before its dual-regex fix. Accept both.
+      // Bare 'T<n>' returns all sheets in that term.
       if (!segment) return rows;
-      const m = /^T(\d+)(?::(locked|open))?$/i.exec(segment);
+      const compact = /^T(\d+)(?::(locked|open))?$/i.exec(segment);
+      const labelled = /^Term\s+(\d+)\s*[·.\-]\s*(Locked|Open)$/i.exec(segment);
+      const m = compact ?? labelled;
       if (!m) return rows;
       const termNumber = Number(m[1]);
       const status = (m[2] ?? '').toLowerCase() as 'locked' | 'open' | '';

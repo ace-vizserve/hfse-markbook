@@ -293,8 +293,27 @@ export function applyTargetFilter(
     }
     case 'missing-docs': return rows.filter((r) => r.status === 'Missing');
     case 'slot-by-status': {
-      // segment = a status string ('Missing', 'Expired', etc.)
+      // segment = a status string ('On file', 'Expired', etc.) emitted by
+      // <SlotStatusDrillCard>. The donut's two slices map as follows:
+      //   'On file' → r.status === 'Valid'
+      //   'Expired' → r.status ∈ {'Expired', 'Missing'}  (slotMix.missing
+      //               lumps both together for enrolled-only data per the
+      //               chart's documented design intent — see
+      //               components/p-files/drills/chart-drill-cards.tsx
+      //               SlotStatusDrillCard lines 35-39).
+      // Without the union below, clicking the 'Expired' slice opened a
+      // drill with fewer rows than the slice count, because the filter
+      // only caught the genuinely-Expired subset and dropped the
+      // Missing rows that the slice also counted.
       if (!segment) return rows;
+      // The drill row's `status` is the post-normalization label per
+      // normaliseStatus (lines 94-109): 'Pending review' | 'Missing' |
+      // 'On file' | 'Expired' | 'N/A'. The donut emits 'On file' and
+      // 'Expired' directly, so the On-file branch is a straight match.
+      if (segment === 'On file') return rows.filter((r) => r.status === 'On file');
+      if (segment === 'Expired') {
+        return rows.filter((r) => r.status === 'Expired' || r.status === 'Missing');
+      }
       return rows.filter((r) => r.status === segment);
     }
     case 'missing-by-slot': {
