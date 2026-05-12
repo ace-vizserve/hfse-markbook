@@ -68,6 +68,9 @@ type AppLite = {
   levelApplied: string | null;
   created_at: string | null;
   howDidYouKnowAboutHFSEIS: string | null;
+  studentNumber: string | null;
+  motherEmail: string | null;
+  fatherEmail: string | null;
 };
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -104,7 +107,7 @@ async function loadJoinedRowsUncached(ayCode: string): Promise<JoinedRow[]> {
     supabase
       .from(appsTable)
       .select(
-        'enroleeNumber, enroleeFullName, firstName, lastName, levelApplied, created_at, howDidYouKnowAboutHFSEIS',
+        'enroleeNumber, enroleeFullName, firstName, lastName, levelApplied, created_at, howDidYouKnowAboutHFSEIS, studentNumber, motherEmail, fatherEmail',
       ),
     supabase
       .from(statusTable)
@@ -258,6 +261,9 @@ export async function getConversionFunnel(ayCode: string): Promise<FunnelStage[]
 export type OutdatedRow = {
   enroleeNumber: string;
   fullName: string;
+  studentNumber: string | null;
+  motherEmail: string | null;
+  fatherEmail: string | null;
   status: string;
   levelApplied: string | null;
   lastUpdated: string | null; // ISO date
@@ -302,6 +308,9 @@ export async function getOutdatedApplications(ayCode: string): Promise<OutdatedR
         (r.enroleeFullName ?? '').trim() ||
         `${r.firstName ?? ''} ${r.lastName ?? ''}`.trim() ||
         r.enroleeNumber,
+      studentNumber: r.studentNumber ?? null,
+      motherEmail: r.motherEmail ?? null,
+      fatherEmail: r.fatherEmail ?? null,
       status,
       levelApplied: r.levelApplied ?? r.statusLevel,
       lastUpdated: r.applicationUpdatedDate,
