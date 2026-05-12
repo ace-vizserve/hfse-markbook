@@ -57,7 +57,7 @@ function StalenessBadge({ days }: { days: number | null }) {
     return (
       <Badge
         variant="outline"
-        className={`${BADGE_BASE} border-hairline bg-muted text-ink-3`}
+        className={`${BADGE_BASE} border-hairline bg-gradient-to-b from-muted to-muted/60 text-ink-3`}
       >
         <HelpCircle className="h-3 w-3" aria-hidden />
         Never updated
@@ -68,7 +68,7 @@ function StalenessBadge({ days }: { days: number | null }) {
     return (
       <Badge
         variant="outline"
-        className={`${BADGE_BASE} border-destructive/40 bg-destructive/10 text-destructive`}
+        className={`${BADGE_BASE} border-destructive/40 bg-gradient-to-b from-destructive/15 to-destructive/5 text-destructive`}
       >
         <AlertTriangle className="h-3 w-3" aria-hidden />
         {days}d stale
@@ -79,7 +79,7 @@ function StalenessBadge({ days }: { days: number | null }) {
     return (
       <Badge
         variant="outline"
-        className={`${BADGE_BASE} border-chart-4/50 bg-chart-4/15 text-ink`}
+        className={`${BADGE_BASE} border-chart-4/50 bg-gradient-to-b from-chart-4/20 to-chart-4/5 text-ink`}
       >
         <AlertCircle className="h-3 w-3" aria-hidden />
         {days}d stale
@@ -89,7 +89,7 @@ function StalenessBadge({ days }: { days: number | null }) {
   return (
     <Badge
       variant="outline"
-      className={`${BADGE_BASE} border-brand-mint bg-brand-mint/30 text-ink`}
+      className={`${BADGE_BASE} border-brand-mint bg-gradient-to-b from-brand-mint/35 to-brand-mint/15 text-ink`}
     >
       <CheckCircle2 className="h-3 w-3" aria-hidden />
       Fresh · {days}d
@@ -99,7 +99,7 @@ function StalenessBadge({ days }: { days: number | null }) {
 
 function StatusPill({ value }: { value: string | null | undefined }) {
   return (
-    <Badge variant="outline" className={`${BADGE_BASE} border-hairline bg-muted text-ink-3`}>
+    <Badge variant="outline" className={`${BADGE_BASE} border-hairline bg-gradient-to-b from-muted to-muted/60 text-ink-3`}>
       {value && value.trim().length > 0 ? value : '—'}
     </Badge>
   );

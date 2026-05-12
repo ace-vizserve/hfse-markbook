@@ -180,7 +180,7 @@ function buildAYColumns(): ColumnDef<AcademicYearDrillRow, unknown>[] {
             <Sparkles className="h-3 w-3" /> Current
           </Badge>
         ) : (
-          <Badge variant="outline" className={`${BADGE_BASE} border-hairline bg-muted text-ink-3`}>
+          <Badge variant="outline" className={`${BADGE_BASE} border-hairline bg-gradient-to-b from-muted to-muted/60 text-ink-3`}>
             Historical
           </Badge>
         ),

@@ -74,7 +74,7 @@ function StalenessBadge({ days }: { days: number | null }) {
     return (
       <Badge
         variant="outline"
-        className={`${BADGE_BASE} border-hairline bg-muted text-ink-3`}
+        className={`${BADGE_BASE} border-hairline bg-gradient-to-b from-muted to-muted/60 text-ink-3`}
       >
         <HelpCircle className="h-3 w-3" aria-hidden />
         Never updated
@@ -106,7 +106,7 @@ function StalenessBadge({ days }: { days: number | null }) {
   return (
     <Badge
       variant="outline"
-      className={`${BADGE_BASE} border-brand-mint bg-brand-mint/30 text-ink`}
+      className={`${BADGE_BASE} border-brand-mint bg-gradient-to-b from-brand-mint/35 to-brand-mint/15 text-ink`}
     >
       <CheckCircle2 className="h-3 w-3" aria-hidden />
       Fresh · {days}d
@@ -124,7 +124,7 @@ const STATUS_STYLES: Record<string, StatusStyle> = {
   Submitted: {
     icon: FileText,
     label: 'Submitted',
-    className: 'border-brand-indigo/40 bg-brand-indigo/10 text-brand-indigo',
+    className: 'border-brand-indigo/40 bg-gradient-to-b from-brand-indigo/15 to-brand-indigo/5 text-brand-indigo',
   },
   'Ongoing Verification': {
     icon: ClipboardList,
@@ -134,12 +134,12 @@ const STATUS_STYLES: Record<string, StatusStyle> = {
   Processing: {
     icon: Cog,
     label: 'Processing',
-    className: 'border-brand-indigo-soft/60 bg-brand-indigo-soft/15 text-ink',
+    className: 'border-brand-indigo-soft/60 bg-gradient-to-b from-brand-indigo-soft/20 to-brand-indigo-soft/5 text-ink',
   },
   Enrolled: {
     icon: GraduationCap,
     label: 'Enrolled',
-    className: 'border-brand-mint bg-brand-mint/30 text-ink',
+    className: 'border-brand-mint bg-gradient-to-b from-brand-mint/35 to-brand-mint/15 text-ink',
   },
   'Enrolled (Conditional)': {
     icon: Asterisk,
@@ -161,7 +161,7 @@ const STATUS_STYLES: Record<string, StatusStyle> = {
 const UNKNOWN_STATUS: StatusStyle = {
   icon: HelpCircle,
   label: 'No status',
-  className: 'border-hairline bg-muted text-ink-3',
+  className: 'border-hairline bg-gradient-to-b from-muted to-muted/60 text-ink-3',
 };
 
 function StatusBadge({ status }: { status: string }) {
