@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import {
-  Activity,
   AlertTriangle,
   ArrowRightLeft,
   CheckCircle2,
@@ -495,19 +494,11 @@ function StageProgressCard({
 
   return (
     <Card className="@container/overview gap-0 overflow-hidden p-0">
-      <CardHeader className="border-b border-border px-5 py-4">
-        <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-          Enrolment overview
-        </CardDescription>
-        <CardTitle className="font-serif text-[18px] font-semibold tracking-tight text-foreground">
+      <div className="flex items-center justify-between border-b border-border px-5 py-3">
+        <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
           Stage progress
-        </CardTitle>
-        <CardAction>
-          <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
-            <Activity className="size-5" />
-          </div>
-        </CardAction>
-      </CardHeader>
+        </h2>
+      </div>
 
       {/* KPI strip — percent + linear progress bar */}
       <div className="border-b border-border bg-muted/20 px-5 py-4">
