@@ -1,20 +1,17 @@
-import * as React from 'react';
-import { type LucideIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
+import { type LucideIcon } from "lucide-react";
+import * as React from "react";
 
-export type StatusTone = 'healthy' | 'locked' | 'info' | 'muted' | 'warning';
+export type StatusTone = "healthy" | "locked" | "info" | "muted" | "warning";
 
 const TONE_CLASS: Record<StatusTone, string> = {
-  healthy:
-    'bg-gradient-to-b from-brand-mint/15 to-brand-mint/5 text-brand-mint ring-inset ring-1 ring-brand-mint/30',
+  healthy: "bg-gradient-to-b from-brand-mint/15 to-brand-mint/5 text-brand-mint ring-inset ring-1 ring-brand-mint/30",
   locked:
-    'bg-gradient-to-b from-destructive/15 to-destructive/5 text-destructive ring-inset ring-1 ring-destructive/30',
-  info:
-    'bg-gradient-to-b from-accent/20 to-accent/5 text-accent-foreground ring-inset ring-1 ring-accent/30',
-  muted:
-    'bg-gradient-to-b from-muted to-muted/60 text-muted-foreground ring-inset ring-1 ring-border',
+    "bg-gradient-to-b from-destructive/15 to-destructive/5 text-destructive ring-inset ring-1 ring-destructive/30",
+  info: "bg-gradient-to-b from-accent/20 to-accent/5 text-accent-foreground ring-inset ring-1 ring-accent/30",
+  muted: "bg-gradient-to-b from-muted to-muted/60 text-muted-foreground ring-inset ring-1 ring-border",
   warning:
-    'bg-gradient-to-b from-brand-amber/15 to-brand-amber/5 text-brand-amber ring-inset ring-1 ring-brand-amber/30',
+    "bg-gradient-to-b from-brand-amber/15 to-brand-amber/5 text-brand-amber ring-inset ring-1 ring-brand-amber/30",
 };
 
 type StatusBadgeProps = {
@@ -28,11 +25,10 @@ export function StatusBadge({ tone, icon: Icon, className, children }: StatusBad
   return (
     <span
       className={cn(
-        'inline-flex h-6 items-center gap-1 rounded-full px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]',
+        "inline-flex h-6 items-center gap-1 rounded-full px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]",
         TONE_CLASS[tone],
         className,
-      )}
-    >
+      )}>
       {Icon ? <Icon className="h-3 w-3" aria-hidden /> : null}
       <span>{children}</span>
     </span>

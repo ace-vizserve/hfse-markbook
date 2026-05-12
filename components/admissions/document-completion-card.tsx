@@ -110,6 +110,9 @@ export function DocumentCompletionCard({
                     fontSize={12}
                     tickLine={false}
                     interval={0}
+                    angle={-30}
+                    textAnchor="end"
+                    height={56}
                   />
                   <YAxis
                     stroke="var(--color-muted-foreground)"
