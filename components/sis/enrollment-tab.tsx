@@ -23,6 +23,7 @@ import {
 
 import { EditStageDialog } from '@/components/sis/edit-stage-dialog';
 import { type Field } from '@/components/sis/field-grid';
+import { StageScrollLink } from '@/components/sis/stage-scroll-link';
 import { StageStatusBadge } from '@/components/sis/status-badge';
 import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -809,7 +810,10 @@ function StageNode({
   const rightSegmentDone = !isLast && nextTone === 'done' && tone === 'done';
 
   return (
-    <div className="relative flex min-w-0 flex-1 flex-col items-center gap-2">
+    <StageScrollLink
+      targetId={`stage-${stage.key}`}
+      aria-label={`Jump to ${stage.label} details`}
+      className="relative flex min-w-0 flex-1 flex-col items-center gap-2">
       {!isFirst && (
         <span
           aria-hidden="true"
@@ -849,7 +853,7 @@ function StageNode({
           {stage.status?.trim() || 'Not set'}
         </p>
       </div>
-    </div>
+    </StageScrollLink>
   );
 }
 
@@ -950,7 +954,9 @@ function StageStatusTile({
   const autoManaged = stage.key === 'class';
 
   return (
-    <div className="group relative flex flex-col gap-2.5 overflow-hidden rounded-xl border border-hairline bg-gradient-to-t from-primary/5 to-card p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+    <div
+      id={`stage-${stage.key}`}
+      className="group relative flex scroll-mt-24 flex-col gap-2.5 overflow-hidden rounded-xl border border-hairline bg-gradient-to-t from-primary/5 to-card p-4 shadow-xs transition-all duration-200 target:ring-2 target:ring-brand-mint hover:-translate-y-0.5 hover:shadow-md">
       <span aria-hidden="true" className={cn('absolute inset-y-0 left-0 w-1', stripe)} />
 
       <div className="flex items-start justify-between gap-2 pl-1">
