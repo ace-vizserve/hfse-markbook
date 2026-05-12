@@ -613,6 +613,63 @@ function ProgressOverviewCard({
   );
 }
 
+// SVG ring showing `done / total` as a stroke arc + center text. Inline
+// because it's used in exactly one place. Mint stroke when 100% complete,
+// otherwise brand-indigo. Track in muted. Geometry: 80×80 viewport, r=34,
+// stroke-width=8 → outer reach 42, inner reach 26. Center text is two
+// lines: big "done/total" + small percentage below.
+function CircularProgress({ done, total }: { done: number; total: number }) {
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const isComplete = total > 0 && done === total;
+  const r = 34;
+  const c = 2 * Math.PI * r;
+  // -90deg start (12 o'clock) via SVG rotation on the arc circle.
+  const offset = c * (1 - pct / 100);
+  return (
+    <div className="relative flex size-20 shrink-0 items-center justify-center">
+      <svg
+        viewBox="0 0 80 80"
+        className="size-20 -rotate-90"
+        aria-hidden="true">
+        <circle
+          cx="40"
+          cy="40"
+          r={r}
+          fill="none"
+          strokeWidth="8"
+          className="stroke-muted"
+        />
+        <circle
+          cx="40"
+          cy="40"
+          r={r}
+          fill="none"
+          strokeWidth="8"
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={offset}
+          className={cn(
+            'transition-all duration-300',
+            isComplete ? 'stroke-brand-mint' : 'stroke-brand-indigo',
+          )}
+        />
+      </svg>
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center leading-none">
+        <span className="font-serif text-[15px] font-semibold tabular-nums text-foreground">
+          {done}/{total}
+        </span>
+        <span
+          className={cn(
+            'mt-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.1em] tabular-nums',
+            isComplete ? 'text-brand-mint' : 'text-muted-foreground',
+          )}>
+          {pct}%
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function ProgressSection({
   eyebrow,
   stages,
@@ -621,36 +678,19 @@ function ProgressSection({
   stages: StageCard[];
 }) {
   const counts = stageBucketCounts(stages);
-  const pct = counts.total > 0 ? Math.round((counts.done / counts.total) * 100) : 0;
-  const isComplete = counts.total > 0 && counts.done === counts.total;
 
   return (
-    <div className="space-y-3">
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            {eyebrow}
-          </span>
-          <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-            {counts.done} of {counts.total} · {pct}%
-          </span>
+    <div className="flex items-start gap-4">
+      <CircularProgress done={counts.done} total={counts.total} />
+      <div className="min-w-0 flex-1 space-y-2">
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          {eyebrow}
+        </span>
+        <div className="flex flex-wrap gap-1.5">
+          {stages.map((stage) => (
+            <StageProgressChip key={stage.key} stage={stage} />
+          ))}
         </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-          <div
-            className={cn(
-              'h-full transition-all',
-              isComplete
-                ? 'bg-gradient-to-r from-brand-mint to-brand-mint/70'
-                : 'bg-gradient-to-r from-brand-indigo to-brand-indigo/70',
-            )}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        {stages.map((stage) => (
-          <StageProgressChip key={stage.key} stage={stage} />
-        ))}
       </div>
     </div>
   );
