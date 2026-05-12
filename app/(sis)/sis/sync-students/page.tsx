@@ -39,6 +39,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { DataTableEmptyState } from '@/components/ui/data-table/empty-state';
 import { PageShell } from '@/components/ui/page-shell';
 import {
   Table,
@@ -48,6 +49,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { TABLE_COPY } from '@/lib/copy/data-table';
 
 type SyncError = {
   row_index: number;
@@ -200,7 +202,7 @@ export default function SyncStudentsPage() {
             <div className="@container/main">
               <div className="grid grid-cols-2 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-4">
                 <StatCard
-                  description="Source rows"
+                  description={TABLE_COPY.rowsFromAdmissions}
                   value={stats.total_source_rows}
                   icon={Database}
                   footer="From admissions DB"
@@ -221,13 +223,13 @@ export default function SyncStudentsPage() {
                   description="New enrolments"
                   value={stats.enrollments_to_add}
                   icon={Users}
-                  footer="Section × student inserts"
+                  footer={TABLE_COPY.newSectionAssignments}
                 />
                 <StatCard
                   description="Withdrawals"
                   value={stats.enrollments_to_withdraw}
                   icon={UserMinus}
-                  footer="Set to withdrawn"
+                  footer={TABLE_COPY.markedAsWithdrawn}
                 />
                 <StatCard
                   description="Reactivations"
@@ -283,6 +285,22 @@ export default function SyncStudentsPage() {
                     ))}
                   </TableBody>
                 </Table>
+              </Card>
+            </section>
+          )}
+
+          {/* Errors — empty state when no rows were skipped */}
+          {preview && preview.errors.length === 0 && (
+            <section className="space-y-3">
+              <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Skipped rows
+              </h2>
+              <Card className="overflow-hidden p-0">
+                <DataTableEmptyState
+                  icon={CheckCircle2}
+                  title="No rows skipped."
+                  body="Every admissions row mapped cleanly — nothing was dropped."
+                />
               </Card>
             </section>
           )}
