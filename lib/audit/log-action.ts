@@ -18,6 +18,7 @@ export type AuditAction =
   | 'assignment.delete'
   | 'section.create'
   | 'section.rename'
+  | 'section.realphabetize'
   | 'attendance.update'
   | 'attendance.daily.update'
   | 'attendance.daily.correct'
