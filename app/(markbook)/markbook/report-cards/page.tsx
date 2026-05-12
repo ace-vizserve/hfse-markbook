@@ -1,7 +1,5 @@
-import Link from 'next/link';
 import {
   AlertCircle,
-  ArrowUpRight,
   CalendarClock,
   CheckCircle2,
   Eye,
@@ -9,31 +7,25 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
   Card,
   CardAction,
-  CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { PublishWindowPanel } from '@/components/admin/publish-window-panel';
 import { BulkPublishDialog } from '@/components/admin/bulk-publish-dialog';
 import {
   AllPublicationsOverview,
   type PublicationOverviewRow,
 } from '@/components/markbook/all-publications-overview';
+import {
+  ReportCardsRosterTable,
+  type ReportCardsRosterRow,
+} from './report-cards-roster-table';
 import { SectionPicker } from './section-picker';
 
 type LevelLite = { id: string; code: string; label: string; level_type: 'primary' | 'secondary' };
@@ -196,14 +188,7 @@ export default async function ReportCardsListPage({
 
   // Section-detail data (only when a section is selected)
   let selectedLabel: string | null = null;
-  let rosterRows: Array<{
-    enrolment_id: string;
-    index_number: number;
-    student_id: string;
-    student_number: string;
-    name: string;
-    withdrawn: boolean;
-  }> = [];
+  let rosterRows: ReportCardsRosterRow[] = [];
   let activeCount = 0;
   let publishedCount = 0;
   let scheduledCount = 0;
@@ -248,22 +233,10 @@ export default async function ReportCardsListPage({
           }[]
         | null;
     };
-    rosterRows = ((enrolments ?? []) as Row[]).map((e) => {
-      const s = first(e.student);
-      return {
-        enrolment_id: e.id,
-        index_number: e.index_number,
-        student_id: s?.id ?? '',
-        student_number: s?.student_number ?? '',
-        name: s
-          ? [s.last_name, s.first_name, s.middle_name].filter(Boolean).join(', ')
-          : '(missing)',
-        withdrawn: e.enrollment_status === 'withdrawn',
-      };
-    });
-    activeCount = rosterRows.filter((r) => !r.withdrawn).length;
 
-    // Publication stats (server-side compute — panel hydrates with its own fetch later)
+    // Publication stats (server-side compute — panel hydrates with its own fetch later).
+    // Publications are per-section × term (not per-student), so we derive a single
+    // section-level status and apply it to every non-withdrawn row.
     const { data: pubs } = await supabase
       .from('report_card_publications')
       .select('id, term_id, publish_from, publish_until')
@@ -276,6 +249,35 @@ export default async function ReportCardsListPage({
       if (now < from) scheduledCount++;
       else if (now <= until) publishedCount++;
     }
+
+    // Derive a single publication status for the section — if any window is
+    // currently active the section is "published"; if any are scheduled it's
+    // "scheduled"; if all have closed it's "closed"; otherwise "none".
+    const sectionPublicationStatus: ReportCardsRosterRow['publication_status'] =
+      publishedCount > 0
+        ? 'published'
+        : scheduledCount > 0
+        ? 'scheduled'
+        : (pubs ?? []).length > 0
+        ? 'closed'
+        : 'none';
+
+    rosterRows = ((enrolments ?? []) as Row[]).map((e) => {
+      const s = first(e.student);
+      const withdrawn = e.enrollment_status === 'withdrawn';
+      return {
+        enrolment_id: e.id,
+        index_number: e.index_number,
+        student_id: s?.id ?? '',
+        student_number: s?.student_number ?? '',
+        name: s
+          ? [s.last_name, s.first_name, s.middle_name].filter(Boolean).join(', ')
+          : '(missing)',
+        withdrawn,
+        publication_status: withdrawn ? 'none' : sectionPublicationStatus,
+      };
+    });
+    activeCount = rosterRows.filter((r) => !r.withdrawn).length;
   }
 
   return (
@@ -433,64 +435,7 @@ export default async function ReportCardsListPage({
                   {rosterRows.length === 1 ? 'student' : 'students'}
                 </span>
               </div>
-              <Card className="overflow-hidden p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/40 hover:bg-muted/40">
-                      <TableHead className="w-14 text-right">#</TableHead>
-                      <TableHead>Student number</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead className="w-[140px]" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rosterRows.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={4} className="py-12 text-center">
-                          <div className="flex flex-col items-center gap-2">
-                            <div className="font-serif text-base font-semibold text-foreground">
-                              No students enrolled
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Sync students from admissions first.
-                            </div>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                    {rosterRows.map((r) => (
-                      <TableRow key={r.enrolment_id} className="group">
-                        <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
-                          {r.index_number}
-                        </TableCell>
-                        <TableCell className="font-mono tabular-nums">
-                          {r.student_number}
-                        </TableCell>
-                        <TableCell
-                          className={
-                            'font-medium ' +
-                            (r.withdrawn
-                              ? 'line-through text-muted-foreground'
-                              : 'text-foreground')
-                          }
-                        >
-                          {r.name}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {!r.withdrawn && (
-                            <Button asChild size="sm" variant="outline">
-                              <Link href={`/markbook/report-cards/${r.student_id}`}>
-                                Preview
-                                <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                              </Link>
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Card>
+              <ReportCardsRosterTable data={rosterRows} />
             </section>
           )}
         </>

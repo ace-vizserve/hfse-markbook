@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { EditDiscountCodeDialog } from '@/components/sis/edit-discount-code-dialog';
-import { isExpired } from '@/components/sis/discount-code-status-badge';
+import { isExpired } from '@/components/ui/discount-code-status-badge';
 import {
   AlertDialog,
   AlertDialogAction,

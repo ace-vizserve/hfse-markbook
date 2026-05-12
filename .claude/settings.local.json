@@ -125,7 +125,9 @@
       "Bash(npx tsx *)",
       "Bash(node -e \"let d=''; process.stdin.on\\('data',c=>d+=c\\); process.stdin.on\\('end',\\(\\)=>{ const j=JSON.parse\\(d\\); const u=j.unused_exports.map\\(e=>e.path+' :'+e.line+' '+e.export_name\\); console.log\\(u.length+' unused exports:'\\); u.forEach\\(x=>console.log\\(' '+x\\)\\); }\\);\")",
       "PowerShell(Out-File *)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(awk 'NR<40' .claude/rules/key-decisions.md)",
+      "Bash(cp /tmp/kd-fixed.md .claude/rules/key-decisions.md)"
     ],
     "deny": [
       "Read(./.env.local)"

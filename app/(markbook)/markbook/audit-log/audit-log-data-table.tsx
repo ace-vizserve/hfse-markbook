@@ -1,44 +1,22 @@
 "use client";
 
 import {
-  flexRender,
-  getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-  type ColumnDef,
-  type ColumnFiltersState,
-  type SortingState,
-} from "@tanstack/react-table";
-import {
   ArrowRight,
-  ArrowUpDown,
-  ArrowUpRight,
   CalendarIcon,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  ChevronsUpDown,
   Download,
   History,
-  Search,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 import type { DateRange } from "react-day-picker";
-
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+import { type ColumnDef } from "@tanstack/react-table";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Calendar } from "@/components/ui/calendar";
+import { DataTable } from "@/components/ui/data-table";
+import { type FacetConfig } from "@/components/ui/data-table/types";
 import {
   Dialog,
   DialogContent,
@@ -47,17 +25,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { IdentifierLink } from "@/components/ui/identifier-link";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { SortableHeader } from "@/components/ui/data-table/sortable-header";
+import { cn } from "@/lib/utils";
 
 export type MergedRow = {
   id: string;
@@ -78,23 +49,117 @@ type Props = {
   canExport?: boolean;
 };
 
-export function AuditLogDataTable({ rows, initialSheetIdFilter, initialActionFilter, canExport = false }: Props) {
+function toIsoDay(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function formatDay(d: Date): string {
+  return d.toLocaleDateString("en-SG", { month: "short", day: "numeric" });
+}
+
+function startOfDay(d: Date): Date {
+  const n = new Date(d);
+  n.setHours(0, 0, 0, 0);
+  return n;
+}
+
+function endOfDay(d: Date): Date {
+  const n = new Date(d);
+  n.setHours(23, 59, 59, 999);
+  return n;
+}
+
+const FACETS: FacetConfig[] = [
+  { columnId: "action", label: "Action" },
+  { columnId: "actor", label: "Actor" },
+];
+
+const COLUMNS: ColumnDef<MergedRow>[] = [
+  {
+    accessorKey: "at",
+    header: ({ column }) => <SortableHeader column={column}>When</SortableHeader>,
+    cell: ({ row }) => (
+      <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+        {new Date(row.original.at).toLocaleString()}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "actor",
+    header: ({ column }) => <SortableHeader column={column}>Who</SortableHeader>,
+    cell: ({ row }) => <span className="text-xs">{row.original.actor}</span>,
+    filterFn: (row, id, value) => {
+      if (!value || (Array.isArray(value) && value.length === 0)) return true;
+      return Array.isArray(value)
+        ? value.includes(row.getValue(id))
+        : row.getValue(id) === value;
+    },
+  },
+  {
+    accessorKey: "action",
+    header: ({ column }) => <SortableHeader column={column}>Action</SortableHeader>,
+    cell: ({ row }) => (
+      <Badge variant="secondary" className="font-mono text-[10px]">
+        {row.original.action}
+      </Badge>
+    ),
+    filterFn: (row, id, value) => {
+      if (!value || (Array.isArray(value) && value.length === 0)) return true;
+      return Array.isArray(value)
+        ? value.includes(row.getValue(id))
+        : row.getValue(id) === value;
+    },
+  },
+  {
+    id: "details",
+    header: "Details",
+    cell: ({ row }) => (
+      <div className="text-xs">
+        <ActionDetails row={row.original} />
+      </div>
+    ),
+    enableSorting: false,
+  },
+  {
+    id: "open",
+    header: () => <span className="sr-only">Open sheet</span>,
+    cell: ({ row }) =>
+      row.original.sheet_id ? (
+        <div className="text-right">
+          <IdentifierLink href={`/markbook/grading/${row.original.sheet_id}`}>
+            Sheet
+          </IdentifierLink>
+        </div>
+      ) : (
+        <div className="text-right text-xs text-muted-foreground">—</div>
+      ),
+    enableSorting: false,
+    enableHiding: false,
+  },
+];
+
+export function AuditLogDataTable({
+  rows,
+  initialSheetIdFilter,
+  initialActionFilter,
+  canExport = false,
+}: Props) {
   const [exportRange, setExportRange] = React.useState<DateRange | undefined>(undefined);
   const [exportOpen, setExportOpen] = React.useState(false);
   const exportHref = React.useMemo(() => {
     if (!exportRange?.from || !exportRange.to) return null;
     return `/api/audit-log/export?from=${toIsoDay(exportRange.from)}&to=${toIsoDay(exportRange.to)}`;
   }, [exportRange]);
-  const [sheetIdFilter, setSheetIdFilter] = React.useState<string | null>(initialSheetIdFilter ?? null);
+
+  const [sheetIdFilter, setSheetIdFilter] = React.useState<string | null>(
+    initialSheetIdFilter ?? null,
+  );
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>(undefined);
   const [dateRangeOpen, setDateRangeOpen] = React.useState(false);
-  const [sorting, setSorting] = React.useState<SortingState>([{ id: "at", desc: true }]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    initialActionFilter ? [{ id: "action", value: [initialActionFilter] }] : [],
-  );
-  const [globalFilter, setGlobalFilter] = React.useState("");
 
-  const filteredData = React.useMemo(() => {
+  // Apply date + sheet-id pre-filters before passing to DataTable
+  const filteredRows = React.useMemo(() => {
     let data = rows;
     if (sheetIdFilter) data = data.filter((r) => r.sheet_id === sheetIdFilter);
     if (dateRange?.from) {
@@ -108,520 +173,251 @@ export function AuditLogDataTable({ rows, initialSheetIdFilter, initialActionFil
     return data;
   }, [rows, sheetIdFilter, dateRange]);
 
-  const columns: ColumnDef<MergedRow>[] = React.useMemo(
-    () => [
-      {
-        accessorKey: "at",
-        header: ({ column }) => (
-          <SortableHeader
-            label="When"
-            sorted={column.getIsSorted()}
-            onToggle={() => column.toggleSorting(column.getIsSorted() === "asc")}
+  // Toolbar leading: date-range picker + sheet ID chip
+  const toolbarLeading = (
+    <>
+      {/* Date range filter */}
+      <Popover open={dateRangeOpen} onOpenChange={setDateRangeOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn("h-8 gap-2 font-normal", !dateRange?.from && "text-muted-foreground")}
+          >
+            <CalendarIcon className="h-3.5 w-3.5" />
+            {dateRange?.from ? (
+              <span className="font-mono text-[11px] tabular-nums">
+                {formatDay(dateRange.from)}
+                {dateRange.to ? ` – ${formatDay(dateRange.to)}` : ""}
+              </span>
+            ) : (
+              <span className="text-sm">Any date</span>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="range"
+            selected={dateRange}
+            onSelect={setDateRange}
+            numberOfMonths={2}
+            captionLayout="dropdown"
           />
-        ),
-        cell: ({ row }) => (
-          <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
-            {new Date(row.original.at).toLocaleString()}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "actor",
-        header: ({ column }) => (
-          <SortableHeader
-            label="Who"
-            sorted={column.getIsSorted()}
-            onToggle={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          />
-        ),
-        cell: ({ row }) => <span className="text-xs">{row.original.actor}</span>,
-      },
-      {
-        accessorKey: "action",
-        header: ({ column }) => (
-          <SortableHeader
-            label="Action"
-            sorted={column.getIsSorted()}
-            onToggle={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          />
-        ),
-        cell: ({ row }) => (
-          <Badge variant="secondary" className="font-mono text-[10px]">
-            {row.original.action}
-          </Badge>
-        ),
-        filterFn: (row, id, value) => {
-          if (!value || (Array.isArray(value) && value.length === 0)) return true;
-          return Array.isArray(value) ? value.includes(row.getValue(id)) : row.getValue(id) === value;
-        },
-      },
-      {
-        id: "details",
-        header: "Details",
-        cell: ({ row }) => (
-          <div className="text-xs">
-            <ActionDetails row={row.original} />
+          <div className="flex items-center justify-between border-t border-hairline p-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setDateRange(undefined)}
+              disabled={!dateRange?.from}
+            >
+              Clear
+            </Button>
+            <Button type="button" size="sm" onClick={() => setDateRangeOpen(false)}>
+              Done
+            </Button>
           </div>
-        ),
-        enableSorting: false,
-      },
-      {
-        id: "open",
-        header: () => <span className="text-right">Open</span>,
-        cell: ({ row }) =>
-          row.original.sheet_id ? (
-            <div className="text-right">
-              <Link
-                href={`/markbook/grading/${row.original.sheet_id}`}
-                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-                sheet
-                <ArrowUpRight className="h-3 w-3" />
-              </Link>
-            </div>
-          ) : (
-            <div className="text-right text-xs text-muted-foreground">—</div>
-          ),
-        enableSorting: false,
-      },
-    ],
-    [],
+        </PopoverContent>
+      </Popover>
+
+      {/* Sheet ID chip (from deep-link) */}
+      {sheetIdFilter && (
+        <Badge
+          variant="outline"
+          className="h-8 gap-1.5 border-border bg-accent px-2.5 font-mono text-[11px] text-accent-foreground"
+        >
+          Sheet {sheetIdFilter.slice(0, 8)}…
+          <button
+            type="button"
+            onClick={() => setSheetIdFilter(null)}
+            aria-label="Clear sheet filter"
+            className="ml-0.5 inline-flex size-4 items-center justify-center rounded hover:bg-muted"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </Badge>
+      )}
+    </>
   );
 
-  const table = useReactTable({
-    data: filteredData,
-    columns,
-    state: {
-      sorting,
-      columnFilters,
-      globalFilter,
-    },
-    initialState: {
-      pagination: { pageSize: 25 },
-    },
-    onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: setGlobalFilter,
-    globalFilterFn: (row, _columnId, filterValue) => {
-      const needle = String(filterValue).toLowerCase().trim();
-      if (!needle) return true;
-      const r = row.original;
-      const haystack = [
-        r.actor,
-        r.action,
-        r.entity_type,
-        r.entity_id ?? "",
-        r.sheet_id ?? "",
-        new Date(r.at).toLocaleString(),
-        JSON.stringify(r.context),
-      ]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(needle);
-    },
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getFacetedRowModel: getFacetedRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
-  });
+  // Toolbar trailing: CSV export dialog (server-side date-range export)
+  const toolbarTrailing = canExport ? (
+    <Dialog
+      open={exportOpen}
+      onOpenChange={(v) => {
+        setExportOpen(v);
+        if (!v) setExportRange(undefined);
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="h-8 gap-2">
+          <Download className="h-3.5 w-3.5" />
+          Export CSV
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-lg!">
+        <DialogHeader>
+          <DialogTitle className="font-serif tracking-tight">Export date range</DialogTitle>
+          <DialogDescription className="text-[13px] leading-relaxed">
+            All audit data within the selected date range will be exported as CSV.
+          </DialogDescription>
+        </DialogHeader>
 
-  const actionColumn = table.getColumn("action");
-  const actionValues = React.useMemo(() => {
-    if (!actionColumn) return [] as string[];
-    return Array.from(actionColumn.getFacetedUniqueValues().keys())
-      .filter((v): v is string => typeof v === "string")
-      .sort();
-  }, [actionColumn]);
-  const selectedActions = (actionColumn?.getFilterValue() as string[] | undefined) ?? [];
-
-  const hasFilter = globalFilter.length > 0 || selectedActions.length > 0 || !!sheetIdFilter || !!dateRange?.from;
-
-  return (
-    <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-1 flex-wrap items-center gap-2">
-          {/* Search */}
-          <div className="relative w-full sm:w-auto sm:min-w-[280px]">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={globalFilter}
-              onChange={(e) => setGlobalFilter(e.target.value)}
-              placeholder="Search actor, action, details…"
-              className="pl-8"
-            />
-          </div>
-
-          {/* Action filter */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                Action
-                {selectedActions.length > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
-                    {selectedActions.length}
-                  </Badge>
-                )}
-                <ChevronsUpDown className="h-3 w-3 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
-              <DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-wider">
-                Filter by action
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {actionValues.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">No actions</div>}
-              {actionValues.map((act) => {
-                const checked = selectedActions.includes(act);
-                return (
-                  <DropdownMenuCheckboxItem
-                    key={act}
-                    checked={checked}
-                    onCheckedChange={(next) => {
-                      const current = new Set(selectedActions);
-                      if (next) current.add(act);
-                      else current.delete(act);
-                      actionColumn?.setFilterValue(current.size === 0 ? undefined : Array.from(current));
-                    }}
-                    onSelect={(e) => e.preventDefault()}
-                    className="font-mono text-xs">
-                    {act}
-                  </DropdownMenuCheckboxItem>
-                );
-              })}
-              {selectedActions.length > 0 && (
-                <>
-                  <DropdownMenuSeparator />
-                  <div className="p-1">
+        <div className="space-y-4 py-4">
+          <div className="flex items-end gap-3">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "h-9 flex-1 justify-start gap-2 font-normal",
+                    !exportRange?.from && "text-muted-foreground",
+                  )}
+                >
+                  <CalendarIcon className="size-3.5" />
+                  {exportRange?.from ? (
+                    <span className="font-mono text-[11px] tabular-nums">
+                      {formatDay(exportRange.from)}
+                      {exportRange.to ? ` – ${formatDay(exportRange.to)}` : ""}
+                    </span>
+                  ) : (
+                    <span className="text-sm">Pick a date range</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="range"
+                  selected={exportRange}
+                  onSelect={setExportRange}
+                  numberOfMonths={2}
+                  captionLayout="dropdown"
+                />
+                {exportRange?.from && (
+                  <div className="flex justify-end border-t border-border p-2">
                     <Button
+                      type="button"
                       variant="ghost"
                       size="sm"
-                      className="w-full justify-center"
-                      onClick={() => actionColumn?.setFilterValue(undefined)}>
+                      onClick={() => setExportRange(undefined)}
+                    >
                       Clear
                     </Button>
                   </div>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Date range filter */}
-          <Popover open={dateRangeOpen} onOpenChange={setDateRangeOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className={cn("gap-2 font-normal", !dateRange?.from && "text-muted-foreground")}>
-                <CalendarIcon className="h-3.5 w-3.5" />
-                {dateRange?.from ? (
-                  <span className="font-mono text-[11px] tabular-nums">
-                    {formatDay(dateRange.from)}
-                    {dateRange.to ? ` – ${formatDay(dateRange.to)}` : ""}
-                  </span>
-                ) : (
-                  <span>Any date</span>
                 )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="range"
-                selected={dateRange}
-                onSelect={setDateRange}
-                numberOfMonths={2}
-                captionLayout="dropdown"
-              />
-              <div className="flex items-center justify-between border-t border-hairline p-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setDateRange(undefined)}
-                  disabled={!dateRange?.from}>
-                  Clear
-                </Button>
-                <Button type="button" size="sm" onClick={() => setDateRangeOpen(false)}>
-                  Done
-                </Button>
-              </div>
-            </PopoverContent>
-          </Popover>
+              </PopoverContent>
+            </Popover>
 
-          {/* Sheet ID chip (from deep-link) */}
-          {sheetIdFilter && (
-            <Badge
-              variant="outline"
-              className="h-9 gap-1.5 border-brand-indigo-soft/60 bg-accent px-2.5 font-mono text-[11px] text-brand-indigo-deep">
-              sheet {sheetIdFilter.slice(0, 8)}…
-              <button
-                type="button"
-                onClick={() => setSheetIdFilter(null)}
-                aria-label="Clear sheet filter"
-                className="ml-0.5 inline-flex size-4 items-center justify-center rounded hover:bg-white">
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          )}
-
-          {hasFilter && (
             <Button
-              variant="ghost"
-              size="sm"
+              asChild={!!exportHref}
+              disabled={!exportHref}
+              className="h-9 shrink-0 gap-2"
               onClick={() => {
-                setGlobalFilter("");
-                setColumnFilters([]);
-                setSheetIdFilter(null);
-                setDateRange(undefined);
-              }}>
-              <X className="h-3 w-3" />
-              Clear all
+                if (exportHref) setExportOpen(false);
+              }}
+            >
+              {exportHref ? (
+                <a href={exportHref} download>
+                  <Download className="size-3.5" />
+                  Download
+                </a>
+              ) : (
+                <span className="flex gap-2">
+                  <Download className="size-3.5" />
+                  Download
+                </span>
+              )}
             </Button>
+          </div>
+
+          {!exportRange?.from && (
+            <p className="text-[12px] text-destructive">
+              Please select a start and end date to export.
+            </p>
           )}
-        </div>
+          {exportRange?.from && !exportRange.to && (
+            <p className="text-[12px] text-destructive">
+              Please select an end date to complete the range.
+            </p>
+          )}
 
-        {canExport && (
-          <Dialog
-            open={exportOpen}
-            onOpenChange={(v) => {
-              setExportOpen(v);
-              if (!v) setExportRange(undefined);
-            }}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <Download className="h-3.5 w-3.5" />
-                Export CSV
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg!">
-              <DialogHeader>
-                <DialogTitle className="font-serif tracking-tight">Export date range</DialogTitle>
-                <DialogDescription className="text-[13px] leading-relaxed">
-                  All audit data within the selected date range will be exported as CSV.
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-4 py-4">
-                {/* Date picker + download row */}
-                <div className="flex items-end gap-3">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "h-9 flex-1 justify-start gap-2 font-normal",
-                          !exportRange?.from && "text-muted-foreground",
-                        )}>
-                        <CalendarIcon className="size-3.5" />
-                        {exportRange?.from ? (
-                          <span className="font-mono text-[11px] tabular-nums">
-                            {formatDay(exportRange.from)}
-                            {exportRange.to ? ` – ${formatDay(exportRange.to)}` : ""}
-                          </span>
-                        ) : (
-                          <span className="text-sm">Pick a date range</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="range"
-                        selected={exportRange}
-                        onSelect={setExportRange}
-                        numberOfMonths={2}
-                        captionLayout="dropdown"
-                      />
-                      {exportRange?.from && (
-                        <div className="flex justify-end border-t border-border p-2">
-                          <Button type="button" variant="ghost" size="sm" onClick={() => setExportRange(undefined)}>
-                            Clear
-                          </Button>
-                        </div>
-                      )}
-                    </PopoverContent>
-                  </Popover>
-
-                  <Button
-                    asChild={!!exportHref}
-                    disabled={!exportHref}
-                    className="h-9 shrink-0 gap-2"
-                    onClick={() => {
-                      if (exportHref) setExportOpen(false);
-                    }}>
-                    {exportHref ? (
-                      <a href={exportHref} download>
-                        <Download className="size-3.5" />
-                        Download
-                      </a>
-                    ) : (
-                      <span className="flex gap-2">
-                        <Download className="size-3.5" />
-                        Download
-                      </span>
-                    )}
-                  </Button>
-                </div>
-
-                {/* Validation hint */}
-                {!exportRange?.from && (
-                  <p className="text-[12px] text-destructive">
-                    Please select a start and end date to export.
-                  </p>
-                )}
-                {exportRange?.from && !exportRange.to && (
-                  <p className="text-[12px] text-destructive">
-                    Please select an end date to complete the range.
-                  </p>
-                )}
-
-                {/* Info alert */}
-                <div className="flex items-start gap-3 rounded-xl border border-brand-amber/40 bg-brand-amber-light/30 p-4">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-amber/15 text-brand-amber">
-                    <History className="size-4" />
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <p className="text-[13px] font-medium leading-tight text-foreground">
-                      Large exports may take a moment
-                    </p>
-                    <p className="text-[12px] leading-relaxed text-muted-foreground">
-                      The CSV includes every audit entry within the selected window. For wide ranges with heavy
-                      activity, the file can be several thousand rows.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
-      </div>
-
-      {/* Table */}
-      <Card className="overflow-hidden p-0">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((hg) => (
-              <TableRow key={hg.id} className="bg-muted/40 hover:bg-muted/40">
-                {hg.headers.map((h) => (
-                  <TableHead key={h.id}>
-                    {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-32 text-center text-sm text-muted-foreground">
-                  <div className="flex flex-col items-center gap-2">
-                    <History className="h-6 w-6 opacity-50" />
-                    No audit entries match the current filters.
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Card>
-
-      {/* Pagination */}
-      <div className="flex flex-col-reverse items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="font-mono text-[11px] tabular-nums text-muted-foreground">
-          {table.getFilteredRowModel().rows.length} of {filteredData.length} entries
-        </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Rows per page</span>
-            <Select
-              value={`${table.getState().pagination.pageSize}`}
-              onValueChange={(v) => table.setPageSize(Number(v))}>
-              <SelectTrigger className="h-8 w-[70px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent side="top">
-                {[10, 25, 50, 100].map((n) => (
-                  <SelectItem key={n} value={`${n}`}>
-                    {n}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="font-mono text-[11px] tabular-nums text-muted-foreground">
-            Page {table.getState().pagination.pageIndex + 1} of {Math.max(table.getPageCount(), 1)}
-          </div>
-
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="icon"
-              className="size-8"
-              onClick={() => table.setPageIndex(0)}
-              disabled={!table.getCanPreviousPage()}>
-              <ChevronsLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="size-8"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="size-8"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="size-8"
-              onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-              disabled={!table.getCanNextPage()}>
-              <ChevronsRight className="h-4 w-4" />
-            </Button>
+          <div className="flex items-start gap-3 rounded-xl border border-brand-amber/40 bg-brand-amber-light/30 p-4">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-amber/15 text-brand-amber">
+              <History className="size-4" />
+            </div>
+            <div className="flex-1 space-y-1">
+              <p className="text-[13px] font-medium leading-tight text-foreground">
+                Large exports may take a moment
+              </p>
+              <p className="text-[12px] leading-relaxed text-muted-foreground">
+                The CSV includes every audit entry within the selected window. For wide ranges
+                with heavy activity, the file can be several thousand rows.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
+  ) : null;
+
+  // Seed the action facet from URL params on first render
+  const initialColumnFilters = React.useMemo(
+    () =>
+      initialActionFilter
+        ? [{ id: "action", value: [initialActionFilter] }]
+        : [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  return (
+    <_AuditLogTable
+      filteredRows={filteredRows}
+      facets={FACETS}
+      toolbarLeading={toolbarLeading}
+      toolbarTrailing={toolbarTrailing}
+      initialColumnFilters={initialColumnFilters}
+    />
   );
 }
 
-function SortableHeader({
-  label,
-  sorted,
-  onToggle,
+// Inner component that receives stable props so DataTable URL-state works
+// correctly even when the outer wrapper's state changes.
+function _AuditLogTable({
+  filteredRows,
+  facets,
+  toolbarLeading,
+  toolbarTrailing,
+  initialColumnFilters,
 }: {
-  label: string;
-  sorted: false | "asc" | "desc";
-  onToggle: () => void;
+  filteredRows: MergedRow[];
+  facets: FacetConfig[];
+  toolbarLeading: React.ReactNode;
+  toolbarTrailing: React.ReactNode;
+  initialColumnFilters: Array<{ id: string; value: string[] }>;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="group -ml-2 inline-flex h-8 items-center gap-1 rounded-md px-2 text-left font-medium transition-colors hover:bg-muted">
-      {label}
-      <ArrowUpDown
-        className={
-          "h-3 w-3 transition-opacity " + (sorted ? "opacity-100 text-foreground" : "opacity-40 group-hover:opacity-70")
-        }
-      />
-    </button>
+    <DataTable<MergedRow>
+      data={filteredRows}
+      columns={COLUMNS}
+      getRowId={(row) => row.id}
+      searchKeys={["actor", "action", "entity_type"]}
+      searchPlaceholder="Search actor, action, details…"
+      facets={facets}
+      toolbarLeading={toolbarLeading}
+      toolbarTrailing={toolbarTrailing}
+      initialSort={[{ id: "at", desc: true }]}
+      pageSize={25}
+      url={{ enabled: true }}
+      emptyState={{
+        title: "No audit entries yet.",
+        body: "Activity in the markbook — sheet creation, score edits, locks, and more — will appear here.",
+      }}
+      emptyFilteredState={{
+        title: "No audit entries match the current filters.",
+        body: "Try clearing the date range or filters.",
+      }}
+    />
   );
 }
 
@@ -659,8 +455,13 @@ function ActionDetails({ row }: { row: MergedRow }) {
       return (
         <span>
           Created grading sheet{" "}
-          <code className="rounded bg-muted px-1 text-[10px]">subject {str("subject_id")?.slice(0, 8)}…</code> for
-          section <code className="rounded bg-muted px-1 text-[10px]">{str("section_id")?.slice(0, 8)}…</code>
+          <code className="rounded bg-muted px-1 text-[10px]">
+            subject {str("subject_id")?.slice(0, 8)}…
+          </code>{" "}
+          for section{" "}
+          <code className="rounded bg-muted px-1 text-[10px]">
+            {str("section_id")?.slice(0, 8)}…
+          </code>
           {" · seeded "}
           <span className="tabular-nums">{String(ctx["entries_seeded"] ?? 0)}</span>
           {" entries"}
@@ -678,16 +479,19 @@ function ActionDetails({ row }: { row: MergedRow }) {
       const errs = ctx["errors"] ?? 0;
       return (
         <span className="tabular-nums">
-          Synced admissions — added <b>{String(added)}</b>, updated <b>{String(updated)}</b>, withdrew{" "}
-          <b>{String(withdrawn)}</b>, reactivated <b>{String(reactivated)}</b>
-          {Number(errs) > 0 && <span className="text-destructive"> · {String(errs)} errors</span>}
+          Synced admissions — added <b>{String(added)}</b>, updated <b>{String(updated)}</b>,
+          withdrew <b>{String(withdrawn)}</b>, reactivated <b>{String(reactivated)}</b>
+          {Number(errs) > 0 && (
+            <span className="text-destructive"> · {String(errs)} errors</span>
+          )}
         </span>
       );
     }
     case "student.add":
       return (
         <span>
-          Manually added student <code className="rounded bg-muted px-1 text-[10px]">{str("student_number")}</code>
+          Manually added student{" "}
+          <code className="rounded bg-muted px-1 text-[10px]">{str("student_number")}</code>
           {" ("}
           {str("first_name")} {str("last_name")}
           {") as #"}
@@ -698,12 +502,19 @@ function ActionDetails({ row }: { row: MergedRow }) {
       return (
         <span>
           Created <b>{str("role")}</b> assignment for teacher{" "}
-          <code className="rounded bg-muted px-1 text-[10px]">{str("teacher_user_id")?.slice(0, 8)}…</code> on section{" "}
-          <code className="rounded bg-muted px-1 text-[10px]">{str("section_id")?.slice(0, 8)}…</code>
+          <code className="rounded bg-muted px-1 text-[10px]">
+            {str("teacher_user_id")?.slice(0, 8)}…
+          </code>{" "}
+          on section{" "}
+          <code className="rounded bg-muted px-1 text-[10px]">
+            {str("section_id")?.slice(0, 8)}…
+          </code>
           {ctx["subject_id"] ? (
             <>
               {" / subject "}
-              <code className="rounded bg-muted px-1 text-[10px]">{String(ctx["subject_id"]).slice(0, 8)}…</code>
+              <code className="rounded bg-muted px-1 text-[10px]">
+                {String(ctx["subject_id"]).slice(0, 8)}…
+              </code>
             </>
           ) : null}
         </span>
@@ -712,7 +523,10 @@ function ActionDetails({ row }: { row: MergedRow }) {
       return (
         <span>
           Removed <b>{str("role")}</b> assignment (teacher{" "}
-          <code className="rounded bg-muted px-1 text-[10px]">{str("teacher_user_id")?.slice(0, 8)}…</code>)
+          <code className="rounded bg-muted px-1 text-[10px]">
+            {str("teacher_user_id")?.slice(0, 8)}…
+          </code>
+          )
         </span>
       );
     case "attendance.update": {
@@ -720,7 +534,9 @@ function ActionDetails({ row }: { row: MergedRow }) {
       return (
         <span className="tabular-nums">
           Attendance updated for enrolment{" "}
-          <code className="rounded bg-muted px-1 text-[10px]">{str("section_student_id")?.slice(0, 8)}…</code>
+          <code className="rounded bg-muted px-1 text-[10px]">
+            {str("section_student_id")?.slice(0, 8)}…
+          </code>
           {after && (
             <>
               {" · school "}
@@ -738,16 +554,22 @@ function ActionDetails({ row }: { row: MergedRow }) {
       return (
         <span>
           Updated adviser comment for student{" "}
-          <code className="rounded bg-muted px-1 text-[10px]">{str("student_id")?.slice(0, 8)}…</code>
+          <code className="rounded bg-muted px-1 text-[10px]">
+            {str("student_id")?.slice(0, 8)}…
+          </code>
         </span>
       );
     case "publication.create":
       return (
         <span>
           Published report cards for section{" "}
-          <code className="rounded bg-muted px-1 text-[10px]">{str("section_id")?.slice(0, 8)}…</code>
+          <code className="rounded bg-muted px-1 text-[10px]">
+            {str("section_id")?.slice(0, 8)}…
+          </code>
           {" · term "}
-          <code className="rounded bg-muted px-1 text-[10px]">{str("term_id")?.slice(0, 8)}…</code>
+          <code className="rounded bg-muted px-1 text-[10px]">
+            {str("term_id")?.slice(0, 8)}…
+          </code>
           {" · window "}
           <span className="inline-flex items-center gap-1.5 tabular-nums">
             {str("publish_from")?.slice(0, 10)}
@@ -760,7 +582,9 @@ function ActionDetails({ row }: { row: MergedRow }) {
       return (
         <span>
           Revoked report card publication for section{" "}
-          <code className="rounded bg-muted px-1 text-[10px]">{str("section_id")?.slice(0, 8)}…</code>
+          <code className="rounded bg-muted px-1 text-[10px]">
+            {str("section_id")?.slice(0, 8)}…
+          </code>
         </span>
       );
     case "pfile.upload": {
@@ -770,35 +594,22 @@ function ActionDetails({ row }: { row: MergedRow }) {
       const count = ctx["fileCount"] ? String(ctx["fileCount"]) : "1";
       return (
         <span>
-          {replaced ? "Replaced " : "Uploaded "}<b>{label}</b> for student <code className="rounded bg-muted px-1 text-[10px]">{row.entity_id}</code>
-          {merged && <span className="text-muted-foreground"> · merged {count} PDFs</span>}
-          {str("expiryDate") && <span className="text-muted-foreground"> · expires {str("expiryDate")}</span>}
-          {str("note") && <span className="text-muted-foreground"> · note: {str("note")}</span>}
+          {replaced ? "Replaced " : "Uploaded "}
+          <b>{label}</b> for student{" "}
+          <code className="rounded bg-muted px-1 text-[10px]">{row.entity_id}</code>
+          {merged && (
+            <span className="text-muted-foreground"> · merged {count} PDFs</span>
+          )}
+          {str("expiryDate") && (
+            <span className="text-muted-foreground"> · expires {str("expiryDate")}</span>
+          )}
+          {str("note") && (
+            <span className="text-muted-foreground"> · note: {str("note")}</span>
+          )}
         </span>
       );
     }
     default:
       return <span className="text-muted-foreground">{JSON.stringify(ctx)}</span>;
   }
-}
-
-function startOfDay(d: Date): Date {
-  const n = new Date(d);
-  n.setHours(0, 0, 0, 0);
-  return n;
-}
-
-function endOfDay(d: Date): Date {
-  const n = new Date(d);
-  n.setHours(23, 59, 59, 999);
-  return n;
-}
-
-function toIsoDay(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function formatDay(d: Date): string {
-  return d.toLocaleDateString("en-SG", { month: "short", day: "numeric" });
 }

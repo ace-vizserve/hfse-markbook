@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 
 import { CohortPageShell } from '@/components/sis/cohorts/cohort-page-shell';
-import { StpCohortTable } from '@/components/sis/cohorts/stp-cohort-table';
+import { CohortTable } from '@/components/sis/cohorts/cohort-table';
 import type { Role } from '@/lib/auth/roles';
 import {
   COHORT_DESCRIPTIONS,
@@ -44,7 +44,7 @@ export default async function AdmissionsCohortsStpPage({
       scope="funnel"
       ayCode={ayCode}
     >
-      <StpCohortTable rows={rows} scope="funnel" ayCode={ayCode} />
+      <CohortTable kind="stp" scope="funnel" ayCode={ayCode} rows={rows} />
     </CohortPageShell>
   );
 }

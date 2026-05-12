@@ -1,17 +1,11 @@
-import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { ApproverAssignDialog } from "@/components/sis/approver-assign-dialog";
-import { ApproverRevokeButton } from "@/components/sis/approver-revoke-button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ApproversDataTable } from "@/components/sis/approvers-data-table";
 import { PageShell } from "@/components/ui/page-shell";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   APPROVER_FLOWS,
-  APPROVER_FLOW_DESCRIPTIONS,
-  APPROVER_FLOW_LABELS,
   type ApproverFlow,
 } from "@/lib/schemas/approvers";
 import { listAllApproverAssignments, listEligibleApproverCandidates } from "@/lib/sis/approvers/queries";
@@ -53,80 +47,9 @@ export default async function ApproversPage() {
         </p>
       </header>
 
-      <div className="space-y-6">
-        {APPROVER_FLOWS.map((flow) => {
-          const assignments = byFlow[flow] ?? [];
-          const candidates = candidatesByFlow[flow] ?? [];
-          return (
-            <Card key={flow} className="overflow-hidden p-0">
-              <CardHeader className="border-b border-hairline bg-muted/40 px-6 py-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-1">
-                    <CardTitle className="flex items-center gap-2 font-serif text-lg font-semibold">
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
-                        <ShieldCheck className="size-4" />
-                      </div>
-                      {APPROVER_FLOW_LABELS[flow]}
-                    </CardTitle>
-                    <CardDescription className="text-xs leading-relaxed">
-                      {APPROVER_FLOW_DESCRIPTIONS[flow]}
-                    </CardDescription>
-                    <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                      Flow key: <code className="rounded bg-muted px-1 py-0.5">{flow}</code>
-                    </p>
-                  </div>
-                  <ApproverAssignDialog flow={flow} flowLabel={APPROVER_FLOW_LABELS[flow]} candidates={candidates} />
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                {assignments.length === 0 ? (
-                  <div className="p-6 text-sm text-muted-foreground">
-                    No approvers assigned yet. Teachers can&apos;t file requests for this flow until at least two
-                    approvers are configured.
-                  </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/20 hover:bg-muted/20">
-                        <TableHead>User</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Assigned</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {assignments.map((a) => (
-                        <TableRow key={a.assignment_id}>
-                          <TableCell className="text-sm">{a.email}</TableCell>
-                          <TableCell>
-                            <Badge variant="default">{a.role ?? "unknown"}</Badge>
-                          </TableCell>
-                          <TableCell className="font-mono text-xs tabular-nums text-muted-foreground">
-                            {new Date(a.assigned_at).toLocaleDateString("en-SG", {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            })}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <ApproverRevokeButton
-                              assignmentId={a.assignment_id}
-                              email={a.email}
-                              flowLabel={APPROVER_FLOW_LABELS[flow]}
-                            />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+      <ApproversDataTable byFlow={byFlow} candidatesByFlow={candidatesByFlow} />
 
-      <section className="rounded-xl border border-hairline bg-white p-4 text-xs leading-relaxed text-muted-foreground">
+      <section className="rounded-xl border border-hairline bg-card p-4 text-xs leading-relaxed text-muted-foreground">
         <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-indigo-deep">
           How this works
         </p>
@@ -147,7 +70,7 @@ export default async function ApproversPage() {
             <strong>Only school administrators are eligible</strong> as approvers — superadmins manage this list but
             don&apos;t approve change requests themselves. If you need someone as an approver, set their role to{" "}
             <code className="rounded bg-muted px-1 py-0.5">school_admin</code>
-            in Supabase Auth first.
+            {" "}in Supabase Auth first.
           </li>
         </ul>
       </section>

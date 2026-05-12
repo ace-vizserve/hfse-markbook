@@ -1,6 +1,6 @@
 ---
 name: key-decisions
-description: Architectural and behavioral decisions, numbered KD #1–#83 globally (gaps at #19/#26/#30 from sprint reshuffles). Full text lives in topic files under `.claude/rules/key-decisions/`. Read this index to find the topic file for a given KD #N or topic, then Read that file. Read whenever a "KD #N" reference is cited in code or docs, when making a cross-cutting architectural choice, or when in doubt about module boundaries, roles, or conventions.
+description: Architectural and behavioral decisions, numbered KD #1–#84 globally (gaps at #19/#26/#30 from sprint reshuffles). Full text lives in topic files under `.claude/rules/key-decisions/`. Read this index to find the topic file for a given KD #N or topic, then Read that file. Read whenever a "KD #N" reference is cited in code or docs, when making a cross-cutting architectural choice, or when in doubt about module boundaries, roles, or conventions.
 load: on-demand
 ---
 
@@ -8,14 +8,14 @@ load: on-demand
 
 ## How this rule is organised
 
-KDs are numbered globally (1–83 with gaps at 19/26/30). Each KD lives in exactly one topic file under `.claude/rules/key-decisions/`. To find KD #N, look it up in the table or quick-lookup row below and read the matching topic file. To add a new KD: append it with the next unused number (don't renumber, don't restructure), place it in the topic file that best matches its scope, and add a row to the quick-lookup below.
+KDs are numbered globally (1–84 with gaps at 19/26/30). Each KD lives in exactly one topic file under `.claude/rules/key-decisions/`. To find KD #N, look it up in the table or quick-lookup row below and read the matching topic file. To add a new KD: append it with the next unused number (don't renumber, don't restructure), place it in the topic file that best matches its scope, and add a row to the quick-lookup below.
 
 ## Topic files
 
 | File | KDs | Scope |
 | --- | --- | --- |
 | `key-decisions/platform.md` | 1, 2, 8, 9, 13, 16, 22, 23, 29, 32, 33, 35, 38, 39, 41, 42, 43, 52, 53, 58 | Auth, roles, Supabase clients, audit, AY plumbing, RBAC, module switcher, dates, test environment |
-| `key-decisions/ui.md` | 14, 15, 20, 21, 24, 44 | Design tokens, forms, toasts, datepicker primitives, table library |
+| `key-decisions/ui.md` | 14, 15, 20, 21, 24, 44, 84 | Design tokens, forms, toasts, datepicker primitives, table library, unified data-table shell |
 | `key-decisions/dashboards.md` | 45, 46, 54, 56, 57, 74, 78, 79, 80, 81, 82 | Dashboard / drill-down / compare-mode framework, layout archetypes, role differentiation, picker presets |
 | `key-decisions/markbook.md` | 3, 4, 5, 6, 25, 27, 28, 75 | Grading formula, weights, change-requests, report cards, publishing checklist |
 | `key-decisions/evaluation.md` | 49 | Form-class-adviser writeups |
@@ -36,4 +36,4 @@ KD # → topic file (gaps at 19, 26, 30):
 - 44 ui · 45 dashboards · 46 dashboards · 47 attendance · 48 records · 49 evaluation · 50 attendance · 51 admissions · 52 platform · 53 platform
 - 54 dashboards · 55 attendance · 56 dashboards · 57 dashboards · 58 platform · 59 admissions · 60 pfiles · 61 admissions · 62 admissions · 63 pfiles
 - 64 pfiles · 65 parent · 66 records · 67 records · 68 records · 69 admissions · 70 admissions · 71 pfiles · 72 records · 73 parent
-- 74 dashboards · 75 markbook · 76 attendance · 77 admissions · 78 dashboards · 79 dashboards · 80 dashboards · 81 dashboards · 82 dashboards · 83 records
+- 74 dashboards · 75 markbook · 76 attendance · 77 admissions · 78 dashboards · 79 dashboards · 80 dashboards · 81 dashboards · 82 dashboards · 83 records · 84 ui

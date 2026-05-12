@@ -1,12 +1,10 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, CalendarClock, CalendarRange, Check, Tag, Table2, X } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Check, Tag, X } from 'lucide-react';
 
 import { AySwitcher } from '@/components/admissions/ay-switcher';
-import { DiscountCodeStatusBadge } from '@/components/sis/discount-code-status-badge';
-import { DiscountCodeRowActions } from '@/components/sis/discount-code-row-actions';
+import { DiscountCodesDataTable } from '@/components/sis/discount-codes-data-table';
 import { NewDiscountCodeButton } from '@/components/sis/edit-discount-code-dialog';
-import { SisEmptyState } from '@/components/sis/empty-state';
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
@@ -18,7 +16,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getCurrentAcademicYear, listAyCodes } from '@/lib/academic-year';
 import { listDiscountCodes } from '@/lib/sis/queries';
 import { getSessionUser } from '@/lib/supabase/server';
@@ -122,16 +119,6 @@ export default async function SisDiscountCodesPage({
           </div>
           <div className="flex items-center gap-2">
             <AySwitcher current={selectedAy} options={ayCodes} />
-            {/* Pass the operational current AY as the dialog default — the
-                page AY-switcher is for *viewing* historical codes, while the
-                dialog picker (same `ayCodes` list <AySwitcher> uses) selects
-                *where to write* the new code. Test AYs (KD #52, `^AY9`) are
-                excluded — creating real discount codes on a disposable test
-                AY would be misleading. */}
-            <NewDiscountCodeButton
-              ayCode={currentAy.ay_code}
-              ayCodes={ayCodes.filter((c) => !/^AY9/i.test(c))}
-            />
           </div>
         </div>
       </header>
@@ -167,100 +154,17 @@ export default async function SisDiscountCodesPage({
       </section>
 
       {/* Catalogue table */}
-      <Card className="overflow-hidden p-0">
-        <CardHeader className="border-b border-border px-6 py-5">
-          <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-            Catalogue · {selectedAy}
-          </CardDescription>
-          <CardTitle className="font-serif text-xl font-semibold tracking-tight text-foreground">
-            All codes ({codes.length.toLocaleString('en-SG')})
-          </CardTitle>
-          <CardAction>
-            <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
-              <Table2 className="size-4" />
-            </div>
-          </CardAction>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/40 hover:bg-muted/40">
-                <TableHead>Code</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Window</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Details</TableHead>
-                <TableHead className="w-10" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {codes.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="p-6">
-                    <SisEmptyState
-                      icon={Tag}
-                      title="No discount codes yet."
-                      body={`Nothing configured for ${selectedAy}. Codes created here are picked up by the enrolment portal immediately — use the "New code" button above to start.`}
-                    />
-                  </TableCell>
-                </TableRow>
-              ) : (
-                codes.map((c) => (
-                  <TableRow key={String(c.id)}>
-                    <TableCell>
-                      <span className="font-mono text-xs font-semibold uppercase tracking-wider text-foreground">
-                        {c.discountCode}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {c.enroleeType ? (
-                        <Badge
-                          variant="outline"
-                          className="font-mono text-[10px] uppercase tracking-wider"
-                        >
-                          {c.enroleeType}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className="inline-flex items-center gap-1.5 font-mono text-[11px] tabular-nums text-muted-foreground">
-                        <CalendarRange className="size-3" />
-                        {formatDate(c.startDate)} → {formatDate(c.endDate)}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <DiscountCodeStatusBadge startDate={c.startDate} endDate={c.endDate} />
-                    </TableCell>
-                    <TableCell className="max-w-md">
-                      {c.details ? (
-                        <span className="text-xs leading-relaxed text-foreground">
-                          {c.details}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <DiscountCodeRowActions ayCode={selectedAy} code={c} />
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-        {codes.length > 0 && (
-          <CardFooter className="border-t border-border px-6 py-3 text-xs text-muted-foreground">
-            Codes live in{' '}
-            <code className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[11px]">
-              ay{selectedAy.slice(2)}_discount_codes
-            </code>
-            . The enrolment portal reads this table directly.
-          </CardFooter>
-        )}
-      </Card>
+      <DiscountCodesDataTable
+        codes={codes}
+        ayCode={selectedAy}
+        ayLabel={selectedAy}
+        toolbarTrailing={
+          <NewDiscountCodeButton
+            ayCode={currentAy.ay_code}
+            ayCodes={ayCodes.filter((c) => !/^AY9/i.test(c))}
+          />
+        }
+      />
 
       {/* Trust strip */}
       <div className="mt-2 flex items-center gap-2 border-t border-border pt-5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
@@ -273,17 +177,6 @@ export default async function SisDiscountCodesPage({
       </div>
     </PageShell>
   );
-}
-
-function formatDate(s: string | null): string {
-  if (!s) return '—';
-  const t = Date.parse(s);
-  if (Number.isNaN(t)) return s;
-  return new Date(t).toLocaleDateString('en-SG', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
 }
 
 function SummaryStat({

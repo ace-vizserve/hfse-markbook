@@ -17,6 +17,7 @@ import {
   type DrillDownGroupBy,
 } from '@/components/dashboard/drill-down-sheet';
 import { DrillSheetSkeleton } from '@/components/dashboard/drill-sheet-skeleton';
+import { ApplicationStatusBadge } from '@/components/ui/application-status-badge';
 import { Badge } from '@/components/ui/badge';
 import {
   ALL_DRILL_COLUMNS,
@@ -120,13 +121,6 @@ function StageBadge({ stage }: { stage: string }) {
   return <Badge variant="muted">{stage || '—'}</Badge>;
 }
 
-function ApplicationStatusBadge({ status }: { status: string }) {
-  return (
-    <Badge variant="outline" className={`${BADGE_BASE} border-hairline bg-muted text-ink-3`}>
-      {status || '—'}
-    </Badge>
-  );
-}
 
 function DocsCell({ complete, total }: { complete: number; total: number }) {
   const pct = total === 0 ? 0 : Math.round((complete / total) * 100);

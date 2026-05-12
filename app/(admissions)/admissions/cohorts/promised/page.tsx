@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 
 import { CohortPageShell } from '@/components/sis/cohorts/cohort-page-shell';
-import { PromisedCohortTable } from '@/components/sis/cohorts/promised-cohort-table';
+import { CohortTable } from '@/components/sis/cohorts/cohort-table';
 import type { Role } from '@/lib/auth/roles';
 import {
   COHORT_DESCRIPTIONS,
@@ -44,7 +44,7 @@ export default async function AdmissionsCohortsPromisedPage({
       scope="funnel"
       ayCode={ayCode}
     >
-      <PromisedCohortTable rows={rows} ayCode={ayCode} />
+      <CohortTable kind="promised" scope="funnel" ayCode={ayCode} rows={rows} />
     </CohortPageShell>
   );
 }

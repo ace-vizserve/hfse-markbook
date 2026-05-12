@@ -1,12 +1,13 @@
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Card } from '@/components/ui/card';
+'use client';
+
+import * as React from 'react';
+import { type ColumnDef } from '@tanstack/react-table';
+
+import { DataTable } from '@/components/ui/data-table';
+import { type FacetConfig, type StatusTabConfig } from '@/components/ui/data-table/types';
+import { EnrollmentStatusBadge } from '@/components/ui/enrollment-status-badge';
+import { IdentifierLink } from '@/components/ui/identifier-link';
+import { SortableHeader } from '@/components/ui/data-table/sortable-header';
 
 export type ReadOnlyRow = {
   enrolmentId: string;
@@ -14,6 +15,8 @@ export type ReadOnlyRow = {
   studentNumber: string;
   studentName: string;
   withdrawn: boolean;
+  /** Set to true when enrollment_status === 'late_enrollee'. */
+  lateEnrollee?: boolean;
   schoolDays: number | null;
   daysPresent: number | null;
   daysLate: number | null;
@@ -22,104 +25,217 @@ export type ReadOnlyRow = {
   attendancePct: number | null;
 };
 
+// Derived status string for the facet column — not rendered, only filtered.
+type AugmentedRow = ReadOnlyRow & { _status: 'active' | 'late' | 'withdrawn' };
+
+function fmt(n: number | null): string {
+  return n == null ? '—' : n.toLocaleString('en-SG');
+}
+
+const FACETS: FacetConfig[] = [
+  {
+    columnId: '_status',
+    label: 'Status',
+    valueOptions: ['active', 'late', 'withdrawn'],
+  },
+];
+
+const STATUS_TABS: StatusTabConfig<AugmentedRow>[] = [];
+
+const COLUMNS: ColumnDef<AugmentedRow>[] = [
+  {
+    accessorKey: 'indexNumber',
+    header: ({ column }) => (
+      <SortableHeader column={column} className="justify-end">
+        #
+      </SortableHeader>
+    ),
+    cell: ({ row }) => (
+      <span className="block text-right font-mono tabular-nums text-muted-foreground">
+        {row.original.indexNumber}
+      </span>
+    ),
+  },
+  {
+    accessorKey: 'studentName',
+    header: ({ column }) => <SortableHeader column={column}>Student</SortableHeader>,
+    cell: ({ row }) => {
+      const { studentName, studentNumber, withdrawn, lateEnrollee } = row.original;
+      return (
+        <div>
+          <div
+            className={withdrawn ? 'line-through text-muted-foreground' : undefined}
+          >
+            {withdrawn ? (
+              <span className="font-medium text-muted-foreground">{studentName}</span>
+            ) : (
+              <IdentifierLink href={`/attendance/students/${studentNumber}`}>
+                {studentName}
+              </IdentifierLink>
+            )}
+            {!withdrawn && lateEnrollee && (
+              <span className="ml-2 inline-flex">
+                <EnrollmentStatusBadge status="late_enrollee" />
+              </span>
+            )}
+          </div>
+          <div className="mt-0.5 font-mono text-[11px] tabular-nums text-muted-foreground">
+            {studentNumber}
+          </div>
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: 'schoolDays',
+    header: ({ column }) => (
+      <SortableHeader column={column} className="justify-end">
+        School days
+      </SortableHeader>
+    ),
+    cell: ({ row }) => {
+      const unmarked = row.original.schoolDays == null;
+      if (unmarked) {
+        return (
+          <span className="inline-flex items-center rounded-md border border-dashed border-border bg-muted/30 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Unmarked
+          </span>
+        );
+      }
+      return (
+        <span className="block text-right font-mono tabular-nums">
+          {fmt(row.original.schoolDays)}
+        </span>
+      );
+    },
+    sortingFn: (a, b) => (a.original.schoolDays ?? -1) - (b.original.schoolDays ?? -1),
+  },
+  {
+    accessorKey: 'daysPresent',
+    header: ({ column }) => (
+      <SortableHeader column={column} className="justify-end">
+        Present
+      </SortableHeader>
+    ),
+    cell: ({ row }) =>
+      row.original.schoolDays == null ? null : (
+        <span className="block text-right font-mono tabular-nums">
+          {fmt(row.original.daysPresent)}
+        </span>
+      ),
+  },
+  {
+    accessorKey: 'daysLate',
+    header: ({ column }) => (
+      <SortableHeader column={column} className="justify-end">
+        Late
+      </SortableHeader>
+    ),
+    cell: ({ row }) =>
+      row.original.schoolDays == null ? null : (
+        <span className="block text-right font-mono tabular-nums">
+          {fmt(row.original.daysLate)}
+        </span>
+      ),
+  },
+  {
+    accessorKey: 'daysExcused',
+    header: ({ column }) => (
+      <SortableHeader column={column} className="justify-end">
+        Excused
+      </SortableHeader>
+    ),
+    cell: ({ row }) =>
+      row.original.schoolDays == null ? null : (
+        <span className="block text-right font-mono tabular-nums">
+          {fmt(row.original.daysExcused)}
+        </span>
+      ),
+  },
+  {
+    accessorKey: 'daysAbsent',
+    header: ({ column }) => (
+      <SortableHeader column={column} className="justify-end">
+        Absent
+      </SortableHeader>
+    ),
+    cell: ({ row }) =>
+      row.original.schoolDays == null ? null : (
+        <span className="block text-right font-mono tabular-nums">
+          {fmt(row.original.daysAbsent)}
+        </span>
+      ),
+  },
+  {
+    accessorKey: 'attendancePct',
+    header: ({ column }) => (
+      <SortableHeader column={column} className="justify-end">
+        %
+      </SortableHeader>
+    ),
+    cell: ({ row }) =>
+      row.original.schoolDays == null ? null : (
+        <span className="block text-right font-mono tabular-nums font-semibold">
+          {row.original.attendancePct != null
+            ? `${row.original.attendancePct.toFixed(1)}%`
+            : '—'}
+        </span>
+      ),
+    sortingFn: (a, b) =>
+      (a.original.attendancePct ?? -1) - (b.original.attendancePct ?? -1),
+  },
+  // Hidden column for faceting — never shown
+  {
+    id: '_status',
+    accessorKey: '_status',
+    header: 'Status',
+    cell: () => null,
+    filterFn: (row, id, value) => {
+      if (!value || (Array.isArray(value) && value.length === 0)) return true;
+      return Array.isArray(value)
+        ? value.includes(row.getValue(id))
+        : row.getValue(id) === value;
+    },
+    enableSorting: false,
+  },
+];
+
 // Read-only per-student attendance table for /markbook/sections/[id]/attendance.
 // All data is written by the Attendance module (KD #47 sole-writer contract);
 // this component only renders. Empty rows (no daily marks yet for this term)
 // show a subdued "Unmarked" chip instead of zeros, to distinguish "nobody
 // marked it" from "marked, all zero".
 export function AttendanceReadOnlyTable({ rows }: { rows: ReadOnlyRow[] }) {
-  return (
-    <Card className="overflow-hidden p-0">
-      <Table>
-        <TableHeader>
-          <TableRow className="bg-muted/40 hover:bg-muted/40">
-            <TableHead className="w-14 text-right">#</TableHead>
-            <TableHead>Student</TableHead>
-            <TableHead className="w-[100px] text-right">School days</TableHead>
-            <TableHead className="w-[90px] text-right">Present</TableHead>
-            <TableHead className="w-[80px] text-right">Late</TableHead>
-            <TableHead className="w-[90px] text-right">Excused</TableHead>
-            <TableHead className="w-[90px] text-right">Absent</TableHead>
-            <TableHead className="w-[80px] text-right">%</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={8} className="py-12 text-center">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="font-serif text-base font-semibold text-foreground">
-                    No students enrolled
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Sync from admissions or add a student to this section first.
-                  </div>
-                </div>
-              </TableCell>
-            </TableRow>
-          )}
-          {rows.map((r) => {
-            const unmarked = r.schoolDays == null;
-            return (
-              <TableRow
-                key={r.enrolmentId}
-                className={r.withdrawn ? 'text-muted-foreground' : ''}
-              >
-                <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
-                  {r.indexNumber}
-                </TableCell>
-                <TableCell>
-                  <div
-                    className={
-                      'font-medium ' +
-                      (r.withdrawn
-                        ? 'line-through text-muted-foreground'
-                        : 'text-foreground')
-                    }
-                  >
-                    {r.studentName}
-                  </div>
-                  <div className="mt-0.5 font-mono text-[11px] tabular-nums text-muted-foreground">
-                    {r.studentNumber}
-                  </div>
-                </TableCell>
-                {unmarked ? (
-                  <TableCell colSpan={6} className="text-right">
-                    <span className="inline-flex items-center rounded-md border border-dashed border-border bg-muted/30 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                      Unmarked
-                    </span>
-                  </TableCell>
-                ) : (
-                  <>
-                    <TableCell className="text-right font-mono tabular-nums">
-                      {fmt(r.schoolDays)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">
-                      {fmt(r.daysPresent)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">
-                      {fmt(r.daysLate)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">
-                      {fmt(r.daysExcused)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">
-                      {fmt(r.daysAbsent)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono tabular-nums font-semibold">
-                      {r.attendancePct != null ? `${r.attendancePct.toFixed(1)}%` : '—'}
-                    </TableCell>
-                  </>
-                )}
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </Card>
+  const augmented = React.useMemo<AugmentedRow[]>(
+    () =>
+      rows.map((r) => ({
+        ...r,
+        _status: r.withdrawn ? 'withdrawn' : r.lateEnrollee ? 'late' : 'active',
+      })),
+    [rows],
   );
-}
 
-function fmt(n: number | null): string {
-  return n == null ? '—' : n.toLocaleString('en-SG');
+  return (
+    <DataTable<AugmentedRow>
+      data={augmented}
+      columns={COLUMNS}
+      getRowId={(row) => row.enrolmentId}
+      searchKeys={['studentName', 'studentNumber']}
+      searchPlaceholder="Search student…"
+      facets={FACETS}
+      statusTabs={STATUS_TABS.length > 0 ? STATUS_TABS : undefined}
+      initialSort={[{ id: 'indexNumber', desc: false }]}
+      initialColumnVisibility={{ _status: false }}
+      pageSize={50}
+      hidePagination
+      emptyState={{
+        title: 'No students enrolled.',
+        body: 'Sync from admissions or add a student to this section first.',
+      }}
+      emptyFilteredState={{
+        title: 'No students match the current filters.',
+        body: 'Try clearing the filters.',
+      }}
+    />
+  );
 }

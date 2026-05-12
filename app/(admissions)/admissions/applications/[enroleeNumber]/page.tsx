@@ -19,7 +19,7 @@ import { EnrollmentHistoryChips } from "@/components/sis/enrollment-history-chip
 import { EnrollmentTab } from "@/components/sis/enrollment-tab";
 import { FamilyTab } from "@/components/sis/family-tab";
 import { ProfileTab } from "@/components/sis/profile-tab";
-import { ApplicationStatusBadge } from "@/components/sis/status-badge";
+import { ApplicationStatusBadge } from "@/components/ui/application-status-badge";
 import { StpApplicationCard } from "@/components/sis/stp-application-card";
 import { StudentLifecycleTimeline } from "@/components/sis/student-lifecycle-timeline";
 import { Badge } from "@/components/ui/badge";

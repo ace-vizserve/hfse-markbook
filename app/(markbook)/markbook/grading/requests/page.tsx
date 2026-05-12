@@ -1,18 +1,11 @@
-import { ArrowUpRight } from "lucide-react";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import {
-  CHANGE_REQUEST_STATUS_CONFIG,
-  type ChangeRequestStatus,
-} from "@/lib/markbook/change-request-status";
+import { type ChangeRequestStatus } from "@/lib/markbook/change-request-status";
 import { getSessionUser } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { MyRequestsCancelButton } from "./my-requests-cancel-button";
+import { MyRequestsTable, type MyRequestRow } from "./my-requests-table";
 
 type RequestRow = {
   id: string;
@@ -86,9 +79,29 @@ export default async function MyRequestsPage() {
 
   const { data: rawRows } = await listQuery;
 
-  const rows = (rawRows ?? []) as RequestRow[];
+  const rawList = (rawRows ?? []) as RequestRow[];
 
-  const counts = rows.reduce(
+  // Map server rows → MyRequestRow (derive field_label on the server so
+  // it's available as a stable string for faceting + CSV export).
+  const tableRows: MyRequestRow[] = rawList.map((r) => ({
+    id: r.id,
+    grading_sheet_id: r.grading_sheet_id,
+    grade_entry_id: r.grade_entry_id,
+    field_label: fieldLabel(r.field_changed, r.slot_index),
+    field_changed: r.field_changed,
+    current_value: r.current_value,
+    proposed_value: r.proposed_value,
+    reason_category: r.reason_category,
+    justification: r.justification,
+    status: r.status,
+    requested_at: r.requested_at,
+    reviewed_at: r.reviewed_at,
+    reviewed_by_email: r.reviewed_by_email,
+    decision_note: r.decision_note,
+    applied_at: r.applied_at,
+  }));
+
+  const counts = rawList.reduce(
     (acc, r) => {
       acc[r.status] = (acc[r.status] ?? 0) + 1;
       return acc;
@@ -119,82 +132,7 @@ export default async function MyRequestsPage() {
         <StatCard label="Cancelled" value={counts.cancelled} />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>All requests</CardTitle>
-          <CardDescription>Newest first. You can cancel a request while it is still pending.</CardDescription>
-        </CardHeader>
-        <CardContent className="px-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Filed</TableHead>
-                <TableHead>Field</TableHead>
-                <TableHead>Change</TableHead>
-                <TableHead>Reason</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
-                    You haven&apos;t filed any change requests yet.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                rows.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                      {new Date(r.requested_at).toLocaleString("en-SG", {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
-                      {fieldLabel(r.field_changed, r.slot_index)}
-                    </TableCell>
-                    <TableCell className="tabular-nums text-sm">
-                      {r.current_value ?? "(blank)"} <span className="text-muted-foreground">→</span>{" "}
-                      <span className="font-medium">{r.proposed_value}</span>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {r.reason_category.replace(/_/g, " ")}
-                      {r.decision_note && (
-                        <div className="mt-0.5 line-clamp-1 text-[11px]">Note: {r.decision_note}</div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {(() => {
-                        const cfg = CHANGE_REQUEST_STATUS_CONFIG[r.status];
-                        const Icon = cfg.icon;
-                        return (
-                          <Badge variant={cfg.variant}>
-                            <Icon className="h-3 w-3" />
-                            {cfg.label}
-                          </Badge>
-                        );
-                      })()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link
-                          href={`/markbook/grading/${r.grading_sheet_id}`}
-                          className="inline-flex items-center gap-1 text-xs text-primary">
-                          Sheet
-                          <ArrowUpRight className="size-3" />
-                        </Link>
-                        {r.status === "pending" && <MyRequestsCancelButton requestId={r.id} />}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <MyRequestsTable data={tableRows} />
     </PageShell>
   );
 }
