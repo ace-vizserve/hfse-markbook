@@ -43,18 +43,21 @@ export default async function PFilesComparePage({
       label: 'Expiring ≤30d',
       format: 'number',
       getValue: (d) => d.expiringSoon30,
+      lowerIsBetter: true,
     },
     {
       key: 'expiringSoon',
       label: 'Expiring ≤60d',
       format: 'number',
       getValue: (d) => d.expiringSoon,
+      lowerIsBetter: true,
     },
     {
       key: 'pendingReview',
       label: 'Pending review',
       format: 'number',
       getValue: (d) => d.pendingReview,
+      lowerIsBetter: true,
     },
     {
       key: 'totalDocuments',

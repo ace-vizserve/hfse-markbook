@@ -57,6 +57,7 @@ export default async function AdmissionsComparePage({
       label: 'Avg days to enroll',
       format: 'days',
       getValue: (d) => d.avgDaysToEnroll,
+      lowerIsBetter: true,
     },
     { key: 'sampleSize', label: 'Sample size', format: 'number', getValue: (d) => d.sampleSize },
   ];

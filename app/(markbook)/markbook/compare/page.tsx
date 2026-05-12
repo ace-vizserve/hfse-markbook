@@ -56,12 +56,14 @@ export default async function MarkbookComparePage({
       label: 'CRs pending',
       format: 'number',
       getValue: (d) => d.changeRequestsPending,
+      lowerIsBetter: true,
     },
     {
       key: 'avgDecisionHours',
       label: 'Avg decision (hrs)',
       format: 'days',
       getValue: (d) => d.avgDecisionHours,
+      lowerIsBetter: true,
     },
   ];
 

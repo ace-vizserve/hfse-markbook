@@ -56,12 +56,14 @@ export default async function RecordsComparePage({
       format: 'number',
       getValue: (d) => d.withdrawalsInRange,
       highlightExtremes: true,
+      lowerIsBetter: true,
     },
     {
       key: 'expiringSoon',
       label: 'Expiring soon',
       format: 'number',
       getValue: (d) => d.expiringSoon,
+      lowerIsBetter: true,
     },
   ];
 

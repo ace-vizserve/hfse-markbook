@@ -39,8 +39,8 @@ export default async function AttendanceComparePage({
       highlightExtremes: true,
     },
     { key: 'present', label: 'Present', format: 'number', getValue: (d) => d.present },
-    { key: 'late', label: 'Late', format: 'number', getValue: (d) => d.late },
-    { key: 'absent', label: 'Absent', format: 'number', getValue: (d) => d.absent },
+    { key: 'late', label: 'Late', format: 'number', getValue: (d) => d.late, lowerIsBetter: true },
+    { key: 'absent', label: 'Absent', format: 'number', getValue: (d) => d.absent, lowerIsBetter: true },
     { key: 'excused', label: 'Excused', format: 'number', getValue: (d) => d.excused },
     {
       key: 'encodedDays',
