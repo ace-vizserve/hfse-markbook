@@ -1,7 +1,8 @@
 import Link from 'next/link';
-import { ArrowLeft, History, ListChecks, Users } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, History, ListChecks, Users } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import {
   Card,
   CardAction,
@@ -11,42 +12,34 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { PageShell } from '@/components/ui/page-shell';
+import { AttendanceAuditLogDataTable, type AttendanceAuditRow } from './audit-log-data-table';
 
-type AttendanceActionTone = 'default' | 'warn' | 'info';
-type AttendanceActionLabel = {
-  label: string;
-  tone: AttendanceActionTone;
-};
+// ---------------------------------------------------------------------------
+// Server-side actor display-name resolution
+// ---------------------------------------------------------------------------
 
-const ACTION_LABELS: Record<string, AttendanceActionLabel> = {
-  'attendance.daily.update': { label: 'Daily · mark', tone: 'default' },
-  'attendance.daily.correct': { label: 'Daily · correction', tone: 'warn' },
-  'attendance.import.bulk': { label: 'Bulk import', tone: 'info' },
-  'attendance.update': { label: 'Term summary (legacy)', tone: 'info' },
-};
-
-// §9.3 wash recipes — brand tokens only. `default` uses the flat muted
-// Badge variant (matches the markbook audit log's action chips); `warn`
-// + `info` add per-tone wash overrides via Badge variant="outline".
-const TONE_CLASS: Record<AttendanceActionTone, string> = {
-  default: '',
-  warn: 'border-brand-amber/40 bg-brand-amber/15 text-brand-amber',
-  info: 'border-brand-indigo-soft/40 bg-accent text-brand-indigo-deep',
-};
+async function buildActorDisplayMap(): Promise<Map<string, string>> {
+  try {
+    const service = createServiceClient();
+    const { data } = await service.auth.admin.listUsers({ perPage: 1000 });
+    const map = new Map<string, string>();
+    for (const u of data?.users ?? []) {
+      if (!u.email) continue;
+      const meta = (u.user_metadata ?? {}) as { full_name?: string; name?: string };
+      const name = (meta.full_name ?? meta.name ?? u.email).trim();
+      map.set(u.email, name);
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+}
 
 export default async function AttendanceAuditLogPage() {
   const supabase = await createClient();
 
+  // TODO(server-pagination): raise 500-row cap to true server pagination per spec §5.24 + §7.4
   const { data: rows, error } = await supabase
     .from('audit_log')
     .select('id, actor_email, action, entity_type, entity_id, context, created_at')
@@ -54,7 +47,7 @@ export default async function AttendanceAuditLogPage() {
     .order('created_at', { ascending: false })
     .limit(500);
 
-  type Row = {
+  type RawRow = {
     id: string;
     actor_email: string;
     action: string;
@@ -64,7 +57,22 @@ export default async function AttendanceAuditLogPage() {
     created_at: string;
   };
 
-  const entries = (rows ?? []) as Row[];
+  const rawEntries = (rows ?? []) as RawRow[];
+
+  // Resolve actor display names server-side
+  const actorMap = await buildActorDisplayMap();
+
+  const entries: AttendanceAuditRow[] = rawEntries.map((r) => ({
+    id: r.id,
+    at: r.created_at,
+    actor_email: r.actor_email,
+    actor_display: actorMap.get(r.actor_email) ?? r.actor_email,
+    action: r.action,
+    entity_type: r.entity_type,
+    entity_id: r.entity_id,
+    context: r.context ?? {},
+  }));
+
   const uniqueActors = new Set(entries.map((r) => r.actor_email)).size;
   const corrections = entries.filter((r) => r.action === 'attendance.daily.correct').length;
 
@@ -120,101 +128,28 @@ export default async function AttendanceAuditLogPage() {
       </div>
 
       {error && (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-5 text-sm text-destructive">
-          {error.message}
+        <div className="flex items-start gap-4 rounded-xl border border-destructive/30 bg-destructive/5 p-5">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-destructive text-destructive-foreground shadow-brand-tile">
+            <AlertTriangle className="size-4" />
+          </div>
+          <div className="flex-1 space-y-1.5">
+            <p className="font-serif text-base font-semibold leading-tight text-foreground">
+              Could not load audit entries
+            </p>
+            <p className="text-sm leading-relaxed text-muted-foreground">{error.message}</p>
+          </div>
         </div>
       )}
 
-      <Card className="overflow-hidden p-0">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/40 hover:bg-muted/40">
-              <TableHead className="w-[170px]">When</TableHead>
-              <TableHead className="w-[240px]">Actor</TableHead>
-              <TableHead className="w-[200px]">Action</TableHead>
-              <TableHead>Context</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {entries.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="py-12 text-center">
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="font-serif text-base font-semibold text-foreground">
-                      No entries yet
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Once the module starts seeing daily marks or imports, they will appear here.
-                    </div>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              entries.map((r) => {
-                const label = ACTION_LABELS[r.action] ?? { label: r.action, tone: 'default' as const };
-                return (
-                  <TableRow key={r.id} className="align-top">
-                    <TableCell className="font-mono text-[11px] tabular-nums text-muted-foreground">
-                      {new Date(r.created_at).toLocaleString('en-SG', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </TableCell>
-                    <TableCell className="text-sm text-foreground">{r.actor_email}</TableCell>
-                    <TableCell>
-                      {label.tone === 'default' ? (
-                        <Badge variant="secondary">{label.label}</Badge>
-                      ) : (
-                        <Badge variant="outline" className={TONE_CLASS[label.tone]}>
-                          {label.label}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <ContextCell context={r.context} />
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-        {entries.length > 0 && (
-          <CardContent className="border-t border-border bg-muted/20 px-4 py-2 text-[11px] text-muted-foreground">
-            Showing {entries.length.toLocaleString('en-SG')} most recent entries.
-          </CardContent>
-        )}
-      </Card>
+      <AttendanceAuditLogDataTable rows={entries} />
+
+      {entries.length > 0 && (
+        <CardContent className="border border-border bg-muted/20 px-4 py-2 text-[11px] text-muted-foreground rounded-lg">
+          Showing {entries.length.toLocaleString('en-SG')} most recent entries.
+        </CardContent>
+      )}
     </PageShell>
   );
-}
-
-function ContextCell({ context }: { context: Record<string, unknown> }) {
-  if (!context || Object.keys(context).length === 0) {
-    return <span className="text-xs text-muted-foreground">—</span>;
-  }
-  // Friendly inline summary for the common action shapes.
-  const parts: string[] = [];
-  if (typeof context.date === 'string') parts.push(`date: ${context.date}`);
-  if (typeof context.status === 'string') parts.push(`status: ${context.status}`);
-  if (typeof context.sheet_name === 'string') parts.push(`sheet: ${context.sheet_name}`);
-  if (typeof context.section_name === 'string') parts.push(`section: ${context.section_name}`);
-  if (typeof context.rows_written === 'number') parts.push(`rows: ${context.rows_written}`);
-  if (typeof context.students_matched === 'number') parts.push(`matched: ${context.students_matched}`);
-  if (typeof context.students_unmatched === 'number' && context.students_unmatched > 0) {
-    parts.push(`unmatched: ${context.students_unmatched}`);
-  }
-  if (parts.length === 0) {
-    return (
-      <code className="font-mono text-[11px] text-muted-foreground">
-        {JSON.stringify(context)}
-      </code>
-    );
-  }
-  return <span className="font-mono text-[11px] text-foreground">{parts.join(' · ')}</span>;
 }
 
 function StatCard({
