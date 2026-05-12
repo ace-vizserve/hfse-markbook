@@ -7,12 +7,19 @@ import { hashString, mulberry32, prefixFor } from './random';
 // at the 1-hour CEO/user demo where the focus is "do dashboards look like
 // real production usage."
 //
-// Five passes, all idempotent (skip-guarded by an existence count):
+// Seven passes, all idempotent (skip-guarded by an existence count):
 //   1. seedPublicationsExpanded   — 3 published report-card windows across T1+T2
 //   2. seedParentAccounts         — 5 parent auth.users tied to enrolled emails
 //   3. seedPFileLifecycle         — outreach rows + 60d/90d expiry buckets
 //   4. seedEvaluationLifecycle    — T1 closed / T2 open / T2 partial writeups + PTC
 //   5. seedCalendarEnhancements   — typed events + audience overrides + tentative
+//   6. seedEnrollmentStatusMix    — flips a few rows to late_enrollee + withdrawn
+//                                   so PP6's caption + PP9's "withdrawn at the
+//                                   bottom" + KD #68's late-enrollee term suffix
+//                                   all have data to render against.
+//   7. seedChangeRequests         — ~12 grade-change requests spread across the
+//                                   5 status buckets so /markbook/change-requests
+//                                   + dashboard CR KPI/drill all have data.
 //
 // All passes use service-role + skip-guards so re-running on a partially
 // seeded AY9999 is safe (no duplicate inserts, no failed unique-key
@@ -28,6 +35,9 @@ export type DemoExtrasResult = {
   evaluation_ptc_feedback: number;
   calendar_events_extra: number;
   school_calendar_audience_overrides: number;
+  late_enrollees_flipped: number;
+  withdrawals_flipped: number;
+  change_requests_inserted: number;
 };
 
 export async function seedDemoExtras(
@@ -44,6 +54,9 @@ export async function seedDemoExtras(
     evaluation_ptc_feedback: 0,
     calendar_events_extra: 0,
     school_calendar_audience_overrides: 0,
+    late_enrollees_flipped: 0,
+    withdrawals_flipped: 0,
+    change_requests_inserted: 0,
   };
 
   result.publications_extra = await seedPublicationsExpanded(service, testAy);
@@ -58,6 +71,10 @@ export async function seedDemoExtras(
   const cal = await seedCalendarEnhancements(service, testAy);
   result.calendar_events_extra = cal.events;
   result.school_calendar_audience_overrides = cal.audienceOverrides;
+  const enr = await seedEnrollmentStatusMix(service, testAy);
+  result.late_enrollees_flipped = enr.late;
+  result.withdrawals_flipped = enr.withdrawn;
+  result.change_requests_inserted = await seedChangeRequests(service, testAy);
 
   return result;
 }
@@ -710,4 +727,326 @@ async function seedCalendarEnhancements(
   }
 
   return { events: eventsInserted, audienceOverrides };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 6. Enrollment-status mix — flip a few rows to late_enrollee + withdrawn.
+//
+// PP6's late-enrollee caption (score-entry grid amber italic line) and
+// PP9's "withdrawn rows go to the bottom" sub-feature of the re-alphabetize
+// button + KD #68's "· T2" amber suffix on Records placement section all
+// need real `enrollment_status != 'active'` rows to render against.
+// The base seedPopulated path leaves every row 'active'.
+//
+// Strategy: pick the FIRST section per AY (deterministic for demos) and
+// flip its last 3 active students to late_enrollee + the next 2 to
+// withdrawn. Bounded blast radius (5 rows out of 200), and the demo can
+// always hit /sis/sections/[id] for a known section that visibly shows
+// both states.
+//
+// Idempotent: counts existing non-active rows in the AY's sections; skips
+// if any are present.
+// ─────────────────────────────────────────────────────────────────────────
+
+async function seedEnrollmentStatusMix(
+  service: SupabaseClient,
+  testAy: { id: string; ay_code: string },
+): Promise<{ late: number; withdrawn: number }> {
+  // Find sections in this AY, ordered for determinism.
+  const { data: sections } = await service
+    .from('sections')
+    .select('id, name')
+    .eq('academic_year_id', testAy.id)
+    .order('name')
+    .limit(1);
+  const targetSection = (sections ?? [])[0];
+  if (!targetSection) return { late: 0, withdrawn: 0 };
+
+  // Skip-guard: any non-active row in this section already?
+  const { count: existingNonActive } = await service
+    .from('section_students')
+    .select('id', { count: 'exact', head: true })
+    .eq('section_id', targetSection.id)
+    .neq('enrollment_status', 'active');
+  if ((existingNonActive ?? 0) > 0) return { late: 0, withdrawn: 0 };
+
+  // Pull active students in this section, ordered by index_number desc so
+  // we flip the LAST few rows (lowest visibility in alphabetical lists,
+  // which is the demo point — re-alphabetize pushes them down further).
+  const { data: rows } = await service
+    .from('section_students')
+    .select('id, index_number')
+    .eq('section_id', targetSection.id)
+    .eq('enrollment_status', 'active')
+    .order('index_number', { ascending: false })
+    .limit(5);
+  const candidates = (rows ?? []) as Array<{ id: string; index_number: number }>;
+  if (candidates.length < 5) return { late: 0, withdrawn: 0 };
+
+  // Term dates so the flip dates land plausibly in T2.
+  const { data: termRows } = await service
+    .from('terms')
+    .select('term_number, start_date')
+    .eq('academic_year_id', testAy.id)
+    .order('term_number');
+  const t2 = (termRows ?? []).find((t) => t.term_number === 2) as
+    | { start_date: string }
+    | undefined;
+  const lateEnrolDate =
+    t2?.start_date ?? new Date().toISOString().slice(0, 10);
+  const withdrawDate = lateEnrolDate; // Same window — both happen in early T2.
+
+  const lateRows = candidates.slice(0, 3);
+  const withdrawnRows = candidates.slice(3, 5);
+
+  let lateInserted = 0;
+  for (const r of lateRows) {
+    const { error } = await service
+      .from('section_students')
+      .update({ enrollment_status: 'late_enrollee', enrollment_date: lateEnrolDate })
+      .eq('id', r.id);
+    if (!error) lateInserted += 1;
+  }
+
+  let withdrawnInserted = 0;
+  for (const r of withdrawnRows) {
+    const { error } = await service
+      .from('section_students')
+      .update({ enrollment_status: 'withdrawn', withdrawal_date: withdrawDate })
+      .eq('id', r.id);
+    if (!error) withdrawnInserted += 1;
+  }
+
+  return { late: lateInserted, withdrawn: withdrawnInserted };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 7. Change requests — ~12 rows across the 5 status buckets.
+//
+// CLAUDE.md flagged this as deferred: the change-request workflow is one
+// of the headline pain-point fixes (PP7 / KD #25 / Hard Rule #5) but the
+// table is empty in seed data, so /markbook/change-requests + the dashboard
+// CR KPI tile + drill all show empty states.
+//
+// Strategy: pick LOCKED grading sheets in the AY (T1 sheets get locked
+// during seedPopulated). Pull a handful of grade_entries from each. Create
+// 12 CRs with a status mix that lights up every tab + KPI:
+//   4 pending          (no review fields; recent requested_at)
+//   3 approved         (review fields filled; not yet applied)
+//   3 applied          (review + apply fields; older requested_at)
+//   1 rejected         (review fields with decision_note)
+//   1 cancelled        (no review; teacher pulled it back)
+//
+// requested_by needs a teacher user id; reviewed_by/applied_by need a
+// school_admin/superadmin id; primary/secondary approver ids come from
+// approver_assignments where flow='markbook.change_request'. We fetch
+// each with a fallback to a sentinel UUID + sentinel email so the seeder
+// works even on a fresh AY with no users yet (rare but safer).
+//
+// Idempotent: counts existing CRs against this AY's grading_sheets; skips
+// if any are present.
+// ─────────────────────────────────────────────────────────────────────────
+
+const CR_FIELDS = ['ww_scores', 'pt_scores', 'qa_score', 'letter_grade'] as const;
+const CR_REASONS = [
+  'regrading',
+  'data_entry_error',
+  'late_submission',
+  'academic_appeal',
+  'other',
+] as const;
+type CrField = (typeof CR_FIELDS)[number];
+type CrReason = (typeof CR_REASONS)[number];
+
+const CR_JUSTIFICATIONS: Record<CrReason, string> = {
+  regrading:
+    'Parent requested a re-grade after meeting with the subject teacher; revised score reflects the standard rubric applied uniformly across the section.',
+  data_entry_error:
+    'Original entry was a transcription typo from the paper booklet — correcting to the actual mark recorded on the assessment.',
+  late_submission:
+    'Student submitted within the agreed extension window for compassionate circumstances; teacher confirmed timestamp via the LMS audit trail.',
+  academic_appeal:
+    'Formal appeal lodged by the family per the Term 1 grading rubric; HOD reviewed and recommended adjustment to the rubric application.',
+  other:
+    'Adjustment per the closed-doors discussion with the academic head and parent representative; supporting note attached to the request.',
+};
+
+const SENTINEL_TEACHER_UUID = '00000000-0000-0000-0000-00000000ce01';
+const SENTINEL_REVIEWER_UUID = '00000000-0000-0000-0000-00000000ce02';
+const SENTINEL_TEACHER_EMAIL = 'teacher.seed@hfse.test';
+const SENTINEL_REVIEWER_EMAIL = 'registrar.seed@hfse.test';
+
+async function pickSeedActor(
+  service: SupabaseClient,
+  roleNeeded: 'teacher' | 'school_admin',
+): Promise<{ id: string; email: string }> {
+  // auth.admin.listUsers is the only way to filter by app_metadata.role
+  // server-side. Caps at 200 users — fine for HFSE's scale.
+  const { data } = await service.auth.admin.listUsers({ perPage: 200 });
+  const candidates = (data?.users ?? []).filter((u) => {
+    const meta = (u.app_metadata as Record<string, unknown> | null) ?? {};
+    if (roleNeeded === 'teacher') return meta.role === 'teacher';
+    return meta.role === 'school_admin' || meta.role === 'superadmin';
+  });
+  const pick = candidates[0];
+  if (pick) return { id: pick.id, email: pick.email ?? '' };
+  return roleNeeded === 'teacher'
+    ? { id: SENTINEL_TEACHER_UUID, email: SENTINEL_TEACHER_EMAIL }
+    : { id: SENTINEL_REVIEWER_UUID, email: SENTINEL_REVIEWER_EMAIL };
+}
+
+async function seedChangeRequests(
+  service: SupabaseClient,
+  testAy: { id: string; ay_code: string },
+): Promise<number> {
+  // Find locked T1 grading sheets in this AY (T1 is the closed term per
+  // seedGradeEntries — exactly the surface where post-lock change requests
+  // are realistic).
+  const { data: sheets } = await service
+    .from('grading_sheets')
+    .select('id, locked_at, term:terms!inner(academic_year_id, term_number)')
+    .eq('term.academic_year_id', testAy.id)
+    .eq('term.term_number', 1)
+    .not('locked_at', 'is', null)
+    .limit(20);
+  const lockedSheets = (sheets ?? []) as Array<{ id: string; locked_at: string }>;
+  if (lockedSheets.length === 0) return 0;
+
+  // Skip-guard: any CRs against these sheets already?
+  const sheetIds = lockedSheets.map((s) => s.id);
+  const { count: existingCrs } = await service
+    .from('grade_change_requests')
+    .select('id', { count: 'exact', head: true })
+    .in('grading_sheet_id', sheetIds);
+  if ((existingCrs ?? 0) > 0) return 0;
+
+  // Pull grade_entries from these sheets — we need 12, take 30 to leave
+  // headroom for shuffle + skip on shape mismatch.
+  const { data: entries } = await service
+    .from('grade_entries')
+    .select('id, grading_sheet_id, ww_scores, pt_scores, qa_score, letter_grade')
+    .in('grading_sheet_id', sheetIds)
+    .limit(30);
+  const candidateEntries = (entries ?? []) as Array<{
+    id: string;
+    grading_sheet_id: string;
+    ww_scores: (number | null)[] | null;
+    pt_scores: (number | null)[] | null;
+    qa_score: number | null;
+    letter_grade: string | null;
+  }>;
+  if (candidateEntries.length === 0) return 0;
+
+  // Resolve actors (teacher requester + reviewer/applier).
+  const teacher = await pickSeedActor(service, 'teacher');
+  const reviewer = await pickSeedActor(service, 'school_admin');
+
+  // Approvers for the markbook.change_request flow (designated pool per KD #41).
+  const { data: assignments } = await service
+    .from('approver_assignments')
+    .select('user_id')
+    .eq('flow', 'markbook.change_request')
+    .order('created_at')
+    .limit(2);
+  const approvers = (assignments ?? []) as Array<{ user_id: string }>;
+  const primaryApproverId = approvers[0]?.user_id ?? reviewer.id;
+  const secondaryApproverId = approvers[1]?.user_id ?? null;
+
+  // Status mix — totals 12, lights up every tab.
+  const statusMix: Array<'pending' | 'approved' | 'applied' | 'rejected' | 'cancelled'> = [
+    'pending', 'pending', 'pending', 'pending',
+    'approved', 'approved', 'approved',
+    'applied', 'applied', 'applied',
+    'rejected',
+    'cancelled',
+  ];
+
+  const now = Date.now();
+  const day = 24 * 60 * 60 * 1000;
+  const inserts: Array<Record<string, unknown>> = [];
+
+  for (let i = 0; i < statusMix.length && i < candidateEntries.length; i++) {
+    const status = statusMix[i];
+    const e = candidateEntries[i];
+
+    // Pick a field/reason from rotating positions so the facets have variety.
+    const field: CrField = CR_FIELDS[i % CR_FIELDS.length];
+    const reason: CrReason = CR_REASONS[i % CR_REASONS.length];
+
+    // current_value snapshot + plausible proposed_value per field.
+    let currentValue: string | null = null;
+    let proposedValue = '';
+    let slotIndex: number | null = null;
+    if (field === 'ww_scores' || field === 'pt_scores') {
+      const arr = (field === 'ww_scores' ? e.ww_scores : e.pt_scores) ?? [];
+      slotIndex = 0;
+      const cur = arr[0];
+      currentValue = cur == null ? null : String(cur);
+      proposedValue = String(Math.min(10, Math.max(0, (cur ?? 6) + 1)));
+    } else if (field === 'qa_score') {
+      currentValue = e.qa_score == null ? null : String(e.qa_score);
+      proposedValue = String(Math.min(30, Math.max(0, (e.qa_score ?? 22) + 2)));
+    } else {
+      currentValue = e.letter_grade;
+      proposedValue = e.letter_grade === 'A' ? 'A+' : 'A';
+    }
+
+    // Timestamps: pending = recent; approved/applied/rejected = older;
+    // cancelled = oldest. Spread across 14 days for the date-range filter
+    // in the change-requests page to have something to bite.
+    const ageDays =
+      status === 'pending' ? i % 4
+      : status === 'approved' ? 5 + (i % 3)
+      : status === 'applied' ? 9 + (i % 3)
+      : status === 'rejected' ? 7
+      : 12;
+    const requestedAt = new Date(now - ageDays * day).toISOString();
+    const reviewedAt =
+      status === 'approved' || status === 'applied' || status === 'rejected'
+        ? new Date(now - (ageDays - 1) * day).toISOString()
+        : null;
+    const appliedAt =
+      status === 'applied'
+        ? new Date(now - (ageDays - 2) * day).toISOString()
+        : null;
+
+    inserts.push({
+      grading_sheet_id: e.grading_sheet_id,
+      grade_entry_id: e.id,
+      field_changed: field,
+      slot_index: slotIndex,
+      current_value: currentValue,
+      proposed_value: proposedValue,
+      reason_category: reason,
+      justification: CR_JUSTIFICATIONS[reason],
+      status,
+      requested_by: teacher.id,
+      requested_by_email: teacher.email,
+      requested_at: requestedAt,
+      reviewed_by: reviewedAt ? reviewer.id : null,
+      reviewed_by_email: reviewedAt ? reviewer.email : null,
+      reviewed_at: reviewedAt,
+      decision_note:
+        status === 'rejected'
+          ? 'Rubric was applied correctly per the moderation notes; no adjustment warranted.'
+          : status === 'approved' || status === 'applied'
+            ? 'Approved per the Term 1 standard rubric. Apply when the registrar opens the sheet.'
+            : null,
+      applied_by: appliedAt ? reviewer.id : null,
+      applied_at: appliedAt,
+      primary_approver_id: primaryApproverId,
+      secondary_approver_id: secondaryApproverId,
+    });
+  }
+
+  if (inserts.length === 0) return 0;
+
+  const { error, count } = await service
+    .from('grade_change_requests')
+    .insert(inserts, { count: 'exact' });
+  if (error) {
+    console.warn('[demo-extras] change-requests insert failed:', error.message);
+    return 0;
+  }
+  return count ?? inserts.length;
 }
