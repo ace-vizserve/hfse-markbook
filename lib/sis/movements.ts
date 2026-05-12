@@ -396,12 +396,12 @@ async function enrichWithStudents(
     sections:
       | {
           name: string;
-          levels: { code: string } | { code: string }[];
+          levels: { code: string; label: string } | { code: string; label: string }[];
           academic_year: { ay_code: string } | { ay_code: string }[];
         }
       | {
           name: string;
-          levels: { code: string } | { code: string }[];
+          levels: { code: string; label: string } | { code: string; label: string }[];
           academic_year: { ay_code: string } | { ay_code: string }[];
         }[];
   };
@@ -418,7 +418,7 @@ async function enrichWithStudents(
     const { data, error } = await service
       .from('section_students')
       .select(
-        'id, student_id, enrolee_number, sections!inner(name, levels!inner(code), academic_year:academic_years!inner(ay_code))',
+        'id, student_id, enrolee_number, sections!inner(name, levels!inner(code, label), academic_year:academic_years!inner(ay_code))',
       )
       .in('id', metaIds);
     if (error) {
@@ -437,7 +437,12 @@ async function enrichWithStudents(
       ssById.set(row.id, {
         studentId: row.student_id,
         enroleeNumber: row.enrolee_number,
-        level: lvl?.code ?? '',
+        // Use the full label ("Primary 1", "Secondary 1") not the short
+        // code ("P1", "S1") so the movements table reads naturally for
+        // registrars. levels.label is the canonical word-form per
+        // migration 029 + lib/sis/levels.ts. Fallback to code if label
+        // is missing on a level row (shouldn't happen — both are NOT NULL).
+        level: lvl?.label ?? lvl?.code ?? '',
         ayCode: ay?.ay_code ?? '',
       });
     }

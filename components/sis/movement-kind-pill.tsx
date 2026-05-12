@@ -2,14 +2,13 @@
 
 import * as React from 'react';
 
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 import type { MovementKind } from '@/lib/sis/movements';
 
 // Single colored chip labelling an enrolment-movement event kind.
-//
-// Centralised here so the table cell, future drill sheets, and any insight
-// row that mentions a movement type share one visual recipe. Uses Aurora
-// Vault tokens only — no raw colors per Hard Rule #7.
+// Delegates to the shared <Badge> variants so the chip speaks the
+// project's loud-pill voice (saturated brand gradient + white text +
+// shadow) consistently with every other status pill across the SIS.
 
 const LABELS: Record<MovementKind, string> = {
   'section-transfer': 'Transfer',
@@ -17,19 +16,15 @@ const LABELS: Record<MovementKind, string> = {
   'late-enrolled': 'Late enrolled',
 };
 
-const CLASSNAMES: Record<MovementKind, string> = {
-  // Mint informational — neutral movement within the school.
-  'section-transfer': 'border-brand-mint bg-brand-mint/30 text-ink',
-  // Destructive — terminal exit from the school.
-  withdrawn: 'border-destructive/40 bg-destructive/10 text-destructive',
-  // Amber warning — time-bounded join after term start.
-  'late-enrolled': 'border-brand-amber/50 bg-brand-amber/15 text-ink',
+const VARIANT: Record<MovementKind, NonNullable<BadgeProps['variant']>> = {
+  // Mint→sky gradient — neutral movement within the school.
+  'section-transfer': 'success',
+  // Destructive gradient — terminal exit from the school.
+  withdrawn: 'blocked',
+  // Amber gradient — time-bounded join after term start.
+  'late-enrolled': 'warning',
 };
 
 export function MovementKindPill({ kind }: { kind: MovementKind }) {
-  return (
-    <Badge variant="outline" className={CLASSNAMES[kind]}>
-      {LABELS[kind]}
-    </Badge>
-  );
+  return <Badge variant={VARIANT[kind]}>{LABELS[kind]}</Badge>;
 }

@@ -66,7 +66,7 @@ export async function seedMovements(
   const { data: ssRows } = await service
     .from('section_students')
     .select(
-      'id, enrolee_number, sections!inner(id, name, academic_year_id, levels!inner(code))',
+      'id, enrolee_number, sections!inner(id, name, academic_year_id, levels!inner(code, label))',
     )
     .eq('sections.academic_year_id', testAy.id);
 
@@ -77,12 +77,12 @@ export async function seedMovements(
       | {
           id: string;
           name: string;
-          levels: { code: string } | { code: string }[];
+          levels: { code: string; label: string } | { code: string; label: string }[];
         }
       | {
           id: string;
           name: string;
-          levels: { code: string } | { code: string }[];
+          levels: { code: string; label: string } | { code: string; label: string }[];
         }[];
   };
   const roster = ((ssRows ?? []) as SsRow[]).map((r) => {
@@ -93,7 +93,13 @@ export async function seedMovements(
       enroleeNumber: r.enrolee_number,
       sectionId: sec.id,
       sectionName: sec.name,
+      // levelCode for internal grouping (same-level transfer pairing per
+      // KD #67). levelLabel for the audit context's toLevel/fromLevel
+      // fields — matches what the real transfer route writes
+      // (lib/sis/section-transfer.ts:306-308) so the movements page
+      // renders "Primary 1" not "P1".
       levelCode: lvl?.code ?? '',
+      levelLabel: lvl?.label ?? lvl?.code ?? '',
     };
   });
   if (roster.length === 0) return 0;
@@ -168,9 +174,9 @@ export async function seedMovements(
         ay_code: testAy.ay_code,
         enroleeNumber: s.enroleeNumber,
         fromSection: s.sectionName,
-        fromLevel: s.levelCode,
+        fromLevel: s.levelLabel,
         toSection: target.name,
-        toLevel: s.levelCode,
+        toLevel: s.levelLabel,
         targetSectionId: target.id,
         transferDate: date,
         termNumber: 1,
