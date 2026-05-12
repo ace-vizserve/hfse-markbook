@@ -2,7 +2,7 @@ import { ArrowLeft, ArrowRight, ChartBar, FileStack, Hourglass, TrendingUp, User
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { AdmissionsCompletenessTable, type StatusFilter as AdmissionsChaseStatusFilter } from "@/components/admissions/completeness-table";
+import { DocumentCompletenessTable, type AdmissionsStatusFilter as AdmissionsChaseStatusFilter } from "@/components/shared/document-completeness-table";
 import { ApplicationsByLevelCard } from "@/components/admissions/applications-by-level-card";
 import { DocumentCompletionCard } from "@/components/admissions/document-completion-card";
 import { AdmissionsDrillSheet } from "@/components/admissions/drills/admissions-drill-sheet";
@@ -218,7 +218,8 @@ export default async function AdmissionsDashboard({
           Back to dashboard
         </Link>
 
-        <AdmissionsCompletenessTable
+        <DocumentCompletenessTable
+          module="admissions"
           key={`${selectedAy}:${focusedStatus}`}
           students={students}
           ayCode={isCurrentAy ? undefined : selectedAy}

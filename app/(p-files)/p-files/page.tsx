@@ -8,7 +8,7 @@ import { DashboardHero } from "@/components/dashboard/dashboard-hero";
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { PriorityPanel } from "@/components/dashboard/priority-panel";
-import { CompletenessTable, type StatusFilter } from "@/components/p-files/completeness-table";
+import { DocumentCompletenessTable, type PFilesStatusFilter as StatusFilter } from "@/components/shared/document-completeness-table";
 import { DocumentChaseQueueStrip } from "@/components/sis/document-chase-queue-strip";
 import {
   CompletenessCsvButton,
@@ -224,7 +224,8 @@ export default async function PFilesDashboard({
         </Link>
 
         <CompletenessCsvButton ayCode={selectedAy} />
-        <CompletenessTable
+        <DocumentCompletenessTable
+          module="p-files"
           key={`${selectedAy}:${filterLabel}`}
           students={visibleStudents}
           ayCode={isCurrentAy ? undefined : selectedAy}
@@ -448,7 +449,8 @@ export default async function PFilesDashboard({
           re-initialises from the new initialStatusFilter prop. Without
           the key, useState only consumes the prop on first mount and
           ignores subsequent URL changes. */}
-      <CompletenessTable
+      <DocumentCompletenessTable
+        module="p-files"
         key={`${selectedAy}:${initialStatusFilter ?? 'all'}`}
         students={students}
         ayCode={isCurrentAy ? undefined : selectedAy}

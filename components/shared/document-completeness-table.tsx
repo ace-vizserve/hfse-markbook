@@ -34,43 +34,114 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { BulkNotifyDialog, type BulkNotifyItem } from '@/components/p-files/bulk-notify-dialog';
+import type { AdmissionsCompleteness } from '@/lib/admissions/dashboard';
 import type { StudentCompleteness } from '@/lib/p-files/queries';
 import { DOCUMENT_SLOTS, type DocumentStatus } from '@/lib/p-files/document-config';
+import { TABLE_COPY } from '@/lib/copy/data-table';
 
-// P-Files only owns the renewal lens for enrolled students. Initial-chase
-// statuses (To follow, Rejected, Pending review) live on Admissions.
-export type StatusFilter = 'all' | 'expired';
+// ─── Module discriminator ─────────────────────────────────────────────────────
+
+type Module = 'p-files' | 'admissions';
+
+// ─── Status filter types ──────────────────────────────────────────────────────
+
+/** Admissions chase: 4 actionable statuses + 'all'. */
+export type AdmissionsStatusFilter = 'all' | 'to-follow' | 'rejected' | 'uploaded' | 'expired';
+/** P-Files renewal: only 'expired' + 'all'. */
+export type PFilesStatusFilter = 'all' | 'expired';
+
+// ─── Slot dot rendering ───────────────────────────────────────────────────────
 
 function StatusDot({ status }: { status: DocumentStatus }) {
   switch (status) {
     case 'valid':
       return <span className="inline-block size-2.5 rounded-full bg-brand-mint" title="On file" />;
     case 'uploaded':
-      return <span className="inline-block size-2.5 rounded-full bg-brand-amber" title="Pending review" />;
-    case 'expired':
-      return <span className="inline-block size-2.5 rounded-full bg-destructive" title="Expired" />;
+      return (
+        <span className="inline-block size-2.5 rounded-full bg-brand-amber" title="Pending review" />
+      );
     case 'rejected':
-      return <span className="inline-block size-2.5 rounded-full bg-destructive" title="Rejected" />;
+      return (
+        <span className="inline-block size-2.5 rounded-full bg-destructive" title="Rejected" />
+      );
     case 'to-follow':
       return <span className="inline-block size-2.5 rounded-full bg-primary" title="To follow" />;
+    case 'expired':
+      return (
+        <span className="inline-block size-2.5 rounded-full bg-destructive" title="Expired" />
+      );
     case 'missing':
-      return <span className="inline-block size-2.5 rounded-full border border-border bg-muted" title="Missing" />;
+      return (
+        <span
+          className="inline-block size-2.5 rounded-full border border-border bg-muted"
+          title="Missing"
+        />
+      );
     case 'na':
       return <span className="inline-block size-2.5 rounded-full bg-muted" title="N/A" />;
   }
 }
 
-function completenessPercent(s: StudentCompleteness): number {
-  return s.total > 0 ? Math.round((s.complete / s.total) * 100) : 0;
+// ─── Completeness % badge ─────────────────────────────────────────────────────
+
+function CompletePct({ pct }: { pct: number }) {
+  return (
+    <Badge
+      variant="outline"
+      className={`font-mono text-[10px] tabular-nums ${
+        pct === 100
+          ? 'border-brand-mint bg-brand-mint/20 text-ink'
+          : pct >= 70
+            ? 'border-primary/30 bg-primary/10 text-primary'
+            : pct >= 40
+              ? 'border-brand-amber/40 bg-brand-amber/10 text-brand-amber'
+              : 'border-destructive/30 bg-destructive/10 text-destructive'
+      }`}
+    >
+      {pct}%
+    </Badge>
+  );
 }
 
-// Build the bulk-reminder targets for a single row. Returns one entry
-// per slot that's eligible for a reminder under the current filter:
-//   - Expired status (always actionable)
-//   - Rejected status (always actionable)
-//   - Valid + expiry within `windowDays` (when windowDays is set — i.e.
-//     the page is in a `?expiring=N` focused view)
-function targetsForRow(
+function pct(total: number, complete: number): number {
+  return total > 0 ? Math.round((complete / total) * 100) : 0;
+}
+
+// ─── Slot header abbreviation (shared by both modules) ────────────────────────
+
+function abbreviateSlotLabel(label: string): string {
+  return label
+    .replace('Mother ', 'M/')
+    .replace('Father ', 'F/')
+    .replace('Guardian ', 'G/')
+    .replace('Passport', 'PP')
+    .replace('Student ', 'S/');
+}
+
+// ─── BulkNotifyItem builders (module-specific) ────────────────────────────────
+
+function admissionsBulkTargets(student: AdmissionsCompleteness): BulkNotifyItem[] {
+  const slotMeta = new Map(DOCUMENT_SLOTS.map((s) => [s.key, s]));
+  const out: BulkNotifyItem[] = [];
+  for (const slot of student.slots) {
+    if (
+      slot.status === 'to-follow' ||
+      slot.status === 'rejected' ||
+      slot.status === 'uploaded' ||
+      slot.status === 'expired'
+    ) {
+      out.push({
+        enroleeNumber: student.enroleeNumber,
+        studentName: student.fullName,
+        slotKey: slot.key,
+        slotLabel: slotMeta.get(slot.key)?.label ?? slot.label,
+      });
+    }
+  }
+  return out;
+}
+
+function pfilesBulkTargets(
   student: StudentCompleteness,
   windowDays: number | null,
 ): BulkNotifyItem[] {
@@ -79,9 +150,6 @@ function targetsForRow(
   const horizonMs = windowDays ? todayMs + windowDays * 86_400_000 : null;
   const out: BulkNotifyItem[] = [];
   for (const slot of student.slots) {
-    // P-Files renewal lens: bulk reminders fire on Expired only (plus
-    // Valid+expiring-within-window when the page is in ?expiring=N mode).
-    // Initial-chase statuses (To follow, Rejected) are Admissions-side.
     if (slot.status === 'expired') {
       out.push({
         enroleeNumber: student.enroleeNumber,
@@ -91,11 +159,7 @@ function targetsForRow(
       });
       continue;
     }
-    if (
-      horizonMs !== null &&
-      slot.status === 'valid' &&
-      slot.expiryDate
-    ) {
+    if (horizonMs !== null && slot.status === 'valid' && slot.expiryDate) {
       const t = new Date(slot.expiryDate).getTime();
       if (t >= todayMs && t <= horizonMs) {
         out.push({
@@ -110,82 +174,109 @@ function targetsForRow(
   return out;
 }
 
-export function CompletenessTable({
-  students,
-  ayCode,
-  initialStatusFilter,
-  bulkRemindEnabled = false,
-  bulkRemindWindowDays,
-}: {
-  students: StudentCompleteness[];
-  /**
-   * Current-scope AY. Threaded through to `/p-files/[enroleeNumber]` as
-   * `?ay=...` so historical-AY browsing on the dashboard resolves against
-   * the right admissions table on the detail page.
-   */
+// ─── Common row base (fields shared by both row types) ───────────────────────
+
+type CommonRow = {
+  enroleeNumber: string;
+  studentNumber: string | null;
+  fullName: string;
+  level: string | null;
+  total: number;
+  complete: number;
+  expired: number;
+  toFollow?: number;
+  rejected?: number;
+  uploaded?: number;
+  slots: { key: string; label: string; status: DocumentStatus; expiryDate: string | null }[];
+};
+
+// ─── Module-discriminated overloads ──────────────────────────────────────────
+
+type AdmissionsProps = {
+  module: 'admissions';
+  students: AdmissionsCompleteness[];
   ayCode?: string;
-  /**
-   * Preset status filter from a sidebar Quicklink (`?status=missing` /
-   * `expired` / `uploaded` / `complete`). The user can still change it
-   * via the toolbar `Select`; we just seed the initial state.
-   */
-  initialStatusFilter?: StatusFilter;
-  /**
-   * When true, render the row-selection checkbox column + sticky bulk
-   * "Send reminders" footer. Page enables this for `?status=expired` and
-   * `?expiring=N` views.
-   */
+  initialStatusFilter?: AdmissionsStatusFilter;
   bulkRemindEnabled?: boolean;
-  /**
-   * Optional 30/60/90-day window — when set, slot eligibility for a
-   * bulk reminder also includes Valid slots whose expiry falls within
-   * the window. When null, only Expired / Rejected count.
-   */
+  bulkRemindWindowDays?: never;
+};
+
+type PFilesProps = {
+  module: 'p-files';
+  students: StudentCompleteness[];
+  ayCode?: string;
+  initialStatusFilter?: PFilesStatusFilter;
+  bulkRemindEnabled?: boolean;
   bulkRemindWindowDays?: number;
-}) {
-  const querySuffix = ayCode ? `?ay=${encodeURIComponent(ayCode)}` : '';
+};
+
+type Props = AdmissionsProps | PFilesProps;
+
+// ─── Component ───────────────────────────────────────────────────────────────
+
+export function DocumentCompletenessTable(props: Props) {
+  const { module, students, ayCode, bulkRemindEnabled = false } = props;
+  const bulkRemindWindowDays = 'bulkRemindWindowDays' in props ? (props.bulkRemindWindowDays ?? null) : null;
+
+  // Status filter — typed loosely internally since the valid options differ
+  const [statusFilter, setStatusFilter] = React.useState<string>(
+    props.initialStatusFilter ?? 'all',
+  );
   const [search, setSearch] = React.useState('');
   const [levelFilter, setLevelFilter] = React.useState('all');
+  // P-Files only: section sub-filter
   const [sectionFilter, setSectionFilter] = React.useState('all');
-  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>(
-    initialStatusFilter ?? 'all',
-  );
   const [pageIndex, setPageIndex] = React.useState(0);
   const [pageSize, setPageSize] = React.useState(25);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [bulkOpen, setBulkOpen] = React.useState(false);
-  const windowDaysOrNull = bulkRemindWindowDays ?? null;
+
+  const querySuffix = ayCode ? `?ay=${encodeURIComponent(ayCode)}` : '';
 
   const levels = React.useMemo(
     () => [...new Set(students.map((s) => s.level).filter((l): l is string => !!l))].sort(),
     [students],
   );
 
+  // Section list is only relevant for P-Files
   const sections = React.useMemo(() => {
-    const base = levelFilter === 'all' ? students : students.filter((s) => s.level === levelFilter);
+    if (module !== 'p-files') return [];
+    const base =
+      levelFilter === 'all'
+        ? (students as StudentCompleteness[])
+        : (students as StudentCompleteness[]).filter((s) => s.level === levelFilter);
     return [...new Set(base.map((s) => s.section).filter((s): s is string => !!s))].sort();
-  }, [students, levelFilter]);
+  }, [module, students, levelFilter]);
 
   const filtered = React.useMemo(() => {
     return students.filter((s) => {
       if (levelFilter !== 'all' && s.level !== levelFilter) return false;
-      if (sectionFilter !== 'all' && s.section !== sectionFilter) return false;
+      if (module === 'p-files' && sectionFilter !== 'all') {
+        if ((s as StudentCompleteness).section !== sectionFilter) return false;
+      }
       if (search) {
         const needle = search.toLowerCase();
-        const haystack = `${s.fullName} ${s.studentNumber ?? ''} ${s.enroleeNumber}`.toLowerCase();
+        const haystack =
+          `${s.fullName} ${s.studentNumber ?? ''} ${s.enroleeNumber}`.toLowerCase();
         if (!haystack.includes(needle)) return false;
       }
+      if (statusFilter === 'to-follow' && ((s as AdmissionsCompleteness).toFollow ?? 0) === 0)
+        return false;
+      if (statusFilter === 'rejected' && ((s as AdmissionsCompleteness).rejected ?? 0) === 0)
+        return false;
+      if (statusFilter === 'uploaded' && ((s as AdmissionsCompleteness).uploaded ?? 0) === 0)
+        return false;
       if (statusFilter === 'expired' && s.expired === 0) return false;
       return true;
     });
-  }, [students, search, levelFilter, sectionFilter, statusFilter]);
+  }, [students, search, levelFilter, sectionFilter, module, statusFilter]);
 
   // Reset to page 0 when filters change
   React.useEffect(() => {
     setPageIndex(0);
   }, [search, levelFilter, sectionFilter, statusFilter]);
 
-  // Drop selections that no longer match the visible filtered set.
+  // Drop selections that no longer match the visible filtered set
   React.useEffect(() => {
     setSelected((prev) => {
       const visibleIds = new Set(filtered.map((s) => s.enroleeNumber));
@@ -222,21 +313,25 @@ export function CompletenessTable({
     });
   }
 
-  // Expand selected students into BulkNotifyItem[] (one entry per
-  // eligible slot per student, scoped by the active window filter).
   const bulkItems = React.useMemo(() => {
     if (!bulkRemindEnabled || selected.size === 0) return [] as BulkNotifyItem[];
-    const idSet = selected;
     const out: BulkNotifyItem[] = [];
     for (const s of filtered) {
-      if (!idSet.has(s.enroleeNumber)) continue;
-      out.push(...targetsForRow(s, windowDaysOrNull));
+      if (!selected.has(s.enroleeNumber)) continue;
+      if (module === 'admissions') {
+        out.push(...admissionsBulkTargets(s as AdmissionsCompleteness));
+      } else {
+        out.push(...pfilesBulkTargets(s as StudentCompleteness, bulkRemindWindowDays));
+      }
     }
     return out;
-  }, [bulkRemindEnabled, selected, filtered, windowDaysOrNull]);
+  }, [bulkRemindEnabled, selected, filtered, module, bulkRemindWindowDays]);
 
   const hasFilter =
-    search.length > 0 || levelFilter !== 'all' || sectionFilter !== 'all' || statusFilter !== 'all';
+    search.length > 0 ||
+    levelFilter !== 'all' ||
+    (module === 'p-files' && sectionFilter !== 'all') ||
+    statusFilter !== 'all';
 
   const slotHeaders = React.useMemo(() => {
     const seen = new Map<string, string>();
@@ -248,12 +343,37 @@ export function CompletenessTable({
     return Array.from(seen.entries()).map(([key, label]) => ({ key, label }));
   }, [students]);
 
+  // Module-specific strings
+  const identifierLabel = module === 'admissions' ? 'Applicant' : 'Student';
+  const emptyLabel =
+    module === 'admissions'
+      ? 'No applicants match the current filters.'
+      : 'No students match the current filters.';
+  const countLabel = module === 'admissions' ? 'applicant' : 'student';
+  const cardTitle =
+    module === 'admissions' ? 'Applicant Document Completeness' : 'Document Completeness';
+  const cardDescription =
+    module === 'admissions'
+      ? 'Pre-enrolment scope — Submitted / Ongoing Verification / Processing. Click a row to view the application.'
+      : 'Per-student breakdown. Click a row to view details.';
+
+  function actionHref(enroleeNumber: string): string {
+    return module === 'admissions'
+      ? `/admissions/applications/${enroleeNumber}${querySuffix}`
+      : `/p-files/${enroleeNumber}${querySuffix}`;
+  }
+
+  // How many fixed columns before slot columns (used for colSpan on empty state)
+  // Checkbox + Identifier + Level + (Status|Section) + slots + % + Action
+  const fixedColCount = 5 + (bulkRemindEnabled ? 1 : 0);
+
   return (
     <Card>
       <CardHeader className="gap-2">
-        <CardTitle>Document Completeness</CardTitle>
-        <CardDescription>Per-student breakdown. Click a row to view details.</CardDescription>
+        <CardTitle>{cardTitle}</CardTitle>
+        <CardDescription>{cardDescription}</CardDescription>
 
+        {/* ── Toolbar ── */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-auto sm:min-w-[240px]">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -265,6 +385,7 @@ export function CompletenessTable({
             />
           </div>
 
+          {/* Level filter */}
           <Select
             value={levelFilter}
             onValueChange={(v) => {
@@ -285,27 +406,43 @@ export function CompletenessTable({
             </SelectContent>
           </Select>
 
-          <Select value={sectionFilter} onValueChange={setSectionFilter}>
-            <SelectTrigger className="h-9 w-[160px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All sections</SelectItem>
-              {sections.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* P-Files: section sub-filter */}
+          {module === 'p-files' && (
+            <Select value={sectionFilter} onValueChange={setSectionFilter}>
+              <SelectTrigger className="h-9 w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All sections</SelectItem>
+                {sections.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-            <SelectTrigger className="h-9 w-[160px]">
+          {/* Status filter */}
+          <Select
+            value={statusFilter}
+            onValueChange={setStatusFilter}
+          >
+            <SelectTrigger className="h-9 w-[180px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="expired">Has expired</SelectItem>
+              {module === 'admissions' ? (
+                <>
+                  <SelectItem value="to-follow">{TABLE_COPY.awaitingParentReply}</SelectItem>
+                  <SelectItem value="rejected">{TABLE_COPY.sentBackToParent}</SelectItem>
+                  <SelectItem value="uploaded">{TABLE_COPY.awaitingValidation}</SelectItem>
+                  <SelectItem value="expired">{TABLE_COPY.lapsedReupload}</SelectItem>
+                </>
+              ) : (
+                <SelectItem value="expired">{TABLE_COPY.lapsedReupload}</SelectItem>
+              )}
             </SelectContent>
           </Select>
 
@@ -340,23 +477,31 @@ export function CompletenessTable({
                   <TableHead className="w-10 px-2">
                     <Checkbox
                       aria-label="Select all on this page"
-                      checked={allPageSelected ? true : somePageSelected ? 'indeterminate' : false}
+                      checked={
+                        allPageSelected ? true : somePageSelected ? 'indeterminate' : false
+                      }
                       onCheckedChange={(v) => togglePage(v === true)}
                     />
                   </TableHead>
                 )}
-                <TableHead className="sticky left-0 bg-muted/40 px-4">Student</TableHead>
+                <TableHead className="sticky left-0 bg-muted/40 px-4">{identifierLabel}</TableHead>
                 <TableHead className="whitespace-nowrap px-2">Level</TableHead>
-                <TableHead className="whitespace-nowrap px-2">Section</TableHead>
+
+                {/* 4th column: applicationStatus (admissions) vs Section (p-files) */}
+                {module === 'admissions' ? (
+                  <TableHead className="whitespace-nowrap px-2">Status</TableHead>
+                ) : (
+                  <TableHead className="whitespace-nowrap px-2">Section</TableHead>
+                )}
+
                 {slotHeaders.map((h) => (
-                  <TableHead key={h.key} className="px-1 text-center" title={h.label}>
+                  <TableHead
+                    key={h.key}
+                    className="px-1 text-center"
+                    title={h.label}
+                  >
                     <span className="inline-block max-w-[60px] truncate text-[10px]">
-                      {h.label
-                        .replace('Mother ', 'M/')
-                        .replace('Father ', 'F/')
-                        .replace('Guardian ', 'G/')
-                        .replace('Passport', 'PP')
-                        .replace('Student ', 'S/')}
+                      {abbreviateSlotLabel(h.label)}
                     </span>
                   </TableHead>
                 ))}
@@ -368,17 +513,21 @@ export function CompletenessTable({
               {paged.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={slotHeaders.length + 5 + (bulkRemindEnabled ? 1 : 0)}
+                    colSpan={slotHeaders.length + fixedColCount}
                     className="py-10 text-center text-sm text-muted-foreground"
                   >
-                    No students match the current filters.
+                    {emptyLabel}
                   </TableCell>
                 </TableRow>
               ) : (
                 paged.map((s) => {
-                  const pct = completenessPercent(s);
+                  const rowPct = pct(s.total, s.complete);
                   const slotMap = new Map(s.slots.map((sl) => [sl.key, sl.status]));
                   const isSelected = selected.has(s.enroleeNumber);
+
+                  // Identifier link: KD #81 — linkified primary identifier
+                  const href = actionHref(s.enroleeNumber);
+
                   return (
                     <TableRow key={s.enroleeNumber} data-selected={isSelected || undefined}>
                       {bulkRemindEnabled && (
@@ -390,18 +539,35 @@ export function CompletenessTable({
                           />
                         </TableCell>
                       )}
+
+                      {/* Linkified primary identifier (KD #81) */}
                       <TableCell className="sticky left-0 bg-background px-4">
-                        <div className="text-sm font-medium">{s.fullName}</div>
+                        <Link
+                          href={href}
+                          className="font-medium text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
+                        >
+                          <div className="text-sm">{s.fullName}</div>
+                        </Link>
                         <div className="font-mono text-[10px] text-muted-foreground">
                           {s.studentNumber ?? s.enroleeNumber}
                         </div>
                       </TableCell>
+
                       <TableCell className="whitespace-nowrap px-2 text-xs text-muted-foreground">
                         {s.level ?? '—'}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap px-2 text-xs text-muted-foreground">
-                        {s.section ?? '—'}
-                      </TableCell>
+
+                      {/* 4th col: applicationStatus vs section */}
+                      {module === 'admissions' ? (
+                        <TableCell className="whitespace-nowrap px-2 text-xs text-muted-foreground">
+                          {(s as AdmissionsCompleteness).applicationStatus ?? '—'}
+                        </TableCell>
+                      ) : (
+                        <TableCell className="whitespace-nowrap px-2 text-xs text-muted-foreground">
+                          {(s as StudentCompleteness).section ?? '—'}
+                        </TableCell>
+                      )}
+
                       {slotHeaders.map((h) => {
                         const status = slotMap.get(h.key);
                         return (
@@ -414,25 +580,17 @@ export function CompletenessTable({
                           </TableCell>
                         );
                       })}
+
                       <TableCell className="px-2 text-center">
-                        <Badge
-                          variant="outline"
-                          className={`font-mono text-[10px] tabular-nums ${
-                            pct === 100
-                              ? 'border-brand-mint bg-brand-mint/20 text-ink'
-                              : pct >= 70
-                                ? 'border-primary/30 bg-primary/10 text-primary'
-                                : pct >= 40
-                                  ? 'border-brand-amber/40 bg-brand-amber/10 text-brand-amber'
-                                  : 'border-destructive/30 bg-destructive/10 text-destructive'
-                          }`}
-                        >
-                          {pct}%
-                        </Badge>
+                        <CompletePct pct={rowPct} />
                       </TableCell>
+
+                      {/* Trailing action link preserved for quick navigation without
+                          needing to click the name — the name is now also linkified
+                          per KD #81 so both paths work. */}
                       <TableCell className="px-2 text-right">
                         <Link
-                          href={`/p-files/${s.enroleeNumber}${querySuffix}`}
+                          href={href}
                           className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
                         >
                           View
@@ -451,7 +609,7 @@ export function CompletenessTable({
       {/* Pagination */}
       <div className="flex flex-col-reverse items-start gap-3 border-t border-border px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="font-mono text-[11px] tabular-nums text-muted-foreground">
-          {filtered.length} {filtered.length === 1 ? 'student' : 'students'}
+          {filtered.length} {filtered.length === 1 ? countLabel : `${countLabel}s`}
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
@@ -523,12 +681,13 @@ export function CompletenessTable({
         </div>
       </div>
 
+      {/* Bulk-remind footer — officer/operational roles only */}
       {bulkRemindEnabled && selected.size > 0 && (
         <div className="sticky bottom-0 z-10 flex items-center justify-between gap-3 border-t border-border bg-card px-6 py-3 shadow-[0_-4px_6px_-2px_oklch(0_0_0/0.04)]">
           <div className="flex items-center gap-3">
             <Mail className="size-4 text-brand-amber" />
             <span className="text-sm">
-              {selected.size} student{selected.size === 1 ? '' : 's'} selected
+              {selected.size} {selected.size === 1 ? countLabel : `${countLabel}s`} selected
               {' · '}
               <span className="font-mono text-[11px] text-muted-foreground">
                 {bulkItems.length} reminder{bulkItems.length === 1 ? '' : 's'} queued
@@ -554,6 +713,7 @@ export function CompletenessTable({
       {bulkRemindEnabled && (
         <BulkNotifyDialog
           items={bulkItems}
+          module={module}
           open={bulkOpen}
           onOpenChange={setBulkOpen}
           onSuccess={() => setSelected(new Set())}
