@@ -963,11 +963,12 @@ const NATIONALITY_BY_PASS: Record<string, string> = {
 };
 const FALLBACK_NATIONALITY = 'Filipino';
 
-function sgMobile(rand: () => number): string {
-  // +65 9XXX XXXX — Singapore mobile format.
-  const a = 1000 + Math.floor(rand() * 9000);
-  const b = 1000 + Math.floor(rand() * 9000);
-  return `+65 9${a} ${b}`;
+function sgMobile(rand: () => number): number {
+  // Singapore mobile, 8-digit local number starting with 9. Stored as
+  // bigint per `ay{YYYY}_enrolment_applications.{mother,father,guardian}Mobile`
+  // (migrations 012/025/026). Country code 65 is not part of the stored
+  // value; render-side code prefixes it for display.
+  return 90000000 + Math.floor(rand() * 10000000);
 }
 
 function fakeEmail(first: string, last: string): string {
