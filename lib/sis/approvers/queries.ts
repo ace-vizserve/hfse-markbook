@@ -8,6 +8,7 @@ export type ApproverUser = {
   assignment_id: string;
   user_id: string;
   email: string;
+  display_name: string | null;
   role: string | null;
   assigned_at: string;
 };
@@ -56,10 +57,13 @@ export async function listApproversForFlow(flow: ApproverFlow): Promise<Approver
         ((u.app_metadata as { role?: string } | null)?.role ??
           (u.user_metadata as { role?: string } | null)?.role ??
           null);
+      const display_name =
+        (u.user_metadata as { display_name?: string } | null)?.display_name ?? null;
       return {
         assignment_id: a.id,
         user_id: a.user_id,
         email: u.email ?? '',
+        display_name,
         role,
         assigned_at: a.created_at,
       };
