@@ -110,7 +110,7 @@ function parentPortalUploadUrl(
   return `${portalUrl}/admission/enrolments/application/${encodeURIComponent(enroleeNumber)}?academicYear=${ayCodeLower}`;
 }
 
-export function renderReminder(ctx: ReminderContext): RenderedReminder {
+function renderReminder(ctx: ReminderContext): RenderedReminder {
   const portalUrl = process.env.NEXT_PUBLIC_PARENT_PORTAL_URL ?? "https://enrol.hfse.edu.sg";
   const descriptor = statusDescriptor(ctx);
   const kind: ReminderKind = ctx.kind ?? "renewal";

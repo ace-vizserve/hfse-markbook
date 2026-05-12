@@ -13,7 +13,7 @@ import {
   LIFECYCLE_SEVERITY_BADGE_COLOR,
   LIFECYCLE_SEVERITY_LABEL,
   LIFECYCLE_SEVERITY_TILE,
-} from '@/components/sis/lifecycle-aggregate-card';
+} from '@/components/sis/lifecycle-aggregate-styles';
 import type { LifecycleBlockerBucket } from '@/lib/sis/process';
 
 /**

@@ -6,7 +6,7 @@
 
 const UTF8_BOM = '\uFEFF';
 
-export function toCsvValue(v: unknown): string {
+function toCsvValue(v: unknown): string {
   if (v === null || v === undefined) return '';
   const s = typeof v === 'string' ? v : String(v);
   if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;

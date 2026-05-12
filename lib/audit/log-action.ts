@@ -173,6 +173,7 @@ export async function logAction(params: LogActionParams): Promise<void> {
 
 // Convenience wrapper when multiple rows need to be written for one action
 // (e.g. entries PATCH that touches several fields in one request).
+// fallow-ignore-next-line unused-export
 export async function logActions(
   service: SupabaseClient,
   actor: { id: string; email: string | null },

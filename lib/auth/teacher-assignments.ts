@@ -24,11 +24,6 @@ export async function loadAssignmentsForUser(
   return (data ?? []) as AssignmentRow[];
 }
 
-// True if the user is the form adviser of the given section.
-export function isFormAdviser(assignments: AssignmentRow[], sectionId: string): boolean {
-  return assignments.some(a => a.role === 'form_adviser' && a.section_id === sectionId);
-}
-
 // True if the user is the subject teacher for (section, subject).
 export function isSubjectTeacher(
   assignments: AssignmentRow[],

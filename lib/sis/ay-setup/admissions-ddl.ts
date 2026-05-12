@@ -17,15 +17,6 @@
 // runs against the function body, not this file), but new-AY tables will
 // silently use whichever version the DB function has. Audit them if in doubt.
 
-export const AY_ADMISSIONS_TABLE_SUFFIXES = [
-  'enrolment_applications',
-  'enrolment_status',
-  'enrolment_documents',
-  'discount_codes',
-] as const;
-
-export type AyAdmissionsTableSuffix = (typeof AY_ADMISSIONS_TABLE_SUFFIXES)[number];
-
 /**
  * Given an AY code like "AY2027", returns the slug prefix used in the
  * admissions table names (e.g. "ay2027"). Matches the Postgres-function
@@ -37,16 +28,8 @@ export function ayCodeToSlug(ayCode: string): string {
   return `ay${m[1]}`;
 }
 
-/**
- * Returns the 4 full table names for the given AY slug.
- */
-export function ayAdmissionsTableNames(aySlug: string): string[] {
-  return AY_ADMISSIONS_TABLE_SUFFIXES.map((s) => `${aySlug}_${s}`);
-}
-
-// NOTE: The DDL bodies below are intentionally simplified (column list only,
-// not column types / constraints). The authoritative definitions live in:
+// NOTE: The authoritative DDL definitions live in:
 //   - `supabase/migrations/012_ay_setup_helpers.sql` — runnable source
 //   - `docs/context/10-parent-portal.md` §"Reference DDL" — canonical spec
-// This module exports the suffix list and slug helper; callers that need
-// the full DDL should read one of the two sources above.
+// This module exports only the slug helper; callers that need the full DDL
+// should read one of the two sources above.

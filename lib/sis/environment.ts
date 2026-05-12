@@ -66,7 +66,7 @@ export async function getCurrentEnvironment(
 // Ensures the test AY row exists; creates it atomically via the
 // create_academic_year RPC (which also provisions terms + copies forward
 // sections/subject_configs + creates the 4 ay9999_enrolment_* tables).
-export async function ensureTestAy(service: SupabaseClient): Promise<AyRow> {
+async function ensureTestAy(service: SupabaseClient): Promise<AyRow> {
   const { testAy } = await listEnvironmentAys(service);
   if (testAy) return testAy;
 
@@ -97,7 +97,7 @@ export async function ensureTestAy(service: SupabaseClient): Promise<AyRow> {
  * second test AY for compare-mode demos. Never marked `is_current` — it's a
  * passive comparison fixture.
  */
-export async function ensurePriorTestAy(service: SupabaseClient): Promise<AyRow> {
+async function ensurePriorTestAy(service: SupabaseClient): Promise<AyRow> {
   const { data: existing } = await service
     .from('academic_years')
     .select('id, ay_code, label, is_current')
@@ -126,7 +126,7 @@ export async function ensurePriorTestAy(service: SupabaseClient): Promise<AyRow>
 
 // Two-step flip mirroring the existing AY Setup PATCH handler: clear all
 // is_current=false, then set target=true. Idempotent; converges on re-run.
-export async function flipIsCurrent(
+async function flipIsCurrent(
   service: SupabaseClient,
   targetAyCode: string,
 ): Promise<{ fromAyCode: string | null; toAyCode: string }> {

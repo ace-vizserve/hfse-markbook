@@ -411,7 +411,7 @@ export async function buildAllRowSets(input: {
 
 // ─── Target filter ──────────────────────────────────────────────────────────
 
-export function applyTargetFilter(
+function applyTargetFilter(
   rows: WriteupRow[],
   target: EvaluationDrillTarget,
   segment: string | null,

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { hashString, mulberry32, prefixFor } from './populated';
+import { hashString, mulberry32, prefixFor } from './random';
 
 // Demo-extras seeder. Layered on top of seedPopulated() to fill the
 // dashboard charts + KPIs that the existing seeder leaves thin. Targeted

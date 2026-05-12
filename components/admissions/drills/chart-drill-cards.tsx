@@ -4,7 +4,6 @@ import * as React from 'react';
 
 import { AdmissionsDrillSheet } from '@/components/admissions/drills/admissions-drill-sheet';
 import { AssessmentOutcomesChart } from '@/components/admissions/assessment-outcomes-chart';
-import { ConversionFunnelChart } from '@/components/admissions/conversion-funnel-chart';
 import { ReferralSourceChart } from '@/components/admissions/referral-source-chart';
 import { ComparisonBarChart } from '@/components/dashboard/charts/comparison-bar-chart';
 import { PipelineStageChart } from '@/components/sis/pipeline-stage-chart';
@@ -18,7 +17,6 @@ import {
 import { Sheet } from '@/components/ui/sheet';
 import type {
   AssessmentOutcomes,
-  FunnelStage,
   ReferralSource,
   TimeToEnrollBucket,
 } from '@/lib/admissions/dashboard';
@@ -40,33 +38,6 @@ type CommonDrillProps = {
   rangeTo?: string;
   drillRows?: DrillRow[];
 };
-
-// ─── Funnel ──────────────────────────────────────────────────────────────────
-
-export function FunnelDrillCard({
-  data,
-  ayCode,
-  rangeFrom,
-  rangeTo,
-  drillRows,
-}: CommonDrillProps & { data: FunnelStage[] }) {
-  const [segment, setSegment] = React.useState<string | null>(null);
-  return (
-    <Sheet open={!!segment} onOpenChange={(o) => !o && setSegment(null)}>
-      <ConversionFunnelChart data={data} onSegmentClick={setSegment} />
-      {segment && (
-        <AdmissionsDrillSheet
-          target="funnel-stage"
-          segment={segment}
-          ayCode={ayCode}
-          initialFrom={rangeFrom}
-          initialTo={rangeTo}
-          initialRows={drillRows}
-        />
-      )}
-    </Sheet>
-  );
-}
 
 // ─── Pipeline ────────────────────────────────────────────────────────────────
 

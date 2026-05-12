@@ -106,7 +106,7 @@ export function FieldGrid({
   );
 }
 
-export function FieldSectionsCard({ sections }: { sections: FieldSection[] }) {
+function FieldSectionsCard({ sections }: { sections: FieldSection[] }) {
   return (
     <div className="space-y-6">
       {sections.map((s) => {

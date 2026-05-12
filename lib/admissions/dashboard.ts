@@ -9,6 +9,7 @@ import {
   type RangeInput,
   type RangeResult,
 } from '@/lib/dashboard/range';
+import type { VelocityPoint } from '@/lib/dashboard/velocity';
 
 // Sprint 7 Part A — read-only admissions analytics.
 //
@@ -487,8 +488,6 @@ export function getAdmissionsKpisRange(
 }
 
 // Applications-per-day velocity.
-
-export type VelocityPoint = { x: string; y: number };
 
 function bucketByDay(dates: (string | null)[], from: string, to: string): VelocityPoint[] {
   const fromDate = parseLocalDate(from);

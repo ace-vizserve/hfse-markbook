@@ -1,0 +1,15 @@
+<!-- Topic file for `.claude/rules/key-decisions.md`. Numbering is global; do not renumber. -->
+
+## Attendance — daily writer + school calendar
+
+### KD #47
+Attendance is sole writer of daily attendance. Markbook/Records/Parent are read-only consumers. Audit prefix `attendance.*`. `16-attendance-module.md`.
+
+### KD #50
+School calendar has five day-types (`school_day`, `public_holiday`, `school_holiday`, `hbl`, `no_class`) per `school_calendar.day_type` (migration 019). `school_day` + `hbl` are encodable (attendance grid accepts writes). The other three reject writes (409 on `/api/attendance/daily`). `is_holiday` is legacy, derived via BEFORE trigger from `day_type`. "Important dates / special events" stay on `calendar_events` as an overlay layer, not a day-type. **Audience precedence rule** (migration 037): both tables carry `audience IN ('all','primary','secondary')`; on read, an audience-specific row overrides the matching `'all'` row for the same date when the section's level type matches. Attendance writer at `app/api/attendance/daily/route.ts` resolves the section's level via `lib/sis/levels.ts::levelTypeForAudienceLookup`; preschool sections (YS-L/J/S) fall back to `audience='all'`. Unique key on `school_calendar` widened to `(term_id, audience, date)` so primary + secondary can each hold a row for the same date. `getEncodableDatesForTerm` + `isHoliday` apply the same precedence.
+
+### KD #55
+`/attendance` route split. `/attendance` is the analytics dashboard (registrar+ only); `/attendance/sections` is the section picker (teachers land here); `/attendance/[sectionId]` remains the daily writer. Teachers visiting `/attendance` redirect to `/attendance/sections`. Sidebar isActive: exact-match `/attendance`, prefix-match `/attendance/sections`.
+
+### KD #76
+Calendar audience scope + typed event categories (migration 037). `school_calendar` and `calendar_events` both carry `audience IN ('all','primary','secondary')`; `calendar_events` also carries `category IN (term_exam | term_break | start_of_term | parents_dialogue | subject_week | school_event | pfe | ptc | other)` + `tentative bool`. KD #50's 5 day-types stay the attendance gate — new event types live on the overlay layer, NOT as new day-types (a term-exam day is still a school day with attendance taken). UI at `/sis/calendar` exposes an `?audience=all|primary|secondary` filter tab; cell click-cycle and event create write to the active filter. Audience precedence rule: an audience-specific row beats the matching `'all'` row for the same date (KD #50 documents the read-side rule). Carry-forward stays manual: `components/attendance/copy-from-prior-ay-dialog.tsx` (renamed from copy-holidays-dialog) handles both day-type overrides + events with year-shift; default `markTentative=true` flips every copied row to `tentative=true` so the registrar reviews each before locking. Preschool (YS-L/J/S) deferred — preschool sections always read `audience='all'`; future scope can extend the enum with one CHECK update + dropdown additions.

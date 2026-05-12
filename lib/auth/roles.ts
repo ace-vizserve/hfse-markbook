@@ -467,6 +467,7 @@ export const NAV_BY_MODULE: {
 // Which roles may access a given route prefix. Longer prefixes are
 // evaluated first via the explicit `find` order below, so `/sis/ay-setup`
 // must appear before the broader `/sis` rule.
+// fallow-ignore-next-line unused-export
 export const ROUTE_ACCESS: Array<{ prefix: string; allowed: Role[] }> = [
   { prefix: "/sis/admin/approvers", allowed: ["school_admin", "superadmin"] },
   { prefix: "/sis/admin/subjects", allowed: ["school_admin", "superadmin"] },

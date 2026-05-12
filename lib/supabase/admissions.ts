@@ -170,7 +170,7 @@ export type ParentStudentRow = {
 // landing page to resolve a signed-in parent's auth.users.email to their
 // child/children in admissions. Service-role client — not subject to grading
 // RLS and not visible to parent-side JS directly.
-export async function getStudentsByParentEmail(
+async function getStudentsByParentEmail(
   email: string,
   ayCode: string,
 ): Promise<ParentStudentRow[]> {

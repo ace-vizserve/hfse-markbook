@@ -135,7 +135,7 @@ const GRADE_BUCKET_BOUNDS: Record<GradeBucketKey, { lo: number; hi: number }> = 
   o: { lo: 90, hi: 100 },
 };
 
-export const GRADE_BUCKET_LABEL: Record<GradeBucketKey, string> = {
+const GRADE_BUCKET_LABEL: Record<GradeBucketKey, string> = {
   dnm: '< 75 (DNM)',
   fs: '75–79 (FS)',
   s: '80–84 (S)',
@@ -829,7 +829,7 @@ function applyTeacherFilter(
 // ---------------------------------------------------------------------------
 // Target filter — narrow universal row set to the rows the user expected.
 
-export function applyTargetFilter(
+function applyTargetFilter(
   rows: MarkbookDrillRow[],
   target: MarkbookDrillTarget,
   segment?: string | null,

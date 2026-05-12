@@ -13,6 +13,7 @@ import {
   type RangeInput,
   type RangeResult,
 } from '@/lib/dashboard/range';
+import type { VelocityPoint } from '@/lib/dashboard/velocity';
 
 // Markbook dashboard aggregators — grading-specific lens.
 //
@@ -35,6 +36,7 @@ function tag(academicYearId: string): string[] {
 // HFSE-standard mastery bands (DepEd Phil. Sec style — widely used in intl
 // schools following the K–12 grading framework). Buckets are inclusive-low,
 // inclusive-high except the last which is 95–100.
+// fallow-ignore-next-line unused-export
 export const GRADE_BANDS = [
   { key: 'dnm', label: '< 75 (DNM)', lo: 0, hi: 74 },
   { key: 'fs', label: '75–79 (FS)', lo: 75, hi: 79 },
@@ -591,8 +593,6 @@ export function getMarkbookKpisRange(input: RangeInput): Promise<RangeResult<Mar
 
 // Grade-entry velocity — daily counts for both periods, aligned by index.
 
-export type VelocityPoint = { x: string; y: number };
-
 function bucketByDay(rows: { ts: string }[], from: string, to: string): VelocityPoint[] {
   const fromDate = parseLocalDate(from);
   const toDate = parseLocalDate(to);
@@ -759,8 +759,6 @@ export function getChangeRequestVelocityRange(
     { tags: ['markbook', `markbook:${input.ayCode}`], revalidate: CACHE_TTL_SECONDS },
   )(input);
 }
-
-export { emptyMarkbookKpis };
 
 // ──────────────────────────────────────────────────────────────────────────
 // PriorityPanel payload loaders — top-of-fold "what should I act on right

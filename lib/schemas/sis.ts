@@ -71,13 +71,12 @@ const optionalRating1to5 = z
 // sides — the apps row's `category` and the status row's `enroleeType` always
 // agree. Used to match a student against a discount code's eligibility filter
 // (DISCOUNT_ENROLEE_TYPES below adds the `Both` / `VizSchool Both` superset).
-export const ENROLEE_CATEGORIES = [
+const ENROLEE_CATEGORIES = [
   'New',
   'Current',
   'VizSchool New',
   'VizSchool Current',
 ] as const;
-export type EnroleeCategory = (typeof ENROLEE_CATEGORIES)[number];
 
 export const ProfileUpdateSchema = z.object({
   // Names — all optional (some students have only a first/last)
@@ -200,105 +199,6 @@ export const ProfileUpdateSchema = z.object({
 });
 
 export type ProfileUpdateInput = z.infer<typeof ProfileUpdateSchema>;
-
-// Field labels for the audit log "changes" diff. Keep in sync with the
-// schema — anything missing here renders the raw column name in the audit.
-export const PROFILE_FIELD_LABELS: Partial<Record<keyof ProfileUpdateInput, string>> = {
-  firstName: 'First name',
-  middleName: 'Middle name',
-  lastName: 'Last name',
-  preferredName: 'Preferred name',
-  enroleeFullName: 'Full name',
-  category: 'Category',
-  nric: 'NRIC / FIN',
-  birthDay: 'Date of birth',
-  gender: 'Gender',
-  nationality: 'Nationality',
-  primaryLanguage: 'Primary language',
-  religion: 'Religion',
-  religionOther: 'Religion (other)',
-  passportNumber: 'Passport number',
-  passportExpiry: 'Passport expiry',
-  pass: 'Pass type',
-  passExpiry: 'Pass expiry',
-  homePhone: 'Home phone',
-  homeAddress: 'Home address',
-  postalCode: 'Postal code',
-  livingWithWhom: 'Living with',
-  contactPerson: 'Contact person',
-  contactPersonNumber: 'Contact number',
-  parentMaritalStatus: 'Parent marital status',
-  levelApplied: 'Level applied',
-  preferredSchedule: 'Preferred schedule',
-  classType: 'Class type',
-  paymentOption: 'Payment option',
-  availSchoolBus: 'School bus',
-  availStudentCare: 'Student care',
-  studentCareProgram: 'Student care program',
-  availUniform: 'Uniform',
-  additionalLearningNeeds: 'Additional learning needs',
-  otherLearningNeeds: 'Other learning needs',
-  previousSchool: 'Previous school',
-  howDidYouKnowAboutHFSEIS: 'Referral source',
-  otherSource: 'Other source',
-  referrerName: 'Referrer name',
-  referrerMobile: 'Referrer mobile',
-  contractSignatory: 'Contract signatory',
-  discount1: 'Discount 1',
-  discount2: 'Discount 2',
-  discount3: 'Discount 3',
-  // Item 5 (P2 expansion) labels — surfaced in audit-log diffs.
-  siblingFullName1: 'Sibling 1 — full name',
-  siblingBirthDay1: 'Sibling 1 — birth date',
-  siblingReligion1: 'Sibling 1 — religion',
-  siblingEducationOccupation1: 'Sibling 1 — education / occupation',
-  siblingSchoolCompany1: 'Sibling 1 — school / company',
-  siblingFullName2: 'Sibling 2 — full name',
-  siblingBirthDay2: 'Sibling 2 — birth date',
-  siblingReligion2: 'Sibling 2 — religion',
-  siblingEducationOccupation2: 'Sibling 2 — education / occupation',
-  siblingSchoolCompany2: 'Sibling 2 — school / company',
-  siblingFullName3: 'Sibling 3 — full name',
-  siblingBirthDay3: 'Sibling 3 — birth date',
-  siblingReligion3: 'Sibling 3 — religion',
-  siblingEducationOccupation3: 'Sibling 3 — education / occupation',
-  siblingSchoolCompany3: 'Sibling 3 — school / company',
-  siblingFullName4: 'Sibling 4 — full name',
-  siblingBirthDay4: 'Sibling 4 — birth date',
-  siblingReligion4: 'Sibling 4 — religion',
-  siblingEducationOccupation4: 'Sibling 4 — education / occupation',
-  siblingSchoolCompany4: 'Sibling 4 — school / company',
-  siblingFullName5: 'Sibling 5 — full name',
-  siblingBirthDay5: 'Sibling 5 — birth date',
-  siblingReligion5: 'Sibling 5 — religion',
-  siblingEducationOccupation5: 'Sibling 5 — education / occupation',
-  siblingSchoolCompany5: 'Sibling 5 — school / company',
-  allergies: 'Allergies',
-  allergyDetails: 'Allergy details',
-  asthma: 'Asthma',
-  foodAllergies: 'Food allergies',
-  foodAllergyDetails: 'Food allergy details',
-  heartConditions: 'Heart conditions',
-  epilepsy: 'Epilepsy',
-  diabetes: 'Diabetes',
-  eczema: 'Eczema',
-  otherMedicalConditions: 'Other medical conditions',
-  paracetamolConsent: 'Paracetamol consent',
-  dietaryRestrictions: 'Dietary restrictions',
-  socialMediaConsent: 'Social media consent',
-  feedbackConsent: 'Feedback consent',
-  preCourseAnswer: 'Pre-course answer',
-  preCourseDate: 'Pre-course date',
-  preCourseAcknowledgedAt: 'Pre-course acknowledged at',
-  feedbackRating: 'Feedback rating',
-  feedbackComments: 'Feedback comments',
-  feedbackSubmittedAt: 'Feedback submitted at',
-  vizSchoolProgram: 'VizSchool program',
-  stpApplicationType: 'STP application type',
-  enroleePhoto: 'Enrolee photo',
-  creatorUid: 'Creator UID',
-  residenceHistory: 'Residence history',
-};
 
 // ──────────────────────────────────────────────────────────────────────────
 // Family — father / mother / guardian. One schema per parent slot.
@@ -618,14 +518,6 @@ export const DiscountCodePatchSchema = z
   });
 
 export type DiscountCodePatchInput = z.infer<typeof DiscountCodePatchSchema>;
-
-export const DISCOUNT_CODE_FIELD_LABELS: Partial<Record<keyof DiscountCodeInput, string>> = {
-  discountCode: 'Code',
-  enroleeType: 'Eligibility',
-  startDate: 'Start date',
-  endDate: 'End date',
-  details: 'Details',
-};
 
 // ──────────────────────────────────────────────────────────────────────────
 // Phase 3 — Document validation (approve / reject)

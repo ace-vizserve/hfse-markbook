@@ -18,6 +18,7 @@ export function computeAnnualGrade(
 
 // Descriptor for a numeric quarterly or annual grade per DepEd scale.
 // Used by the report card legend column.
+// fallow-ignore-next-line unused-export
 export function gradeDescriptor(grade: number | null): string {
   if (grade == null) return '—';
   if (grade >= 90) return 'Outstanding';

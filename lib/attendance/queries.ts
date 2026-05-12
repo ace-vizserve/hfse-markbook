@@ -186,7 +186,7 @@ export async function getDailyForStudent(
 // Rollup — Markbook section summary card + report card fetch
 // ─────────────────────────────────────────────────────────────────────────
 
-export async function getRollupForSection(
+async function getRollupForSection(
   sectionId: string,
   termId: string,
 ): Promise<RollupRow[]> {

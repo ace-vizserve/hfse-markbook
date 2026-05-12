@@ -100,7 +100,7 @@ export async function writeDailyBulk(
 }
 
 // Wraps the RPC defined in migration 014.
-export async function recomputeRollup(
+async function recomputeRollup(
   service: SupabaseClient,
   termId: string,
   sectionStudentId: string,

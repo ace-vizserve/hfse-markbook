@@ -11,7 +11,8 @@
   ],
   "ignorePatterns": [
     "components/ui/**",
-    "hooks/use-mobile.ts"
+    "hooks/use-mobile.ts",
+    "scripts/**"
   ],
   "ignoreDependencies": [
     "shadcn",
@@ -23,9 +24,19 @@
     "@radix-ui/react-slot",
     "@radix-ui/react-tooltip",
     "class-variance-authority",
-    "radix-ui"
+    "radix-ui",
+    "cmdk",
+    "sileo",
+    "@resvg/resvg-js",
+    "satori",
+    "satori-html"
   ],
   "rules": {
     "unused-types": "off"
+  },
+  "audit": {
+    "deadCodeBaseline": "fallow-baselines/dead-code.json",
+    "healthBaseline": "fallow-baselines/health.json",
+    "dupesBaseline": "fallow-baselines/dupes.json"
   }
 }

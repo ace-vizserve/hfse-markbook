@@ -26,7 +26,7 @@ const SEVERITY_ORDER: Record<InsightSeverity, number> = {
   info: 3,
 };
 
-export function sortInsights(items: Insight[]): Insight[] {
+function sortInsights(items: Insight[]): Insight[] {
   return [...items].sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
 }
 

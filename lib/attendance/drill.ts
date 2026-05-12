@@ -644,7 +644,7 @@ export function buildAllRowSets(input: {
 
 // ─── Target filter ──────────────────────────────────────────────────────────
 
-export function applyTargetFilter(
+function applyTargetFilter(
   rows: AttendanceDrillRow[],
   target: AttendanceDrillTarget,
   segment: string | null,

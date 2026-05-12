@@ -17,12 +17,9 @@ export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
   NC: 'No class',
 };
 
-// Codes that count toward `days_present` on the rollup.
-export const PRESENT_CODES: ReadonlyArray<AttendanceStatus> = ['P', 'L', 'EX'];
-
 // EX reason subtype. Only 'compassionate' consumes the student's
 // `urgent_compassionate_allowance` 5-day-per-year quota.
-export const EX_REASON_VALUES = ['mc', 'compassionate', 'school_activity'] as const;
+const EX_REASON_VALUES = ['mc', 'compassionate', 'school_activity'] as const;
 export type ExReason = (typeof EX_REASON_VALUES)[number];
 
 export const EX_REASON_LABELS: Record<ExReason, string> = {
@@ -71,7 +68,6 @@ export const DAY_TYPE_VALUES = [
 ] as const;
 export type DayType = (typeof DAY_TYPE_VALUES)[number];
 
-export const ENCODABLE_DAY_TYPES: ReadonlyArray<DayType> = ['school_day', 'hbl'];
 export function isEncodableDayType(t: DayType | null | undefined): boolean {
   return t === 'school_day' || t === 'hbl';
 }
@@ -147,14 +143,6 @@ export const SchoolCalendarUpsertSchema = z.object({
     .max(200),
 });
 export type SchoolCalendarUpsertInput = z.infer<typeof SchoolCalendarUpsertSchema>;
-
-// DELETE /api/attendance/calendar?termId=&date=&audience=
-// audience is optional; omitted = 'all' (legacy).
-export const SchoolCalendarDeleteQuerySchema = z.object({
-  termId: uuidString,
-  date: dateString,
-  audience: z.enum(AUDIENCE_VALUES).optional().default('all'),
-});
 
 /** Resolves the `day_type` value to persist from either a new-shape or
  *  legacy-shape upsert entry. */
@@ -280,14 +268,3 @@ export const ImportConfigSchema = z.object({
 });
 
 export type ImportConfigInput = z.infer<typeof ImportConfigSchema>;
-
-// ─────────────────────────────────────────────────────────────────────────
-// Field labels for audit-log context diffs.
-// ─────────────────────────────────────────────────────────────────────────
-
-export const ATTENDANCE_FIELD_LABELS = {
-  status: 'Status',
-  date: 'Date',
-  sectionStudentId: 'Student',
-  termId: 'Term',
-} as const;

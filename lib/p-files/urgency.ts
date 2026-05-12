@@ -62,7 +62,7 @@ export function classifyUrgency(slot: SlotUrgencyInput): SlotUrgencyKind {
   return "valid";
 }
 
-export function rankUrgency(slot: SlotUrgencyInput): number {
+function rankUrgency(slot: SlotUrgencyInput): number {
   const kind = classifyUrgency(slot);
   return RANK[kind];
 }

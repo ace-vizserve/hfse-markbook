@@ -33,6 +33,7 @@ export type Preset =
   | 'lastAY'
   | 'custom';
 
+// fallow-ignore-next-line unused-export
 export const PRESET_LABEL: Record<Preset, string> = {
   t1: 'Term 1',
   t2: 'Term 2',
@@ -119,7 +120,7 @@ export function toISODate(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-export function addDays(d: Date, n: number): Date {
+function addDays(d: Date, n: number): Date {
   const next = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   next.setDate(next.getDate() + n);
   return next;
@@ -134,7 +135,7 @@ export function daysInRange(range: DateRange): number {
   return Math.floor(ms / 86_400_000) + 1;
 }
 
-export function isValidRange(range: Partial<DateRange> | null | undefined): range is DateRange {
+function isValidRange(range: Partial<DateRange> | null | undefined): range is DateRange {
   if (!range || typeof range.from !== 'string' || typeof range.to !== 'string') return false;
   const f = parseLocalDate(range.from);
   const t = parseLocalDate(range.to);
@@ -149,7 +150,7 @@ export function isValidRange(range: Partial<DateRange> | null | undefined): rang
 // runs Jan–Nov per KD #13; sliding 91 days back from T1 lands on December
 // break — academically meaningless).
 
-export function autoComparison(range: DateRange): DateRange | null {
+function autoComparison(range: DateRange): DateRange | null {
   const from = parseLocalDate(range.from);
   const to = parseLocalDate(range.to);
   if (!from || !to) return null;
@@ -167,7 +168,7 @@ export function autoComparison(range: DateRange): DateRange | null {
  * Feb 29 in a leap year clamps to Feb 28 when the target year isn't a leap
  * year (matches `lib/attendance/calendar.ts::shiftYearPreserveMonthDay`).
  */
-export function shiftRangeByYears(range: DateRange, yearDelta: number): DateRange | null {
+function shiftRangeByYears(range: DateRange, yearDelta: number): DateRange | null {
   const from = parseLocalDate(range.from);
   const to = parseLocalDate(range.to);
   if (!from || !to) return null;
@@ -192,6 +193,7 @@ export function shiftRangeByYears(range: DateRange, yearDelta: number): DateRang
  * Pass `windows` so the helper can detect which preset the range matches;
  * use `autoComparison(range)` for the back-to-back math.
  */
+// fallow-ignore-next-line unused-export
 export function autoComparisonAcademic(
   range: DateRange,
   windows: { term: TermWindows; ay: AYWindows },
@@ -273,6 +275,7 @@ function thisCalendarMonth(today = new Date()): DateRange {
   return { from: toISODate(firstOfMonth), to: toISODate(t) };
 }
 
+// fallow-ignore-next-line unused-export
 export function resolvePreset(
   preset: Preset,
   windows: { term: TermWindows; ay: AYWindows },
@@ -324,6 +327,7 @@ export function resolvePreset(
  * dates) and show "Term 2" — wrong for a module that doesn't expose term
  * presets. Defaults to the full preset list for callers that don't care.
  */
+// fallow-ignore-next-line unused-export
 export function detectPreset(
   range: DateRange,
   windows: { term: TermWindows; ay: AYWindows },

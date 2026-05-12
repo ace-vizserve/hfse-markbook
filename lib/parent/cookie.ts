@@ -12,7 +12,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 // with PARENT_HANDOFF_SECRET, scoped to the SIS domain only.
 
 export const PARENT_SESSION_COOKIE = 'hfse_parent_session';
-export const PARENT_SESSION_TTL_SECONDS = 2 * 60 * 60;
+const PARENT_SESSION_TTL_SECONDS = 2 * 60 * 60;
 
 type ParentSessionPayload = { email: string; exp: number };
 

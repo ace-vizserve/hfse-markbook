@@ -108,15 +108,3 @@ export const ChangeRequestActionSchema = z
   );
 
 export type ChangeRequestActionInput = z.infer<typeof ChangeRequestActionSchema>;
-
-// Data-entry correction payload used by Path B on locked-sheet writes.
-export const CorrectionReasonSchema = z.object({
-  correction_reason: z.enum(CORRECTION_REASONS),
-  correction_justification: z
-    .string()
-    .trim()
-    .min(20, 'Please explain in at least 20 characters')
-    .max(2000),
-});
-
-export type CorrectionReasonInput = z.infer<typeof CorrectionReasonSchema>;

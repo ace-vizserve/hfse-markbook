@@ -44,3 +44,5 @@ next-env.d.ts
 
 # brainstorm mockups (superpowers)
 .superpowers/
+
+/reports/fallow/

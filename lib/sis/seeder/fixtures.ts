@@ -142,6 +142,7 @@ export function buildTermTemplates(targetYear: number): TermTemplate[] {
 }
 
 /** Backwards-compat alias — points at current calendar year. Existing callers keep working. */
+// fallow-ignore-next-line unused-export
 export const TERM_TEMPLATES: TermTemplate[] = buildTermTemplates(new Date().getFullYear());
 
 // Synthetic holidays & special days pinned to AY term windows.
@@ -172,9 +173,6 @@ export function buildCannedCalendar(targetYear: number): CannedCalendarEntry[] {
   ];
 }
 
-/** Backwards-compat alias. */
-export const CANNED_CALENDAR: CannedCalendarEntry[] = buildCannedCalendar(new Date().getFullYear());
-
 export type CannedEvent = { start_date: string; end_date: string; label: string };
 
 export function buildCannedEvents(targetYear: number): CannedEvent[] {
@@ -184,8 +182,6 @@ export function buildCannedEvents(targetYear: number): CannedEvent[] {
     { start_date: `${y}-09-21`, end_date: `${y}-09-25`, label: 'Mathematics Week' },
   ];
 }
-
-export const CANNED_EVENTS: CannedEvent[] = buildCannedEvents(new Date().getFullYear());
 
 // School config defaults. Only applied if the singleton row has empty
 // strings — never overwrites registrar-edited values.

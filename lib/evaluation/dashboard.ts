@@ -11,6 +11,7 @@ import {
   type RangeInput,
   type RangeResult,
 } from '@/lib/dashboard/range';
+import type { VelocityPoint } from '@/lib/dashboard/velocity';
 
 // Evaluation dashboard aggregators — read-only view over
 // `evaluation_writeups`. The Evaluation module is the sole writer
@@ -192,8 +193,6 @@ export function getEvaluationKpisRange(
 }
 
 // Submission velocity — daily counts of new submissions.
-
-export type VelocityPoint = { x: string; y: number };
 
 function bucketByDay(dates: (string | null)[], from: string, to: string): VelocityPoint[] {
   const fromDate = parseLocalDate(from);

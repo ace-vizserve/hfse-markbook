@@ -54,7 +54,7 @@ type Step = 'identity' | 'review' | 'follow-up';
 
 const BLANK: CreateAyInput = { ay_code: '', label: '', accepting_applications: false };
 
-export function AySetupWizard({ preview, children }: Props) {
+function AySetupWizard({ preview, children }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>('identity');

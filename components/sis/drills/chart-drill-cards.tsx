@@ -7,14 +7,12 @@ import { RecordsDrillSheet } from '@/components/sis/drills/records-drill-sheet';
 import { DocumentBacklogChart } from '@/components/sis/document-backlog-chart';
 import { ExpiringDocumentsPanel } from '@/components/sis/expiring-documents-panel';
 import { LevelDistributionChart } from '@/components/sis/level-distribution-chart';
-import { PipelineStageSankeyCard } from '@/components/sis/pipeline-stage-sankey-card';
 import { Button } from '@/components/ui/button';
 import { Sheet } from '@/components/ui/sheet';
 import type {
   DocumentBacklogRow,
   ExpiringDocRow,
   LevelCount,
-  PipelineStage,
 } from '@/lib/sis/dashboard';
 
 // Per-target client wrappers for Records chart cards. Each owns its own
@@ -28,27 +26,6 @@ type CommonProps = {
   rangeFrom?: string;
   rangeTo?: string;
 };
-
-// ─── Pipeline Stage Sankey → students-by-pipeline-stage ─────────────────────
-
-export function PipelineStageDrillCard({
-  data,
-  ayCode,
-}: CommonProps & { data: PipelineStage[] }) {
-  const [stage, setStage] = React.useState<string | null>(null);
-  return (
-    <Sheet open={!!stage} onOpenChange={(o) => !o && setStage(null)}>
-      <PipelineStageSankeyCard data={data} onSegmentClick={setStage} />
-      {stage && (
-        <RecordsDrillSheet
-          target="students-by-pipeline-stage"
-          segment={stage}
-          ayCode={ayCode}
-        />
-      )}
-    </Sheet>
-  );
-}
 
 // ─── Document Backlog → backlog-by-document ─────────────────────────────────
 

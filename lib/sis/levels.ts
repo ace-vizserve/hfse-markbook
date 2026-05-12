@@ -30,7 +30,7 @@ export type LevelLabel = (typeof LEVEL_LABELS)[LevelCode];
 
 // All canonical labels in display order. Useful for sort orders, dropdowns,
 // chart axes, etc.
-export const LEVEL_LABELS_ORDERED: readonly LevelLabel[] = LEVEL_CODES.map(
+const LEVEL_LABELS_ORDERED: readonly LevelLabel[] = LEVEL_CODES.map(
   (c) => LEVEL_LABELS[c],
 );
 
@@ -41,12 +41,6 @@ export const LEVEL_TYPE_BY_CODE: Record<LevelCode, 'preschool' | 'primary' | 'se
   'S1': 'secondary', 'S2': 'secondary', 'S3': 'secondary', 'S4': 'secondary',
   'CS1': 'secondary', 'CS2': 'secondary',
 };
-
-// Calendar audience values. Mirrors the school_calendar.audience CHECK
-// (migration 037). Preschool falls through to 'all' (deferred — no
-// preschool-specific overrides yet).
-export const CALENDAR_AUDIENCE_VALUES = ['all', 'primary', 'secondary'] as const;
-export type CalendarAudience = (typeof CALENDAR_AUDIENCE_VALUES)[number];
 
 // For an attendance writer or grid reader, return the audience value to
 // match against `school_calendar.audience` for the section's level.
@@ -69,26 +63,8 @@ export function levelTypeForAudienceLookup(
 }
 
 // Inverse lookup — label -> code.
-export const LEVEL_CODE_BY_LABEL: Record<string, LevelCode> = Object.fromEntries(
+const LEVEL_CODE_BY_LABEL: Record<string, LevelCode> = Object.fromEntries(
   LEVEL_CODES.map((c) => [LEVEL_LABELS[c], c]),
-);
-
-// Markbook-eligible level labels (preschool excluded — Youngstarters does not
-// have subject_configs / report cards yet). Use this for any code path that
-// iterates levels for grading sheets, subject weights, report-card groupings,
-// etc.
-export const MARKBOOK_LEVEL_LABELS_ORDERED: readonly LevelLabel[] = LEVEL_LABELS_ORDERED.filter(
-  (label) => LEVEL_TYPE_BY_CODE[LEVEL_CODE_BY_LABEL[label]] !== 'preschool',
-);
-
-// Primary-only level labels in display order.
-export const PRIMARY_LEVEL_LABELS_ORDERED: readonly LevelLabel[] = LEVEL_LABELS_ORDERED.filter(
-  (label) => LEVEL_TYPE_BY_CODE[LEVEL_CODE_BY_LABEL[label]] === 'primary',
-);
-
-// Secondary-only level labels in display order (includes Cambridge Secondary).
-export const SECONDARY_LEVEL_LABELS_ORDERED: readonly LevelLabel[] = LEVEL_LABELS_ORDERED.filter(
-  (label) => LEVEL_TYPE_BY_CODE[LEVEL_CODE_BY_LABEL[label]] === 'secondary',
 );
 
 // Legacy digit→word map. Used to backfill any legacy data that leaks through

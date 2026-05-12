@@ -65,7 +65,7 @@ type RawCalendarEventRow = {
 // Filter helper — given the active audience filter, returns the audience
 // values that should be visible. 'all' returns everything; 'primary' /
 // 'secondary' returns rows for that audience plus the 'all' rows.
-export function audienceFilterValues(filter: Audience): Audience[] {
+function audienceFilterValues(filter: Audience): Audience[] {
   if (filter === 'all') return ['all', 'primary', 'secondary'];
   return ['all', filter];
 }
@@ -180,6 +180,7 @@ export async function getEncodableDatesForTerm(
 //
 // `levelType` enforces the audience-precedence rule (specific row wins
 // over 'all'). null = preschool (only 'all' rows considered).
+// fallow-ignore-next-line unused-export
 export async function isHoliday(
   termId: string,
   date: string,
@@ -283,12 +284,10 @@ export async function listPriorAyEntriesForCopy(
   return { sourceAy: null, holidays: [], events: [] };
 }
 
-/** @deprecated Use {@link listPriorAyEntriesForCopy} which also returns events. */
-export const listHolidaysForPriorTerm = listPriorAyEntriesForCopy;
-
 // Shift a yyyy-MM-dd from its original year to a target year, preserving month+day.
 // Used by the holiday-copy dialog. Returns null on invalid input; clamps Feb 29
 // to Feb 28 if the target year isn't a leap year.
+// fallow-ignore-next-line unused-export
 export function shiftYearPreserveMonthDay(iso: string, targetYear: number): string | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   if (!m) return null;

@@ -751,10 +751,6 @@ export async function loadActorActivity(
   return out;
 }
 
-export function isModulePrefix(p: string): boolean {
-  return Object.values(MODULE_ACTION_PREFIXES).includes(p) || p in MODULE_ACTION_PREFIXES;
-}
-
 export function modulePrefixFor(slug: string): string {
   return MODULE_ACTION_PREFIXES[slug] ?? slug;
 }
@@ -776,7 +772,7 @@ export type LifecycleDrillTarget =
   | 'ungated-to-enroll'
   | 'new-applications';
 
-export const LIFECYCLE_DRILL_TARGETS: LifecycleDrillTarget[] = [
+const LIFECYCLE_DRILL_TARGETS: LifecycleDrillTarget[] = [
   'awaiting-fee-payment',
   'awaiting-document-revalidation',
   'awaiting-document-validation',

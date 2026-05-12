@@ -7,7 +7,7 @@ allowed-tools: [Read, Write, Edit, Glob, Grep, Bash, TaskList, TaskGet]
 
 Three surfaces are the project's source of truth for "what's been built and what's the contract":
 
-- `.claude/rules/*.md` — stable rules with YAML frontmatter declaring `load: always` or `load: on-demand`. Auto-loaded via `@`-import in CLAUDE.md: `hard-rules.md`, `always-do-first.md`. On-demand (pointer-only in CLAUDE.md, read via Read tool when the frontmatter `description` matches the task): `tech-stack.md`, `project-layout.md`, `env-vars.md`, `key-decisions.md`, `workflow.md`.
+- `.claude/rules/*.md` — stable rules with YAML frontmatter declaring `load: always` or `load: on-demand`. Auto-loaded via `@`-import in CLAUDE.md: `hard-rules.md`, `always-do-first.md`. On-demand (pointer-only in CLAUDE.md, read via Read tool when the frontmatter `description` matches the task): `tech-stack.md`, `project-layout.md`, `env-vars.md`, `key-decisions.md`, `workflow.md`. `key-decisions.md` is a thin index over per-topic files in `.claude/rules/key-decisions/` (`platform.md`, `ui.md`, `dashboards.md`, `markbook.md`, `evaluation.md`, `attendance.md`, `admissions.md`, `pfiles.md`, `records.md`, `parent.md`).
 - `CLAUDE.md` — slim host: project one-liner, the two `@` imports, on-demand rules pointer table, reference-docs table, and the `## Session context` scratch area
 - `docs/sprints/development-plan.md` — sprint-by-sprint status, task checkboxes, definition-of-done, deferrals backlog
 
@@ -22,7 +22,7 @@ Optional argument (`$ARGUMENTS`) — a focus hint like `"sprint 4"`, `"env vars"
 Use Read / Glob / Grep / Bash (`git log --oneline -20`, `git status`, etc.) to inspect the current state. Specifically:
 
 - **Migrations:** `supabase/migrations/*.sql` — what's the highest-numbered one? Any new since the last doc update?
-- **API routes:** walk `app/api/` and list every `route.ts`. Compare to what `.claude/rules/key-decisions.md` and `development-plan.md` claim exists.
+- **API routes:** walk `app/api/` and list every `route.ts`. Compare to what the `.claude/rules/key-decisions/*.md` topic files and `development-plan.md` claim exists.
 - **Pages:** walk `app/(dashboard)/` and `app/(auth)/` for new routes.
 - **Lib modules:** new files in `lib/{compute,auth,sync,audit,supabase}/`.
 - **Components:** new files in `components/{grading,admin,ui}/`.
@@ -45,7 +45,7 @@ For each surface, check accuracy:
 - **Next.js gotchas (same file):** any new breaking change discovered in `node_modules/next/dist/docs/` worth recording? Add it. (Don't proactively go hunting unless you hit one.)
 - **Project layout tree (`.claude/rules/project-layout.md`):** does the tree match the actual directory structure? Add new significant folders, remove stale ones. Keep it brief — leaf detail belongs in the dev plan, not here.
 - **Environment variables (`.claude/rules/env-vars.md`):** match `.env.local.example` exactly (modulo placeholder values).
-- **Key decisions (`.claude/rules/key-decisions.md`):** has a new architectural choice been made? (e.g. "we added an X table", "we dropped Y service".) If yes, append with the next unused number; don't renumber existing KDs; don't restructure.
+- **Key decisions (`.claude/rules/key-decisions.md` + `.claude/rules/key-decisions/*.md`):** has a new architectural choice been made? (e.g. "we added an X table", "we dropped Y service".) If yes, append a new KD with the next unused number to the topic file that best matches its scope; don't renumber existing KDs; don't restructure. Then update the index file (`key-decisions.md`) — add the KD to the topic-files table's KD list and to the quick-lookup row.
 - **Session context (CLAUDE.md `## Session context` block):** prune anything stale or no longer relevant. This block is explicitly ephemeral — if an entry has become stable project policy, promote it into the relevant `.claude/rules/*.md` file and remove it here.
 
 **Hard limit: keep `CLAUDE.md` under 80 lines.** Stable rules now live in `.claude/rules/` and are `@`-imported; CLAUDE.md's 80-line budget covers only the intro, imports, reference-docs table, session-context scratch, and cross-reference note. Rule files themselves have no line budget but should stay tight.

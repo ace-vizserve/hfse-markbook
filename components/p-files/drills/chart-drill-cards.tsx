@@ -6,7 +6,6 @@ import { Download } from 'lucide-react';
 import { DonutChart } from '@/components/dashboard/charts/donut-chart';
 import { CompletionByLevelChart } from '@/components/p-files/completion-by-level-chart';
 import { PFilesDrillSheet } from '@/components/p-files/drills/pfiles-drill-sheet';
-import { TopMissingPanel } from '@/components/p-files/top-missing-panel';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -17,7 +16,6 @@ import {
 } from '@/components/ui/card';
 import { Sheet } from '@/components/ui/sheet';
 import type { LevelCompletionRow, SlotStatusMix } from '@/lib/p-files/dashboard';
-import type { DocumentBacklogRow } from '@/lib/sis/dashboard';
 
 // Per-target client wrappers for P-Files chart cards. Drill sheets lazy-fetch
 // rows via /api/p-files/drill (per spec §6.2 — P-Files row volume is too
@@ -66,27 +64,6 @@ export function SlotStatusDrillCard({
         <PFilesDrillSheet
           target="slot-by-status"
           segment={status}
-          ayCode={ayCode}
-        />
-      )}
-    </Sheet>
-  );
-}
-
-// ─── Top Missing Panel → missing-by-slot ────────────────────────────────────
-
-export function TopMissingDrillCard({
-  data,
-  ayCode,
-}: CommonProps & { data: DocumentBacklogRow[] }) {
-  const [slotKey, setSlotKey] = React.useState<string | null>(null);
-  return (
-    <Sheet open={!!slotKey} onOpenChange={(o) => !o && setSlotKey(null)}>
-      <TopMissingPanel data={data} limit={6} onSegmentClick={setSlotKey} />
-      {slotKey && (
-        <PFilesDrillSheet
-          target="missing-by-slot"
-          segment={slotKey}
           ayCode={ayCode}
         />
       )}

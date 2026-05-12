@@ -130,8 +130,6 @@ export async function listAcademicYears(): Promise<AcademicYearListItem[]> {
 
 import { TEMPLATE_SOURCE_SENTINEL } from './constants';
 
-export { TEMPLATE_SOURCE_SENTINEL };
-
 export type CopyForwardPreview = {
   /**
    * Where the new AY's sections + subject_configs will be sourced from:

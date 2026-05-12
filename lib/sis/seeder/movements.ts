@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { hashString, mulberry32 } from './populated';
+import { hashString, mulberry32 } from './random';
 
 // Movements seeder — writes synthetic audit_log rows so /records/movements
 // renders populated demo data on a freshly-seeded environment.

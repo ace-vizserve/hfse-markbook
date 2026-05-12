@@ -607,7 +607,7 @@ export async function getPromisedCohort(
 
 export type CohortKey = 'stp' | 'medical' | 'pass-expiry' | 'promised';
 
-export const COHORT_KEYS: readonly CohortKey[] = [
+const COHORT_KEYS: readonly CohortKey[] = [
   'stp',
   'medical',
   'pass-expiry',

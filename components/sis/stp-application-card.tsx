@@ -330,5 +330,3 @@ function ResidenceRow({ entry }: { entry: ResidenceEntry }) {
     </li>
   );
 }
-
-export default StpApplicationCard;

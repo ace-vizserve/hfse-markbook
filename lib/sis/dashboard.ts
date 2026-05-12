@@ -15,6 +15,7 @@ import {
   type RangeInput,
   type RangeResult,
 } from '@/lib/dashboard/range';
+import type { VelocityPoint } from '@/lib/dashboard/velocity';
 
 // Records dashboard aggregators — daily-ops lens.
 //
@@ -719,8 +720,6 @@ export function getRecordsKpisRange(
 }
 
 // Enrollment + withdrawal velocity — daily-bucketed.
-
-export type VelocityPoint = { x: string; y: number };
 
 function bucketByDay(rows: { ts: string }[], from: string, to: string): VelocityPoint[] {
   const fromDate = parseLocalDate(from);

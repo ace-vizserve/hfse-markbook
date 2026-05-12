@@ -82,7 +82,7 @@ export type StatusTone = 'healthy' | 'locked' | 'info' | 'muted' | 'warning';
 
 const TONE_CLASS: Record<StatusTone, string> = {
   healthy:
-    'bg-gradient-to-b from-mint/15 to-mint/5 text-mint-foreground ring-inset ring-1 ring-mint/30',
+    'bg-gradient-to-b from-brand-mint/15 to-brand-mint/5 text-brand-mint ring-inset ring-1 ring-brand-mint/30',
   locked:
     'bg-gradient-to-b from-destructive/15 to-destructive/5 text-destructive ring-inset ring-1 ring-destructive/30',
   info:
@@ -90,7 +90,7 @@ const TONE_CLASS: Record<StatusTone, string> = {
   muted:
     'bg-muted text-muted-foreground ring-inset ring-1 ring-border',
   warning:
-    'bg-gradient-to-b from-amber-500/15 to-amber-500/5 text-amber-700 ring-inset ring-1 ring-amber-500/30 dark:text-amber-400',
+    'bg-gradient-to-b from-brand-amber/15 to-brand-amber/5 text-brand-amber ring-inset ring-1 ring-brand-amber/30',
 };
 
 type StatusBadgeProps = {

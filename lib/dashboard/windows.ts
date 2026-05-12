@@ -170,7 +170,7 @@ export async function getDashboardWindows(
  * KD #13: HFSE academic year runs January through November of a single
  * calendar year — the four digits in the AY code ARE the calendar year.
  */
-export function computeAyWindowFromCode(ayCode: string): DateRange | null {
+function computeAyWindowFromCode(ayCode: string): DateRange | null {
   const m = /^AY(\d{4})$/.exec(ayCode);
   if (!m) return null;
   const year = m[1];

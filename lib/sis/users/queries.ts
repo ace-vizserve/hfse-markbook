@@ -16,7 +16,7 @@ export type AdminUserRow = {
 // Request-scoped fetch of every user in the project. Uses service-role
 // listUsers. HFSE's user count is small (<30 active, ~500 parents)
 // so perPage: 1000 is ample; revisit if the tenant grows.
-export async function listAllUsers(): Promise<AdminUserRow[]> {
+async function listAllUsers(): Promise<AdminUserRow[]> {
   const service = createServiceClient();
   const { data, error } = await service.auth.admin.listUsers({
     perPage: 1000,

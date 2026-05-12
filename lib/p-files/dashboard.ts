@@ -11,6 +11,7 @@ import {
   type RangeInput,
   type RangeResult,
 } from '@/lib/dashboard/range';
+import type { VelocityPoint } from '@/lib/dashboard/velocity';
 import { getExpiringDocuments } from '@/lib/sis/dashboard';
 import { compareLevelLabels } from '@/lib/sis/levels';
 import type { PriorityPayload } from '@/lib/dashboard/priority';
@@ -455,8 +456,6 @@ export function getPFilesKpisRange(input: RangeInput): Promise<RangeResult<PFile
 }
 
 // Revision velocity — daily-bucketed revision replacements.
-
-export type VelocityPoint = { x: string; y: number };
 
 function bucketByDay(rows: { ts: string }[], from: string, to: string): VelocityPoint[] {
   const fromDate = parseLocalDate(from);

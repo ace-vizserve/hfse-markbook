@@ -1,22 +1,4 @@
-import {
-  CalendarClockIcon,
-  CheckCircle2Icon,
-  ClipboardCheckIcon,
-  FileSignatureIcon,
-  FileWarningIcon,
-  InboxIcon,
-  LayoutGridIcon,
-  MailQuestionIcon,
-  PlaneIcon,
-  SparklesIcon,
-  WalletIcon,
-  type LucideIcon,
-} from 'lucide-react';
-
-import {
-  ChartLegendChip,
-  type ChartLegendChipColor,
-} from '@/components/dashboard/chart-legend-chip';
+import { ChartLegendChip } from '@/components/dashboard/chart-legend-chip';
 import {
   Card,
   CardAction,
@@ -41,44 +23,6 @@ import { LifecycleAggregateRow } from '@/components/sis/lifecycle-aggregate-row'
  * Sort: `ungated-to-enroll` (positive signal) is pinned to the top, then
  * blockers descend bad → warn → info.
  */
-
-type Severity = LifecycleBlockerBucket['severity'];
-
-// §7.4 crafted gradient icon tile per severity — matches InsightsPanel exactly.
-const SEVERITY_TILE: Record<Severity, string> = {
-  good: 'bg-gradient-to-br from-brand-mint to-brand-sky text-ink shadow-brand-tile-mint',
-  warn: 'bg-brand-amber text-ink shadow-brand-tile-amber',
-  bad: 'bg-destructive text-destructive-foreground shadow-brand-tile-destructive',
-  info: 'bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile',
-};
-
-const SEVERITY_BADGE_COLOR: Record<Severity, ChartLegendChipColor> = {
-  good: 'fresh',
-  warn: 'stale',
-  bad: 'very-stale',
-  info: 'primary',
-};
-
-const SEVERITY_LABEL: Record<Severity, string> = {
-  good: 'Good',
-  warn: 'Watch',
-  bad: 'Alert',
-  info: 'Info',
-};
-
-// Per-bucket Lucide icon — semantic match to the bucket's intent.
-const BUCKET_ICON: Record<string, LucideIcon> = {
-  'awaiting-fee-payment': WalletIcon,
-  'awaiting-document-revalidation': FileWarningIcon,
-  'awaiting-document-validation': ClipboardCheckIcon,
-  'awaiting-promised-documents': MailQuestionIcon,
-  'awaiting-stp-completion': PlaneIcon,
-  'awaiting-assessment-schedule': CalendarClockIcon,
-  'awaiting-contract-signature': FileSignatureIcon,
-  'missing-class-assignment': LayoutGridIcon,
-  'ungated-to-enroll': SparklesIcon,
-  'new-applications': InboxIcon,
-};
 
 // Sort order after the ungated-to-enroll pin. Ordered bad → warn → info,
 // roughly "most urgent funnel blocker first".
@@ -168,12 +112,3 @@ export function LifecycleAggregateCard({
     </Card>
   );
 }
-
-export default LifecycleAggregateCard;
-
-// Severity → tile + chip + label mappings — exported so the client row
-// component renders identically to this card's design language.
-export const LIFECYCLE_SEVERITY_TILE = SEVERITY_TILE;
-export const LIFECYCLE_SEVERITY_BADGE_COLOR = SEVERITY_BADGE_COLOR;
-export const LIFECYCLE_SEVERITY_LABEL = SEVERITY_LABEL;
-export const LIFECYCLE_BUCKET_ICON = BUCKET_ICON;
