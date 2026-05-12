@@ -6,6 +6,14 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import type { CompareCellResult } from '@/lib/dashboard/compare';
 
@@ -168,37 +176,41 @@ export function CompareGrid<T>({ cells, metrics, title, description }: CompareGr
         </div>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
-            <thead>
+        <div className="overflow-x-auto rounded-lg border border-hairline">
+          <Table>
+            <TableHeader>
               {/* Top row: AY-spanning headers */}
-              <tr>
-                <th
+              <TableRow className="hover:bg-transparent">
+                <TableHead
                   rowSpan={2}
-                  className="border-b border-hairline bg-muted/30 px-3 py-2 text-left align-bottom font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4"
+                  className="bg-muted/30 align-bottom"
                 >
                   Metric
-                </th>
+                </TableHead>
                 {ayGroups.map((g) => (
-                  <th
+                  <TableHead
                     key={g.ayCode}
                     colSpan={g.span}
-                    className="border-b border-l border-hairline bg-gradient-to-b from-brand-indigo/10 to-transparent px-3 py-1.5 text-center font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-navy"
+                    className="border-l border-hairline bg-gradient-to-b from-brand-indigo/10 to-transparent text-center text-[11px] text-brand-navy"
                   >
                     {g.ayCode}
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
+              </TableRow>
               {/* Bottom row: per-cell sub-labels */}
-              <tr>
+              <TableRow className="hover:bg-transparent">
                 {cells.map((c, i) => (
-                  <th
+                  <TableHead
                     key={`${c.cell.ayCode}-${cellSubLabel(c.cell)}-${i}`}
                     className={cn(
-                      'border-b border-l border-hairline bg-muted/20 px-3 py-1.5 text-center font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground',
+                      'h-9 border-l border-hairline bg-muted/20 text-center text-muted-foreground',
                       i === baselineIdx && 'text-foreground',
                     )}
-                    title={i === baselineIdx ? 'Baseline cell — Δ values below are measured against this' : undefined}
+                    title={
+                      i === baselineIdx
+                        ? 'Baseline cell — Δ values below are measured against this'
+                        : undefined
+                    }
                   >
                     {cellSubLabel(c.cell)}
                     {i === baselineIdx && (
@@ -206,11 +218,11 @@ export function CompareGrid<T>({ cells, metrics, title, description }: CompareGr
                         BASE
                       </span>
                     )}
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {metrics.map((metric) => {
                 const values = cells.map((c) => metric.getValue(c.data));
                 const numeric = values.filter((v): v is number => v !== null);
@@ -219,8 +231,8 @@ export function CompareGrid<T>({ cells, metrics, title, description }: CompareGr
                 const lowerIsBetter = Boolean(metric.lowerIsBetter);
                 const baselineValue = values[baselineIdx];
                 return (
-                  <tr key={metric.key}>
-                    <td className="border-b border-hairline px-3 py-2.5 text-foreground">
+                  <TableRow key={metric.key}>
+                    <TableCell className="text-foreground">
                       <span className="font-medium">{metric.label}</span>
                       {lowerIsBetter && (
                         <span
@@ -230,7 +242,7 @@ export function CompareGrid<T>({ cells, metrics, title, description }: CompareGr
                           ↓
                         </span>
                       )}
-                    </td>
+                    </TableCell>
                     {cells.map((c, i) => {
                       const v = values[i];
                       const bucket: Bucket =
@@ -245,10 +257,10 @@ export function CompareGrid<T>({ cells, metrics, title, description }: CompareGr
                         i === baselineIdx,
                       );
                       return (
-                        <td
+                        <TableCell
                           key={`${c.cell.label}-${i}`}
                           className={cn(
-                            'border-b border-l border-hairline px-3 py-2.5 text-right align-middle font-mono tabular-nums transition-colors',
+                            'border-l border-hairline text-right align-middle font-mono tabular-nums transition-colors',
                             BUCKET_CLASS[bucket],
                           )}
                           title={v === null ? 'No data for this period' : undefined}
@@ -264,14 +276,14 @@ export function CompareGrid<T>({ cells, metrics, title, description }: CompareGr
                               {delta.text}
                             </div>
                           )}
-                        </td>
+                        </TableCell>
                       );
                     })}
-                  </tr>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
         <p className="mt-3 px-1 text-[11px] text-muted-foreground">
           Cells are shaded by relative magnitude within each row. Mint = best
