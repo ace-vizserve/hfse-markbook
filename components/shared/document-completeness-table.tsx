@@ -90,12 +90,12 @@ function CompletePct({ pct }: { pct: number }) {
       variant="outline"
       className={`font-mono text-[10px] tabular-nums ${
         pct === 100
-          ? 'border-brand-mint bg-brand-mint/20 text-ink'
+          ? 'border-brand-mint bg-gradient-to-b from-brand-mint/25 to-brand-mint/10 text-ink'
           : pct >= 70
-            ? 'border-primary/30 bg-primary/10 text-primary'
+            ? 'border-primary/30 bg-gradient-to-b from-primary/15 to-primary/5 text-primary'
             : pct >= 40
-              ? 'border-brand-amber/40 bg-brand-amber/10 text-brand-amber'
-              : 'border-destructive/30 bg-destructive/10 text-destructive'
+              ? 'border-brand-amber/40 bg-gradient-to-b from-brand-amber/15 to-brand-amber/5 text-brand-amber'
+              : 'border-destructive/30 bg-gradient-to-b from-destructive/15 to-destructive/5 text-destructive'
       }`}
     >
       {pct}%

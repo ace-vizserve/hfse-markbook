@@ -60,11 +60,11 @@ function bucketOf(value: number, min: number, max: number, lowerIsBetter: boolea
 }
 
 const BUCKET_CLASS: Record<Bucket, string> = {
-  best: 'bg-brand-mint/15 text-brand-mint font-semibold',
-  good: 'bg-brand-mint/5 text-foreground',
+  best: 'bg-gradient-to-b from-brand-mint/20 to-brand-mint/5 text-brand-mint font-semibold',
+  good: 'bg-gradient-to-b from-brand-mint/10 to-brand-mint/0 text-foreground',
   neutral: 'text-muted-foreground',
-  bad: 'bg-destructive/5 text-foreground',
-  worst: 'bg-destructive/15 text-destructive font-semibold',
+  bad: 'bg-gradient-to-b from-destructive/10 to-destructive/0 text-foreground',
+  worst: 'bg-gradient-to-b from-destructive/20 to-destructive/5 text-destructive font-semibold',
 };
 
 function formatValue(v: number | null, fmt: CompareGridMetric<unknown>['format']): string {

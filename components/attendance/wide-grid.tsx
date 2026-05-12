@@ -108,10 +108,10 @@ function statusChipGradient(status: AttendanceStatus | null): string {
 // school-day columns read as a vertical band even when no status is set.
 const DAY_TYPE_CELL_BG: Record<DayType, string> = {
   school_day: "",
-  public_holiday: "bg-destructive/5",
-  school_holiday: "bg-brand-amber/5",
-  hbl: "bg-primary/5",
-  no_class: "bg-muted/20",
+  public_holiday: "bg-gradient-to-b from-destructive/8 to-destructive/0",
+  school_holiday: "bg-gradient-to-b from-brand-amber/8 to-brand-amber/0",
+  hbl: "bg-gradient-to-b from-primary/8 to-primary/0",
+  no_class: "bg-gradient-to-b from-muted/30 to-muted/10",
 };
 
 export type WideGridEnrolment = {

@@ -15,7 +15,7 @@ const badgeVariants = cva(
           "border-transparent bg-gradient-to-b from-brand-indigo to-brand-indigo-deep text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.18),0_1px_2px_rgba(15,23,42,0.08)]",
         secondary: "border-hairline bg-muted text-ink-3",
         destructive:
-          "border-transparent bg-destructive text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.18),0_1px_2px_rgba(15,23,42,0.08)]",
+          "border-transparent bg-gradient-to-b from-destructive to-destructive/85 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.18),0_1px_2px_rgba(15,23,42,0.08)]",
         outline: "border-hairline bg-white text-foreground shadow-input",
         // Muted filled — neutral state pills (e.g. "Inactive", "Archived") that
         // need a dark background so white text reads, without carrying the

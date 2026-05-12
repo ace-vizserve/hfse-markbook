@@ -141,7 +141,7 @@ export function NotifyDialog({
               Recipients
             </p>
             {resolved.length === 0 ? (
-              <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-[12px] text-destructive">
+              <p className="rounded-lg border border-destructive/30 bg-gradient-to-b from-destructive/15 to-destructive/5 px-3 py-2 text-[12px] text-destructive">
                 No parent or guardian email is on file for this slot. Add one in admissions before
                 sending a reminder.
               </p>

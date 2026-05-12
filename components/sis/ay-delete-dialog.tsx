@@ -83,7 +83,7 @@ export function AyDeleteDialog({ ayCode, blockers, children }: Props) {
         </AlertDialogHeader>
 
         {disabledByBlockers && (
-          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3">
+          <div className="rounded-md border border-destructive/30 bg-gradient-to-b from-destructive/10 to-destructive/0 p-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-destructive">
               Reasons it can&apos;t be deleted ({blockers.length})
             </p>

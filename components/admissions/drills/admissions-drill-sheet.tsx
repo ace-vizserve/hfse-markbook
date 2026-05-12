@@ -85,7 +85,7 @@ function StalenessBadge({ days }: { days: number | null }) {
     return (
       <Badge
         variant="outline"
-        className={`${BADGE_BASE} border-destructive/40 bg-destructive/10 text-destructive`}
+        className={`${BADGE_BASE} border-destructive/40 bg-gradient-to-b from-destructive/15 to-destructive/5 text-destructive`}
       >
         <AlertTriangle className="h-3 w-3" aria-hidden />
         {days}d stale
@@ -144,17 +144,17 @@ const STATUS_STYLES: Record<string, StatusStyle> = {
   'Enrolled (Conditional)': {
     icon: Asterisk,
     label: 'Conditional',
-    className: 'border-brand-mint/60 bg-brand-mint/15 text-ink',
+    className: 'border-brand-mint/60 bg-gradient-to-b from-brand-mint/20 to-brand-mint/5 text-ink',
   },
   Withdrawn: {
     icon: UserMinus,
     label: 'Withdrawn',
-    className: 'border-destructive/30 bg-destructive/5 text-ink-4',
+    className: 'border-destructive/30 bg-gradient-to-b from-destructive/10 to-destructive/0 text-ink-4',
   },
   Cancelled: {
     icon: XCircle,
     label: 'Cancelled',
-    className: 'border-destructive/30 bg-destructive/5 text-ink-4',
+    className: 'border-destructive/30 bg-gradient-to-b from-destructive/10 to-destructive/0 text-ink-4',
   },
 };
 

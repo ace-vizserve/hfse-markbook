@@ -108,7 +108,7 @@ function StatusBadge({ status }: { status: Status }) {
       return (
         <Badge
           variant="outline"
-          className="h-6 border-destructive/40 bg-destructive/10 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-destructive">
+          className="h-6 border-destructive/40 bg-gradient-to-b from-destructive/15 to-destructive/5 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-destructive">
           Expired
         </Badge>
       );

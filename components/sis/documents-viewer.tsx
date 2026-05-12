@@ -658,9 +658,9 @@ function ExpiryChip({
 }) {
   const tone = cn(
     'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em]',
-    bucket === 'expired' && 'border-destructive/40 bg-destructive/10 text-destructive',
-    bucket === 'expiring' && 'border-brand-amber/40 bg-brand-amber/15 text-foreground',
-    bucket === 'fresh' && 'border-hairline bg-muted text-muted-foreground',
+    bucket === 'expired' && 'border-destructive/40 bg-gradient-to-b from-destructive/15 to-destructive/5 text-destructive',
+    bucket === 'expiring' && 'border-brand-amber/40 bg-gradient-to-b from-brand-amber/20 to-brand-amber/5 text-foreground',
+    bucket === 'fresh' && 'border-hairline bg-gradient-to-b from-muted to-muted/60 text-muted-foreground',
   );
   return (
     <span className={tone}>

@@ -78,8 +78,8 @@ export function RecentActivityStrip({ events }: { events: ActivityEvent[] }) {
             const slotLabel = SLOT_SHORT_LABEL[event.slotKey] ?? event.slotKey;
             const tone =
               event.kind === 'reminder'
-                ? 'border-brand-amber/40 bg-brand-amber/10'
-                : 'border-brand-indigo-soft bg-accent/40';
+                ? 'border-brand-amber/40 bg-gradient-to-b from-brand-amber/15 to-brand-amber/5'
+                : 'border-brand-indigo-soft bg-gradient-to-b from-accent/50 to-accent/20';
             const iconTone =
               event.kind === 'reminder' ? 'text-brand-amber' : 'text-brand-indigo-deep';
             return (

@@ -266,7 +266,7 @@ function ImportReport({ result }: { result: ImportResponse }) {
               </div>
             )}
             {r.errors.length > 0 && (
-              <div className="mt-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-[11px] text-destructive">
+              <div className="mt-2 rounded-lg border border-destructive/30 bg-gradient-to-b from-destructive/10 to-destructive/0 p-3 text-[11px] text-destructive">
                 {r.errors.map((e, idx) => (
                   <div key={idx}>{e}</div>
                 ))}

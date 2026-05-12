@@ -57,7 +57,7 @@ function StalenessBadge({ days }: { days: number | null }) {
   }
   if (tier === "red") {
     return (
-      <Badge variant="outline" className={`${BADGE_BASE} border-destructive/40 bg-destructive/10 text-destructive`}>
+      <Badge variant="outline" className={`${BADGE_BASE} border-destructive/40 bg-gradient-to-b from-destructive/15 to-destructive/5 text-destructive`}>
         <AlertTriangle className="h-3 w-3" aria-hidden />
         {days}d stale
       </Badge>

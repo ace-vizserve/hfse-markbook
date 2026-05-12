@@ -89,8 +89,8 @@ function deltaChipClass(
     (goodWhen === 'up' && delta.direction === 'up') ||
     (goodWhen === 'down' && delta.direction === 'down');
   return isGood
-    ? 'border-brand-mint bg-brand-mint/30 text-ink'
-    : 'border-destructive/40 bg-destructive/10 text-destructive';
+    ? 'border-brand-mint bg-gradient-to-b from-brand-mint/35 to-brand-mint/15 text-ink'
+    : 'border-destructive/40 bg-gradient-to-b from-destructive/15 to-destructive/5 text-destructive';
 }
 
 function DeltaChip({ delta, goodWhen }: { delta: Delta; goodWhen: 'up' | 'down' }) {

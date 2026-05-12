@@ -12,7 +12,7 @@ const TONE_CLASS: Record<StatusTone, string> = {
   info:
     'bg-gradient-to-b from-accent/20 to-accent/5 text-accent-foreground ring-inset ring-1 ring-accent/30',
   muted:
-    'bg-muted text-muted-foreground ring-inset ring-1 ring-border',
+    'bg-gradient-to-b from-muted to-muted/60 text-muted-foreground ring-inset ring-1 ring-border',
   warning:
     'bg-gradient-to-b from-brand-amber/15 to-brand-amber/5 text-brand-amber ring-inset ring-1 ring-brand-amber/30',
 };
