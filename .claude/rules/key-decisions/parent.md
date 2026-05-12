@@ -3,7 +3,7 @@
 ## Parent — identity, SSO, dedicated surface
 
 ### KD #7
-PDF generation deferred — browser print covers current volume.
+PDF generation deferred — browser print covers current volume. **Sprint 37 extension:** Section batch-print at `/markbook/report-cards/section/[sectionId]/print?term=N` stacks every active + late-enrollee student's `<ReportCardDocument>` with `@media print { .section-print-card { page-break-after: always; } }`. `<AutoPrintTrigger>` fires `window.print()` on mount; the browser dialog produces a single multi-page job — "Save As PDF" gives one file for the whole section. Stays within KD #7's boundary (no server-side PDF service); accessed via a "Print all" link on the Roster header at `/markbook/report-cards?section_id=...`. Auth: registrar / school_admin / superadmin.
 
 ### KD #10
 Publication windows per `(section, term)` gate parent view (migration 007).
