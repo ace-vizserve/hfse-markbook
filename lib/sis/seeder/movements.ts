@@ -236,10 +236,25 @@ export async function seedMovements(
 
   if (inserts.length === 0) return 0;
 
-  const { error } = await service.from('audit_log').insert(inserts);
-  if (error) {
-    console.error('[populated seeder] movements audit insert failed:', error.message);
-    return 0;
+  // Per-row insert (not a batch) so a single bad row doesn't tank the rest.
+  // Historical case in point: transfer rows write entity_id=enroleeNumber
+  // (string), which used to fail the UUID column check from migration 006
+  // and crashed the whole batch including the withdrawals + late-enrols
+  // that would have inserted fine. Migration 043 widens entity_id to text
+  // and resolves the schema mismatch, but per-row insert is the defensive
+  // floor — if a future seeder revision adds another row class with a
+  // novel shape, it can't take down its siblings.
+  let okCount = 0;
+  for (const row of inserts) {
+    const { error } = await service.from('audit_log').insert(row);
+    if (error) {
+      console.error(
+        `[populated seeder] movements audit insert failed for action=${row.action} entity_id=${row.entity_id}:`,
+        error.message,
+      );
+      continue;
+    }
+    okCount += 1;
   }
-  return inserts.length;
+  return okCount;
 }
