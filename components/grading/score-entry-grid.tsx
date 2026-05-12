@@ -28,6 +28,7 @@ export type GradeRow = {
   student_name: string;
   student_number: string;
   withdrawn: boolean;
+  late_enrollee: boolean;
   is_na: boolean;
   ww_scores: (number | null)[];
   pt_scores: (number | null)[];
@@ -245,6 +246,14 @@ export function ScoreEntryGrid({
                     <div className="text-xs tabular-nums text-muted-foreground">
                       {r.student_number}
                     </div>
+                    {r.late_enrollee && !r.withdrawn && (
+                      <div
+                        className="mt-0.5 text-[10px] italic text-brand-amber"
+                        title="Earlier assessments stay blank and are excluded from the average — proration is automatic."
+                      >
+                        Late enrollee — earlier assessments excluded
+                      </div>
+                    )}
                   </TableCell>
 
                   {wwTotals.map((max, i) => (
