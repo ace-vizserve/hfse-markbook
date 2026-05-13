@@ -14,6 +14,10 @@ import {
 
 import { DocumentCard } from '@/components/p-files/document-card';
 import { ActionQueueCard, type ActionQueueRow } from '@/components/p-files/action-queue-card';
+import {
+  DocumentGroupTabs,
+  type DocumentGroupTab,
+} from '@/components/p-files/document-group-tabs';
 import { FamilyContactCard } from '@/components/p-files/family-contact-card';
 import { RecentActivityStrip } from '@/components/p-files/recent-activity-strip';
 import { Alert, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert';
@@ -132,37 +136,72 @@ export default async function StudentDocumentDetailPage({
     }
   }
 
+  // Build each tab's metadata + pre-rendered DocumentCard grid. Server-
+  // renders the cards (they're client components themselves for the
+  // approve / reject mutation surface) and hands them to the tab
+  // wrapper as `content`. Keeps the tab state on the client side while
+  // the data + content stays in the RSC tree.
+  const tabGroups: DocumentGroupTab[] = groups.map((g) => {
+    const groupActionable = g.slots.filter((s) =>
+      isActionable(classifyUrgency(s)),
+    ).length;
+    const groupValid = g.slots.filter((s) => s.status === 'valid').length;
+    return {
+      group: g.group,
+      label: g.label,
+      total: g.slots.length,
+      validCount: groupValid,
+      actionableCount: groupActionable,
+      content: (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {g.slots.map((slot) => {
+            const config = slotConfigByKey.get(slot.key);
+            const url = docRow[slot.key] as string | null | undefined;
+            const outreach = student.outreach[slot.key];
+            return (
+              <DocumentCard
+                key={slot.key}
+                enroleeNumber={enroleeNumber}
+                slotKey={slot.key}
+                label={slot.label}
+                status={slot.status}
+                url={url ?? null}
+                expiryDate={slot.expiryDate}
+                expires={config?.expires ?? false}
+                meta={config?.meta ?? null}
+                canWrite={canWrite}
+                recipients={student.recipients}
+                lastReminderAt={outreach?.lastReminderAt ?? null}
+                activePromise={outreach?.activePromise ?? null}
+              />
+            );
+          })}
+        </div>
+      ),
+    };
+  });
+
   return (
     <PageShell>
-      {/* Top strip — back + eyebrow, full width */}
-      <div className="space-y-2">
-        <Link
-          href={{ pathname: '/p-files', query: { ay: selectedAy } }}
-          className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          All students · {selectedAy}
-        </Link>
+      <Link
+        href={{ pathname: '/p-files', query: { ay: selectedAy } }}
+        className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        All students · {selectedAy}
+      </Link>
+
+      {/* ── Hero ──────────────────────────────────────────────────────── */}
+      <header className="space-y-5">
         <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {canWrite ? 'P-Files · Student documents' : 'P-Files · Read-only oversight'}
         </p>
-      </div>
-
-      {/* Two-pane layout on lg+: sticky summary rail (name + pills + progress
-          + action queue + family) on the left, scrolling document groups on
-          the right. On smaller screens the rail collapses to a normal stacked
-          section above the docs. Per skill §9 (nav-hierarchy) + §5
-          (content-priority) — the always-relevant context stays in view
-          while the doc list (large, repeated structure) scrolls beside it. */}
-      <div className="grid gap-6 lg:grid-cols-[minmax(320px,360px)_1fr]">
-        {/* ── Sticky summary rail ─────────────────────────────────────── */}
-        <aside className="space-y-5 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
-          {/* Identity */}
-          <div className="space-y-2">
-            <h1 className="font-serif text-[26px] font-semibold leading-[1.1] tracking-tight text-foreground">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-6">
+          <div className="space-y-3">
+            <h1 className="font-serif text-[38px] font-semibold leading-[1.05] tracking-tight text-foreground md:text-[44px]">
               {student.fullName}.
             </h1>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px] text-muted-foreground">
               {student.studentNumber && (
                 <>
                   <span className="font-mono tabular-nums">{student.studentNumber}</span>
@@ -185,13 +224,11 @@ export default async function StudentDocumentDetailPage({
             </div>
           </div>
 
-          {/* Status pill cluster — wraps tight in the narrow rail. Order
-              matches operational priority: completion → blockers → pending
-              chase. */}
-          <div className="flex flex-wrap gap-1.5">
+          {/* Status pill row — only render counts that are > 0. */}
+          <div className="flex flex-wrap items-center gap-2">
             <Badge variant={pct === 100 ? 'success' : 'outline'}>
               <CheckCircle2 />
-              {student.complete}/{student.total} · {pct}%
+              {student.complete}/{student.total} on file · {pct}%
             </Badge>
             {student.expired > 0 && (
               <Badge variant="blocked">
@@ -224,17 +261,47 @@ export default async function StudentDocumentDetailPage({
               </Badge>
             )}
           </div>
+        </div>
 
-          {/* Slim progress — replaces the heroic h-1.5 bar. The pill above
-              already carries the percent number; the bar is just the
-              spatial signal. */}
-          <div className="h-1 overflow-hidden rounded-full bg-muted">
+        {/* Inline progress bar. */}
+        <div className="flex items-center gap-3">
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
             <div
               className={`h-full ${pct === 100 ? 'bg-brand-mint' : 'bg-primary'}`}
               style={{ width: `${pct}%`, transition: 'width 0.4s ease' }}
             />
           </div>
+          <span className="font-mono text-[11px] font-semibold tabular-nums text-muted-foreground">
+            {pct}%
+          </span>
+        </div>
+      </header>
 
+      {!student.section && (
+        <Alert variant="warning">
+          <AlertIcon variant="warning">
+            <AlertTriangle className="size-4" />
+          </AlertIcon>
+          <AlertTitle>This student has no class section assigned.</AlertTitle>
+          <AlertDescription>
+            They&apos;re enrolled and their documents are tracked here, but
+            they haven&apos;t been placed in a class yet. Assign a section
+            from{' '}
+            <Link
+              href={`/admissions/applications/${enroleeNumber}?ay=${selectedAy}&tab=enrollment`}
+              className="font-medium text-foreground underline-offset-4 hover:underline"
+            >
+              the enrolment record
+            </Link>{' '}
+            so they appear on rosters, attendance, and other class-scoped
+            surfaces.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* ── Operational row — Action queue + Family/STP ─────────────── */}
+      <section className="grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
           <ActionQueueCard
             enroleeNumber={enroleeNumber}
             rows={actionRows}
@@ -242,100 +309,34 @@ export default async function StudentDocumentDetailPage({
             canWrite={canWrite}
             totalActionable={totalActionable}
           />
-
+        </div>
+        <div className="lg:col-span-1">
           <FamilyContactCard
             family={student.family}
             recipients={student.recipients}
             stpApplicationType={student.stpApplicationType}
           />
-        </aside>
-
-        {/* ── Right column — banners, activity, document groups ─────── */}
-        <div className="space-y-6 min-w-0">
-          {/* Surface a soft warning when the student is enrolled but has no
-              class section assigned. Lives at the top of the right column
-              so it's prominent the moment the page loads. */}
-          {!student.section && (
-            <Alert variant="warning">
-              <AlertIcon variant="warning">
-                <AlertTriangle className="size-4" />
-              </AlertIcon>
-              <AlertTitle>This student has no class section assigned.</AlertTitle>
-              <AlertDescription>
-                They&apos;re enrolled and their documents are tracked here, but
-                they haven&apos;t been placed in a class yet. Assign a section
-                from{' '}
-                <Link
-                  href={`/admissions/applications/${enroleeNumber}?ay=${selectedAy}&tab=enrollment`}
-                  className="font-medium text-foreground underline-offset-4 hover:underline"
-                >
-                  the enrolment record
-                </Link>{' '}
-                so they appear on rosters, attendance, and other class-scoped
-                surfaces.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {student.recentEvents.length > 0 && (
-            <RecentActivityStrip events={student.recentEvents} />
-          )}
-
-          {groups.map((g) => {
-            const groupActionable = g.slots.filter((s) => isActionable(classifyUrgency(s))).length;
-            const groupValid = g.slots.filter((s) => s.status === 'valid').length;
-            return (
-              <section key={g.group} className="space-y-3">
-                <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="font-serif text-xl font-semibold tracking-tight text-foreground">
-                    {g.label}
-                  </h2>
-                  <Badge variant="outline">
-                    {groupValid}/{g.slots.length} valid
-                  </Badge>
-                  {groupActionable > 0 && (
-                    <Badge variant="blocked">
-                      {groupActionable} need{groupActionable === 1 ? 's' : ''} action
-                    </Badge>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-                  {g.slots.map((slot) => {
-                    const config = slotConfigByKey.get(slot.key);
-                    const url = docRow[slot.key] as string | null | undefined;
-                    const outreach = student.outreach[slot.key];
-                    return (
-                      <DocumentCard
-                        key={slot.key}
-                        enroleeNumber={enroleeNumber}
-                        slotKey={slot.key}
-                        label={slot.label}
-                        status={slot.status}
-                        url={url ?? null}
-                        expiryDate={slot.expiryDate}
-                        expires={config?.expires ?? false}
-                        meta={config?.meta ?? null}
-                        canWrite={canWrite}
-                        recipients={student.recipients}
-                        lastReminderAt={outreach?.lastReminderAt ?? null}
-                        activePromise={outreach?.activePromise ?? null}
-                      />
-                    );
-                  })}
-                </div>
-              </section>
-            );
-          })}
-
-          {/* Trust strip — stays in the right column so the rail's overflow-y
-              scroll doesn't strand it visually. */}
-          <div className="mt-2 flex items-center gap-2 border-t border-border pt-5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-            <HistoryIcon className="size-3" strokeWidth={2.25} />
-            <span>{selectedAy}</span>
-            <span className="text-border">·</span>
-            <span>{enroleeNumber}</span>
-          </div>
         </div>
+      </section>
+
+      {student.recentEvents.length > 0 && (
+        <RecentActivityStrip events={student.recentEvents} />
+      )}
+
+      {/* ── Document groups (tabbed) ───────────────────────────────────
+          Tab strip collapses the 4 vertically-stacked sections into one
+          interactive surface. Default opens the first group with
+          actionable work. Per-trigger badge shows the "need action"
+          count so the registrar sees where work is waiting without
+          flipping every tab. */}
+      <DocumentGroupTabs groups={tabGroups} />
+
+      {/* Trust strip */}
+      <div className="mt-2 flex items-center gap-2 border-t border-border pt-5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+        <HistoryIcon className="size-3" strokeWidth={2.25} />
+        <span>{selectedAy}</span>
+        <span className="text-border">·</span>
+        <span>{enroleeNumber}</span>
       </div>
     </PageShell>
   );
