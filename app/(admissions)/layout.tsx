@@ -8,6 +8,9 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
+import { getCurrentAcademicYear } from '@/lib/academic-year';
+import { countPendingDocValidation } from '@/lib/admissions/document-validation';
+import type { SidebarBadges } from '@/lib/auth/roles';
 import { getSessionUser } from '@/lib/supabase/server';
 
 export default async function AdmissionsLayout({ children }: { children: React.ReactNode }) {
@@ -26,9 +29,20 @@ export default async function AdmissionsLayout({ children }: { children: React.R
   const cookieStore = await cookies();
   const defaultOpen = cookieStore.get('sidebar:state')?.value !== 'false';
 
+  // Sidebar badges — currently only the doc-validation pending count.
+  // SSR-static (no realtime subscription): the docs columns live in the
+  // admissions Supabase project and the realtime hook only subscribes to
+  // the main project, so the badge refreshes on the next navigation.
+  // `loadPendingDocValidation` (the source for the count) is `unstable_cache`d
+  // with tag `sis:${ayCode}` and auto-invalidates on the validate PATCH.
+  const currentAy = await getCurrentAcademicYear();
+  const badges: SidebarBadges = currentAy
+    ? { pendingDocValidation: await countPendingDocValidation(currentAy.ay_code) }
+    : {};
+
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
-      <ModuleSidebar module="admissions" role={role} email={email} userId={id} />
+      <ModuleSidebar module="admissions" role={role} email={email} userId={id} badges={badges} />
       <SidebarInset>
         <AyBanner />
         <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/85 px-4 backdrop-blur-md">

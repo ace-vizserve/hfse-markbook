@@ -22,7 +22,10 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ enroleeNumber: string; slotKey: string }> },
 ) {
-  const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
+  // 'admissions' added Sprint 37 — admissions team is the primary user of the
+  // new awaiting-validation triage page (KD #70 chase scope split). Matches
+  // KD #74's pattern of gating 'admissions' for operational queues.
+  const auth = await requireRole(['registrar', 'school_admin', 'superadmin', 'admissions']);
   if ('error' in auth) return auth.error;
 
   const { enroleeNumber, slotKey } = await params;

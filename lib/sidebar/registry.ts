@@ -13,8 +13,8 @@ import {
   ClipboardList,
   Copy,
   Database,
+  FileCheck,
   FilePlus2,
-  FileSearch,
   FileStack,
   FileText,
   FileUp,
@@ -175,13 +175,13 @@ export const SIDEBAR_REGISTRY: Record<SidebarModule, ModuleSidebarConfig> = {
       "/admissions": LayoutDashboard,
       "/admissions/applications": FileStack,
       "/admissions/applications/closed": Archive,
+      "/admissions/document-validation": FileCheck,
       "/admissions/audit-log": History,
       // Pre-enrolment chase quicklinks (Workstream A) — focused-view
       // filters on the dashboard for the un-enrolled scope. Mirror the
       // P-Files renewal quicklinks pattern from KD #64.
       "/admissions?status=to-follow": CalendarClock,
       "/admissions?status=rejected": XCircle,
-      "/admissions?status=uploaded": FileSearch,
       "/admissions?status=expired": AlertTriangle,
       "/records/students": Users,
       "/p-files": FolderOpen,

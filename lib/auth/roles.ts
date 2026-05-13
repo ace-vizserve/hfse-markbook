@@ -27,7 +27,7 @@ export type NavItem = {
 };
 export type NavSection = { label?: string; items: NavItem[] };
 
-export type SidebarBadgeKey = "changeRequests";
+export type SidebarBadgeKey = "changeRequests" | "pendingDocValidation";
 export type SidebarBadges = Partial<Record<SidebarBadgeKey, number>>;
 
 const PFILES_NAV: NavSection[] = [
@@ -211,6 +211,16 @@ const ADMISSIONS_NAV: NavSection[] = [
     label: "Pipeline",
     items: [
       { href: "/admissions/applications", label: "Applications" },
+      // Document validation (KD #70 + KD #71): dedicated triage queue for
+      // un-enrolled applicants whose documents are status='Uploaded' and
+      // awaiting registrar review. Replaces the legacy
+      // `/admissions?status=uploaded` quicklink with a purpose-built page.
+      // Badge mirrors the row count from `countPendingDocValidation`.
+      {
+        href: "/admissions/document-validation",
+        label: "Document validation",
+        badgeKey: "pendingDocValidation",
+      },
       // KD #77: surfaces the parallel pipeline for the AY where
       // accepting_applications=true AND is_current=false. The page itself
       // renders an empty state when no such AY exists, so the entry can
@@ -251,11 +261,6 @@ const ADMISSIONS_NAV: NavSection[] = [
         href: "/records/students",
         label: "Enrolled students",
         requiresRoles: ["registrar", "school_admin", "superadmin"],
-      },
-      {
-        href: "/admissions?status=uploaded",
-        label: "Document validation",
-        requiresRoles: ["admissions", "registrar", "school_admin", "superadmin"],
       },
       {
         href: "/admissions?status=expired",
