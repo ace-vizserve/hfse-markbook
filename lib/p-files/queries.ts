@@ -38,12 +38,16 @@ export type DashboardSummary = {
 };
 
 /**
- * Strict enrolment gate for the detail page (B1). Returns true when the
- * student's status row exists AND `applicationStatus IN ('Enrolled',
- * 'Enrolled (Conditional)')` AND `classSection` is set. Affirmative
- * (whitelist) — distinct from the dashboard's permissive gate which only
- * excludes Cancelled/Withdrawn. P-Files is enrolled-only (KD #31) so the
- * detail page hides pre-enrolment applicants entirely.
+ * Enrolment gate for the detail page. Returns true when the student's
+ * status row exists AND `applicationStatus IN ('Enrolled', 'Enrolled
+ * (Conditional)')`. P-Files is enrolled-only (KD #31) so pre-enrolment
+ * applicants are still hidden, but the historical extra requirement
+ * that `classSection` also be set has been dropped — P-Files is about
+ * documents (passports, medical, vaccination), which aren't tied to
+ * having a class assigned. Legacy / imported rows that landed in
+ * Enrolled without classSection were 404'ing the page; the page now
+ * surfaces a warning banner inline when the student is enrolled but
+ * has no class section yet.
  */
 export async function isStudentEnrolled(
   ayCode: string,
@@ -51,42 +55,14 @@ export async function isStudentEnrolled(
 ): Promise<boolean> {
   const service = createServiceClient();
   const prefix = prefixFor(ayCode);
-  const { data, error } = await service
+  const { data } = await service
     .from(`${prefix}_enrolment_status`)
-    .select('"applicationStatus", "classSection"')
+    .select('"applicationStatus"')
     .eq('enroleeNumber', enroleeNumber)
     .maybeSingle();
-  if (error) {
-    console.warn(
-      '[p-files isStudentEnrolled] query error',
-      { ayCode, enroleeNumber, error: error.message },
-    );
-    return false;
-  }
-  if (!data) {
-    console.warn(
-      '[p-files isStudentEnrolled] no enrolment_status row',
-      { ayCode, enroleeNumber, table: `${prefix}_enrolment_status` },
-    );
-    return false;
-  }
+  if (!data) return false;
   const status = (data as Record<string, unknown>).applicationStatus;
-  const section = (data as Record<string, unknown>).classSection;
-  if (status !== 'Enrolled' && status !== 'Enrolled (Conditional)') {
-    console.warn(
-      '[p-files isStudentEnrolled] applicationStatus not enrolled',
-      { ayCode, enroleeNumber, applicationStatus: status },
-    );
-    return false;
-  }
-  if (!(typeof section === 'string' && section.length > 0)) {
-    console.warn(
-      '[p-files isStudentEnrolled] classSection missing on enrolled row',
-      { ayCode, enroleeNumber, classSection: section },
-    );
-    return false;
-  }
-  return true;
+  return status === 'Enrolled' || status === 'Enrolled (Conditional)';
 }
 
 // ── Raw fetch ─────────────────────────────────────────────────────────────

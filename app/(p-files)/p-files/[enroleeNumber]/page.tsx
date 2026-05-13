@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import {
+  AlertTriangle,
   ArrowLeft,
   CalendarClock,
   CheckCircle2,
@@ -15,6 +16,7 @@ import { DocumentCard } from '@/components/p-files/document-card';
 import { ActionQueueCard, type ActionQueueRow } from '@/components/p-files/action-queue-card';
 import { FamilyContactCard } from '@/components/p-files/family-contact-card';
 import { RecentActivityStrip } from '@/components/p-files/recent-activity-strip';
+import { Alert, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { PageShell } from '@/components/ui/page-shell';
 import { getCurrentAcademicYear, listAyCodes } from '@/lib/academic-year';
@@ -229,6 +231,33 @@ export default async function StudentDocumentDetailPage({
           </span>
         </div>
       </header>
+
+      {/* Surface a soft warning when the student is enrolled but has no
+          class section assigned. P-Files renewal flows still work
+          (documents aren't section-scoped) but downstream surfaces that
+          rely on the assignment — rosters, attendance, drill row scoping
+          — will skip this student until a section is set. */}
+      {!student.section && (
+        <Alert variant="warning">
+          <AlertIcon variant="warning">
+            <AlertTriangle className="size-4" />
+          </AlertIcon>
+          <AlertTitle>This student has no class section assigned.</AlertTitle>
+          <AlertDescription>
+            They&apos;re enrolled and their documents are tracked here, but
+            they haven&apos;t been placed in a class yet. Assign a section
+            from{' '}
+            <Link
+              href={`/admissions/applications/${enroleeNumber}?ay=${selectedAy}&tab=enrollment`}
+              className="font-medium text-foreground underline-offset-4 hover:underline"
+            >
+              the enrolment record
+            </Link>{' '}
+            so they appear on rosters, attendance, and other class-scoped
+            surfaces.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* ── Operational row — Action queue + Family/STP ─────────────── */}
       <section className="grid gap-4 lg:grid-cols-3">
