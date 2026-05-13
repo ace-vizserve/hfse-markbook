@@ -51,16 +51,42 @@ export async function isStudentEnrolled(
 ): Promise<boolean> {
   const service = createServiceClient();
   const prefix = prefixFor(ayCode);
-  const { data } = await service
+  const { data, error } = await service
     .from(`${prefix}_enrolment_status`)
     .select('"applicationStatus", "classSection"')
     .eq('enroleeNumber', enroleeNumber)
     .maybeSingle();
-  if (!data) return false;
+  if (error) {
+    console.warn(
+      '[p-files isStudentEnrolled] query error',
+      { ayCode, enroleeNumber, error: error.message },
+    );
+    return false;
+  }
+  if (!data) {
+    console.warn(
+      '[p-files isStudentEnrolled] no enrolment_status row',
+      { ayCode, enroleeNumber, table: `${prefix}_enrolment_status` },
+    );
+    return false;
+  }
   const status = (data as Record<string, unknown>).applicationStatus;
   const section = (data as Record<string, unknown>).classSection;
-  if (status !== 'Enrolled' && status !== 'Enrolled (Conditional)') return false;
-  return typeof section === 'string' && section.length > 0;
+  if (status !== 'Enrolled' && status !== 'Enrolled (Conditional)') {
+    console.warn(
+      '[p-files isStudentEnrolled] applicationStatus not enrolled',
+      { ayCode, enroleeNumber, applicationStatus: status },
+    );
+    return false;
+  }
+  if (!(typeof section === 'string' && section.length > 0)) {
+    console.warn(
+      '[p-files isStudentEnrolled] classSection missing on enrolled row',
+      { ayCode, enroleeNumber, classSection: section },
+    );
+    return false;
+  }
+  return true;
 }
 
 // ── Raw fetch ─────────────────────────────────────────────────────────────
