@@ -26,6 +26,21 @@ export const SchoolConfigUpdateSchema = z.object({
     .min(1)
     .max(365)
     .optional(),
+  // KD #94 — school-wide defaults for attendance leave quotas. Per-student
+  // overrides live on `students.urgent_compassionate_allowance` and
+  // `students.vacation_leave_allowance_per_term`.
+  defaultCompassionateAllowancePerYear: z
+    .number()
+    .int()
+    .min(0)
+    .max(30)
+    .optional(),
+  defaultVlAllowancePerTerm: z
+    .number()
+    .int()
+    .min(0)
+    .max(10)
+    .optional(),
 });
 
 export type SchoolConfigUpdateInput = z.infer<typeof SchoolConfigUpdateSchema>;

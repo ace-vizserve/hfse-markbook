@@ -15,9 +15,11 @@ import {
   type DrillColumnKey,
   type SectionAttendanceRow,
   type TopAbsentDrillRow,
+  type VacationLeaveUsageRow,
 } from '@/lib/attendance/drill';
 import { requireRole } from '@/lib/auth/require-role';
 import { buildCsv } from '@/lib/csv';
+import { getSchoolConfig } from '@/lib/sis/school-config';
 
 const VALID_TARGETS: AttendanceDrillTarget[] = [
   'attendance-summary',
@@ -31,6 +33,7 @@ const VALID_TARGETS: AttendanceDrillTarget[] = [
   'top-active',
   'attendance-by-section',
   'compassionate-quota',
+  'vacation-leave-quota',
 ];
 
 const ALLOWED_ROLES = [
@@ -67,6 +70,15 @@ export async function GET(
   const segment = url.searchParams.get('segment');
   const format = url.searchParams.get('format') ?? 'json';
   const columnsParam = url.searchParams.get('columns');
+  // termId is required for the 'vacation-leave-quota' target (per KD #94)
+  // because VL quota is per-term, no carry-forward. Other targets ignore it.
+  const termId = url.searchParams.get('termId');
+
+  // Fetch school default for the VL target so drill.ts stays free of
+  // server-only imports (the rollup runs against this value when the
+  // student's column is NULL).
+  const schoolConfig =
+    target === 'vacation-leave-quota' ? await getSchoolConfig() : null;
 
   const rows = await buildAttendanceDrillRows({
     ayCode,
@@ -74,6 +86,8 @@ export async function GET(
     to,
     target,
     segment,
+    termId,
+    defaultVlAllowance: schoolConfig?.defaultVlAllowancePerTerm,
   });
 
   if (format === 'csv') {
@@ -180,6 +194,21 @@ function csvCell(row: AttendanceDrillRow, key: DrillColumnKey, kind: AttendanceD
       case 'used': return r.used;
       case 'remaining': return r.remaining;
       case 'isOverQuota': return r.isOverQuota ? 'Yes' : 'No';
+      default: return '';
+    }
+  }
+  if (kind === 'vacation-leave') {
+    const r = row as VacationLeaveUsageRow;
+    switch (key) {
+      case 'studentName': return r.studentName;
+      case 'studentNumber': return r.studentNumber;
+      case 'sectionName': return r.sectionName;
+      case 'level': return r.level ?? '';
+      case 'termNumber': return `T${r.termNumber}`;
+      case 'allowance': return r.allowance;
+      case 'usedThisTerm': return r.usedThisTerm;
+      case 'remainingThisTerm': return r.remainingThisTerm;
+      case 'isOverTermQuota': return r.isOverTermQuota ? 'Yes' : 'No';
       default: return '';
     }
   }

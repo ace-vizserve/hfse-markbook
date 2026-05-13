@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/service';
 
 import type { AttendanceStatus, ExReason } from '@/lib/schemas/attendance';
+import { getSchoolConfig } from '@/lib/sis/school-config';
 
 // Attendance module — server-side read helpers.
 //
@@ -583,6 +584,218 @@ export async function getCompassionateUsageForSection(
     const allowance = allowanceByStudent.get(studentId) ?? 5;
     const used = usedByStudent.get(studentId) ?? 0;
     out.set(enrolmentId, { allowance, used, remaining: Math.max(0, allowance - used) });
+  }
+  return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Vacation-leave quota — counts EX days with ex_reason='vacation' in the
+// target term (KD #94). HFSE policy: 1 per term, no carry-forward.
+// ─────────────────────────────────────────────────────────────────────────
+
+export type VacationLeaveUsage = {
+  allowance: number;
+  usedThisTerm: number;
+  remainingThisTerm: number;
+  termId: string;
+};
+
+export async function getVacationLeaveUsage(
+  studentId: string,
+  academicYearId: string,
+  termId: string,
+): Promise<VacationLeaveUsage> {
+  const service = createServiceClient();
+
+  // 1. Student's allowance override + school default fallback.
+  const [{ data: studentRow }, schoolConfig] = await Promise.all([
+    service
+      .from('students')
+      .select('vacation_leave_allowance_per_term')
+      .eq('id', studentId)
+      .maybeSingle(),
+    getSchoolConfig(),
+  ]);
+  const override = studentRow?.vacation_leave_allowance_per_term as number | null | undefined;
+  const allowance = override ?? schoolConfig.defaultVlAllowancePerTerm;
+
+  // 2. AY-wide enrolments for this student.
+  const { data: ssRows } = await service
+    .from('section_students')
+    .select('id, sections!inner(academic_year_id)')
+    .eq('student_id', studentId)
+    .eq('sections.academic_year_id', academicYearId);
+  const ssIds = ((ssRows ?? []) as Array<{ id: string }>).map((r) => r.id);
+  if (ssIds.length === 0) {
+    return { allowance, usedThisTerm: 0, remainingThisTerm: allowance, termId };
+  }
+
+  // 3. Vacation-tagged rows scoped to this term.
+  const used = await countLatestVacationInTerm(service, ssIds, termId);
+
+  return {
+    allowance,
+    usedThisTerm: used,
+    remainingThisTerm: Math.max(0, allowance - used),
+    termId,
+  };
+}
+
+// Latest-row-per-(ss, date, period) walk for one term. Shape mirrors
+// `countLatestCompassionate` but with the extra term_id filter.
+async function countLatestVacationInTerm(
+  service: ReturnType<typeof createServiceClient>,
+  sectionStudentIds: string[],
+  termId: string,
+): Promise<number> {
+  if (sectionStudentIds.length === 0) return 0;
+  const { data } = await service
+    .from('attendance_daily')
+    .select('section_student_id, date, period_id, status, ex_reason, recorded_at')
+    .in('section_student_id', sectionStudentIds)
+    .eq('term_id', termId)
+    .order('recorded_at', { ascending: false });
+
+  type Row = {
+    section_student_id: string;
+    date: string;
+    period_id: string | null;
+    status: AttendanceStatus;
+    ex_reason: ExReason | null;
+    recorded_at: string;
+  };
+
+  const seen = new Set<string>();
+  let count = 0;
+  for (const r of (data ?? []) as Row[]) {
+    const key = `${r.section_student_id}|${r.date}|${r.period_id ?? ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (r.status === 'EX' && r.ex_reason === 'vacation') count += 1;
+  }
+  return count;
+}
+
+// Batch resolver — three queries regardless of class size, mirroring the
+// compassionate helper. Scoped to one term (VL quota is per-term).
+export async function getVacationLeaveUsageForSection(
+  sectionId: string,
+  academicYearId: string,
+  termId: string,
+): Promise<Map<string, VacationLeaveUsage>> {
+  const service = createServiceClient();
+  const schoolConfig = await getSchoolConfig();
+  const defaultAllowance = schoolConfig.defaultVlAllowancePerTerm;
+
+  const { data: enrolments } = await service
+    .from('section_students')
+    .select('id, student:students(id, vacation_leave_allowance_per_term)')
+    .eq('section_id', sectionId);
+
+  type EnrRow = {
+    id: string;
+    student:
+      | { id: string; vacation_leave_allowance_per_term: number | null }
+      | Array<{ id: string; vacation_leave_allowance_per_term: number | null }>
+      | null;
+  };
+  const enrolmentList = (enrolments ?? []) as EnrRow[];
+
+  const out = new Map<string, VacationLeaveUsage>();
+  if (enrolmentList.length === 0) return out;
+
+  const allowanceByStudent = new Map<string, number>();
+  const enrolmentToStudent = new Map<string, string>();
+  const studentIds = new Set<string>();
+  for (const r of enrolmentList) {
+    const s = Array.isArray(r.student) ? r.student[0] : r.student;
+    if (!s) continue;
+    enrolmentToStudent.set(r.id, s.id);
+    studentIds.add(s.id);
+    if (!allowanceByStudent.has(s.id)) {
+      allowanceByStudent.set(s.id, s.vacation_leave_allowance_per_term ?? defaultAllowance);
+    }
+  }
+  if (studentIds.size === 0) return out;
+
+  // VL quota is per-term, but a student who transferred mid-year may have
+  // multiple section_students rows in the AY. We still need ALL of them in
+  // play because the VL row is recorded against whichever section the
+  // student belonged to on the day — quota stays attached to the student.
+  const { data: ayEnrolments } = await service
+    .from('section_students')
+    .select('id, student_id, sections!inner(academic_year_id)')
+    .in('student_id', Array.from(studentIds))
+    .eq('sections.academic_year_id', academicYearId);
+
+  type AyEnrRow = { id: string; student_id: string };
+  const ayEnrList = (ayEnrolments ?? []) as AyEnrRow[];
+
+  const ssIdsByStudent = new Map<string, string[]>();
+  const allAyEnrolmentIds: string[] = [];
+  for (const r of ayEnrList) {
+    allAyEnrolmentIds.push(r.id);
+    const bucket = ssIdsByStudent.get(r.student_id) ?? [];
+    bucket.push(r.id);
+    ssIdsByStudent.set(r.student_id, bucket);
+  }
+
+  if (allAyEnrolmentIds.length === 0) {
+    for (const r of enrolmentList) {
+      const s = Array.isArray(r.student) ? r.student[0] : r.student;
+      if (!s) continue;
+      const allowance = allowanceByStudent.get(s.id) ?? defaultAllowance;
+      out.set(r.id, { allowance, usedThisTerm: 0, remainingThisTerm: allowance, termId });
+    }
+    return out;
+  }
+
+  const { data: daily } = await service
+    .from('attendance_daily')
+    .select('section_student_id, date, period_id, status, ex_reason, recorded_at')
+    .in('section_student_id', allAyEnrolmentIds)
+    .eq('term_id', termId)
+    .order('recorded_at', { ascending: false });
+
+  type DailyRow = {
+    section_student_id: string;
+    date: string;
+    period_id: string | null;
+    status: AttendanceStatus;
+    ex_reason: ExReason | null;
+    recorded_at: string;
+  };
+
+  const seen = new Set<string>();
+  const vacationBySsId = new Map<string, number>();
+  for (const r of (daily ?? []) as DailyRow[]) {
+    const key = `${r.section_student_id}|${r.date}|${r.period_id ?? ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (r.status === 'EX' && r.ex_reason === 'vacation') {
+      vacationBySsId.set(
+        r.section_student_id,
+        (vacationBySsId.get(r.section_student_id) ?? 0) + 1,
+      );
+    }
+  }
+
+  const usedByStudent = new Map<string, number>();
+  for (const [studentId, ssIds] of ssIdsByStudent.entries()) {
+    let used = 0;
+    for (const ssId of ssIds) used += vacationBySsId.get(ssId) ?? 0;
+    usedByStudent.set(studentId, used);
+  }
+
+  for (const [enrolmentId, studentId] of enrolmentToStudent.entries()) {
+    const allowance = allowanceByStudent.get(studentId) ?? defaultAllowance;
+    const used = usedByStudent.get(studentId) ?? 0;
+    out.set(enrolmentId, {
+      allowance,
+      usedThisTerm: used,
+      remainingThisTerm: Math.max(0, allowance - used),
+      termId,
+    });
   }
   return out;
 }

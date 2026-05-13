@@ -12,7 +12,7 @@ import { SchoolConfigUpdateSchema } from '@/lib/schemas/school-config';
 // payload; only fields present in the body are touched. Audit action:
 // `school_config.update`; fires once per request with the full diff.
 export async function PATCH(request: NextRequest) {
-  const auth = await requireRole(['superadmin']);
+  const auth = await requireRole(['school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const body = await request.json().catch(() => null);
@@ -29,7 +29,7 @@ export async function PATCH(request: NextRequest) {
   const { data: before, error: loadErr } = await service
     .from('school_config')
     .select(
-      'principal_name, ceo_name, pei_registration_number, default_publish_window_days',
+      'principal_name, ceo_name, pei_registration_number, default_publish_window_days, default_compassionate_allowance_per_year, default_vl_allowance_per_term',
     )
     .eq('id', 1)
     .maybeSingle();
@@ -51,6 +51,8 @@ export async function PATCH(request: NextRequest) {
     ['ceoName', 'ceo_name'],
     ['peiRegistrationNumber', 'pei_registration_number'],
     ['defaultPublishWindowDays', 'default_publish_window_days'],
+    ['defaultCompassionateAllowancePerYear', 'default_compassionate_allowance_per_year'],
+    ['defaultVlAllowancePerTerm', 'default_vl_allowance_per_term'],
   ];
   for (const [k, col] of keys) {
     if (k in parsed.data && parsed.data[k] !== undefined) {

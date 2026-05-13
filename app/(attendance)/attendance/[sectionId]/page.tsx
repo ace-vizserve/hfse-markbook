@@ -24,7 +24,9 @@ import {
   getCompassionateUsageForSection,
   getDailyForSection,
   getSectionAttendanceSummary,
+  getVacationLeaveUsageForSection,
 } from '@/lib/attendance/queries';
+import { getSchoolConfig } from '@/lib/sis/school-config';
 import {
   AttendanceWideGrid,
   type WideGridEnrolment,
@@ -100,11 +102,12 @@ export default async function SectionAttendancePage({
   // We don't have a user-names table; email is looked up via auth but we
   // skip that here — the section.name + level is enough for the header.
 
-  // Enrolment roster — include new metadata fields from migration 015.
+  // Enrolment roster — include new metadata fields from migration 015 +
+  // vacation_leave_allowance_per_term from migration 048 (KD #94).
   const { data: enrolmentsRaw } = await supabase
     .from('section_students')
     .select(
-      'id, index_number, enrollment_status, bus_no, classroom_officer_role, student:students(id, student_number, last_name, first_name, middle_name, urgent_compassionate_allowance)',
+      'id, index_number, enrollment_status, bus_no, classroom_officer_role, student:students(id, student_number, last_name, first_name, middle_name, urgent_compassionate_allowance, vacation_leave_allowance_per_term)',
     )
     .eq('section_id', sectionId)
     .order('index_number');
@@ -123,6 +126,7 @@ export default async function SectionAttendancePage({
           first_name: string;
           middle_name: string | null;
           urgent_compassionate_allowance: number | null;
+          vacation_leave_allowance_per_term: number | null;
         }
       | Array<{
           id: string;
@@ -131,6 +135,7 @@ export default async function SectionAttendancePage({
           first_name: string;
           middle_name: string | null;
           urgent_compassionate_allowance: number | null;
+          vacation_leave_allowance_per_term: number | null;
         }>
       | null;
   };
@@ -146,12 +151,14 @@ export default async function SectionAttendancePage({
   // stay scoped to the right cohort.
   const sectionLevelType = levelTypeForAudienceLookup(level?.code ?? null);
   const audienceForEvents = sectionLevelType ?? 'all';
-  const [calendar, events, daily, quotaByEnrolmentId, summary] = await Promise.all([
+  const [calendar, events, daily, quotaByEnrolmentId, vlQuotaByEnrolmentId, summary, schoolConfig] = await Promise.all([
     getDedupedSchoolCalendarForTerm(selectedTermId, sectionLevelType),
     getCalendarEventsForTerm(selectedTermId, audienceForEvents),
     getDailyForSection(sectionId, selectedTermId),
     getCompassionateUsageForSection(sectionId, section.academic_year_id),
+    getVacationLeaveUsageForSection(sectionId, section.academic_year_id, selectedTermId),
     getSectionAttendanceSummary(sectionId, selectedTermId),
+    getSchoolConfig(),
   ]);
 
   const enrolments: WideGridEnrolment[] = enrolmentList.map((e) => {
@@ -161,6 +168,7 @@ export default async function SectionAttendancePage({
         ? `${s.last_name}, ${s.first_name}${s.middle_name ? ' ' + s.middle_name : ''}`
         : '—';
     const quota = quotaByEnrolmentId.get(e.id);
+    const vlQuota = vlQuotaByEnrolmentId.get(e.id);
     return {
       enrolmentId: e.id,
       indexNumber: e.index_number,
@@ -172,6 +180,11 @@ export default async function SectionAttendancePage({
       compassionateUsed: quota?.used ?? 0,
       compassionateAllowance:
         quota?.allowance ?? s?.urgent_compassionate_allowance ?? 5,
+      vlUsedThisTerm: vlQuota?.usedThisTerm ?? 0,
+      vlAllowance:
+        vlQuota?.allowance ??
+        s?.vacation_leave_allowance_per_term ??
+        schoolConfig.defaultVlAllowancePerTerm,
     };
   });
 

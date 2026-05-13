@@ -20,6 +20,12 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
   const [windowDays, setWindowDays] = useState(
     String(current.defaultPublishWindowDays),
   );
+  const [compassionateDefault, setCompassionateDefault] = useState(
+    String(current.defaultCompassionateAllowancePerYear),
+  );
+  const [vlDefault, setVlDefault] = useState(
+    String(current.defaultVlAllowancePerTerm),
+  );
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
 
@@ -27,12 +33,24 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
     principal !== current.principalName ||
     ceo !== current.ceoName ||
     pei !== current.peiRegistrationNumber ||
-    String(current.defaultPublishWindowDays) !== windowDays;
+    String(current.defaultPublishWindowDays) !== windowDays ||
+    String(current.defaultCompassionateAllowancePerYear) !== compassionateDefault ||
+    String(current.defaultVlAllowancePerTerm) !== vlDefault;
 
   async function save() {
     const days = Number(windowDays);
     if (!Number.isInteger(days) || days < 1 || days > 365) {
       toast.error('Publish window must be 1–365 days');
+      return;
+    }
+    const compassionate = Number(compassionateDefault);
+    if (!Number.isInteger(compassionate) || compassionate < 0 || compassionate > 30) {
+      toast.error('Compassionate leave must be 0–30 days');
+      return;
+    }
+    const vl = Number(vlDefault);
+    if (!Number.isInteger(vl) || vl < 0 || vl > 10) {
+      toast.error('Vacation leave must be 0–10 days per term');
       return;
     }
     setSaving(true);
@@ -45,6 +63,8 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
           ceoName: ceo.trim(),
           peiRegistrationNumber: pei.trim(),
           defaultPublishWindowDays: days,
+          defaultCompassionateAllowancePerYear: compassionate,
+          defaultVlAllowancePerTerm: vl,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -128,6 +148,56 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
           <p className="text-[11px] text-muted-foreground">
             Default for the publication window (1–365). Registrar can override per publish.
           </p>
+        </div>
+      </div>
+
+      <div className="space-y-3 border-t border-border pt-5">
+        <div className="space-y-1">
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Attendance quotas
+          </p>
+          <p className="text-[13px] text-muted-foreground">
+            School-wide defaults for how many leave days each student gets.
+            Individual students can be adjusted from their attendance profile.
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="compassionateDefault">
+              Urgent / compassionate leave (days per year)
+            </Label>
+            <Input
+              id="compassionateDefault"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={compassionateDefault}
+              onChange={(e) =>
+                setCompassionateDefault(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))
+              }
+              className="text-right font-mono tabular-nums"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              HFSE policy: 5 days per academic year. Used when no per-student override is set.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="vlDefault">Vacation leave (days per term)</Label>
+            <Input
+              id="vlDefault"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={vlDefault}
+              onChange={(e) =>
+                setVlDefault(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))
+              }
+              className="text-right font-mono tabular-nums"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              HFSE policy: 1 per term (4 per year total). Unused days do not carry forward to the next term.
+            </p>
+          </div>
         </div>
       </div>
 

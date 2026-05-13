@@ -28,6 +28,7 @@ import {
   type DrillColumnKey,
   type SectionAttendanceRow,
   type TopAbsentDrillRow,
+  type VacationLeaveUsageRow,
 } from '@/lib/attendance/drill';
 
 export type AttendanceDrillSheetProps = {
@@ -36,11 +37,15 @@ export type AttendanceDrillSheetProps = {
   ayCode: string;
   initialFrom?: string;
   initialTo?: string;
+  // KD #94 — required for 'vacation-leave-quota' target since VL quota
+  // is per-term. Other targets ignore it.
+  termId?: string;
   initialEntries?: AttendanceEntryRow[];
   initialTopAbsent?: TopAbsentDrillRow[];
   initialSectionAttendance?: SectionAttendanceRow[];
   initialCalendar?: CalendarDayRow[];
   initialCompassionate?: CompassionateUsageRow[];
+  initialVacationLeave?: VacationLeaveUsageRow[];
 };
 
 const CANONICAL_LEVEL_ORDER = [
@@ -291,6 +296,77 @@ function buildCompassionateColumns(visible: DrillColumnKey[]): ColumnDef<Compass
   return cols;
 }
 
+function buildVacationLeaveColumns(visible: DrillColumnKey[]): ColumnDef<VacationLeaveUsageRow, unknown>[] {
+  const cols: ColumnDef<VacationLeaveUsageRow, unknown>[] = [];
+  for (const key of visible) {
+    switch (key) {
+      case 'studentName':
+        cols.push({ id: 'studentName', accessorKey: 'studentName', header: DRILL_COLUMN_LABELS.studentName,
+          cell: ({ row }) => (
+            <div className="space-y-0.5">
+              <Link
+                href={`/attendance/students/${encodeURIComponent(row.original.studentNumber)}`}
+                className="font-medium text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
+              >
+                {row.original.studentName}
+              </Link>
+              <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{row.original.studentNumber}</div>
+            </div>
+          ) });
+        break;
+      case 'sectionName':
+        cols.push({ id: 'sectionName', accessorKey: 'sectionName', header: DRILL_COLUMN_LABELS.sectionName,
+          cell: ({ row }) => <span className="text-sm">{row.original.sectionName}</span> });
+        break;
+      case 'level':
+        cols.push({ id: 'level', accessorKey: 'level', header: DRILL_COLUMN_LABELS.level,
+          cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.level ?? '—'}</span> });
+        break;
+      case 'termNumber':
+        cols.push({ id: 'termNumber', accessorKey: 'termNumber', header: DRILL_COLUMN_LABELS.termNumber,
+          cell: ({ row }) => <Badge variant="muted" className={BADGE_BASE}>T{row.original.termNumber}</Badge> });
+        break;
+      case 'allowance':
+        cols.push({ id: 'allowance', accessorKey: 'allowance', header: DRILL_COLUMN_LABELS.allowance,
+          cell: ({ row }) => <span className="font-mono tabular-nums">{row.original.allowance}</span> });
+        break;
+      case 'usedThisTerm':
+        cols.push({ id: 'usedThisTerm', accessorKey: 'usedThisTerm', header: DRILL_COLUMN_LABELS.usedThisTerm,
+          cell: ({ row }) => <span className="font-mono tabular-nums">{row.original.usedThisTerm}</span> });
+        break;
+      case 'remainingThisTerm':
+        cols.push({ id: 'remainingThisTerm', accessorKey: 'remainingThisTerm', header: DRILL_COLUMN_LABELS.remainingThisTerm,
+          cell: ({ row }) => {
+            const v = row.original.remainingThisTerm;
+            const tone = v <= 0 ? 'text-foreground' : 'text-muted-foreground';
+            return <span className={`font-mono tabular-nums ${tone}`}>{v}</span>;
+          } });
+        break;
+      case 'isOverTermQuota':
+        cols.push({ id: 'isOverTermQuota', accessorKey: 'isOverTermQuota', header: DRILL_COLUMN_LABELS.isOverTermQuota,
+          cell: ({ row }) => row.original.isOverTermQuota
+            ? <Badge variant="blocked" className={BADGE_BASE}>Over</Badge>
+            : <Badge variant="muted" className={BADGE_BASE}>OK</Badge> });
+        break;
+    }
+  }
+  cols.push({
+    id: 'action',
+    header: '',
+    cell: ({ row }) => (
+      <Link
+        href={`/attendance/students/${encodeURIComponent(row.original.studentNumber)}`}
+        className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+      >
+        View
+        <ArrowUpRight className="size-3" />
+      </Link>
+    ),
+    enableSorting: false,
+  });
+  return cols;
+}
+
 function buildCalendarColumns(visible: DrillColumnKey[]): ColumnDef<CalendarDayRow, unknown>[] {
   const cols: ColumnDef<CalendarDayRow, unknown>[] = [];
   for (const key of visible) {
@@ -319,11 +395,13 @@ export function AttendanceDrillSheet(props: AttendanceDrillSheetProps) {
     ayCode,
     initialFrom,
     initialTo,
+    termId,
     initialEntries,
     initialTopAbsent,
     initialSectionAttendance,
     initialCalendar,
     initialCompassionate,
+    initialVacationLeave,
   } = props;
 
   const kind = rowKindForTarget(target);
@@ -333,8 +411,9 @@ export function AttendanceDrillSheet(props: AttendanceDrillSheetProps) {
     if (kind === 'top-absent') return initialTopAbsent ?? [];
     if (kind === 'section-rollup') return initialSectionAttendance ?? [];
     if (kind === 'compassionate') return initialCompassionate ?? [];
+    if (kind === 'vacation-leave') return initialVacationLeave ?? [];
     return initialCalendar ?? [];
-  }, [kind, initialEntries, initialTopAbsent, initialSectionAttendance, initialCompassionate, initialCalendar]);
+  }, [kind, initialEntries, initialTopAbsent, initialSectionAttendance, initialCompassionate, initialVacationLeave, initialCalendar]);
 
   const [rows, setRows] = React.useState<AttendanceDrillRow[]>(seedRows);
   const [loading, setLoading] = React.useState(seedRows.length === 0);
@@ -359,6 +438,7 @@ export function AttendanceDrillSheet(props: AttendanceDrillSheetProps) {
     if (initialFrom) params.set('from', initialFrom);
     if (initialTo) params.set('to', initialTo);
     if (segment) params.set('segment', segment);
+    if (termId) params.set('termId', termId);
     fetch(`/api/attendance/drill/${target}?${params.toString()}`)
       .then((r) => {
         if (!r.ok) throw new Error('drill_fetch_failed');
@@ -380,7 +460,7 @@ export function AttendanceDrillSheet(props: AttendanceDrillSheetProps) {
         }
       });
     return () => { cancelled = true; };
-  }, [target, segment, ayCode, initialFrom, initialTo]);
+  }, [target, segment, ayCode, initialFrom, initialTo, termId]);
 
   const statusOptions = React.useMemo(() => {
     if (kind !== 'entry') return undefined;
@@ -419,6 +499,7 @@ export function AttendanceDrillSheet(props: AttendanceDrillSheetProps) {
     if (kind === 'top-absent') return buildTopAbsentColumns(visibleColumnKeys) as ColumnDef<AttendanceDrillRow, unknown>[];
     if (kind === 'section-rollup') return buildSectionColumns(visibleColumnKeys) as ColumnDef<AttendanceDrillRow, unknown>[];
     if (kind === 'compassionate') return buildCompassionateColumns(visibleColumnKeys) as ColumnDef<AttendanceDrillRow, unknown>[];
+    if (kind === 'vacation-leave') return buildVacationLeaveColumns(visibleColumnKeys) as ColumnDef<AttendanceDrillRow, unknown>[];
     return buildCalendarColumns(visibleColumnKeys) as ColumnDef<AttendanceDrillRow, unknown>[];
   }, [kind, visibleColumnKeys]);
 
@@ -439,7 +520,7 @@ export function AttendanceDrillSheet(props: AttendanceDrillSheetProps) {
         if (groupBy === 'status') return r.status;
         if (groupBy === 'stage') return r.sectionName;
       }
-      if (kind === 'top-absent' || kind === 'section-rollup' || kind === 'compassionate') {
+      if (kind === 'top-absent' || kind === 'section-rollup' || kind === 'compassionate' || kind === 'vacation-leave') {
         const lvl = (row as { level?: string | null }).level ?? null;
         if (groupBy === 'level') return lvl ?? 'Unknown';
       }

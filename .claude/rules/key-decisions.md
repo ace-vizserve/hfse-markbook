@@ -8,7 +8,7 @@ load: on-demand
 
 ## How this rule is organised
 
-KDs are numbered globally (1–87 with gaps at 19/26/30/86). Each KD lives in exactly one topic file under `.claude/rules/key-decisions/`. To find KD #N, look it up in the table or quick-lookup row below and read the matching topic file. To add a new KD: append it with the next unused number (don't renumber, don't restructure), place it in the topic file that best matches its scope, and add a row to the quick-lookup below.
+KDs are numbered globally (1–94 with gaps at 19/26/30/86). Each KD lives in exactly one topic file under `.claude/rules/key-decisions/`. To find KD #N, look it up in the table or quick-lookup row below and read the matching topic file. To add a new KD: append it with the next unused number (don't renumber, don't restructure), place it in the topic file that best matches its scope, and add a row to the quick-lookup below.
 
 ## Topic files
 
@@ -19,7 +19,7 @@ KDs are numbered globally (1–87 with gaps at 19/26/30/86). Each KD lives in ex
 | `key-decisions/dashboards.md` | 45, 46, 54, 56, 57, 74, 78, 79, 80, 81, 82 | Dashboard / drill-down / compare-mode framework, layout archetypes, role differentiation, picker presets |
 | `key-decisions/markbook.md` | 3, 4, 5, 6, 25, 27, 28, 75, 88 | Grading formula, weights, change-requests, report cards, publishing checklist, change-request hardening |
 | `key-decisions/evaluation.md` | 49, 92, 93 | Form-class-adviser writeups, per-topic 1–5 ratings, teacher-owned topics |
-| `key-decisions/attendance.md` | 47, 50, 55, 76 | Daily attendance writer, school calendar, audience scope |
+| `key-decisions/attendance.md` | 47, 50, 55, 76, 94 | Daily attendance writer, school calendar, audience scope, vacation-leave subtype + per-term quotas |
 | `key-decisions/admissions.md` | 17, 18, 51, 59, 61, 62, 69, 70, 77, 89 | Funnel, STP application, chase scope, applicationStatus columns, early-bird AY, doc validation triage |
 | `key-decisions/pfiles.md` | 31, 34, 36, 60, 63, 64, 71, 91 | Documents repository, upload, revisions, expiry/status, renewal lifecycle, scope guard + relaxation |
 | `key-decisions/records.md` | 37, 40, 48, 66, 67, 68, 72, 83, 85, 90 | Records + SIS Admin: AY rollover, master template, section transfers, late-enrollee, movements, re-alphabetize, unsynced students |
@@ -36,4 +36,4 @@ KD # → topic file (gaps at 19, 26, 30, 86):
 - 44 ui · 45 dashboards · 46 dashboards · 47 attendance · 48 records · 49 evaluation · 50 attendance · 51 admissions · 52 platform · 53 platform
 - 54 dashboards · 55 attendance · 56 dashboards · 57 dashboards · 58 platform · 59 admissions · 60 pfiles · 61 admissions · 62 admissions · 63 pfiles
 - 64 pfiles · 65 parent · 66 records · 67 records · 68 records · 69 admissions · 70 admissions · 71 pfiles · 72 records · 73 parent
-- 74 dashboards · 75 markbook · 76 attendance · 77 admissions · 78 dashboards · 79 dashboards · 80 dashboards · 81 dashboards · 82 dashboards · 83 records · 84 ui · 85 records · 87 platform · 88 markbook · 89 admissions · 90 records · 91 pfiles · 92 evaluation · 93 evaluation
+- 74 dashboards · 75 markbook · 76 attendance · 77 admissions · 78 dashboards · 79 dashboards · 80 dashboards · 81 dashboards · 82 dashboards · 83 records · 84 ui · 85 records · 87 platform · 88 markbook · 89 admissions · 90 records · 91 pfiles · 92 evaluation · 93 evaluation · 94 attendance

@@ -553,3 +553,17 @@ export const AllowanceSchema = z.object({
 });
 
 export type AllowanceInput = z.infer<typeof AllowanceSchema>;
+
+// ──────────────────────────────────────────────────────────────────────────
+// Vacation-leave allowance override (KD #94)
+// ──────────────────────────────────────────────────────────────────────────
+//
+// Edits students.vacation_leave_allowance_per_term. NULL clears the override
+// — the student falls back to school_config.default_vl_allowance_per_term
+// (HFSE policy: 1 per term). Upper bound 10 is sanity.
+
+export const VlAllowanceSchema = z.object({
+  vlAllowance: z.number().int().min(0).max(10).nullable(),
+});
+
+export type VlAllowanceInput = z.infer<typeof VlAllowanceSchema>;

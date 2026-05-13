@@ -11,6 +11,7 @@ import {
   TopAbsentDrillCard,
 } from "@/components/attendance/drills/chart-drill-cards";
 import { CompassionateQuotaCard } from "@/components/attendance/drills/compassionate-quota-card";
+import { VacationLeaveQuotaCard } from "@/components/attendance/drills/vacation-leave-quota-card";
 import { ComparisonToolbar } from "@/components/dashboard/comparison-toolbar";
 import { DashboardHero } from "@/components/dashboard/dashboard-hero";
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
@@ -30,6 +31,7 @@ import { buildAllRowSets } from "@/lib/attendance/drill";
 import { attendanceInsights } from "@/lib/dashboard/insights";
 import { formatRangeLabel, resolveRange, TERM_SCOPED_PRESETS, type DashboardSearchParams } from "@/lib/dashboard/range";
 import { getDashboardWindows } from "@/lib/dashboard/windows";
+import { getSchoolConfig } from "@/lib/sis/school-config";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 
 export default async function AttendanceDashboard({ searchParams }: { searchParams: Promise<DashboardSearchParams> }) {
@@ -60,13 +62,46 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
   const rangeInput = resolveRange(resolvedSearch, windows, selectedAy);
   const ayCodes = [ay.ay_code];
 
+  // Resolve current term for the VL quota card (KD #94 — VL is per-term).
+  // Prefer the current-flagged term in the selected AY; fall back to T1.
+  const { data: ayRow } = await supabase
+    .from("academic_years")
+    .select("id")
+    .eq("ay_code", selectedAy)
+    .maybeSingle();
+  let currentTermId: string | null = null;
+  let currentTermLabel: string | null = null;
+  if (ayRow) {
+    const ayId = (ayRow as { id: string }).id;
+    const { data: termRow } = await supabase
+      .from("terms")
+      .select("id, label, term_number, is_current")
+      .eq("academic_year_id", ayId)
+      .order("term_number", { ascending: true });
+    type TermRow = { id: string; label: string; term_number: number; is_current: boolean };
+    const terms = (termRow ?? []) as TermRow[];
+    const active = terms.find((t) => t.is_current) ?? terms[0] ?? null;
+    if (active) {
+      currentTermId = active.id;
+      currentTermLabel = active.label;
+    }
+  }
+
+  const schoolConfig = await getSchoolConfig();
+
   const [kpisResult, dailySeries, exMix, topAbsent, dayTypes, drillRowSets] = await Promise.all([
     getAttendanceKpisRange(rangeInput),
     getDailyAttendanceRange(rangeInput),
     getExReasonMixRange(rangeInput),
     getTopAbsentRange(rangeInput, 10),
     getDayTypeDistributionRange(rangeInput),
-    buildAllRowSets({ ayCode: selectedAy, from: rangeInput.from, to: rangeInput.to }),
+    buildAllRowSets({
+      ayCode: selectedAy,
+      from: rangeInput.from,
+      to: rangeInput.to,
+      vacationTermId: currentTermId,
+      defaultVlAllowance: schoolConfig.defaultVlAllowancePerTerm,
+    }),
   ]);
 
   // Priority depends on the freshly-loaded compassionate roll-up; compute
@@ -261,6 +296,17 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
           ayCode={selectedAy}
         />
       </section>
+
+      {/* Vacation leave (per-term, KD #94). Surfaces only when a term is
+          resolvable — otherwise the loader returns []. */}
+      {currentTermId && currentTermLabel && (
+        <VacationLeaveQuotaCard
+          data={drillRowSets.vacationLeave}
+          ayCode={selectedAy}
+          termId={currentTermId}
+          termLabel={currentTermLabel}
+        />
+      )}
 
       {/* Top-absent students */}
       <TopAbsentDrillCard

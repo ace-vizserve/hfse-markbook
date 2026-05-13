@@ -59,6 +59,7 @@ export type AuditAction =
   | 'sis.documents.auto-expire'
   | 'sis.documents.auto-revive'
   | 'sis.allowance.update'
+  | 'sis.vl_allowance.update'
   | 'ay.create'
   | 'ay.switch_current'
   | 'ay.accepting_applications.toggle'

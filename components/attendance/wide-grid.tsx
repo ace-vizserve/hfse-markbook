@@ -124,17 +124,32 @@ export type WideGridEnrolment = {
   withdrawn: boolean;
   compassionateUsed: number;
   compassionateAllowance: number;
+  // KD #94 — vacation-leave quota (per-term scope). When marking an EX as
+  // vacation, the grid checks `vlUsedThisTerm + 1 > vlAllowance` to fire a
+  // soft warning (toast only — write still proceeds).
+  vlUsedThisTerm: number;
+  vlAllowance: number;
 };
 
 // Dropdown option value shape: "P" | "L" | "EX:mc" | "EX:compassionate" |
-// "EX:school_activity" | "A" | "NC" | "" (unmarked)
-type OptionValue = "" | "P" | "L" | "EX:mc" | "EX:compassionate" | "EX:school_activity" | "A" | "NC";
+// "EX:school_activity" | "EX:vacation" | "A" | "NC" | "" (unmarked)
+type OptionValue =
+  | ""
+  | "P"
+  | "L"
+  | "EX:mc"
+  | "EX:vacation"
+  | "EX:compassionate"
+  | "EX:school_activity"
+  | "A"
+  | "NC";
 
 const TEACHER_OPTIONS: Array<{ value: OptionValue; label: string }> = [
   { value: "", label: "—" },
   { value: "P", label: "P · Present" },
   { value: "L", label: "L · Late" },
   { value: "EX:mc", label: "EX · MC" },
+  { value: "EX:vacation", label: "EX · Vacation leave" },
   { value: "EX:compassionate", label: "EX · Compassionate" },
   { value: "EX:school_activity", label: "EX · School activity" },
   { value: "A", label: "A · Absent" },
@@ -220,6 +235,33 @@ export function AttendanceWideGrid({
     void sectionId; // reserved: future bulk endpoint may use it
     const k = keyFor(enrolmentId, date);
     const prev = cells.get(k) ?? { status: null, exReason: null, saving: false, savedAt: null };
+
+    // KD #94 — soft warning when a vacation-leave entry would push the
+    // student over their per-term quota (HFSE policy: 1 per term). The
+    // write proceeds either way — registrar can grant an exception, this
+    // is just a heads-up. Count cells in the current grid (all in this
+    // term) excluding the cell we're about to flip.
+    if (status === "EX" && exReason === "vacation") {
+      const wasAlreadyVacation =
+        prev.status === "EX" && prev.exReason === "vacation";
+      if (!wasAlreadyVacation) {
+        const enr = enrolments.find((e) => e.enrolmentId === enrolmentId);
+        if (enr) {
+          let vlInTerm = 0;
+          for (const [key, c] of cells.entries()) {
+            if (!key.startsWith(`${enrolmentId}|`)) continue;
+            if (c.status === "EX" && c.exReason === "vacation") vlInTerm += 1;
+          }
+          const nextCount = vlInTerm + 1;
+          if (nextCount > enr.vlAllowance) {
+            toast.warning(
+              `${enr.studentName} has used ${vlInTerm} of ${enr.vlAllowance} vacation leaves this term. Saving anyway — check with the registrar if this needs an exception.`,
+            );
+          }
+        }
+      }
+    }
+
     updateCell(k, { status, exReason, saving: true });
     try {
       const res = await fetch("/api/attendance/daily", {
@@ -591,6 +633,7 @@ export function AttendanceWideGrid({
           <StatusLegendChip status="P" letter="P" description="Present" />
           <StatusLegendChip status="L" letter="L" description="Late" />
           <StatusLegendChip status="EX" letter="EM" description="Excused · MC" />
+          <StatusLegendChip status="EX" letter="EV" description="Excused · Vacation leave" />
           <StatusLegendChip status="EX" letter="EC" description="Excused · Compassionate" />
           <StatusLegendChip status="EX" letter="ES" description="Excused · School activity" />
           <StatusLegendChip status="A" letter="A" description="Absent" />

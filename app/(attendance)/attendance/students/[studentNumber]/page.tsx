@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft, ArrowUpRight, Heart, UserSquare2 } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Heart, Umbrella, UserSquare2 } from 'lucide-react';
 
 import { CompassionateAllowanceInline } from '@/components/sis/compassionate-allowance-inline';
 import { StudentAttendanceTab } from '@/components/sis/student-attendance-tab';
+import { VacationAllowanceInline } from '@/components/sis/vacation-allowance-inline';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,7 +16,8 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
-import { getCompassionateUsage } from '@/lib/attendance/queries';
+import { getCompassionateUsage, getVacationLeaveUsage } from '@/lib/attendance/queries';
+import { getSchoolConfig } from '@/lib/sis/school-config';
 import { getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
@@ -55,7 +57,7 @@ export default async function AttendanceStudentDetailPage({
 
   const { data: student } = await service
     .from('students')
-    .select('id, student_number, last_name, first_name, middle_name, urgent_compassionate_allowance')
+    .select('id, student_number, last_name, first_name, middle_name, urgent_compassionate_allowance, vacation_leave_allowance_per_term')
     .eq('student_number', studentNumber)
     .maybeSingle();
   if (!student) notFound();
@@ -66,12 +68,17 @@ export default async function AttendanceStudentDetailPage({
     first_name: string | null;
     middle_name: string | null;
     urgent_compassionate_allowance: number | null;
+    vacation_leave_allowance_per_term: number | null;
   };
+
+  const schoolConfig = await getSchoolConfig();
 
   const fullName =
     [studentRow.last_name, studentRow.first_name, studentRow.middle_name].filter(Boolean).join(', ').trim() ||
     studentRow.student_number;
   const allowance = studentRow.urgent_compassionate_allowance ?? 5;
+  const vlEffectiveAllowance =
+    studentRow.vacation_leave_allowance_per_term ?? schoolConfig.defaultVlAllowancePerTerm;
 
   // Resolve current AY id (for quota usage) + the matching admissions
   // enroleeNumber (for the allowance PATCH route, which keys by
@@ -104,6 +111,46 @@ export default async function AttendanceStudentDetailPage({
     ? await getCompassionateUsage(studentRow.id, ayId)
     : { allowance, used: 0, remaining: allowance };
 
+  // Resolve current term in this AY for the per-term VL quota lookup
+  // (KD #94 — VL is per-term, no carry-forward).
+  let currentTermId: string | null = null;
+  let currentTermLabel: string | null = null;
+  if (ayId) {
+    const { data: termRow } = await service
+      .from('terms')
+      .select('id, label')
+      .eq('academic_year_id', ayId)
+      .eq('is_current', true)
+      .maybeSingle();
+    if (termRow) {
+      currentTermId = (termRow as { id: string }).id;
+      currentTermLabel = (termRow as { label: string }).label;
+    } else {
+      // Fall back to T1 if no term is flagged current (early-AY state).
+      const { data: t1 } = await service
+        .from('terms')
+        .select('id, label, term_number')
+        .eq('academic_year_id', ayId)
+        .order('term_number', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (t1) {
+        currentTermId = (t1 as { id: string }).id;
+        currentTermLabel = (t1 as { label: string }).label;
+      }
+    }
+  }
+
+  const vlUsage =
+    ayId && currentTermId
+      ? await getVacationLeaveUsage(studentRow.id, ayId, currentTermId)
+      : {
+          allowance: vlEffectiveAllowance,
+          usedThisTerm: 0,
+          remainingThisTerm: vlEffectiveAllowance,
+          termId: '',
+        };
+
   // Resolve the student's active section in the current AY so the hero
   // copy can link to the actual daily writer at /attendance/{sectionId}
   // instead of a placeholder. Withdrawn rows excluded; if the student is
@@ -134,6 +181,20 @@ export default async function AttendanceStudentDetailPage({
     usage.used > usage.allowance ? 'over' : usage.remaining <= 1 ? 'warn' : 'mint';
   const tilePalette = {
     mint: { tile: 'from-brand-mint to-brand-sky', bar: 'from-brand-mint to-brand-sky' },
+    warn: { tile: 'from-brand-amber to-brand-amber/80', bar: 'from-brand-amber to-brand-amber/80' },
+    over: { tile: 'from-destructive to-destructive/80', bar: 'from-destructive to-destructive/80' },
+  } as const;
+
+  // VL parallel: pct, tone, palette.
+  const vlPct = vlUsage.allowance > 0 ? Math.round((vlUsage.usedThisTerm / vlUsage.allowance) * 100) : 0;
+  const vlTone: 'mint' | 'warn' | 'over' =
+    vlUsage.usedThisTerm > vlUsage.allowance
+      ? 'over'
+      : vlUsage.remainingThisTerm <= 0
+        ? 'warn'
+        : 'mint';
+  const vlTilePalette = {
+    mint: { tile: 'from-brand-sky to-brand-indigo', bar: 'from-brand-sky to-brand-indigo' },
     warn: { tile: 'from-brand-amber to-brand-amber/80', bar: 'from-brand-amber to-brand-amber/80' },
     over: { tile: 'from-destructive to-destructive/80', bar: 'from-destructive to-destructive/80' },
   } as const;
@@ -195,60 +256,58 @@ export default async function AttendanceStudentDetailPage({
         </div>
       </header>
 
-      {/* Compassionate-leave quota — rich card with status-keyed visual */}
-      <Card className="@container/card gap-0 overflow-hidden p-0">
-        <CardHeader className="border-b border-border px-6 py-5">
-          <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-            Compassionate leave · {ayCode ?? 'No AY'}
-          </CardDescription>
-          <CardTitle className="flex flex-wrap items-baseline gap-3 font-serif text-[20px] font-semibold tracking-tight text-foreground">
-            Quota usage
-            {tone === 'over' && <Badge variant="blocked">Over quota</Badge>}
-            {tone === 'warn' && <Badge variant="warning">Approaching limit</Badge>}
-            {tone === 'mint' && <Badge variant="success">On track</Badge>}
-          </CardTitle>
-          <CardAction>
-            <div
-              className={cn(
-                'flex size-10 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-brand-tile',
-                tilePalette[tone].tile,
-              )}
-            >
-              <Heart className="size-5" />
-            </div>
-          </CardAction>
-        </CardHeader>
-        <div className="grid gap-5 px-6 py-5 md:grid-cols-[1fr_auto] md:items-end">
-          {/* Stat row + progress bar */}
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-baseline gap-3">
-              <span className="font-serif text-[44px] font-semibold leading-none tabular-nums text-foreground">
-                {usage.used}
-              </span>
-              <span className="font-mono text-[12px] uppercase tracking-wider text-muted-foreground">
-                of {usage.allowance} used · {quotaPct}%
-              </span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
+      {/* Leave quota cards — compassionate (AY-wide) + vacation (per-term).
+          Side-by-side at md+, stacked on mobile. Each card carries its own
+          progress bar + inline allowance editor. */}
+      <div className="grid gap-5 md:grid-cols-2">
+        {/* Compassionate-leave quota — rich card with status-keyed visual */}
+        <Card className="@container/card gap-0 overflow-hidden p-0">
+          <CardHeader className="border-b border-border px-6 py-5">
+            <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
+              Compassionate leave · {ayCode ?? 'No AY'}
+            </CardDescription>
+            <CardTitle className="flex flex-wrap items-baseline gap-3 font-serif text-[20px] font-semibold tracking-tight text-foreground">
+              Quota usage
+              {tone === 'over' && <Badge variant="blocked">Over quota</Badge>}
+              {tone === 'warn' && <Badge variant="warning">Approaching limit</Badge>}
+              {tone === 'mint' && <Badge variant="success">On track</Badge>}
+            </CardTitle>
+            <CardAction>
               <div
                 className={cn(
-                  'h-full bg-gradient-to-r transition-all',
-                  tilePalette[tone].bar,
+                  'flex size-10 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-brand-tile',
+                  tilePalette[tone].tile,
                 )}
-                style={{ width: `${Math.min(quotaPct, 100)}%` }}
-              />
+              >
+                <Heart className="size-5" />
+              </div>
+            </CardAction>
+          </CardHeader>
+          <div className="space-y-4 px-6 py-5">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-baseline gap-3">
+                <span className="font-serif text-[44px] font-semibold leading-none tabular-nums text-foreground">
+                  {usage.used}
+                </span>
+                <span className="font-mono text-[12px] uppercase tracking-wider text-muted-foreground">
+                  of {usage.allowance} used · {quotaPct}%
+                </span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className={cn(
+                    'h-full bg-gradient-to-r transition-all',
+                    tilePalette[tone].bar,
+                  )}
+                  style={{ width: `${Math.min(quotaPct, 100)}%` }}
+                />
+              </div>
+              <p className="font-mono text-[10px] uppercase tracking-wider tabular-nums text-muted-foreground">
+                {usage.remaining < 0
+                  ? `${Math.abs(usage.remaining)} day${Math.abs(usage.remaining) === 1 ? '' : 's'} over`
+                  : `${usage.remaining} day${usage.remaining === 1 ? '' : 's'} remaining this AY`}
+              </p>
             </div>
-            <p className="font-mono text-[10px] uppercase tracking-wider tabular-nums text-muted-foreground">
-              {usage.remaining < 0
-                ? `${Math.abs(usage.remaining)} day${Math.abs(usage.remaining) === 1 ? '' : 's'} over`
-                : `${usage.remaining} day${usage.remaining === 1 ? '' : 's'} remaining this AY`}
-            </p>
-          </div>
-          {/* Inline editor — canonical edit surface for this student's allowance */}
-          <div className="rounded-xl border border-hairline bg-muted/30 p-3 md:min-w-[260px]">
-            <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Adjust allowance
-            </p>
             <CompassionateAllowanceInline
               enroleeNumber={enroleeNumber ?? ''}
               initial={allowance}
@@ -260,16 +319,80 @@ export default async function AttendanceStudentDetailPage({
               }
             />
           </div>
-        </div>
-        <CardContent className="border-t border-hairline bg-muted/20 px-6 py-3">
-          <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            Quota counts daily entries with{' '}
-            <code className="font-mono text-foreground">status=&apos;EX&apos;</code> ·{' '}
-            <code className="font-mono text-foreground">ex_reason=&apos;compassionate&apos;</code>. MC and
-            school-activity excuses do not consume the quota.
-          </p>
-        </CardContent>
-      </Card>
+          <CardContent className="border-t border-hairline bg-muted/20 px-6 py-3">
+            <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              Counts EX entries marked as Compassionate, scoped to the whole academic year.
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Vacation-leave quota — per-term (KD #94) */}
+        <Card className="@container/card gap-0 overflow-hidden p-0">
+          <CardHeader className="border-b border-border px-6 py-5">
+            <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
+              Vacation leave · {currentTermLabel ?? 'No active term'}
+            </CardDescription>
+            <CardTitle className="flex flex-wrap items-baseline gap-3 font-serif text-[20px] font-semibold tracking-tight text-foreground">
+              Quota usage
+              {vlTone === 'over' && <Badge variant="blocked">Over quota</Badge>}
+              {vlTone === 'warn' && <Badge variant="warning">At limit</Badge>}
+              {vlTone === 'mint' && <Badge variant="success">On track</Badge>}
+            </CardTitle>
+            <CardAction>
+              <div
+                className={cn(
+                  'flex size-10 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-brand-tile',
+                  vlTilePalette[vlTone].tile,
+                )}
+              >
+                <Umbrella className="size-5" />
+              </div>
+            </CardAction>
+          </CardHeader>
+          <div className="space-y-4 px-6 py-5">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-baseline gap-3">
+                <span className="font-serif text-[44px] font-semibold leading-none tabular-nums text-foreground">
+                  {vlUsage.usedThisTerm}
+                </span>
+                <span className="font-mono text-[12px] uppercase tracking-wider text-muted-foreground">
+                  of {vlUsage.allowance} used · {vlPct}%
+                </span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className={cn(
+                    'h-full bg-gradient-to-r transition-all',
+                    vlTilePalette[vlTone].bar,
+                  )}
+                  style={{ width: `${Math.min(vlPct, 100)}%` }}
+                />
+              </div>
+              <p className="font-mono text-[10px] uppercase tracking-wider tabular-nums text-muted-foreground">
+                {vlUsage.usedThisTerm > vlUsage.allowance
+                  ? `${vlUsage.usedThisTerm - vlUsage.allowance} day${vlUsage.usedThisTerm - vlUsage.allowance === 1 ? '' : 's'} over`
+                  : `${vlUsage.remainingThisTerm} day${vlUsage.remainingThisTerm === 1 ? '' : 's'} remaining this term`}
+              </p>
+            </div>
+            <VacationAllowanceInline
+              enroleeNumber={enroleeNumber ?? ''}
+              initial={studentRow.vacation_leave_allowance_per_term}
+              schoolDefault={schoolConfig.defaultVlAllowancePerTerm}
+              disabled={!enroleeNumber}
+              disabledReason={
+                !enroleeNumber
+                  ? `No admissions record for ${studentRow.student_number} in ${ayCode ?? 'the current AY'}.`
+                  : undefined
+              }
+            />
+          </div>
+          <CardContent className="border-t border-hairline bg-muted/20 px-6 py-3">
+            <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              Counts EX entries marked as Vacation leave, scoped to {currentTermLabel ?? 'this term'}. Unused days do not carry forward.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Daily ledger + monthly breakdown — reuses the existing student
           attendance tab component. Internally fetches via studentNumber

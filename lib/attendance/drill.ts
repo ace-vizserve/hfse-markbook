@@ -27,9 +27,16 @@ export type AttendanceDrillTarget =
   | 'top-absent'             // student × absences in range
   | 'top-active'             // student × attendance % (highest attenders)
   | 'attendance-by-section'  // section × attendance %
-  | 'compassionate-quota';   // student × quota usage
+  | 'compassionate-quota'    // student × quota usage (AY-wide)
+  | 'vacation-leave-quota';  // student × vacation-leave quota (per term, KD #94)
 
-export type AttendanceDrillRowKind = 'entry' | 'top-absent' | 'section-rollup' | 'compassionate' | 'calendar-day';
+export type AttendanceDrillRowKind =
+  | 'entry'
+  | 'top-absent'
+  | 'section-rollup'
+  | 'compassionate'
+  | 'vacation-leave'
+  | 'calendar-day';
 
 export function rowKindForTarget(t: AttendanceDrillTarget): AttendanceDrillRowKind {
   switch (t) {
@@ -49,6 +56,8 @@ export function rowKindForTarget(t: AttendanceDrillTarget): AttendanceDrillRowKi
       return 'section-rollup';
     case 'compassionate-quota':
       return 'compassionate';
+    case 'vacation-leave-quota':
+      return 'vacation-leave';
     default: {
       const _exhaustive: never = t;
       throw new Error(`unreachable target: ${String(_exhaustive)}`);
@@ -61,6 +70,7 @@ export function rowKindForTarget(t: AttendanceDrillTarget): AttendanceDrillRowKi
 export type AttendanceEntryRow = {
   entryId: string;
   attendanceDate: string;
+  termId: string;
   sectionId: string;
   sectionName: string;
   studentSectionId: string;
@@ -68,7 +78,7 @@ export type AttendanceEntryRow = {
   studentNumber: string;
   level: string | null;
   status: 'P' | 'L' | 'EX' | 'A' | 'NC';
-  exReason: string | null; // 'mc' | 'compassionate' | 'school_activity' | null
+  exReason: string | null; // 'mc' | 'compassionate' | 'school_activity' | 'vacation' | null
   notes: string | null;
 };
 
@@ -111,6 +121,23 @@ export type CompassionateUsageRow = {
   isOverQuota: boolean;
 };
 
+// KD #94 — vacation-leave drill row. Quota is per-term (HFSE policy: 1 per
+// term), so this row carries the term context and a separate over-quota flag.
+export type VacationLeaveUsageRow = {
+  studentSectionId: string;
+  studentName: string;
+  studentNumber: string;
+  sectionId: string;
+  sectionName: string;
+  level: string | null;
+  termId: string;
+  termNumber: number;
+  allowance: number;
+  usedThisTerm: number;
+  remainingThisTerm: number;
+  isOverTermQuota: boolean;
+};
+
 export type CalendarDayRow = {
   date: string;
   termId: string;
@@ -124,6 +151,7 @@ export type AttendanceDrillRow =
   | TopAbsentDrillRow
   | SectionAttendanceRow
   | CompassionateUsageRow
+  | VacationLeaveUsageRow
   | CalendarDayRow;
 
 // ─── Range input ────────────────────────────────────────────────────────────
@@ -150,6 +178,7 @@ type StudentLite = {
   last_name: string | null;
   student_number: string;
   urgent_compassionate_allowance: number | null;
+  vacation_leave_allowance_per_term: number | null;
 };
 type LevelLite = { id: string; code: string };
 type TermLite = { id: string; term_number: number; academic_year_id: string };
@@ -213,7 +242,7 @@ async function resolveAyContext(ayCode: string) {
       for (const chunk of chunks) {
         const { data: studs } = await service
           .from('students')
-          .select('id, first_name, middle_name, last_name, student_number, urgent_compassionate_allowance')
+          .select('id, first_name, middle_name, last_name, student_number, urgent_compassionate_allowance, vacation_leave_allowance_per_term')
           .in('id', chunk);
         for (const s of (studs ?? []) as StudentLite[]) studentMap.set(s.id, s);
       }
@@ -270,6 +299,7 @@ async function loadEntryRowsUncached(ayCode: string): Promise<AttendanceEntryRow
   type EntryLite = {
     id: string;
     date: string;
+    term_id: string;
     section_student_id: string;
     status: string;
     ex_reason: string | null;
@@ -279,7 +309,7 @@ async function loadEntryRowsUncached(ayCode: string): Promise<AttendanceEntryRow
     const rows = await fetchAllPages<EntryLite>((from, to) =>
       service
         .from('attendance_daily')
-        .select('id, date, section_student_id, status, ex_reason')
+        .select('id, date, term_id, section_student_id, status, ex_reason')
         .in('section_student_id', chunk)
         .range(from, to),
     );
@@ -297,6 +327,7 @@ async function loadEntryRowsUncached(ayCode: string): Promise<AttendanceEntryRow
     out.push({
       entryId: e.id,
       attendanceDate: e.date,
+      termId: e.term_id,
       sectionId: section.id,
       sectionName: section.name,
       studentSectionId: ss.id,
@@ -538,11 +569,81 @@ async function rollupCompassionate(
   return rows;
 }
 
+// Vacation-leave rollup (KD #94) — scoped to a single term. HFSE policy:
+// 1 VL per term, no carry-forward. When termId is not provided we return
+// an empty array — VL is term-scoped by design, the caller must resolve
+// the current term first.
+//
+// Takes `defaultAllowance` as a parameter (vs reading school_config inline)
+// so this module stays client-bundle-safe — client components import value
+// symbols like the column-label maps, and pulling a 'server-only' module
+// into the import graph would block the client build.
+async function rollupVacationLeave(
+  ayCode: string,
+  termId: string | null,
+  defaultAllowance: number,
+  preloadedEntries?: AttendanceEntryRow[],
+): Promise<VacationLeaveUsageRow[]> {
+  if (!termId) return [];
+  const ctx = await resolveAyContext(ayCode);
+  if (!ctx.ayId || ctx.sectionStudents.length === 0) return [];
+  const term = ctx.terms.find((t) => t.id === termId);
+  if (!term) return [];
+
+  const entries = preloadedEntries ?? (await loadEntryRows(ayCode));
+
+  const usage = new Map<string, number>();
+  for (const e of entries) {
+    if (e.termId !== termId) continue;
+    if (e.status === 'EX' && e.exReason === 'vacation') {
+      usage.set(e.studentSectionId, (usage.get(e.studentSectionId) ?? 0) + 1);
+    }
+  }
+
+  const sectionById = new Map<string, SectionLite>();
+  for (const s of ctx.sections) sectionById.set(s.id, s);
+  const rows: VacationLeaveUsageRow[] = [];
+  for (const ss of ctx.sectionStudents) {
+    if (ss.enrollment_status === 'withdrawn') continue;
+    const student = ctx.students.get(ss.student_id);
+    if (!student) continue;
+    const section = sectionById.get(ss.section_id);
+    if (!section) continue;
+    const used = usage.get(ss.id) ?? 0;
+    const allowance = student.vacation_leave_allowance_per_term ?? defaultAllowance;
+    rows.push({
+      studentSectionId: ss.id,
+      studentName: studentName(student),
+      studentNumber: student.student_number,
+      sectionId: section.id,
+      sectionName: section.name,
+      level: ctx.levels.get(section.level_id) ?? null,
+      termId: term.id,
+      termNumber: term.term_number,
+      allowance,
+      usedThisTerm: used,
+      remainingThisTerm: Math.max(0, allowance - used),
+      isOverTermQuota: used > allowance,
+    });
+  }
+  rows.sort(
+    (a, b) =>
+      b.usedThisTerm - a.usedThisTerm || a.remainingThisTerm - b.remainingThisTerm,
+  );
+  return rows;
+}
+
 // ─── Public builders ────────────────────────────────────────────────────────
 
 export type BuildDrillRowsInput = DrillRangeInput & {
   target: AttendanceDrillTarget;
   segment?: string | null;
+  // termId is required for the 'vacation-leave-quota' target (per KD #94).
+  // Other targets ignore it.
+  termId?: string | null;
+  // School-wide VL allowance default — caller (drill API route or page)
+  // fetches from school_config and passes in. Defaults to 1.
+  defaultVlAllowance?: number;
 };
 
 function applyScopeFilter<T extends { attendanceDate?: string; date?: string }>(
@@ -582,6 +683,13 @@ export async function buildAttendanceDrillRows(
     entries = applyScopeFilter(entries, input);
     return rollupBySection(entries) as AttendanceDrillRow[];
   }
+  if (kind === 'vacation-leave') {
+    return (await rollupVacationLeave(
+      input.ayCode,
+      input.termId ?? null,
+      input.defaultVlAllowance ?? 1,
+    )) as AttendanceDrillRow[];
+  }
   // compassionate
   return (await rollupCompassionate(input.ayCode)) as AttendanceDrillRow[];
 }
@@ -591,12 +699,18 @@ type AllRowSets = {
   sectionAttendance: SectionAttendanceRow[];
   calendar: CalendarDayRow[];
   compassionate: CompassionateUsageRow[];
+  vacationLeave: VacationLeaveUsageRow[];
 };
 
 async function buildAllRowSetsUncached(input: {
   ayCode: string;
   from?: string;
   to?: string;
+  vacationTermId?: string | null;
+  // KD #94 — school-wide default VL allowance per term. Caller fetches
+  // from school_config and passes in (keeps drill.ts free of server-only
+  // module imports). Defaults to 1 (HFSE policy) when omitted.
+  defaultVlAllowance?: number;
 }): Promise<AllRowSets> {
   // We still need entries internally to build the rolled-up shapes, but we
   // do NOT return them — at 1000 students × 180 school days that's 180k
@@ -606,9 +720,17 @@ async function buildAllRowSetsUncached(input: {
     loadEntryRows(input.ayCode),
     loadCalendarRows(input.ayCode),
   ]);
-  // Pass entriesAll into rollupCompassionate so it doesn't redundantly hit
+  // Pass entriesAll into rollup helpers so they don't redundantly hit
   // loadEntryRows + re-iterate 180k rows for the same roll-up.
-  const compassionate = await rollupCompassionate(input.ayCode, entriesAll);
+  const [compassionate, vacationLeave] = await Promise.all([
+    rollupCompassionate(input.ayCode, entriesAll),
+    rollupVacationLeave(
+      input.ayCode,
+      input.vacationTermId ?? null,
+      input.defaultVlAllowance ?? 1,
+      entriesAll,
+    ),
+  ]);
   const entries = applyScopeFilter(entriesAll, input);
   const calendar = applyScopeFilter(calendarAll, input);
   return {
@@ -616,18 +738,21 @@ async function buildAllRowSetsUncached(input: {
     sectionAttendance: rollupBySection(entries),
     calendar,
     compassionate,
+    vacationLeave,
   };
 }
 
 // Cached at the OUTPUT level — rolled-up shapes are tiny (sectionAttendance
-// is ~21 rows; topAbsent is ~50; calendar is ~220; compassionate is ~10),
-// total << 2MB so the cache write succeeds. Per-call key includes from/to
-// since those affect the filtered output. Replaces the prior
-// inner-loadEntryRows cache which kept busting Next.js's 2MB limit.
+// is ~21 rows; topAbsent is ~50; calendar is ~220; compassionate is ~10;
+// vacationLeave is ~200 in current AY), total << 2MB so the cache write
+// succeeds. Per-call key includes from/to + vacationTermId since those
+// affect the filtered output.
 export function buildAllRowSets(input: {
   ayCode: string;
   from?: string;
   to?: string;
+  vacationTermId?: string | null;
+  defaultVlAllowance?: number;
 }): Promise<AllRowSets> {
   return unstable_cache(
     () => buildAllRowSetsUncached(input),
@@ -637,6 +762,8 @@ export function buildAllRowSets(input: {
       input.ayCode,
       input.from ?? '',
       input.to ?? '',
+      input.vacationTermId ?? '',
+      String(input.defaultVlAllowance ?? 1),
     ],
     { revalidate: CACHE_TTL_SECONDS, tags: tags(input.ayCode) },
   )();
@@ -672,6 +799,7 @@ function applyTargetFilter(
         MC: 'mc',
         Compassionate: 'compassionate',
         'School activity': 'school_activity',
+        'Vacation leave': 'vacation',
       };
       if (segment === 'Other' || segment.toLowerCase() === 'other') {
         return (rows as AttendanceEntryRow[]).filter(
@@ -711,6 +839,7 @@ function applyTargetFilter(
     }
     case 'attendance-by-section':
     case 'compassionate-quota':
+    case 'vacation-leave-quota':
       return rows;
     default:
       return rows;
@@ -738,7 +867,11 @@ export type DrillColumnKey =
   | 'allowance'
   | 'used'
   | 'remaining'
-  | 'isOverQuota';
+  | 'isOverQuota'
+  | 'termNumber'
+  | 'usedThisTerm'
+  | 'remainingThisTerm'
+  | 'isOverTermQuota';
 
 export const DRILL_COLUMN_LABELS: Record<DrillColumnKey, string> = {
   studentName: 'Student',
@@ -760,12 +893,17 @@ export const DRILL_COLUMN_LABELS: Record<DrillColumnKey, string> = {
   used: 'Used',
   remaining: 'Remaining',
   isOverQuota: 'Over quota?',
+  termNumber: 'Term',
+  usedThisTerm: 'Used this term',
+  remainingThisTerm: 'Remaining this term',
+  isOverTermQuota: 'Over term quota?',
 };
 
 const ENTRY_COLUMNS: DrillColumnKey[] = ['attendanceDate', 'studentName', 'sectionName', 'level', 'status', 'exReason'];
 const TOP_ABSENT_COLUMNS: DrillColumnKey[] = ['studentName', 'sectionName', 'level', 'absences', 'lates', 'excused', 'attendancePct'];
 const SECTION_COLUMNS: DrillColumnKey[] = ['sectionName', 'level', 'attendancePct', 'absences', 'lates', 'encodedDays'];
 const COMPASSIONATE_COLUMNS: DrillColumnKey[] = ['studentName', 'sectionName', 'level', 'allowance', 'used', 'remaining', 'isOverQuota'];
+const VACATION_LEAVE_COLUMNS: DrillColumnKey[] = ['studentName', 'sectionName', 'level', 'termNumber', 'allowance', 'usedThisTerm', 'remainingThisTerm', 'isOverTermQuota'];
 const CALENDAR_COLUMNS: DrillColumnKey[] = ['date', 'dayType', 'label'];
 
 export function allColumnsForKind(kind: AttendanceDrillRowKind): DrillColumnKey[] {
@@ -774,6 +912,7 @@ export function allColumnsForKind(kind: AttendanceDrillRowKind): DrillColumnKey[
     case 'top-absent': return TOP_ABSENT_COLUMNS;
     case 'section-rollup': return SECTION_COLUMNS;
     case 'compassionate': return COMPASSIONATE_COLUMNS;
+    case 'vacation-leave': return VACATION_LEAVE_COLUMNS;
     case 'calendar-day': return CALENDAR_COLUMNS;
   }
 }
@@ -805,6 +944,7 @@ export function drillHeaderForTarget(
     case 'top-active': return { eyebrow: 'Needs attention', title: 'Students with the best attendance' };
     case 'attendance-by-section': return { eyebrow: 'Attendance', title: 'Attendance percentage by section' };
     case 'compassionate-quota': return { eyebrow: 'Attendance', title: 'Compassionate-leave quota usage by student' };
+    case 'vacation-leave-quota': return { eyebrow: 'Attendance', title: segment ? `Vacation-leave quota — ${segment}` : 'Vacation-leave quota usage by student this term' };
     default: return { eyebrow: 'Drill', title: 'Attendance' };
   }
 }

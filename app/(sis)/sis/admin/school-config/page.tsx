@@ -13,7 +13,9 @@ import { getSessionUser } from "@/lib/supabase/server";
 export default async function SchoolConfigPage() {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect("/login");
-  if (sessionUser.role !== "superadmin") redirect("/sis");
+  if (sessionUser.role !== "superadmin" && sessionUser.role !== "school_admin") {
+    redirect("/sis");
+  }
 
   const current = await getSchoolConfig();
 

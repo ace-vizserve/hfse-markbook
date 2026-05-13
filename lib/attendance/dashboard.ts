@@ -250,6 +250,7 @@ async function loadExReasonMixRangeUncached(input: RangeInput): Promise<ExReason
     mc: 'MC',
     compassionate: 'Compassionate',
     school_activity: 'School activity',
+    vacation: 'Vacation leave',
     Other: 'Other',
   };
   return Object.entries(counts).map(([k, v]) => ({ name: LABEL[k] ?? k, value: v }));

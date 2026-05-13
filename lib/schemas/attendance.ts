@@ -17,15 +17,19 @@ export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
   NC: 'No class',
 };
 
-// EX reason subtype. Only 'compassionate' consumes the student's
-// `urgent_compassionate_allowance` 5-day-per-year quota.
-const EX_REASON_VALUES = ['mc', 'compassionate', 'school_activity'] as const;
+// EX reason subtype. 'compassionate' consumes the student's
+// `urgent_compassionate_allowance` (5-day-per-year quota by default);
+// 'vacation' consumes `vacation_leave_allowance_per_term` (1-per-term
+// quota by default). Both defaults live on `school_config` and may be
+// overridden per student. See KD #94.
+const EX_REASON_VALUES = ['mc', 'compassionate', 'school_activity', 'vacation'] as const;
 export type ExReason = (typeof EX_REASON_VALUES)[number];
 
 export const EX_REASON_LABELS: Record<ExReason, string> = {
   mc: 'Medical certificate',
   compassionate: 'Urgent / compassionate',
   school_activity: 'School activity',
+  vacation: 'Vacation leave',
 };
 
 // Date-only (yyyy-MM-dd). Mirrors `optionalDate` in lib/schemas/sis.ts but
