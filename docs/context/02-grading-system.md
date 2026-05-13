@@ -1,8 +1,24 @@
 # Grading System Rules
 
-## Grade Components
+## Two grading tracks
 
-Every subject (except non-examinable ones) is graded across three components per term:
+HFSE runs **two parallel grading tracks** distinguished by `subjects.is_examinable`:
+
+| Track | Examinable subjects | Non-examinable subjects |
+|---|---|---|
+| **Input** | Raw scores (WW, PT, QA) | Letter grade selection |
+| **Computation** | PS → WS → Initial → Quarterly | None |
+| **Quarterly value** | Integer 0–100 (transmutation) | Letter (`A`/`B`/`C`/`IP`/`UG`/`NA`/`E`) |
+| **T4 Final Grade** | `ROUND((T1×0.2)+(T2×0.2)+(T3×0.2)+(T4×0.4), 2)` | Always `"Passed"` |
+| **General Average** | ✅ Included (examinable Final Grades only) | ❌ Excluded entirely |
+| **Subject Award** | ✅ Eligible | ❌ N/A |
+| **Storage** | `grade_entries.{ww_scores, pt_scores, qa_score, quarterly_grade}` | `grade_entries.letter_grade` |
+
+The `is_examinable` flag (`public.subjects.is_examinable`) is the single source of truth that drives every branch: the grading-sheet UI (`<LetterGradeGrid>` vs WW/PT/QA grid), the report card cell renderer (`cellText` in `<ReportCardDocument>`), the publish-readiness check, the Masterfile column shape, and the General Average / Award computations.
+
+## Grade Components (Track 1 only)
+
+Every examinable subject is graded across three components per term:
 
 | Component                 | Column Codes              | Description                                   |
 | ------------------------- | ------------------------- | --------------------------------------------- |
@@ -81,15 +97,65 @@ def transmute(initial_grade: float) -> int:
         return math.floor(75 + (25 * (initial_grade - 60) / 40))
 ```
 
-## Overall Grade (Annual)
+## Subject Overall Grade (Annual, T4 only)
 
-From the Masterfile formula — terms are weighted unequally:
+From the Masterfile formula — terms are weighted unequally. Computed once T4 is locked:
 
 ```
-Overall = ROUND((T1 × 0.20) + (T2 × 0.20) + (T3 × 0.20) + (T4 × 0.40), 2)
+Subject Overall = ROUND((T1 × 0.20) + (T2 × 0.20) + (T3 × 0.20) + (T4 × 0.40), 2)
 ```
 
-Term 4 carries double weight (40%). Terms 1–3 each carry 20%.
+Term 4 carries double weight (40%). Terms 1–3 each carry 20%. Result is rounded to **2 decimals**. Implementation: `lib/compute/annual.ts::computeAnnualGrade`.
+
+Appears as the **Final Grade** column on the T4 report card and the **Overall** column on the Masterfile (KD #95). Non-examinable subjects render `"Passed"` in this slot regardless of letter inputs.
+
+## General Average (T4 only)
+
+Cross-subject mean of every examinable Subject Overall — excludes non-examinable subjects entirely (they have no numeric Overall to average):
+
+```
+General Average = ROUND(AVERAGE(examinable Subject Overalls), 1)
+```
+
+Result is rounded to **1 decimal** per HFSE's literal `=ROUND(AVERAGE(K8,Q8,W8,AC8,AI8),1)` formula on the Masterfile sheet. Implementation: `lib/compute/annual.ts::computeGeneralAverage`.
+
+Appears as the **General Average** row on the T4 report card and the **G.A.** column on the Masterfile. Drives the Overall Academic Award badge.
+
+## Subject Award + Overall Academic Award (KD #95)
+
+Two parallel award badges share one threshold ladder. Both compute via HFSE's literal IFS formula on the Masterfile:
+
+```
+input < bronze_min       → "Not eligible for {Subject|Overall} Award"
+input ≤ silver_min - 0.1 → "Bronze"
+input ≤ gold_min - 0.1   → "Silver"
+input ≤ max              → "Gold"
+```
+
+| Award | Input | Per | Label when below threshold |
+|---|---|---|---|
+| **Subject Award** | Subject Overall (2dp) | Examinable subject × student | `"Not eligible for Subject Award"` |
+| **Overall Academic Award** | General Average (1dp) | Student | `"Not eligible for Overall Award"` |
+
+**Default thresholds** (from HFSE's `=IFS(<88.5,"NE",<=91.4,"Bronze",<=95.4,"Silver",<=99.4,"Gold")`):
+
+| Threshold | Default | Editable in |
+|---|---|---|
+| `subject_award_bronze_min` | 88.5 | `/sis/admin/school-config` (school_admin+) |
+| `subject_award_silver_min` | 91.5 | (same) |
+| `subject_award_gold_min` | 95.5 | (same) |
+| `subject_award_max` | 100.0 | (same) |
+
+Stored as 4 typed columns on `school_config` (migration 049) with a CHECK enforcing `bronze < silver < gold ≤ max`. Implementation: `lib/compute/awards.ts`.
+
+**Disqualifiers** override the numeric tier:
+- Withdrawn students → no badge (blank cell)
+- Late enrollees missing examinable data → "Not eligible"
+- Any null input → "Not eligible"
+
+The badges render on:
+- Masterfile (`/markbook/masterfile`) — Subject Award per examinable subject column + Overall Award column per student
+- (Future) T4 report card General Average row badge — currently shows the numeric value only
 
 ## Grading Scale
 
@@ -105,17 +171,19 @@ Term 4 carries double weight (40%). Terms 1–3 each carry 20%.
 
 ### Non-Examinable Subjects (letter)
 
-| Code | Meaning                                | Range        |
-| ---- | -------------------------------------- | ------------ |
-| A    | Fully demonstrated the skills required | 90–100       |
-| B    | Demonstrated some skills required      | 85–89        |
-| C    | Fairly demonstrated the skill required | 80–84        |
-| IP   | In Progress                            | 79 and below |
-| UG   | Ungraded                               | —            |
-| NA   | Not Applicable                         | —            |
-| INC  | Incomplete                             | —            |
-| CO   | Complete                               | —            |
-| E    | Exempted                               | —            |
+| Code | Meaning | Range |
+| ---- | --- | --- |
+| A    | Advanced — fully demonstrated the skills required | 90–100 |
+| B    | Proficient — demonstrated some skills required | 85–89 |
+| C    | Approaching Proficiency — fairly demonstrated the skill required | 80–84 |
+| IP   | In Progress | 79 and below |
+| UG   | Ungraded | — |
+| NA   | Not Applicable | — |
+| E    | Exempted (**Secondary only**) | — |
+
+The number ranges are display-only context for the legend. Teachers (or registrar via consolidated form per Phase 2) pick the letter directly — the system never derives a letter from a number.
+
+**Phase 2 open questions** for Joann (KD #95): who enters letters and from where, complete verified letter list (whether `INC` / `CO` are also used at HFSE), whether the SharePoint Consolidated Form integrates or gets replaced.
 
 ## Score Entry Rules
 
@@ -139,12 +207,14 @@ If a student enrolled after some assessments were already given:
 
 ## Non-Examinable Subjects
 
-Some subjects are graded with letter codes (A/B/C/IP/UG) instead of numeric scores:
+The full canonical set per migration 049 (`subjects.is_examinable=false`):
 
-- **Primary:** Christian Living
-- **Secondary:** Pastoral Ministry and Personal Development, Co-curricular Activities (CCA)
+- **Primary:** Music Education, Arts Education, Physical Education, Health Education, Christian Living
+- **Secondary:** Contemporary Art, Physical Education and Health, Pastoral Ministry and Personal Development, Co-curricular Activities (CCA)
 
-These subjects do not use the WW/PT/QA formula. Teachers enter a letter grade directly.
+These subjects do not use the WW/PT/QA formula and have no Subject Overall, Subject Award, or General Average contribution. They render as letter cells per term + `"Passed"` Final Grade on the T4 report card.
+
+**Where letters are entered today**: this is one of the four open Phase-2 questions with Joann. Existing infrastructure (`grade_entries.letter_grade text`, `<LetterGradeGrid>` component) supports per-(student × subject × section × term) letter entry on the grading sheet, but HFSE's actual workflow uses a separate "consolidated form" workbook that VLOOKUPs into the Masterfile. Phase 2 will reconcile.
 
 ## Term-over-Term Comparison
 

@@ -86,6 +86,15 @@ Two legends side by side:
 | UG | Ungraded |
 | NA | Not Applicable |
 
+#### T4 final card — additional columns (KD #27)
+
+The T4 (final-year) template adds two pieces the interim T1–T3 template doesn't carry:
+
+- **Final Grade column** (per subject): for examinable subjects = `Subject Overall = ROUND((T1×0.2)+(T2×0.2)+(T3×0.2)+(T4×0.4), 2)` (2 decimals); for non-examinable subjects = literal `"Passed"` regardless of letter inputs.
+- **General Average row** (footer of the subjects table): `ROUND(AVERAGE(examinable Subject Overalls), 1)` — 1 decimal, examinable subjects only. Non-examinable letters never enter this average. Implementation: `lib/compute/annual.ts::computeGeneralAverage`.
+
+The T4 card has no Form Class Adviser comment (KD #49) — only the interim T1–T3 cards include the FCA narrative block.
+
 ### 5. School Attendance Table
 | Row | Term 1 | Term 2 | Term 3 |
 |-----|--------|--------|--------|
@@ -107,11 +116,23 @@ Label includes the term's HFSE Virtue theme (e.g., "Commitment, Discipline, Inte
 
 ## Overall Grade Calculation (for full-year report card)
 
+Per subject (examinable only):
+
 ```
-Overall = ROUND((T1 × 0.20) + (T2 × 0.20) + (T3 × 0.20) + (T4 × 0.40), 2)
+Subject Overall = ROUND((T1 × 0.20) + (T2 × 0.20) + (T3 × 0.20) + (T4 × 0.40), 2)
 ```
 
-Term 4 is weighted at 40%, Terms 1–3 at 20% each.
+Term 4 is weighted at 40%, Terms 1–3 at 20% each. Result is rounded to **2 decimals** per `lib/compute/annual.ts::computeAnnualGrade`.
+
+Cross-subject (per student):
+
+```
+General Average = ROUND(AVERAGE(examinable Subject Overalls), 1)
+```
+
+Result is rounded to **1 decimal** per HFSE's literal `=ROUND(AVERAGE(K8,Q8,W8,AC8,AI8),1)` formula. Non-examinable subjects are excluded entirely. Implementation: `lib/compute/annual.ts::computeGeneralAverage`.
+
+Both formulas + the canonical 7-step compute chain are documented in `02-grading-system.md`. Subject Award and Overall Academic Award badges (Bronze / Silver / Gold / Not eligible) are derived from these values via configurable thresholds in `school_config` per KD #95 — they appear on the Masterfile (`/markbook/masterfile`) but not on the parent-facing report card today.
 
 ---
 

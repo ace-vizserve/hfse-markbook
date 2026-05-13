@@ -20,6 +20,7 @@ All under the `(dashboard)` route group. Auth + role gate via `proxy.ts` + `ROUT
 
 ### Registrar / admin surface
 
+- `/markbook/masterfile?level=&class=` — cross-subject grid for the whole level (KD #95). Rows = students at one level, optionally filtered to one class; columns = examinable subjects (T1/T2/T3/T4 + Subject Overall + Subject Award badge), then non-examinable letter cells, then per-student General Average + Overall Academic Award badge + per-term attendance. Mirrors the AY2025 Final Report Book Masterfile sheet. Cross-mounted via the Records sidebar's "Reports" group. Registrar / school_admin / superadmin only.
 - `/report-cards` — registrar publish list; per-section, per-term publish windows with pre-publish readiness checklist (KD #28).
 - `/report-cards/[studentId]` — HTML preview + browser-print; interim (T1–T3) vs final (T4) template switcher (KD #27).
 - `/admin/sections` — all sections overview + picker.
@@ -49,6 +50,7 @@ All in `public` schema in the shared Supabase project. Migrations in `supabase/m
 | `teacher_assignments` | `(user × section × subject × role)` gate | Module-owned |
 | `grading_sheets`, `grade_entries` | Raw scores + computed grades | Module-owned |
 | `grade_audit_log` | Legacy per-field audit from locked-sheet edits | Module-owned, append-only (Hard Rule #6) |
+| `school_config` (award threshold columns) | Configurable Subject / Overall Award thresholds (KD #95, migration 049): `subject_award_bronze_min/silver_min/gold_min/max` | **Cross-module** (singleton row, also holds report-card signatures + leave quotas) |
 | `attendance_records` | Term-summary present/absent/tardy/excused counts | Module-owned |
 | `report_card_publications` | Per-section, per-term publish window + `notified_at` | Module-owned |
 | `grade_change_requests` | Structured change-request state machine (KD #25) | Module-owned |
@@ -73,7 +75,8 @@ Each links out to the detailed spec doc; this module doc is the index, not the s
 5. **Attendance entry** — term-summary (not daily); one record per student × term with counts. Autosave grid under `/admin/sections/[id]/attendance`.
 6. **Adviser comments** — per-student narrative; one record per student × term × subject-free category. Autosave.
 7. **Publication** — registrar opens `/report-cards`, picks section + term, runs the pre-publish readiness checklist (grading sheets locked, adviser comments written, attendance records entered, T4-only checks; KD #28), sets `publish_from` + `publish_until`. Parents receive a Resend email (idempotent via `notified_at`, KD #17), containing a CTA button linking to `NEXT_PUBLIC_PARENT_PORTAL_URL` — they always re-enter through the SSO handoff.
-8. **Report-card rendering** — shared `lib/report-card/build-report-card.ts` assembles the payload (staff + parent both consume it). `ReportCardDocument` switches interim (T1–T3 side by side, no Final Grade) vs final (all 4 terms + Final Grade + General Average + cumulative Attendance %, KD #27).
+8. **Report-card rendering** — shared `lib/report-card/build-report-card.ts` assembles the payload (staff + parent both consume it). `ReportCardDocument` switches interim (T1–T3 side by side, no Final Grade) vs final (all 4 terms + Final Grade + General Average + cumulative Attendance %, KD #27). Final Grade = numeric Subject Overall (2dp) for examinable subjects, literal `"Passed"` for non-examinable. General Average = 1dp mean of examinable Subject Overalls per the canonical spec in `02-grading-system.md`.
+9. **Masterfile review** — registrar / school_admin opens `/markbook/masterfile?level=&class=`, sees the entire level's grades cross-tabulated by subject × term + Subject Award + Overall Academic Award badges (KD #95). Award thresholds live on `school_config` and are editable from `/sis/admin/school-config`. Letters in non-examinable columns come from `grade_entries.letter_grade` (Phase 2 entry surface still pending Joann clarification).
 
 ## Hard rules that live in this module
 
