@@ -72,7 +72,11 @@ function stpDetailHref(row: CohortStudentRow, scope: CohortScope, ayCode: string
   if (scope === 'enrolled' && row.studentNumber) {
     return `/records/students/${encodeURIComponent(row.studentNumber)}`;
   }
-  const params = new URLSearchParams({ ay: ayCode, tab: 'lifecycle' });
+  // Land directly on the Documents tab — STP cohort is a doc-validation
+  // adjacent view, the registrar typically clicks through to act on a
+  // specific slot. Saves a tab click vs the previous `tab=lifecycle`
+  // default.
+  const params = new URLSearchParams({ ay: ayCode, tab: 'documents' });
   return `/admissions/applications/${encodeURIComponent(row.enroleeNumber)}?${params.toString()}`;
 }
 

@@ -10,8 +10,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import { IdentifierLink } from '@/components/ui/identifier-link';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Toggle } from '@/components/ui/toggle';
-import type { ValidationQueueRow } from '@/lib/admissions/document-validation';
+import type {
+  ValidationQueueCategory,
+  ValidationQueueRow,
+} from '@/lib/admissions/document-validation';
 
 import { RejectDialog } from './reject-dialog';
 import { TriagePane } from './triage-pane';
@@ -24,6 +28,7 @@ type Props = {
 export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
   const router = useRouter();
   const [mode, setMode] = React.useState<'table' | 'triage'>('table');
+  const [activeTab, setActiveTab] = React.useState<ValidationQueueCategory>('general');
   const [rows, setRows] = React.useState<ValidationQueueRow[]>(initialRows);
   const [actingKey, setActingKey] = React.useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = React.useState<ValidationQueueRow | null>(null);
@@ -32,6 +37,18 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
   React.useEffect(() => {
     setRows(initialRows);
   }, [initialRows]);
+
+  // Per-tab row split + counts. Counts derive from local state so optimistic
+  // removal (after Approve/Reject) ticks each tab badge down immediately.
+  const generalRows = React.useMemo(
+    () => rows.filter((r) => r.category === 'general'),
+    [rows],
+  );
+  const stpRows = React.useMemo(
+    () => rows.filter((r) => r.category === 'stp'),
+    [rows],
+  );
+  const tabRows = activeTab === 'general' ? generalRows : stpRows;
 
   const rowKey = React.useCallback(
     (r: ValidationQueueRow) => `${r.enroleeNumber}::${r.slotKey}`,
@@ -179,27 +196,57 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
     </div>
   );
 
+  // Tabs surface (one row per category). Sticks to the same mode toggle +
+  // PATCH handlers — only the row source changes per tab. The STP tab is
+  // always rendered (even when empty) so the team learns where STP docs
+  // would land if any showed up.
+  const tabs = (
+    <Tabs
+      value={activeTab}
+      onValueChange={(v) => setActiveTab(v as ValidationQueueCategory)}
+    >
+      <TabsList>
+        <TabsTrigger value="general" className="gap-2">
+          General
+          <Badge variant="secondary" className="font-mono text-[10px] tabular-nums">
+            {generalRows.length}
+          </Badge>
+        </TabsTrigger>
+        <TabsTrigger value="stp" className="gap-2">
+          STP
+          <Badge variant="secondary" className="font-mono text-[10px] tabular-nums">
+            {stpRows.length}
+          </Badge>
+        </TabsTrigger>
+      </TabsList>
+    </Tabs>
+  );
+
   if (mode === 'triage') {
     return (
-      <TriagePane
-        rows={rows}
-        ayCode={ayCode}
-        actingKey={actingKey}
-        onApprove={(row) => patchStatus(row, { status: 'Valid' })}
-        onReject={(row, reason) =>
-          patchStatus(row, { status: 'Rejected', rejectionReason: reason })
-        }
-        onExit={() => setMode('table')}
-        headerToggle={modeToggle}
-      />
+      <div className="space-y-4">
+        {tabs}
+        <TriagePane
+          rows={tabRows}
+          ayCode={ayCode}
+          actingKey={actingKey}
+          onApprove={(row) => patchStatus(row, { status: 'Valid' })}
+          onReject={(row, reason) =>
+            patchStatus(row, { status: 'Rejected', rejectionReason: reason })
+          }
+          onExit={() => setMode('table')}
+          headerToggle={modeToggle}
+        />
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="space-y-4">
+      {tabs}
       <DataTable
         columns={columns}
-        data={rows}
+        data={tabRows}
         getRowId={rowKey}
         toolbarTrailing={modeToggle}
       />
@@ -219,6 +266,6 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
           if (ok) setRejectTarget(null);
         }}
       />
-    </>
+    </div>
   );
 }

@@ -29,6 +29,8 @@ import {
   STP_CONDITIONAL_SLOT_KEYS,
 } from '@/lib/sis/queries';
 
+export type ValidationQueueCategory = 'general' | 'stp';
+
 export type ValidationQueueRow = {
   enroleeNumber: string;
   studentNumber: string | null;
@@ -39,6 +41,12 @@ export type ValidationQueueRow = {
   slotLabel: string;
   fileUrl: string;
   isExpirable: boolean;
+  // 'general' = the 13 always-applicable slots. 'stp' = the 3 STP-
+  // conditional slots (icaPhoto / financialSupportDocs /
+  // vaccinationInformation) that only appear when the applicant has
+  // stpApplicationType set. Drives the General / STP tab split on the
+  // validation page.
+  category: ValidationQueueCategory;
 };
 
 const PENDING_APP_STATUSES = [
@@ -162,6 +170,7 @@ async function loadPendingDocValidationUncached(
         slotLabel: slot.label,
         fileUrl,
         isExpirable: slot.expiryCol != null,
+        category: STP_CONDITIONAL_SLOT_KEY_SET.has(slot.key) ? 'stp' : 'general',
       });
     }
   }
