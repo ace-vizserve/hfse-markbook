@@ -73,6 +73,8 @@ export type AuditAction =
   | 'evaluation.checklist_item.create'
   | 'evaluation.checklist_item.update'
   | 'evaluation.checklist_item.delete'
+  | 'evaluation.checklist_item.reorder'
+  | 'evaluation.checklist_item.copy_from'
   | 'evaluation.checklist_response.save'
   | 'evaluation.subject_comment.save'
   | 'evaluation.ptc_feedback.save'

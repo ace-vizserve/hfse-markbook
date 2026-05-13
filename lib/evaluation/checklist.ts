@@ -9,7 +9,9 @@ export type ChecklistItemRow = {
   id: string;
   term_id: string;
   subject_id: string;
-  level_id: string;
+  // Scope shifted to per-section in migration 047 — teachers own the
+  // topic list per section they teach, not admin per level.
+  section_id: string;
   item_text: string;
   sort_order: number;
 };
@@ -40,20 +42,20 @@ export type PtcFeedbackRow = {
   feedback: string | null;
 };
 
-// List checklist items for one (term × subject × level). Used by the
-// SIS Admin editor and the subject-teacher tick UI.
+// List checklist items for one (term × subject × section). Used by the
+// subject-teacher Checklists tab + the admin read-only audit view.
 export async function listChecklistItems(
   termId: string,
   subjectId: string,
-  levelId: string,
+  sectionId: string,
 ): Promise<ChecklistItemRow[]> {
   const service = createServiceClient();
   const { data, error } = await service
     .from('evaluation_checklist_items')
-    .select('id, term_id, subject_id, level_id, item_text, sort_order')
+    .select('id, term_id, subject_id, section_id, item_text, sort_order')
     .eq('term_id', termId)
     .eq('subject_id', subjectId)
-    .eq('level_id', levelId)
+    .eq('section_id', sectionId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
   if (error) {
@@ -61,6 +63,113 @@ export async function listChecklistItems(
     return [];
   }
   return (data ?? []) as ChecklistItemRow[];
+}
+
+// Sections (other than currentSectionId) where this teacher has a
+// subject_teacher assignment AND topics already exist for the given
+// (term, subject). Drives the "Copy topics from another section"
+// button on the Checklists tab.
+export async function getSectionsTeacherCanCopyFrom(
+  userId: string,
+  termId: string,
+  subjectId: string,
+  currentSectionId: string,
+): Promise<Array<{ section_id: string; section_name: string; item_count: number }>> {
+  const service = createServiceClient();
+
+  // Step 1: all sections this teacher teaches for this subject (minus current).
+  const { data: assignments } = await service
+    .from('teacher_assignments')
+    .select('section_id, section:sections(id, name)')
+    .eq('teacher_user_id', userId)
+    .eq('subject_id', subjectId)
+    .eq('role', 'subject_teacher')
+    .neq('section_id', currentSectionId);
+
+  const candidates = ((assignments ?? []) as Array<{
+    section_id: string;
+    section: { id: string; name: string } | { id: string; name: string }[] | null;
+  }>).map((a) => ({
+    section_id: a.section_id,
+    name: (Array.isArray(a.section) ? a.section[0] : a.section)?.name ?? a.section_id,
+  }));
+
+  if (candidates.length === 0) return [];
+
+  // Step 2: count items per candidate for this (term, subject).
+  // N+1 by design — bounded by sections-per-teacher-per-subject (≤5 in
+  // practice). Worth a single round-trip optimization only if scale shifts.
+  const results: Array<{ section_id: string; section_name: string; item_count: number }> = [];
+  for (const c of candidates) {
+    const { count } = await service
+      .from('evaluation_checklist_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('term_id', termId)
+      .eq('subject_id', subjectId)
+      .eq('section_id', c.section_id);
+    if ((count ?? 0) > 0) {
+      results.push({
+        section_id: c.section_id,
+        section_name: c.name,
+        item_count: count ?? 0,
+      });
+    }
+  }
+  return results;
+}
+
+// Decorates each checklist item with the creator's display name (or
+// email fallback). Used by /sis/admin/evaluation-checklists' read-only
+// audit view to show "Created by Mr. James · 13 May 2026".
+export async function listChecklistItemsWithCreator(
+  termId: string,
+  subjectId: string,
+  sectionId: string,
+): Promise<
+  Array<
+    ChecklistItemRow & {
+      creator_name: string | null;
+      created_at: string | null;
+    }
+  >
+> {
+  const service = createServiceClient();
+  const { data } = await service
+    .from('evaluation_checklist_items')
+    .select(
+      'id, term_id, subject_id, section_id, item_text, sort_order, created_by, created_at',
+    )
+    .eq('term_id', termId)
+    .eq('subject_id', subjectId)
+    .eq('section_id', sectionId)
+    .order('sort_order', { ascending: true });
+
+  const rows = (data ?? []) as Array<
+    ChecklistItemRow & { created_by: string | null; created_at: string | null }
+  >;
+  if (rows.length === 0) return [];
+
+  // Resolve creator display names. ≤50 items per query → at most a
+  // handful of unique creators. Cheap loop is fine.
+  const userIds = Array.from(
+    new Set(rows.map((r) => r.created_by).filter((id): id is string => !!id)),
+  );
+  const nameByUserId = new Map<string, string>();
+  for (const userId of userIds) {
+    try {
+      const { data: u } = await service.auth.admin.getUserById(userId);
+      const meta = u?.user?.user_metadata as { display_name?: string } | undefined;
+      const name = meta?.display_name ?? u?.user?.email ?? null;
+      if (name) nameByUserId.set(userId, name);
+    } catch {
+      // Best-effort lookup — leave name unresolved on failure.
+    }
+  }
+
+  return rows.map((r) => ({
+    ...r,
+    creator_name: r.created_by ? nameByUserId.get(r.created_by) ?? null : null,
+  }));
 }
 
 // Load all responses for a section × term. Keyed by (student, item) for

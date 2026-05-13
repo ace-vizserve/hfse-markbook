@@ -17,6 +17,7 @@ import {
 import {
   getPtcFeedbackBySectionTerm,
   getResponsesBySectionTerm,
+  getSectionsTeacherCanCopyFrom,
   getSubjectCommentsBySectionTerm,
   listChecklistItems,
   listTeacherSubjectsForSection,
@@ -147,14 +148,33 @@ export default async function EvaluationSectionRosterPage({
       : visibleSubjects[0]?.id ?? '';
 
   // Fetch checklist data for the selected subject. Cheap — a section has
-  // ~10 students × ~10 items = ~100 responses tops.
-  const [items, responseMap, commentMap] = selectedSubjectId && level
+  // ~10 students × ~10 items = ~100 responses tops. Topics are now per
+  // (subject × section) per migration 047, owned by the subject teacher.
+  const teacherCanEditTopics =
+    sessionUser.role === 'teacher' &&
+    teacherSubjectIds.includes(selectedSubjectId);
+  const [items, responseMap, commentMap, copyFromOptions] = selectedSubjectId
     ? await Promise.all([
-        listChecklistItems(selectedTerm.id, selectedSubjectId, level.id),
+        listChecklistItems(selectedTerm.id, selectedSubjectId, sectionId),
         getResponsesBySectionTerm(sectionId, selectedTerm.id),
         getSubjectCommentsBySectionTerm(sectionId, selectedTerm.id, selectedSubjectId),
+        teacherCanEditTopics
+          ? getSectionsTeacherCanCopyFrom(
+              sessionUser.id,
+              selectedTerm.id,
+              selectedSubjectId,
+              sectionId,
+            )
+          : Promise.resolve([] as Awaited<
+              ReturnType<typeof getSectionsTeacherCanCopyFrom>
+            >),
       ])
-    : [[], new Map(), new Map()];
+    : [
+        [],
+        new Map(),
+        new Map(),
+        [] as Awaited<ReturnType<typeof getSectionsTeacherCanCopyFrom>>,
+      ];
 
   const responsesForClient = new Map<string, number | null>();
   for (const [k, row] of responseMap.entries()) {
@@ -364,6 +384,8 @@ export default async function EvaluationSectionRosterPage({
                 initialResponses={responsesForClient}
                 initialComments={commentsForClient}
                 canEdit={canEdit}
+                canEditTopics={teacherCanEditTopics}
+                copyFromOptions={copyFromOptions}
               />
             )}
           </TabsContent>

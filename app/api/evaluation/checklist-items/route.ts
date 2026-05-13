@@ -5,11 +5,13 @@ import { logAction } from '@/lib/audit/log-action';
 import { createServiceClient } from '@/lib/supabase/service';
 import { ChecklistItemCreateSchema } from '@/lib/schemas/evaluation-checklist';
 
-// POST /api/evaluation/checklist-items — superadmin-only registration of a
-// per-(term × subject × level) checklist topic. Surfaces on the SIS Admin
-// `/sis/admin/evaluation-checklists` editor.
+// POST /api/evaluation/checklist-items — subject teacher (for their assigned
+// section × subject) OR registrar+ creates a topic. Scope shifted from
+// (term × subject × level) to (term × subject × section) in migration 047
+// — topics are now owned by the teacher who taught the class, not seeded
+// by admin per level.
 export async function POST(request: NextRequest) {
-  const auth = await requireRole(['superadmin']);
+  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const body = await request.json().catch(() => null);
@@ -20,11 +22,30 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
-  const { termId, subjectId, levelId, itemText, sortOrder } = parsed.data;
+  const { termId, subjectId, sectionId, itemText, sortOrder } = parsed.data;
 
   const service = createServiceClient();
 
-  // Default sort_order = max existing + 10 so inserts land at the end.
+  // Teacher gate: must hold a subject_teacher assignment for this
+  // (section × subject) pair. Registrar+ skip this check.
+  if (auth.role === 'teacher') {
+    const { data: assignment } = await service
+      .from('teacher_assignments')
+      .select('id')
+      .eq('teacher_user_id', auth.user.id)
+      .eq('section_id', sectionId)
+      .eq('subject_id', subjectId)
+      .eq('role', 'subject_teacher')
+      .maybeSingle();
+    if (!assignment) {
+      return NextResponse.json(
+        { error: 'You are not the subject teacher for this section.' },
+        { status: 403 },
+      );
+    }
+  }
+
+  // Default sort_order = max existing + 10 so new topics land at the end.
   let nextSort = sortOrder ?? 0;
   if (sortOrder === undefined) {
     const { data: maxRow } = await service
@@ -32,7 +53,7 @@ export async function POST(request: NextRequest) {
       .select('sort_order')
       .eq('term_id', termId)
       .eq('subject_id', subjectId)
-      .eq('level_id', levelId)
+      .eq('section_id', sectionId)
       .order('sort_order', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -44,7 +65,7 @@ export async function POST(request: NextRequest) {
     .insert({
       term_id: termId,
       subject_id: subjectId,
-      level_id: levelId,
+      section_id: sectionId,
       item_text: itemText,
       sort_order: nextSort,
       created_by: auth.user.id,
@@ -61,8 +82,17 @@ export async function POST(request: NextRequest) {
     action: 'evaluation.checklist_item.create',
     entityType: 'evaluation_checklist_item',
     entityId: inserted.id,
-    context: { term_id: termId, subject_id: subjectId, level_id: levelId, item_text: itemText },
+    context: {
+      term_id: termId,
+      subject_id: subjectId,
+      section_id: sectionId,
+      item_text: itemText,
+    },
   });
 
-  return NextResponse.json({ ok: true, id: inserted.id, sortOrder: inserted.sort_order });
+  return NextResponse.json({
+    ok: true,
+    id: inserted.id,
+    sortOrder: inserted.sort_order,
+  });
 }

@@ -5,16 +5,30 @@ import { z } from 'zod';
 
 const uuid = z.string().uuid('Invalid id');
 
-// POST /api/evaluation/checklist-items — superadmin only, registrar's
-// checklist-topics editor at /sis/admin/evaluation-checklists.
+// POST /api/evaluation/checklist-items — subject teacher (for their assigned
+// section + subject) OR registrar+ creates a topic. Scope shifted from
+// (term × subject × level) to (term × subject × section) in migration 047
+// so topic ownership matches what teachers actually cover per class.
 export const ChecklistItemCreateSchema = z.object({
   termId: uuid,
   subjectId: uuid,
-  levelId: uuid,
-  itemText: z.string().trim().min(1, 'Item text required').max(500, 'Keep it under 500 chars'),
+  sectionId: uuid,
+  itemText: z.string().trim().min(1, 'Topic text required').max(500, 'Keep it under 500 chars'),
   sortOrder: z.number().int().min(0).max(999).optional(),
 });
 export type ChecklistItemCreateInput = z.infer<typeof ChecklistItemCreateSchema>;
+
+// POST /api/evaluation/checklist-items/copy-from — clone every topic from
+// one of the teacher's other sections (same subject + term) into the
+// current section. Idempotent — duplicate item_texts skipped at the unique
+// constraint (term × subject × section × item_text per migration 047).
+export const ChecklistItemCopySchema = z.object({
+  sourceSection: uuid,
+  targetSection: uuid,
+  termId: uuid,
+  subjectId: uuid,
+});
+export type ChecklistItemCopyInput = z.infer<typeof ChecklistItemCopySchema>;
 
 // PATCH /api/evaluation/checklist-items/[id] — rename or reorder an item.
 export const ChecklistItemUpdateSchema = z.object({
