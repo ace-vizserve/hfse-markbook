@@ -28,28 +28,32 @@ insert into public.levels (code, label, level_type) values
 on conflict (code) do nothing;
 
 -- ---------- Subjects — Primary ----------
+-- Music / Arts / PE / Health / Christian Living are non-examinable per
+-- HFSE's canonical grading spec — letter graded only, never numeric.
+-- See KD #95 + migration 049.
 insert into public.subjects (code, name, is_examinable) values
   ('ENG',   'English',                true),
   ('MATH',  'Mathematics',            true),
   ('MT',    'Mother Tongue',          true),
   ('SCI',   'Science',                true),
   ('SS',    'Social Studies',         true),
-  ('MUSIC', 'Music Education',        true),
-  ('ARTS',  'Arts Education',         true),
-  ('PE',    'Physical Education',     true),
-  ('HE',    'Health Education',       true),
-  ('CL',    'Christian Living',       true)
+  ('MUSIC', 'Music Education',        false),
+  ('ARTS',  'Arts Education',         false),
+  ('PE',    'Physical Education',     false),
+  ('HE',    'Health Education',       false),
+  ('CL',    'Christian Living',       false)
 on conflict (code) do nothing;
 
 -- ---------- Subjects — Secondary ----------
+-- Contemporary Art / PE+Health / Pastoral / CCA are non-examinable.
 insert into public.subjects (code, name, is_examinable) values
   ('HIST', 'History',                                  true),
   ('LIT',  'Literature',                               true),
   ('HUM',  'Humanities',                               true),
   ('ECON', 'Economics',                                true),
-  ('CA',   'Contemporary Art',                         true),
-  ('PEH',  'Physical Education and Health',            true),
-  ('PMPD', 'Pastoral Ministry and Personal Development', true),
+  ('CA',   'Contemporary Art',                         false),
+  ('PEH',  'Physical Education and Health',            false),
+  ('PMPD', 'Pastoral Ministry and Personal Development', false),
   ('CCA',  'Co-curricular Activities',                 false)
 on conflict (code) do nothing;
 

@@ -41,6 +41,14 @@ export const SchoolConfigUpdateSchema = z.object({
     .min(0)
     .max(10)
     .optional(),
+  // KD #95 — Subject Award + Overall Academic Award thresholds. Cross-column
+  // ordering (bronze < silver < gold ≤ max) is enforced both client-side here
+  // and via a CHECK constraint in migration 049. Allows fractional values
+  // (HFSE's defaults are 88.5 / 91.5 / 95.5 / 100).
+  subjectAwardBronzeMin: z.number().min(0).max(100).optional(),
+  subjectAwardSilverMin: z.number().min(0).max(100).optional(),
+  subjectAwardGoldMin: z.number().min(0).max(100).optional(),
+  subjectAwardMax: z.number().min(0).max(100).optional(),
 });
 
 export type SchoolConfigUpdateInput = z.infer<typeof SchoolConfigUpdateSchema>;

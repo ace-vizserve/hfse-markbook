@@ -29,6 +29,10 @@ export function gradeDescriptor(grade: number | null): string {
 }
 
 // General average across all examinable subjects' final grades.
+// ROUND to 1 decimal per HFSE's canonical spec — verified against the
+// =ROUND(AVERAGE(K8,Q8,W8,AC8,AI8),1) formula on the registrar's
+// Masterfile. Drives the General Average row on the T4 report card and
+// the Overall Academic Award badge thresholds.
 // Returns null if the list is empty or any grade is null (incomplete year).
 export function computeGeneralAverage(
   finalGrades: (number | null)[],
@@ -36,7 +40,7 @@ export function computeGeneralAverage(
   if (finalGrades.length === 0) return null;
   if (finalGrades.some((g) => g == null)) return null;
   const sum = finalGrades.reduce<number>((acc, g) => acc + g!, 0);
-  return Math.round((sum / finalGrades.length) * 100) / 100;
+  return Math.round((sum / finalGrades.length) * 10) / 10;
 }
 
 // Cumulative attendance percentage across all terms.
@@ -67,9 +71,12 @@ export function computeAttendancePercentage(
   const partial = computeAnnualGrade(85, 85, null, 90);
   if (partial !== null) throw new Error(`annual self-test: partial year should be null, got ${partial}`);
 
-  // General average
+  // General average — 1dp per canonical spec.
   const ga1 = computeGeneralAverage([90, 85, 80]);
   if (ga1 !== 85) throw new Error(`general-avg self-test failed: [90,85,80] → ${ga1} (expected 85)`);
+  // 92.6 + 91.4 + 95.5 + 88.5 + 99.4 = 467.4 / 5 = 93.48 → 93.5 (1dp)
+  const ga4 = computeGeneralAverage([92.6, 91.4, 95.5, 88.5, 99.4]);
+  if (ga4 !== 93.5) throw new Error(`general-avg 1dp self-test failed: → ${ga4} (expected 93.5)`);
   const ga2 = computeGeneralAverage([90, null, 80]);
   if (ga2 !== null) throw new Error(`general-avg self-test: partial should be null, got ${ga2}`);
   const ga3 = computeGeneralAverage([]);

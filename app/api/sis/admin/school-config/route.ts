@@ -29,7 +29,7 @@ export async function PATCH(request: NextRequest) {
   const { data: before, error: loadErr } = await service
     .from('school_config')
     .select(
-      'principal_name, ceo_name, pei_registration_number, default_publish_window_days, default_compassionate_allowance_per_year, default_vl_allowance_per_term',
+      'principal_name, ceo_name, pei_registration_number, default_publish_window_days, default_compassionate_allowance_per_year, default_vl_allowance_per_term, subject_award_bronze_min, subject_award_silver_min, subject_award_gold_min, subject_award_max',
     )
     .eq('id', 1)
     .maybeSingle();
@@ -53,7 +53,43 @@ export async function PATCH(request: NextRequest) {
     ['defaultPublishWindowDays', 'default_publish_window_days'],
     ['defaultCompassionateAllowancePerYear', 'default_compassionate_allowance_per_year'],
     ['defaultVlAllowancePerTerm', 'default_vl_allowance_per_term'],
+    ['subjectAwardBronzeMin', 'subject_award_bronze_min'],
+    ['subjectAwardSilverMin', 'subject_award_silver_min'],
+    ['subjectAwardGoldMin', 'subject_award_gold_min'],
+    ['subjectAwardMax', 'subject_award_max'],
   ];
+
+  // Cross-field ordering check before write — mirrors the DB CHECK in
+  // migration 049, but client-side validation gives a friendlier error.
+  const merged = {
+    bronze: (parsed.data.subjectAwardBronzeMin ??
+      (before as { subject_award_bronze_min: number | null }).subject_award_bronze_min ??
+      88.5) as number,
+    silver: (parsed.data.subjectAwardSilverMin ??
+      (before as { subject_award_silver_min: number | null }).subject_award_silver_min ??
+      91.5) as number,
+    gold: (parsed.data.subjectAwardGoldMin ??
+      (before as { subject_award_gold_min: number | null }).subject_award_gold_min ??
+      95.5) as number,
+    max: (parsed.data.subjectAwardMax ??
+      (before as { subject_award_max: number | null }).subject_award_max ??
+      100) as number,
+  };
+  if (
+    !(
+      merged.bronze < merged.silver &&
+      merged.silver < merged.gold &&
+      merged.gold <= merged.max
+    )
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          'Award thresholds must be strictly increasing — bronze < silver < gold ≤ max.',
+      },
+      { status: 400 },
+    );
+  }
   for (const [k, col] of keys) {
     if (k in parsed.data && parsed.data[k] !== undefined) {
       updates[col] = parsed.data[k];

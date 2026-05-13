@@ -26,6 +26,10 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
   const [vlDefault, setVlDefault] = useState(
     String(current.defaultVlAllowancePerTerm),
   );
+  const [bronzeMin, setBronzeMin] = useState(String(current.subjectAwardBronzeMin));
+  const [silverMin, setSilverMin] = useState(String(current.subjectAwardSilverMin));
+  const [goldMin, setGoldMin] = useState(String(current.subjectAwardGoldMin));
+  const [awardMax, setAwardMax] = useState(String(current.subjectAwardMax));
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
 
@@ -35,7 +39,11 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
     pei !== current.peiRegistrationNumber ||
     String(current.defaultPublishWindowDays) !== windowDays ||
     String(current.defaultCompassionateAllowancePerYear) !== compassionateDefault ||
-    String(current.defaultVlAllowancePerTerm) !== vlDefault;
+    String(current.defaultVlAllowancePerTerm) !== vlDefault ||
+    String(current.subjectAwardBronzeMin) !== bronzeMin ||
+    String(current.subjectAwardSilverMin) !== silverMin ||
+    String(current.subjectAwardGoldMin) !== goldMin ||
+    String(current.subjectAwardMax) !== awardMax;
 
   async function save() {
     const days = Number(windowDays);
@@ -53,6 +61,21 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
       toast.error('Vacation leave must be 0–10 days per term');
       return;
     }
+    const bronze = Number(bronzeMin);
+    const silver = Number(silverMin);
+    const gold = Number(goldMin);
+    const max = Number(awardMax);
+    const validNumbers = [bronze, silver, gold, max].every(
+      (n) => Number.isFinite(n) && n >= 0 && n <= 100,
+    );
+    if (!validNumbers) {
+      toast.error('Award thresholds must be between 0 and 100');
+      return;
+    }
+    if (!(bronze < silver && silver < gold && gold <= max)) {
+      toast.error('Award thresholds must be strictly increasing — Bronze < Silver < Gold ≤ Max');
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch('/api/sis/admin/school-config', {
@@ -65,6 +88,10 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
           defaultPublishWindowDays: days,
           defaultCompassionateAllowancePerYear: compassionate,
           defaultVlAllowancePerTerm: vl,
+          subjectAwardBronzeMin: bronze,
+          subjectAwardSilverMin: silver,
+          subjectAwardGoldMin: gold,
+          subjectAwardMax: max,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -196,6 +223,85 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
             />
             <p className="text-[11px] text-muted-foreground">
               HFSE policy: 1 per term (4 per year total). Unused days do not carry forward to the next term.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3 border-t border-border pt-5">
+        <div className="space-y-1">
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Academic award thresholds
+          </p>
+          <p className="text-[13px] text-muted-foreground">
+            Score cut-offs for the Subject Award (per subject) and Overall
+            Academic Award (per student). The same ladder applies to both —
+            only the label changes. Thresholds must be strictly increasing.
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="bronzeMin">Bronze (min)</Label>
+            <Input
+              id="bronzeMin"
+              type="text"
+              inputMode="decimal"
+              value={bronzeMin}
+              onChange={(e) =>
+                setBronzeMin(e.target.value.replace(/[^0-9.]/g, '').slice(0, 5))
+              }
+              className="text-right font-mono tabular-nums"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Below this → Not eligible. HFSE default 88.5.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="silverMin">Silver (min)</Label>
+            <Input
+              id="silverMin"
+              type="text"
+              inputMode="decimal"
+              value={silverMin}
+              onChange={(e) =>
+                setSilverMin(e.target.value.replace(/[^0-9.]/g, '').slice(0, 5))
+              }
+              className="text-right font-mono tabular-nums"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Bronze tops out below this. HFSE default 91.5.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="goldMin">Gold (min)</Label>
+            <Input
+              id="goldMin"
+              type="text"
+              inputMode="decimal"
+              value={goldMin}
+              onChange={(e) =>
+                setGoldMin(e.target.value.replace(/[^0-9.]/g, '').slice(0, 5))
+              }
+              className="text-right font-mono tabular-nums"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Silver tops out below this. HFSE default 95.5.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="awardMax">Maximum</Label>
+            <Input
+              id="awardMax"
+              type="text"
+              inputMode="decimal"
+              value={awardMax}
+              onChange={(e) =>
+                setAwardMax(e.target.value.replace(/[^0-9.]/g, '').slice(0, 5))
+              }
+              className="text-right font-mono tabular-nums"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Upper bound for Gold. HFSE default 100.
             </p>
           </div>
         </div>

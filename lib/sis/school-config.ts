@@ -13,6 +13,10 @@ export type SchoolConfig = {
   defaultPublishWindowDays: number;
   defaultCompassionateAllowancePerYear: number;
   defaultVlAllowancePerTerm: number;
+  subjectAwardBronzeMin: number;
+  subjectAwardSilverMin: number;
+  subjectAwardGoldMin: number;
+  subjectAwardMax: number;
 };
 
 export const DEFAULT_SCHOOL_CONFIG: SchoolConfig = {
@@ -22,6 +26,10 @@ export const DEFAULT_SCHOOL_CONFIG: SchoolConfig = {
   defaultPublishWindowDays: 30,
   defaultCompassionateAllowancePerYear: 5,
   defaultVlAllowancePerTerm: 1,
+  subjectAwardBronzeMin: 88.5,
+  subjectAwardSilverMin: 91.5,
+  subjectAwardGoldMin: 95.5,
+  subjectAwardMax: 100.0,
 };
 
 export async function getSchoolConfig(): Promise<SchoolConfig> {
@@ -29,7 +37,7 @@ export async function getSchoolConfig(): Promise<SchoolConfig> {
   const { data, error } = await service
     .from('school_config')
     .select(
-      'principal_name, ceo_name, pei_registration_number, default_publish_window_days, default_compassionate_allowance_per_year, default_vl_allowance_per_term',
+      'principal_name, ceo_name, pei_registration_number, default_publish_window_days, default_compassionate_allowance_per_year, default_vl_allowance_per_term, subject_award_bronze_min, subject_award_silver_min, subject_award_gold_min, subject_award_max',
     )
     .eq('id', 1)
     .maybeSingle();
@@ -51,5 +59,13 @@ export async function getSchoolConfig(): Promise<SchoolConfig> {
     defaultVlAllowancePerTerm:
       (data.default_vl_allowance_per_term as number | null) ??
       DEFAULT_SCHOOL_CONFIG.defaultVlAllowancePerTerm,
+    subjectAwardBronzeMin:
+      Number(data.subject_award_bronze_min ?? DEFAULT_SCHOOL_CONFIG.subjectAwardBronzeMin),
+    subjectAwardSilverMin:
+      Number(data.subject_award_silver_min ?? DEFAULT_SCHOOL_CONFIG.subjectAwardSilverMin),
+    subjectAwardGoldMin:
+      Number(data.subject_award_gold_min ?? DEFAULT_SCHOOL_CONFIG.subjectAwardGoldMin),
+    subjectAwardMax:
+      Number(data.subject_award_max ?? DEFAULT_SCHOOL_CONFIG.subjectAwardMax),
   };
 }

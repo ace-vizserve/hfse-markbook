@@ -133,16 +133,7 @@ export type WideGridEnrolment = {
 
 // Dropdown option value shape: "P" | "L" | "EX:mc" | "EX:compassionate" |
 // "EX:school_activity" | "EX:vacation" | "A" | "NC" | "" (unmarked)
-type OptionValue =
-  | ""
-  | "P"
-  | "L"
-  | "EX:mc"
-  | "EX:vacation"
-  | "EX:compassionate"
-  | "EX:school_activity"
-  | "A"
-  | "NC";
+type OptionValue = "" | "P" | "L" | "EX:mc" | "EX:vacation" | "EX:compassionate" | "EX:school_activity" | "A" | "NC";
 
 const TEACHER_OPTIONS: Array<{ value: OptionValue; label: string }> = [
   { value: "", label: "—" },
@@ -242,8 +233,7 @@ export function AttendanceWideGrid({
     // is just a heads-up. Count cells in the current grid (all in this
     // term) excluding the cell we're about to flip.
     if (status === "EX" && exReason === "vacation") {
-      const wasAlreadyVacation =
-        prev.status === "EX" && prev.exReason === "vacation";
+      const wasAlreadyVacation = prev.status === "EX" && prev.exReason === "vacation";
       if (!wasAlreadyVacation) {
         const enr = enrolments.find((e) => e.enrolmentId === enrolmentId);
         if (enr) {
@@ -588,7 +578,7 @@ export function AttendanceWideGrid({
                                       : "Unmarked"
                                   }>
                                   {options.map((o) => (
-                                    <option key={o.value} value={o.value}>
+                                    <option key={o.value} value={o.value} className={"text-foreground"}>
                                       {o.value === ""
                                         ? "—"
                                         : o.value.startsWith("EX:")
@@ -654,9 +644,7 @@ export function AttendanceWideGrid({
           <DayTypeLegendChip dayType="hbl" letter="HBL" description="HBL · Attendance recorded" />
           <DayTypeLegendChip dayType="no_class" letter="NC" description="No class" />
         </div>
-        <p className="mt-3 text-[10px] text-muted-foreground">
-          ★ marks dates with a calendar event.
-        </p>
+        <p className="mt-3 text-[10px] text-muted-foreground">★ marks dates with a calendar event.</p>
       </Card>
     </div>
   );
