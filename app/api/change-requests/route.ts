@@ -256,6 +256,71 @@ export async function POST(request: NextRequest) {
   // Snapshot the current value from the entry for the requested field/slot.
   const currentValue = snapshotCurrentValue(entry, body.field_changed, body.slot_index);
 
+  // Server-side spurious-request guard. The client also disables Submit
+  // when proposed === current, but file requests can be POSTed by other
+  // clients (curl, scripts, etc.). Reject canonically-equal values with
+  // 422 so the approver inbox doesn't fill with no-op requests.
+  if (canonicallyEqual(body.field_changed, body.proposed_value, currentValue)) {
+    return NextResponse.json(
+      {
+        error:
+          'The proposed value is the same as the current value. Edit the proposed value before filing the request.',
+      },
+      { status: 422 },
+    );
+  }
+
+  // slot_index ceiling guard. A teacher could submit slot_index=4 even
+  // when this subject's ww_max_slots is 3 — the request would file but
+  // the apply path would silently overwrite a non-existent slot. Reject
+  // the file at filing time with 422 so the teacher fixes their picker.
+  if (
+    body.field_changed === 'ww_scores' ||
+    body.field_changed === 'pt_scores'
+  ) {
+    const { data: sectionRow, error: sectionErr } = await service
+      .from('sections')
+      .select('id, level_id, academic_year_id')
+      .eq('id', sheet.section_id)
+      .maybeSingle();
+    if (sectionErr || !sectionRow) {
+      return NextResponse.json(
+        { error: 'Could not resolve the section for this sheet.' },
+        { status: 500 },
+      );
+    }
+    const { data: configRow } = await service
+      .from('subject_configs')
+      .select('ww_max_slots, pt_max_slots')
+      .eq('academic_year_id', sectionRow.academic_year_id)
+      .eq('subject_id', sheet.subject_id)
+      .eq('level_id', sectionRow.level_id)
+      .maybeSingle();
+    if (configRow) {
+      const max =
+        body.field_changed === 'ww_scores'
+          ? Number(configRow.ww_max_slots ?? 5)
+          : Number(configRow.pt_max_slots ?? 5);
+      // slot_index is 0-based; valid indices are 0..(max-1). User-facing
+      // copy uses 1-based numbering for clarity.
+      if (body.slot_index != null && body.slot_index >= max) {
+        const fieldLabel =
+          body.field_changed === 'ww_scores'
+            ? 'Written Work'
+            : 'Performance Task';
+        return NextResponse.json(
+          {
+            error: `${fieldLabel} slot ${body.slot_index + 1} doesn't exist for this subject. The maximum is ${max} slot${max === 1 ? '' : 's'}.`,
+          },
+          { status: 422 },
+        );
+      }
+    }
+    // If configRow is null (no subject_config for this pair), don't
+    // 422 — fall through and let the existing per-AY config govern.
+    // Missing config is its own bug class, not in scope here.
+  }
+
   // Snapshot the eligible designated-approver pool at filing time (KD #41 +
   // migration 044). Frozen here so that an admin removed from the flow after
   // the request was filed still resolves correctly in the inbox.
@@ -436,6 +501,42 @@ function snapshotCurrentValue(
     case 'is_na':
       return entry.is_na ? 'true' : 'false';
   }
+}
+
+/**
+ * Spurious-request guard helper: compares the teacher's proposed value
+ * (always a trimmed non-empty string per the schema) against the snapshot
+ * current value (string or null per snapshotCurrentValue). Mirrors the
+ * apply-route's valuesMatch helper but at scalar-vs-scalar granularity:
+ *  - ww_scores / pt_scores / qa_score: coerce both sides to Number; treat
+ *    empty string as null (not-taken ≠ scored 0 per Hard Rule #3, but at
+ *    a single-slot scalar comparison empty proposed string can't equal a
+ *    numeric current value anyway — that branch is defensive).
+ *  - letter_grade: strict string equality (case-sensitive).
+ *  - is_na: normalize 'true' / 'false' / true / false to boolean before
+ *    compare.
+ */
+function canonicallyEqual(
+  field: ChangeRequestField,
+  proposed: string,
+  current: string | null,
+): boolean {
+  if (field === 'ww_scores' || field === 'pt_scores' || field === 'qa_score') {
+    const p = proposed.trim();
+    if (p === '' && current == null) return true;
+    if (p === '' || current == null) return false;
+    return Number(p) === Number(current);
+  }
+  if (field === 'is_na') {
+    const p = proposed === 'true' || (proposed as unknown) === true;
+    const c = current === 'true' || (current as unknown) === true;
+    return p === c;
+  }
+  // letter_grade and any other string field — strict null-safe equality.
+  // `proposed` is always a non-empty trimmed string here (zod's min(1) on
+  // ChangeRequestFormSchema.proposed_value enforces it); a null `current`
+  // therefore can never match an empty `proposed`, but be explicit anyway.
+  return proposed === current;
 }
 
 // Helpers shared with the [id]/route.ts handler. Kept local to avoid a new

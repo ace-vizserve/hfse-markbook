@@ -1,13 +1,14 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Check, ChevronsUpDown, Loader2, Search, Send } from "lucide-react";
+import { AlertCircle, AlertTriangle, Check, ChevronsUpDown, Loader2, Search, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -138,6 +139,22 @@ export function RequestEditButton({ sheetId, isExaminable, wwSlotCount, ptSlotCo
 
   const needsSlot = selectedField === "ww_scores" || selectedField === "pt_scores";
   const maxSlot = selectedField === "ww_scores" ? wwSlotCount : ptSlotCount;
+
+  // Client-side soft guard: refuse to file when the proposed value matches the
+  // current value verbatim (would be a no-op request that just spams the
+  // approver inbox). Server enforces the canonical comparison; this just
+  // shortens the feedback loop. Coerce both sides to string so "92" === 92
+  // doesn't sneak through.
+  const proposedValueRaw = form.watch("proposed_value") ?? "";
+  const proposedValueTrimmed = proposedValueRaw.trim();
+  const proposedTouched = !!form.formState.dirtyFields.proposed_value;
+  const isSameValue =
+    proposedValueTrimmed !== "" &&
+    String(proposedValueTrimmed) === String(currentValueDisplay).trim();
+
+  // Live char count for the justification field (Issue 8). Reuses the
+  // existing watch so we don't add another subscription.
+  const justificationChars = (form.watch("justification") ?? "").trim().length;
 
   const busy = form.formState.isSubmitting;
 
@@ -304,6 +321,12 @@ export function RequestEditButton({ sheetId, isExaminable, wwSlotCount, ptSlotCo
                     <FormDescription>
                       The registrar will type this exact value into the locked sheet when applying the approved request.
                     </FormDescription>
+                    {proposedTouched && isSameValue && (
+                      <p className="flex items-start gap-1.5 text-[11px] text-brand-amber">
+                        <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+                        <span>This is the same as the current value — change it before filing.</span>
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -347,7 +370,18 @@ export function RequestEditButton({ sheetId, isExaminable, wwSlotCount, ptSlotCo
                         rows={5}
                       />
                     </FormControl>
-                    <FormDescription>{field.value.trim().length}/20 characters minimum</FormDescription>
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-muted-foreground">
+                        Tell the approver why this change matters.
+                      </span>
+                      <span
+                        className={cn(
+                          "tabular-nums",
+                          justificationChars >= 20 ? "text-brand-mint" : "text-muted-foreground",
+                        )}>
+                        {justificationChars} / 20 minimum
+                      </span>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -421,6 +455,16 @@ export function RequestEditButton({ sheetId, isExaminable, wwSlotCount, ptSlotCo
                     </FormItem>
                   )}
                 />
+
+                {primaryApproverId && form.watch("secondary_approver_id") && (
+                  <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+                    <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+                    <span>
+                      Only these two administrators will be able to act on this request. If both are unavailable, the
+                      request will sit in their queue until one returns or another administrator is added.
+                    </span>
+                  </p>
+                )}
               </div>
             </div>
 
@@ -430,7 +474,15 @@ export function RequestEditButton({ sheetId, isExaminable, wwSlotCount, ptSlotCo
                   Cancel
                 </Button>
               </SheetClose>
-              <Button type="submit" size="sm" disabled={busy || noApproversConfigured || onlyOneApprover}>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={
+                  busy ||
+                  noApproversConfigured ||
+                  onlyOneApprover ||
+                  (proposedTouched && isSameValue)
+                }>
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 {busy ? "Submitting…" : "Submit request"}
               </Button>

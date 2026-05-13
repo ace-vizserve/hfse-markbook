@@ -312,14 +312,15 @@ export function ChangeRequestsDataTable({
 
   type AugmentedRow = (typeof augmentedRows)[number];
 
-  // Registrar-only: "Waiting to be applied" Toggle. The shell renders the
-  // toggle only when meScope.userId is truthy; we pass a sentinel string
-  // ('registrar') so the gate flips on. The predicate ignores the userId
-  // arg — it filters purely on row status/applied_at.
+  // Registrar-only: "Waiting to be applied" Toggle. The predicate has nothing
+  // to do with the viewer — it filters purely on row status/applied_at — so
+  // we opt the Toggle in via `enabled: true` and pass `userId: null` to make
+  // the absence of user-scoping explicit (per MeScopeConfig JSDoc).
   const notAppliedScope: MeScopeConfig<AugmentedRow> | undefined =
     showNotAppliedFilter
       ? {
-          userId: "registrar",
+          enabled: true,
+          userId: null,
           label: TABLE_COPY.changeRequestNotApplied,
           predicate: (r) => r.status === "approved" && r.applied_at === null,
         }

@@ -19,10 +19,20 @@ export type StatusTabConfig<TRow> = {
 };
 
 export type MeScopeConfig<TRow> = {
+  /**
+   * Explicit on/off gate for the Toggle. When set, takes precedence over
+   * userId-truthiness. Use `enabled: true` when the predicate has nothing
+   * to do with the viewer (e.g. a "waiting to be applied" filter) — pass
+   * `userId: null` and let `enabled` carry the gate semantic.
+   *
+   * Default behavior (when omitted): falls back to Boolean(userId), which
+   * matches the original "show only mine" use case.
+   */
+  enabled?: boolean;
   userId: string | null;
   label: string;
   icon?: LucideIcon;
-  predicate: (row: TRow, userId: string) => boolean;
+  predicate: (row: TRow, userId: string | null) => boolean;
 };
 
 export type CsvConfig<TRow> = {

@@ -73,9 +73,16 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
   const urlState = useUrlState(url);
   const initial = url.enabled ? urlState.read() : { facets: {} as Record<string, string[]> };
 
+  // Toggle visibility gate. New `enabled` flag takes precedence so consumers
+  // whose predicate has nothing to do with the viewer (e.g. a registrar's
+  // "waiting to be applied" filter) can opt in without passing a sentinel
+  // userId; falls back to Boolean(userId) for the original "show only mine"
+  // use case so existing callers keep working unchanged.
+  const meScopeEnabled = meScope?.enabled ?? Boolean(meScope?.userId);
+
   const defaultStatus = statusTabs?.find((t) => t.isDefault)?.value ?? statusTabs?.[0]?.value;
   const [statusTab, setStatusTab] = useState<string | undefined>(initial.status ?? defaultStatus);
-  const [mineActive, setMineActive] = useState<boolean>(Boolean(initial.mine && meScope?.userId));
+  const [mineActive, setMineActive] = useState<boolean>(Boolean(initial.mine && meScopeEnabled));
   const [search, setSearch] = useState<string>(initial.search ?? initialSearch ?? '');
   const [sorting, setSorting] = useState<SortingState>(initialSort);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(initialColumnVisibility);
@@ -90,12 +97,11 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
       const tab = statusTabs.find((t) => t.value === statusTab);
       if (tab) rows = rows.filter(tab.predicate);
     }
-    if (mineActive && meScope?.userId) {
-      const uid = meScope.userId;
-      rows = rows.filter((r) => meScope.predicate(r, uid));
+    if (mineActive && meScope && meScopeEnabled) {
+      rows = rows.filter((r) => meScope.predicate(r, meScope.userId));
     }
     return rows;
-  }, [data, statusTabs, statusTab, mineActive, meScope]);
+  }, [data, statusTabs, statusTab, mineActive, meScope, meScopeEnabled]);
 
   const table = useReactTable<TRow>({
     data: tabFilteredData,
@@ -215,7 +221,7 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
             className="h-8 w-56 pl-7 text-xs"
           />
         </div>
-        {meScope?.userId && (
+        {meScope && meScopeEnabled && (
           <Toggle
             pressed={mineActive}
             onPressedChange={setMineActive}
