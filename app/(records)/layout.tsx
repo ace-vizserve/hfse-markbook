@@ -8,6 +8,9 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
+import { getCurrentAcademicYear } from '@/lib/academic-year';
+import type { SidebarBadges } from '@/lib/auth/roles';
+import { countUnsyncedEnrolledStudents } from '@/lib/sis/unsynced-students';
 
 export default async function RecordsLayout({ children }: { children: React.ReactNode }) {
   const sessionUser = await getSessionUser();
@@ -23,9 +26,27 @@ export default async function RecordsLayout({ children }: { children: React.Reac
   const cookieStore = await cookies();
   const defaultOpen = cookieStore.get('sidebar:state')?.value !== 'false';
 
+  // Sidebar badges — SSR-static (no realtime subscription per KD #29).
+  // `countUnsyncedEnrolledStudents` shares the `sis:${ayCode}` cache tag
+  // with the loader, so the badge refreshes whenever an admissions
+  // mutation runs (which is what AssignSectionDialog triggers anyway).
+  const currentAy = await getCurrentAcademicYear();
+  const unsyncedCount = currentAy
+    ? await countUnsyncedEnrolledStudents(currentAy.ay_code)
+    : 0;
+  const badges: SidebarBadges = {
+    unsyncedStudents: unsyncedCount > 0 ? unsyncedCount : undefined,
+  };
+
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
-      <ModuleSidebar module="records" role={role} email={email} userId={id} />
+      <ModuleSidebar
+        module="records"
+        role={role}
+        email={email}
+        userId={id}
+        badges={badges}
+      />
       <SidebarInset>
         <AyBanner />
         <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/85 px-4 backdrop-blur-md">

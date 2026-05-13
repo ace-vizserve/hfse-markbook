@@ -72,6 +72,7 @@ import { StudentLifecycleTimeline } from '@/components/sis/student-lifecycle-tim
 import { getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { freshenAyDocuments } from '@/lib/p-files/freshen-document-statuses';
+import { RecordsLitePage } from '@/components/sis/records-lite-page';
 
 // Canonical CardAction gradient tile — indigo→navy with brand-tile glow.
 // Used as the top-right icon affordance on every Card across the page so the
@@ -152,22 +153,24 @@ export default async function RecordsStudentCrossYearPage({
 
   const student = await findStudentByNumber(studentNumber);
   if (!student) {
-    // Legacy data path: the admissions tables may have a row with this
-    // studentNumber even though public.students doesn't (pre-SIS legacy
-    // data that was never synced into the grading schema). If we can find
-    // any admissions history for the studentNumber, redirect to the most
-    // recent AY's admissions detail instead of 404ing — the user still
-    // gets a useful surface, just without the cross-year grading overlay.
+    // No grading-schema row for this studentNumber. If we have admissions
+    // history we render the Records "lite" page — same URL, but a stripped
+    // view scoped to the most-recent (or current-AY) admissions entry, with
+    // an assign-section action card so the registrar can unblock the
+    // missing-classSection case without bouncing to admissions first.
     const history = await getEnrollmentHistory(studentNumber);
-    if (history.length > 0) {
-      // getEnrollmentHistory returns per-AY; pick the newest AY by ay_code
-      // (string sort works because ay_code is AY2026 / AY2025 / etc).
-      const newest = [...history].sort((a, b) => b.ayCode.localeCompare(a.ayCode))[0];
-      redirect(
-        `/admissions/applications/${encodeURIComponent(newest.enroleeNumber)}?ay=${encodeURIComponent(newest.ayCode)}`,
-      );
-    }
-    notFound();
+    if (history.length === 0) notFound();
+    const currentAy = await getCurrentAcademicYear();
+    const currentEntry =
+      history.find((h) => h.ayCode === currentAy?.ay_code) ??
+      [...history].sort((a, b) => b.ayCode.localeCompare(a.ayCode))[0];
+    return (
+      <RecordsLitePage
+        studentNumber={studentNumber}
+        history={history}
+        currentEntry={currentEntry}
+      />
+    );
   }
 
   const [placements, academics, attendance, history, currentAy] = await Promise.all([

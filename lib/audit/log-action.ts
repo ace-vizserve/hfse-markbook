@@ -13,6 +13,7 @@ export type AuditAction =
   | 'student.sync'
   | 'student.add'
   | 'student.section.transfer'
+  | 'sis.student.assign_section'
   | 'enrolment.metadata.update'
   | 'assignment.create'
   | 'assignment.delete'

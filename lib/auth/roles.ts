@@ -27,7 +27,10 @@ export type NavItem = {
 };
 export type NavSection = { label?: string; items: NavItem[] };
 
-export type SidebarBadgeKey = "changeRequests" | "pendingDocValidation";
+export type SidebarBadgeKey =
+  | "changeRequests"
+  | "pendingDocValidation"
+  | "unsyncedStudents";
 export type SidebarBadges = Partial<Record<SidebarBadgeKey, number>>;
 
 const PFILES_NAV: NavSection[] = [
@@ -121,6 +124,16 @@ const RECORDS_NAV: NavSection[] = [
     items: [
       { href: "/records/students", label: "Students" },
       { href: "/records/movements", label: "Movements" },
+      // Operational queue for enrolled-but-not-synced students. Per-row
+      // sync gates on BOTH studentNumber AND classSection — when either
+      // is missing the student is stranded outside grading. The queue
+      // surfaces them and offers the assign-section CTA inline. Badge
+      // mirrors the row count from `countUnsyncedEnrolledStudents`.
+      {
+        href: "/records/unsynced",
+        label: "Students needing setup",
+        badgeKey: "unsyncedStudents",
+      },
       // Discount-codes catalogue is config — moved to SIS Admin
       // (2026-04-22). Cross-module link kept here for registrar convenience.
       {

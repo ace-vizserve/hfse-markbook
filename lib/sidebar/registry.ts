@@ -29,6 +29,7 @@ import {
   Tag,
   UserCog,
   Users,
+  UserX,
   XCircle,
   type LucideIcon,
 } from "lucide-react";
@@ -155,6 +156,7 @@ export const SIDEBAR_REGISTRY: Record<SidebarModule, ModuleSidebarConfig> = {
       "/records": LayoutDashboard,
       "/records/students": Users,
       "/records/movements": ArrowRightLeft,
+      "/records/unsynced": UserX,
       "/sis/admin/discount-codes": Tag,
       "/sis/sync-students": RefreshCw,
       "/records/audit-log": History,

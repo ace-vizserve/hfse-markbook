@@ -53,6 +53,7 @@ import {
 } from "@/lib/sis/dashboard";
 import { freshenAyDocuments } from "@/lib/p-files/freshen-document-statuses";
 import { getSisDashboardSummary } from "@/lib/sis/queries";
+import { countUnsyncedEnrolledStudents } from "@/lib/sis/unsynced-students";
 import { getSessionUser } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -119,6 +120,7 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
     enrolVelocity,
     withdrawVelocity,
     classAssignment,
+    unsyncedCount,
   ] = await Promise.all([
     getSisDashboardSummary(selectedAy),
     getDocumentValidationBacklog(selectedAy),
@@ -129,6 +131,7 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
     getEnrollmentVelocityRange(rangeInput),
     getWithdrawalVelocityRange(rangeInput),
     getClassAssignmentReadiness(selectedAy),
+    countUnsyncedEnrolledStudents(selectedAy),
   ]);
 
   await freshenPromise;
@@ -171,6 +174,21 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
           { label: isCurrentAy ? "Current" : "Historical", tone: isCurrentAy ? "mint" : "muted" },
         ]}
       />
+
+      {/* Unsynced-students alert chip — only when the current AY has gaps.
+          Routes to /records/unsynced where the registrar can assign a class
+          section inline. Conditional render keeps the hero clean on the
+          happy path (everyone has a section, no chip). */}
+      {unsyncedCount > 0 && isCurrentAy && (
+        <Link
+          href="/records/unsynced"
+          className="inline-flex items-center gap-2 self-start rounded-full border border-brand-amber/40 bg-gradient-to-b from-brand-amber/15 to-brand-amber/5 px-3 py-1 text-sm font-medium text-brand-amber transition-colors hover:bg-brand-amber/20"
+        >
+          <AlertTriangle className="size-3.5" />
+          {unsyncedCount.toLocaleString("en-SG")} student
+          {unsyncedCount === 1 ? "" : "s"} without a class section — review
+        </Link>
+      )}
 
       <ComparisonToolbar
         ayCode={selectedAy}
