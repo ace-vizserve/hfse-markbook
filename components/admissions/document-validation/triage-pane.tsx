@@ -133,12 +133,33 @@ export function TriagePane({
         {/* Preview */}
         <div className="rounded-xl border border-hairline bg-card p-2">
           {isPdf ? (
-            <iframe
-              src={current.fileUrl}
-              title="Document preview"
+            // <object> over <iframe> for PDF: Chrome's PDF viewer needs
+            // scripts + same-origin to render, but `sandbox="allow-scripts
+            // allow-same-origin"` is the dangerous combo (lets embedded
+            // content escape the sandbox). <object> doesn't carry sandbox
+            // restrictions and degrades to its child fallback when the
+            // browser can't render the type. The PDF is hosted on a
+            // different origin (Supabase Storage), so the same-origin
+            // policy already isolates it from the parent — no sandbox
+            // adds no real security here.
+            <object
+              data={current.fileUrl}
+              type="application/pdf"
               className="h-[70vh] w-full rounded-lg"
-              sandbox="allow-same-origin"
-            />
+              aria-label="Document preview"
+            >
+              <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center text-sm text-muted-foreground">
+                <p>Your browser can&apos;t display this PDF inline.</p>
+                <a
+                  href={current.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  Open the file in a new tab
+                </a>
+              </div>
+            </object>
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
             <img
