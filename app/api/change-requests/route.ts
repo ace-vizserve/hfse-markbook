@@ -10,7 +10,11 @@ import {
   loadAssignmentsForUser,
   isSubjectTeacher,
 } from '@/lib/auth/teacher-assignments';
-import { notifyRequestFiled } from '@/lib/notifications/email-change-request';
+import {
+  notifyApprovedNotApplied,
+  notifyRequestFiled,
+  type ApprovedStaleSummary,
+} from '@/lib/notifications/email-change-request';
 import { createClient } from '@/lib/supabase/server';
 import { listApproversForFlow } from '@/lib/sis/approvers/queries';
 import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
@@ -40,7 +44,8 @@ export async function GET(request: NextRequest) {
        status, requested_by, requested_by_email, requested_at,
        reviewed_by, reviewed_by_email, reviewed_at, decision_note,
        applied_by, applied_at,
-       primary_approver_id, secondary_approver_id`,
+       primary_approver_id, secondary_approver_id,
+       approved_at, reminder_sent_at, rejection_undone_at`,
     )
     .order('requested_at', { ascending: false });
 
@@ -66,7 +71,72 @@ export async function GET(request: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  return NextResponse.json({ requests: data ?? [] });
+  const rows = data ?? [];
+
+  // Lazy reminder fire — once per row, when an approved request has been
+  // sitting un-applied for 3+ days. Stamping reminder_sent_at BEFORE the
+  // email send (and using the service client to bypass RLS for the
+  // UPDATE) gives us idempotency: concurrent admin-inbox loads see the
+  // stamped value and skip the candidate. The partial index from
+  // migration 045 keeps the candidate filter cheap. Only the rows the
+  // current viewer can see participate — a teacher filter excludes
+  // other people's rows so this fan-out only ever fires from an admin
+  // inbox load (where the registrar list is the right notify target).
+  const THREE_DAYS_MS = 3 * 86_400_000;
+  const reminderCandidates = rows.filter(
+    (r) =>
+      r.status === 'approved' &&
+      r.approved_at != null &&
+      Date.now() - Date.parse(r.approved_at) > THREE_DAYS_MS &&
+      r.reminder_sent_at == null,
+  );
+  if (reminderCandidates.length > 0) {
+    const candidateIds = reminderCandidates.map((r) => r.id);
+    const stampNow = new Date().toISOString();
+    // Defensive .eq('status', 'approved') so a row that transitioned out
+    // of approved (e.g., applied or cancelled) between the SELECT and
+    // this UPDATE doesn't get its reminder_sent_at stamped — would
+    // pollute the column semantics for any future audit of "was a
+    // reminder ever sent for this request?".
+    const { error: stampError } = await service
+      .from('grade_change_requests')
+      .update({ reminder_sent_at: stampNow })
+      .in('id', candidateIds)
+      .eq('status', 'approved');
+    if (stampError) {
+      console.error('[change-requests GET] reminder stamp failed', stampError);
+    } else {
+      void (async () => {
+        try {
+          const summaries: ApprovedStaleSummary[] = reminderCandidates.map((r) => ({
+            id: r.id,
+            student_label: null,
+            field_changed: r.field_changed,
+            approved_at: r.approved_at as string,
+            grading_sheet_id: r.grading_sheet_id,
+          }));
+          // Hydrate student labels in parallel — best-effort. If a label
+          // lookup fails, leave it null and the email renders "(student)".
+          const labelResults = await Promise.all(
+            reminderCandidates.map((r) =>
+              fetchLabels(service, r.grading_sheet_id, r.grade_entry_id).catch(
+                () => ({ student_label: null, sheet_label: null }),
+              ),
+            ),
+          );
+          labelResults.forEach((labels, i) => {
+            summaries[i].student_label = labels.student_label;
+          });
+          const registrarEmails = await fetchRegistrarEmails(service);
+          await notifyApprovedNotApplied(summaries, registrarEmails);
+        } catch (e) {
+          console.error('[change-requests GET] reminder fan-out failed', e);
+        }
+      })();
+    }
+  }
+
+  return NextResponse.json({ requests: rows });
 }
 
 // POST /api/change-requests

@@ -2,10 +2,11 @@
 
 import { ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo, type ReactNode } from 'react';
+import { useMemo } from 'react';
 import { type ColumnDef } from '@tanstack/react-table';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import { type FacetConfig, type StatusTabConfig, type CsvConfig } from '@/components/ui/data-table/types';
 import { SortableHeader } from '@/components/ui/data-table/sortable-header';
@@ -33,6 +34,8 @@ export type MyRequestRow = {
   reviewed_by_email: string | null;
   decision_note: string | null;
   applied_at: string | null;
+  approved_at: string | null;
+  rejection_undone_at: string | null;
   // Per-designee reviewer columns (migration 044). When both are set the
   // request was co-signed; the teacher sees both names in the Reason cell.
   primary_reviewed_by_email: string | null;
@@ -143,13 +146,28 @@ const COLUMNS: ColumnDef<MyRequestRow>[] = [
     enableHiding: false,
     cell: ({ row }) => (
       <div className="flex items-center justify-end gap-2">
-        <Link
-          href={`/markbook/grading/${row.original.grading_sheet_id}`}
-          className="inline-flex items-center gap-1 text-xs text-primary hover:underline underline-offset-4"
-        >
-          Sheet
-          <ArrowUpRight className="size-3" />
-        </Link>
+        {row.original.status === 'approved' ? (
+          // Approved-but-not-yet-applied: promote the deep-link to a filled
+          // CTA so the teacher can jump straight to the locked sheet and
+          // see the approved change ready to be applied. The registrar
+          // does the actual apply (Hard Rule #5 + #6); teacher's CTA is
+          // labelled "View" to reflect their read-only role.
+          <Button asChild size="sm" className="h-8">
+            <Link
+              href={`/markbook/grading/${row.original.grading_sheet_id}`}
+            >
+              View approved sheet
+            </Link>
+          </Button>
+        ) : (
+          <Link
+            href={`/markbook/grading/${row.original.grading_sheet_id}`}
+            className="inline-flex items-center gap-1 text-xs text-primary hover:underline underline-offset-4"
+          >
+            Sheet
+            <ArrowUpRight className="size-3" />
+          </Link>
+        )}
         {row.original.status === 'pending' && (
           <MyRequestsCancelButton requestId={row.original.id} />
         )}

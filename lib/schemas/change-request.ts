@@ -94,7 +94,7 @@ export type ChangeRequestFormInput = z.infer<typeof ChangeRequestFormSchema>;
 // State-transition payload for admin / teacher actions on an existing request.
 export const ChangeRequestActionSchema = z
   .object({
-    action: z.enum(['approve', 'reject', 'cancel']),
+    action: z.enum(['approve', 'reject', 'cancel', 'undo_rejection']),
     decision_note: z.string().trim().max(1000).optional(),
   })
   .refine(

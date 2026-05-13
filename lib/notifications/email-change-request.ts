@@ -209,6 +209,100 @@ export async function notifyRequestRejected(
   return sendAll(t.resend, t.from, [teacherEmail], subject, html);
 }
 
+// Lightweight summary type for the lazy reminder fan-out. Carries only the
+// fields the reminder email + deep-link CTA need — separate from the full
+// RequestSummary so callers in the GET inbox path don't have to hydrate
+// labels for every candidate row.
+export type ApprovedStaleSummary = {
+  id: string;
+  student_label: string | null;
+  field_changed: string;
+  approved_at: string;
+  grading_sheet_id: string;
+};
+
+function staleRowsTable(rows: ApprovedStaleSummary[]): string {
+  const cell =
+    'padding: 8px 12px; color: #1d1c1d; border-bottom: 1px solid #eaeaea; font-size: 14px; vertical-align: top;';
+  const headerCell =
+    'padding: 8px 12px; color: #64748B; border-bottom: 1px solid #eaeaea; font-size: 12px; text-align: left; font-weight: 600;';
+  const body = rows
+    .map((r) => {
+      const approvedMs = Date.parse(r.approved_at);
+      const days = Number.isFinite(approvedMs)
+        ? Math.max(0, Math.floor((Date.now() - approvedMs) / 86_400_000))
+        : 0;
+      const dayLabel = days === 1 ? '1 day ago' : `${days} days ago`;
+      return `
+        <tr>
+          <td style="${cell}">${escapeHtml(r.student_label ?? '(student)')}</td>
+          <td style="${cell}">${escapeHtml(r.field_changed)}</td>
+          <td style="${cell}">${escapeHtml(dayLabel)}</td>
+          <td style="${cell}"><a href="${changeRequestUrl(r.id)}" style="color:#004aad;text-decoration:underline;">Open request</a></td>
+        </tr>`;
+    })
+    .join('');
+  return `
+    <table style="width: 100%; border-collapse: collapse; margin: 12px 0 16px;">
+      <thead>
+        <tr>
+          <th style="${headerCell}">Student</th>
+          <th style="${headerCell}">Field</th>
+          <th style="${headerCell}">Approved</th>
+          <th style="${headerCell}"></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${body}
+      </tbody>
+    </table>
+  `;
+}
+
+// Fired on: GET /api/change-requests when the lazy reminder candidate scan
+// finds approved-but-not-applied requests older than 3 days. Recipients:
+// the registrar list (they're the ones who apply approved requests).
+// Idempotent via reminder_sent_at on each row — the GET handler stamps it
+// before this fan-out so concurrent inbox loads don't double-send.
+export async function notifyApprovedNotApplied(
+  rows: ApprovedStaleSummary[],
+  registrarEmails: string[],
+): Promise<{ sent: number; failed: number }> {
+  const t = getTransport();
+  if (!t || rows.length === 0 || registrarEmails.length === 0) {
+    return { sent: 0, failed: 0 };
+  }
+
+  const recipients = Array.from(new Set(registrarEmails)).filter(Boolean);
+  if (recipients.length === 0) return { sent: 0, failed: 0 };
+
+  const subject = 'Reminder: change request approved but not yet applied';
+  const headerCount =
+    rows.length === 1
+      ? '1 approved change request'
+      : `${rows.length} approved change requests`;
+  const bodyHtml = `
+    <p style="font-size:16px;line-height:26px;color:#1d1c1d;margin:0 0 16px;">
+      ${headerCount} ${rows.length === 1 ? 'is' : 'are'} still waiting to be applied to a locked sheet. Open each one to review and apply, or close it out if it's no longer needed.
+    </p>
+    ${staleRowsTable(rows)}
+    <p style="font-size:14px;line-height:22px;color:#475569;margin:0 0 16px;">
+      You're getting this once per request — we won't keep nagging.
+    </p>
+  `;
+  const html = renderEmailFrame({
+    headline: 'Approved changes still waiting',
+    bodyHtml,
+    ctas: [
+      {
+        label: 'Open change requests',
+        href: `${process.env.NEXT_PUBLIC_SIS_URL ?? ''}/markbook/change-requests`,
+      },
+    ],
+  });
+  return sendAll(t.resend, t.from, recipients, subject, html);
+}
+
 // Fired on: PATCH entries (Path A) with change_request_id.
 // Recipients: the teacher + any approver emails provided.
 export async function notifyRequestApplied(

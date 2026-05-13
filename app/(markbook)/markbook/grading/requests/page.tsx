@@ -23,6 +23,8 @@ type RequestRow = {
   reviewed_by_email: string | null;
   decision_note: string | null;
   applied_at: string | null;
+  approved_at: string | null;
+  rejection_undone_at: string | null;
   primary_reviewed_by_email: string | null;
   secondary_reviewed_by_email: string | null;
 };
@@ -70,6 +72,7 @@ export default async function MyRequestsPage() {
        current_value, proposed_value, reason_category, justification,
        status, requested_at, reviewed_at, reviewed_by_email, decision_note,
        applied_at,
+       approved_at, rejection_undone_at,
        primary_reviewed_by_email, secondary_reviewed_by_email,
        grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))`,
     )
@@ -102,6 +105,8 @@ export default async function MyRequestsPage() {
     reviewed_by_email: r.reviewed_by_email,
     decision_note: r.decision_note,
     applied_at: r.applied_at,
+    approved_at: r.approved_at,
+    rejection_undone_at: r.rejection_undone_at,
     primary_reviewed_by_email: r.primary_reviewed_by_email,
     secondary_reviewed_by_email: r.secondary_reviewed_by_email,
   }));

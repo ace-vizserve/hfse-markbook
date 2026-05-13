@@ -1,6 +1,7 @@
 "use client";
 
 import { CalendarIcon, X } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import type { DateRange } from "react-day-picker";
@@ -23,6 +24,7 @@ import {
 } from "@/lib/markbook/change-request-status";
 import { cn } from "@/lib/utils";
 import { ChangeRequestDecisionButtons } from "./decision-buttons";
+import { UndoRejectionButton } from "./undo-rejection-button";
 
 export type AdminRequestRow = {
   id: string;
@@ -48,6 +50,12 @@ export type AdminRequestRow = {
   // reviewed_by_email above stays as the back-compat fallback.
   primary_reviewed_by_email: string | null;
   secondary_reviewed_by_email: string | null;
+  // primary_reviewed_at gates the 2-hour undo window for the rejecting
+  // approver; approved_at + rejection_undone_at are the post-decision
+  // signals (aging chip on the admin Status cell, audit-trail badge).
+  primary_reviewed_at: string | null;
+  approved_at: string | null;
+  rejection_undone_at: string | null;
 };
 
 // TODO(loader-join): surface section/subject/term/student per spec §5.2 + §7
@@ -111,6 +119,37 @@ const FACETS: FacetConfig[] = [
   },
 ];
 
+// Aging line below the Status pill on approved-but-not-yet-applied rows.
+// Tone escalates by days-since-approval so the admin can see at a glance
+// which approved requests are stalling. Plain English ("approved today",
+// "approved 5 days ago") — no relative-time-library jargon.
+function AgingLine({ approvedAt }: { approvedAt: string }) {
+  const days = (Date.now() - Date.parse(approvedAt)) / 86_400_000;
+  const rounded = Math.floor(days);
+  const label =
+    rounded <= 0
+      ? "approved today"
+      : rounded === 1
+        ? "approved yesterday"
+        : `approved ${rounded} days ago`;
+  const tone =
+    days < 3
+      ? "text-muted-foreground"
+      : days < 7
+        ? "text-brand-amber"
+        : "text-destructive";
+  return (
+    <span
+      className={cn(
+        "mt-1 block font-mono text-[10px] uppercase tracking-wider tabular-nums",
+        tone,
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
 // Reviewer attribution line: shows "Co-signed by …" when both designees
 // have acted, "Reviewed by …" when only one has. Hidden when neither has
 // reviewed yet (the row is still pending).
@@ -139,6 +178,7 @@ function ReviewerLine({ row }: { row: AdminRequestRow }) {
 export function ChangeRequestsDataTable({
   rows,
   canDecide,
+  actorEmail = null,
   initialSheetIdFilter,
   initialRequestId,
   initialAction,
@@ -146,6 +186,9 @@ export function ChangeRequestsDataTable({
 }: {
   rows: AdminRequestRow[];
   canDecide: boolean;
+  /** Current viewer's email — used to gate the rejection-undo button to the
+   *  rejecting approver only. Pass from the page RSC's getSessionUser. */
+  actorEmail?: string | null;
   initialSheetIdFilter?: string;
   initialRequestId?: string | null;
   initialAction?: "approve" | "reject" | null;
@@ -339,10 +382,16 @@ export function ChangeRequestsDataTable({
           const cfg = CHANGE_REQUEST_STATUS_CONFIG[row.original.status];
           const Icon = cfg.icon;
           return (
-            <Badge variant={cfg.variant}>
-              <Icon className="h-3 w-3" />
-              {cfg.label}
-            </Badge>
+            <div>
+              <Badge variant={cfg.variant}>
+                <Icon className="h-3 w-3" />
+                {cfg.label}
+              </Badge>
+              {row.original.status === "approved" &&
+                row.original.approved_at != null && (
+                  <AgingLine approvedAt={row.original.approved_at} />
+                )}
+            </div>
           );
         },
         filterFn: (row, id, value) => {
@@ -355,26 +404,47 @@ export function ChangeRequestsDataTable({
       {
         id: "actions",
         header: () => <span className="sr-only">Actions</span>,
-        cell: ({ row }) => (
-          <div
-            id={`change-request-row-${row.original.id}`}
-            className="flex items-center justify-end gap-2"
-          >
-            {canDecide && row.original.status === "pending" && (
-              <ChangeRequestDecisionButtons
-                requestId={row.original.id}
-                controlledOpen={controlledByRow[row.original.id] ?? null}
-                onControlledOpenConsumed={() => consumeControlledFor(row.original.id)}
-              />
-            )}
-          </div>
-        ),
+        cell: ({ row }) => {
+          const r = row.original;
+          // Undo gate: only the rejecting approver, only on rejected rows,
+          // only within 2 hours of the rejection. The PATCH endpoint
+          // re-checks all three; the client gate is for surface visibility.
+          const undoVisible =
+            r.status === "rejected" &&
+            actorEmail != null &&
+            r.primary_reviewed_by_email === actorEmail &&
+            r.primary_reviewed_at != null &&
+            Date.now() - Date.parse(r.primary_reviewed_at) <
+              2 * 60 * 60 * 1000;
+          return (
+            <div
+              id={`change-request-row-${r.id}`}
+              className="flex items-center justify-end gap-2"
+            >
+              {canDecide && r.status === "pending" && (
+                <ChangeRequestDecisionButtons
+                  requestId={r.id}
+                  controlledOpen={controlledByRow[r.id] ?? null}
+                  onControlledOpenConsumed={() => consumeControlledFor(r.id)}
+                />
+              )}
+              {r.status === "approved" && (
+                <Button asChild variant="outline" size="sm" className="h-8">
+                  <Link href={`/markbook/grading/${r.grading_sheet_id}`}>
+                    Open sheet
+                  </Link>
+                </Button>
+              )}
+              {undoVisible && <UndoRejectionButton requestId={r.id} />}
+            </div>
+          );
+        },
         enableSorting: false,
         enableHiding: false,
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canDecide, controlledByRow],
+    [canDecide, controlledByRow, actorEmail],
   );
 
   // Toolbar: date-range picker + sheet ID chip

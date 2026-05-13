@@ -57,8 +57,10 @@ export async function PATCH(
   // Approve/reject loosen this guard: a secondary reviewer co-signs AFTER
   // the first review has flipped status, so we accept approved/rejected
   // here too and let the per-ordinal logic below decide what's legal.
+  // Undo_rejection has its own status guard (rejected-only) enforced in
+  // its dedicated branch below — skip the pending-only gate for it.
   const isReview = action === 'approve' || action === 'reject';
-  if (!isReview && existing.status !== 'pending') {
+  if (!isReview && action !== 'undo_rejection' && existing.status !== 'pending') {
     return NextResponse.json(
       { error: `cannot ${action} a request in status "${existing.status}"` },
       { status: 400 },
@@ -153,6 +155,48 @@ export async function PATCH(
         { status: 403 },
       );
     }
+  } else if (action === 'undo_rejection') {
+    // Undo is the rejecting approver's "I clicked the wrong button" escape
+    // hatch — bounded by status (must currently be rejected), ownership
+    // (only the approver who rejected it), no secondary co-sign yet, and a
+    // 2-hour window from the original rejection moment.
+    if (existing.status !== 'rejected') {
+      return NextResponse.json(
+        { error: "This request hasn't been declined." },
+        { status: 400 },
+      );
+    }
+    if (existing.primary_reviewed_by !== auth.user.id) {
+      return NextResponse.json(
+        {
+          error:
+            'Only the approver who declined this request can undo the decision.',
+        },
+        { status: 403 },
+      );
+    }
+    if (existing.secondary_reviewed_by != null) {
+      return NextResponse.json(
+        {
+          error:
+            'The other approver has also reviewed this request. Contact a system administrator to reopen it.',
+        },
+        { status: 409 },
+      );
+    }
+    const reviewedMs = existing.primary_reviewed_at
+      ? Date.parse(existing.primary_reviewed_at)
+      : 0;
+    const ageHours = (Date.now() - reviewedMs) / (1000 * 60 * 60);
+    if (ageHours > 2) {
+      return NextResponse.json(
+        {
+          error:
+            'The 2-hour undo window has closed. The teacher will need to file a new request.',
+        },
+        { status: 400 },
+      );
+    }
   }
 
   const nowIso = new Date().toISOString();
@@ -175,6 +219,14 @@ export async function PATCH(
       update.primary_reviewed_by_email = auth.user.email ?? null;
       update.primary_reviewed_at = nowIso;
       update.primary_decision = decision;
+      // Canonical "the request entered the approved state at this moment"
+      // timestamp — separate from primary_reviewed_at so a future secondary
+      // co-sign (KD #41) can never overwrite the aging signal that drives
+      // the 3-day reminder threshold + the "approved N days ago" chip.
+      // Only stamped on approve; rejects leave it null.
+      if (decision === 'approved') {
+        update.approved_at = nowIso;
+      }
     } else {
       // Second reviewer: write only secondary_* columns. Status was already
       // flipped by the first reviewer; we do NOT touch status, reviewed_*,
@@ -187,6 +239,22 @@ export async function PATCH(
     }
     auditAction =
       action === 'approve' ? 'grade_change_approved' : 'grade_change_rejected';
+  } else if (action === 'undo_rejection') {
+    // Reopen the request: clear all primary + legacy review columns so the
+    // row reads as fresh-pending to the inbox + audit-list. Stamp
+    // rejection_undone_at so the UI can surface an "Undo used" affordance
+    // on the re-pending row (migration 045 column).
+    update.status = 'pending';
+    update.reviewed_by = null;
+    update.reviewed_by_email = null;
+    update.reviewed_at = null;
+    update.decision_note = null;
+    update.primary_reviewed_by = null;
+    update.primary_reviewed_by_email = null;
+    update.primary_reviewed_at = null;
+    update.primary_decision = null;
+    update.rejection_undone_at = nowIso;
+    auditAction = 'grade_change_undo_rejection';
   } else {
     update.status = 'cancelled';
     auditAction = 'grade_change_cancelled';
@@ -201,9 +269,15 @@ export async function PATCH(
   // For the SECOND reviewer: status has already moved; pin it to whatever
   // we read at the top so an unrelated state change between read + write
   // (e.g., teacher cancellation racing in) also returns null.
-  const expectedStatus = isReview && !isPrimaryReview
-    ? existing.status
-    : 'pending';
+  // For undo_rejection: pin to 'rejected' so a concurrent secondary
+  // co-sign (which would set secondary_reviewed_by) racing in won't be
+  // silently overwritten.
+  const expectedStatus =
+    action === 'undo_rejection'
+      ? 'rejected'
+      : isReview && !isPrimaryReview
+        ? existing.status
+        : 'pending';
   const { data: updated, error: updateError } = await service
     .from('grade_change_requests')
     .update(update)
@@ -241,6 +315,9 @@ export async function PATCH(
       proposed: updated.proposed_value,
       decision_note: updated.decision_note ?? null,
       ...(isReview ? { reviewer_ordinal: reviewerOrdinal } : {}),
+      ...(action === 'undo_rejection'
+        ? { original_rejection_at: existing.primary_reviewed_at }
+        : {}),
     },
   });
 

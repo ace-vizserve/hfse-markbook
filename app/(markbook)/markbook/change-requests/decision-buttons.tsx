@@ -144,7 +144,7 @@ export function ChangeRequestDecisionButtons({
             <DialogDescription>
               {action === 'approve'
                 ? 'The registrar will be notified and can apply the change on the locked sheet. The teacher is also notified.'
-                : 'The teacher will be notified with the reason you provide below. This decision is terminal — the teacher will need to file a new request.'}
+                : 'The teacher will be notified by email. If you change your mind, you have a 2-hour window to undo the decline from the request queue.'}
             </DialogDescription>
           </DialogHeader>
           <Field>

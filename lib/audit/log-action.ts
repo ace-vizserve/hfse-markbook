@@ -38,6 +38,7 @@ export type AuditAction =
   | 'grade_change_rejected'
   | 'grade_change_cancelled'
   | 'grade_change_applied'
+  | 'grade_change_undo_rejection'
   | 'grade_correction'
   | 'pfile.upload'
   | 'pfile.reminder.sent'

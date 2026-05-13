@@ -50,6 +50,8 @@ export default async function AdminChangeRequestsPage({
        applied_by, applied_at,
        primary_approver_id, secondary_approver_id,
        primary_reviewed_by_email, secondary_reviewed_by_email,
+       primary_reviewed_at,
+       approved_at, rejection_undone_at,
        grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))`,
     )
     .order('requested_at', { ascending: false });
@@ -103,6 +105,7 @@ export default async function AdminChangeRequestsPage({
       <ChangeRequestsDataTable
         rows={rows}
         canDecide={canDecide}
+        actorEmail={sessionUser.email || null}
         initialSheetIdFilter={sheet_id}
         initialRequestId={reqParam ?? null}
         initialAction={
