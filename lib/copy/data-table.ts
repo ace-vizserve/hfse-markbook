@@ -11,6 +11,7 @@ export const TABLE_COPY = {
   awaitingValidation: 'Awaiting validation',
 
   // Markbook
+  changeRequestNotApplied: 'Waiting to be applied',
   termSummary: 'Term summary',
   termSummaryTooltip: 'Older format, no longer written',
 

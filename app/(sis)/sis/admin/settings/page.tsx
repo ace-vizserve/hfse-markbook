@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { EnvironmentCard } from "@/components/sis/environment-card";
+import { SisUrlMissingBanner } from "@/components/sis/sis-url-missing-banner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
 import { getCurrentEnvironment, listEnvironmentAys } from "@/lib/sis/environment";
@@ -51,6 +52,8 @@ export default async function SettingsPage() {
           registration number) live on School Config.
         </p>
       </header>
+
+      <SisUrlMissingBanner />
 
       <Card>
         <CardHeader>

@@ -106,6 +106,7 @@ export default async function AdminChangeRequestsPage({
         rows={rows}
         canDecide={canDecide}
         actorEmail={sessionUser.email || null}
+        showNotAppliedFilter={role === 'registrar'}
         initialSheetIdFilter={sheet_id}
         initialRequestId={reqParam ?? null}
         initialAction={

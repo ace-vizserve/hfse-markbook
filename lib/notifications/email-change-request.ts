@@ -2,6 +2,7 @@ import "server-only";
 
 import { Resend } from 'resend';
 
+import { env } from '@/lib/env';
 import { escapeHtml, renderEmailFrame } from '@/lib/notifications/email-frame';
 
 // Server-only. Four email notifications for the change-request workflow.
@@ -13,7 +14,8 @@ import { escapeHtml, renderEmailFrame } from '@/lib/notifications/email-frame';
 // page reads the params, scrolls to the row and (for the approver email)
 // auto-opens the decision dialog. Absolute URLs require NEXT_PUBLIC_SIS_URL;
 // when unset the build still ships but the buttons render relative URLs that
-// most email clients won't navigate from. Logged via console.warn at render.
+// most email clients won't navigate from. The central warning fires once at
+// import time from `lib/env.ts`; the runtime fallback to '' is unchanged.
 
 type RequestSummary = {
   id: string;
@@ -32,13 +34,7 @@ type RequestSummary = {
 };
 
 function changeRequestUrl(requestId: string, action?: 'approve' | 'reject'): string {
-  const base = process.env.NEXT_PUBLIC_SIS_URL;
-  if (!base) {
-    console.warn(
-      '[notify] NEXT_PUBLIC_SIS_URL unset — change-request email CTAs will use relative URLs and may not navigate from email clients',
-    );
-  }
-  const origin = base ?? '';
+  const origin = env.NEXT_PUBLIC_SIS_URL || '';
   const path = `/markbook/change-requests?req=${encodeURIComponent(requestId)}`;
   const suffix = action ? `&action=${action}` : '';
   return `${origin}${path}${suffix}`;
@@ -296,7 +292,7 @@ export async function notifyApprovedNotApplied(
     ctas: [
       {
         label: 'Open change requests',
-        href: `${process.env.NEXT_PUBLIC_SIS_URL ?? ''}/markbook/change-requests`,
+        href: `${env.NEXT_PUBLIC_SIS_URL}/markbook/change-requests`,
       },
     ],
   });

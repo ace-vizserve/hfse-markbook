@@ -14,6 +14,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { DataTable } from "@/components/ui/data-table";
 import {
   type FacetConfig,
+  type MeScopeConfig,
   type StatusTabConfig,
 } from "@/components/ui/data-table/types";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -22,6 +23,7 @@ import {
   CHANGE_REQUEST_STATUS_CONFIG,
   type ChangeRequestStatus,
 } from "@/lib/markbook/change-request-status";
+import { TABLE_COPY } from "@/lib/copy/data-table";
 import { cn } from "@/lib/utils";
 import { ChangeRequestDecisionButtons } from "./decision-buttons";
 import { UndoRejectionButton } from "./undo-rejection-button";
@@ -179,6 +181,7 @@ export function ChangeRequestsDataTable({
   rows,
   canDecide,
   actorEmail = null,
+  showNotAppliedFilter = false,
   initialSheetIdFilter,
   initialRequestId,
   initialAction,
@@ -189,6 +192,11 @@ export function ChangeRequestsDataTable({
   /** Current viewer's email — used to gate the rejection-undo button to the
    *  rejecting approver only. Pass from the page RSC's getSessionUser. */
   actorEmail?: string | null;
+  /** Registrar-only: enables the "Waiting to be applied" Toggle in the
+   *  toolbar (filters to status='approved' AND applied_at IS NULL). The
+   *  registrar is the one applying approved requests; school_admin /
+   *  superadmin approve but don't apply, so the chip is hidden for them. */
+  showNotAppliedFilter?: boolean;
   initialSheetIdFilter?: string;
   initialRequestId?: string | null;
   initialAction?: "approve" | "reject" | null;
@@ -303,6 +311,19 @@ export function ChangeRequestsDataTable({
   );
 
   type AugmentedRow = (typeof augmentedRows)[number];
+
+  // Registrar-only: "Waiting to be applied" Toggle. The shell renders the
+  // toggle only when meScope.userId is truthy; we pass a sentinel string
+  // ('registrar') so the gate flips on. The predicate ignores the userId
+  // arg — it filters purely on row status/applied_at.
+  const notAppliedScope: MeScopeConfig<AugmentedRow> | undefined =
+    showNotAppliedFilter
+      ? {
+          userId: "registrar",
+          label: TABLE_COPY.changeRequestNotApplied,
+          predicate: (r) => r.status === "approved" && r.applied_at === null,
+        }
+      : undefined;
 
   const columns = React.useMemo<ColumnDef<AugmentedRow>[]>(
     () => [
@@ -521,6 +542,7 @@ export function ChangeRequestsDataTable({
       searchPlaceholder="Search teacher, justification…"
       facets={FACETS}
       statusTabs={STATUS_TABS}
+      meScope={notAppliedScope}
       toolbarLeading={toolbarLeading}
       initialSort={[{ id: "requested_at", desc: true }]}
       pageSize={20}
