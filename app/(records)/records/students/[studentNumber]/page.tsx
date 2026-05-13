@@ -871,9 +871,14 @@ function QuickActionsStrip({
       icon: ExternalLink,
     },
     {
-      href: `/p-files/${enroleeNumber}`,
+      // Records is cross-year (KD #4) but P-Files is AY-scoped — pass
+      // ayCode explicitly so the page looks up the matching AY's
+      // _enrolment_status row instead of falling back to currentAy.
+      // Without this, a student whose enrolment is in a non-current AY
+      // would 404 on P-Files even though their records page renders.
+      href: `/p-files/${enroleeNumber}?ay=${ayCode}`,
       label: 'P-Files',
-      sublabel: 'Documents · renewals',
+      sublabel: `Documents · renewals · ${ayCode}`,
       icon: FolderOpen,
     },
     {
