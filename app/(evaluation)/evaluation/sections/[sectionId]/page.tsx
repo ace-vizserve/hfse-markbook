@@ -156,9 +156,9 @@ export default async function EvaluationSectionRosterPage({
       ])
     : [[], new Map(), new Map()];
 
-  const responsesForClient = new Map<string, boolean>();
+  const responsesForClient = new Map<string, number | null>();
   for (const [k, row] of responseMap.entries()) {
-    responsesForClient.set(k, row.is_checked);
+    responsesForClient.set(k, row.rating);
   }
   const commentsForClient = new Map<string, string>();
   for (const [studentId, row] of commentMap.entries()) {

@@ -23,14 +23,16 @@ export const ChecklistItemUpdateSchema = z.object({
 });
 export type ChecklistItemUpdateInput = z.infer<typeof ChecklistItemUpdateSchema>;
 
-// PATCH /api/evaluation/checklist-responses — subject teacher ticks one
-// student's response against one item. Upsert on (term, student, item).
+// PATCH /api/evaluation/checklist-responses — subject teacher rates one
+// student's proficiency on one item. Upsert on (term, student, item).
+// `rating` is the 1–5 proficiency scale (migration 046); nullable so the
+// client can clear a previously-set value.
 export const ChecklistResponseUpsertSchema = z.object({
   termId: uuid,
   sectionId: uuid,
   studentId: uuid,
   checklistItemId: uuid,
-  isChecked: z.boolean(),
+  rating: z.number().int().min(1).max(5).nullable(),
 });
 export type ChecklistResponseUpsertInput = z.infer<typeof ChecklistResponseUpsertSchema>;
 

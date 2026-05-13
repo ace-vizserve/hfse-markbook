@@ -30,7 +30,7 @@ export async function PATCH(request: NextRequest) {
       { status: 400 },
     );
   }
-  const { termId, sectionId, studentId, checklistItemId, isChecked } = parsed.data;
+  const { termId, sectionId, studentId, checklistItemId, rating } = parsed.data;
 
   const service = createServiceClient();
 
@@ -58,7 +58,7 @@ export async function PATCH(request: NextRequest) {
         section_id: sectionId,
         student_id: studentId,
         checklist_item_id: checklistItemId,
-        is_checked: isChecked,
+        rating: rating ?? null,
         created_by: auth.user.id,
         updated_at: new Date().toISOString(),
       },
@@ -76,7 +76,7 @@ export async function PATCH(request: NextRequest) {
     action: 'evaluation.checklist_response.save',
     entityType: 'evaluation_checklist_response',
     entityId: saved.id,
-    context: { term_id: termId, section_id: sectionId, student_id: studentId, checklist_item_id: checklistItemId, is_checked: isChecked },
+    context: { term_id: termId, section_id: sectionId, student_id: studentId, checklist_item_id: checklistItemId, rating: rating ?? null },
   });
 
   return NextResponse.json({ ok: true, id: saved.id });

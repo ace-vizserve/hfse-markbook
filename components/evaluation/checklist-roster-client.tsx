@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { RatingSelector } from '@/components/evaluation/rating-selector';
 
 type ChecklistItem = {
   id: string;
@@ -30,8 +31,8 @@ type RosterStudent = {
 type SubjectOption = { id: string; code: string; name: string };
 
 type ChecklistState = {
-  // key = `${studentId}|${itemId}` → checked
-  responses: Map<string, boolean>;
+  // key = `${studentId}|${itemId}` → 1–5 rating, or null when not yet rated
+  responses: Map<string, number | null>;
   // key = studentId → current comment text
   comments: Map<string, string>;
   // key = studentId → 'idle' | 'saving' | 'saved'
@@ -61,7 +62,7 @@ export function ChecklistRosterClient({
   initialSubjectId: string;
   items: ChecklistItem[];
   roster: RosterStudent[];
-  initialResponses: Map<string, boolean>;
+  initialResponses: Map<string, number | null>;
   initialComments: Map<string, string>;
   canEdit: boolean;
 }) {
@@ -76,7 +77,12 @@ export function ChecklistRosterClient({
   const commentTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const saveResponse = useCallback(
-    async (studentId: string, itemId: string, isChecked: boolean) => {
+    async (
+      studentId: string,
+      itemId: string,
+      nextRating: number | null,
+      previousRating: number | null,
+    ) => {
       try {
         const res = await fetch('/api/evaluation/checklist-responses', {
           method: 'PATCH',
@@ -86,17 +92,17 @@ export function ChecklistRosterClient({
             sectionId,
             studentId,
             checklistItemId: itemId,
-            isChecked,
+            rating: nextRating,
           }),
         });
         const body = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(body?.error ?? 'save failed');
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'save failed');
-        // Revert optimistic tick on failure.
+        // Revert optimistic update on failure.
         setState((prev) => {
           const next = new Map(prev.responses);
-          next.set(`${studentId}|${itemId}`, !isChecked);
+          next.set(`${studentId}|${itemId}`, previousRating);
           return { ...prev, responses: next };
         });
       }
@@ -149,13 +155,15 @@ export function ChecklistRosterClient({
     [termId, sectionId, subjectId],
   );
 
-  function handleTick(studentId: string, itemId: string, nextChecked: boolean) {
+  function handleRate(studentId: string, itemId: string, nextRating: number | null) {
+    const key = `${studentId}|${itemId}`;
+    const previousRating = state.responses.get(key) ?? null;
     setState((prev) => {
       const next = new Map(prev.responses);
-      next.set(`${studentId}|${itemId}`, nextChecked);
+      next.set(key, nextRating);
       return { ...prev, responses: next };
     });
-    void saveResponse(studentId, itemId, nextChecked);
+    void saveResponse(studentId, itemId, nextRating, previousRating);
   }
 
   function handleCommentChange(studentId: string, next: string) {
@@ -185,10 +193,10 @@ export function ChecklistRosterClient({
     window.location.search = qs.toString();
   }
 
-  const tickedPerStudent = useMemo(() => {
+  const ratedPerStudent = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const [key, checked] of state.responses.entries()) {
-      if (!checked) continue;
+    for (const [key, rating] of state.responses.entries()) {
+      if (rating == null) continue;
       const [studentId] = key.split('|');
       const belongsToCurrentItems = items.some(
         (i) => `${studentId}|${i.id}` === key,
@@ -245,7 +253,7 @@ export function ChecklistRosterClient({
       ) : (
         <ul className="divide-y divide-border rounded-xl border border-border bg-card">
           {roster.map((student) => {
-            const ticked = tickedPerStudent.get(student.student_id) ?? 0;
+            const rated = ratedPerStudent.get(student.student_id) ?? 0;
             const comment = state.comments.get(student.student_id) ?? '';
             const status = state.commentStatus.get(student.student_id) ?? 'idle';
             return (
@@ -267,31 +275,29 @@ export function ChecklistRosterClient({
                     variant="outline"
                     className="mt-2 font-mono text-[10px] tabular-nums"
                   >
-                    {ticked} / {totalItems} ticked
+                    {rated} / {totalItems} rated
                   </Badge>
                 </div>
 
                 {/* Checklist + comment */}
                 <div className="min-w-0 space-y-3">
-                  <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                  <ul className="grid grid-cols-1 gap-1.5">
                     {items.map((item) => {
                       const key = `${student.student_id}|${item.id}`;
-                      const checked = state.responses.get(key) ?? false;
+                      const rating = state.responses.get(key) ?? null;
                       return (
                         <li
                           key={item.id}
-                          className="flex items-start gap-2 rounded-md border border-border bg-muted/20 px-2 py-1.5 text-[12px]"
+                          className="flex flex-col gap-2 rounded-md border border-border bg-muted/20 px-2 py-1.5 text-[12px] sm:flex-row sm:items-center sm:justify-between"
                         >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            disabled={!canEdit}
-                            onChange={(e) =>
-                              handleTick(student.student_id, item.id, e.target.checked)
-                            }
-                            className="mt-0.5 size-3.5 cursor-pointer accent-primary"
-                          />
                           <span className="min-w-0 flex-1 leading-snug">{item.item_text}</span>
+                          <div className="sm:shrink-0">
+                            <RatingSelector
+                              value={rating}
+                              onSelect={(v) => handleRate(student.student_id, item.id, v)}
+                              disabled={!canEdit}
+                            />
+                          </div>
                         </li>
                       );
                     })}

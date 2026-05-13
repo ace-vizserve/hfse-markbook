@@ -20,7 +20,7 @@ export type ChecklistResponseRow = {
   student_id: string;
   section_id: string;
   checklist_item_id: string;
-  is_checked: boolean;
+  rating: number | null;
 };
 
 export type SubjectCommentRow = {
@@ -72,7 +72,7 @@ export async function getResponsesBySectionTerm(
   const service = createServiceClient();
   const { data, error } = await service
     .from('evaluation_checklist_responses')
-    .select('id, term_id, student_id, section_id, checklist_item_id, is_checked')
+    .select('id, term_id, student_id, section_id, checklist_item_id, rating')
     .eq('section_id', sectionId)
     .eq('term_id', termId);
   const map = new Map<string, ChecklistResponseRow>();
