@@ -33,6 +33,10 @@ export type MyRequestRow = {
   reviewed_by_email: string | null;
   decision_note: string | null;
   applied_at: string | null;
+  // Per-designee reviewer columns (migration 044). When both are set the
+  // request was co-signed; the teacher sees both names in the Reason cell.
+  primary_reviewed_by_email: string | null;
+  secondary_reviewed_by_email: string | null;
 };
 
 // TODO(loader-join): surface section/subject/term/student per spec §5.8
@@ -109,6 +113,7 @@ const COLUMNS: ColumnDef<MyRequestRow>[] = [
             Note: {row.original.decision_note}
           </div>
         )}
+        <ReviewerLine row={row.original} />
       </div>
     ),
   },
@@ -198,6 +203,30 @@ const CSV_CONFIG: CsvConfig<MyRequestRow> = {
     { header: 'Status', accessor: (r) => statusLabel(r.status) },
   ],
 };
+
+// Reviewer attribution line — surfaces co-sign pairing to the teacher so
+// they know who actually decided their request. Hidden while pending.
+function ReviewerLine({ row }: { row: MyRequestRow }) {
+  const primary = row.primary_reviewed_by_email ?? row.reviewed_by_email;
+  const secondary = row.secondary_reviewed_by_email;
+  if (!primary && !secondary) return null;
+  if (primary && secondary) {
+    return (
+      <div className="mt-0.5 text-[11px] text-muted-foreground">
+        Co-signed by{' '}
+        <span className="font-medium text-foreground">{primary}</span>
+        {' and '}
+        <span className="font-medium text-foreground">{secondary}</span>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-0.5 text-[11px] text-muted-foreground">
+      Reviewed by{' '}
+      <span className="font-medium text-foreground">{primary ?? secondary}</span>
+    </div>
+  );
+}
 
 export function MyRequestsTable({ data }: { data: MyRequestRow[] }) {
   const facets = useMemo<FacetConfig[]>(() => [

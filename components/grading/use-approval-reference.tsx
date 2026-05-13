@@ -30,8 +30,14 @@ import {
 } from '@/lib/schemas/change-request';
 
 // Shape the hook resolves with after the user makes a choice.
+//
+// `proposed_value` on the request branch carries the approved value verbatim
+// from the change-request row so the calling grid can use it as the patch
+// payload — the registrar never re-types the value. For ww/pt array fields
+// the calling grid is responsible for parsing the JSON-stringified array
+// back into a (number | null)[].
 export type ChangeReference =
-  | { mode: 'request'; change_request_id: string }
+  | { mode: 'request'; change_request_id: string; proposed_value: string }
   | {
       mode: 'correction';
       correction_reason: CorrectionReason;
@@ -134,6 +140,11 @@ export function useChangeReference() {
           return true;
         });
         setRequests(filtered);
+        // If exactly one approved request matches this cell, auto-select it
+        // so the registrar can confirm without an extra click. They still
+        // see the proposal and can switch tabs to file a correction if it
+        // turns out to be the wrong one.
+        if (filtered.length === 1) setSelectedRequestId(filtered[0].id);
       } catch (e) {
         if (cancelled) return;
         setLoadError(e instanceof Error ? e.message : 'failed to load');
@@ -154,8 +165,14 @@ export function useChangeReference() {
 
   function confirmRequest() {
     if (!selectedRequestId) return;
+    const picked = requests.find((r) => r.id === selectedRequestId);
+    if (!picked) return;
     setOpen(false);
-    resolve({ mode: 'request', change_request_id: selectedRequestId });
+    resolve({
+      mode: 'request',
+      change_request_id: selectedRequestId,
+      proposed_value: picked.proposed_value,
+    });
   }
 
   function confirmCorrection() {
@@ -246,7 +263,7 @@ export function useChangeReference() {
               </ScrollArea>
             )}
             <p className="text-[11px] text-muted-foreground">
-              The typed cell value must match the request&apos;s proposed value.
+              The approved value will be filled in for you — no need to retype it.
             </p>
           </TabsContent>
 

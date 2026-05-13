@@ -87,6 +87,20 @@ export function ChangeRequestDecisionButtons({
           decision_note: note.trim() ? note.trim() : undefined,
         }),
       });
+      // Concurrent-decision race: another administrator approved or declined
+      // this request before us. Don't treat as a generic error — clear the
+      // dialog, refresh the list, and tell the user what happened.
+      if (res.status === 409) {
+        const body = await res.json().catch(() => ({}));
+        toast.error('Already handled', {
+          description:
+            body.error ??
+            'Another administrator already actioned this request. Refresh to see the latest status.',
+        });
+        setOpen(false);
+        router.refresh();
+        return;
+      }
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? 'failed');
       toast.success(action === 'approve' ? 'Request approved' : 'Request declined');

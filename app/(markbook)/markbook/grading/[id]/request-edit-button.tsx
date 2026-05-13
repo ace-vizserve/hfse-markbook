@@ -153,7 +153,13 @@ export function RequestEditButton({ sheetId, isExaminable, wwSlotCount, ptSlotCo
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "failed to file request");
-      toast.success("Change request submitted for approval");
+      if (body.warning) {
+        toast.warning("Heads up — approvers couldn't be reached by email", {
+          description: body.warning,
+        });
+      } else {
+        toast.success("Change request submitted for approval");
+      }
       setOpen(false);
       form.reset();
       router.refresh();

@@ -49,6 +49,7 @@ export default async function AdminChangeRequestsPage({
        reviewed_by_email, reviewed_at, decision_note,
        applied_by, applied_at,
        primary_approver_id, secondary_approver_id,
+       primary_reviewed_by_email, secondary_reviewed_by_email,
        grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))`,
     )
     .order('requested_at', { ascending: false });

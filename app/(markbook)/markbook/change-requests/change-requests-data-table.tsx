@@ -42,6 +42,12 @@ export type AdminRequestRow = {
   decision_note: string | null;
   applied_by: string | null;
   applied_at: string | null;
+  // Per-designee reviewer columns (migration 044). When BOTH are set the
+  // request was co-signed by both designated approvers; when only one is
+  // set the request is in the legacy single-reviewer shape. The legacy
+  // reviewed_by_email above stays as the back-compat fallback.
+  primary_reviewed_by_email: string | null;
+  secondary_reviewed_by_email: string | null;
 };
 
 // TODO(loader-join): surface section/subject/term/student per spec §5.2 + §7
@@ -104,6 +110,31 @@ const FACETS: FacetConfig[] = [
     label: "Reason",
   },
 ];
+
+// Reviewer attribution line: shows "Co-signed by …" when both designees
+// have acted, "Reviewed by …" when only one has. Hidden when neither has
+// reviewed yet (the row is still pending).
+function ReviewerLine({ row }: { row: AdminRequestRow }) {
+  const primary = row.primary_reviewed_by_email ?? row.reviewed_by_email;
+  const secondary = row.secondary_reviewed_by_email;
+  if (!primary && !secondary) return null;
+  if (primary && secondary) {
+    return (
+      <div className="mt-1 text-[11px] text-muted-foreground">
+        Co-signed by{' '}
+        <span className="font-medium text-foreground">{primary}</span>
+        {' and '}
+        <span className="font-medium text-foreground">{secondary}</span>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-1 text-[11px] text-muted-foreground">
+      Reviewed by{' '}
+      <span className="font-medium text-foreground">{primary ?? secondary}</span>
+    </div>
+  );
+}
 
 export function ChangeRequestsDataTable({
   rows,
@@ -291,6 +322,7 @@ export function ChangeRequestsDataTable({
                 Note: {row.original.decision_note}
               </div>
             )}
+            <ReviewerLine row={row.original} />
           </div>
         ),
         filterFn: (row, id, value) => {

@@ -109,6 +109,9 @@ export function ScoreEntryGrid({
       body: Partial<Pick<GradeRow, 'ww_scores' | 'pt_scores' | 'qa_score' | 'is_na'>>,
     ) => {
       let extraPayload: Record<string, unknown> = {};
+      let bodyOverride: Partial<
+        Pick<GradeRow, 'ww_scores' | 'pt_scores' | 'qa_score' | 'is_na'>
+      > | null = null;
       if (requireApproval) {
         const ref = await requireChangeReference({ sheetId, entryId, ...target });
         if (!ref) return;
@@ -117,6 +120,19 @@ export function ScoreEntryGrid({
             change_request_id: ref.change_request_id,
             patch_target: target,
           };
+          // Auto-fill the approved value into the patch body so the registrar
+          // never has to retype it. The proposed_value is the canonical
+          // approved value — server-side numeric comparison still verifies
+          // it lines up with what was approved.
+          bodyOverride = approvedValueToPatchBody(
+            target.field,
+            target.slotIndex ?? null,
+            ref.proposed_value,
+            // Existing arrays are needed so we keep the other slots intact.
+            rowsRef.current.find((r) => r.entry_id === entryId) ?? null,
+            wwTotals.length,
+            ptTotals.length,
+          );
         } else {
           extraPayload = {
             correction_reason: ref.correction_reason,
@@ -128,7 +144,7 @@ export function ScoreEntryGrid({
 
       setSavingId(entryId);
       try {
-        const payload = { ...body, ...extraPayload };
+        const payload = { ...body, ...(bodyOverride ?? {}), ...extraPayload };
         const res = await fetch(`/api/grading-sheets/${sheetId}/entries/${entryId}`, {
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
@@ -166,7 +182,7 @@ export function ScoreEntryGrid({
         setSavingId(null);
       }
     },
-    [sheetId, requireApproval, requireChangeReference],
+    [sheetId, requireApproval, requireChangeReference, wwTotals.length, ptTotals.length],
   );
 
   const updateLocal = useCallback(
@@ -405,6 +421,41 @@ function replaceAt(
   for (let k = 0; k < length; k++) out[k] = arr[k] ?? null;
   out[i] = v;
   return out;
+}
+
+// Translate the change-request `proposed_value` (always a string per
+// ChangeRequestFormSchema) into the patch body shape the entries route
+// expects. WW/PT proposals always carry a single slot value — splice it
+// into the existing array so the other slots stay intact.
+function approvedValueToPatchBody(
+  field: 'ww_scores' | 'pt_scores' | 'qa_score' | 'letter_grade' | 'is_na',
+  slotIndex: number | null,
+  proposed: string,
+  row: GradeRow | null,
+  wwLength: number,
+  ptLength: number,
+): Partial<Pick<GradeRow, 'ww_scores' | 'pt_scores' | 'qa_score' | 'is_na'>> | null {
+  switch (field) {
+    case 'ww_scores': {
+      if (slotIndex == null || row == null) return null;
+      return {
+        ww_scores: replaceAt(row.ww_scores, slotIndex, parseCell(proposed), wwLength),
+      };
+    }
+    case 'pt_scores': {
+      if (slotIndex == null || row == null) return null;
+      return {
+        pt_scores: replaceAt(row.pt_scores, slotIndex, parseCell(proposed), ptLength),
+      };
+    }
+    case 'qa_score':
+      return { qa_score: parseCell(proposed) };
+    case 'is_na':
+      return { is_na: proposed.trim().toLowerCase() === 'true' };
+    case 'letter_grade':
+      // Letter grades aren't editable through this grid — see LetterGradeGrid.
+      return null;
+  }
 }
 
 function ScoreInput({

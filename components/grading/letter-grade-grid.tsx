@@ -65,6 +65,7 @@ export function LetterGradeGrid({
 
   async function save(entryId: string, letter: string | null) {
     let extraPayload: Record<string, unknown> = {};
+    let letterOverride: string | null | undefined;
     if (requireApproval) {
       const ref = await requireChangeReference({
         sheetId,
@@ -78,6 +79,10 @@ export function LetterGradeGrid({
           change_request_id: ref.change_request_id,
           patch_target: { field: 'letter_grade', slotIndex: null },
         };
+        // Auto-fill the approved letter so the registrar doesn't need to
+        // pick it manually from the dropdown — the dialog already showed
+        // them which value they're applying.
+        letterOverride = ref.proposed_value.trim() || null;
       } else {
         extraPayload = {
           correction_reason: ref.correction_reason,
@@ -86,9 +91,10 @@ export function LetterGradeGrid({
         };
       }
     }
+    const effectiveLetter = letterOverride !== undefined ? letterOverride : letter;
     setSavingId(entryId);
     try {
-      const payload = { letter_grade: letter, ...extraPayload };
+      const payload = { letter_grade: effectiveLetter, ...extraPayload };
       const res = await fetch(`/api/grading-sheets/${sheetId}/entries/${entryId}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
@@ -103,7 +109,9 @@ export function LetterGradeGrid({
         return;
       }
       setRows((current) =>
-        current.map((r) => (r.entry_id === entryId ? { ...r, letter_grade: letter } : r)),
+        current.map((r) =>
+          r.entry_id === entryId ? { ...r, letter_grade: effectiveLetter } : r,
+        ),
       );
     } finally {
       setSavingId(null);

@@ -186,6 +186,15 @@ export async function POST(request: NextRequest) {
   // Snapshot the current value from the entry for the requested field/slot.
   const currentValue = snapshotCurrentValue(entry, body.field_changed, body.slot_index);
 
+  // Snapshot the eligible designated-approver pool at filing time (KD #41 +
+  // migration 044). Frozen here so that an admin removed from the flow after
+  // the request was filed still resolves correctly in the inbox.
+  const eligibleSnapshot = approvers.map((a) => ({
+    user_id: a.user_id,
+    email: a.email ?? null,
+    display_name: a.display_name ?? null,
+  }));
+
   const { data: inserted, error: insertError } = await service
     .from('grade_change_requests')
     .insert({
@@ -202,6 +211,7 @@ export async function POST(request: NextRequest) {
       requested_by_email: auth.user.email ?? '(unknown)',
       primary_approver_id: body.primary_approver_id,
       secondary_approver_id: body.secondary_approver_id,
+      eligible_approver_snapshot: eligibleSnapshot,
     })
     .select('*')
     .single();
@@ -233,19 +243,35 @@ export async function POST(request: NextRequest) {
 
   invalidateDrillTags('markbook', await requireCurrentAyCode(service));
 
+  // Pre-flight: resolve the email recipients for the two designated approvers.
+  // If both have null/empty emails we can't notify anyone — flip the request's
+  // notification_status to 'failed' synchronously and surface a warning to the
+  // teacher so they know to reach the approver(s) directly.
+  const designated = approvers.filter(
+    (a) =>
+      a.user_id === body.primary_approver_id ||
+      a.user_id === body.secondary_approver_id,
+  );
+  const approverEmails = designated.map((a) => a.email).filter(Boolean);
+
+  let notificationWarning: string | null = null;
+  if (approverEmails.length === 0) {
+    notificationWarning =
+      'Approvers could not be reached by email. Please contact them directly.';
+    await service
+      .from('grade_change_requests')
+      .update({ notification_status: 'failed' })
+      .eq('id', inserted.id);
+  }
+
   // Fire-and-forget notification to designated approvers only. The email
   // scope narrows from "all school_admin+" (old broadcast) to just the
-  // two the teacher picked.
+  // two the teacher picked. After sendAll returns, persist the resulting
+  // notification_status (sent / partial / failed) without blocking the POST.
   void (async () => {
     try {
-      const designated = approvers.filter(
-        (a) =>
-          a.user_id === body.primary_approver_id ||
-          a.user_id === body.secondary_approver_id,
-      );
-      const approverEmails = designated.map((a) => a.email).filter(Boolean);
       const { student_label, sheet_label } = await fetchLabels(service, sheet.id, entry.id);
-      await notifyRequestFiled(
+      const { sent, failed } = await notifyRequestFiled(
         {
           id: inserted.id,
           grading_sheet_id: inserted.grading_sheet_id,
@@ -261,12 +287,56 @@ export async function POST(request: NextRequest) {
         },
         approverEmails,
       );
+      // (0, 0) means RESEND_API_KEY was unset OR there were no recipients —
+      // the pre-flight already wrote 'failed' for the no-recipients case;
+      // either way nothing actually went out, so don't claim 'sent'.
+      const status =
+        sent === 0 && failed === 0
+          ? 'failed'
+          : failed === 0
+            ? 'sent'
+            : sent === 0
+              ? 'failed'
+              : 'partial';
+      await service
+        .from('grade_change_requests')
+        .update({ notification_status: status })
+        .eq('id', inserted.id)
+        .then(
+          () => {},
+          (e) => {
+            console.error(
+              '[change-request POST] notification_status update failed',
+              e,
+            );
+          },
+        );
     } catch (e) {
       console.error('[change-requests] notify filed failed', e);
+      // notifyRequestFiled / fetchLabels threw before sendAll could resolve.
+      // Mark notification_status='failed' so the row doesn't sit at the
+      // column default 'pending' indefinitely (which would be
+      // indistinguishable from "not yet attempted").
+      await service
+        .from('grade_change_requests')
+        .update({ notification_status: 'failed' })
+        .eq('id', inserted.id)
+        .then(
+          () => {},
+          (innerErr) => {
+            console.error(
+              '[change-request POST] notification_status failed-write also failed',
+              innerErr,
+            );
+          },
+        );
     }
   })();
 
-  return NextResponse.json({ request: inserted }, { status: 201 });
+  return NextResponse.json(
+    { request: inserted, warning: notificationWarning },
+    { status: 201 },
+  );
 }
 
 function snapshotCurrentValue(

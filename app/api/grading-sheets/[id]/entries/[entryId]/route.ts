@@ -124,6 +124,8 @@ export async function PATCH(
         requested_by_email: string;
         requested_at: string;
         reviewed_by_email: string | null;
+        primary_reviewed_by_email?: string | null;
+        reviewed_at?: string | null;
         decision_note: string | null;
       }
     | null = null;
@@ -201,7 +203,7 @@ export async function PATCH(
           { status: 400 },
         );
       }
-      if (String(typedProposed) !== String(reqRow.proposed_value)) {
+      if (!valuesMatch(reqRow.field_changed, typedProposed, reqRow.proposed_value)) {
         return NextResponse.json(
           {
             error: `typed value "${typedProposed}" does not match approved proposal "${reqRow.proposed_value}"`,
@@ -209,11 +211,19 @@ export async function PATCH(
           { status: 400 },
         );
       }
+      if (String(typedProposed) !== String(reqRow.proposed_value)) {
+        console.warn(
+          '[entries PATCH] proposed value matched canonically but not as string',
+          { typed: typedProposed, approved: reqRow.proposed_value, field: reqRow.field_changed },
+        );
+      }
 
       appliedChangeRequest = reqRow;
-      approval_reference = `Request #${reqRow.id.slice(0, 8)} approved by ${
-        reqRow.reviewed_by_email ?? '(unknown)'
-      } ${reqRow.reviewed_at ? new Date(reqRow.reviewed_at).toISOString().slice(0, 10) : ''}`.trim();
+      const approverEmail =
+        reqRow.primary_reviewed_by_email ?? reqRow.reviewed_by_email ?? '(unknown)';
+      approval_reference = `Request #${reqRow.id.slice(0, 8)} approved by ${approverEmail} ${
+        reqRow.reviewed_at ? new Date(reqRow.reviewed_at).toISOString().slice(0, 10) : ''
+      }`.trim();
     } else {
       // ----- Path B: data entry correction -----
       const reason = body.correction_reason as string;
@@ -255,12 +265,50 @@ export async function PATCH(
     if (letter != null && !['A', 'B', 'C', 'IP', 'UG', 'NA', 'INC', 'CO', 'E'].includes(letter)) {
       return NextResponse.json({ error: `invalid letter_grade "${letter}"` }, { status: 400 });
     }
-    const { data: updated, error } = await service
-      .from('grade_entries')
-      .update({ letter_grade: letter, updated_at: new Date().toISOString() })
-      .eq('id', entryId)
-      .select('*')
-      .single();
+
+    // Path A — route through the atomic RPC so the lock re-check + entry
+    // patch + request flip happen in one transaction.
+    if (sheet.is_locked && appliedChangeRequest) {
+      const entryPatch = buildEntryPatch(appliedChangeRequest.field_changed, body);
+      const { error: rpcErr } = await service.rpc('apply_change_request_atomic', {
+        p_grading_sheet_id: sheet.id,
+        p_grade_entry_id: entryId,
+        p_change_request_id: appliedChangeRequest.id,
+        p_entry_patch: entryPatch,
+        p_applied_by: auth.user.id,
+      });
+      if (rpcErr) {
+        if (rpcErr.message.includes('lock_state_changed')) {
+          return NextResponse.json(
+            {
+              error:
+                'The sheet was unlocked while this request was being processed. No change was saved. Please refresh and try again.',
+            },
+            { status: 409 },
+          );
+        }
+        if (rpcErr.message.includes('change_request_not_approved')) {
+          return NextResponse.json(
+            {
+              error:
+                'This request is no longer in approved status. It may have been cancelled or already applied — please refresh.',
+            },
+            { status: 409 },
+          );
+        }
+        console.error('[entries PATCH] apply_change_request_atomic failed:', rpcErr);
+        return NextResponse.json({ error: 'Apply failed' }, { status: 500 });
+      }
+    }
+
+    const { data: updated, error } = sheet.is_locked && appliedChangeRequest
+      ? await service.from('grade_entries').select('*').eq('id', entryId).single()
+      : await service
+          .from('grade_entries')
+          .update({ letter_grade: letter, updated_at: new Date().toISOString() })
+          .eq('id', entryId)
+          .select('*')
+          .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     const letterDiff = buildAuditRows(
@@ -294,6 +342,27 @@ export async function PATCH(
           },
         });
       }
+    } else if (sheet.is_locked && appliedChangeRequest) {
+      // Hard Rule #5: every post-lock change-request apply must leave an
+      // approval_reference in the audit log. When the approved value
+      // happens to already match the stored value (no diff produced),
+      // still log one grade_change_applied row so the trail is complete.
+      await logAction({
+        service,
+        actor: { id: auth.user.id, email: auth.user.email ?? null },
+        action: actionForAudit,
+        entityType: 'grade_change_request',
+        entityId: appliedChangeRequest.id,
+        context: {
+          grading_sheet_id: sheetId,
+          grade_entry_id: entryId,
+          field: appliedChangeRequest.field_changed,
+          no_op: true,
+          was_locked: true,
+          approval_reference,
+          change_request_id: appliedChangeRequest.id,
+        },
+      });
     }
     await finalizeChangeRequestPathA({
       appliedChangeRequest,
@@ -370,24 +439,80 @@ export async function PATCH(
     qa_weight: Number(config.qa_weight),
   });
 
-  const { data: updated, error } = await service
-    .from('grade_entries')
-    .update({
-      ww_scores,
-      pt_scores,
-      qa_score,
-      is_na,
-      ww_ps: computed.ww_ps,
-      pt_ps: computed.pt_ps,
-      qa_ps: computed.qa_ps,
-      initial_grade: computed.initial_grade,
-      quarterly_grade: computed.quarterly_grade,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', entryId)
-    .select('*')
-    .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  let updated: Record<string, unknown> | null = null;
+  if (sheet.is_locked && appliedChangeRequest) {
+    // Path A — route the raw entry patch + request flip through the atomic
+    // RPC. The RPC owns the lock re-check, so a concurrent unlock between
+    // the top-of-handler read and now will surface as `lock_state_changed`.
+    const entryPatch = buildEntryPatch(appliedChangeRequest.field_changed, body);
+    const { error: rpcErr } = await service.rpc('apply_change_request_atomic', {
+      p_grading_sheet_id: sheet.id,
+      p_grade_entry_id: entryId,
+      p_change_request_id: appliedChangeRequest.id,
+      p_entry_patch: entryPatch,
+      p_applied_by: auth.user.id,
+    });
+    if (rpcErr) {
+      if (rpcErr.message.includes('lock_state_changed')) {
+        return NextResponse.json(
+          {
+            error:
+              'The sheet was unlocked while this request was being processed. No change was saved. Please refresh and try again.',
+          },
+          { status: 409 },
+        );
+      }
+      if (rpcErr.message.includes('change_request_not_approved')) {
+        return NextResponse.json(
+          {
+            error:
+              'This request is no longer in approved status. It may have been cancelled or already applied — please refresh.',
+          },
+          { status: 409 },
+        );
+      }
+      console.error('[entries PATCH] apply_change_request_atomic failed:', rpcErr);
+      return NextResponse.json({ error: 'Apply failed' }, { status: 500 });
+    }
+    // The RPC wrote raw mutable columns only. Computed derived fields
+    // (ww_ps, pt_ps, qa_ps, initial_grade, quarterly_grade) still need a
+    // recompute pass — apply that as a follow-up update outside the RPC.
+    const { data: derivedUpdated, error: derivedErr } = await service
+      .from('grade_entries')
+      .update({
+        ww_ps: computed.ww_ps,
+        pt_ps: computed.pt_ps,
+        qa_ps: computed.qa_ps,
+        initial_grade: computed.initial_grade,
+        quarterly_grade: computed.quarterly_grade,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', entryId)
+      .select('*')
+      .single();
+    if (derivedErr) return NextResponse.json({ error: derivedErr.message }, { status: 500 });
+    updated = derivedUpdated;
+  } else {
+    const { data: directUpdated, error } = await service
+      .from('grade_entries')
+      .update({
+        ww_scores,
+        pt_scores,
+        qa_score,
+        is_na,
+        ww_ps: computed.ww_ps,
+        pt_ps: computed.pt_ps,
+        qa_ps: computed.qa_ps,
+        initial_grade: computed.initial_grade,
+        quarterly_grade: computed.quarterly_grade,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', entryId)
+      .select('*')
+      .single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    updated = directUpdated;
+  }
 
   // Audit-log every changed field (pre-lock AND post-lock in the new
   // generic audit_log; still also write post-lock to grade_audit_log for
@@ -428,6 +553,27 @@ export async function PATCH(
         },
       });
     }
+  } else if (sheet.is_locked && appliedChangeRequest) {
+    // Hard Rule #5: every post-lock change-request apply must leave an
+    // approval_reference in the audit log. When the approved value
+    // happens to already match the stored value (no diff produced),
+    // still log one grade_change_applied row so the trail is complete.
+    await logAction({
+      service,
+      actor: { id: auth.user.id, email: auth.user.email ?? null },
+      action: actionForAudit,
+      entityType: 'grade_change_request',
+      entityId: appliedChangeRequest.id,
+      context: {
+        grading_sheet_id: sheetId,
+        grade_entry_id: entryId,
+        field: appliedChangeRequest.field_changed,
+        no_op: true,
+        was_locked: true,
+        approval_reference,
+        change_request_id: appliedChangeRequest.id,
+      },
+    });
   }
   await finalizeChangeRequestPathA({
     appliedChangeRequest,
@@ -443,6 +589,84 @@ export async function PATCH(
 }
 
 // ------ helpers ------
+
+/**
+ * Compares the registrar's typed value against the approved proposed value.
+ * Score fields are numeric — coerce both sides to Number so '85' matches 85.0.
+ * Boolean is_na uses true/false equality across string + bool inputs.
+ * letter_grade keeps strict string equality (case-sensitive — A vs a matters).
+ */
+function valuesMatch(
+  fieldChanged: string,
+  typed: unknown,
+  approved: unknown,
+): boolean {
+  if (typed == null && approved == null) return true;
+  if (typed == null || approved == null) return false;
+  if (
+    fieldChanged === 'ww_scores' ||
+    fieldChanged === 'pt_scores' ||
+    fieldChanged === 'qa_score'
+  ) {
+    if (
+      fieldChanged === 'ww_scores' ||
+      fieldChanged === 'pt_scores'
+    ) {
+      const a = Array.isArray(typed) ? typed : tryParseArray(typed);
+      const b = Array.isArray(approved) ? approved : tryParseArray(approved);
+      if (!a || !b || a.length !== b.length) return false;
+      return a.every((v, i) => Number(v) === Number(b[i]));
+    }
+    return Number(typed) === Number(approved);
+  }
+  if (fieldChanged === 'is_na') {
+    const t = typed === true || typed === 'true';
+    const a = approved === true || approved === 'true';
+    return t === a;
+  }
+  // letter_grade and any other string field
+  return String(typed) === String(approved);
+}
+
+function tryParseArray(v: unknown): unknown[] | null {
+  if (typeof v === 'string') {
+    try {
+      const parsed = JSON.parse(v);
+      return Array.isArray(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+// Builds the JSONB patch passed to apply_change_request_atomic. Only includes
+// the single field the approved request targets — the RPC's coalesce logic
+// leaves untouched columns alone.
+function buildEntryPatch(
+  fieldChanged: string,
+  body: {
+    ww_scores?: (number | null)[];
+    pt_scores?: (number | null)[];
+    qa_score?: number | null;
+    letter_grade?: string | null;
+    is_na?: boolean;
+  },
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  if (fieldChanged === 'ww_scores' && Array.isArray(body.ww_scores)) {
+    patch.ww_scores = body.ww_scores;
+  } else if (fieldChanged === 'pt_scores' && Array.isArray(body.pt_scores)) {
+    patch.pt_scores = body.pt_scores;
+  } else if (fieldChanged === 'qa_score' && 'qa_score' in body) {
+    patch.qa_score = body.qa_score ?? null;
+  } else if (fieldChanged === 'letter_grade' && 'letter_grade' in body) {
+    patch.letter_grade = body.letter_grade ?? null;
+  } else if (fieldChanged === 'is_na' && 'is_na' in body) {
+    patch.is_na = Boolean(body.is_na);
+  }
+  return patch;
+}
 
 // Extracts the proposed value a client is trying to save for a given field.
 // Used by Path A to verify the typed value matches the approved request's
@@ -476,8 +700,11 @@ function proposedFromPayload(
   }
 }
 
-// Side effects for Path A only — after a successful entry write, flip the
-// change request to applied and fire an email to the teacher + approvers.
+// Side effects for Path A only — after a successful entry write, fire an
+// email to the teacher + approvers. The status/applied_by/applied_at flip is
+// owned by `apply_change_request_atomic` (migration 044) and runs inside the
+// same transaction as the entry patch + lock re-check, so this helper no
+// longer touches the request row.
 // Never throws; email failures are logged but non-fatal.
 async function finalizeChangeRequestPathA(args: {
   appliedChangeRequest: {
@@ -500,49 +727,36 @@ async function finalizeChangeRequestPathA(args: {
   entryId: string;
   service: ReturnType<typeof createServiceClient>;
 }): Promise<void> {
-  const { appliedChangeRequest, actorUser, sheetId, entryId, service } = args;
+  const { appliedChangeRequest, sheetId, entryId, service } = args;
   if (!appliedChangeRequest) return;
-  try {
-    await service
-      .from('grade_change_requests')
-      .update({
-        status: 'applied',
-        applied_by: actorUser.id,
-        applied_at: new Date().toISOString(),
-      })
-      .eq('id', appliedChangeRequest.id);
-
-    // Fire the teacher/approver notification fire-and-forget.
-    void (async () => {
-      try {
-        const [labels, approverEmails] = await Promise.all([
-          fetchLabels(service, sheetId, entryId),
-          fetchApproverEmails(service),
-        ]);
-        await notifyRequestApplied(
-          {
-            id: appliedChangeRequest.id,
-            grading_sheet_id: appliedChangeRequest.grading_sheet_id,
-            field_changed: appliedChangeRequest.field_changed,
-            current_value: appliedChangeRequest.current_value,
-            proposed_value: appliedChangeRequest.proposed_value,
-            reason_category: appliedChangeRequest.reason_category,
-            justification: appliedChangeRequest.justification,
-            requested_by_email: appliedChangeRequest.requested_by_email,
-            requested_at: appliedChangeRequest.requested_at,
-            reviewed_by_email: appliedChangeRequest.reviewed_by_email,
-            decision_note: appliedChangeRequest.decision_note,
-            student_label: labels.student_label,
-            sheet_label: labels.sheet_label,
-          },
-          appliedChangeRequest.requested_by_email,
-          approverEmails,
-        );
-      } catch (e) {
-        console.error('[change-requests] notify applied failed', e);
-      }
-    })();
-  } catch (e) {
-    console.error('[change-requests] flip-to-applied failed', e);
-  }
+  // Fire the teacher/approver notification fire-and-forget.
+  void (async () => {
+    try {
+      const [labels, approverEmails] = await Promise.all([
+        fetchLabels(service, sheetId, entryId),
+        fetchApproverEmails(service),
+      ]);
+      await notifyRequestApplied(
+        {
+          id: appliedChangeRequest.id,
+          grading_sheet_id: appliedChangeRequest.grading_sheet_id,
+          field_changed: appliedChangeRequest.field_changed,
+          current_value: appliedChangeRequest.current_value,
+          proposed_value: appliedChangeRequest.proposed_value,
+          reason_category: appliedChangeRequest.reason_category,
+          justification: appliedChangeRequest.justification,
+          requested_by_email: appliedChangeRequest.requested_by_email,
+          requested_at: appliedChangeRequest.requested_at,
+          reviewed_by_email: appliedChangeRequest.reviewed_by_email,
+          decision_note: appliedChangeRequest.decision_note,
+          student_label: labels.student_label,
+          sheet_label: labels.sheet_label,
+        },
+        appliedChangeRequest.requested_by_email,
+        approverEmails,
+      );
+    } catch (e) {
+      console.error('[change-requests] notify applied failed', e);
+    }
+  })();
 }

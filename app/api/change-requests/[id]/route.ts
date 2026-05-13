@@ -52,7 +52,25 @@ export async function PATCH(
   if (fetchError || !existing) {
     return NextResponse.json({ error: 'request not found' }, { status: 404 });
   }
-  if (existing.status !== 'pending') {
+  // Cancel must always be on a pending request — only the original
+  // requester can call cancel and only before either reviewer has acted.
+  // Approve/reject loosen this guard: a secondary reviewer co-signs AFTER
+  // the first review has flipped status, so we accept approved/rejected
+  // here too and let the per-ordinal logic below decide what's legal.
+  const isReview = action === 'approve' || action === 'reject';
+  if (!isReview && existing.status !== 'pending') {
+    return NextResponse.json(
+      { error: `cannot ${action} a request in status "${existing.status}"` },
+      { status: 400 },
+    );
+  }
+  if (
+    isReview &&
+    existing.status !== 'pending' &&
+    existing.status !== 'approved' &&
+    existing.status !== 'rejected'
+  ) {
+    // applied / cancelled — terminal states no reviewer should write into.
     return NextResponse.json(
       { error: `cannot ${action} a request in status "${existing.status}"` },
       { status: 400 },
@@ -60,7 +78,9 @@ export async function PATCH(
   }
 
   // Authorization per action
-  if (action === 'approve' || action === 'reject') {
+  let isPrimaryReview = false;
+  let reviewerOrdinal: 'primary' | 'secondary' = 'primary';
+  if (isReview) {
     // Approvers are school_admin role only. Superadmins manage who's
     // designated as an approver (via /sis/admin/approvers) but don't
     // approve change requests themselves.
@@ -88,6 +108,44 @@ export async function PATCH(
         { status: 403 },
       );
     }
+
+    // Ordinal: first reviewer to act is "primary" (writes both legacy
+    // reviewed_* and new primary_* columns + flips status); the second
+    // to act is "secondary" (writes only secondary_* + does NOT touch
+    // status). Same person may not act twice on the same request — block
+    // both the "primary acts again as secondary" path AND the "secondary
+    // acts again as secondary" path.
+    isPrimaryReview = existing.primary_reviewed_by == null;
+    reviewerOrdinal = isPrimaryReview ? 'primary' : 'secondary';
+
+    const sameUserAlreadyReviewed =
+      !isPrimaryReview &&
+      (existing.primary_reviewed_by === auth.user.id ||
+        existing.secondary_reviewed_by === auth.user.id);
+    if (sameUserAlreadyReviewed) {
+      return NextResponse.json(
+        {
+          error:
+            'You have already reviewed this request. The other designated approver still needs to co-sign.',
+        },
+        { status: 400 },
+      );
+    }
+
+    // Once a request is rejected, secondary co-signs serve no purpose — the
+    // request is dead and cannot be applied (the apply route requires
+    // status='approved'). Block the secondary path on rejected so we don't
+    // record a confusing secondary_decision='approved' against a
+    // status='rejected' row.
+    if (!isPrimaryReview && existing.status === 'rejected') {
+      return NextResponse.json(
+        {
+          error:
+            'This request was already rejected by the other approver. A second review is not needed.',
+        },
+        { status: 400 },
+      );
+    }
   } else if (action === 'cancel') {
     if (existing.requested_by !== auth.user.id) {
       return NextResponse.json(
@@ -101,36 +159,72 @@ export async function PATCH(
   const update: Record<string, unknown> = {};
   let auditAction: AuditAction;
 
-  if (action === 'approve') {
-    update.status = 'approved';
-    update.reviewed_by = auth.user.id;
-    update.reviewed_by_email = auth.user.email ?? '(unknown)';
-    update.reviewed_at = nowIso;
-    update.decision_note = decision_note ?? null;
-    auditAction = 'grade_change_approved';
-  } else if (action === 'reject') {
-    update.status = 'rejected';
-    update.reviewed_by = auth.user.id;
-    update.reviewed_by_email = auth.user.email ?? '(unknown)';
-    update.reviewed_at = nowIso;
-    update.decision_note = decision_note ?? null;
-    auditAction = 'grade_change_rejected';
+  if (action === 'approve' || action === 'reject') {
+    const decision: 'approved' | 'rejected' =
+      action === 'approve' ? 'approved' : 'rejected';
+    if (isPrimaryReview) {
+      // First reviewer: write both the legacy reviewed_* columns (back-compat
+      // for existing display logic + admin inbox queries) AND the new
+      // primary_* columns. Status flips here.
+      update.status = decision;
+      update.reviewed_by = auth.user.id;
+      update.reviewed_by_email = auth.user.email ?? '(unknown)';
+      update.reviewed_at = nowIso;
+      update.decision_note = decision_note ?? null;
+      update.primary_reviewed_by = auth.user.id;
+      update.primary_reviewed_by_email = auth.user.email ?? null;
+      update.primary_reviewed_at = nowIso;
+      update.primary_decision = decision;
+    } else {
+      // Second reviewer: write only secondary_* columns. Status was already
+      // flipped by the first reviewer; we do NOT touch status, reviewed_*,
+      // or any legacy column. The second review is a co-sign, not a
+      // status transition.
+      update.secondary_reviewed_by = auth.user.id;
+      update.secondary_reviewed_by_email = auth.user.email ?? null;
+      update.secondary_reviewed_at = nowIso;
+      update.secondary_decision = decision;
+    }
+    auditAction =
+      action === 'approve' ? 'grade_change_approved' : 'grade_change_rejected';
   } else {
     update.status = 'cancelled';
     auditAction = 'grade_change_cancelled';
   }
 
+  // Optimistic-concurrency guard. The existing pre-update status check
+  // above is the first line of defense (catches a stale UI acting on an
+  // already-decided request); this is the second line of defense that
+  // catches a genuine race between two designees clicking simultaneously.
+  // For the FIRST reviewer (primary): require status === 'pending'. The
+  // loser of a simultaneous-click race finds status already moved.
+  // For the SECOND reviewer: status has already moved; pin it to whatever
+  // we read at the top so an unrelated state change between read + write
+  // (e.g., teacher cancellation racing in) also returns null.
+  const expectedStatus = isReview && !isPrimaryReview
+    ? existing.status
+    : 'pending';
   const { data: updated, error: updateError } = await service
     .from('grade_change_requests')
     .update(update)
     .eq('id', id)
+    .eq('status', expectedStatus)
     .select('*')
-    .single();
+    .maybeSingle();
 
-  if (updateError || !updated) {
+  if (updateError) {
     return NextResponse.json(
-      { error: updateError?.message ?? 'update failed' },
+      { error: updateError.message ?? 'update failed' },
       { status: 500 },
+    );
+  }
+  if (!updated) {
+    return NextResponse.json(
+      {
+        error:
+          'This request was already handled by another administrator. Refresh to see the latest status.',
+      },
+      { status: 409 },
     );
   }
 
@@ -146,6 +240,7 @@ export async function PATCH(
       field: updated.field_changed,
       proposed: updated.proposed_value,
       decision_note: updated.decision_note ?? null,
+      ...(isReview ? { reviewer_ordinal: reviewerOrdinal } : {}),
     },
   });
 
