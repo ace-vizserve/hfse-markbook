@@ -51,6 +51,10 @@ function subscribeChannels(
         table: "grade_change_requests",
         filter,
         recount: async () => {
+          // Scope MUST mirror getSidebarChangeRequestCount (SSR sibling)
+          // and the /markbook/change-requests page query — see KD #41.
+          // school_admin/superadmin only see CRs where they're a
+          // designated approver, or legacy rows with both approvers null.
           let query = supabase
             .from("grade_change_requests")
             .select("id", { count: "exact", head: true });
@@ -59,7 +63,11 @@ function subscribeChannels(
           } else if (role === "registrar") {
             query = query.eq("status", "approved");
           } else if (role === "school_admin" || role === "superadmin") {
-            query = query.eq("status", "pending");
+            query = query
+              .eq("status", "pending")
+              .or(
+                `primary_approver_id.eq.${userId},secondary_approver_id.eq.${userId},and(primary_approver_id.is.null,secondary_approver_id.is.null)`,
+              );
           } else {
             return null;
           }
