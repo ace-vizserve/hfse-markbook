@@ -1160,25 +1160,31 @@ async function seedVacationLeaveEntries(
     .eq('ex_reason', 'vacation');
   if ((existing ?? 0) > 0) return 0;
 
-  // Pick the first section (alphabetical), and from it the first 10
-  // active section_students.
-  const { data: sectionRow } = await service
+  // Pick the first 3 sections (alphabetical) and seed VL across all
+  // their active students, capped at 25 total. Earlier this pass picked
+  // a single section + first 10 students — the alphabetical-first
+  // section sometimes had only 5 active students, leaving the
+  // VacationLeaveQuotaCard sparse. Spreading across 3 sections gives
+  // the demo a meaningful "students at limit" count regardless of
+  // per-section roster size.
+  const { data: sectionRows } = await service
     .from('sections')
     .select('id, name')
     .eq('academic_year_id', testAy.id)
     .order('name')
-    .limit(1)
-    .maybeSingle();
-  if (!sectionRow) return 0;
-  const sectionId = (sectionRow as { id: string }).id;
+    .limit(3);
+  const targetSectionIds = ((sectionRows ?? []) as Array<{ id: string }>).map(
+    (s) => s.id,
+  );
+  if (targetSectionIds.length === 0) return 0;
 
   const { data: students } = await service
     .from('section_students')
     .select('id')
-    .eq('section_id', sectionId)
+    .in('section_id', targetSectionIds)
     .eq('enrollment_status', 'active')
     .order('index_number')
-    .limit(10);
+    .limit(25);
   const ssIds = ((students ?? []) as Array<{ id: string }>).map((s) => s.id);
   if (ssIds.length === 0) return 0;
 

@@ -296,9 +296,44 @@ async function seedGradeEntries(
   const inserts: InsertRow[] = [];
 
   const rand = mulberry32(hashString(`${testAy.ay_code}:grades`));
-  // Plausible score generator — centered around ~85 with variance.
-  const scoreFor = (max: number) => {
-    const pct = 0.70 + rand() * 0.25; // 70–95%
+
+  // Per-student "academic quality" tier so the AY9998 Masterfile shows a
+  // realistic spread across all four award tiers — not just Bronze. Without
+  // this, every student's 4-term × 5-subject mean clusters around ~89 (law
+  // of large numbers averages random per-cell scores), and every Subject
+  // Award badge renders Bronze.
+  //
+  // Distribution targets approximate per-student award outcomes:
+  //   25% high-quality      → raw 92-100% → Quarterly ~95-100 → **Gold**
+  //   30% mid-high quality  → raw 85-92%  → Quarterly ~90-95  → **Silver**
+  //   30% mid quality       → raw 80-85%  → Quarterly ~87-90  → **Bronze**
+  //   15% low quality       → raw 65-80%  → Quarterly ~78-87  → **Not eligible**
+  //
+  // Per-student quality is memoized so the same student scores consistently
+  // across all 4 terms × 5 subjects — that's how real students behave and
+  // how the Subject Overall + Subject Award concentrate per tier rather
+  // than smearing into Bronze for everyone.
+  const studentQuality = new Map<string, number>();
+  const qualityFor = (studentId: string): number => {
+    const cached = studentQuality.get(studentId);
+    if (cached != null) return cached;
+    const r = rand();
+    let baseline: number;
+    if (r < 0.25) baseline = 0.92 + rand() * 0.08;        // 92-100%
+    else if (r < 0.55) baseline = 0.85 + rand() * 0.07;   // 85-92%
+    else if (r < 0.85) baseline = 0.80 + rand() * 0.05;   // 80-85%
+    else baseline = 0.65 + rand() * 0.15;                 // 65-80%
+    studentQuality.set(studentId, baseline);
+    return baseline;
+  };
+
+  // Per-cell score — student's quality baseline plus small ±3% variance so
+  // the per-component PS values aren't suspiciously uniform but the per-
+  // student tier holds.
+  const scoreFor = (max: number, studentId: string): number => {
+    const baseline = qualityFor(studentId);
+    const variance = (rand() - 0.5) * 0.06; // ±3 percentage points
+    const pct = Math.max(0.5, Math.min(1.0, baseline + variance));
     return Math.round(pct * max);
   };
 
@@ -337,9 +372,9 @@ async function seedGradeEntries(
       if (isFullTerm) {
         // Full term (T1, or all 4 terms in closed-AY mode): full WW + PT
         // + QA, computed quarterly.
-        const ww_scores = ww_totals.map((max) => scoreFor(max));
-        const pt_scores = pt_totals.map((max) => scoreFor(max));
-        const qa_score = scoreFor(qa_total);
+        const ww_scores = ww_totals.map((max) => scoreFor(max, e.student_id));
+        const pt_scores = pt_totals.map((max) => scoreFor(max, e.student_id));
+        const qa_score = scoreFor(qa_total, e.student_id);
 
         const computed = computeQuarterly({
           ww_scores,
@@ -373,7 +408,7 @@ async function seedGradeEntries(
         // until the rest of the slots are filled. Still call
         // computeQuarterly so ww_ps reflects the single slot recorded.
         const firstMax = ww_totals[0] ?? 10;
-        const ww_scores = [scoreFor(firstMax)];
+        const ww_scores = [scoreFor(firstMax, e.student_id)];
         const pt_scores: number[] = [];
         const qa_score = null;
 
