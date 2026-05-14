@@ -1132,20 +1132,31 @@ async function seedVacationLeaveEntries(
   service: SupabaseClient,
   testAy: { id: string; ay_code: string },
 ): Promise<number> {
-  const { data: t1Row } = await service
+  // Target the term that the attendance dashboard's VacationLeaveQuotaCard
+  // actually reads — `is_current` term, falling back to T1. Earlier this
+  // pass hardcoded T1, which meant the card showed zero entries whenever
+  // T2 was the current term (which is the default state right after env
+  // switch, since the temporal split logic puts AY9999 mid-T2).
+  const { data: termRows } = await service
     .from('terms')
-    .select('id')
+    .select('id, term_number, is_current')
     .eq('academic_year_id', testAy.id)
-    .eq('term_number', 1)
-    .maybeSingle();
-  if (!t1Row) return 0;
-  const t1Id = (t1Row as { id: string }).id;
+    .order('term_number');
+  const terms = (termRows ?? []) as Array<{
+    id: string;
+    term_number: number;
+    is_current: boolean;
+  }>;
+  if (terms.length === 0) return 0;
+  const currentTerm = terms.find((t) => t.is_current) ?? terms[0];
+  if (!currentTerm) return 0;
+  const targetTermId = currentTerm.id;
 
-  // Skip-guard: any vacation entries already in T1 of this AY?
+  // Skip-guard: any vacation entries already in the target term?
   const { count: existing } = await service
     .from('attendance_daily')
     .select('id', { count: 'exact', head: true })
-    .eq('term_id', t1Id)
+    .eq('term_id', targetTermId)
     .eq('ex_reason', 'vacation');
   if ((existing ?? 0) > 0) return 0;
 
@@ -1171,17 +1182,17 @@ async function seedVacationLeaveEntries(
   const ssIds = ((students ?? []) as Array<{ id: string }>).map((s) => s.id);
   if (ssIds.length === 0) return 0;
 
-  // Update one existing P entry per student in T1 to EX:vacation. We
-  // update in place (no new rows) so the daily ledger total stays the
-  // same — mirrors how Joann reclassifies entries after seeing a parent
-  // leave request.
+  // Update one existing P entry per student in the target term to
+  // EX:vacation. We update in place (no new rows) so the daily ledger
+  // total stays the same — mirrors how Joann reclassifies entries
+  // after seeing a parent leave request.
   let flipped = 0;
   for (const ssId of ssIds) {
     const { data: candidate } = await service
       .from('attendance_daily')
       .select('id')
       .eq('section_student_id', ssId)
-      .eq('term_id', t1Id)
+      .eq('term_id', targetTermId)
       .eq('status', 'P')
       .order('date')
       .limit(1)
@@ -1193,9 +1204,8 @@ async function seedVacationLeaveEntries(
       .eq('id', (candidate as { id: string }).id);
     if (!error) {
       flipped += 1;
-      // Refresh the rollup so attendance_records reflects the flip.
       await service.rpc('recompute_attendance_rollup', {
-        p_term_id: t1Id,
+        p_term_id: targetTermId,
         p_section_student_id: ssId,
       });
     }

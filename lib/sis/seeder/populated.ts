@@ -407,16 +407,25 @@ async function seedGradeEntries(
     }
   }
 
-  // Chunked upsert — 500 rows per round-trip. ignoreDuplicates against the
-  // migration-035 unique index lets re-runs fill in only the rows missing
-  // from a prior partial seed.
+  // Chunked upsert — 500 rows per round-trip.
+  //
+  // active-AY (allTermsFull=false): ignoreDuplicates so re-runs only fill
+  // missing rows. Existing T1+T2 entries (full + partial respectively)
+  // are preserved.
+  //
+  // closed-AY (allTermsFull=true): OVERWRITE on conflict. Critical — if
+  // a prior run was made in active-AY mode (legacy state, before the
+  // KD #95 prior-year fix), T2 will have partial entries left from that
+  // run. With ignoreDuplicates the partial T2 rows survive, so Subject
+  // Overall stays null and the Masterfile awards never render. Overwriting
+  // upgrades the partial T2 + writes T3+T4 fresh in one pass.
   let inserted = 0;
   const CHUNK = 500;
   for (let i = 0; i < inserts.length; i += CHUNK) {
     const slice = inserts.slice(i, i + CHUNK);
     const { error } = await service.from('grade_entries').upsert(slice, {
       onConflict: 'grading_sheet_id,section_student_id',
-      ignoreDuplicates: true,
+      ignoreDuplicates: !allTermsFull,
     });
     if (!error) inserted += slice.length;
   }
