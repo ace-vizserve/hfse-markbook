@@ -7,7 +7,7 @@ import { hashString, mulberry32, prefixFor } from './random';
 // at the 1-hour CEO/user demo where the focus is "do dashboards look like
 // real production usage."
 //
-// Ten passes, all idempotent (skip-guarded by an existence count):
+// Nine passes, all idempotent (skip-guarded by an existence count):
 //   1. seedPublicationsExpanded   — 3 published report-card windows across T1+T2
 //   2. seedParentAccounts         — 5 parent auth.users tied to enrolled emails
 //   3. seedPFileLifecycle         — outreach rows + 60d/90d expiry buckets
@@ -17,18 +17,22 @@ import { hashString, mulberry32, prefixFor } from './random';
 //                                   so PP6's caption + PP9's "withdrawn at the
 //                                   bottom" + KD #68's late-enrollee term suffix
 //                                   all have data to render against.
-//   7. seedChangeRequests         — ~12 grade-change requests spread across the
-//                                   5 status buckets so /markbook/change-requests
-//                                   + dashboard CR KPI/drill all have data.
-//   8. seedVacationLeaveEntries   — flips ~1 attendance entry per student in one
+//   7. seedVacationLeaveEntries   — flips ~1 attendance entry per student in one
 //                                   target section to EX:vacation in T1 so the
 //                                   VacationLeaveQuotaCard has data (KD #94).
-//   9. seedEvaluationTopics       — 6 checklist topics for one (section × subject
+//   8. seedEvaluationTopics       — 6 checklist topics for one (section × subject
 //                                   × term) so the topic manager + roster grid
 //                                   have data to render (KD #92 / #93).
-//   10. seedEvaluationRatings     — 1-5 rating per student per topic for the
-//                                   topics seeded in pass 9 so the per-topic
+//   9. seedEvaluationRatings      — 1-5 rating per student per topic for the
+//                                   topics seeded in pass 8 so the per-topic
 //                                   1-5 RatingSelector demo lights up (KD #92).
+//
+// `seedChangeRequests` is intentionally NOT invoked from this orchestrator
+// (the function still exists in this file for future re-enablement). The
+// auto-generated CRs created field/reason combinations that didn't always
+// align with the realistic teacher workflow we want to demo, so the demo
+// flow now has the presenter file a fresh CR live, then approve it,
+// rather than relying on pre-seeded rows.
 //
 // All passes use service-role + skip-guards so re-running on a partially
 // seeded AY9999 is safe (no duplicate inserts, no failed unique-key
@@ -89,7 +93,8 @@ export async function seedDemoExtras(
   const enr = await seedEnrollmentStatusMix(service, testAy);
   result.late_enrollees_flipped = enr.late;
   result.withdrawals_flipped = enr.withdrawn;
-  result.change_requests_inserted = await seedChangeRequests(service, testAy);
+  // seedChangeRequests intentionally not invoked — see header comment.
+  // The presenter files + approves a CR live during the demo instead.
   result.vacation_leave_entries = await seedVacationLeaveEntries(service, testAy);
   const evTopics = await seedEvaluationTopics(service, testAy);
   result.evaluation_topics = evTopics.topics;
