@@ -41,5 +41,10 @@ export async function seedPriorYearTestAy(
   // to re-run. The `mulberry32(hashString(...))` deterministic seed uses
   // ayCode as input, so AY9998 produces a different but stable data set
   // than AY9999.
-  await seedPopulated(service, priorTestAy);
+  //
+  // `allTermsFull: true` is the closed-AY mode (KD #95) — every term gets
+  // full grades + attendance + evaluation writeups so the Masterfile award
+  // badges, T4 report card General Average, and compare-mode prior-period
+  // panel render with real numbers rather than "Not eligible" placeholders.
+  await seedPopulated(service, priorTestAy, { allTermsFull: true });
 }

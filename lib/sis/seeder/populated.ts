@@ -46,10 +46,25 @@ export type PopulatedSeedResult = {
   demo_extras: DemoExtrasResult | null;
 };
 
+export type SeedPopulatedOptions = {
+  // When true, every term (T1-T4) is filled as a closed/completed term
+  // — full grades, full attendance, full evaluation writeups, all sheets
+  // locked. Use for prior-year AYs (AY9998) where the closed-year picture
+  // matters for the Masterfile awards demo + T4 report card General
+  // Average + compare-mode prior-period data.
+  //
+  // When false (default), the active-AY pattern: T1 closed/full, T2
+  // partial/in-progress, T3+T4 empty — gives the registrar a "live"
+  // sheet to demo entry edits + change-request submission against.
+  allTermsFull?: boolean;
+};
+
 export async function seedPopulated(
   service: SupabaseClient,
   testAy: { id: string; ay_code: string },
+  options: SeedPopulatedOptions = {},
 ): Promise<PopulatedSeedResult> {
+  const { allTermsFull = false } = options;
   const result: PopulatedSeedResult = {
     grade_entries_inserted: 0,
     attendance_daily_inserted: 0,
@@ -67,32 +82,44 @@ export async function seedPopulated(
   };
 
   // ---- 1. Grade entries ----
-  result.grade_entries_inserted = await seedGradeEntries(service, testAy);
+  result.grade_entries_inserted = await seedGradeEntries(service, testAy, allTermsFull);
 
-  // Lock all T1 sheets to reflect the closed-term state. T2 stays unlocked
-  // so the registrar can demo entry edits, change-request submission, etc.
+  // Lock the appropriate set of grading sheets. Active-AY (default): only
+  // T1 is locked, T2 stays unlocked so the registrar can demo entry edits
+  // + change-request submission. Closed-AY (allTermsFull=true): every
+  // term is locked so the Masterfile + T4 report card render with final
+  // numbers, and the change-request flow has locked sheets to file
+  // requests against.
   {
-    const { data: t1 } = await service
+    const lockTermNumbers = allTermsFull ? [1, 2, 3, 4] : [1];
+    const { data: termsToLock } = await service
       .from('terms')
-      .select('id, end_date')
+      .select('id, term_number, end_date')
       .eq('academic_year_id', testAy.id)
-      .eq('term_number', 1)
-      .maybeSingle();
-    if (t1 && (t1 as { end_date: string | null }).end_date) {
-      const endDateIso = `${(t1 as { end_date: string }).end_date}T23:59:59+08:00`;
+      .in('term_number', lockTermNumbers);
+    for (const term of (termsToLock ?? []) as Array<{
+      id: string;
+      term_number: number;
+      end_date: string | null;
+    }>) {
+      if (!term.end_date) continue;
+      const endDateIso = `${term.end_date}T23:59:59+08:00`;
       const { error } = await service
         .from('grading_sheets')
         .update({ is_locked: true, locked_at: endDateIso })
-        .eq('term_id', (t1 as { id: string }).id)
+        .eq('term_id', term.id)
         .eq('is_locked', false);
       if (error) {
-        console.error('[populated seeder] T1 lock pass failed:', error.message);
+        console.error(
+          `[populated seeder] T${term.term_number} lock pass failed:`,
+          error.message,
+        );
       }
     }
   }
 
   // ---- 2. Attendance daily + rollups ----
-  const att = await seedAttendanceSummary(service, testAy);
+  const att = await seedAttendanceSummary(service, testAy, allTermsFull);
   result.attendance_daily_inserted = att.daily;
   result.attendance_rollups_built = att.rollups;
 
@@ -102,7 +129,11 @@ export async function seedPopulated(
   result.teacher_subject_assignments = ta.subject_teacher;
 
   // ---- 4. Evaluation writeups ----
-  result.evaluation_writeups_inserted = await seedEvaluationWriteups(service, testAy);
+  result.evaluation_writeups_inserted = await seedEvaluationWriteups(
+    service,
+    testAy,
+    allTermsFull,
+  );
 
   // ---- 5. Enrolled-stage admissions rows (Records/Admissions detail pages
   //        need these to resolve for the seeded TEST-% students) ----
@@ -156,6 +187,7 @@ export async function seedPopulated(
 async function seedGradeEntries(
   service: SupabaseClient,
   testAy: { id: string; ay_code: string },
+  allTermsFull: boolean,
 ): Promise<number> {
   // Skip if any grade_entries already exist for this AY's sheets.
   const { data: sheetIds } = await service
@@ -198,9 +230,22 @@ async function seedGradeEntries(
   }>;
   const t1 = terms.find((t) => t.term_number === 1);
   const t2 = terms.find((t) => t.term_number === 2);
+  const t3 = terms.find((t) => t.term_number === 3);
+  const t4 = terms.find((t) => t.term_number === 4);
   if (!t1) return 0;
 
-  const targetTermIds = t2 ? [t1.id, t2.id] : [t1.id];
+  // Active-AY: T1 full + T2 partial. Closed-AY: T1-T4 all full so the
+  // Masterfile awards + T4 report card General Average compute (KD #95).
+  const targetTermIds = allTermsFull
+    ? [t1, t2, t3, t4].filter((t): t is NonNullable<typeof t> => !!t).map((t) => t.id)
+    : t2
+      ? [t1.id, t2.id]
+      : [t1.id];
+  const fullTermIds = new Set(
+    allTermsFull
+      ? targetTermIds
+      : [t1.id], // active-AY: only T1 is "full"; T2 is the partial term
+  );
   const targetSheets = sheets.filter((s) => targetTermIds.includes(s.term_id));
 
   // Pull every section_student per section we're about to seed.
@@ -258,18 +303,18 @@ async function seedGradeEntries(
   };
 
   // Spread `created_at` across the term window so the per-day velocity
-  // chart shows a distribution instead of one spike. T1 (closed): full
-  // start→end span. T2 (active): start→today. Falls back to seed-time
-  // if the term lacks dates.
+  // chart shows a distribution instead of one spike. Closed terms: full
+  // start→end span. Active term (T2 in active-AY mode): start→today.
+  // Falls back to seed-time if the term lacks dates.
+  const termById = new Map<string, (typeof terms)[number]>();
+  for (const t of terms) termById.set(t.id, t);
   const todayMs = Date.now();
   const createdAtForTerm = (termId: string): string => {
-    const term = termId === t1.id ? t1 : t2;
+    const term = termById.get(termId);
     if (!term?.start_date) return new Date().toISOString();
     const startMs = new Date(`${term.start_date}T00:00:00+08:00`).getTime();
-    const upperIso =
-      termId === t1.id && term.end_date
-        ? `${term.end_date}T23:59:59+08:00`
-        : null;
+    const isFull = fullTermIds.has(termId);
+    const upperIso = isFull && term.end_date ? `${term.end_date}T23:59:59+08:00` : null;
     const upperMs = upperIso ? new Date(upperIso).getTime() : todayMs;
     if (upperMs <= startMs) return new Date().toISOString();
     const ms = startMs + Math.floor(rand() * (upperMs - startMs));
@@ -286,11 +331,12 @@ async function seedGradeEntries(
       (sheet.pt_totals ?? [10, 10, 10]).length > 0 ? sheet.pt_totals! : [10, 10, 10];
     const qa_total = sheet.qa_total ?? 30;
 
-    const isT1 = sheet.term_id === t1.id;
+    const isFullTerm = fullTermIds.has(sheet.term_id);
 
     for (const e of enrolments) {
-      if (isT1) {
-        // T1 (closed): fill 100% — full WW + PT + QA, computed quarterly.
+      if (isFullTerm) {
+        // Full term (T1, or all 4 terms in closed-AY mode): full WW + PT
+        // + QA, computed quarterly.
         const ww_scores = ww_totals.map((max) => scoreFor(max));
         const pt_scores = pt_totals.map((max) => scoreFor(max));
         const qa_score = scoreFor(qa_total);
@@ -391,12 +437,14 @@ async function seedGradeEntries(
 async function seedAttendanceSummary(
   service: SupabaseClient,
   testAy: { id: string; ay_code: string },
+  allTermsFull: boolean,
 ): Promise<{ daily: number; rollups: number }> {
+  const targetTermNumbers = allTermsFull ? [1, 2, 3, 4] : [1, 2];
   const { data: termRows } = await service
     .from('terms')
     .select('id, term_number, start_date, end_date')
     .eq('academic_year_id', testAy.id)
-    .in('term_number', [1, 2])
+    .in('term_number', targetTermNumbers)
     .order('term_number');
   const terms = (termRows ?? []) as Array<{
     id: string;
@@ -480,7 +528,12 @@ async function seedAttendanceSummary(
     // dates seeded. T2 active (start_date <= today <= end_date) → today
     // is the upper bound. Term entirely in the future (today < start_date)
     // → schoolDays becomes empty and we skip.
-    if (term.start_date && term.end_date) {
+    //
+    // Closed-AY mode (allTermsFull=true): every term is treated as closed
+    // regardless of date, so prior-year AYs end up with full attendance
+    // across all 4 terms even though their term dates are still calendar-
+    // valid relative to today.
+    if (!allTermsFull && term.start_date && term.end_date) {
       if (todayIso >= term.start_date && todayIso <= term.end_date) {
         schoolDays = schoolDays.filter((d) => d <= todayIso);
       } else if (todayIso < term.start_date) {
@@ -569,22 +622,22 @@ async function seedAttendanceSummary(
   return { daily: insertedDaily, rollups: rollupCount };
 }
 
-// Seeds evaluation writeups across T1 (closed) + T2 (active). T1: 5
-// submitted writeups per section, submitted_at = T1.end_date so the
-// pre-publish checklist on the publish-window panel shows green on the
-// "adviser comments" line for the demo section. T2: 3 writeups per
-// section — 2 submitted (submitted_at = today − 7 days) + 1 still in
-// draft (submitted=false, submitted_at=null) — so the demo shows an
-// active term with mixed progress. T3+T4 stay untouched.
+// Seeds evaluation writeups. Active-AY mode (default): T1 5 submitted +
+// T2 3 partial (2 submitted ~7 days ago + 1 draft); T3+T4 untouched.
+// Closed-AY mode (allTermsFull=true): T1, T2, T3 each get 5 submitted
+// writeups (submitted_at = each term's end_date); T4 stays empty per
+// KD #49 (no FCA comment on T4 by design).
 async function seedEvaluationWriteups(
   service: SupabaseClient,
   testAy: { id: string; ay_code: string },
+  allTermsFull: boolean,
 ): Promise<number> {
+  const targetTermNumbers = allTermsFull ? [1, 2, 3] : [1, 2];
   const { data: termRows } = await service
     .from('terms')
     .select('id, term_number, end_date')
     .eq('academic_year_id', testAy.id)
-    .in('term_number', [1, 2])
+    .in('term_number', targetTermNumbers)
     .order('term_number');
   const terms = (termRows ?? []) as Array<{
     id: string;
@@ -594,6 +647,7 @@ async function seedEvaluationWriteups(
   if (terms.length === 0) return 0;
   const t1 = terms.find((t) => t.term_number === 1);
   const t2 = terms.find((t) => t.term_number === 2);
+  const t3 = terms.find((t) => t.term_number === 3);
 
   // Idempotent: migration-018 unique `(term_id, student_id)` lets the
   // upsert below silently drop duplicates on re-run.
@@ -654,26 +708,57 @@ async function seedEvaluationWriteups(
       }
     }
 
-    // T2 — 3 writeups per section: 2 submitted ~7 days ago + 1 draft.
+    // T2 — closed-AY: 5 submitted writeups (term-end snapshot, mirrors T1).
+    //      active-AY: 3 writeups, 2 submitted ~7 days ago + 1 still draft.
     if (t2) {
+      const t2Limit = allTermsFull ? 5 : 3;
       const { data: enrolments } = await service
         .from('section_students')
         .select('student_id')
         .eq('section_id', sectionId)
-        .limit(3);
+        .limit(t2Limit);
       const students = (enrolments ?? []) as Array<{ student_id: string }>;
+      const t2EndStamp =
+        allTermsFull && t2.end_date
+          ? `${t2.end_date}T17:00:00+08:00`
+          : t2SubmittedAt;
       students.forEach((s, idx) => {
         const tmpl = TEMPLATES[Math.floor(rand() * TEMPLATES.length)];
-        const isDraft = idx === 2; // last of the 3 is still in draft
+        const isDraft = !allTermsFull && idx === 2;
         writeupRows.push({
           term_id: t2.id,
           student_id: s.student_id,
           section_id: sectionId,
           writeup: tmpl,
           submitted: !isDraft,
-          submitted_at: isDraft ? null : t2SubmittedAt,
+          submitted_at: isDraft ? null : t2EndStamp,
         });
       });
+    }
+
+    // T3 (closed-AY only) — 5 submitted writeups, mirrors T1.
+    if (allTermsFull && t3) {
+      const { data: enrolments } = await service
+        .from('section_students')
+        .select('student_id')
+        .eq('section_id', sectionId)
+        .limit(5);
+      const students = (enrolments ?? []) as Array<{ student_id: string }>;
+      const t3EndStamp =
+        t3.end_date
+          ? `${t3.end_date}T17:00:00+08:00`
+          : new Date().toISOString();
+      for (const s of students) {
+        const tmpl = TEMPLATES[Math.floor(rand() * TEMPLATES.length)];
+        writeupRows.push({
+          term_id: t3.id,
+          student_id: s.student_id,
+          section_id: sectionId,
+          writeup: tmpl,
+          submitted: true,
+          submitted_at: t3EndStamp,
+        });
+      }
     }
   }
 

@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTransition } from 'react';
-import { GraduationCap, Loader2, Users } from 'lucide-react';
+import { CalendarRange, GraduationCap, Loader2, Users } from 'lucide-react';
 
 import {
   Select,
@@ -16,11 +16,15 @@ type LevelOption = { id: string; label: string };
 type SectionOption = { id: string; name: string };
 
 export function MasterfileToolbar({
+  ayCodes,
+  selectedAyCode,
   levels,
   selectedLevelId,
   sections,
   selectedSectionId,
 }: {
+  ayCodes: readonly string[];
+  selectedAyCode: string;
   levels: LevelOption[];
   selectedLevelId: string | null;
   sections: SectionOption[];
@@ -29,6 +33,20 @@ export function MasterfileToolbar({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
+
+  function onAyChange(ayCode: string) {
+    const next = new URLSearchParams(searchParams.toString());
+    next.set('ay', ayCode);
+    // Reset level + class — they're per-AY (subject_configs are keyed
+    // (subject × level × ay)) so a level/class from another AY may not
+    // exist or have different rosters.
+    next.delete('level');
+    next.delete('class');
+    startTransition(() => {
+      router.push(`?${next.toString()}`, { scroll: false });
+      router.refresh();
+    });
+  }
 
   function onLevelChange(levelId: string) {
     const next = new URLSearchParams(searchParams.toString());
@@ -57,6 +75,33 @@ export function MasterfileToolbar({
 
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+      {ayCodes.length > 1 && (
+        <div className="flex flex-col gap-1">
+          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Academic year
+          </span>
+          <Select value={selectedAyCode} onValueChange={onAyChange}>
+            <SelectTrigger className="h-9 w-[150px]">
+              <div className="flex items-center gap-2">
+                {pending ? (
+                  <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                ) : (
+                  <CalendarRange className="size-4 text-muted-foreground" />
+                )}
+                <SelectValue placeholder="Pick AY" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              {ayCodes.map((code) => (
+                <SelectItem key={code} value={code}>
+                  {code}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <div className="flex flex-col gap-1">
         <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Level

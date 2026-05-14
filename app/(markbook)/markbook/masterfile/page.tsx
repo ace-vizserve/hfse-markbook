@@ -12,13 +12,17 @@ import { createServiceClient } from '@/lib/supabase/service';
 // HFSE Masterfile (KD #95). Per-level cross-subject grid.
 //
 // URL params:
+//   ?ay=<ay_code>       optional (defaults to current AY); demo can flip
+//                        between AY9999 (active/operational) and AY9998
+//                        (prior closed AY with full Final Grades + awards)
+//                        without using the environment switcher
 //   ?level=<level_id>   required (page redirects to first level if omitted)
 //   ?class=<section_id> optional (filter to one class; omit for all classes)
 
 export default async function MasterfilePage({
   searchParams,
 }: {
-  searchParams: Promise<{ level?: string; class?: string }>;
+  searchParams: Promise<{ ay?: string; level?: string; class?: string }>;
 }) {
   const session = await getSessionUser();
   if (!session) redirect('/login');
@@ -33,9 +37,30 @@ export default async function MasterfilePage({
   const sp = await searchParams;
   const supabase = await createClient();
   const service = createServiceClient();
-  const ayCode = await requireCurrentAyCode(service);
+  const currentAyCode = await requireCurrentAyCode(service);
 
-  // Resolve current AY id and pull every level that has at least one section
+  // Allow the demo / cross-AY review to pick a different AY via ?ay=.
+  // Validates the requested code resolves to a real AY before honoring it.
+  let ayCode = currentAyCode;
+  if (sp.ay && /^AY\d{4}$/.test(sp.ay)) {
+    const { data: requested } = await supabase
+      .from('academic_years')
+      .select('ay_code')
+      .eq('ay_code', sp.ay)
+      .maybeSingle();
+    if (requested) ayCode = (requested as { ay_code: string }).ay_code;
+  }
+
+  // List every AY (both prod + test) so the toolbar can offer cross-AY
+  // review — useful for the demo (flip between AY9999 active and AY9998
+  // closed) and for legitimate prior-year audits.
+  const { data: allAysRaw } = await supabase
+    .from('academic_years')
+    .select('ay_code')
+    .order('ay_code', { ascending: false });
+  const ayCodes = ((allAysRaw ?? []) as Array<{ ay_code: string }>).map((a) => a.ay_code);
+
+  // Resolve AY id and pull every level that has at least one section
   // configured this AY (so the picker doesn't list empty levels).
   const { data: ayRow } = await supabase
     .from('academic_years')
@@ -147,6 +172,8 @@ export default async function MasterfilePage({
       </header>
 
       <MasterfileToolbar
+        ayCodes={ayCodes}
+        selectedAyCode={ayCode}
         levels={levels.map((l) => ({ id: l.id, label: l.label }))}
         selectedLevelId={selectedLevelId}
         sections={payload.sections}
