@@ -7,7 +7,7 @@ import { hashString, mulberry32, prefixFor } from './random';
 // at the 1-hour CEO/user demo where the focus is "do dashboards look like
 // real production usage."
 //
-// Seven passes, all idempotent (skip-guarded by an existence count):
+// Ten passes, all idempotent (skip-guarded by an existence count):
 //   1. seedPublicationsExpanded   — 3 published report-card windows across T1+T2
 //   2. seedParentAccounts         — 5 parent auth.users tied to enrolled emails
 //   3. seedPFileLifecycle         — outreach rows + 60d/90d expiry buckets
@@ -20,6 +20,15 @@ import { hashString, mulberry32, prefixFor } from './random';
 //   7. seedChangeRequests         — ~12 grade-change requests spread across the
 //                                   5 status buckets so /markbook/change-requests
 //                                   + dashboard CR KPI/drill all have data.
+//   8. seedVacationLeaveEntries   — flips ~1 attendance entry per student in one
+//                                   target section to EX:vacation in T1 so the
+//                                   VacationLeaveQuotaCard has data (KD #94).
+//   9. seedEvaluationTopics       — 6 checklist topics for one (section × subject
+//                                   × term) so the topic manager + roster grid
+//                                   have data to render (KD #92 / #93).
+//   10. seedEvaluationRatings     — 1-5 rating per student per topic for the
+//                                   topics seeded in pass 9 so the per-topic
+//                                   1-5 RatingSelector demo lights up (KD #92).
 //
 // All passes use service-role + skip-guards so re-running on a partially
 // seeded AY9999 is safe (no duplicate inserts, no failed unique-key
@@ -38,6 +47,9 @@ export type DemoExtrasResult = {
   late_enrollees_flipped: number;
   withdrawals_flipped: number;
   change_requests_inserted: number;
+  vacation_leave_entries: number;
+  evaluation_topics: number;
+  evaluation_ratings: number;
 };
 
 export async function seedDemoExtras(
@@ -57,6 +69,9 @@ export async function seedDemoExtras(
     late_enrollees_flipped: 0,
     withdrawals_flipped: 0,
     change_requests_inserted: 0,
+    vacation_leave_entries: 0,
+    evaluation_topics: 0,
+    evaluation_ratings: 0,
   };
 
   result.publications_extra = await seedPublicationsExpanded(service, testAy);
@@ -75,6 +90,10 @@ export async function seedDemoExtras(
   result.late_enrollees_flipped = enr.late;
   result.withdrawals_flipped = enr.withdrawn;
   result.change_requests_inserted = await seedChangeRequests(service, testAy);
+  result.vacation_leave_entries = await seedVacationLeaveEntries(service, testAy);
+  const evTopics = await seedEvaluationTopics(service, testAy);
+  result.evaluation_topics = evTopics.topics;
+  result.evaluation_ratings = await seedEvaluationRatings(service, testAy, evTopics);
 
   return result;
 }
@@ -1049,4 +1068,319 @@ async function seedChangeRequests(
     return 0;
   }
   return count ?? inserts.length;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 8. Vacation-leave attendance entries (KD #94).
+//
+// Without this pass the attendance dashboard's VacationLeaveQuotaCard
+// shows zero entries, undermining the demo of the EX:vacation subtype +
+// per-term quota. Flips ~1 existing P entry per student in T1 of one
+// target section to EX:vacation — one VL per student means quota is at
+// its limit (HFSE policy: 1 per term), so the card surfaces every student
+// as "at limit" (mint badge).
+//
+// Idempotent: skips if any vacation-tagged entries already exist for
+// this AY's terms.
+// ─────────────────────────────────────────────────────────────────────────
+
+async function seedVacationLeaveEntries(
+  service: SupabaseClient,
+  testAy: { id: string; ay_code: string },
+): Promise<number> {
+  const { data: t1Row } = await service
+    .from('terms')
+    .select('id')
+    .eq('academic_year_id', testAy.id)
+    .eq('term_number', 1)
+    .maybeSingle();
+  if (!t1Row) return 0;
+  const t1Id = (t1Row as { id: string }).id;
+
+  // Skip-guard: any vacation entries already in T1 of this AY?
+  const { count: existing } = await service
+    .from('attendance_daily')
+    .select('id', { count: 'exact', head: true })
+    .eq('term_id', t1Id)
+    .eq('ex_reason', 'vacation');
+  if ((existing ?? 0) > 0) return 0;
+
+  // Pick the first section (alphabetical), and from it the first 10
+  // active section_students.
+  const { data: sectionRow } = await service
+    .from('sections')
+    .select('id, name')
+    .eq('academic_year_id', testAy.id)
+    .order('name')
+    .limit(1)
+    .maybeSingle();
+  if (!sectionRow) return 0;
+  const sectionId = (sectionRow as { id: string }).id;
+
+  const { data: students } = await service
+    .from('section_students')
+    .select('id')
+    .eq('section_id', sectionId)
+    .eq('enrollment_status', 'active')
+    .order('index_number')
+    .limit(10);
+  const ssIds = ((students ?? []) as Array<{ id: string }>).map((s) => s.id);
+  if (ssIds.length === 0) return 0;
+
+  // Update one existing P entry per student in T1 to EX:vacation. We
+  // update in place (no new rows) so the daily ledger total stays the
+  // same — mirrors how Joann reclassifies entries after seeing a parent
+  // leave request.
+  let flipped = 0;
+  for (const ssId of ssIds) {
+    const { data: candidate } = await service
+      .from('attendance_daily')
+      .select('id')
+      .eq('section_student_id', ssId)
+      .eq('term_id', t1Id)
+      .eq('status', 'P')
+      .order('date')
+      .limit(1)
+      .maybeSingle();
+    if (!candidate) continue;
+    const { error } = await service
+      .from('attendance_daily')
+      .update({ status: 'EX', ex_reason: 'vacation' })
+      .eq('id', (candidate as { id: string }).id);
+    if (!error) {
+      flipped += 1;
+      // Refresh the rollup so attendance_records reflects the flip.
+      await service.rpc('recompute_attendance_rollup', {
+        p_term_id: t1Id,
+        p_section_student_id: ssId,
+      });
+    }
+  }
+  return flipped;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 9. Evaluation checklist topics (KD #93).
+//
+// Migration 047 made topics teacher-owned per (section × subject × term).
+// Without seeded topics, /evaluation/sections/[id]?tab=checklists shows
+// the empty "Add your first topic" state — undermines the per-topic 1-5
+// rating UI demo.
+//
+// Seeds 6 plausible topics on T1 × Math × first section. created_by is
+// set to the subject_teacher's user id (resolved via teacher_assignments)
+// so the topic-manager UI sees them as the teacher's own topics.
+// ─────────────────────────────────────────────────────────────────────────
+
+const EVAL_TOPIC_TEMPLATES = [
+  'Understands core concepts and applies them confidently in class work.',
+  'Participates actively in class discussions and group activities.',
+  'Completes homework on time with clear, organised solutions.',
+  'Demonstrates problem-solving strategies beyond the worked examples.',
+  'Shows attention to detail and care in written work.',
+  'Asks thoughtful questions and helps peers when they struggle.',
+];
+
+type EvalTopicSeedResult = {
+  topics: number;
+  termId: string | null;
+  sectionId: string | null;
+  subjectId: string | null;
+  topicIds: string[];
+};
+
+async function seedEvaluationTopics(
+  service: SupabaseClient,
+  testAy: { id: string; ay_code: string },
+): Promise<EvalTopicSeedResult> {
+  const empty: EvalTopicSeedResult = {
+    topics: 0,
+    termId: null,
+    sectionId: null,
+    subjectId: null,
+    topicIds: [],
+  };
+
+  const { data: termIds } = await service
+    .from('terms')
+    .select('id, term_number')
+    .eq('academic_year_id', testAy.id)
+    .order('term_number');
+  const ayTermIds = (termIds ?? []) as Array<{ id: string; term_number: number }>;
+  if (ayTermIds.length === 0) return empty;
+  const t1 = ayTermIds.find((t) => t.term_number === 1);
+  if (!t1) return empty;
+
+  // Skip-guard: any topics already exist in this AY's terms? If yes,
+  // resolve enough context for the ratings pass to find the same topics.
+  const { count: existing } = await service
+    .from('evaluation_checklist_items')
+    .select('id', { count: 'exact', head: true })
+    .in('term_id', ayTermIds.map((t) => t.id));
+  if ((existing ?? 0) > 0) {
+    const { data: existingItems } = await service
+      .from('evaluation_checklist_items')
+      .select('id, term_id, subject_id, section_id')
+      .in('term_id', ayTermIds.map((t) => t.id))
+      .order('sort_order')
+      .limit(6);
+    const items = (existingItems ?? []) as Array<{
+      id: string;
+      term_id: string;
+      subject_id: string;
+      section_id: string;
+    }>;
+    if (items.length === 0) return empty;
+    return {
+      topics: 0,
+      termId: items[0].term_id,
+      sectionId: items[0].section_id,
+      subjectId: items[0].subject_id,
+      topicIds: items.map((i) => i.id),
+    };
+  }
+
+  const { data: sectionRow } = await service
+    .from('sections')
+    .select('id, level_id')
+    .eq('academic_year_id', testAy.id)
+    .order('name')
+    .limit(1)
+    .maybeSingle();
+  if (!sectionRow) return empty;
+  const sectionId = (sectionRow as { id: string; level_id: string }).id;
+  const levelId = (sectionRow as { id: string; level_id: string }).level_id;
+
+  const { data: subjectRow } = await service
+    .from('subjects')
+    .select('id')
+    .eq('code', 'MATH')
+    .maybeSingle();
+  if (!subjectRow) return empty;
+  const subjectId = (subjectRow as { id: string }).id;
+
+  // Verify the subject is configured for this level × AY.
+  const { count: configCount } = await service
+    .from('subject_configs')
+    .select('id', { count: 'exact', head: true })
+    .eq('academic_year_id', testAy.id)
+    .eq('level_id', levelId)
+    .eq('subject_id', subjectId);
+  if ((configCount ?? 0) === 0) return empty;
+
+  // Resolve the subject_teacher for this (section × subject) — used as
+  // created_by so topic-manager UI shows them as "your own topics."
+  const { data: assignmentRow } = await service
+    .from('teacher_assignments')
+    .select('teacher_user_id')
+    .eq('section_id', sectionId)
+    .eq('subject_id', subjectId)
+    .eq('role', 'subject_teacher')
+    .maybeSingle();
+  const createdBy =
+    (assignmentRow as { teacher_user_id: string } | null)?.teacher_user_id ?? null;
+
+  const rows = EVAL_TOPIC_TEMPLATES.map((item_text, idx) => ({
+    term_id: t1.id,
+    subject_id: subjectId,
+    section_id: sectionId,
+    item_text,
+    sort_order: idx + 1,
+    created_by: createdBy,
+  }));
+
+  const { data: inserted, error } = await service
+    .from('evaluation_checklist_items')
+    .insert(rows)
+    .select('id');
+  if (error) {
+    console.warn('[demo-extras] evaluation topics insert failed:', error.message);
+    return empty;
+  }
+  const insertedRows = (inserted ?? []) as Array<{ id: string }>;
+  return {
+    topics: insertedRows.length,
+    termId: t1.id,
+    sectionId,
+    subjectId,
+    topicIds: insertedRows.map((r) => r.id),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 10. Evaluation ratings (KD #92).
+//
+// Populates evaluation_checklist_responses.rating (smallint 1-5) for
+// every (student × topic) pair against the topics seeded in pass 9.
+// Skewed positive — most ratings 4-5 with a tail of 3 and 2 — so the
+// demo shows a healthy class without making the registrar's "needs
+// improvement" chip count zero.
+//
+// Idempotent: upsert on the migration-046 unique
+// (term_id, student_id, checklist_item_id).
+// ─────────────────────────────────────────────────────────────────────────
+
+async function seedEvaluationRatings(
+  service: SupabaseClient,
+  testAy: { id: string; ay_code: string },
+  context: EvalTopicSeedResult,
+): Promise<number> {
+  if (!context.termId || !context.sectionId || context.topicIds.length === 0) {
+    return 0;
+  }
+
+  const { count: existing } = await service
+    .from('evaluation_checklist_responses')
+    .select('id', { count: 'exact', head: true })
+    .in('checklist_item_id', context.topicIds);
+  if ((existing ?? 0) > 0) return 0;
+
+  const { data: studentsRaw } = await service
+    .from('section_students')
+    .select('student_id')
+    .eq('section_id', context.sectionId)
+    .eq('enrollment_status', 'active')
+    .order('index_number');
+  const studentIds = ((studentsRaw ?? []) as Array<{ student_id: string }>).map(
+    (s) => s.student_id,
+  );
+  if (studentIds.length === 0) return 0;
+
+  const rand = mulberry32(hashString(`${testAy.ay_code}:eval-ratings`));
+
+  type ResponseRow = {
+    term_id: string;
+    student_id: string;
+    section_id: string;
+    checklist_item_id: string;
+    rating: number;
+  };
+  const rows: ResponseRow[] = [];
+  for (const studentId of studentIds) {
+    for (const topicId of context.topicIds) {
+      // 40% Excellent, 25% Good, 25% Satisfactory, 10% Developing.
+      const r = rand();
+      const rating = r < 0.4 ? 5 : r < 0.65 ? 4 : r < 0.9 ? 3 : 2;
+      rows.push({
+        term_id: context.termId,
+        student_id: studentId,
+        section_id: context.sectionId,
+        checklist_item_id: topicId,
+        rating,
+      });
+    }
+  }
+
+  const { error, count } = await service
+    .from('evaluation_checklist_responses')
+    .upsert(rows, {
+      onConflict: 'term_id,student_id,checklist_item_id',
+      ignoreDuplicates: true,
+      count: 'exact',
+    });
+  if (error) {
+    console.warn('[demo-extras] evaluation ratings insert failed:', error.message);
+    return 0;
+  }
+  return count ?? rows.length;
 }
