@@ -961,15 +961,54 @@ async function seedChangeRequests(
   const reviewer = await pickSeedActor(service, 'school_admin');
 
   // Approvers for the markbook.change_request flow (designated pool per KD #41).
-  const { data: assignments } = await service
+  // The /markbook/change-requests page filters seeded CRs to "where I'm
+  // primary or secondary approver" — so if no approver_assignments exist,
+  // the seeded CRs would render an empty inbox even though the sidebar
+  // count is correct. Auto-bootstrap up to 2 school_admin/superadmin users
+  // into the assignments table when fewer than 2 are configured, so the
+  // demo always has visible CRs without manual setup.
+  const { data: assignmentsRaw } = await service
     .from('approver_assignments')
     .select('user_id')
     .eq('flow', 'markbook.change_request')
-    .order('created_at')
-    .limit(2);
-  const approvers = (assignments ?? []) as Array<{ user_id: string }>;
-  const primaryApproverId = approvers[0]?.user_id ?? reviewer.id;
-  const secondaryApproverId = approvers[1]?.user_id ?? null;
+    .order('created_at');
+  const existingApproverIds = ((assignmentsRaw ?? []) as Array<{ user_id: string }>).map(
+    (a) => a.user_id,
+  );
+
+  if (existingApproverIds.length < 2) {
+    // Pull any school_admin/superadmin users not already assigned and
+    // top up to 2. Service role bypasses RLS write-deny on this table.
+    const { data: usersData } = await service.auth.admin.listUsers({ perPage: 200 });
+    const eligible = (usersData?.users ?? [])
+      .filter((u) => {
+        const meta = (u.app_metadata as Record<string, unknown> | null) ?? {};
+        return meta.role === 'school_admin' || meta.role === 'superadmin';
+      })
+      .map((u) => u.id)
+      .filter((id) => !existingApproverIds.includes(id));
+
+    const needed = 2 - existingApproverIds.length;
+    const toAdd = eligible.slice(0, needed);
+    if (toAdd.length > 0) {
+      const inserts = toAdd.map((userId) => ({
+        flow: 'markbook.change_request',
+        user_id: userId,
+      }));
+      const { error } = await service.from('approver_assignments').insert(inserts);
+      if (error) {
+        console.warn(
+          '[demo-extras] approver_assignments bootstrap failed:',
+          error.message,
+        );
+      } else {
+        existingApproverIds.push(...toAdd);
+      }
+    }
+  }
+
+  const primaryApproverId = existingApproverIds[0] ?? reviewer.id;
+  const secondaryApproverId = existingApproverIds[1] ?? null;
 
   // Status mix — totals 12, lights up every tab.
   const statusMix: Array<'pending' | 'approved' | 'applied' | 'rejected' | 'cancelled'> = [
