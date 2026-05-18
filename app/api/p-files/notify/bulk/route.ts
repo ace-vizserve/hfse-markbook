@@ -4,22 +4,12 @@ import { requireRole } from "@/lib/auth/require-role";
 import { requireCurrentAyCode } from "@/lib/academic-year";
 import { logAction, type AuditAction } from "@/lib/audit/log-action";
 import { createServiceClient } from "@/lib/supabase/service";
-import { DOCUMENT_SLOTS } from "@/lib/p-files/document-config";
 import { runNotify, type NotifyOutcome } from "@/lib/p-files/notify-helpers";
+import { resolveModule } from "@/lib/p-files/_shared";
+import { BulkNotifySchema } from "@/lib/schemas/p-files";
 import { invalidateDrillTags } from "@/lib/cache/invalidate-drill-tags";
 
-const MAX_BULK_ITEMS = 50;
-
 type BulkItem = { enroleeNumber: string; slotKey: string };
-
-const MODULE_VALUES = new Set(["p-files", "admissions"]);
-
-type ChaseModule = "p-files" | "admissions";
-
-function resolveModule(raw: unknown): ChaseModule {
-  if (typeof raw === "string" && MODULE_VALUES.has(raw)) return raw as ChaseModule;
-  return "p-files";
-}
 
 // POST /api/p-files/notify/bulk
 // Body: {
@@ -34,45 +24,25 @@ function resolveModule(raw: unknown): ChaseModule {
 // `module` (default 'p-files') selects audit action + email tone exactly
 // like the single-slot route.
 export async function POST(request: NextRequest) {
-  const auth = await requireRole([
-    "p-file",
-    "admissions",
-    "registrar",
-    "school_admin",
-    "superadmin",
-  ]);
-  if ("error" in auth) return auth.error;
-
   const body = await request.json().catch(() => null);
-  const items = body && Array.isArray(body.items) ? (body.items as unknown[]) : null;
-  const moduleKey = resolveModule(body?.module);
-  if (!items || items.length === 0) {
-    return NextResponse.json({ error: "items[] is required" }, { status: 400 });
-  }
-  if (items.length > MAX_BULK_ITEMS) {
+  const parsed = BulkNotifySchema.safeParse(body);
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: `Too many items (max ${MAX_BULK_ITEMS}).` },
+      { error: "Invalid request body", details: parsed.error.flatten() },
       { status: 400 },
     );
   }
 
-  const slotKeySet = new Set(DOCUMENT_SLOTS.map((s) => s.key));
-  const validItems: BulkItem[] = [];
-  for (const raw of items) {
-    if (!raw || typeof raw !== "object") {
-      return NextResponse.json({ error: "Invalid item shape" }, { status: 400 });
-    }
-    const item = raw as Record<string, unknown>;
-    const enroleeNumber = typeof item.enroleeNumber === "string" ? item.enroleeNumber.trim() : "";
-    const slotKey = typeof item.slotKey === "string" ? item.slotKey.trim() : "";
-    if (!enroleeNumber || !slotKey || !slotKeySet.has(slotKey)) {
-      return NextResponse.json(
-        { error: `Invalid item: ${JSON.stringify(item)}` },
-        { status: 400 },
-      );
-    }
-    validItems.push({ enroleeNumber, slotKey });
-  }
+  const moduleKey = resolveModule(parsed.data.module);
+  const validItems: BulkItem[] = parsed.data.items;
+
+  // Per-module role gate.
+  const allowedRoles =
+    moduleKey === "admissions"
+      ? ["admissions", "registrar", "school_admin", "superadmin"]
+      : ["p-file", "superadmin"];
+  const auth = await requireRole(allowedRoles as import("@/lib/auth/roles").Role[]);
+  if ("error" in auth) return auth.error;
 
   const service = createServiceClient();
   const ayCode = await requireCurrentAyCode(service);
@@ -85,42 +55,53 @@ export async function POST(request: NextRequest) {
   let skippedNotActionable = 0;
   let recipientsTotal = 0;
 
+  const CONCURRENCY = 8;
+  const kind: "initial-chase" | "renewal" = moduleKey === "admissions" ? "initial-chase" : "renewal";
+
   type RowResult = { item: BulkItem; outcome: NotifyOutcome };
   const rowResults: RowResult[] = [];
-  for (const item of validItems) {
-    const outcome = await runNotify(service, auth.user, {
-      ayCode,
-      enroleeNumber: item.enroleeNumber,
-      slotKey: item.slotKey,
-      kind: moduleKey === "admissions" ? "initial-chase" : "renewal",
-    });
-    rowResults.push({ item, outcome });
 
-    if (outcome.ok) {
-      sent += outcome.sent;
-      failed += outcome.failed;
-      recipientsTotal += outcome.recipients;
-      continue;
-    }
-    switch (outcome.reason) {
-      case "cooldown":
-        skippedCooldown += 1;
-        break;
-      case "not_enrolled":
-        skippedNotEnrolled += 1;
-        break;
-      case "no_recipients":
-        skippedNoRecipients += 1;
-        break;
-      case "no_actionable_status":
-        skippedNotActionable += 1;
-        break;
-      case "send_failed":
-        failed += outcome.recipients ?? 0;
-        break;
-      default:
-        // unknown_slot / no_application_row / no_status_row — count as failed.
-        failed += 1;
+  for (let i = 0; i < validItems.length; i += CONCURRENCY) {
+    const chunk = validItems.slice(i, i + CONCURRENCY);
+    const chunkResults = await Promise.all(
+      chunk.map(async (item) => {
+        const outcome = await runNotify(service, auth.user, {
+          ayCode,
+          enroleeNumber: item.enroleeNumber,
+          slotKey: item.slotKey,
+          kind,
+        });
+        return { item, outcome } satisfies RowResult;
+      }),
+    );
+    rowResults.push(...chunkResults);
+
+    for (const { outcome } of chunkResults) {
+      if (outcome.ok) {
+        sent += outcome.sent;
+        failed += outcome.failed;
+        recipientsTotal += outcome.recipients;
+        continue;
+      }
+      switch (outcome.reason) {
+        case "cooldown":
+          skippedCooldown += 1;
+          break;
+        case "not_enrolled":
+          skippedNotEnrolled += 1;
+          break;
+        case "no_recipients":
+          skippedNoRecipients += 1;
+          break;
+        case "no_actionable_status":
+          skippedNotActionable += 1;
+          break;
+        case "send_failed":
+          failed += outcome.recipients ?? 0;
+          break;
+        default:
+          failed += 1;
+      }
     }
   }
 

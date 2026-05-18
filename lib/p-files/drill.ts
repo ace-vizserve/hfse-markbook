@@ -1,8 +1,9 @@
 import { unstable_cache } from 'next/cache';
 
-import { DOCUMENT_SLOTS, STP_CONDITIONAL_SLOT_KEYS } from '@/lib/sis/queries';
+import { DOCUMENT_SLOTS } from '@/lib/sis/queries';
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
 import { createServiceClient } from '@/lib/supabase/service';
+import { fetchAllPages } from '@/lib/supabase/paginate';
 
 const CACHE_TTL_SECONDS = 60;
 
@@ -35,7 +36,7 @@ export type PFilesDrillRow = {
   level: string | null;
   slotKey: string; // 'medical' | 'passport' | 'birth-cert' | 'educ-cert' | 'id-picture' | ...
   slotLabel: string;
-  status: 'On file' | 'Pending review' | 'Expired' | 'Missing' | 'N/A';
+  status: 'On file' | 'Awaiting validation' | 'Promised' | 'Rejected' | 'Expired' | 'Missing';
   fileUrl: string | null;
   expiryDate: string | null;
   daysToExpiry: number | null;
@@ -43,15 +44,10 @@ export type PFilesDrillRow = {
   lastRevisionAt: string | null; // ISO
 };
 
-// Slots the P-Files drill iterates per enrolled student. All 16
-// `DOCUMENT_SLOTS` minus `form12` (deliberately excluded — not part of the
-// per-student chase queue). The 3 STP-conditional slots (icaPhoto,
-// financialSupportDocs, vaccinationInformation per KD #61) are present in
-// this list but skipped per-row when the app row's `stpApplicationType`
-// is null/empty — they only apply to applicants whose Student Pass
-// is being sponsored by HFSE.
+// Slots the P-Files drill iterates per enrolled student. All 13
+// `DOCUMENT_SLOTS` (canonical post-KD-#96 list) minus `form12`
+// (deliberately excluded — not part of the per-student chase queue).
 const ELIGIBLE_SLOTS = DOCUMENT_SLOTS.filter((s) => s.key !== 'form12');
-const STP_SLOT_KEYS_SET = new Set<string>(STP_CONDITIONAL_SLOT_KEYS);
 
 // ─── Loader ─────────────────────────────────────────────────────────────────
 
@@ -62,7 +58,6 @@ type AppLite = {
   lastName: string | null;
   levelApplied: string | null;
   classLevel: string | null;
-  stpApplicationType: string | null;
 };
 type DocLite = Record<string, string | null>;
 type RevisionLite = {
@@ -81,32 +76,24 @@ function appName(a: AppLite): string {
   );
 }
 
-// Map raw `<slot>Status` values written by the parent portal + populated
-// seeder (KD #60: 'Valid' / 'Uploaded' / 'To follow' / 'Rejected' /
-// 'Expired') to the 5-state display enum the P-Files drill UI expects.
-//   - 'Valid'                → 'On file' (registrar has validated)
-//   - 'Uploaded' / 'Pending' → 'Pending review' (parent uploaded, awaiting review)
-//   - 'To follow' / 'Rejected' → 'Pending review' (parent owes a re-upload — same chase queue)
-//   - 'Expired'              → 'Expired'
-//   - null / 'Missing'       → 'Missing'
-//   - 'N/A' / 'NA'           → 'N/A'
-//   - anything else          → 'On file' (defensive fallback for legacy data)
+// Map raw `<slot>Status` values (KD #60: 'Valid' / 'Uploaded' / 'To follow' /
+// 'Rejected' / 'Expired') to the discrete display enum the P-Files drill UI expects.
+//   - 'Valid'      → 'On file'
+//   - 'Uploaded'   → 'Awaiting validation'
+//   - 'To follow'  → 'Promised'
+//   - 'Rejected'   → 'Rejected'
+//   - 'Expired'    → 'Expired'
+//   - null / '' / 'Missing' → 'Missing'
+//   - unknown      → 'Missing' (conservative, matches resolveStatus fallback)
 function normaliseStatus(raw: string | null): PFilesDrillRow['status'] {
   const s = (raw ?? '').trim().toLowerCase();
   if (s === '' || s === 'missing') return 'Missing';
-  if (s === 'expired') return 'Expired';
-  if (s === 'n/a' || s === 'na' || s === 'not applicable') return 'N/A';
-  if (
-    s === 'pending' ||
-    s === 'pending review' ||
-    s === 'uploaded' ||
-    s === 'to follow' ||
-    s === 'rejected'
-  ) {
-    return 'Pending review';
-  }
   if (s === 'valid') return 'On file';
-  return 'On file';
+  if (s === 'uploaded' || s === 'pending' || s === 'pending review') return 'Awaiting validation';
+  if (s === 'to follow') return 'Promised';
+  if (s === 'rejected') return 'Rejected';
+  if (s === 'expired') return 'Expired';
+  return 'Missing';
 }
 
 async function loadPFilesRowsUncached(ayCode: string): Promise<PFilesDrillRow[]> {
@@ -128,47 +115,51 @@ async function loadPFilesRowsUncached(ayCode: string): Promise<PFilesDrillRow[]>
     ),
   ).join(', ');
 
-  const [appsRes, docsRes, statusRes, revRes] = await Promise.all([
-    admissions
-      .from(appsTable)
-      .select(
-        'enroleeNumber, enroleeFullName, firstName, lastName, levelApplied, stpApplicationType',
-      ),
-    admissions
-      .from(docsTable)
-      .select(`enroleeNumber, ${docColumns}`),
-    // Enrollment gate at the loader (practical rule: P-Files = enrolled-only,
-    // KD #71). Filter at the SQL layer so funnel rows never enter the cache.
-    admissions
-      .from(statusTable)
-      .select('enroleeNumber, classLevel, applicationStatus, classSection')
-      .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)'])
-      .not('classSection', 'is', null),
-    service
-      .from('p_file_revisions')
-      .select('enrolee_number, slot_key, ay_code, replaced_at')
-      .eq('ay_code', ayCode),
+  type P<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
+  type StatusLite = { enroleeNumber: string | null; classLevel: string | null; applicationStatus: string | null };
+
+  const [apps, docs, statuses, revisions] = await Promise.all([
+    fetchAllPages<AppLite>((from, to) =>
+      admissions
+        .from(appsTable)
+        .select('enroleeNumber, enroleeFullName, firstName, lastName, levelApplied')
+        .range(from, to) as unknown as P<AppLite>,
+    ),
+    fetchAllPages<DocLite>((from, to) =>
+      admissions
+        .from(docsTable)
+        .select(`enroleeNumber, ${docColumns}`)
+        .range(from, to) as unknown as P<DocLite>,
+    ),
+    // Enrollment gate: status-only per KD #91 — classSection IS NOT NULL
+    // was relaxed so legacy/imported Enrolled rows without a section appear.
+    fetchAllPages<StatusLite>((from, to) =>
+      admissions
+        .from(statusTable)
+        .select('enroleeNumber, classLevel, applicationStatus')
+        .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)'])
+        .range(from, to) as unknown as P<StatusLite>,
+    ),
+    fetchAllPages<RevisionLite>((from, to) =>
+      service
+        .from('p_file_revisions')
+        .select('enrolee_number, slot_key, ay_code, replaced_at')
+        .eq('ay_code', ayCode)
+        .range(from, to) as unknown as P<RevisionLite>,
+    ),
   ]);
 
-  const apps = (appsRes.data ?? []) as AppLite[];
   const appByEnrolee = new Map<string, AppLite>();
   for (const a of apps) {
     if (a.enroleeNumber) appByEnrolee.set(a.enroleeNumber, a);
   }
 
-  const docs = (docsRes.data ?? []) as unknown as DocLite[];
   const docByEnrolee = new Map<string, DocLite>();
   for (const d of docs) {
     const en = d['enroleeNumber'];
     if (typeof en === 'string') docByEnrolee.set(en, d);
   }
 
-  const statuses = (statusRes.data ?? []) as Array<{
-    enroleeNumber: string | null;
-    classLevel: string | null;
-    applicationStatus: string | null;
-    classSection: string | null;
-  }>;
   const classLevelByEnrolee = new Map<string, string>();
   // Set of enrolled enroleeNumbers — only these emit drill rows below.
   // The status fetch already filtered at SQL but we materialize the Set
@@ -184,7 +175,7 @@ async function loadPFilesRowsUncached(ayCode: string): Promise<PFilesDrillRow[]>
   const revKey = (en: string, slot: string) => `${en}|${slot}`;
   const revCount = new Map<string, number>();
   const revLastAt = new Map<string, string>();
-  for (const r of (revRes.data ?? []) as RevisionLite[]) {
+  for (const r of revisions) {
     if (!r.enrolee_number) continue;
     const k = revKey(r.enrolee_number, r.slot_key);
     revCount.set(k, (revCount.get(k) ?? 0) + 1);
@@ -202,14 +193,8 @@ async function loadPFilesRowsUncached(ayCode: string): Promise<PFilesDrillRow[]>
     if (!enrolledEnrolees.has(app.enroleeNumber)) continue;
     const docRow = docByEnrolee.get(app.enroleeNumber);
     const level = classLevelByEnrolee.get(app.enroleeNumber) ?? app.levelApplied ?? null;
-    const isStpApplicant = !!(app.stpApplicationType ?? '').trim();
 
     for (const slot of ELIGIBLE_SLOTS) {
-      // STP-conditional slots only apply to STP applicants per KD #61.
-      // Non-STP students don't have an icaPhoto / financialSupportDocs /
-      // vaccinationInformation requirement, so they shouldn't generate
-      // drill rows for those slots — would inflate "Missing" counts.
-      if (STP_SLOT_KEYS_SET.has(slot.key) && !isStpApplicant) continue;
 
       const raw = (docRow?.[slot.statusCol] as string | null | undefined) ?? null;
       const status = normaliseStatus(raw);
@@ -293,27 +278,23 @@ export function applyTargetFilter(
     }
     case 'missing-docs': return rows.filter((r) => r.status === 'Missing');
     case 'slot-by-status': {
-      // segment = a status string ('On file', 'Expired', etc.) emitted by
-      // <SlotStatusDrillCard>. The donut's two slices map as follows:
-      //   'On file' → r.status === 'Valid'
-      //   'Expired' → r.status ∈ {'Expired', 'Missing'}  (slotMix.missing
-      //               lumps both together for enrolled-only data per the
-      //               chart's documented design intent — see
-      //               components/p-files/drills/chart-drill-cards.tsx
-      //               SlotStatusDrillCard lines 35-39).
-      // Without the union below, clicking the 'Expired' slice opened a
-      // drill with fewer rows than the slice count, because the filter
-      // only caught the genuinely-Expired subset and dropped the
-      // Missing rows that the slice also counted.
+      // segment = a status string emitted by <SlotStatusDrillCard> after the
+      // normaliseStatus change. Donut slices now use the discrete labels:
+      //   'On file'           → r.status === 'On file'
+      //   'Awaiting validation' → r.status === 'Awaiting validation'
+      //   'Promised'          → r.status === 'Promised'
+      //   'Rejected'          → r.status === 'Rejected'
+      //   'Expired'           → r.status ∈ {'Expired', 'Missing'}
+      //                         (slotMix.missing lumps both; clicking the
+      //                          Expired slice must surface both — KD #82)
       if (!segment) return rows;
-      // The drill row's `status` is the post-normalization label per
-      // normaliseStatus (lines 94-109): 'Pending review' | 'Missing' |
-      // 'On file' | 'Expired' | 'N/A'. The donut emits 'On file' and
-      // 'Expired' directly, so the On-file branch is a straight match.
       if (segment === 'On file') return rows.filter((r) => r.status === 'On file');
       if (segment === 'Expired') {
         return rows.filter((r) => r.status === 'Expired' || r.status === 'Missing');
       }
+      if (segment === 'Awaiting validation') return rows.filter((r) => r.status === 'Awaiting validation');
+      if (segment === 'Promised') return rows.filter((r) => r.status === 'Promised');
+      if (segment === 'Rejected') return rows.filter((r) => r.status === 'Rejected');
       return rows.filter((r) => r.status === segment);
     }
     case 'missing-by-slot': {
@@ -379,7 +360,7 @@ export const ALL_DRILL_COLUMNS: DrillColumnKey[] = [
 
 export const DRILL_COLUMN_LABELS: Record<DrillColumnKey, string> = {
   fullName: 'Applicant',
-  enroleeNumber: 'Applicant Number',
+  enroleeNumber: 'Enrolee number',
   level: 'Level',
   slotLabel: 'Slot',
   status: 'Status',

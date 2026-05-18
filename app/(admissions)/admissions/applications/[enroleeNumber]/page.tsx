@@ -1,11 +1,11 @@
 import {
   ArrowLeft,
+  ArrowUpRight,
   Check,
-  CheckCircle2,
   ClipboardList,
   FileCheck,
+  FolderArchive,
   GraduationCap,
-  HandHeart,
   Mail,
   MessageSquare,
   UserCircle2,
@@ -22,7 +22,9 @@ import { ProfileTab } from "@/components/sis/profile-tab";
 import { ApplicationStatusBadge } from "@/components/ui/application-status-badge";
 import { StpApplicationCard } from "@/components/sis/stp-application-card";
 import { StudentLifecycleTimeline } from "@/components/sis/student-lifecycle-timeline";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardAction,
@@ -40,21 +42,23 @@ import {
   getEnrollmentHistory,
   getSectionIdByLevelAndName,
   getStudentDetail,
-  STP_CONDITIONAL_SLOT_KEYS,
 } from "@/lib/sis/queries";
 import { getSessionUser } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { cn } from "@/lib/utils";
 
-const FUNNEL_STAGES = ["Inquiry", "Applied", "Interviewed", "Offered", "Accepted"] as const;
+// KD #59: SIS-side application stage vocabulary (not the legacy parent-portal values).
+const FUNNEL_STAGES = ["Submitted", "Ongoing Verification", "Processing", "Enrolled"] as const;
 const ENROLLED_STATES = ["Enrolled", "Enrolled (Conditional)"];
 
 function funnelIndexFor(status: string | null): number {
-  const v = (status ?? "").trim().toLowerCase();
+  const v = (status ?? "").trim();
   if (!v) return -1;
-  if (ENROLLED_STATES.some((e) => e.toLowerCase() === v)) return FUNNEL_STAGES.length;
-  const idx = FUNNEL_STAGES.findIndex((s) => s.toLowerCase() === v);
-  return idx;
+  // Cancelled / Withdrawn are off-funnel — hide the progress bar.
+  if (v === 'Cancelled' || v === 'Withdrawn') return -1;
+  // Enrolled (Conditional) maps to the same final Enrolled step.
+  if (v === 'Enrolled (Conditional)') return FUNNEL_STAGES.length - 1;
+  return (FUNNEL_STAGES as readonly string[]).indexOf(v);
 }
 
 export default async function SisStudentDetailPage({
@@ -79,7 +83,12 @@ export default async function SisStudentDetailPage({
   const { ay: ayParam, tab: tabParam } = await searchParams;
 
   const service = createServiceClient();
-  const currentAy = await getCurrentAcademicYear(service);
+
+  // AY list and current AY are independent — fetch in parallel.
+  const [currentAy, ayCodes] = await Promise.all([
+    getCurrentAcademicYear(service),
+    listAyCodes(service),
+  ]);
   if (!currentAy) {
     return (
       <PageShell>
@@ -88,7 +97,6 @@ export default async function SisStudentDetailPage({
     );
   }
 
-  const ayCodes = await listAyCodes(service);
   const selectedAy = ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
 
   // Auto-flip + detail fetch run in parallel; both are needed before
@@ -101,50 +109,52 @@ export default async function SisStudentDetailPage({
 
   const { application, status, documents } = detail;
 
-  const history = application.studentNumber ? await getEnrollmentHistory(application.studentNumber) : [];
-
-  // Resolve the assigned section's UUID for the Enrollment tab's
-  // "Move to another section →" CTA. Null when class isn't assigned yet
-  // (pre-Enrolled) or the section was renamed/dropped after AY rollover —
-  // EnrollmentTab hides the CTA gracefully on null.
-  const currentSectionId =
+  // Enrollment history, section UUID lookup, and lifecycle snapshot are all
+  // independent of each other — fetch in parallel after detail resolves.
+  const [history, currentSectionId, lifecycleSnapshot] = await Promise.all([
+    application.studentNumber ? getEnrollmentHistory(application.studentNumber) : Promise.resolve([]),
     status?.classLevel && status?.classSection
-      ? await getSectionIdByLevelAndName(selectedAy, status.classLevel, status.classSection)
-      : null;
+      ? getSectionIdByLevelAndName(selectedAy, status.classLevel, status.classSection)
+      : Promise.resolve(null),
+    getStudentLifecycle(selectedAy, enroleeNumber),
+  ]);
+
+  // lifecycleHistory depends on lifecycleSnapshot.studentNumber — sequential.
+  const lifecycleHistory = lifecycleSnapshot.studentNumber
+    ? await getEnrollmentHistory(lifecycleSnapshot.studentNumber)
+    : [];
 
   const fullName =
     application.enroleeFullName ??
     [application.lastName, application.firstName, application.middleName].filter(Boolean).join(" ") ??
     "(no name on file)";
 
-  const tab = ["profile", "family", "enrollment", "documents", "lifecycle"].includes(tabParam ?? "")
-    ? (tabParam as "profile" | "family" | "enrollment" | "documents" | "lifecycle")
+  // 'stp' is a historical URL alias — the STP card lives on the documents tab (KD #61 + KD #89).
+  const resolvedTab = tabParam === "stp" ? "documents" : tabParam;
+  const tab = ["profile", "family", "enrollment", "documents", "lifecycle"].includes(resolvedTab ?? "")
+    ? (resolvedTab as "profile" | "family" | "enrollment" | "documents" | "lifecycle")
     : "profile";
 
-  const lifecycleSnapshot = await getStudentLifecycle(selectedAy, enroleeNumber);
-  const lifecycleHistory = lifecycleSnapshot.studentNumber
-    ? await getEnrollmentHistory(lifecycleSnapshot.studentNumber)
-    : [];
-
   // Document completion for the hero stats strip. Mirrors the DocumentsTab
-  // visibility filter — when the parent didn't opt into the STP sub-flow,
-  // the 3 STP-conditional slots roll out of the denominator so the "X of N"
-  // count matches what the registrar actually has to chase.
-  const stpKeysForHero = new Set<string>(STP_CONDITIONAL_SLOT_KEYS);
-  const heroDocuments = application.stpApplicationType
-    ? documents
-    : documents.filter((d) => !stpKeysForHero.has(d.key));
+  // visibility filter — KD #69: father slots required only when fatherEmail
+  // is set; guardian slots only when guardianEmail is set.
+  // STP doc slots were removed from DOCUMENT_SLOTS in KD #96 (no-op filter).
+  const fatherDocKeys = new Set(['fatherPassport', 'fatherPass']);
+  const guardianDocKeys = new Set(['guardianPassport', 'guardianPass']);
+  const heroDocuments = documents.filter((d) => {
+    if (fatherDocKeys.has(d.key) && !application.fatherEmail?.trim()) return false;
+    if (guardianDocKeys.has(d.key) && !application.guardianEmail?.trim()) return false;
+    return true;
+  });
   const docsTotal = heroDocuments.length;
   const docsOnFile = heroDocuments.filter((d) => !!d.url).length;
   const { expiringSoon: docsExpiringSoon, expired: docsExpired } = countExpiryBuckets(heroDocuments);
 
   const funnelIdx = funnelIndexFor(status?.applicationStatus ?? null);
   const currentStageLabel =
-    funnelIdx === FUNNEL_STAGES.length
-      ? "Enrolled"
-      : funnelIdx >= 0
-        ? FUNNEL_STAGES[funnelIdx]
-        : (status?.applicationStatus ?? "Not staged");
+    funnelIdx >= 0
+      ? FUNNEL_STAGES[funnelIdx]
+      : (status?.applicationStatus ?? "Not staged");
 
   // Most recent activity across all stages, for the "last activity" card.
   const stageUpdates: Array<string | null | undefined> = [
@@ -305,10 +315,28 @@ export default async function SisStudentDetailPage({
         </TabsContent>
 
         <TabsContent value="documents" className="space-y-6">
+          {ENROLLED_STATES.includes(status?.applicationStatus ?? '') && (
+            <Alert variant="default" className="border-dashed">
+              <FolderArchive className="size-4" />
+              <AlertTitle>This applicant is enrolled — renewals live in P-Files</AlertTitle>
+              <AlertDescription className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <span>
+                  This Documents tab is a view-only record of what was submitted during enrolment.
+                  For expiry tracking, renewals, and follow-up work, open the P-Files record.
+                </span>
+                <Button asChild variant="link" size="sm" className="h-auto p-0">
+                  <Link href={`/p-files/${application.enroleeNumber}?ay=${selectedAy}`}>
+                    Open in P-Files
+                    <ArrowUpRight className="ml-1 size-3.5" />
+                  </Link>
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
           {application.stpApplicationType && (
             <StpApplicationCard
               application={application}
-              documents={documents}
+              stpApplicationStatus={application.stpApplicationStatus ?? null}
               ayCode={selectedAy}
             />
           )}
@@ -354,12 +382,11 @@ function countExpiryBuckets(documents: readonly { expiry?: string | null }[]): {
 }
 
 function FunnelProgress({ currentIndex }: { currentIndex: number }) {
+  // KD #59: SIS-side application stage vocabulary.
   const stages: Array<{ label: string; icon: React.ComponentType<{ className?: string }> }> = [
-    { label: "Inquiry", icon: Mail },
-    { label: "Applied", icon: ClipboardList },
-    { label: "Interviewed", icon: MessageSquare },
-    { label: "Offered", icon: HandHeart },
-    { label: "Accepted", icon: CheckCircle2 },
+    { label: "Submitted", icon: Mail },
+    { label: "Ongoing Verification", icon: ClipboardList },
+    { label: "Processing", icon: MessageSquare },
     { label: "Enrolled", icon: GraduationCap },
   ];
 

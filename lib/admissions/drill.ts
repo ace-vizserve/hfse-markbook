@@ -1,6 +1,7 @@
 import { unstable_cache } from 'next/cache';
 
 import { applyDateRangeFilter } from '@/lib/dashboard/drill-range';
+import { prefixFor } from '@/lib/admissions/_shared';
 import {
   STAGE_COLUMN_MAP,
   STAGE_KEYS,
@@ -8,6 +9,7 @@ import {
   type StageKey,
 } from '@/lib/schemas/sis';
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
+import { fetchAllPages } from '@/lib/supabase/paginate';
 
 // Drill-down primitives shared across every Admissions drill target.
 //
@@ -19,10 +21,6 @@ import { createAdmissionsClient } from '@/lib/supabase/admissions';
 // what the user sees on screen.
 
 const CACHE_TTL_SECONDS = 60;
-
-function prefixFor(ayCode: string): string {
-  return `ay${ayCode.replace(/^AY/i, '').toLowerCase()}`;
-}
 
 function tags(ayCode: string): string[] {
   return ['admissions-drill', `admissions-drill:${ayCode}`];
@@ -64,6 +62,8 @@ export type DrillRow = {
   referralSource: string | null;
   assessmentMath: string | null;
   assessmentEnglish: string | null;
+  assessmentMathOutcome: 'pass' | 'fail' | 'unknown';
+  assessmentEnglishOutcome: 'pass' | 'fail' | 'unknown';
   assessmentOutcome: string | null; // pass | fail | unknown (combined)
   applicationDate: string | null; // ISO
   enrollmentDate: string | null; // ISO
@@ -147,37 +147,6 @@ async function loadDrillRowsUncached(input: { ayCode: string }): Promise<DrillRo
 
   const supabase = createAdmissionsClient();
 
-  const [appsRes, statusRes] = await Promise.all([
-    supabase
-      .from(appsTable)
-      .select(
-        'enroleeNumber, studentNumber, enroleeFullName, firstName, lastName, levelApplied, created_at, howDidYouKnowAboutHFSEIS',
-      ),
-    supabase
-      .from(statusTable)
-      .select(
-        [
-          'enroleeNumber',
-          'applicationStatus',
-          'applicationUpdatedDate',
-          'classLevel',
-          'levelApplied',
-          'assessmentGradeMath',
-          'assessmentGradeEnglish',
-          ...STAGE_KEYS.map((k) => STAGE_COLUMN_MAP[k].updatedDateCol),
-        ].join(', '),
-      ),
-  ]);
-
-  if (appsRes.error) {
-    console.error('[admissions-drill] apps fetch failed:', appsRes.error.message);
-    return [];
-  }
-  if (statusRes.error) {
-    console.error('[admissions-drill] status fetch failed:', statusRes.error.message);
-    return [];
-  }
-
   type AppLite = {
     enroleeNumber: string | null;
     studentNumber: string | null;
@@ -198,6 +167,38 @@ async function loadDrillRowsUncached(input: { ayCode: string }): Promise<DrillRo
     assessmentGradeEnglish: string | number | null;
   } & Record<string, string | null | number>;
 
+  type P<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
+
+  const statusCols = [
+    'enroleeNumber', 'applicationStatus', 'applicationUpdatedDate',
+    'classLevel', 'levelApplied', 'assessmentGradeMath', 'assessmentGradeEnglish',
+    ...STAGE_KEYS.map((k) => STAGE_COLUMN_MAP[k].updatedDateCol),
+  ].join(', ');
+
+  let apps: AppLite[];
+  let statuses: StatusLite[];
+  try {
+    [apps, statuses] = await Promise.all([
+      fetchAllPages<AppLite>((from, to) =>
+        supabase
+          .from(appsTable)
+          .select('enroleeNumber, studentNumber, enroleeFullName, firstName, lastName, levelApplied, created_at, howDidYouKnowAboutHFSEIS')
+          .range(from, to) as unknown as P<AppLite>,
+      ),
+      // Cast via unknown — the dynamic SELECT (joined with per-stage updatedDate
+      // columns) defeats supabase-js's row-shape inference.
+      fetchAllPages<StatusLite>((from, to) =>
+        supabase
+          .from(statusTable)
+          .select(statusCols)
+          .range(from, to) as unknown as P<StatusLite>,
+      ),
+    ]);
+  } catch (err) {
+    console.error('[admissions-drill] fetch failed:', err);
+    return [];
+  }
+
   // Compute the pipeline stage label the same way `loadPipelineStageBreakdown`
   // does: rightmost stage in `STAGE_KEYS` whose `*UpdatedDate` is non-null.
   // No stages touched → 'Not started'. The chart and the drill must agree
@@ -211,11 +212,6 @@ async function loadDrillRowsUncached(input: { ayCode: string }): Promise<DrillRo
     }
     return current ? STAGE_LABELS[current] : 'Not started';
   }
-
-  const apps = (appsRes.data ?? []) as AppLite[];
-  // Cast via unknown — the dynamic SELECT (joined with the per-stage
-  // updatedDate columns) defeats supabase-js's row-shape inference.
-  const statuses = (statusRes.data ?? []) as unknown as StatusLite[];
 
   const statusByEnrolee = new Map<string, StatusLite>();
   for (const s of statuses) {
@@ -273,6 +269,8 @@ async function loadDrillRowsUncached(input: { ayCode: string }): Promise<DrillRo
       referralSource: (a.howDidYouKnowAboutHFSEIS ?? '').trim() || null,
       assessmentMath: s?.assessmentGradeMath != null ? String(s.assessmentGradeMath) : null,
       assessmentEnglish: s?.assessmentGradeEnglish != null ? String(s.assessmentGradeEnglish) : null,
+      assessmentMathOutcome: classifyAssessmentValue(s?.assessmentGradeMath ?? null),
+      assessmentEnglishOutcome: classifyAssessmentValue(s?.assessmentGradeEnglish ?? null),
       assessmentOutcome: combinedAssessmentOutcome(
         s?.assessmentGradeMath ?? null,
         s?.assessmentGradeEnglish ?? null,
@@ -462,18 +460,23 @@ export function applyTargetFilter(
       if (segment === 'Not specified') {
         return rows.filter((r) => !r.referralSource);
       }
-      if (segment === 'Other') {
-        // "Other" bucket — rows whose source isn't in the top-N. The page
-        // already collapses these server-side; here we mirror by checking
-        // source != any of the listed segments. The drill API endpoint
-        // also accepts the explicit list via the `segment` param, but for
-        // a simple dashboard segment we fall back to "all rows except
-        // already-named buckets" — handled at the route level.
-        return rows.filter((r) => r.referralSource && r.referralSource !== 'Other');
+      if (segment.startsWith('__other__:')) {
+        // ReferralDrillCard encodes the named top-N sources after the prefix
+        // so we can exclude them exactly, rather than guessing which sources
+        // were collapsed into "Other".
+        const named = new Set(segment.slice(10).split('|').filter(Boolean));
+        return rows.filter((r) => r.referralSource != null && !named.has(r.referralSource));
       }
       return rows.filter((r) => r.referralSource === segment);
     case 'assessment':
       if (!segment) return rows;
+      if (segment.includes(':')) {
+        const colonIdx = segment.indexOf(':');
+        const subject = segment.slice(0, colonIdx);
+        const outcome = segment.slice(colonIdx + 1);
+        if (subject === 'math') return rows.filter((r) => r.assessmentMathOutcome === outcome);
+        if (subject === 'eng') return rows.filter((r) => r.assessmentEnglishOutcome === outcome);
+      }
       return rows.filter((r) => r.assessmentOutcome === segment);
     case 'time-to-enroll-bucket': {
       if (!segment) return rows.filter((r) => r.daysToEnroll !== null);
@@ -537,6 +540,8 @@ export type DrillColumnKey =
   | 'stage'
   | 'referralSource'
   | 'assessmentOutcome'
+  | 'assessmentMath'
+  | 'assessmentEnglish'
   | 'applicationDate'
   | 'enrollmentDate'
   | 'daysToEnroll'
@@ -558,6 +563,8 @@ export const ALL_DRILL_COLUMNS: DrillColumnKey[] = [
   'daysInPipeline',
   'referralSource',
   'assessmentOutcome',
+  'assessmentMath',
+  'assessmentEnglish',
   'documentsComplete',
 ];
 
@@ -586,12 +593,13 @@ export function defaultColumnsForTarget(target: DrillTarget): DrillColumnKey[] {
         'daysToEnroll',
       ];
     case 'funnel-stage':
+      return ['fullName', 'enroleeNumber', 'status', 'level', 'applicationDate', 'daysSinceUpdate'];
     case 'pipeline-stage':
-      return ['fullName', 'enroleeNumber', 'stage', 'status', 'level', 'daysSinceUpdate'];
+      return ['fullName', 'enroleeNumber', 'status', 'level', 'daysSinceUpdate', 'daysInPipeline'];
     case 'referral':
       return ['fullName', 'enroleeNumber', 'referralSource', 'status', 'level', 'applicationDate'];
     case 'assessment':
-      return ['fullName', 'enroleeNumber', 'assessmentOutcome', 'level', 'status'];
+      return ['fullName', 'enroleeNumber', 'level', 'assessmentMath', 'assessmentEnglish', 'assessmentOutcome'];
     case 'time-to-enroll-bucket':
       return [
         'fullName',
@@ -620,7 +628,9 @@ export const DRILL_COLUMN_LABELS: Record<DrillColumnKey, string> = {
   level: 'Level',
   stage: 'Stage',
   referralSource: 'Referral source',
-  assessmentOutcome: 'Assessment',
+  assessmentOutcome: 'Combined outcome',
+  assessmentMath: 'Math grade',
+  assessmentEnglish: 'English grade',
   applicationDate: 'App date',
   enrollmentDate: 'Enrolled on',
   daysToEnroll: 'Days to enroll',
@@ -642,12 +652,12 @@ export function drillHeaderForTarget(
     case 'conversion':
       return {
         eyebrow: 'Admissions',
-        title: 'Cohort behind the conversion rate (applicants and their enrolment outcome)',
+        title: 'Conversion breakdown — enrolled vs. not enrolled',
       };
     case 'avg-time':
       return {
         eyebrow: 'Admissions',
-        title: 'Students with their days from application to enrollment',
+        title: 'Time to enrolment — enrolled students',
       };
     case 'funnel-stage':
       return {
@@ -666,17 +676,24 @@ export function drillHeaderForTarget(
     case 'referral':
       return {
         eyebrow: 'Admissions',
-        title: segment
-          ? `Applicants who heard about HFSE from ${segment}`
-          : 'Applicants by referral source',
+        title: !segment
+          ? 'Applicants by referral source'
+          : segment.startsWith('__other__:')
+            ? 'Applicants from other referral sources'
+            : segment === 'Not specified'
+              ? 'Applicants who did not specify a referral source'
+              : `Applicants who heard about HFSE from ${segment}`,
       };
-    case 'assessment':
-      return {
-        eyebrow: 'Admissions',
-        title: segment
-          ? `Applicants whose assessment outcome was ${segment}`
-          : 'Applicants by entrance assessment outcome',
-      };
+    case 'assessment': {
+      if (!segment) return { eyebrow: 'Admissions', title: 'Applicants by entrance assessment outcome' };
+      if (segment.includes(':')) {
+        const colonIdx = segment.indexOf(':');
+        const subjectLabel = segment.slice(0, colonIdx) === 'math' ? 'Maths' : 'English';
+        const outcome = segment.slice(colonIdx + 1);
+        return { eyebrow: 'Admissions', title: `Applicants whose ${subjectLabel} assessment outcome was ${outcome}` };
+      }
+      return { eyebrow: 'Admissions', title: `Applicants whose assessment outcome was ${segment}` };
+    }
     case 'time-to-enroll-bucket':
       return {
         eyebrow: 'Admissions',
@@ -704,7 +721,7 @@ export function drillHeaderForTarget(
                 : 'Document completeness',
       };
     case 'outdated':
-      return { eyebrow: 'Drill · Outdated', title: 'Stale active applications' };
+      return { eyebrow: 'Drill · Outdated', title: 'Applications with no recent activity' };
     default:
       return { eyebrow: 'Drill', title: 'Applications' };
   }

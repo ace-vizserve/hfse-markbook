@@ -1,6 +1,8 @@
 import { unstable_cache } from 'next/cache';
 
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
+import { prefixFor } from '@/lib/admissions/_shared';
+import { fetchAllPages } from '@/lib/supabase/paginate';
 import {
   computeDelta,
   daysInRange,
@@ -23,10 +25,6 @@ import type { VelocityPoint } from '@/lib/dashboard/velocity';
 // Never hardcode the year — Key Decision #14.
 
 const CACHE_TTL_SECONDS = 600;
-
-function prefixFor(ayCode: string): string {
-  return `ay${ayCode.replace(/^AY/i, '').toLowerCase()}`;
-}
 
 function tag(ayCode: string): string[] {
   return ['admissions-dashboard', `admissions-dashboard:${ayCode}`];
@@ -104,30 +102,29 @@ async function loadJoinedRowsUncached(ayCode: string): Promise<JoinedRow[]> {
 
   const supabase = createAdmissionsClient();
 
-  const [appsRes, statusRes] = await Promise.all([
-    supabase
-      .from(appsTable)
-      .select(
-        'enroleeNumber, enroleeFullName, firstName, lastName, levelApplied, created_at, howDidYouKnowAboutHFSEIS, studentNumber, motherEmail, fatherEmail',
-      ),
-    supabase
-      .from(statusTable)
-      .select(
-        'enroleeNumber, applicationStatus, applicationUpdatedDate, classLevel, levelApplied, assessmentGradeMath, assessmentGradeEnglish',
-      ),
-  ]);
+  type P<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
 
-  if (appsRes.error) {
-    console.error('[admissions-dashboard] apps fetch failed:', appsRes.error.message);
+  let apps: AppLite[];
+  let statuses: StatusLite[];
+  try {
+    [apps, statuses] = await Promise.all([
+      fetchAllPages<AppLite>((from, to) =>
+        supabase
+          .from(appsTable)
+          .select('enroleeNumber, enroleeFullName, firstName, lastName, levelApplied, created_at, howDidYouKnowAboutHFSEIS, studentNumber, motherEmail, fatherEmail')
+          .range(from, to) as unknown as P<AppLite>,
+      ),
+      fetchAllPages<StatusLite>((from, to) =>
+        supabase
+          .from(statusTable)
+          .select('enroleeNumber, applicationStatus, applicationUpdatedDate, classLevel, levelApplied, assessmentGradeMath, assessmentGradeEnglish')
+          .range(from, to) as unknown as P<StatusLite>,
+      ),
+    ]);
+  } catch (err) {
+    console.error('[admissions-dashboard] fetch failed:', err);
     return [];
   }
-  if (statusRes.error) {
-    console.error('[admissions-dashboard] status fetch failed:', statusRes.error.message);
-    return [];
-  }
-
-  const apps = (appsRes.data ?? []) as AppLite[];
-  const statuses = (statusRes.data ?? []) as StatusLite[];
 
   const statusByEnrolee = new Map<string, StatusLite>();
   for (const s of statuses) {
@@ -234,7 +231,15 @@ export type FunnelStage = {
 export async function getConversionFunnel(ayCode: string): Promise<FunnelStage[]> {
   const counts = await getPipelineCounts(ayCode);
   const stages = [
-    { stage: 'Submitted', count: counts.total - counts.Cancelled - counts.Withdrawn },
+    {
+      stage: 'Submitted',
+      count:
+        counts.Submitted +
+        counts['Ongoing Verification'] +
+        counts.Processing +
+        counts.Enrolled +
+        counts['Enrolled (Conditional)'],
+    },
     {
       stage: 'Ongoing Verification',
       count:
@@ -436,11 +441,17 @@ function computeRangeKpis(rows: JoinedRow[], from: string, to: string): Admissio
   let totalDays = 0;
   let samples = 0;
 
+  // H2 fix — app-anchored: both numerator and denominator scope on created_at.
+  // Prior code mixed cohorts (denominator = applied in range; numerator = enrolled
+  // in range by applicationUpdatedDate) so conversion could exceed 100% or be
+  // near-zero. Now: denominator = applied in range; numerator = applied in range
+  // AND currently Enrolled / Enrolled (Conditional). Bounded 0–100%, monotone.
   for (const r of rows) {
-    if (inRange(r.created_at, from, to)) applications += 1;
+    if (!inRange(r.created_at, from, to)) continue;
+    applications += 1;
     const isEnrolled =
       r.applicationStatus === 'Enrolled' || r.applicationStatus === 'Enrolled (Conditional)';
-    if (isEnrolled && inRange(r.applicationUpdatedDate, from, to)) {
+    if (isEnrolled) {
       enrolled += 1;
       if (r.created_at && r.applicationUpdatedDate) {
         const start = Date.parse(r.created_at);
