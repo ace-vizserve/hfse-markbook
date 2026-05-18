@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 
 import { createAdmissionsClient } from "@/lib/supabase/admissions";
 import { createServiceClient } from "@/lib/supabase/service";
+import { fetchAllPages } from "@/lib/supabase/paginate";
 
 // Sprint 10 Phase 1 — read-only Student Information System.
 //
@@ -44,6 +45,9 @@ export type StudentListRow = {
   applicationStatus: string | null;
   applicationUpdatedDate: string | null;
   created_at: string | null;
+  // Populated by Records pages only — joins section_students.enrollment_status
+  // (active | late_enrollee | withdrawn). Undefined for all Admissions callers.
+  enrollmentStatus?: string | null;
 };
 
 // `created_at` carries the application's submission timestamp (Supabase default
@@ -67,26 +71,39 @@ export async function listStudents(
       const prefix = prefixFor(ayCode);
       const supabase = createAdmissionsClient();
 
-      const appsQuery = supabase.from(`${prefix}_enrolment_applications`).select(LIST_APP_COLUMNS);
-      const orderedAppsQuery =
-        orderBy === "created_at_desc"
-          ? appsQuery.order("created_at", { ascending: false }).order("enroleeNumber", { ascending: true })
-          : appsQuery
-              .order("lastName", { ascending: true })
-              .order("firstName", { ascending: true })
-              .order("enroleeNumber", { ascending: true });
-
-      const [appsRes, statusRes] = await Promise.all([
-        orderedAppsQuery,
-        supabase.from(`${prefix}_enrolment_status`).select(LIST_STATUS_COLUMNS),
+      // fetchAllPages walks past the PostgREST 1000-row cap (M2). AYs with
+      // > 1000 enrolled applicants silently truncated without this.
+      const [appsData, statusData] = await Promise.all([
+        fetchAllPages((from, to) => {
+          const q = supabase
+            .from(`${prefix}_enrolment_applications`)
+            .select(LIST_APP_COLUMNS)
+            .range(from, to);
+          return orderBy === "created_at_desc"
+            ? q.order("created_at", { ascending: false }).order("enroleeNumber", { ascending: true })
+            : q
+                .order("lastName", { ascending: true })
+                .order("firstName", { ascending: true })
+                .order("enroleeNumber", { ascending: true });
+        }),
+        fetchAllPages((from, to) =>
+          supabase
+            .from(`${prefix}_enrolment_status`)
+            .select(LIST_STATUS_COLUMNS)
+            .range(from, to),
+        ),
       ]);
 
+      // Map to named Result shape to satisfy the downstream type checks
+      const appsRes = { data: appsData, error: null };
+      const statusRes = { data: statusData, error: null };
+
       if (appsRes.error) {
-        console.error("[sis] listStudents apps fetch failed:", appsRes.error.message);
+        console.error("[sis] listStudents apps fetch failed:", appsRes.error);
         return [];
       }
       if (statusRes.error) {
-        console.error("[sis] listStudents status fetch failed:", statusRes.error.message);
+        console.error("[sis] listStudents status fetch failed:", statusRes.error);
         return [];
       }
 
@@ -212,6 +229,12 @@ export type ApplicationRow = {
   // "New Student Pass Application". `residenceHistory` is jsonb of the past
   // 5 years of residency.
   stpApplicationType: string | null;
+  // ICA Student Pass progress (migration 050). Co-located with
+  // stpApplicationType — they're a single state machine bolted onto the
+  // apps row. Values: 'Pending' | 'Submitted' | 'Approved' | 'Rejected'
+  // (see STP_APPLICATION_STATUS_OPTIONS below). Replaces the old
+  // 3-doc-slot model (icaPhoto / financialSupportDocs / vaccinationInformation).
+  stpApplicationStatus: string | null;
   residenceHistory: unknown;
   // Contact
   homePhone: string | null;
@@ -327,6 +350,7 @@ const DETAIL_APP_COLUMNS = [
   "pass",
   "passExpiry",
   "stpApplicationType",
+  "stpApplicationStatus",
   "residenceHistory",
   "homePhone",
   "homeAddress",
@@ -548,16 +572,16 @@ export const DOCUMENT_SLOTS: Array<{
   { key: "idPicture", label: "ID Picture", statusCol: "idPictureStatus", urlCol: "idPicture" },
   { key: "birthCert", label: "Birth Certificate", statusCol: "birthCertStatus", urlCol: "birthCert" },
   { key: "educCert", label: "Education Certificate", statusCol: "educCertStatus", urlCol: "educCert" },
-  { key: "medical", label: "Medical", statusCol: "medicalStatus", urlCol: "medical" },
+  { key: "medical", label: "Medical Exam", statusCol: "medicalStatus", urlCol: "medical" },
   { key: "form12", label: "Form 12", statusCol: "form12Status", urlCol: "form12" },
   {
     key: "passport",
-    label: "Passport (Student)",
+    label: "Student Passport",
     statusCol: "passportStatus",
     urlCol: "passport",
     expiryCol: "passportExpiry",
   },
-  { key: "pass", label: "Pass (Student)", statusCol: "passStatus", urlCol: "pass", expiryCol: "passExpiry" },
+  { key: "pass", label: "Student Pass", statusCol: "passStatus", urlCol: "pass", expiryCol: "passExpiry" },
   {
     key: "motherPassport",
     label: "Mother Passport",
@@ -600,26 +624,36 @@ export const DOCUMENT_SLOTS: Array<{
     urlCol: "guardianPass",
     expiryCol: "guardianPassExpiry",
   },
-  // STP application slots — visible when stpApplicationType is set on the applications row
-  { key: "icaPhoto", label: "ICA Photo (STP)", statusCol: "icaPhotoStatus", urlCol: "icaPhoto" },
-  {
-    key: "financialSupportDocs",
-    label: "Financial Support (STP)",
-    statusCol: "financialSupportDocsStatus",
-    urlCol: "financialSupportDocs",
-  },
-  {
-    key: "vaccinationInformation",
-    label: "Vaccination Info (STP)",
-    statusCol: "vaccinationInformationStatus",
-    urlCol: "vaccinationInformation",
-  },
+  // STP slots (icaPhoto / financialSupportDocs / vaccinationInformation)
+  // removed from the enrollment process — parents upload these directly to
+  // ICA's portal (migration 050). The underlying columns stay on the
+  // `ay{YY}_enrolment_documents` schema for historical preservation but
+  // are no longer enumerated here, so the seeder / UI / gates skip them
+  // naturally. STP progress is tracked on `ay{YY}_enrolment_status.stpApplicationStatus`
+  // via `STP_APPLICATION_STATUS_OPTIONS` below.
 ];
 
-// STP-conditional slot keys — UI consumers hide these when the apps row's
-// stpApplicationType is null. The columns always exist on the row; only display
-// is gated. See KD #51 + the parent-portal STP workflow.
-export const STP_CONDITIONAL_SLOT_KEYS = ["icaPhoto", "financialSupportDocs", "vaccinationInformation"] as const;
+// Retained as an empty tuple for back-compat with consumers that still
+// import the symbol (most do `.has()` / `.includes()` checks that fold
+// to false naturally). New code should not reference this — STP no
+// longer maps to document slots. See `STP_APPLICATION_STATUS_OPTIONS`.
+export const STP_CONDITIONAL_SLOT_KEYS = [] as const;
+
+// stpApplicationStatus enum on `ay{YY}_enrolment_status` (migration 050).
+// Tracks the parent's ICA Student Pass application progress — the school
+// records which phase they're in; ICA owns the actual document collection.
+//   Pending   — parent hasn't filed with ICA yet (initial state once the
+//               applications row has stpApplicationType set).
+//   Submitted — parent has filed the application with ICA.
+//   Approved  — ICA has issued the pass.
+//   Rejected  — ICA declined the application.
+export const STP_APPLICATION_STATUS_OPTIONS = [
+  'Pending',
+  'Submitted',
+  'Approved',
+  'Rejected',
+] as const;
+export type StpApplicationStatus = (typeof STP_APPLICATION_STATUS_OPTIONS)[number];
 
 // Slots that are NEVER required for the documents-stage Verified / Finished
 // gate, regardless of student type. Medical, educCert, and form12 are

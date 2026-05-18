@@ -13,7 +13,7 @@ import {
 
 import { AySwitcher } from '@/components/admissions/ay-switcher';
 import { CrossAySearch } from '@/components/sis/cross-ay-search';
-import { StudentDataTable } from '@/components/sis/student-data-table';
+import { StudentDataTable, type StatusBucketDef } from '@/components/sis/student-data-table';
 import { Alert, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
 import { getCurrentAcademicYear, listAyCodes } from '@/lib/academic-year';
-import { getSisDashboardSummary, listStudents } from '@/lib/sis/queries';
+import { getSisDashboardSummary, listStudents, type StudentListRow } from '@/lib/sis/queries';
 import { countUnsyncedEnrolledStudents } from '@/lib/sis/unsynced-students';
 import { getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -78,6 +78,33 @@ export default async function RecordsStudentsPage({
   const students = allStudents.filter((s) =>
     ENROLLED.has((s.applicationStatus ?? '').trim()),
   );
+
+  // Merge enrollment_status from section_students so the Late enrollee tab works.
+  // section_students lives on the main DB; listStudents uses the admissions client,
+  // so we can't join there. Non-withdrawn guard ensures we pick the active row for
+  // transferred students (old row is 'withdrawn', new row is 'active'/'late_enrollee').
+  const enrollmentStatusMap = new Map<string, string>();
+  if (students.length > 0) {
+    const { data: ssRows } = await service
+      .from('section_students')
+      .select('enrolee_number, enrollment_status')
+      .in('enrolee_number', students.map((s) => s.enroleeNumber))
+      .neq('enrollment_status', 'withdrawn');
+    for (const r of ssRows ?? []) {
+      if (r.enrolee_number) enrollmentStatusMap.set(r.enrolee_number, r.enrollment_status as string);
+    }
+  }
+
+  const studentsWithStatus: StudentListRow[] = students.map((s) => ({
+    ...s,
+    enrollmentStatus: enrollmentStatusMap.get(s.enroleeNumber) ?? null,
+  }));
+
+  const RECORDS_STATUS_BUCKETS: StatusBucketDef[] = [
+    { key: 'all', label: 'All' },
+    { key: 'active', label: 'Active', predicate: (row) => row.enrollmentStatus === 'active' },
+    { key: 'late_enrollee', label: 'Late enrollee', predicate: (row) => row.enrollmentStatus === 'late_enrollee' },
+  ];
 
   return (
     <PageShell>
@@ -212,7 +239,7 @@ export default async function RecordsStudentsPage({
             Current AY · {selectedAy}
           </CardDescription>
           <CardTitle className="font-serif text-xl font-semibold tracking-tight text-foreground">
-            All students ({students.length.toLocaleString('en-SG')})
+            All students ({studentsWithStatus.length.toLocaleString('en-SG')})
           </CardTitle>
           <CardAction>
             <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
@@ -222,9 +249,10 @@ export default async function RecordsStudentsPage({
         </CardHeader>
         <CardContent className="p-0">
           <StudentDataTable
-            data={students}
+            data={studentsWithStatus}
             linkBase="/records/students"
             linkAttribute="studentNumber"
+            statusBuckets={RECORDS_STATUS_BUCKETS}
           />
         </CardContent>
       </Card>
@@ -234,7 +262,7 @@ export default async function RecordsStudentsPage({
         <Table2 className="size-3" strokeWidth={2.25} />
         <span>{selectedAy}</span>
         <span className="text-border">·</span>
-        <span>{students.length.toLocaleString('en-SG')} students</span>
+        <span>{studentsWithStatus.length.toLocaleString('en-SG')} students</span>
         <span className="text-border">·</span>
         <span>Refreshes every 10 minutes</span>
       </div>

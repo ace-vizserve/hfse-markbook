@@ -5,8 +5,10 @@ import { Users } from "lucide-react";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
 
 import { DataTable } from "@/components/ui/data-table";
+import { EnrollmentStatusBadge } from "@/components/ui/enrollment-status-badge";
 import { IdentifierLink } from "@/components/ui/identifier-link";
 import { ApplicationStatusBadge } from "@/components/ui/application-status-badge";
+import type { EnrollmentStatus } from "@/components/ui/enrollment-status-badge";
 import type { StudentListRow } from "@/lib/sis/queries";
 
 // ─── Bucket types ───────────────────────────────────────────────────────────
@@ -21,6 +23,9 @@ export type StatusBucketDef = {
   // undefined = match all rows; explicit array = exact-match against trimmed
   // applicationStatus. Empty status falls into the "All" bucket only.
   statuses?: string[];
+  // When set, overrides `statuses` — allows matching on any row field
+  // (e.g. enrollmentStatus for the late-enrollee bucket).
+  predicate?: (row: StudentListRow) => boolean;
 };
 
 const DEFAULT_STATUS_BUCKETS: StatusBucketDef[] = [
@@ -30,9 +35,10 @@ const DEFAULT_STATUS_BUCKETS: StatusBucketDef[] = [
   { key: "withdrawn", label: "Withdrawn", statuses: ["Withdrawn", "Cancelled"] },
 ];
 
-function bucketMatchesStatus(def: StatusBucketDef, status: string | null): boolean {
+function bucketMatchesRow(def: StatusBucketDef, row: StudentListRow): boolean {
+  if (def.predicate) return def.predicate(row);
   if (!def.statuses) return true;
-  return def.statuses.includes((status ?? "").trim());
+  return def.statuses.includes((row.applicationStatus ?? "").trim());
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -101,9 +107,14 @@ export function StudentDataTable({
               : row.original.enroleeNumber;
           return (
             <div className="space-y-0.5">
-              <IdentifierLink href={`${linkBase}/${linkId}${querySuffix}`}>
-                {studentDisplayName(row.original)}
-              </IdentifierLink>
+              <div className="flex items-center gap-1.5">
+                <IdentifierLink href={`${linkBase}/${linkId}${querySuffix}`}>
+                  {studentDisplayName(row.original)}
+                </IdentifierLink>
+                {row.original.enrollmentStatus === "late_enrollee" && (
+                  <EnrollmentStatusBadge status={"late_enrollee" as EnrollmentStatus} />
+                )}
+              </div>
               <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
                 {row.original.studentNumber ?? row.original.enroleeNumber}
               </div>
@@ -214,7 +225,7 @@ export function StudentDataTable({
         value: def.key,
         label: def.label,
         isDefault: def.key === statusBuckets[0]?.key,
-        predicate: (row: StudentListRow) => bucketMatchesStatus(def, row.applicationStatus),
+        predicate: (row: StudentListRow) => bucketMatchesRow(def, row),
       })),
     [statusBuckets],
   );
