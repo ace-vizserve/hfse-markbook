@@ -75,9 +75,15 @@ export type GradeEntryRow = {
   subjectCode: string;
   termNumber: number;
   termId: string;
-  rawScore: number | null; // qa_score
-  maxScore: number; // qa_total from sheet (default 30)
-  computedGrade: number | null; // quarterly_grade
+  wwScores: (number | null)[];  // per-slot WW scores (length matches sheet's ww_totals)
+  ptScores: (number | null)[];  // per-slot PT scores
+  qaScore: number | null;       // qa_score
+  qaMax: number;                // qa_total from sheet (default 30)
+  letterGrade: string | null;   // letter_grade (non-examinable subjects)
+  // Kept for back-compat / cohort drills — not surfaced as a default column.
+  rawScore: number | null;
+  maxScore: number;
+  computedGrade: number | null;
   gradeBucket: GradeBucketKey | null;
   isLocked: boolean;
   enteredAt: string; // ISO created_at
@@ -91,7 +97,9 @@ export type SheetRow = {
   sectionName: string;
   level: string | null;
   subjectCode: string;
+  subjectName: string;
   termNumber: number;
+  termLabel: string;
   termId: string;
   isLocked: boolean;
   lockedAt: string | null;
@@ -135,12 +143,15 @@ const GRADE_BUCKET_BOUNDS: Record<GradeBucketKey, { lo: number; hi: number }> = 
   o: { lo: 90, hi: 100 },
 };
 
+// HFSE Singapore-school report-card bands — matches the legend in
+// components/report-card/report-card-document.tsx. No DepEd codes; the
+// dashboard tier uses the same words as the printed card.
 const GRADE_BUCKET_LABEL: Record<GradeBucketKey, string> = {
-  dnm: '< 75 (DNM)',
-  fs: '75–79 (FS)',
-  s: '80–84 (S)',
-  vs: '85–89 (VS)',
-  o: '90–100 (O)',
+  dnm: 'Below Minimum (< 75)',
+  fs: 'Fairly Satisfactory (75–79)',
+  s: 'Satisfactory (80–84)',
+  vs: 'Very Satisfactory (85–89)',
+  o: 'Outstanding (90–100)',
 };
 
 function classifyGradeBucket(grade: number | null): GradeBucketKey | null {
@@ -181,8 +192,8 @@ type SectionLite = {
   level_id: string;
 };
 type LevelLite = { id: string; code: string };
-type TermLite = { id: string; term_number: number; academic_year_id: string };
-type SubjectLite = { id: string; code: string };
+type TermLite = { id: string; term_number: number; academic_year_id: string; label: string };
+type SubjectLite = { id: string; code: string; name: string };
 
 async function resolveAyContext(ayCode: string): Promise<{
   ayId: string | null;
@@ -191,6 +202,7 @@ async function resolveAyContext(ayCode: string): Promise<{
   terms: TermLite[];
   termIds: string[];
   subjects: Map<string, string>;
+  subjectNames: Map<string, string>;
 }> {
   const service = createServiceClient();
   const { data: ayRow } = await service
@@ -207,6 +219,7 @@ async function resolveAyContext(ayCode: string): Promise<{
       terms: [],
       termIds: [],
       subjects: new Map(),
+      subjectNames: new Map(),
     };
   }
   const [sectionsRes, levelsRes, termsRes, subjectsRes] = await Promise.all([
@@ -217,16 +230,20 @@ async function resolveAyContext(ayCode: string): Promise<{
     service.from('levels').select('id, code'),
     service
       .from('terms')
-      .select('id, term_number, academic_year_id')
+      .select('id, term_number, academic_year_id, label')
       .eq('academic_year_id', ayId),
-    service.from('subjects').select('id, code'),
+    service.from('subjects').select('id, code, name'),
   ]);
   const sections = (sectionsRes.data ?? []) as SectionLite[];
   const levels = new Map<string, string>();
   for (const l of (levelsRes.data ?? []) as LevelLite[]) levels.set(l.id, l.code);
   const terms = (termsRes.data ?? []) as TermLite[];
   const subjects = new Map<string, string>();
-  for (const s of (subjectsRes.data ?? []) as SubjectLite[]) subjects.set(s.id, s.code);
+  const subjectNames = new Map<string, string>();
+  for (const s of (subjectsRes.data ?? []) as SubjectLite[]) {
+    subjects.set(s.id, s.code);
+    subjectNames.set(s.id, s.name);
+  }
   return {
     ayId,
     sections,
@@ -234,6 +251,7 @@ async function resolveAyContext(ayCode: string): Promise<{
     terms,
     termIds: terms.map((t) => t.id),
     subjects,
+    subjectNames,
   };
 }
 
@@ -302,57 +320,80 @@ async function loadEntryRowsUncached(ayCode: string): Promise<GradeEntryRow[]> {
     id: string;
     grading_sheet_id: string;
     section_student_id: string;
+    ww_scores: (number | null)[] | null;
+    pt_scores: (number | null)[] | null;
     qa_score: number | null;
     quarterly_grade: number | null;
+    letter_grade: string | null;
     created_at: string;
   };
-  const entries: EntryLite[] = [];
   const CHUNK = 200;
-  for (let i = 0; i < sheetIds.length; i += CHUNK) {
-    const slice = sheetIds.slice(i, i + CHUNK);
-    const rows = await fetchAllPages<EntryLite>((from, to) =>
-      service
-        .from('grade_entries')
-        .select('id, grading_sheet_id, section_student_id, qa_score, quarterly_grade, created_at')
-        .in('grading_sheet_id', slice)
-        .range(from, to),
-    );
-    entries.push(...rows);
-  }
+  const entries = (
+    await Promise.all(
+      Array.from({ length: Math.ceil(sheetIds.length / CHUNK) }, (_, i) =>
+        fetchAllPages<EntryLite>((from, to) =>
+          service
+            .from('grade_entries')
+            .select(
+              'id, grading_sheet_id, section_student_id, ww_scores, pt_scores, qa_score, quarterly_grade, letter_grade, created_at',
+            )
+            .in('grading_sheet_id', sheetIds.slice(i * CHUNK, (i + 1) * CHUNK))
+            .range(from, to),
+        ),
+      ),
+    )
+  ).flat();
+  // "Grade entered" = the entry has any encoded data anywhere — at
+  // least one WW slot, one PT slot, QA, or letter_grade. Don't gate on
+  // quarterly_grade (only computed when WW+PT+QA are all filled);
+  // partial fills still count as the student being mid-graded. Drops
+  // auto-seeded rows where every score column is null.
+  const hasAnyGrade = (e: EntryLite): boolean => {
+    if (e.qa_score !== null) return true;
+    if (e.letter_grade !== null) return true;
+    if ((e.ww_scores ?? []).some((s) => s !== null)) return true;
+    if ((e.pt_scores ?? []).some((s) => s !== null)) return true;
+    return false;
+  };
+  const gradedEntries = entries.filter(hasAnyGrade);
 
   // section_students → student_id + section_id resolution.
   const ssIds = Array.from(new Set(entries.map((e) => e.section_student_id)));
   type SectionStudentLite = { id: string; section_id: string; student_id: string };
-  const sectionStudents: SectionStudentLite[] = [];
-  for (let i = 0; i < ssIds.length; i += CHUNK) {
-    const slice = ssIds.slice(i, i + CHUNK);
-    const { data } = await service
-      .from('section_students')
-      .select('id, section_id, student_id')
-      .in('id', slice);
-    sectionStudents.push(...((data ?? []) as SectionStudentLite[]));
-  }
+  const sectionStudents = (
+    await Promise.all(
+      Array.from({ length: Math.ceil(ssIds.length / CHUNK) }, (_, i) =>
+        service
+          .from('section_students')
+          .select('id, section_id, student_id')
+          .in('id', ssIds.slice(i * CHUNK, (i + 1) * CHUNK))
+          .then(({ data }) => (data ?? []) as SectionStudentLite[]),
+      ),
+    )
+  ).flat();
   const ssById = new Map<string, SectionStudentLite>();
   for (const s of sectionStudents) ssById.set(s.id, s);
 
   // Students.
   const studentIds = Array.from(new Set(sectionStudents.map((s) => s.student_id)));
   type StudentLite = { id: string; student_number: string; first_name: string; last_name: string };
-  const students: StudentLite[] = [];
-  for (let i = 0; i < studentIds.length; i += CHUNK) {
-    const slice = studentIds.slice(i, i + CHUNK);
-    const { data } = await service
-      .from('students')
-      .select('id, student_number, first_name, last_name')
-      .in('id', slice);
-    students.push(...((data ?? []) as StudentLite[]));
-  }
+  const students = (
+    await Promise.all(
+      Array.from({ length: Math.ceil(studentIds.length / CHUNK) }, (_, i) =>
+        service
+          .from('students')
+          .select('id, student_number, first_name, last_name')
+          .in('id', studentIds.slice(i * CHUNK, (i + 1) * CHUNK))
+          .then(({ data }) => (data ?? []) as StudentLite[]),
+      ),
+    )
+  ).flat();
   const studentById = new Map<string, StudentLite>();
   for (const s of students) studentById.set(s.id, s);
 
   // Build rows.
   const out: GradeEntryRow[] = [];
-  for (const e of entries) {
+  for (const e of gradedEntries) {
     const sheet = sheetById.get(e.grading_sheet_id);
     if (!sheet) continue;
     const ss = ssById.get(e.section_student_id);
@@ -383,6 +424,11 @@ async function loadEntryRowsUncached(ayCode: string): Promise<GradeEntryRow[]> {
       subjectCode,
       termNumber: term.term_number,
       termId: term.id,
+      wwScores: e.ww_scores ?? [],
+      ptScores: e.pt_scores ?? [],
+      qaScore: e.qa_score,
+      qaMax: qaTotal,
+      letterGrade: e.letter_grade,
       rawScore: e.qa_score,
       maxScore: qaTotal,
       computedGrade: e.quarterly_grade,
@@ -491,6 +537,7 @@ async function loadSheetRowsUncached(ayCode: string): Promise<SheetRow[]> {
     if (!section) continue;
     const levelCode = ctx.levels.get(section.level_id) ?? null;
     const subjectCode = ctx.subjects.get(s.subject_id) ?? s.subject_id;
+    const subjectName = ctx.subjectNames.get(s.subject_id) ?? subjectCode;
     const expected = activeStudentsBySection.get(s.section_id) ?? 0;
     const present = entriesPerSheet.get(s.id) ?? 0;
     const completeness = expected > 0 ? Math.round((present / expected) * 100) : 0;
@@ -502,7 +549,9 @@ async function loadSheetRowsUncached(ayCode: string): Promise<SheetRow[]> {
       sectionName: section.name,
       level: levelCode,
       subjectCode,
+      subjectName,
       termNumber: term.term_number,
+      termLabel: term.label,
       termId: term.id,
       isLocked: s.is_locked,
       lockedAt: s.locked_at,
@@ -551,18 +600,20 @@ async function loadChangeRequestRowsUncached(ayCode: string): Promise<ChangeRequ
     reviewed_at: string | null;
     applied_at: string | null;
   };
-  const requests: CrLite[] = [];
   const CHUNK = 200;
-  for (let i = 0; i < sheetIds.length; i += CHUNK) {
-    const slice = sheetIds.slice(i, i + CHUNK);
-    const { data } = await service
-      .from('grade_change_requests')
-      .select(
-        'id, grading_sheet_id, field_changed, reason_category, status, requested_by_email, requested_at, reviewed_at, applied_at',
-      )
-      .in('grading_sheet_id', slice);
-    requests.push(...((data ?? []) as CrLite[]));
-  }
+  const requests = (
+    await Promise.all(
+      Array.from({ length: Math.ceil(sheetIds.length / CHUNK) }, (_, i) =>
+        service
+          .from('grade_change_requests')
+          .select(
+            'id, grading_sheet_id, field_changed, reason_category, status, requested_by_email, requested_at, reviewed_at, applied_at',
+          )
+          .in('grading_sheet_id', sheetIds.slice(i * CHUNK, (i + 1) * CHUNK))
+          .then(({ data }) => (data ?? []) as CrLite[]),
+      ),
+    )
+  ).flat();
 
   const out: ChangeRequestRow[] = [];
   for (const r of requests) {
@@ -857,6 +908,16 @@ function applyTargetFilter(
     }
     case 'change-requests':
       if (!segment) return rows;
+      // 'decided' = the set the avg-decision-time KPI averages over: any
+      // request with a reviewed_at AND a terminal status. Keeps the drill
+      // aligned with the headline number when the user clicks it.
+      if (segment === 'decided') {
+        return (rows as ChangeRequestRow[]).filter(
+          (r) =>
+            r.resolvedAt != null &&
+            (r.status === 'approved' || r.status === 'rejected' || r.status === 'applied'),
+        ) as MarkbookDrillRow[];
+      }
       return (rows as ChangeRequestRow[]).filter((r) => r.status === segment) as MarkbookDrillRow[];
     case 'publication-coverage':
       if (!segment) return rows;
@@ -972,8 +1033,12 @@ export type DrillColumnKey =
   | 'studentNumber'
   | 'subjectCode'
   | 'termNumber'
+  | 'wwScores'
+  | 'ptScores'
+  | 'qaScore'
   | 'rawScore'
   | 'computedGrade'
+  | 'letterGrade'
   | 'gradeBucket'
   | 'enteredAt'
   | 'enteredBy'
@@ -1000,8 +1065,12 @@ export const DRILL_COLUMN_LABELS: Record<DrillColumnKey, string> = {
   studentNumber: 'Student ID',
   subjectCode: 'Subject',
   termNumber: 'Term',
-  rawScore: 'Raw',
-  computedGrade: 'Grade',
+  wwScores: 'WW',
+  ptScores: 'PT',
+  qaScore: 'QA',
+  rawScore: 'QA',
+  computedGrade: 'Quarterly',
+  letterGrade: 'Letter',
   gradeBucket: 'Band',
   enteredAt: 'Entered',
   enteredBy: 'Teacher',
@@ -1021,6 +1090,10 @@ export const DRILL_COLUMN_LABELS: Record<DrillColumnKey, string> = {
   status: 'Status',
 };
 
+// gradeBucket (DepEd-style mastery band) is intentionally omitted — HFSE
+// uses numeric Quarterly + letter grade only; no band tier on the report
+// card. The column key remains in the union for back-compat with cached
+// query strings, but no surface renders it by default.
 const ENTRY_ALL_COLUMNS: DrillColumnKey[] = [
   'studentName',
   'studentNumber',
@@ -1028,9 +1101,10 @@ const ENTRY_ALL_COLUMNS: DrillColumnKey[] = [
   'sectionName',
   'level',
   'termNumber',
-  'rawScore',
-  'computedGrade',
-  'gradeBucket',
+  'wwScores',
+  'ptScores',
+  'qaScore',
+  'letterGrade',
   'isLocked',
   'enteredAt',
   'enteredBy',
@@ -1070,7 +1144,7 @@ export function allColumnsForKind(kind: MarkbookDrillRowKind): DrillColumnKey[] 
 export function defaultColumnsForTarget(target: MarkbookDrillTarget): DrillColumnKey[] {
   switch (target) {
     case 'grade-entries':
-      return ['studentName', 'subjectCode', 'sectionName', 'computedGrade', 'gradeBucket', 'enteredAt'];
+      return ['studentName', 'subjectCode', 'wwScores', 'ptScores', 'qaScore', 'letterGrade', 'enteredAt'];
     case 'grade-bucket-entries':
       return ['studentName', 'subjectCode', 'sectionName', 'computedGrade', 'enteredAt'];
     case 'teacher-entry-velocity':

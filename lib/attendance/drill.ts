@@ -291,8 +291,6 @@ async function loadEntryRowsUncached(ayCode: string): Promise<AttendanceEntryRow
   // paginate via .range() inside each chunk so the server's 1000-row
   // response cap doesn't silently truncate at HFSE scale (200 students ×
   // 60+ school days = 12K+ rows for a full term per AY).
-  const chunks: string[][] = [];
-  for (let i = 0; i < ssIds.length; i += 500) chunks.push(ssIds.slice(i, i + 500));
   // Column is `date` on the schema (migration 014); the camelCase alias
   // `attendanceDate` on the public row shape is mapped below. `notes` was
   // referenced here but isn't a real column on attendance_daily — dropped.
@@ -304,17 +302,20 @@ async function loadEntryRowsUncached(ayCode: string): Promise<AttendanceEntryRow
     status: string;
     ex_reason: string | null;
   };
-  const all: EntryLite[] = [];
-  for (const chunk of chunks) {
-    const rows = await fetchAllPages<EntryLite>((from, to) =>
-      service
-        .from('attendance_daily')
-        .select('id, date, term_id, section_student_id, status, ex_reason')
-        .in('section_student_id', chunk)
-        .range(from, to),
-    );
-    all.push(...rows);
-  }
+  const CHUNK = 500;
+  const all = (
+    await Promise.all(
+      Array.from({ length: Math.ceil(ssIds.length / CHUNK) }, (_, i) =>
+        fetchAllPages<EntryLite>((from, to) =>
+          service
+            .from('attendance_daily')
+            .select('id, date, term_id, section_student_id, status, ex_reason')
+            .in('section_student_id', ssIds.slice(i * CHUNK, (i + 1) * CHUNK))
+            .range(from, to),
+        ),
+      ),
+    )
+  ).flat();
 
   const out: AttendanceEntryRow[] = [];
   for (const e of all) {

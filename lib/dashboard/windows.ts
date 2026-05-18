@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 
 import { createServiceClient } from '@/lib/supabase/service';
@@ -62,7 +63,11 @@ const loadTerms = unstable_cache(loadTermsUncached, ['dashboard', 'windows', 'te
   tags: ['dashboard-windows'],
 });
 
-export async function getDashboardWindows(
+// cache() gives request-scoped dedup: a KPI grid calling getDashboardWindows
+// for the same AY 4+ times pays one DB round-trip per request (loadTerms is
+// already cross-request cached via unstable_cache, but this eliminates the
+// repeated JS computation too). cache() accepts the service client per KD #54.
+export const getDashboardWindows = cache(async function getDashboardWindowsImpl(
   ayCode: string,
 ): Promise<{ term: TermWindows; ay: AYWindows; activeTermFallback: boolean }> {
   const terms = await loadTerms();
@@ -107,6 +112,9 @@ export async function getDashboardWindows(
 
   // Banner flag — page RSC renders "showing previous term" hint.
   const activeTermFallback = !hasTodayInCurrent && priorAyLastTerm !== null;
+  if (process.env.NODE_ENV === 'development' && activeTermFallback) {
+    console.warn(`[dashboard/windows] activeTermFallback triggered for ${ayCode} — is_current may not be set on the new AY's terms`);
+  }
 
   // Per-term-number lookup for T1/T2/T3/T4 presets.
   const byNumber: TermWindows['byNumber'] = { 1: null, 2: null, 3: null, 4: null };
@@ -161,7 +169,7 @@ export async function getDashboardWindows(
     ay: { thisAY, lastAY },
     activeTermFallback,
   };
-}
+});
 
 /**
  * "AY2026" → { from: '2026-01-01', to: '2026-11-30' }.

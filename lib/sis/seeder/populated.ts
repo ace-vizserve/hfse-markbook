@@ -1,3 +1,7 @@
+// Currently unused — will be rewritten in a follow-up pass for realistic
+// volume (section_students / grades / attendance / evaluation / publications).
+// Do not call from switchEnvironment or ensureTestAy until rewritten.
+
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { seedDemoExtras, type DemoExtrasResult } from './demo-extras';
@@ -12,7 +16,10 @@ import {
   type LevelCode,
 } from '@/lib/sis/levels';
 import { invalidateAllOperationalDrills } from '@/lib/cache/invalidate-drill-tags';
-import { DOCUMENT_SLOTS, STP_CONDITIONAL_SLOT_KEYS } from '@/lib/sis/queries';
+import {
+  DOCUMENT_SLOTS,
+  OPTIONAL_DOCUMENT_SLOT_KEYS,
+} from '@/lib/sis/queries';
 import { fetchAllPages } from '@/lib/supabase/paginate';
 
 import { pickNames } from './names';
@@ -37,6 +44,7 @@ export type PopulatedSeedResult = {
   evaluation_writeups_inserted: number;
   admissions_apps_inserted: number;
   enrolled_applications_inserted: number;
+  test_teachers_created: number;
   teacher_form_adviser_assignments: number;
   teacher_subject_assignments: number;
   discount_codes_inserted: number;
@@ -45,6 +53,50 @@ export type PopulatedSeedResult = {
   movements_inserted: number;
   demo_extras: DemoExtrasResult | null;
 };
+
+// ─── Test teacher personas ────────────────────────────────────────────────────
+// Created once per test env setup; purged when the env is reset. Identified
+// for cleanup via `user_metadata.seeded_teacher = true`.
+
+export const TEST_TEACHERS = [
+  { email: 'sarah.chen@demo.com',      displayName: 'Sarah Chen' },
+  { email: 'michael.santos@demo.com',  displayName: 'Michael Santos' },
+  { email: 'priya.nair@demo.com',      displayName: 'Priya Nair' },
+  { email: 'james.tan@demo.com',       displayName: 'James Tan' },
+  { email: 'emily.rodriguez@demo.com', displayName: 'Emily Rodriguez' },
+  { email: 'david.kim@demo.com',       displayName: 'David Kim' },
+  { email: 'anne.deleon@demo.com',     displayName: 'Anne De Leon' },
+  { email: 'robert.williams@demo.com', displayName: 'Robert Williams' },
+  { email: 'maria.cruz@demo.com',      displayName: 'Maria Cruz' },
+  { email: 'kevin.lim@demo.com',       displayName: 'Kevin Lim' },
+] as const;
+
+export const TEST_TEACHER_PASSWORD = 'demo-2026!Teacher';
+
+async function seedTestTeachers(service: SupabaseClient): Promise<number> {
+  const { data: existingUsers } = await service.auth.admin.listUsers({ perPage: 1000 });
+  const existingByEmail = new Map<string, string>();
+  for (const u of existingUsers?.users ?? []) {
+    if (u.email) existingByEmail.set(u.email.toLowerCase(), u.id);
+  }
+  let created = 0;
+  for (const t of TEST_TEACHERS) {
+    if (existingByEmail.has(t.email.toLowerCase())) continue;
+    const { error } = await service.auth.admin.createUser({
+      email: t.email,
+      password: TEST_TEACHER_PASSWORD,
+      email_confirm: true,
+      app_metadata: { role: 'teacher' },
+      user_metadata: { display_name: t.displayName, seeded_teacher: true },
+    });
+    if (error) {
+      console.error(`[populated seeder] teacher create failed for ${t.email}:`, error.message);
+      continue;
+    }
+    created++;
+  }
+  return created;
+}
 
 export type SeedPopulatedOptions = {
   // When true, every term (T1-T4) is filled as a closed/completed term
@@ -72,6 +124,7 @@ export async function seedPopulated(
     evaluation_writeups_inserted: 0,
     admissions_apps_inserted: 0,
     enrolled_applications_inserted: 0,
+    test_teachers_created: 0,
     teacher_form_adviser_assignments: 0,
     teacher_subject_assignments: 0,
     discount_codes_inserted: 0,
@@ -123,7 +176,10 @@ export async function seedPopulated(
   result.attendance_daily_inserted = att.daily;
   result.attendance_rollups_built = att.rollups;
 
-  // ---- 3. Teacher assignments (form advisers + subject teachers) ----
+  // ---- 3a. Seed test teacher accounts (idempotent — skips existing) ----
+  result.test_teachers_created = await seedTestTeachers(service);
+
+  // ---- 3b. Teacher assignments (form advisers + subject teachers) ----
   const ta = await seedTeacherAssignments(service, testAy);
   result.teacher_form_adviser_assignments = ta.form_adviser;
   result.teacher_subject_assignments = ta.subject_teacher;
@@ -154,19 +210,15 @@ export async function seedPopulated(
   // ---- 9. Admissions documents (P-Files dashboards + lifecycle widget) ----
   result.documents_inserted = await seedAdmissionsDocuments(service, testAy);
 
-  // ---- 10. Demo-extras pass — fills dashboard charts + KPIs that the base
-  //          seeder leaves thin (extra publications, parent accounts,
-  //          P-File outreach + wider expiry buckets, evaluation lifecycle,
-  //          typed calendar events + audience overrides). Idempotent;
-  //          safe to re-run on a partially-seeded AY9999. See
-  //          `lib/sis/seeder/demo-extras.ts`.
-  result.demo_extras = await seedDemoExtras(service, testAy);
-
-  // ---- 11. Enrolment movements — synthetic audit_log rows so the
-  //          /records/movements page renders populated demo data.
-  //          Audit-only writes; rosters are not mutated. See
-  //          `lib/sis/seeder/movements.ts`.
-  result.movements_inserted = await seedMovements(service, testAy);
+  // ---- 10 + 11. Demo-extras and movements are independent of each other —
+  //          both depend only on enrolled apps (step 5) which is already
+  //          complete. Run in parallel for a 2× speedup on these two passes.
+  const [demoExtras, movementsInserted] = await Promise.all([
+    seedDemoExtras(service, testAy),
+    seedMovements(service, testAy),
+  ]);
+  result.demo_extras = demoExtras;
+  result.movements_inserted = movementsInserted;
 
   // ---- 12. Bust the per-AY drill caches so a freshly-seeded environment
   //          renders without waiting for the 60s unstable_cache TTL.
@@ -984,6 +1036,228 @@ function pickEnroleeCategory(rand: () => number): EnroleeCategoryValue {
   return 'VizSchool New';
 }
 
+// ─── Student profile data pools ──────────────────────────────────────────────
+
+const GENDERS = ['Male', 'Female'] as const;
+
+const RELIGIONS = [
+  'Christianity',
+  'Roman Catholic',
+  'Islam',
+  'Buddhism',
+  'Hinduism',
+  'No Religion',
+] as const;
+
+const PRIMARY_LANGUAGES = ['English', 'Filipino', 'Mandarin Chinese', 'Tamil', 'Hindi'] as const;
+
+// Singapore residential addresses — realistic district spread.
+const SG_ADDRESSES = [
+  { street: '12 Nassim Road', postal: 258371 },
+  { street: '45 Bukit Timah Road', postal: 229843 },
+  { street: '78 Orchard Boulevard', postal: 248649 },
+  { street: '23 Holland Grove Road', postal: 278797 },
+  { street: '9 Watten Estate Road', postal: 287927 },
+  { street: '56 Duchess Road', postal: 269107 },
+  { street: '31 Greenwood Avenue', postal: 289210 },
+  { street: '14 Coronation Road West', postal: 269173 },
+  { street: '88 Lornie Road', postal: 298748 },
+  { street: '5 Mount Pleasant Road', postal: 298065 },
+  { street: '102 Sunset Way', postal: 597091 },
+  { street: '37 Upper Thomson Road', postal: 574319 },
+  { street: '19 Jalan Bahasa', postal: 219492 },
+  { street: '63 Bartley Road', postal: 539786 },
+  { street: '28 Serangoon Garden Way', postal: 555930 },
+] as const;
+
+const PREVIOUS_SCHOOLS = [
+  'Nanyang Primary School',
+  'Anglo-Chinese School (Primary)',
+  'St. Joseph\'s Institution Junior',
+  'Raffles Girls\' Primary School',
+  'Methodist Girls\' School (Primary)',
+  'CHIJ Our Lady of Good Counsel',
+  'Maha Bodhi School',
+  'Fairfield Methodist School (Primary)',
+  'International School of Singapore',
+  'SJI International',
+  'Tanglin Trust School',
+  'Canadian International School',
+  'Chatsworth International School',
+  'Overseas Family School',
+  'Home-schooled',
+] as const;
+
+// Realistic allergy detail strings.
+const ALLERGY_DETAILS = [
+  'Peanut allergy — carries EpiPen',
+  'Shellfish allergy (prawns, crabs)',
+  'Dust mite allergy',
+  'Cat and dog dander',
+  'Bee sting allergy',
+] as const;
+
+const FOOD_ALLERGY_DETAILS = [
+  'Peanuts and tree nuts',
+  'Milk and dairy products',
+  'Eggs',
+  'Wheat / gluten',
+  'Soy products',
+] as const;
+
+const DIETARY_RESTRICTIONS = [
+  'No pork',
+  'Halal',
+  'Vegetarian',
+  'Vegan',
+  'Lactose intolerant — no dairy',
+  'No beef',
+  'Pescatarian',
+] as const;
+
+const OTHER_CONDITIONS = [
+  'Mild ADHD — on medication, school informed',
+  'Anxiety — counselling in progress',
+  'Speech delay — receives therapy',
+  'Mild hearing loss (left ear)',
+  'Visually impaired — wears corrective lenses',
+] as const;
+
+// Derive nationality from pass type for the student row (distinct from parent
+// nationality which uses the same NATIONALITY_BY_PASS map on parent fields).
+const STUDENT_NATIONALITY_BY_PASS: Record<string, string[]> = {
+  'Singapore PR': ['Singaporean', 'Filipino', 'Indian', 'Chinese'],
+  'S-PASS': ['Filipino', 'Indian', 'British', 'Australian', 'American'],
+  'Dependent Pass': ['Indian', 'British', 'American', 'Korean', 'Japanese', 'Indonesian'],
+};
+
+function pickStudentNationality(rand: () => number, passType: string | null): string {
+  if (!passType) return 'Singaporean';
+  const pool = STUDENT_NATIONALITY_BY_PASS[passType];
+  if (!pool) return 'Filipino';
+  return pool[Math.floor(rand() * pool.length)];
+}
+
+// Returns an approximate birth year range [min, max] for a given level label.
+// Level labels follow patterns like "Primary 1", "Secondary 3", "Youngstarters Little".
+function birthYearRangeForLevel(levelLabel: string): [number, number] {
+  const year = 2026;
+  if (/youngstarters/i.test(levelLabel)) return [year - 6, year - 3];
+  const pMatch = levelLabel.match(/Primary\s+(\d)/i);
+  if (pMatch) { const g = parseInt(pMatch[1], 10); const age = 5 + g; return [year - age - 1, year - age]; }
+  const sMatch = levelLabel.match(/Secondary\s+(\d)/i);
+  if (sMatch) { const g = parseInt(sMatch[1], 10); const age = 11 + g; return [year - age - 1, year - age]; }
+  if (/cambridge/i.test(levelLabel)) return [year - 14, year - 12];
+  return [year - 12, year - 6];
+}
+
+// Builds demographics + contact fields for a student application row.
+// Call once per applicant; spread the result into the apps row object.
+function buildStudentDemographics(
+  rand: () => number,
+  levelLabel: string,
+  passType: string | null,
+): Record<string, unknown> {
+  const gender = GENDERS[Math.floor(rand() * GENDERS.length)];
+  const [byMin, byMax] = birthYearRangeForLevel(levelLabel);
+  const birthYear = byMin + Math.floor(rand() * (byMax - byMin + 1));
+  const birthMonth = 1 + Math.floor(rand() * 12);
+  const birthDay = 1 + Math.floor(rand() * 28);
+  const birthDayIso = `${birthYear}-${String(birthMonth).padStart(2, '0')}-${String(birthDay).padStart(2, '0')}`;
+  const nationality = pickStudentNationality(rand, passType);
+  const religion = RELIGIONS[Math.floor(rand() * RELIGIONS.length)];
+  const primaryLanguage = PRIMARY_LANGUAGES[Math.floor(rand() * PRIMARY_LANGUAGES.length)];
+  const addr = SG_ADDRESSES[Math.floor(rand() * SG_ADDRESSES.length)];
+  const homePhone = 60000000 + Math.floor(rand() * 9999999);
+  const livingWith = rand() < 0.70 ? 'Both Parents' : rand() < 0.60 ? 'Mother' : rand() < 0.50 ? 'Father' : 'Guardian';
+  const maritalStatus = rand() < 0.75 ? 'Married' : rand() < 0.60 ? 'Divorced' : 'Single';
+  const previousSchool = PREVIOUS_SCHOOLS[Math.floor(rand() * PREVIOUS_SCHOOLS.length)];
+  const hasLearningNeeds = rand() < 0.08;
+  const additionalLearningNeeds = hasLearningNeeds ? 'Yes' : 'No';
+  const otherLearningNeeds = hasLearningNeeds
+    ? OTHER_CONDITIONS[Math.floor(rand() * OTHER_CONDITIONS.length)]
+    : null;
+
+  // Document details — written to the apps row so the Records student-profile
+  // card (StudentProfileCard) and P-Files document-config meta can surface them.
+  //   NRIC:           Singaporeans (no passType) + Singapore PRs.
+  //   passportNumber: every student — even citizens often hold a passport.
+  //   passportExpiry: 5–10 years out (long-validity travel document).
+  //   passExpiry:     only when the student has a non-PR pass (Dependent /
+  //                   S-PASS passes expire in 1–3 years).
+  const hasSgStatus = !passType || passType === 'Singapore PR';
+  const nric = hasSgStatus ? fakeSgNric(rand) : null;
+  const passportNumber = fakeSgPassportNumber(rand);
+  const passportExpiry = isoFutureDate(rand, 5, 10);
+  const hasExpiringPass = !!passType && passType !== 'Singapore PR';
+  const passExpiry = hasExpiringPass ? isoFutureDate(rand, 1, 3) : null;
+
+  return {
+    gender,
+    birthDay: birthDayIso,
+    nationality,
+    religion,
+    primaryLanguage,
+    homeAddress: addr.street,
+    postalCode: addr.postal,
+    homePhone,
+    livingWithWhom: livingWith,
+    parentMaritalStatus: maritalStatus,
+    previousSchool,
+    additionalLearningNeeds,
+    otherLearningNeeds,
+    motherWhatsappTeamsConsent: rand() < 0.80,
+    fatherWhatsappTeamsConsent: rand() < 0.80,
+    guardianWhatsappTeamsConsent: rand() < 0.70,
+    ...(nric ? { nric } : {}),
+    passportNumber,
+    passportExpiry,
+    ...(passExpiry ? { passExpiry } : {}),
+  };
+}
+
+// Builds all medical / health fields for an application row.
+function buildMedicalData(rand: () => number): Record<string, unknown> {
+  const hasAllergies = rand() < 0.12;
+  const hasFoodAllergies = rand() < 0.09;
+  const hasAsthma = rand() < 0.07;
+  const hasEczema = rand() < 0.12;
+  const hasDiabetes = rand() < 0.02;
+  const hasEpilepsy = rand() < 0.005;
+  const hasHeartConditions = rand() < 0.01;
+  const hasOtherConditions = rand() < 0.05;
+  const hasDietaryRestrictions = rand() < 0.10;
+
+  const paracetamolRoll = rand();
+  const paracetamolConsent =
+    paracetamolRoll < 0.78 ? true : paracetamolRoll < 0.88 ? false : null;
+
+  return {
+    allergies: hasAllergies,
+    allergyDetails: hasAllergies
+      ? ALLERGY_DETAILS[Math.floor(rand() * ALLERGY_DETAILS.length)]
+      : null,
+    foodAllergies: hasFoodAllergies,
+    foodAllergyDetails: hasFoodAllergies
+      ? FOOD_ALLERGY_DETAILS[Math.floor(rand() * FOOD_ALLERGY_DETAILS.length)]
+      : null,
+    asthma: hasAsthma,
+    eczema: hasEczema,
+    diabetes: hasDiabetes,
+    epilepsy: hasEpilepsy,
+    heartConditions: hasHeartConditions,
+    otherMedicalConditions: hasOtherConditions
+      ? OTHER_CONDITIONS[Math.floor(rand() * OTHER_CONDITIONS.length)]
+      : null,
+    dietaryRestrictions: hasDietaryRestrictions
+      ? DIETARY_RESTRICTIONS[Math.floor(rand() * DIETARY_RESTRICTIONS.length)]
+      : null,
+    paracetamolConsent,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Realistic class-type values seen in production parent-portal submissions.
 const CLASS_TYPES = [
   'Enrichment Class',
@@ -1104,11 +1378,44 @@ function fakeEmail(first: string, last: string): string {
   return `${first.toLowerCase()}.${last.toLowerCase()}@example.test`;
 }
 
+// Generates a fake Singapore-style passport number: letter prefix + 7 digits.
+function fakeSgPassportNumber(rand: () => number): string {
+  const prefixes = 'EFGHJKLMNPQRST';
+  const letter = prefixes[Math.floor(rand() * prefixes.length)];
+  return letter + String(1000000 + Math.floor(rand() * 9000000));
+}
+
+// Generates a fake Singapore NRIC / FIN: S/T + 7 digits + letter.
+function fakeSgNric(rand: () => number): string {
+  const prefix = rand() < 0.85 ? 'S' : 'T';
+  const digits = String(1000000 + Math.floor(rand() * 9000000));
+  const suffix = 'ABCDEFGHIJZ'[Math.floor(rand() * 11)];
+  return `${prefix}${digits}${suffix}`;
+}
+
+// Generates an ISO date N years from today (inclusive of a 0–11 month jitter).
+function isoFutureDate(rand: () => number, minYears: number, maxYears: number): string {
+  const years = minYears + Math.floor(rand() * (maxYears - minYears + 1));
+  const months = Math.floor(rand() * 12);
+  const d = new Date(Date.now());
+  d.setFullYear(d.getFullYear() + years, d.getMonth() + months, 1);
+  return d.toISOString().slice(0, 10);
+}
+
+// Pass types realistic for parents of foreign students at an international school.
+// Displayed on the P-Files parent-document cards via meta.numberCol = 'motherPass' etc.
+const PARENT_PASS_TYPES = ['Employment Pass', 'S-PASS', 'Dependent Pass'] as const;
+
 // Builds parent + guardian columns for an apps row. Mother is always
 // present (KD #69 anchor parent). Father is present in ~85% of rows;
 // of the remainder, ~80% get a guardian on record (the other ~20% are
 // mother-only). All names + emails are deterministic per rand seed so
 // the seeder stays idempotent.
+//
+// Document details added: each present parent gets a passport number +
+// expiry (all parents travel); foreign parents (student passType ≠ null)
+// additionally get a pass type + pass expiry so the P-Files parent-document
+// slots have complete metadata (file, expiry, document details per KD #60).
 function buildParentFields(
   rand: () => number,
   studentLastName: string | null,
@@ -1119,8 +1426,25 @@ function buildParentFields(
   const fatherFirst = FATHER_FIRST_NAMES[Math.floor(rand() * FATHER_FIRST_NAMES.length)];
   const nationality = (passType && NATIONALITY_BY_PASS[passType]) ?? FALLBACK_NATIONALITY;
 
+  // Parent pass type mirrors student's foreign-residency context. Singaporean
+  // families (passType null) typically don't hold work passes; PR families may.
+  const parentNeedsPass = passType !== null && passType !== 'Singapore PR';
+
   const hasFather = rand() < 0.85;
   const hasGuardian = !hasFather && rand() < 0.80;
+
+  // Generates document details for one parent (passport always; pass when foreign).
+  const parentDocFields = (prefix: string): Record<string, unknown> => {
+    const doc: Record<string, unknown> = {
+      [`${prefix}Passport`]: fakeSgPassportNumber(rand),
+      [`${prefix}PassportExpiry`]: isoFutureDate(rand, 5, 10),
+    };
+    if (parentNeedsPass) {
+      doc[`${prefix}Pass`] = PARENT_PASS_TYPES[Math.floor(rand() * PARENT_PASS_TYPES.length)];
+      doc[`${prefix}PassExpiry`] = isoFutureDate(rand, 1, 3);
+    }
+    return doc;
+  };
 
   const fields: Record<string, unknown> = {
     motherFirstName: motherFirst,
@@ -1129,6 +1453,7 @@ function buildParentFields(
     motherEmail: fakeEmail(motherFirst, lastName),
     motherMobile: sgMobile(rand),
     motherNationality: nationality,
+    ...parentDocFields('mother'),
   };
 
   if (hasFather) {
@@ -1138,6 +1463,7 @@ function buildParentFields(
     fields.fatherEmail = fakeEmail(fatherFirst, lastName);
     fields.fatherMobile = sgMobile(rand);
     fields.fatherNationality = nationality;
+    Object.assign(fields, parentDocFields('father'));
   }
 
   if (hasGuardian) {
@@ -1149,6 +1475,7 @@ function buildParentFields(
     fields.guardianEmail = fakeEmail(gFirst, gLast);
     fields.guardianMobile = sgMobile(rand);
     fields.guardianNationality = nationality;
+    Object.assign(fields, parentDocFields('guardian'));
   }
 
   return fields;
@@ -1236,19 +1563,15 @@ async function seedAdmissionsFunnel(
         CONTRACT_SIGNATORIES[Math.floor(rand() * CONTRACT_SIGNATORIES.length)];
       const passType = PASS_TYPES[Math.floor(rand() * PASS_TYPES.length)];
       // STP application: ~30% of foreign-student rows (those without Singapore
-      // PR). The 4 STP-conditional doc slots only get populated when this is set.
+      // PR). stpApplicationStatus (Pending/Submitted/Approved/Rejected) tracks
+      // ICA progress; parents file documents directly with ICA per migration 050.
       const isStpApplicant = passType !== 'Singapore PR' && rand() < 0.45;
       const stpApplicationType = isStpApplicant ? STP_APPLICATION_TYPE : null;
-      // 10% of funnel rows have allergy data (realistic distribution).
-      const hasAllergies = rand() < 0.10;
 
-      // studentNumber is generated alongside enroleeNumber in production
-      // (parent portal mints both at intake). syncOneStudent skips with
-      // 'no studentNumber' if this is null, so the section-roster insert
-      // would silently fail when the registrar later flips this applicant
-      // to Enrolled. Seed it now so the test env mirrors production.
       const studentNumber = `TEST-${prefix.toUpperCase()}-SN-${seq}`;
       const parentFields = buildParentFields(rand, n.last_name, passType);
+      const demographics = buildStudentDemographics(rand, levelLabel, passType);
+      const medical = buildMedicalData(rand);
       appRows.push({
         enroleeNumber,
         studentNumber,
@@ -1262,24 +1585,25 @@ async function seedAdmissionsFunnel(
         contractSignatory,
         pass: passType,
         enroleePhoto: PLACEHOLDER_PHOTO,
-        // Real DB stores avail* as Yes/No strings, not bools.
         availSchoolBus: YES_NO[Math.floor(rand() * YES_NO.length)],
         availUniform: YES_NO[Math.floor(rand() * YES_NO.length)],
         availStudentCare: YES_NO[Math.floor(rand() * YES_NO.length)],
         howDidYouKnowAboutHFSEIS: referral,
-        // Parent-portal-side status — always 'Registered' once the parent
-        // completes the registration form. SIS-side workflow status lives on
-        // the status row below as `applicationStatus`.
         applicationStatus: 'Registered',
-        // STP application tracker (HFSE Edutrust Certified, sponsors Student
-        // Pass via ICA when applicable).
         stpApplicationType,
+        stpApplicationStatus: isStpApplicant
+          ? (() => {
+              const r = rand();
+              if (r < 0.45) return 'Pending';
+              if (r < 0.8) return 'Submitted';
+              if (r < 0.95) return 'Approved';
+              return 'Rejected';
+            })()
+          : null,
         residenceHistory: isStpApplicant ? STP_RESIDENCE_HISTORY : null,
-        // Medical flags — minimal realistic surface for now.
-        allergies: hasAllergies,
-        allergyDetails: hasAllergies ? 'Test allergy details' : null,
-        paracetamolConsent: true,
         socialMediaConsent: rand() < 0.7,
+        ...demographics,
+        ...medical,
         ...parentFields,
       });
 
@@ -1873,6 +2197,8 @@ async function seedEnrolledAdmissionsRows(
   const appInserts = rows.map((r, i) => {
     const m = personaMeta[i];
     const parentFields = buildParentFields(enrolledRand, r.lastName, m.passType);
+    const demographics = buildStudentDemographics(enrolledRand, r.levelLabel, m.passType);
+    const medical = buildMedicalData(enrolledRand);
     return {
       enroleeNumber: `${upperPrefix}-ENR-${String(i + 1).padStart(4, '0')}`,
       studentNumber: r.studentNumber,
@@ -1890,17 +2216,20 @@ async function seedEnrolledAdmissionsRows(
       availSchoolBus: m.availSchoolBus,
       availUniform: m.availUniform,
       availStudentCare: m.availStudentCare,
-      // applications.applicationStatus = parent-portal-side. Always 'Registered'
-      // for an enrolled student (parent finished registration form). The SIS
-      // pipeline status lives on the status row.
       applicationStatus: 'Registered',
       stpApplicationType: m.isStpApplicant ? STP_APPLICATION_TYPE : null,
+      stpApplicationStatus: m.isStpApplicant
+        ? i % 7 === 0
+          ? 'Submitted'
+          : i % 11 === 0
+            ? 'Pending'
+            : 'Approved'
+        : null,
       residenceHistory: m.isStpApplicant ? STP_RESIDENCE_HISTORY : null,
-      paracetamolConsent: true,
       socialMediaConsent: m.socialMediaConsent,
-      // Backdate created_at so `daysToEnroll` (updatedAt − createdAt) has
-      // realistic positive variance for the conversion-rate cohort drill.
       created_at: personaCreatedAtIso(i),
+      ...demographics,
+      ...medical,
       ...parentFields,
     };
   });
@@ -2038,12 +2367,13 @@ async function seedAdmissionsDocuments(
 
   // Pull every application row + matching status (need applicationStatus to
   // pick the per-row fill profile). Status rows are joined in JS to keep the
-  // PostgREST query simple. stpApplicationType gates the 3 STP-conditional
-  // slots (icaPhoto / financialSupportDocs / vaccinationInformation) so they
-  // only get populated for foreign-student personas.
+  // PostgREST query simple. fatherEmail + guardianEmail gate the
+  // father*/guardian* slots per KD #69 — when no email exists for that
+  // parent the slots stay NULL (parent portal would not have collected docs
+  // for an absent parent).
   const { data: appsData, error: appsErr } = await service
     .from(appsTable)
-    .select('enroleeNumber, studentNumber, stpApplicationType');
+    .select('enroleeNumber, studentNumber, fatherEmail, guardianEmail');
   if (appsErr || !appsData) {
     console.error(
       `[populated seeder] ${appsTable} read failed for documents seeder:`,
@@ -2054,7 +2384,8 @@ async function seedAdmissionsDocuments(
   const apps = appsData as Array<{
     enroleeNumber: string;
     studentNumber: string | null;
-    stpApplicationType: string | null;
+    fatherEmail: string | null;
+    guardianEmail: string | null;
   }>;
   if (apps.length === 0) return 0;
 
@@ -2084,7 +2415,7 @@ async function seedAdmissionsDocuments(
     'https://vnhklhppftebbcuupfjw.supabase.co/storage/v1/object/public/parent-portal/ay2027/documents/1774407491653_favicon.png';
   const PDF_URL =
     'https://vnhklhppftebbcuupfjw.supabase.co/storage/v1/object/public/parent-portal/ay2025/documents/1766798602565_Sample%20document.pdf';
-  const PHOTO_SLOT_KEYS = new Set(['idPicture', 'icaPhoto']);
+  const PHOTO_SLOT_KEYS = new Set(['idPicture']);
   const urlForSlot = (slotKey: string): string =>
     PHOTO_SLOT_KEYS.has(slotKey) ? IMAGE_URL : PDF_URL;
   const REJECTION_REASONS = [
@@ -2104,7 +2435,13 @@ async function seedAdmissionsDocuments(
     url: string | null;
     rejection: string | null;
   };
-  const buildSlotFill = (profile: string): Record<string, SlotFill> => {
+  // Slots gated by parent-email presence (KD #69). When the corresponding
+  // email is missing on the apps row, these slots stay NULL because the
+  // parent portal never collected anything for an absent parent.
+  const FATHER_SLOT_KEYS = new Set(['fatherPassport', 'fatherPass']);
+  const GUARDIAN_SLOT_KEYS = new Set(['guardianPassport', 'guardianPass']);
+  type Gates = { father: boolean; guardian: boolean };
+  const buildSlotFill = (profile: string, gates: Gates): Record<string, SlotFill> => {
     // Slot order from DOCUMENT_SLOTS (12 slots). Each profile picks a count
     // distribution and walks slots in order assigning statuses.
     const slots = DOCUMENT_SLOTS;
@@ -2113,6 +2450,12 @@ async function seedAdmissionsDocuments(
     for (const s of slots) {
       fill[s.key] = { status: null, url: null, rejection: null };
     }
+    // Build the gated pool — slots eligible for assignment given the gates.
+    // Father/guardian slots vanish from the pool when the matching parent
+    // email is empty so no profile can write to them.
+    const isGated = (key: string): boolean =>
+      (FATHER_SLOT_KEYS.has(key) && !gates.father) ||
+      (GUARDIAN_SLOT_KEYS.has(key) && !gates.guardian);
 
     // Helper: assign statuses to indices [start, start+count) (clamped).
     const assign = (
@@ -2132,11 +2475,22 @@ async function seedAdmissionsDocuments(
       }
     };
 
-    // Pick `n` distinct indices from [0, slots.length) without replacement.
-    const pickIndices = (n: number, exclude: Set<number> = new Set()): number[] => {
+    // Pick `n` distinct indices from [0, slots.length) without replacement,
+    // skipping gated father/guardian slots when the parent email is absent.
+    // Pass nonExpiringOnly=true to restrict to non-expiring slots — used
+    // when assigning 'Uploaded' which is only valid for non-expiring docs
+    // per KD #60 (expiring slots start as 'Valid', never 'Uploaded').
+    const pickIndices = (
+      n: number,
+      exclude: Set<number> = new Set(),
+      nonExpiringOnly = false,
+    ): number[] => {
       const pool: number[] = [];
       for (let i = 0; i < slots.length; i++) {
-        if (!exclude.has(i)) pool.push(i);
+        if (exclude.has(i)) continue;
+        if (isGated(slots[i].key)) continue;
+        if (nonExpiringOnly && slots[i].expiryCol) continue;
+        pool.push(i);
       }
       // Fisher-Yates shuffle (in-place via swap).
       for (let i = pool.length - 1; i > 0; i--) {
@@ -2147,25 +2501,55 @@ async function seedAdmissionsDocuments(
     };
 
     switch (profile) {
-      case 'submitted':
-        // All NULL — no work yet.
+      case 'submitted': {
+        // Parents can submit with required docs either uploaded or marked
+        // 'To follow' (acknowledged-pending). Optional slots (medical /
+        // educCert / form12) may stay null. Initial states per KD #60:
+        //   - Non-expiring: 'Uploaded' (registrar hasn't validated yet).
+        //   - Expiring:     'Valid' (the expiry date IS the validation).
+        // Required slots: ~80% uploaded/valid, ~20% 'To follow'.
+        const OPTIONAL = new Set(OPTIONAL_DOCUMENT_SLOT_KEYS as readonly string[]);
+        for (let i = 0; i < slots.length; i++) {
+          const slot = slots[i];
+          if (isGated(slot.key)) continue;
+          if (OPTIONAL.has(slot.key) && rand() < 0.4) continue;
+          if (!OPTIONAL.has(slot.key) && rand() < 0.2) {
+            fill[slot.key] = { status: 'To follow', url: null, rejection: null };
+            continue;
+          }
+          const status = slot.expiryCol ? 'Valid' : 'Uploaded';
+          fill[slot.key] = {
+            status,
+            url: urlForSlot(slot.key),
+            rejection: null,
+          };
+        }
         return fill;
+      }
       case 'ongoing-verification': {
         const validIdx = pickIndices(5);
         assign(validIdx, 'Valid', true, false);
         const used = new Set(validIdx);
-        const pendingIdx = pickIndices(3, used);
-        // Per KD #60 the canonical per-slot status for "parent uploaded,
-        // awaiting registrar review" is 'Uploaded' (not 'Pending', which
-        // is a stage-level status used on enrolment_status). Writing
-        // 'Pending' here used to leak into the P-Files quick filters as
-        // 'valid' instead of 'uploaded' because resolveStatus only
-        // recognises the canonical word.
+        // Per KD #60 'Uploaded' is only valid for non-expiring slots (initial
+        // state before registrar approval). Expiring slots go null → 'Valid'
+        // directly — the expiry date IS the validation evidence. Pass
+        // nonExpiringOnly=true so expiring slots are never assigned 'Uploaded'.
+        const pendingIdx = pickIndices(3, used, true);
         assign(pendingIdx, 'Uploaded', true, false);
         for (const idx of pendingIdx) used.add(idx);
         const rejectIdx = pickIndices(2, used);
         assign(rejectIdx, 'Rejected', true, true);
-        // Remaining 2 stay NULL.
+        // Sweep: required non-optional non-gated slots that are still null
+        // become 'To follow' — required docs are never silently missing.
+        const OPTIONAL_OV = new Set(OPTIONAL_DOCUMENT_SLOT_KEYS as readonly string[]);
+        for (let i = 0; i < slots.length; i++) {
+          const slot = slots[i];
+          if (isGated(slot.key)) continue;
+          if (OPTIONAL_OV.has(slot.key)) continue;
+          if (!fill[slot.key].status) {
+            fill[slot.key] = { status: 'To follow', url: null, rejection: null };
+          }
+        }
         return fill;
       }
       case 'processing': {
@@ -2180,6 +2564,17 @@ async function seedAdmissionsDocuments(
         const toFollowIdx = pickIndices(toFollowCount, used);
         // 'To follow' = parent acknowledged pending; URL stays NULL.
         assign(toFollowIdx, 'To follow', false, false);
+        // Sweep: required non-optional non-gated slots that are still null
+        // become 'To follow' — required docs are never silently missing.
+        const OPTIONAL_PR = new Set(OPTIONAL_DOCUMENT_SLOT_KEYS as readonly string[]);
+        for (let i = 0; i < slots.length; i++) {
+          const slot = slots[i];
+          if (isGated(slot.key)) continue;
+          if (OPTIONAL_PR.has(slot.key)) continue;
+          if (!fill[slot.key].status) {
+            fill[slot.key] = { status: 'To follow', url: null, rejection: null };
+          }
+        }
         return fill;
       }
       case 'cancelled': {
@@ -2213,24 +2608,23 @@ async function seedAdmissionsDocuments(
         // Per-slot independent rolls. Status pool depends on whether the
         // slot is expiring (KD #60). URL is written when status is one of
         // the document-present states; 'To follow' and null leave URL null.
-        // Distribution: 50% Valid / 20% (Uploaded|Expired) / 15% To follow /
-        // 10% Rejected / 5% null. Optional slots (medical/educCert/form12)
-        // get an extra ~30% null skew per KD #60.
-        const OPTIONAL = new Set(['medical', 'educCert', 'form12']);
+        // Father/guardian slots are gated per KD #69 — skip when no email.
+        // Distribution: 55% Valid / 20% (Uploaded|Expired) / 15% To follow /
+        // 10% Rejected. Optional slots (medical/educCert/form12) get a 30%
+        // skip skew per KD #60 (admissions-side optional).
+        const OPTIONAL = new Set(OPTIONAL_DOCUMENT_SLOT_KEYS as readonly string[]);
         for (const s of slots) {
+          if (isGated(s.key)) continue;
           const isExpiring = !!s.expiryCol;
           if (OPTIONAL.has(s.key) && rand() < 0.3) {
-            // Already null from the default fill — skip.
             continue;
           }
           const r = rand();
-          let status: string | null;
-          if (r < 0.5) status = 'Valid';
-          else if (r < 0.7) status = isExpiring ? 'Expired' : 'Uploaded';
-          else if (r < 0.85) status = 'To follow';
-          else if (r < 0.95) status = 'Rejected';
-          else status = null;
-          if (status === null) continue;
+          let status: string;
+          if (r < 0.55) status = 'Valid';
+          else if (r < 0.75) status = isExpiring ? 'Expired' : 'Uploaded';
+          else if (r < 0.9) status = 'To follow';
+          else status = 'Rejected';
           const hasUrl =
             status === 'Valid' ||
             status === 'Uploaded' ||
@@ -2275,19 +2669,25 @@ async function seedAdmissionsDocuments(
     }
   };
 
-  // Expiry rosters — built from enrolled rows only. Index ranges chosen so
-  // the personas don't collide (10 + 3 + 5 = 18 distinct rows; 200 enrolled
-  // total leaves plenty of room).
+  // Expiry rosters — built from enrolled rows only. Each kind gets three
+  // buckets spread across the P-Files sidebar's 30/60/90-day quicklinks so
+  // every filter renders rows. Indices are disjoint per persona type.
+  // Passport: 5 × ≤30d + 5 × 31-60d + 5 × 61-90d + 3 expired = 18 rows.
+  // Pass:     3 × ≤30d + 3 × 31-60d + 3 × 61-90d + 2 expired = 11 rows.
   const enrolledEnroleeNumbers = apps
     .map((a) => a.enroleeNumber)
     .filter((e) => {
       const s = statusByEnrolee.get(e);
       return s === 'Enrolled' || s === 'Enrolled (Conditional)';
     });
-  const PASSPORT_EXPIRING_SOON = new Set(enrolledEnroleeNumbers.slice(0, 10));
-  const PASSPORT_ALREADY_EXPIRED = new Set(enrolledEnroleeNumbers.slice(10, 13));
-  const PASS_EXPIRING_SOON = new Set(enrolledEnroleeNumbers.slice(13, 16));
-  const PASS_ALREADY_EXPIRED = new Set(enrolledEnroleeNumbers.slice(16, 18));
+  const PASSPORT_EXPIRING_30 = new Set(enrolledEnroleeNumbers.slice(0, 5));
+  const PASSPORT_EXPIRING_60 = new Set(enrolledEnroleeNumbers.slice(5, 10));
+  const PASSPORT_EXPIRING_90 = new Set(enrolledEnroleeNumbers.slice(10, 15));
+  const PASSPORT_ALREADY_EXPIRED = new Set(enrolledEnroleeNumbers.slice(15, 18));
+  const PASS_EXPIRING_30 = new Set(enrolledEnroleeNumbers.slice(18, 21));
+  const PASS_EXPIRING_60 = new Set(enrolledEnroleeNumbers.slice(21, 24));
+  const PASS_EXPIRING_90 = new Set(enrolledEnroleeNumbers.slice(24, 27));
+  const PASS_ALREADY_EXPIRED = new Set(enrolledEnroleeNumbers.slice(27, 29));
 
   // Generate ISO yyyy-MM-dd offsets relative to today.
   const isoDateOffset = (days: number): string =>
@@ -2299,25 +2699,18 @@ async function seedAdmissionsDocuments(
     const status = statusByEnrolee.get(app.enroleeNumber) ?? null;
     const isEnrolled = status === 'Enrolled' || status === 'Enrolled (Conditional)';
     const profile = profileForStatus(status, isEnrolled ? enrolledIdx++ : 0);
-    const slotFill = buildSlotFill(profile);
+    const gates = {
+      father: !!app.fatherEmail?.trim(),
+      guardian: !!app.guardianEmail?.trim(),
+    };
+    const slotFill = buildSlotFill(profile, gates);
 
     const row: Record<string, unknown> = {
       enroleeNumber: app.enroleeNumber,
       studentNumber: app.studentNumber,
     };
 
-    const isStpApplicant = !!app.stpApplicationType;
-
     for (const slot of DOCUMENT_SLOTS) {
-      // STP-conditional slots only populated for foreign-student personas.
-      // Non-STP applicants leave these slot+status columns NULL.
-      const isStpSlot = (STP_CONDITIONAL_SLOT_KEYS as readonly string[]).includes(slot.key);
-      if (isStpSlot && !isStpApplicant) {
-        row[slot.statusCol] = null;
-        row[slot.urlCol] = null;
-        continue;
-      }
-
       const f = slotFill[slot.key];
       // Workflow semantics:
       //   - Non-expiring slots (no expiryCol): null → 'Uploaded' → 'Valid' / 'Rejected'.
@@ -2352,18 +2745,33 @@ async function seedAdmissionsDocuments(
     }
 
     // Expiry stamps — only on enrolled rows that landed in the rosters.
-    // When the date is in the past, the matching status is 'Expired' (the
-    // auto-flipped state production produces when the expiry passes).
-    if (PASSPORT_EXPIRING_SOON.has(app.enroleeNumber)) {
+    // Spread across 30/60/90-day buckets so every sidebar quicklink lights
+    // up. When the date is in the past, the matching status flips to
+    // 'Expired' (the auto-flipped state production produces).
+    const passportEn = app.enroleeNumber;
+    if (PASSPORT_EXPIRING_30.has(passportEn)) {
       row.passportExpiry = isoDateOffset(1 + Math.floor(rand() * 30));
-      // Status stays 'Valid' (set by buildSlotFill for enrolled-clean profile).
-    } else if (PASSPORT_ALREADY_EXPIRED.has(app.enroleeNumber)) {
+      row.passportStatus = 'Valid';
+    } else if (PASSPORT_EXPIRING_60.has(passportEn)) {
+      row.passportExpiry = isoDateOffset(31 + Math.floor(rand() * 30));
+      row.passportStatus = 'Valid';
+    } else if (PASSPORT_EXPIRING_90.has(passportEn)) {
+      row.passportExpiry = isoDateOffset(61 + Math.floor(rand() * 30));
+      row.passportStatus = 'Valid';
+    } else if (PASSPORT_ALREADY_EXPIRED.has(passportEn)) {
       row.passportExpiry = isoDateOffset(-(30 + Math.floor(rand() * 60)));
       row.passportStatus = 'Expired';
     }
-    if (PASS_EXPIRING_SOON.has(app.enroleeNumber)) {
+    if (PASS_EXPIRING_30.has(passportEn)) {
       row.passExpiry = isoDateOffset(1 + Math.floor(rand() * 30));
-    } else if (PASS_ALREADY_EXPIRED.has(app.enroleeNumber)) {
+      row.passStatus = 'Valid';
+    } else if (PASS_EXPIRING_60.has(passportEn)) {
+      row.passExpiry = isoDateOffset(31 + Math.floor(rand() * 30));
+      row.passStatus = 'Valid';
+    } else if (PASS_EXPIRING_90.has(passportEn)) {
+      row.passExpiry = isoDateOffset(61 + Math.floor(rand() * 30));
+      row.passStatus = 'Valid';
+    } else if (PASS_ALREADY_EXPIRED.has(passportEn)) {
       row.passExpiry = isoDateOffset(-(30 + Math.floor(rand() * 60)));
       row.passStatus = 'Expired';
     }
