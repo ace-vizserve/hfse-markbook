@@ -1,34 +1,20 @@
 'use client';
 
-import * as React from 'react';
-import { Area, AreaChart, ResponsiveContainer } from 'recharts';
+import dynamic from 'next/dynamic';
 
-export type SparkPoint = { x: string; y: number };
+import { ChartSkeleton } from './chart-skeleton';
+import type { SparkPoint } from './sparkline-chart.client';
 
-function SparklineChartImpl({ points }: { points: SparkPoint[] }) {
-  const gradientId = `spark-${points.length}-${points[0]?.x ?? 'n'}`;
-  return (
-    <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={points} margin={{ top: 1, right: 1, left: 1, bottom: 1 }}>
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-chart-1)" stopOpacity={0.35} />
-            <stop offset="100%" stopColor="var(--color-chart-1)" stopOpacity={0} />
-          </linearGradient>
-        </defs>
-        <Area
-          type="monotone"
-          dataKey="y"
-          stroke="var(--color-chart-1)"
-          strokeWidth={1.5}
-          fill={`url(#${gradientId})`}
-          dot={false}
-          isAnimationActive={false}
-        />
-      </AreaChart>
-    </ResponsiveContainer>
-  );
+const SparklineChartImpl = dynamic(
+  () => import('./sparkline-chart.client').then((m) => m.SparklineChart),
+  {
+    ssr: false,
+    loading: () => <ChartSkeleton kind="sparkline" />,
+  },
+);
+
+export function SparklineChart({ points }: { points: SparkPoint[] }) {
+  return <SparklineChartImpl points={points} />;
 }
 
-export const SparklineChart = React.memo(SparklineChartImpl);
-SparklineChart.displayName = 'SparklineChart';
+export type { SparkPoint };
