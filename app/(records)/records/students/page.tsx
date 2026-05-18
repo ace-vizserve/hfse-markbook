@@ -102,8 +102,8 @@ export default async function RecordsStudentsPage({
 
   const RECORDS_STATUS_BUCKETS: StatusBucketDef[] = [
     { key: 'all', label: 'All' },
-    { key: 'active', label: 'Active', predicate: (row) => row.enrollmentStatus === 'active' },
-    { key: 'late_enrollee', label: 'Late enrollee', predicate: (row) => row.enrollmentStatus === 'late_enrollee' },
+    { key: 'active', label: 'Active', enrollmentStatuses: ['active'] },
+    { key: 'late_enrollee', label: 'Late enrollee', enrollmentStatuses: ['late_enrollee'] },
   ];
 
   return (

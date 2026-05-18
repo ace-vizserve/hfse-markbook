@@ -23,8 +23,12 @@ export type StatusBucketDef = {
   // undefined = match all rows; explicit array = exact-match against trimmed
   // applicationStatus. Empty status falls into the "All" bucket only.
   statuses?: string[];
-  // When set, overrides `statuses` — allows matching on any row field
-  // (e.g. enrollmentStatus for the late-enrollee bucket).
+  // Matches against enrollmentStatus (active | late_enrollee | withdrawn).
+  // Serializable alternative to `predicate` — safe to pass from RSC props.
+  enrollmentStatuses?: string[];
+  // Client-only: overrides statuses + enrollmentStatuses. Only usable when
+  // the StatusBucketDef is constructed inside a Client Component, never via
+  // RSC props (functions are not serializable across the RSC boundary).
   predicate?: (row: StudentListRow) => boolean;
 };
 
@@ -37,6 +41,7 @@ const DEFAULT_STATUS_BUCKETS: StatusBucketDef[] = [
 
 function bucketMatchesRow(def: StatusBucketDef, row: StudentListRow): boolean {
   if (def.predicate) return def.predicate(row);
+  if (def.enrollmentStatuses) return def.enrollmentStatuses.includes((row.enrollmentStatus ?? "").trim());
   if (!def.statuses) return true;
   return def.statuses.includes((row.applicationStatus ?? "").trim());
 }
