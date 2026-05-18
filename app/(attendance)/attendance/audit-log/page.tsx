@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { AlertTriangle, ArrowLeft, History, ListChecks, Users } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
-import { createServiceClient } from '@/lib/supabase/service';
+import { getStaffDisplayEntries } from '@/lib/auth/staff-list';
 import {
   Card,
   CardAction,
@@ -15,37 +15,19 @@ import {
 import { PageShell } from '@/components/ui/page-shell';
 import { AttendanceAuditLogDataTable, type AttendanceAuditRow } from './audit-log-data-table';
 
-// ---------------------------------------------------------------------------
-// Server-side actor display-name resolution
-// ---------------------------------------------------------------------------
-
-async function buildActorDisplayMap(): Promise<Map<string, string>> {
-  try {
-    const service = createServiceClient();
-    const { data } = await service.auth.admin.listUsers({ perPage: 1000 });
-    const map = new Map<string, string>();
-    for (const u of data?.users ?? []) {
-      if (!u.email) continue;
-      const meta = (u.user_metadata ?? {}) as { full_name?: string; name?: string };
-      const name = (meta.full_name ?? meta.name ?? u.email).trim();
-      map.set(u.email, name);
-    }
-    return map;
-  } catch {
-    return new Map();
-  }
-}
-
 export default async function AttendanceAuditLogPage() {
   const supabase = await createClient();
 
   // TODO(server-pagination): raise 500-row cap to true server pagination per spec §5.24 + §7.4
-  const { data: rows, error } = await supabase
-    .from('audit_log')
-    .select('id, actor_email, action, entity_type, entity_id, context, created_at')
-    .like('action', 'attendance.%')
-    .order('created_at', { ascending: false })
-    .limit(500);
+  const [{ data: rows, error }, staffEntries] = await Promise.all([
+    supabase
+      .from('audit_log')
+      .select('id, actor_email, action, entity_type, entity_id, context, created_at')
+      .like('action', 'attendance.%')
+      .order('created_at', { ascending: false })
+      .limit(500),
+    getStaffDisplayEntries(),
+  ]);
 
   type RawRow = {
     id: string;
@@ -58,9 +40,7 @@ export default async function AttendanceAuditLogPage() {
   };
 
   const rawEntries = (rows ?? []) as RawRow[];
-
-  // Resolve actor display names server-side
-  const actorMap = await buildActorDisplayMap();
+  const actorMap = new Map<string, string>(staffEntries);
 
   const entries: AttendanceAuditRow[] = rawEntries.map((r) => ({
     id: r.id,

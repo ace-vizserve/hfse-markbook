@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { requireRole } from '@/lib/auth/require-role';
 import { createServiceClient } from '@/lib/supabase/service';
 import { logAction } from '@/lib/audit/log-action';
+import { getApproverEmailList, getRegistrarEmailList } from '@/lib/auth/staff-list';
 import {
   ChangeRequestFormSchema,
   type ChangeRequestField,
@@ -541,49 +542,18 @@ function canonicallyEqual(
 
 // Helpers shared with the [id]/route.ts handler. Kept local to avoid a new
 // module layer — the workflow helpers live here where they're used.
+// Both delegate to the 5-min cached helpers in lib/auth/staff-list.ts so
+// auth.admin.listUsers() is called at most once per 5-minute window.
 export async function fetchApproverEmails(
-  service: ReturnType<typeof createServiceClient>,
+  _service: ReturnType<typeof createServiceClient>,
 ): Promise<string[]> {
-  // school_admin + superadmin users. Uses auth.admin API which needs service role.
-  try {
-    const { data, error } = await service.auth.admin.listUsers();
-    if (error || !data) return [];
-    return data.users
-      .filter((u) => {
-        const role =
-          (u.app_metadata as { role?: string } | null)?.role ??
-          (u.user_metadata as { role?: string } | null)?.role ??
-          null;
-        return role === 'school_admin' || role === 'superadmin';
-      })
-      .map((u) => u.email ?? '')
-      .filter(Boolean);
-  } catch (e) {
-    console.error('[change-requests] listUsers failed', e);
-    return [];
-  }
+  return getApproverEmailList();
 }
 
 export async function fetchRegistrarEmails(
-  service: ReturnType<typeof createServiceClient>,
+  _service: ReturnType<typeof createServiceClient>,
 ): Promise<string[]> {
-  try {
-    const { data, error } = await service.auth.admin.listUsers();
-    if (error || !data) return [];
-    return data.users
-      .filter((u) => {
-        const role =
-          (u.app_metadata as { role?: string } | null)?.role ??
-          (u.user_metadata as { role?: string } | null)?.role ??
-          null;
-        return role === 'registrar';
-      })
-      .map((u) => u.email ?? '')
-      .filter(Boolean);
-  } catch (e) {
-    console.error('[change-requests] listUsers failed', e);
-    return [];
-  }
+  return getRegistrarEmailList();
 }
 
 export async function fetchLabels(

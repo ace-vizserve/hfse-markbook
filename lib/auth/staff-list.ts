@@ -18,6 +18,44 @@ type Options = {
   excludeDisabled?: boolean;
 };
 
+// ---------------------------------------------------------------------------
+// Internal: single cached listUsers call shared by all staff helpers.
+// Callers filter in-memory so the auth admin endpoint is only hit once per
+// 5-minute window regardless of how many helpers are called on the same page.
+// ---------------------------------------------------------------------------
+
+type _StaffRecord = { id: string; email: string; role: string | null; name: string; disabled: boolean };
+
+function _loadAllStaff(): Promise<_StaffRecord[]> {
+  return unstable_cache(
+    async () => {
+      try {
+        const service = createServiceClient();
+        const { data } = await service.auth.admin.listUsers({ perPage: 1000 });
+        const out: _StaffRecord[] = [];
+        for (const u of data?.users ?? []) {
+          if (!u.email) continue;
+          const appMeta = (u.app_metadata ?? {}) as { role?: string; disabled?: boolean };
+          const userMeta = (u.user_metadata ?? {}) as { role?: string; full_name?: string; name?: string };
+          const role = appMeta.role ?? userMeta.role ?? null;
+          const disabled = appMeta.disabled === true;
+          const name = (userMeta.full_name ?? userMeta.name ?? u.email).trim();
+          out.push({ id: u.id, email: u.email, role, name, disabled });
+        }
+        return out;
+      } catch {
+        return [];
+      }
+    },
+    ['all-staff-list'],
+    { revalidate: 300, tags: ['teacher-emails'] },
+  )();
+}
+
+// ---------------------------------------------------------------------------
+// Public helpers
+// ---------------------------------------------------------------------------
+
 /**
  * Returns auth users with `app_metadata.role === 'teacher'`. Sorted by
  * display name. 5-min cache shared with the `teacher-emails` tag so any
@@ -29,33 +67,41 @@ type Options = {
  * Used by surfaces that need a "pick a teacher" combobox — e.g. the
  * teacher_name dropdown on /markbook/grading/new.
  */
-export function getTeacherList(options: Options = {}): Promise<StaffMember[]> {
+export async function getTeacherList(options: Options = {}): Promise<StaffMember[]> {
   const excludeDisabled = options.excludeDisabled ?? true;
-  return unstable_cache(
-    async () => {
-      try {
-        const service = createServiceClient();
-        const { data } = await service.auth.admin.listUsers({ perPage: 1000 });
-        const out: StaffMember[] = [];
-        for (const u of data?.users ?? []) {
-          if (!u.email) continue;
-          const meta = (u.app_metadata ?? {}) as { role?: string; disabled?: boolean };
-          const role =
-            meta.role ?? ((u.user_metadata as { role?: string } | null)?.role ?? null);
-          if (role !== 'teacher') continue;
-          const disabled = meta.disabled === true;
-          if (excludeDisabled && disabled) continue;
-          const userMeta = (u.user_metadata ?? {}) as { full_name?: string; name?: string };
-          const name = (userMeta.full_name ?? userMeta.name ?? u.email).trim();
-          out.push({ id: u.id, email: u.email, name, disabled });
-        }
-        out.sort((a, b) => a.name.localeCompare(b.name));
-        return out;
-      } catch {
-        return [];
-      }
-    },
-    ['teacher-list', excludeDisabled ? 'active' : 'all'],
-    { revalidate: 300, tags: ['teacher-emails'] },
-  )();
+  const all = await _loadAllStaff();
+  return all
+    .filter(u => u.role === 'teacher' && (!excludeDisabled || !u.disabled))
+    .map(u => ({ id: u.id, email: u.email, name: u.name, disabled: u.disabled }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Returns school_admin + superadmin emails — used for change-request
+ * approval notifications. Shares the same underlying cached listUsers call.
+ */
+export async function getApproverEmailList(): Promise<string[]> {
+  const all = await _loadAllStaff();
+  return all
+    .filter(u => u.role === 'school_admin' || u.role === 'superadmin')
+    .map(u => u.email);
+}
+
+/**
+ * Returns registrar emails — used for change-request workflow notifications.
+ * Shares the same underlying cached listUsers call.
+ */
+export async function getRegistrarEmailList(): Promise<string[]> {
+  const all = await _loadAllStaff();
+  return all.filter(u => u.role === 'registrar').map(u => u.email);
+}
+
+/**
+ * Returns email → display-name entries for all staff — used by audit-log
+ * pages to resolve actor emails to human names. Returns Array (not Map) to
+ * survive unstable_cache JSON serialization; callers do `new Map(entries)`.
+ */
+export async function getStaffDisplayEntries(): Promise<Array<[string, string]>> {
+  const all = await _loadAllStaff();
+  return all.map(u => [u.email, u.name]);
 }
