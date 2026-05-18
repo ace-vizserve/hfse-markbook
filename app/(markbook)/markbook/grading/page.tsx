@@ -67,24 +67,23 @@ function formatRelativeDays(days: number): string {
 export default async function GradingListPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ section?: string }>;
+  searchParams?: Promise<{
+    section?: string;
+    // Filter params written by the DataTable shell (url state) — read
+    // here so the stat cards reflect what the table actually shows.
+    q?: string;
+    status?: string;
+    mine?: string;
+    level?: string;
+    subject?: string;
+    term?: string;
+    teacher?: string;
+    form_adviser?: string;
+  }>;
 }) {
   const supabase = await createClient();
-  // Optional `?section=<uuid>` deep-link from /markbook/sections/[id]'s
-  // "Grading sheets →" CTA. Resolve the section's name and seed the
-  // table's global search with it so the list opens pre-filtered. The
-  // global filter matches `section` substring (case-insensitive) so
-  // every sheet for that section appears.
-  const sectionParam = searchParams ? (await searchParams).section : undefined;
-  let initialSearch: string | undefined;
-  if (sectionParam) {
-    const { data: sec } = await supabase
-      .from('sections')
-      .select('name')
-      .eq('id', sectionParam)
-      .maybeSingle();
-    if (sec) initialSearch = (sec as { name: string }).name;
-  }
+  const sp = searchParams ? await searchParams : undefined;
+  const initialSearch = sp?.q ?? undefined;
 
   const { data: claimsData } = await supabase.auth.getClaims();
   const claims = claimsData?.claims ?? null;
@@ -154,60 +153,79 @@ export default async function GradingListPage({
   const sheets = sheetsRes.data;
   const sheetIds = (sheets ?? []).map((s: { id: string }) => s.id);
 
-  // grade_entries for blanks_remaining — now scoped to visible sheets only.
-  // Blank = null in any slot of ww/pt/qa (or letter_grade for non-examinable).
-  // Excludes withdrawn and is_na (late enrollee) students from the count.
-  const blanksRes = sheetIds.length > 0
-    ? await supabase
-        .from('grade_entries')
-        .select(
-          `grading_sheet_id, ww_scores, pt_scores, qa_score, letter_grade, is_na,
-           section_student:section_students(enrollment_status),
-           grading_sheet:grading_sheets(subject:subjects(is_examinable))`,
-        )
-        .in('grading_sheet_id', sheetIds)
-    : { data: [] };
-  const entriesForBlanks = blanksRes.data;
-
-  type EntryForBlanks = {
+  // Pull every entry for the visible sheets — same field set the per-sheet
+  // page uses for its Graded stat. `isExaminable` is read off each sheet's
+  // own subject (already loaded above) rather than embedded per-entry.
+  //
+  // Chunked .in() filter — keeps the URL under PostgREST's 8 KB cap and
+  // sidesteps the 1000-row response cap. 50 sheet IDs per chunk × ~80
+  // entries per sheet = ~4000 rows per request, still under cap because
+  // grade_entries rows are skinny. At HFSE scale (10+ sections × ~40 sheets)
+  // a single .in() with all ids was hitting 400 Bad Request from the embed.
+  type GradedEntry = {
     grading_sheet_id: string;
-    ww_scores: (number | null)[] | null;
-    pt_scores: (number | null)[] | null;
-    qa_score: number | null;
+    quarterly_grade: number | null;
     letter_grade: string | null;
-    is_na: boolean;
     section_student:
       | { enrollment_status: string }
       | { enrollment_status: string }[]
       | null;
-    grading_sheet:
-      | { subject: { is_examinable: boolean } | { is_examinable: boolean }[] | null }
-      | { subject: { is_examinable: boolean } | { is_examinable: boolean }[] | null }[]
-      | null;
   };
-  const blanksBySheet = new Map<string, { blanks: number; total: number }>();
-  for (const e of (entriesForBlanks ?? []) as EntryForBlanks[]) {
-    const ss = first(e.section_student);
-    if (!ss || ss.enrollment_status === 'withdrawn') continue;
-    if (e.is_na) continue;
-    const gs = first(e.grading_sheet);
-    const subject = first(gs?.subject ?? null);
-    const examinable = subject?.is_examinable !== false;
-    const bucket =
-      blanksBySheet.get(e.grading_sheet_id) ?? { blanks: 0, total: 0 };
-    bucket.total += 1;
-    let blank = false;
-    if (examinable) {
-      const ww = (e.ww_scores ?? []) as (number | null)[];
-      const pt = (e.pt_scores ?? []) as (number | null)[];
-      if (ww.length === 0 || ww.some((s) => s == null)) blank = true;
-      if (pt.length === 0 || pt.some((s) => s == null)) blank = true;
-      if (e.qa_score == null) blank = true;
-    } else {
-      if (e.letter_grade == null) blank = true;
+  const gradedEntries: GradedEntry[] = [];
+  const CHUNK = 50;
+  const sheetChunks: string[][] = [];
+  for (let i = 0; i < sheetIds.length; i += CHUNK) {
+    sheetChunks.push(sheetIds.slice(i, i + CHUNK));
+  }
+  const chunkResults = await Promise.all(
+    sheetChunks.map((slice) =>
+      supabase
+        .from('grade_entries')
+        .select(
+          `grading_sheet_id, quarterly_grade, letter_grade,
+           section_student:section_students(enrollment_status)`,
+        )
+        .in('grading_sheet_id', slice),
+    ),
+  );
+  for (const { data, error } of chunkResults) {
+    if (error) {
+      console.error('[grading list] entries fetch failed:', error.message);
+      continue;
     }
-    if (blank) bucket.blanks += 1;
-    blanksBySheet.set(e.grading_sheet_id, bucket);
+    gradedEntries.push(...((data ?? []) as GradedEntry[]));
+  }
+
+  // Group entries by sheet id so each sheet runs the literal per-sheet
+  // gradedPct block against its own rows.
+  const entriesBySheet = new Map<string, GradedEntry[]>();
+  for (const e of gradedEntries) {
+    const list = entriesBySheet.get(e.grading_sheet_id) ?? [];
+    list.push(e);
+    entriesBySheet.set(e.grading_sheet_id, list);
+  }
+
+  // Per-sheet gradedPct — copy of app/(markbook)/markbook/grading/[id]/page.tsx:249-255:
+  //   activeRows  = entries.filter(e => !withdrawn)
+  //   total       = activeRows.length
+  //   gradedCount = activeRows.filter(e =>
+  //     isExaminable ? e.quarterly_grade !== null : e.letter_grade !== null
+  //   ).length
+  //   gradedPct   = round(gradedCount / total * 100)
+  const slotsBySheet = new Map<string, { graded: number; total: number }>();
+  for (const s of (sheets ?? []) as SheetRow[]) {
+    const subject = first(s.subject);
+    const isExaminable = subject?.is_examinable !== false;
+    const entries = entriesBySheet.get(s.id) ?? [];
+    const activeRows = entries.filter((e) => {
+      const ss = first(e.section_student);
+      return ss?.enrollment_status !== 'withdrawn';
+    });
+    const totalStudents = activeRows.length;
+    const gradedCount = activeRows.filter((e) =>
+      isExaminable ? e.quarterly_grade !== null : e.letter_grade !== null,
+    ).length;
+    slotsBySheet.set(s.id, { graded: gradedCount, total: totalStudents });
   }
 
   let advisorySections: Array<{ id: string; name: string; level_label: string | null }> = [];
@@ -259,9 +277,13 @@ export default async function GradingListPage({
   const subjectTeacherUserIds = new Set<string>();
   const formAdviserUserIds = new Set<string>();
 
+  // Hoisted so it can serve both the teacherById lookup inside the block
+  // and the dropdown options below — one auth-admin call, not two.
+  let teacherList: Awaited<ReturnType<typeof getTeacherList>> = [];
+
   if (visibleSectionIds.length > 0) {
     const service = createServiceClient();
-    const [{ data: assignments }, teacherList] = await Promise.all([
+    const [{ data: assignments }, resolvedTeachers] = await Promise.all([
       service
         .from('teacher_assignments')
         .select('section_id, subject_id, teacher_user_id, role')
@@ -269,6 +291,7 @@ export default async function GradingListPage({
         .in('section_id', visibleSectionIds),
       getTeacherList(),
     ]);
+    teacherList = resolvedTeachers;
     const teacherById = new Map(teacherList.map((t) => [t.id, t]));
 
     for (const a of (assignments ?? []) as Array<{
@@ -297,18 +320,11 @@ export default async function GradingListPage({
     }
   }
 
-  // Curated dropdown options — all teachers in the AY who have at least
-  // one assignment of the given role. Sorted alphabetically by display
-  // name (getTeacherList already does this). Independent of other
-  // filters' state — the dropdown shows the same options regardless of
-  // which level/subject/term is currently active.
-  const teacherListAll = subjectTeacherUserIds.size > 0 || formAdviserUserIds.size > 0
-    ? await getTeacherList()
-    : [];
-  const teacherOptions = teacherListAll
+  // Dropdown options reuse the already-fetched teacherList — no second call.
+  const teacherOptions = teacherList
     .filter((t) => subjectTeacherUserIds.has(t.id))
     .map((t) => t.name);
-  const formAdviserOptions = teacherListAll
+  const formAdviserOptions = teacherList
     .filter((t) => formAdviserUserIds.has(t.id))
     .map((t) => t.name);
 
@@ -318,7 +334,9 @@ export default async function GradingListPage({
     const level = first(section?.level ?? null);
     const subject = first(s.subject);
     const term = first(s.term);
-    const bucket = blanksBySheet.get(s.id) ?? { blanks: 0, total: 0 };
+    const bucket = slotsBySheet.get(s.id) ?? { graded: 0, total: 0 };
+    const gradedPct =
+      bucket.total > 0 ? Math.round((bucket.graded / bucket.total) * 100) : 0;
     const subjectTeacher =
       section?.id && subject?.id
         ? subjectTeacherBySectionSubject.get(`${section.id}|${subject.id}`) ?? null
@@ -328,15 +346,18 @@ export default async function GradingListPage({
       id: s.id,
       section: section?.name ?? '—',
       level: level?.label ?? 'Unknown',
+      school_level: level?.level_type ?? 'primary',
       subject: subject?.name ?? '—',
+      is_examinable: subject?.is_examinable !== false,
       term: term?.label ?? '—',
       teacher: subjectTeacher?.name ?? s.teacher_name ?? null,
       subject_teacher_id: subjectTeacher?.userId ?? null,
       form_adviser: formAdviser?.name ?? null,
       form_adviser_id: formAdviser?.userId ?? null,
       is_locked: s.is_locked,
-      blanks_remaining: bucket.blanks,
+      graded_count: bucket.graded,
       total_students: bucket.total,
+      graded_pct: gradedPct,
     };
   });
 

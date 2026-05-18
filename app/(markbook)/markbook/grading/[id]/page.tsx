@@ -135,8 +135,14 @@ export default async function GradingSheetPage({
   const readOnly = sheet.is_locked && !canManage;
   const requireApproval = sheet.is_locked && canManage;
 
-  // Parallel fetch — change requests + entries are independent
-  const [{ data: openRequestsRaw }, { data: entriesRaw }] = await Promise.all([
+  // Fetch teacher's assignments concurrently with entries/requests — only
+  // needed for the subject-teacher gate; skip for non-teacher roles.
+  const assignmentsPromise: Promise<Awaited<ReturnType<typeof loadAssignmentsForUser>>> =
+    role === 'teacher' && sessionUser
+      ? loadAssignmentsForUser(supabase, sessionUser.id)
+      : Promise.resolve([]);
+
+  const [{ data: openRequestsRaw }, { data: entriesRaw }, rawAssignments] = await Promise.all([
     supabase
       .from('grade_change_requests')
       .select(
@@ -154,6 +160,7 @@ export default async function GradingSheetPage({
            student:students(student_number, last_name, first_name, middle_name))`,
       )
       .eq('grading_sheet_id', id),
+    assignmentsPromise,
   ]);
   type OpenRequestRow = {
     id: string;
@@ -185,13 +192,11 @@ export default async function GradingSheetPage({
   const config = first(sheet.subject_config as SubjectConfig | SubjectConfig[] | null);
   const isExaminable = subject?.is_examinable !== false;
 
-  // Teacher assignment gate — only the subject-teacher for this section/subject
-  // may file a change request on the locked sheet.
-  let isAssignedTeacher = false;
-  if (role === 'teacher' && sessionUser && section?.id && subject?.id) {
-    const assignments = await loadAssignmentsForUser(supabase, sessionUser.id);
-    isAssignedTeacher = isSubjectTeacher(assignments, section.id, subject.id);
-  }
+  // Teacher assignment gate — already fetched concurrently above.
+  const isAssignedTeacher =
+    role === 'teacher' && sessionUser && section?.id && subject?.id
+      ? isSubjectTeacher(rawAssignments, section.id, subject.id)
+      : false;
 
   // Designated approvers for the locked-sheet change-request flow. Teachers
   // pick primary + secondary from this list when filing a request; the
@@ -553,6 +558,7 @@ export default async function GradingSheetPage({
           requireApproval={requireApproval}
         />
       )}
+
     </PageShell>
   );
 }

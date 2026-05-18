@@ -2,8 +2,18 @@ import { redirect } from 'next/navigation';
 
 import { getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardAction,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
+import {
+  CHANGE_REQUEST_STATUS_CONFIG,
+  type ChangeRequestStatus,
+} from '@/lib/markbook/change-request-status';
 import { ChangeRequestsDataTable, type AdminRequestRow } from './change-requests-data-table';
 
 export default async function AdminChangeRequestsPage({
@@ -33,11 +43,13 @@ export default async function AdminChangeRequestsPage({
     .maybeSingle();
   const currentAyId = (ayData as { id: string } | null)?.id ?? null;
 
-  // Designated-approver scope: admins (and superadmins) see only requests
-  // where they are the primary or secondary approver. Legacy rows with
-  // both approver columns NULL (pre-feature) stay broadcast-visible so
-  // nothing strands mid-migration. Registrar keeps full visibility —
-  // they're the ones applying approved requests (Path A/B).
+  // Designated-approver scope: school_admins see only requests where they are
+  // the primary or secondary approver. Legacy rows with both approver columns
+  // NULL (pre-feature) stay broadcast-visible so nothing strands mid-migration.
+  // Registrar keeps full visibility — they're the ones applying approved
+  // requests (Path A/B). Superadmin keeps full visibility for oversight even
+  // when not in the approval loop — they manage approver assignments at
+  // /sis/admin/approvers but don't act on requests themselves (KD #39 + #41).
   //
   // AY scope: nested `!inner` join via grading_sheet → section.academic_year_id.
   let query = service
@@ -54,13 +66,14 @@ export default async function AdminChangeRequestsPage({
        approved_at, rejection_undone_at,
        grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))`,
     )
-    .order('requested_at', { ascending: false });
+    .order('requested_at', { ascending: false })
+    .limit(500);
 
   if (currentAyId) {
     query = query.eq('grading_sheet.section.academic_year_id', currentAyId);
   }
 
-  if (canDecide) {
+  if (role === 'school_admin') {
     query = query.or(
       `primary_approver_id.eq.${sessionUser.id},secondary_approver_id.eq.${sessionUser.id},and(primary_approver_id.is.null,secondary_approver_id.is.null)`,
     );
@@ -70,13 +83,24 @@ export default async function AdminChangeRequestsPage({
 
   const rows = (rawRows ?? []) as AdminRequestRow[];
 
-  const counts = {
-    pending: rows.filter((r) => r.status === 'pending').length,
-    approved: rows.filter((r) => r.status === 'approved').length,
-    applied: rows.filter((r) => r.status === 'applied').length,
-    rejected: rows.filter((r) => r.status === 'rejected').length,
-    cancelled: rows.filter((r) => r.status === 'cancelled').length,
+  const counts: Record<ChangeRequestStatus, number> = {
+    pending: 0,
+    approved: 0,
+    applied: 0,
+    rejected: 0,
+    cancelled: 0,
   };
+  for (const r of rows) {
+    if (r.status in counts) counts[r.status] += 1;
+  }
+
+  const stripOrder: ChangeRequestStatus[] = [
+    'pending',
+    'approved',
+    'applied',
+    'rejected',
+    'cancelled',
+  ];
 
   return (
     <PageShell>
@@ -94,12 +118,32 @@ export default async function AdminChangeRequestsPage({
         </p>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <StatCard label="Pending" value={counts.pending} emphasised />
-        <StatCard label="Approved" value={counts.approved} />
-        <StatCard label="Applied" value={counts.applied} />
-        <StatCard label="Declined" value={counts.rejected} />
-        <StatCard label="Cancelled" value={counts.cancelled} />
+      <div className="@container/main">
+        <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-5">
+          {stripOrder.map((status) => {
+            const cfg = CHANGE_REQUEST_STATUS_CONFIG[status];
+            const Icon = cfg.icon;
+            const label =
+              status === 'rejected' ? 'Declined' : status.charAt(0).toUpperCase() + status.slice(1);
+            return (
+              <Card key={status} className="@container/card">
+                <CardHeader>
+                  <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
+                    {label}
+                  </CardDescription>
+                  <CardTitle className="font-serif text-[32px] font-semibold leading-none tabular-nums text-foreground @[240px]/card:text-[38px]">
+                    {counts[status].toLocaleString('en-SG')}
+                  </CardTitle>
+                  <CardAction>
+                    <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
+                      <Icon className="size-4" />
+                    </div>
+                  </CardAction>
+                </CardHeader>
+              </Card>
+            );
+          })}
+        </div>
       </div>
 
       <ChangeRequestsDataTable
@@ -114,32 +158,5 @@ export default async function AdminChangeRequestsPage({
         }
       />
     </PageShell>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  emphasised = false,
-}: {
-  label: string;
-  value: number;
-  emphasised?: boolean;
-}) {
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-          {label}
-        </CardDescription>
-        <CardTitle
-          className={`font-serif text-[28px] font-semibold leading-none tabular-nums ${
-            emphasised && value > 0 ? 'text-primary' : 'text-foreground'
-          }`}
-        >
-          {value}
-        </CardTitle>
-      </CardHeader>
-    </Card>
   );
 }
