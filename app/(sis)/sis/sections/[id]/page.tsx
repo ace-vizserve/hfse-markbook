@@ -67,17 +67,45 @@ export default async function SisSectionDetailPage({
     .single();
   if (!section) notFound();
 
-  const { data: rows } = await supabase
-    .from('section_students')
-    .select(
-      'id, index_number, enrollment_status, student:students(id, student_number, last_name, first_name, middle_name)',
-    )
-    .eq('section_id', id)
-    .order('index_number', { ascending: true });
+  // Synchronous derivations from the already-resolved section row.
+  const level = (Array.isArray(section.level) ? section.level[0] : section.level) as LevelLite | null;
+  const ay = (Array.isArray(section.academic_year) ? section.academic_year[0] : section.academic_year) as
+    | { ay_code: string; label: string }
+    | null;
+
+  // Roster, subject configs, and sibling section list are all independent
+  // of each other — run in parallel after section resolves.
+  const [{ data: rows }, { data: configs }, { data: rawSibRows }] = await Promise.all([
+    supabase
+      .from('section_students')
+      .select(
+        'id, index_number, enrollment_status, bus_no, classroom_officer_role, student:students(id, student_number, last_name, first_name, middle_name)',
+      )
+      .eq('section_id', id)
+      .order('index_number', { ascending: true }),
+    level
+      ? supabase
+          .from('subject_configs')
+          .select('subject:subjects(id, code, name, is_examinable)')
+          .eq('academic_year_id', section.academic_year_id)
+          .eq('level_id', level.id)
+      : Promise.resolve({ data: [] as unknown[] }),
+    level && ay
+      ? supabase
+          .from('sections')
+          .select('id, name')
+          .eq('academic_year_id', section.academic_year_id)
+          .eq('level_id', level.id)
+          .neq('id', id)
+      : Promise.resolve({ data: [] as unknown[] }),
+  ]);
+
   type RosterFetchRow = {
     id: string;
     index_number: number;
     enrollment_status: 'active' | 'late_enrollee' | 'withdrawn';
+    bus_no: string | null;
+    classroom_officer_role: string | null;
     student:
       | { id: string; student_number: string; last_name: string; first_name: string; middle_name: string | null }
       | { id: string; student_number: string; last_name: string; first_name: string; middle_name: string | null }[]
@@ -89,62 +117,39 @@ export default async function SisSectionDetailPage({
   const withdrawnCount = enrolments.filter((e) => e.enrollment_status === 'withdrawn').length;
   const onRosterCount = activeCount + lateCount;
 
-  const level = (Array.isArray(section.level) ? section.level[0] : section.level) as LevelLite | null;
-  const ay = (Array.isArray(section.academic_year) ? section.academic_year[0] : section.academic_year) as
-    | { ay_code: string; label: string }
-    | null;
-
-  // Subjects enabled for this level × AY — drives the subject-teacher dropdown
-  // in the Teachers tab.
-  const { data: configs } = level
-    ? await supabase
-        .from('subject_configs')
-        .select('subject:subjects(id, code, name)')
-        .eq('academic_year_id', section.academic_year_id)
-        .eq('level_id', level.id)
-    : { data: [] };
   type CfgRow = {
     subject:
-      | { id: string; code: string; name: string }
-      | { id: string; code: string; name: string }[]
+      | { id: string; code: string; name: string; is_examinable: boolean }
+      | { id: string; code: string; name: string; is_examinable: boolean }[]
       | null;
   };
   const levelSubjects = ((configs ?? []) as CfgRow[])
     .map((c) => (Array.isArray(c.subject) ? c.subject[0] : c.subject))
-    .filter((s): s is { id: string; code: string; name: string } => !!s)
+    .filter(
+      (s): s is { id: string; code: string; name: string; is_examinable: boolean } => !!s,
+    )
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  // Sibling sections at the same level + AY for the Move dialog. Only used
-  // when this section has a level; sections without one can't be the target
-  // of a same-level transfer regardless. Active counts inform the capacity
-  // hint + disabled state in the dialog.
+  // Sibling active-count query is sequential — it depends on rawSibRows.
+  const sibList = (rawSibRows ?? []) as Array<{ id: string; name: string }>;
   let siblings: SiblingSection[] = [];
-  if (level && ay) {
-    const { data: sibRows } = await supabase
-      .from('sections')
-      .select('id, name')
-      .eq('academic_year_id', section.academic_year_id)
-      .eq('level_id', level.id)
-      .neq('id', id);
-    const sibList = (sibRows ?? []) as Array<{ id: string; name: string }>;
-    if (sibList.length > 0) {
-      const sibIds = sibList.map((s) => s.id);
-      const { data: countRows } = await supabase
-        .from('section_students')
-        .select('section_id')
-        .eq('enrollment_status', 'active')
-        .in('section_id', sibIds);
-      const counts = new Map<string, number>();
-      for (const r of (countRows ?? []) as Array<{ section_id: string }>) {
-        counts.set(r.section_id, (counts.get(r.section_id) ?? 0) + 1);
-      }
-      siblings = sibList
-        .map((s) => {
-          const c = counts.get(s.id) ?? 0;
-          return { id: s.id, name: s.name, activeCount: c, isAtCapacity: c >= MAX_PER_SECTION };
-        })
-        .sort((a, b) => a.name.localeCompare(b.name));
+  if (sibList.length > 0) {
+    const sibIds = sibList.map((s) => s.id);
+    const { data: countRows } = await supabase
+      .from('section_students')
+      .select('section_id')
+      .eq('enrollment_status', 'active')
+      .in('section_id', sibIds);
+    const counts = new Map<string, number>();
+    for (const r of (countRows ?? []) as Array<{ section_id: string }>) {
+      counts.set(r.section_id, (counts.get(r.section_id) ?? 0) + 1);
     }
+    siblings = sibList
+      .map((s) => {
+        const c = counts.get(s.id) ?? 0;
+        return { id: s.id, name: s.name, activeCount: c, isAtCapacity: c >= MAX_PER_SECTION };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
   }
 
   // Resolve enroleeNumber per active student in this AY's admissions roster
@@ -158,6 +163,8 @@ export default async function SisSectionDetailPage({
         enrolmentId: r.id,
         indexNumber: r.index_number,
         status: r.enrollment_status,
+        bus_no: r.bus_no,
+        classroom_officer_role: r.classroom_officer_role,
         student_number: s.student_number,
         last_name: s.last_name,
         first_name: s.first_name,
@@ -194,6 +201,8 @@ export default async function SisSectionDetailPage({
     studentNumber: s.student_number,
     enroleeNumber: enroleeByStudentNumber.get(s.student_number) ?? null,
     enrollmentStatus: s.status,
+    busNo: s.bus_no,
+    classroomOfficerRole: s.classroom_officer_role,
   }));
 
   return (
@@ -308,6 +317,7 @@ export default async function SisSectionDetailPage({
                 rows={rosterRows}
                 ayCode={ay.ay_code}
                 sectionName={section.name}
+                sectionId={section.id}
                 siblings={siblings}
               />
             </div>

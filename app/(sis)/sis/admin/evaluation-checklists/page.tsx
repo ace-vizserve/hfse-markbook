@@ -6,16 +6,10 @@ import { Alert, AlertDescription, AlertIcon, AlertTitle } from "@/components/ui/
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { listChecklistItemsWithCreator } from "@/lib/evaluation/checklist";
 import { getSessionUser } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { ChecklistFilters } from "./filters-client";
 
 // SIS Admin · Evaluation checklist topics — read-only audit view.
 //
@@ -54,25 +48,27 @@ export default async function EvaluationChecklistsAdminPage({
     );
   }
 
-  const { data: termsRaw } = await service
-    .from("terms")
-    .select("id, label, term_number, is_current")
-    .eq("academic_year_id", ay.id)
-    .neq("term_number", 4)
-    .order("term_number", { ascending: true });
+  // Terms, subjects, and sections are all independent — fetch in parallel.
+  const [{ data: termsRaw }, { data: subjectsRaw }, { data: sectionsRaw }] = await Promise.all([
+    service
+      .from("terms")
+      .select("id, label, term_number, is_current")
+      .eq("academic_year_id", ay.id)
+      .neq("term_number", 4)
+      .order("term_number", { ascending: true }),
+    service.from("subjects").select("id, code, name").order("name"),
+    service
+      .from("sections")
+      .select("id, name, level:levels(id, label, code)")
+      .eq("academic_year_id", ay.id)
+      .order("name", { ascending: true }),
+  ]);
+
   type TermLite = { id: string; label: string; term_number: number; is_current: boolean };
   const terms = (termsRaw ?? []) as TermLite[];
 
-  const { data: subjectsRaw } = await service.from("subjects").select("id, code, name").order("name");
   type SubjectLite = { id: string; code: string; name: string };
   const subjects = (subjectsRaw ?? []) as SubjectLite[];
-
-  // Sections in the current AY — what the new section-scoped picker reads.
-  const { data: sectionsRaw } = await service
-    .from("sections")
-    .select("id, name, level:levels(id, label, code)")
-    .eq("academic_year_id", ay.id)
-    .order("name", { ascending: true });
   type SectionLite = {
     id: string;
     name: string;
@@ -97,17 +93,17 @@ export default async function EvaluationChecklistsAdminPage({
   const selectedSubject = subjects.find((s) => s.id === selectedSubjectId);
   const selectedTerm = terms.find((t) => t.id === selectedTermId);
 
-  // Build query-string preserving the other axes for each filter link.
-  function buildHref(next: Partial<{ term_id: string; subject_id: string; section_id: string }>) {
-    const params = new URLSearchParams();
-    const term_id = next.term_id ?? selectedTermId;
-    const subject_id = next.subject_id ?? selectedSubjectId;
-    const section_id = next.section_id ?? selectedSectionId;
-    if (term_id) params.set("term_id", term_id);
-    if (subject_id) params.set("subject_id", subject_id);
-    if (section_id) params.set("section_id", section_id);
-    return `?${params.toString()}`;
-  }
+  const termOptions = terms.map((t) => ({ id: t.id, label: t.label }));
+  const subjectOptions = subjects.map((s) => ({
+    id: s.id,
+    label: s.name,
+    subLabel: s.code,
+  }));
+  const sectionOptions = sections.map((s) => ({
+    id: s.id,
+    label: s.name,
+    subLabel: s.levelLabel,
+  }));
 
   return (
     <PageShell>
@@ -159,72 +155,14 @@ export default async function EvaluationChecklistsAdminPage({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Three-axis picker (term × subject × section) */}
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="space-y-1.5">
-              <label className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Term
-              </label>
-              <Select value={selectedTermId}>
-                <SelectTrigger className="h-9 w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {terms.map((t) => (
-                    <SelectItem key={t.id} value={t.id} asChild>
-                      <Link href={buildHref({ term_id: t.id })}>{t.label}</Link>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Subject
-              </label>
-              <Select value={selectedSubjectId}>
-                <SelectTrigger className="h-9 w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {subjects.map((s) => (
-                    <SelectItem key={s.id} value={s.id} asChild>
-                      <Link href={buildHref({ subject_id: s.id })}>
-                        {s.name}
-                        <span className="ml-1 font-mono text-[10px] text-muted-foreground">
-                          {s.code}
-                        </span>
-                      </Link>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Section
-              </label>
-              <Select value={selectedSectionId}>
-                <SelectTrigger className="h-9 w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {sections.map((s) => (
-                    <SelectItem key={s.id} value={s.id} asChild>
-                      <Link href={buildHref({ section_id: s.id })}>
-                        {s.name}
-                        {s.levelLabel && (
-                          <span className="ml-1 font-mono text-[10px] text-muted-foreground">
-                            {s.levelLabel}
-                          </span>
-                        )}
-                      </Link>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <ChecklistFilters
+            termOptions={termOptions}
+            subjectOptions={subjectOptions}
+            sectionOptions={sectionOptions}
+            selectedTermId={selectedTermId}
+            selectedSubjectId={selectedSubjectId}
+            selectedSectionId={selectedSectionId}
+          />
 
           {/* Read-only list */}
           {items.length === 0 ? (
