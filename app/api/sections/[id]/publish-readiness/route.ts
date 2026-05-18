@@ -31,15 +31,21 @@ export async function GET(
   }
   const isT4 = term.term_number === 4;
 
-  // 2) Active students in this section
-  const { data: enrolments } = await service
-    .from('section_students')
-    .select(
-      'id, index_number, enrollment_status, student:students(id, student_number, last_name, first_name)',
-    )
-    .eq('section_id', sectionId)
-    .in('enrollment_status', ['active', 'late_enrollee'])
-    .order('index_number');
+  // 2+3) Active students and grading sheets are independent — fetch in parallel.
+  const [{ data: enrolments }, { data: sheets }] = await Promise.all([
+    service
+      .from('section_students')
+      .select('id, index_number, enrollment_status, student:students(id, student_number, last_name, first_name)')
+      .eq('section_id', sectionId)
+      .in('enrollment_status', ['active', 'late_enrollee'])
+      .order('index_number'),
+    service
+      .from('grading_sheets')
+      .select('id, is_locked, subject:subjects(id, name)')
+      .eq('section_id', sectionId)
+      .eq('term_id', termId),
+  ]);
+
   const activeStudents = (enrolments ?? []).map((e) => {
     const s = Array.isArray(e.student) ? e.student[0] : e.student;
     return {
@@ -49,36 +55,34 @@ export async function GET(
       name: s ? `${s.last_name}, ${s.first_name}` : '(unknown)',
     };
   });
-
-  // 3) Grading sheets for this section + term — check locked status
-  const { data: sheets } = await service
-    .from('grading_sheets')
-    .select('id, is_locked, subject:subjects(id, name)')
-    .eq('section_id', sectionId)
-    .eq('term_id', termId);
   const sheetList = (sheets ?? []).map((sh) => {
     const subj = Array.isArray(sh.subject) ? sh.subject[0] : sh.subject;
-    return {
-      id: sh.id,
-      is_locked: sh.is_locked,
-      subject_name: subj?.name ?? '(unknown)',
-    };
+    return { id: sh.id, is_locked: sh.is_locked, subject_name: subj?.name ?? '(unknown)' };
   });
   const unlockedSheets = sheetList.filter((s) => !s.is_locked);
 
-  // 4) Evaluation write-ups for this section + term (KD #49). Sole source
-  // for the adviser-comment readiness check since migration 024 retired
-  // `report_card_comments`. Three states: submitted, drafted (non-empty
-  // text but not submitted), missing (no row OR empty text).
+  // 4+5) Write-ups and attendance both depend on activeStudents — fetch in parallel.
   const studentIds = activeStudents.map((s) => s.studentId).filter((id): id is string => !!id);
-  const { data: writeupRows } = studentIds.length > 0
-    ? await service
-        .from('evaluation_writeups')
-        .select('student_id, writeup, submitted')
-        .eq('term_id', termId)
-        .eq('section_id', sectionId)
-        .in('student_id', studentIds)
-    : { data: [] };
+  const sectionStudentIds = activeStudents.map((s) => s.sectionStudentId);
+
+  const [{ data: writeupRows }, { data: attendanceRows }] = await Promise.all([
+    studentIds.length > 0
+      ? service
+          .from('evaluation_writeups')
+          .select('student_id, writeup, submitted')
+          .eq('term_id', termId)
+          .eq('section_id', sectionId)
+          .in('student_id', studentIds)
+      : Promise.resolve({ data: [] as unknown[] }),
+    sectionStudentIds.length > 0
+      ? service
+          .from('attendance_records')
+          .select('section_student_id, school_days, days_present, days_late')
+          .eq('term_id', termId)
+          .in('section_student_id', sectionStudentIds)
+      : Promise.resolve({ data: [] as unknown[] }),
+  ]);
+
   type WriteupLite = { student_id: string; writeup: string | null; submitted: boolean };
   const writeupsByStudent = new Map<string, WriteupLite>(
     (writeupRows ?? []).map((w) => [(w as WriteupLite).student_id, w as WriteupLite]),
@@ -94,17 +98,11 @@ export async function GET(
   }).length;
   const draftedCount = activeStudents.length - missingEvaluations.length - submittedCount;
 
-  // 5) Attendance for this section + term
-  const sectionStudentIds = activeStudents.map((s) => s.sectionStudentId);
-  const { data: attendanceRows } = sectionStudentIds.length > 0
-    ? await service
-        .from('attendance_records')
-        .select('section_student_id, school_days, days_present, days_late')
-        .eq('term_id', termId)
-        .in('section_student_id', sectionStudentIds)
-    : { data: [] };
   const attendanceBySSId = new Map(
-    (attendanceRows ?? []).map((a) => [a.section_student_id, a]),
+    (attendanceRows ?? []).map((a) => {
+      const row = a as { section_student_id: string; school_days: number | null; days_present: number | null; days_late: number | null };
+      return [row.section_student_id, row];
+    }),
   );
   const missingAttendance = activeStudents.filter((s) => {
     const rec = attendanceBySSId.get(s.sectionStudentId);
@@ -121,11 +119,19 @@ export async function GET(
       .order('term_number');
     const termIds = (allTerms ?? []).map((t) => t.id);
 
-    const { data: allSheets } = await service
-      .from('grading_sheets')
-      .select('id, term_id, is_locked, subject:subjects(id, name)')
-      .eq('section_id', sectionId)
-      .in('term_id', termIds);
+    // allSheets and grade entries are both independent after termIds resolves.
+    const [{ data: allSheets }, { data: entries }] = await Promise.all([
+      service
+        .from('grading_sheets')
+        .select('id, term_id, is_locked, subject:subjects(id, name)')
+        .eq('section_id', sectionId)
+        .in('term_id', termIds),
+      service
+        .from('grade_entries')
+        .select('student_id, quarterly_grade, grading_sheet:grading_sheets!inner(id, term_id, subject:subjects!inner(id, name, is_examinable))')
+        .eq('grading_sheet.section_id', sectionId)
+        .in('grading_sheet.term_id', termIds),
+    ]);
 
     const unlockedByTerm: { term_number: number; subjects: string[] }[] = [];
     for (const t of allTerms ?? []) {
@@ -142,11 +148,6 @@ export async function GET(
     }
 
     // Check for missing quarterly grades across all 4 terms (examinable only)
-    const { data: entries } = await service
-      .from('grade_entries')
-      .select('student_id, quarterly_grade, grading_sheet:grading_sheets!inner(id, term_id, subject:subjects!inner(id, name, is_examinable))')
-      .eq('grading_sheet.section_id', sectionId)
-      .in('grading_sheet.term_id', termIds);
 
     // Build a map: student × subject → [t1_grade, t2_grade, t3_grade, t4_grade]
     const gradeMap = new Map<string, Map<string, (number | null)[]>>();

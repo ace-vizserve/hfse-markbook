@@ -32,6 +32,7 @@ export async function POST() {
     const inserts = plan.student_upserts.filter(u => u.kind === 'insert');
     const updates = plan.student_upserts.filter(u => u.kind === 'update');
 
+    const now = new Date().toISOString();
     if (inserts.length > 0) {
       const { error } = await service.from('students').insert(
         inserts.map(u => ({
@@ -43,16 +44,17 @@ export async function POST() {
       );
       if (error) throw new Error(`student insert failed: ${error.message}`);
     }
-    for (const u of updates) {
-      const { error } = await service
-        .from('students')
-        .update({
+    if (updates.length > 0) {
+      const { error } = await service.from('students').upsert(
+        updates.map(u => ({
+          id: u.existing_id!,
           last_name: u.last_name,
           first_name: u.first_name,
           middle_name: u.middle_name,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', u.existing_id!);
+          updated_at: now,
+        })),
+        { onConflict: 'id' },
+      );
       if (error) throw new Error(`student update failed: ${error.message}`);
     }
 
@@ -88,18 +90,39 @@ export async function POST() {
       if (error) throw new Error(`enrollment insert failed: ${error.message}`);
     }
 
-    // 4) Status changes (withdraw + reactivate)
-    for (const change of plan.enrollment_status_changes) {
-      const patch: Record<string, unknown> = { enrollment_status: change.to };
-      if (change.to === 'withdrawn') {
-        patch.withdrawal_date = new Date().toISOString().slice(0, 10);
-      }
-      const { error } = await service
-        .from('section_students')
-        .update(patch)
-        .eq('id', change.enrollment_id);
-      if (error) throw new Error(`enrollment status update failed: ${error.message}`);
+    // 4) Status changes — batch by change type to avoid N+1 updates.
+    const withdrawals = plan.enrollment_status_changes.filter(c => c.to === 'withdrawn');
+    const reactivations = plan.enrollment_status_changes.filter(c => c.to !== 'withdrawn');
+    const today = now.slice(0, 10);
+
+    const statusBatches: Promise<void>[] = [];
+    if (withdrawals.length > 0) {
+      statusBatches.push(
+        (async () => {
+          const { error } = await service
+            .from('section_students')
+            .upsert(
+              withdrawals.map(c => ({ id: c.enrollment_id, enrollment_status: 'withdrawn', withdrawal_date: today })),
+              { onConflict: 'id' },
+            );
+          if (error) throw new Error(`enrollment withdrawal failed: ${error.message}`);
+        })(),
+      );
     }
+    if (reactivations.length > 0) {
+      statusBatches.push(
+        (async () => {
+          const { error } = await service
+            .from('section_students')
+            .upsert(
+              reactivations.map(c => ({ id: c.enrollment_id, enrollment_status: c.to })),
+              { onConflict: 'id' },
+            );
+          if (error) throw new Error(`enrollment reactivation failed: ${error.message}`);
+        })(),
+      );
+    }
+    await Promise.all(statusBatches);
 
     await logAction({
       service,

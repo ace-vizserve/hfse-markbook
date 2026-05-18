@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowUpRight, UserCheck, UserMinus, Users } from 'lucide-rea
 
 import { createClient, getSessionUser } from '@/lib/supabase/server';
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
+import { getTeacherList } from '@/lib/auth/staff-list';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -73,9 +74,9 @@ export default async function SisSectionDetailPage({
     | { ay_code: string; label: string }
     | null;
 
-  // Roster, subject configs, and sibling section list are all independent
-  // of each other — run in parallel after section resolves.
-  const [{ data: rows }, { data: configs }, { data: rawSibRows }] = await Promise.all([
+  // Roster, subject configs, sibling section list, teacher list, and
+  // assignments are all independent after section resolves — run in parallel.
+  const [{ data: rows }, { data: configs }, { data: rawSibRows }, teacherList, { data: rawAssignments }] = await Promise.all([
     supabase
       .from('section_students')
       .select(
@@ -98,6 +99,11 @@ export default async function SisSectionDetailPage({
           .eq('level_id', level.id)
           .neq('id', id)
       : Promise.resolve({ data: [] as unknown[] }),
+    getTeacherList(),
+    supabase
+      .from('teacher_assignments')
+      .select('id, teacher_user_id, section_id, subject_id, role')
+      .eq('section_id', id),
   ]);
 
   type RosterFetchRow = {
@@ -129,6 +135,11 @@ export default async function SisSectionDetailPage({
       (s): s is { id: string; code: string; name: string; is_examinable: boolean } => !!s,
     )
     .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Map StaffMember.name → display_name to match the Teacher type in the component.
+  const initialTeachers = teacherList.map((t) => ({ id: t.id, email: t.email, display_name: t.name }));
+  type AssignmentRow = { id: string; teacher_user_id: string; section_id: string; subject_id: string | null; role: 'form_adviser' | 'subject_teacher' };
+  const initialAssignments = (rawAssignments ?? []) as AssignmentRow[];
 
   // Sibling active-count query is sequential — it depends on rawSibRows.
   const sibList = (rawSibRows ?? []) as Array<{ id: string; name: string }>;
@@ -351,7 +362,12 @@ export default async function SisSectionDetailPage({
         </TabsContent>
 
         <TabsContent value="teachers" className="mt-4">
-          <TeacherAssignmentsPanel sectionId={section.id} levelSubjects={levelSubjects} />
+          <TeacherAssignmentsPanel
+            sectionId={section.id}
+            levelSubjects={levelSubjects}
+            initialTeachers={initialTeachers}
+            initialAssignments={initialAssignments}
+          />
         </TabsContent>
       </Tabs>
     </PageShell>

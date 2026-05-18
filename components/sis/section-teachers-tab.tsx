@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Plus, Trash2, UserCheck, UserCog, Users } from 'lucide-react';
 import { toast } from 'sonner';
@@ -37,7 +37,23 @@ import {
 } from '@/components/ui/select';
 
 type Teacher = { id: string; email: string | null; display_name: string };
-type Subject = { id: string; code: string; name: string };
+type Subject = { id: string; code: string; name: string; is_examinable: boolean };
+
+// Small inline tag for the examinable / non-examinable axis (KD #95). Numeric
+// subjects use the WW+PT+QA pipeline; letter subjects skip the formula and
+// render an A/B/C/IP letter per term. The badge lets registrars see at a
+// glance which track a subject is on before assigning a teacher to it.
+function ExaminableBadge({ isExaminable }: { isExaminable: boolean }) {
+  return isExaminable ? (
+    <Badge variant="secondary" className="font-mono text-[10px] uppercase tracking-wider">
+      Exam
+    </Badge>
+  ) : (
+    <Badge variant="warning" className="font-mono text-[10px] uppercase tracking-wider">
+      Non-exam
+    </Badge>
+  );
+}
 type Assignment = {
   id: string;
   teacher_user_id: string;
@@ -53,14 +69,18 @@ type Assignment = {
 export function TeacherAssignmentsPanel({
   sectionId,
   levelSubjects,
+  initialTeachers,
+  initialAssignments,
 }: {
   sectionId: string;
   levelSubjects: Subject[];
+  initialTeachers: Teacher[];
+  initialAssignments: Assignment[];
 }) {
   const router = useRouter();
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [teachers, setTeachers] = useState<Teacher[]>(initialTeachers);
+  const [assignments, setAssignments] = useState<Assignment[]>(initialAssignments);
+  const [loading, setLoading] = useState(false);
 
   const [role, setRole] = useState<'form_adviser' | 'subject_teacher'>('subject_teacher');
   const [teacherId, setTeacherId] = useState('');
@@ -87,10 +107,6 @@ export function TeacherAssignmentsPanel({
       setLoading(false);
     }
   }
-
-  useEffect(() => {
-    load();
-  }, [sectionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function createAssignment() {
     if (!teacherId) {
@@ -257,6 +273,7 @@ export function TeacherAssignmentsPanel({
                         <span className="font-medium text-foreground">
                           {s?.name ?? '(unknown subject)'}
                         </span>
+                        {s && <ExaminableBadge isExaminable={s.is_examinable} />}
                       </div>
                       <div className="mt-0.5 text-xs text-muted-foreground">
                         {t?.display_name ?? '(unknown user)'}
@@ -338,7 +355,10 @@ export function TeacherAssignmentsPanel({
                   <SelectContent>
                     {levelSubjects.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
-                        {s.name}
+                        <span className="inline-flex items-center gap-2">
+                          <span>{s.name}</span>
+                          <ExaminableBadge isExaminable={s.is_examinable} />
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>

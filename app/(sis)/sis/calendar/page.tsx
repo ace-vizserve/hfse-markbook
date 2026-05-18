@@ -109,18 +109,19 @@ export default async function SisCalendarPage({
       });
     }
   }
-  const calendar = selectedTerm
-    ? await getSchoolCalendarForTerm(selectedTerm.id, audience)
-    : [];
-
-  const events = selectedTerm ? await getCalendarEventsForTerm(selectedTerm.id, audience) : [];
-
-  // Prior-AY entries for the "Copy from prior AY" affordance. Returns both
-  // school_calendar overrides AND calendar_events from the same term on the
-  // most recent prior real AY.
-  const priorEntries = ay && selectedTerm
-    ? await listPriorAyEntriesForCopy(ay.id, selectedTerm.term_number)
-    : { sourceAy: null, holidays: [], events: [] };
+  // Calendar rows, overlay events, and prior-AY copy entries are all
+  // independent after ensureTermSeeded completes — fetch in parallel.
+  const [calendar, events, priorEntries] = await Promise.all([
+    selectedTerm
+      ? getSchoolCalendarForTerm(selectedTerm.id, audience)
+      : Promise.resolve([]),
+    selectedTerm
+      ? getCalendarEventsForTerm(selectedTerm.id, audience)
+      : Promise.resolve([]),
+    ay && selectedTerm
+      ? listPriorAyEntriesForCopy(ay.id, selectedTerm.term_number)
+      : Promise.resolve({ sourceAy: null, holidays: [] as never[], events: [] as never[] }),
+  ]);
   const targetYear = selectedTerm?.start_date
     ? Number(selectedTerm.start_date.slice(0, 4))
     : new Date().getUTCFullYear();
