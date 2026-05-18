@@ -20,7 +20,9 @@ import { getSessionUser } from '@/lib/supabase/server';
 export default async function TemplateAdminPage() {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
-  if (sessionUser.role !== 'superadmin') redirect('/sis');
+  if (sessionUser.role !== 'superadmin' && sessionUser.role !== 'school_admin') {
+    redirect('/sis');
+  }
 
   const [templateSections, templateConfigs, subjects, levels, eligibleAys] = await Promise.all([
     listTemplateSections(),

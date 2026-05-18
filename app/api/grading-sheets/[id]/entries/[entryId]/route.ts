@@ -593,6 +593,9 @@ export async function PATCH(
 /**
  * Compares the registrar's typed value against the approved proposed value.
  * Score fields are numeric — coerce both sides to Number so '85' matches 85.0.
+ * ww_scores / pt_scores compare per-slot: each change request carries a
+ * single slot_index, proposedFromPayload returns the scalar at that slot,
+ * and the DB stores proposed_value as a scalar string. No array parsing.
  * Boolean is_na uses true/false equality across string + bool inputs.
  * letter_grade keeps strict string equality (case-sensitive — A vs a matters).
  */
@@ -608,15 +611,6 @@ function valuesMatch(
     fieldChanged === 'pt_scores' ||
     fieldChanged === 'qa_score'
   ) {
-    if (
-      fieldChanged === 'ww_scores' ||
-      fieldChanged === 'pt_scores'
-    ) {
-      const a = Array.isArray(typed) ? typed : tryParseArray(typed);
-      const b = Array.isArray(approved) ? approved : tryParseArray(approved);
-      if (!a || !b || a.length !== b.length) return false;
-      return a.every((v, i) => Number(v) === Number(b[i]));
-    }
     return Number(typed) === Number(approved);
   }
   if (fieldChanged === 'is_na') {
@@ -626,18 +620,6 @@ function valuesMatch(
   }
   // letter_grade and any other string field
   return String(typed) === String(approved);
-}
-
-function tryParseArray(v: unknown): unknown[] | null {
-  if (typeof v === 'string') {
-    try {
-      const parsed = JSON.parse(v);
-      return Array.isArray(parsed) ? parsed : null;
-    } catch {
-      return null;
-    }
-  }
-  return null;
 }
 
 // Builds the JSONB patch passed to apply_change_request_atomic. Only includes

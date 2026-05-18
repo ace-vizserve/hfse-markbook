@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { logAction } from '@/lib/audit/log-action';
 import { requireRole } from '@/lib/auth/require-role';
+import { ResidenceHistorySchema } from '@/lib/schemas/sis';
 import { createServiceClient } from '@/lib/supabase/service';
 import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 
@@ -20,7 +21,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ enroleeNumber: string }> },
 ) {
-  const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
+  // Per KD #74: admissions is the operational writer; school_admin is read-only oversight.
+  const auth = await requireRole(['admissions', 'registrar', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const { enroleeNumber } = await params;
@@ -34,31 +36,18 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid or missing ay query param' }, { status: 400 });
   }
 
-  const body = (await request.json().catch(() => null)) as
-    | { residenceHistory?: unknown }
-    | null;
-  if (!body || !('residenceHistory' in body)) {
+  const rawBody = await request.json().catch(() => null);
+  if (!rawBody || typeof rawBody !== 'object' || !('residenceHistory' in rawBody)) {
     return NextResponse.json({ error: 'Missing residenceHistory in body' }, { status: 400 });
   }
-  const next = body.residenceHistory;
-
-  // Allow null (clear) or an array of plain objects. Reject scalars / strings.
-  if (next !== null && !Array.isArray(next)) {
+  const parsed = ResidenceHistorySchema.safeParse((rawBody as Record<string, unknown>).residenceHistory);
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: 'residenceHistory must be a JSON array or null' },
+      { error: 'Invalid residenceHistory', details: parsed.error.flatten() },
       { status: 400 },
     );
   }
-  if (Array.isArray(next)) {
-    for (const entry of next) {
-      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
-        return NextResponse.json(
-          { error: 'Each residenceHistory entry must be an object' },
-          { status: 400 },
-        );
-      }
-    }
-  }
+  const next = parsed.data;
 
   const prefix = `ay${ayCode.replace(/^AY/i, '').toLowerCase()}`;
   const appsTable = `${prefix}_enrolment_applications`;

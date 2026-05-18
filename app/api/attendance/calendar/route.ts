@@ -126,6 +126,8 @@ export async function POST(request: NextRequest) {
       // re-written yet. Trigger will overwrite anyway.
       is_holiday: dayType !== 'school_day' && dayType !== 'hbl',
       label: e.label ?? null,
+      // hbl_overlay: only meaningful on school_holiday rows; ignored otherwise.
+      hbl_overlay: e.hblOverlay ?? false,
       created_by: auth.user.id,
     };
   });

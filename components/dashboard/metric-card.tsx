@@ -36,7 +36,7 @@ export type MetricIntent = 'default' | 'good' | 'bad' | 'warning';
 export type MetricCardProps = {
   label: string;
   value: string | number;
-  format?: 'number' | 'percent' | 'days' | 'currency' | 'raw';
+  format?: 'number' | 'percent' | 'days' | 'hours' | 'currency' | 'raw';
   currencySuffix?: string;
   delta?: Delta;
   deltaGoodWhen?: 'up' | 'down';
@@ -69,6 +69,12 @@ function formatValue(
       return `${value.toFixed(1)}%`;
     case 'days':
       return `${value.toFixed(1)}d`;
+    case 'hours':
+      return value < 1
+        ? `${Math.round(value * 60)}m`
+        : value >= 48
+          ? `${(value / 24).toFixed(1)}d`
+          : `${value.toFixed(1)}h`;
     case 'currency':
       return `${value.toLocaleString('en-SG')}${currencySuffix ? ` ${currencySuffix}` : ''}`;
     case 'raw':

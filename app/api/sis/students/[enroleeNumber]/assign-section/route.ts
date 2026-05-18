@@ -77,7 +77,7 @@ export async function POST(
       .maybeSingle(),
     admissions
       .from(`${prefix}_enrolment_status`)
-      .select('enroleeNumber, classLevel, classSection, applicationStatus')
+      .select('enroleeNumber, classLevel, classSection, classStatus, classUpdatedDate, classUpdatedBy, applicationStatus')
       .eq('enroleeNumber', enroleeNumber)
       .maybeSingle(),
   ]);
@@ -111,6 +111,9 @@ export async function POST(
     enroleeNumber: string;
     classLevel: string | null;
     classSection: string | null;
+    classStatus: string | null;
+    classUpdatedDate: string | null;
+    classUpdatedBy: string | null;
     applicationStatus: string | null;
   };
 
@@ -276,14 +279,15 @@ export async function POST(
     // roll back.
     let rollbackFailed = false;
     if (!resyncOnly) {
+      // Restore the exact pre-image captured before Step A, not hardcoded blanks.
       const { error: rollbackErr } = await admissions
         .from(`${prefix}_enrolment_status`)
         .update({
-          classSection: null,
-          classLevel: null,
-          classStatus: 'Pending',
-          classUpdatedDate: null,
-          classUpdatedBy: null,
+          classSection: statusRow.classSection,
+          classLevel: statusRow.classLevel,
+          classStatus: statusRow.classStatus,
+          classUpdatedDate: statusRow.classUpdatedDate,
+          classUpdatedBy: statusRow.classUpdatedBy,
         })
         .eq('enroleeNumber', enroleeNumber);
       if (rollbackErr) {

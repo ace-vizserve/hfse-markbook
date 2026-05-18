@@ -1,5 +1,7 @@
 'use client';
 
+import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import {
   CalendarClock,
   CheckCircle2,
@@ -9,6 +11,9 @@ import {
   Upload,
   XCircle,
 } from 'lucide-react';
+import { toast } from 'sonner';
+
+import { RejectDialog } from '@/components/p-files/document-validation/reject-dialog';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,8 +33,11 @@ type DocumentCardProps = {
   expiryDate?: string | null;
   expires: boolean;
   meta: SlotMeta | null;
+  ayCode: string;
   /** Whether the viewing role can upload / replace. Admin viewers read-only. */
   canWrite?: boolean;
+  /** Student full name — used in the reject-dialog description. */
+  studentName?: string;
   /** Parent / guardian emails on file — drives Notify dialog recipient list. */
   recipients?: { motherEmail: string | null; fatherEmail: string | null; guardianEmail: string | null };
   /** Latest reminder timestamp (ISO). Drives the "Reminded N days ago" badge. */
@@ -168,13 +176,65 @@ export function DocumentCard({
   expiryDate,
   expires,
   meta,
+  ayCode,
   canWrite = false,
+  studentName = '',
   recipients,
   lastReminderAt,
   activePromise,
 }: DocumentCardProps) {
+  const router = useRouter();
+  const [approving, setApproving] = React.useState(false);
+  const [rejectOpen, setRejectOpen] = React.useState(false);
+
   const hasFile = status !== 'missing' && status !== 'na';
   const canUpload = canWrite && status !== 'na';
+  const showValidate = canWrite && status === 'uploaded';
+  const showReclassify = canWrite && status === 'valid';
+
+  async function handleApprove() {
+    setApproving(true);
+    try {
+      const res = await fetch(
+        `/api/sis/students/${encodeURIComponent(enroleeNumber)}/document/${encodeURIComponent(slotKey)}?ay=${encodeURIComponent(ayCode)}`,
+        {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ status: 'Valid' }),
+        },
+      );
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(err.error ?? 'Could not approve the document.');
+        return;
+      }
+      toast.success(`${label} approved.`);
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not approve the document.');
+    } finally {
+      setApproving(false);
+    }
+  }
+
+  async function handleReject(reason: string) {
+    const res = await fetch(
+      `/api/sis/students/${encodeURIComponent(enroleeNumber)}/document/${encodeURIComponent(slotKey)}?ay=${encodeURIComponent(ayCode)}`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: 'Rejected', rejectionReason: reason }),
+      },
+    );
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { error?: string };
+      toast.error(err.error ?? 'Could not reject the document.');
+      return;
+    }
+    toast.success(`${label} rejected.`);
+    setRejectOpen(false);
+    router.refresh();
+  }
   const reminderText = reminderBadgeText(lastReminderAt);
   const promiseText = promiseBadgeText(activePromise?.promisedUntil);
   const showNotify =
@@ -239,6 +299,26 @@ export function DocumentCard({
 
       {/* ── Action row ─────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-1.5">
+        {showValidate && (
+          <>
+            <Button
+              size="sm"
+              variant="default"
+              disabled={approving}
+              onClick={() => void handleApprove()}
+            >
+              {approving ? 'Approving…' : 'Approve'}
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={approving}
+              onClick={() => setRejectOpen(true)}
+            >
+              Reject
+            </Button>
+          </>
+        )}
         {showNotify && recipients && (
           <NotifyDialog
             enroleeNumber={enroleeNumber}
@@ -269,6 +349,16 @@ export function DocumentCard({
             </a>
           </Button>
         )}
+        {showReclassify && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs text-destructive hover:border-destructive/50 hover:bg-destructive/5 hover:text-destructive"
+            onClick={() => setRejectOpen(true)}
+          >
+            Mark as rejected
+          </Button>
+        )}
         {hasFile && (
           <HistoryDialog
             enroleeNumber={enroleeNumber}
@@ -287,6 +377,16 @@ export function DocumentCard({
           />
         )}
       </div>
+
+      {(showValidate || showReclassify) && (
+        <RejectDialog
+          open={rejectOpen}
+          onOpenChange={setRejectOpen}
+          slotLabel={label}
+          studentName={studentName}
+          onConfirm={handleReject}
+        />
+      )}
     </div>
   );
 }

@@ -14,7 +14,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 //   - 409 when a config for this (subject × level) already exists
 // Same percent → numeric(4,2) conversion as the existing PATCH route.
 export async function POST(request: NextRequest) {
-  const auth = await requireRole(['superadmin']);
+  const auth = await requireRole(['school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const body = await request.json().catch(() => null);

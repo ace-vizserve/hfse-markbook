@@ -312,7 +312,6 @@ export type PFilesRangeKpis = {
    *  its own MetricCard alongside the 60-day figure (Phase 2B subtractive
    *  rebuild dropped the prior "Pending review" KPI). */
   expiringSoon30: number;
-  pendingReview: number;
   totalDocuments: number;
 };
 
@@ -341,7 +340,6 @@ async function loadPFilesKpisForRange(input: RangeInput): Promise<PFilesRangeKpi
       revisionsInRange: 0,
       expiringSoon: 0,
       expiringSoon30: 0,
-      pendingReview: 0,
       totalDocuments: 0,
     };
   }
@@ -381,28 +379,16 @@ async function loadPFilesKpisForRange(input: RangeInput): Promise<PFilesRangeKpi
 
   let expiringSoon = 0;
   let expiringSoon30 = 0;
-  let pending = 0;
   let total = 0;
 
-  // Use the same resolveStatus helper that powers getCompletionByLevel and
-  // getSlotStatusMix so the KPI counts agree with what the drills + table
-  // show. Comparing raw `status === 'pending'` against the DB's PascalCase
-  // values ('Uploaded', 'Pending', etc.) was the previous bug — the strings
-  // never matched and the KPI cards showed 0.
   for (const row of docs) {
     for (const slot of DOCUMENT_SLOTS) {
-      const url = row[slot.key];
-      const rawStatus = row[`${slot.key}Status`];
-      const expiry = slot.expires ? row[`${slot.key}Expiry`] : null;
-      const status = resolveStatus(url, rawStatus, expiry, slot.expires);
-      // Skip slots that are entirely absent (no URL, no status) — these
-      // would resolve to 'missing' but they're not "tracked" yet, so leave
-      // them out of the totalDocuments tally.
-      if (!url && !rawStatus) continue;
+      // Every slot counts toward total — missing slots (null url + null status)
+      // are still "tracked" slots that the student needs to fill.
       total += 1;
-      if (status === 'uploaded') pending += 1;
-      if (slot.expires && expiry) {
-        const exp = parseLocalDate(expiry);
+      if (slot.expires && row[`${slot.key}Status`] === 'Valid') {
+        const expiry = row[`${slot.key}Expiry`];
+        const exp = expiry ? parseLocalDate(expiry) : null;
         if (exp && exp >= endDate && exp <= sixtyDaysOut) expiringSoon += 1;
         if (exp && exp >= endDate && exp <= thirtyDaysOut) expiringSoon30 += 1;
       }
@@ -413,7 +399,6 @@ async function loadPFilesKpisForRange(input: RangeInput): Promise<PFilesRangeKpi
     revisionsInRange: revRes.count ?? 0,
     expiringSoon,
     expiringSoon30,
-    pendingReview: pending,
     totalDocuments: total,
   };
 }
@@ -626,7 +611,11 @@ async function loadRevisionsHeatmapUncached(
 
   const buckets = new Map<string, number>();
   for (const r of (data ?? []) as { replaced_at: string }[]) {
-    const day = r.replaced_at.slice(0, 10);
+    // Use Singapore-local date (+08:00) so the heatmap aligns with
+    // revisionsOverTime which also buckets in Singapore time.
+    const d = new Date(r.replaced_at);
+    const sgDate = new Date(d.getTime() + 8 * 60 * 60 * 1000);
+    const day = sgDate.toISOString().slice(0, 10);
     buckets.set(day, (buckets.get(day) ?? 0) + 1);
   }
 
@@ -665,8 +654,9 @@ export type PFilesPriorityInput = {
 export async function getPFilesPriority(
   input: PFilesPriorityInput,
 ): Promise<PriorityPayload> {
-  // Pull a few more than we'll display so we have headroom for the chips.
-  const expiring = await getExpiringDocuments(input.ayCode, 60, 12);
+  // Pull all items so totals (overdue + dueSoon) are honest.
+  // The display is capped to 4 chips below; the tail goes into the CTA count.
+  const expiring = await getExpiringDocuments(input.ayCode, 60, 10_000);
 
   const overdue = expiring.filter((r) => r.daysUntilExpiry < 0);
   const dueSoon = expiring.filter(

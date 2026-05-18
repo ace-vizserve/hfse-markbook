@@ -32,16 +32,14 @@ export function SlotStatusDrillCard({
   ayCode,
 }: CommonProps & { slotMix: SlotStatusMix }) {
   const [status, setStatus] = React.useState<string | null>(null);
-  // Renewal-only donut (Phase 2B): On file (Valid) vs Expired. Pending +
-  // Rejected slices belong on the admissions dashboard. `slotMix.missing`
-  // already lumps Expired + Missing together via the dashboard switch in
-  // lib/p-files/dashboard.ts — for enrolled-only data the Missing share is
-  // effectively all Expired.
+  // Renewal-only donut (KD #71): On file (Valid) vs Expired. The centre
+  // shows total tracked slots so it reconciles with per-student completeness.
   const slices = [
     { name: 'On file', value: slotMix.valid },
     { name: 'Expired', value: slotMix.missing },
   ];
-  const total = slotMix.valid + slotMix.missing;
+  // All statuses count toward "tracked" — aligns denominator with 13-slot universe.
+  const total = slotMix.valid + slotMix.missing + slotMix.pending + slotMix.rejected;
   return (
     <Sheet open={!!status} onOpenChange={(o) => !o && setStatus(null)}>
       <Card>
@@ -55,9 +53,17 @@ export function SlotStatusDrillCard({
           <DonutChart
             data={slices}
             centerValue={total}
-            centerLabel="Total"
+            centerLabel="tracked"
             onSegmentClick={setStatus}
           />
+          {total > 0 && (
+            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-[10px] tabular-nums text-muted-foreground">
+              <dt>On file</dt><dd className="text-right">{slotMix.valid}</dd>
+              <dt>Expired / missing</dt><dd className="text-right">{slotMix.missing}</dd>
+              <dt>Awaiting validation</dt><dd className="text-right">{slotMix.pending}</dd>
+              <dt>Rejected</dt><dd className="text-right">{slotMix.rejected}</dd>
+            </dl>
+          )}
         </CardContent>
       </Card>
       {status && (
@@ -97,7 +103,7 @@ export function CompletionByLevelDrillCard({
 // This wrapper just adds an Export CSV button above the existing table.
 
 export function CompletenessCsvButton({ ayCode }: CommonProps) {
-  const csvHref = `/api/p-files/drill/all-docs?ay=${ayCode}&scope=ay&format=csv`;
+  const csvHref = `/api/p-files/drill/all-docs?ay=${ayCode}&format=csv`;
   return (
     <div className="flex justify-end">
       <Button asChild variant="outline" size="sm">

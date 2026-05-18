@@ -1,3 +1,6 @@
+// Currently unused — will be revived alongside the populated seeder rewrite.
+// Do not call until section_students / grades / attendance are seeded again.
+
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { hashString, mulberry32 } from './random';

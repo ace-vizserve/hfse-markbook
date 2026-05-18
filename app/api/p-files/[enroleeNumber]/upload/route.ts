@@ -1,3 +1,4 @@
+import { revalidateTag } from 'next/cache';
 import { NextResponse, type NextRequest } from 'next/server';
 import PDFMerger from 'pdf-merger-js';
 import { requireRole } from '@/lib/auth/require-role';
@@ -365,6 +366,7 @@ export async function POST(
     },
   });
 
+  revalidateTag(`sis:${ayCode}`, 'max');
   invalidateDrillTags('p-files', ayCode);
 
   return NextResponse.json({ ok: true, url: publicUrl, replaced: didReplace });

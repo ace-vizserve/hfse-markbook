@@ -10,7 +10,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 // the admin clicks "Propagate to AYs" on /sis/admin/template (which calls
 // /api/sis/admin/template/apply).
 export async function POST(request: NextRequest) {
-  const auth = await requireRole(['superadmin']);
+  const auth = await requireRole(['school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const body = await request.json().catch(() => null);

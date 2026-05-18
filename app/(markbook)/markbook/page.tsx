@@ -43,6 +43,7 @@ import {
 import { PageShell } from "@/components/ui/page-shell";
 import { getCurrentAcademicYear, listAyCodes } from "@/lib/academic-year";
 import { getRoleFromClaims } from "@/lib/auth/roles";
+import { isUserAssignedApprover } from "@/lib/sis/approvers/queries";
 import { markbookInsights } from "@/lib/dashboard/insights";
 import { formatRangeLabel, resolveRange, TERM_SCOPED_PRESETS, type DashboardSearchParams } from "@/lib/dashboard/range";
 import { getDashboardWindows } from "@/lib/dashboard/windows";
@@ -158,12 +159,35 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
     ayId
       ? service
           .from("terms")
-          .select("term_number")
+          .select("term_number, is_current, start_date, end_date")
           .eq("academic_year_id", ayId)
-          .order("term_number", { ascending: false })
-          .limit(1)
-          .maybeSingle()
-          .then((r) => (r.data?.term_number as number | undefined) ?? null)
+          .order("term_number", { ascending: true })
+          .then((r) => {
+            type TermRow = {
+              term_number: number;
+              is_current: boolean | null;
+              start_date: string | null;
+              end_date: string | null;
+            };
+            const rows = (r.data ?? []) as TermRow[];
+            if (rows.length === 0) return null;
+            const today = new Date().toISOString().slice(0, 10);
+            const current = rows.find((t) => t.is_current === true);
+            const containingToday = rows.find(
+              (t) => t.start_date && t.end_date && t.start_date <= today && t.end_date >= today,
+            );
+            const lastFinished = [...rows]
+              .filter((t) => t.end_date && t.end_date < today)
+              .sort((a, b) => (a.end_date! < b.end_date! ? 1 : -1))[0];
+            const fallback = rows[rows.length - 1];
+            return (
+              current?.term_number ??
+              containingToday?.term_number ??
+              lastFinished?.term_number ??
+              fallback?.term_number ??
+              null
+            );
+          })
       : Promise.resolve(null),
     canSeeAdmin && ayCode
       ? buildAllRowSets({ ayCode, from: rangeInput.from, to: rangeInput.to })
@@ -188,11 +212,19 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
     isTeacher && userId && ayCode
       ? getMarkbookTeacherPriority({ ayCode, teacherUserId: userId })
       : Promise.resolve(null),
-    canSeeAdmin && ayCode && kpisResult
-      ? getMarkbookRegistrarPriority({
-          ayCode,
-          changeRequestsPending: kpisResult.current.changeRequestsPending,
-        })
+    canSeeAdmin && ayCode && kpisResult && userId
+      ? (role === "superadmin"
+          ? Promise.resolve(true)
+          : isUserAssignedApprover(userId, "markbook.change_request")
+        ).then((canActOnChangeRequests) =>
+          getMarkbookRegistrarPriority({
+            ayCode,
+            changeRequestsPending: kpisResult.current.changeRequestsPending,
+            from: rangeInput.from,
+            to: rangeInput.to,
+            canActOnChangeRequests,
+          }),
+        )
       : Promise.resolve(null),
   ]);
 
@@ -307,12 +339,12 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
           <MetricCard
             label="Avg decision time"
             value={kpisResult.current.avgDecisionHours ?? "—"}
-            format="days"
+            format="hours"
             icon={Clock}
             intent="default"
             subtext={
               kpisResult.comparison?.avgDecisionHours != null
-                ? `${kpisResult.comparison.avgDecisionHours.toFixed(1)}d prior`
+                ? `${kpisResult.comparison.avgDecisionHours.toFixed(1)}h prior`
                 : kpisResult.comparison
                   ? "No prior decisions"
                   : undefined
@@ -320,6 +352,7 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
             drillSheet={() => (
               <MarkbookDrillSheet
                 target="change-requests"
+                segment="decided"
                 ayCode={ayCode}
                 initialFrom={rangeInput.from}
                 initialTo={rangeInput.to}

@@ -116,7 +116,7 @@ const DAY_TYPE_STYLES: Record<DayType, { cell: string; chip: string; blurb: stri
   school_holiday: {
     cell: "bg-brand-amber/35 text-ink font-semibold shadow-[inset_0_0_0_1px_rgba(245,158,11,0.55)] hover:bg-brand-amber/45",
     chip: "bg-gradient-to-b from-brand-amber to-brand-amber/80 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]",
-    blurb: "School-only closure (staff PD, founder’s day). No attendance taken.",
+    blurb: "School-only closure (marking days, staff PD). No attendance by default — enable the HBL overlay below if teachers take attendance.",
   },
   hbl: {
     cell: "bg-primary/30 text-ink font-semibold shadow-[inset_0_0_0_1px_rgba(79,70,229,0.4)] hover:bg-primary/40",
@@ -319,7 +319,7 @@ export function CalendarAdminClient({
     }
   }
 
-  async function upsertDate(iso: string, dayType: DayType, label: string | null) {
+  async function upsertDate(iso: string, dayType: DayType, label: string | null, hblOverlay = false) {
     if (!selectedTerm) return;
     setBusy(true);
     try {
@@ -329,7 +329,7 @@ export function CalendarAdminClient({
         body: JSON.stringify({
           termId: selectedTerm.id,
           audience,
-          entries: [{ date: iso, dayType, label }],
+          entries: [{ date: iso, dayType, label, hblOverlay }],
         }),
       });
       const body = await res.json();
@@ -565,6 +565,12 @@ export function CalendarAdminClient({
           <ChartLegendChip color="very-stale" label="Public holiday" />
           <ChartLegendChip color="stale" label="School holiday" />
           <ChartLegendChip color="primary" label="HBL" />
+          <div className="flex items-center gap-1">
+            <ChartLegendChip color="stale" label="School holiday" />
+            <span className="font-mono text-[9px] text-muted-foreground">+</span>
+            <ChartLegendChip color="primary" label="HBL" />
+            <span className="font-mono text-[9px] text-muted-foreground">= HBL overlay</span>
+          </div>
           <ChartLegendChip color="neutral" label="No class" />
           <ChartLegendChip color="chart-4" label="Important date" />
         </div>
@@ -629,13 +635,14 @@ export function CalendarAdminClient({
         iso={dateDialogIso}
         audience={audience}
         currentDayType={dateDialogType}
+        currentHblOverlay={dateDialogEntry?.hblOverlay ?? false}
         currentRowAudience={dateDialogEntry?.audience ?? "all"}
         existingLabel={dateDialogEntry?.label ?? null}
         eventsOnDate={dateDialogIso ? eventsOnDate(dateDialogIso) : []}
         busy={busy}
         onClose={() => setDateDialogIso(null)}
-        onSaveDayType={async (iso, dayType, label) => {
-          await upsertDate(iso, dayType, label);
+        onSaveDayType={async (iso, dayType, label, hblOverlay) => {
+          await upsertDate(iso, dayType, label, hblOverlay);
           setDateDialogIso(null);
         }}
         onAddImportantDate={async (iso, label, category, eventAudience, tentative) => {
@@ -813,6 +820,15 @@ function MonthView({
     });
     return m;
   }, [daysByType]);
+
+  // Dates that are school_holiday + hbl_overlay — show a secondary HBL chip.
+  const hblOverlayIsoSet = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of calendar) {
+      if (r.hblOverlay && r.dayType === "school_holiday") s.add(r.date);
+    }
+    return s;
+  }, [calendar]);
 
   // Audience-specific row markers (corner badges on cells). Only meaningful
   // when the filter is 'all' — otherwise the audience filter has already
@@ -1099,6 +1115,13 @@ function MonthView({
                         className="flex w-full justify-center"
                       />
                     )}
+                    {hblOverlayIsoSet.has(cell.iso) && (
+                      <ChartLegendChip
+                        color="primary"
+                        label="HBL"
+                        className="flex w-full justify-center"
+                      />
+                    )}
                     {dayEvents.slice(0, 3).map((evt) => (
                       <EventChip key={evt.id} event={evt} />
                     ))}
@@ -1209,6 +1232,15 @@ function TermStripView({
     });
     return m;
   }, [daysByType]);
+
+  // Dates that are school_holiday + hbl_overlay — show a secondary HBL chip.
+  const hblOverlayIsoSet = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of calendar) {
+      if (r.hblOverlay && r.dayType === "school_holiday") s.add(r.date);
+    }
+    return s;
+  }, [calendar]);
 
   const eventIsoSet = useMemo(() => {
     const s = new Set<string>();
@@ -1392,6 +1424,13 @@ function TermStripView({
                           className="flex w-full justify-center"
                         />
                       )}
+                      {hblOverlayIsoSet.has(d.iso) && (
+                        <ChartLegendChip
+                          color="primary"
+                          label="HBL"
+                          className="flex w-full justify-center"
+                        />
+                      )}
                       {dayEvents.slice(0, 2).map((evt) => (
                         <EventChip key={evt.id} event={evt} />
                       ))}
@@ -1419,6 +1458,7 @@ function DateActionDialog({
   iso,
   audience,
   currentDayType,
+  currentHblOverlay,
   currentRowAudience,
   existingLabel,
   eventsOnDate,
@@ -1432,12 +1472,13 @@ function DateActionDialog({
   iso: string | null;
   audience: Audience;
   currentDayType: DayType;
+  currentHblOverlay: boolean;
   currentRowAudience: Audience;
   existingLabel: string | null;
   eventsOnDate: CalendarEventRow[];
   busy: boolean;
   onClose: () => void;
-  onSaveDayType: (iso: string, dayType: DayType, label: string | null) => Promise<void>;
+  onSaveDayType: (iso: string, dayType: DayType, label: string | null, hblOverlay: boolean) => Promise<void>;
   onAddImportantDate: (
     iso: string,
     label: string,
@@ -1449,18 +1490,20 @@ function DateActionDialog({
 }) {
   const [mode, setMode] = useState<InputMode>("view");
   const [pickedType, setPickedType] = useState<DayType>(currentDayType);
+  const [hblOverlay, setHblOverlay] = useState(currentHblOverlay);
   const [labelInput, setLabelInput] = useState(existingLabel ?? "");
   const [eventLabelInput, setEventLabelInput] = useState("");
   const [eventCategory, setEventCategory] = useState<EventCategory>("other");
   const [eventTentative, setEventTentative] = useState(false);
 
   // Reset local state when the dialog opens for a new date.
-  const key = `${iso}-${currentDayType}-${existingLabel ?? ""}`;
+  const key = `${iso}-${currentDayType}-${currentHblOverlay}-${existingLabel ?? ""}`;
   const [initKey, setInitKey] = useState<string | null>(null);
   if (open && initKey !== key) {
     setInitKey(key);
     setMode("view");
     setPickedType(currentDayType);
+    setHblOverlay(currentHblOverlay);
     setLabelInput(existingLabel ?? "");
     setEventLabelInput("");
     setEventCategory("other");
@@ -1470,7 +1513,10 @@ function DateActionDialog({
 
   if (!iso) return null;
 
-  const dirty = pickedType !== currentDayType || labelInput.trim() !== (existingLabel ?? "").trim();
+  const dirty =
+    pickedType !== currentDayType ||
+    labelInput.trim() !== (existingLabel ?? "").trim() ||
+    (pickedType === "school_holiday" && hblOverlay !== currentHblOverlay);
   // Show "Reset to All" only when:
   //  - filter is primary or secondary (we're editing an override-scope row), AND
   //  - the visible row IS an override (currentRowAudience !== 'all').
@@ -1479,12 +1525,17 @@ function DateActionDialog({
   async function saveDayType() {
     if (!iso) return;
     const label = labelInput.trim();
+    const effectiveHblOverlay = pickedType === "school_holiday" ? hblOverlay : false;
     // For encodable types an empty label is fine; for holidays default to the
     // type label so the attendance sheet header always reads something.
     const resolvedLabel =
-      label.length > 0 ? label : isEncodableDayType(pickedType) ? null : DAY_TYPE_LABELS[pickedType];
+      label.length > 0
+        ? label
+        : isEncodableDayType(pickedType, effectiveHblOverlay)
+          ? null
+          : DAY_TYPE_LABELS[pickedType];
     try {
-      await onSaveDayType(iso, pickedType, resolvedLabel);
+      await onSaveDayType(iso, pickedType, resolvedLabel, effectiveHblOverlay);
     } catch {
       // toast raised by parent
     }
@@ -1558,6 +1609,9 @@ function DateActionDialog({
                     const style = DAY_TYPE_STYLES[dt];
                     const selected = pickedType === dt;
                     const id = `day-type-${dt}`;
+                    const encodable =
+                      isEncodableDayType(dt) ||
+                      (dt === "school_holiday" && pickedType === "school_holiday" && hblOverlay);
                     return (
                       <label
                         key={dt}
@@ -1574,7 +1628,7 @@ function DateActionDialog({
                               className={`inline-flex items-center rounded-sm px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.14em] ${style.chip}`}>
                               {DAY_TYPE_LABELS[dt]}
                             </span>
-                            {isEncodableDayType(dt) && (
+                            {encodable && (
                               <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-primary">
                                 attendance taken
                               </span>
@@ -1587,6 +1641,30 @@ function DateActionDialog({
                   })}
                 </RadioGroup>
               </fieldset>
+
+              {pickedType === "school_holiday" && (
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 transition-colors hover:border-primary/30">
+                  <Checkbox
+                    checked={hblOverlay}
+                    onCheckedChange={(v) => setHblOverlay(Boolean(v))}
+                    className="mt-0.5"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px] font-medium text-foreground">HBL overlay</span>
+                      {hblOverlay && (
+                        <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-primary">
+                          attendance taken
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">
+                      School is closed for students, but teachers deliver home-based learning and take attendance.
+                      Use this for marking days and deliberation days where HBL is scheduled.
+                    </p>
+                  </div>
+                </label>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="dlgDayLabel">

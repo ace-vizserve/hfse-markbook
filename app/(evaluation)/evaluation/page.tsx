@@ -35,6 +35,13 @@ import {
   getSubmissionVelocityRange,
 } from "@/lib/evaluation/dashboard";
 import { buildAllRowSets } from "@/lib/evaluation/drill";
+import {
+  daysUntilPtc,
+  findPtcForWriteupTerm,
+  getPtcEventsForAy,
+  type PtcEvent,
+} from "@/lib/evaluation/ptc-resolver";
+import { cn } from "@/lib/utils";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -97,6 +104,34 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
 
   // Dashboard band — current AY only.
   const ayCode = ay?.ay_code ?? "";
+
+  // PTC deadline awareness — each writeup term may be discussed at a PTC
+  // event scheduled in the *following* term on the calendar (e.g. T1 → Apr
+  // PTC). Pulled from `calendar_events` via the date-driven resolver so
+  // reschedules/additions flow through without code changes.
+  const ptcEvents: PtcEvent[] = ayCode ? await getPtcEventsForAy(ayCode) : [];
+  const ptcByTerm = new Map<string, PtcEvent | null>(
+    terms.map((t) => [t.id, findPtcForWriteupTerm(t.id, ptcEvents)]),
+  );
+
+  // Cross-surface coordination check — surface a single dashboard-level
+  // alert when a term's PTC is within 30 days and the evaluation window
+  // is still closed (advisers can't write, but parents will turn up).
+  // Tentative PTC dates are excluded: the date isn't locked in yet, so
+  // an alert here would create false urgency. The inline label still
+  // shows the tentative date so the registrar sees what's coming.
+  const ptcWindowGaps = terms
+    .map((t) => {
+      const ptc = ptcByTerm.get(t.id) ?? null;
+      if (!ptc) return null;
+      if (ptc.tentative) return null;
+      const days = daysUntilPtc(ptc.startDate);
+      if (days < 0 || days > 30) return null;
+      if (openByTerm.get(t.id)) return null;
+      return { term: t, ptc, days };
+    })
+    .filter((g): g is { term: TermLite; ptc: PtcEvent; days: number } => g != null);
+
   const windows = ayCode
     ? await getDashboardWindows(ayCode)
     : { term: { thisTerm: null, lastTerm: null, byNumber: { 1: null, 2: null, 3: null, 4: null } }, ay: { thisAY: null, lastAY: null }, activeTermFallback: false };
@@ -348,42 +383,145 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
           <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             Evaluation window
           </h2>
+
+          {/* Cross-surface coordination alert — fires when a term's PTC is
+              within two weeks but the evaluation window is still closed
+              (KD #76 calendar + KD #49 writeup deadline interaction). */}
+          {canToggle && ptcWindowGaps.length > 0 && (
+            <Alert variant="warning">
+              <AlertIcon>
+                <AlertTriangle />
+              </AlertIcon>
+              <AlertTitle>
+                {ptcWindowGaps.length === 1
+                  ? `${ptcWindowGaps[0].term.label} PTC is ${formatPtcCountdown(ptcWindowGaps[0].days)} but the window is still closed`
+                  : `${ptcWindowGaps.length} terms have PTC within 30 days but the window is still closed`}
+              </AlertTitle>
+              <AlertDescription>
+                Advisers can&apos;t write or submit until the window is open. Toggle it on for{" "}
+                {ptcWindowGaps.map((g) => g.term.label).join(", ")} below so they can finish writeups before parents arrive.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="divide-y divide-border rounded-xl border border-border bg-card">
-            {terms.map((t) => (
-              <div key={t.id} className="flex items-center justify-between gap-4 px-5 py-3">
-                <div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="font-serif text-[15px] font-semibold text-foreground">{t.label}</span>
-                    {t.is_current && (
-                      <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-primary">
-                        current
-                      </span>
-                    )}
+            {terms.map((t) => {
+              const ptc = ptcByTerm.get(t.id) ?? null;
+              return (
+                <div key={t.id} className="flex items-center justify-between gap-4 px-5 py-3">
+                  <div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-serif text-[15px] font-semibold text-foreground">{t.label}</span>
+                      {t.is_current && (
+                        <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-primary">
+                          current
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 font-mono text-[10px] text-muted-foreground">
+                      <span>{t.virtue_theme ? `Virtue: ${t.virtue_theme}` : "Virtue theme not set"}</span>
+                      <PtcInlineLabel ptc={ptc} />
+                    </div>
                   </div>
-                  <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-                    {t.virtue_theme ? `Virtue: ${t.virtue_theme}` : "Virtue theme not set"}
-                  </div>
+                  <TermOpenToggle
+                    termId={t.id}
+                    termLabel={t.label}
+                    isOpen={openByTerm.get(t.id) ?? false}
+                    canToggle={canToggle}
+                  />
                 </div>
-                <TermOpenToggle
-                  termId={t.id}
-                  termLabel={t.label}
-                  isOpen={openByTerm.get(t.id) ?? false}
-                  canToggle={canToggle}
-                />
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
 
       <div className="mt-2 flex items-center gap-2 border-t border-border pt-5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
         <ClipboardCheck className="size-3" strokeWidth={2.25} />
-        <span>KD #49 — Evaluation owns the FCA write-up</span>
-        <span className="text-border">·</span>
-        <span>Checklists &amp; PTC deferred to follow-up sprint</span>
+        <span>KD #49 — Evaluation owns the FCA write-up · PTC dates pulled from the school calendar (KD #76)</span>
       </div>
     </PageShell>
   );
+}
+
+// Plain-English countdown for the alert title — keeps the dashboard copy
+// readable to a non-technical school admin (per ops feedback memory).
+function formatPtcCountdown(days: number): string {
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  return `in ${days} days`;
+}
+
+// Inline "PTC: 8–9 Apr · in 12 days" cell rendered next to the virtue
+// theme. Tone escalates with proximity. Hidden entirely on T4 (no writeup
+// per KD #49 → no PTC discussion). When no PTC is scheduled for this AY,
+// renders a muted "No PTC scheduled" so registrars notice the gap.
+//
+// `tentative=true` events render with a "(tentative)" suffix and a
+// neutralised tone — the date is on the calendar but pending registrar
+// confirmation, so we shouldn't escalate to amber/destructive just yet.
+function PtcInlineLabel({ ptc }: { ptc: PtcEvent | null }) {
+  if (!ptc) {
+    return (
+      <span className="text-muted-foreground">PTC not scheduled</span>
+    );
+  }
+  const days = daysUntilPtc(ptc.startDate);
+  const range = formatPtcRangeDisplay(ptc.startDate, ptc.endDate);
+  const tone = ptc.tentative
+    ? "text-muted-foreground"
+    : days < 0
+      ? "text-destructive"
+      : days <= 3
+        ? "text-destructive"
+        : days <= 14
+          ? "text-brand-amber"
+          : "text-muted-foreground";
+  const suffix =
+    days === 0
+      ? "today"
+      : days === 1
+        ? "tomorrow"
+        : days > 0
+          ? `in ${days} days`
+          : `${Math.abs(days)} days ago`;
+  return (
+    <span className={cn("inline-flex items-center gap-1", tone)}>
+      <span className="font-semibold uppercase tracking-[0.14em]">PTC</span>
+      <span>·</span>
+      <span>{range}</span>
+      <span>·</span>
+      <span>{suffix}</span>
+      {ptc.tentative && (
+        <>
+          <span>·</span>
+          <span className="italic">tentative</span>
+        </>
+      )}
+    </span>
+  );
+}
+
+// Same range-formatting recipe as `lib/evaluation/dashboard.ts::formatPtcRangeLabel`
+// (kept inline here so the server-component renderer doesn't have to import
+// from a `'server-only'` module just for a date string).
+function formatPtcRangeDisplay(startIso: string, endIso: string): string {
+  try {
+    const start = new Date(`${startIso}T00:00:00+08:00`);
+    const end = new Date(`${endIso}T00:00:00+08:00`);
+    const sameDay = startIso === endIso;
+    if (sameDay) {
+      return start.toLocaleDateString("en-SG", { day: "numeric", month: "short" });
+    }
+    const sameMonth =
+      start.getUTCMonth() === end.getUTCMonth() && start.getUTCFullYear() === end.getUTCFullYear();
+    if (sameMonth) {
+      return `${start.toLocaleDateString("en-SG", { day: "numeric" })}–${end.toLocaleDateString("en-SG", { day: "numeric", month: "short" })}`;
+    }
+    return `${start.toLocaleDateString("en-SG", { day: "numeric", month: "short" })} – ${end.toLocaleDateString("en-SG", { day: "numeric", month: "short" })}`;
+  } catch {
+    return startIso;
+  }
 }
 
 function HubCard({

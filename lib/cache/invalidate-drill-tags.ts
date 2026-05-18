@@ -22,7 +22,7 @@ export type DrillModule =
  * - evaluation drill: `evaluation-drill:${ay}`   dashboard: `evaluation-dashboard:${ay}`
  * - admissions drill: `admissions-drill:${ay}`   dashboard: `admissions-dashboard:${ay}`
  * - records    drill: `records-drill:${ay}`      dashboard: `sis:${ay}` (Records reuses the SIS tag)
- * - p-files    drill: `p-files-drill:${ay}`      dashboard: `p-files-dashboard:${ay}`
+ * - p-files    drill: `p-files-drill:${ay}`      dashboard: `p-files-dashboard:${ay}`  freshen: `p-files-freshen:${ay}`
  */
 const MODULE_TAGS: Record<DrillModule, (ayCode: string) => string[]> = {
   markbook: (ay) => [`markbook-drill:${ay}`, `markbook:${ay}`],
@@ -30,7 +30,7 @@ const MODULE_TAGS: Record<DrillModule, (ayCode: string) => string[]> = {
   evaluation: (ay) => [`evaluation-drill:${ay}`, `evaluation-dashboard:${ay}`],
   admissions: (ay) => [`admissions-drill:${ay}`, `admissions-dashboard:${ay}`],
   records: (ay) => [`records-drill:${ay}`, `sis:${ay}`],
-  'p-files': (ay) => [`p-files-drill:${ay}`, `p-files-dashboard:${ay}`],
+  'p-files': (ay) => [`p-files-drill:${ay}`, `p-files-dashboard:${ay}`, `p-files-freshen:${ay}`],
 };
 
 /**

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, ArrowLeftRight, UserCheck, UserMinus } from 'lucide-react';
+import { ArrowLeft, ArrowLeftRight, RotateCcw, UserCheck, UserMinus } from 'lucide-react';
 
 import { getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -17,7 +17,7 @@ import { PageShell } from '@/components/ui/page-shell';
 import { MovementsTable } from '@/components/sis/movements-table';
 import { getMovementEvents } from '@/lib/sis/movements';
 
-type SearchParams = Promise<{ scope?: string }>;
+type SearchParams = Promise<{ scope?: string; reasonSearch?: string }>;
 
 export default async function MovementsPage({
   searchParams,
@@ -36,6 +36,7 @@ export default async function MovementsPage({
 
   const params = await searchParams;
   const includeAllAYs = params.scope === 'all';
+  const reasonSearch = params.reasonSearch?.trim() ?? '';
 
   const service = createServiceClient();
   const currentAy = await getCurrentAcademicYear(service);
@@ -43,14 +44,28 @@ export default async function MovementsPage({
     redirect('/');
   }
 
-  const events = await getMovementEvents(currentAy.ay_code, { includeAllAYs });
+  const allEvents = await getMovementEvents(currentAy.ay_code, { includeAllAYs });
 
-  // Counts derived from the same array so the cards always match the table
-  // (whether scope is current-year or all-time).
+  // When a reason search is active, narrow to withdrawn events matching the
+  // substring (case-insensitive). KPI counts derive from the same filtered
+  // array so the cards always match the table (KD #83).
+  const events = reasonSearch
+    ? allEvents.filter(
+        (e) =>
+          e.kind === 'withdrawn' &&
+          ((e as Extract<typeof e, { kind: 'withdrawn' }>).reason ?? '')
+            .toLowerCase()
+            .includes(reasonSearch.toLowerCase()),
+      )
+    : allEvents;
+
+  // Counts derived from the same (possibly-filtered) array so the cards
+  // always match the table (whether scope is current-year or all-time).
   const counts = {
     transfer: events.filter((e) => e.kind === 'section-transfer').length,
     withdrawn: events.filter((e) => e.kind === 'withdrawn').length,
     lateEnrolled: events.filter((e) => e.kind === 'late-enrolled').length,
+    reEnrolled: events.filter((e) => e.kind === 're-enrolled').length,
   };
   const scopeLabel = includeAllAYs ? 'All years' : `${currentAy.ay_code}`;
 
@@ -77,7 +92,7 @@ export default async function MovementsPage({
       </header>
 
       <div className="@container/main">
-        <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @3xl/main:grid-cols-4">
           <MovementStatCard
             description="Section transfers"
             value={counts.transfer}
@@ -99,6 +114,13 @@ export default async function MovementsPage({
             footerTitle="Joined after term start"
             footerDetail={scopeLabel}
           />
+          <MovementStatCard
+            description="Re-enrolments"
+            value={counts.reEnrolled}
+            icon={RotateCcw}
+            footerTitle="Restored from withdrawn"
+            footerDetail={scopeLabel}
+          />
         </div>
       </div>
 
@@ -106,6 +128,7 @@ export default async function MovementsPage({
         events={events}
         ayCode={currentAy.ay_code}
         includeAllAYs={includeAllAYs}
+        reasonSearch={reasonSearch || undefined}
       />
     </PageShell>
   );

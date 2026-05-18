@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { BookOpen, Pencil } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
 import { type ColumnDef } from '@tanstack/react-table';
 
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,6 @@ import { type StatusTabConfig } from '@/components/ui/data-table/types';
 import { EnrollmentStatusBadge } from '@/components/ui/enrollment-status-badge';
 import { IdentifierLink } from '@/components/ui/identifier-link';
 import { SortableHeader } from '@/components/ui/data-table/sortable-header';
-import { EnrolmentEditSheet } from '@/components/markbook/enrolment-edit-sheet';
 
 export type RosterRow = {
   id: string;
@@ -166,22 +165,6 @@ function buildColumns(sectionId: string): ColumnDef<RosterRow>[] {
               </Link>
             </Button>
           )}
-          <EnrolmentEditSheet
-            sectionId={sectionId}
-            enrolmentId={row.original.id}
-            studentName={row.original.student_name}
-            indexNumber={row.original.index_number}
-            initial={{
-              bus_no: row.original.bus_no,
-              classroom_officer_role: row.original.classroom_officer_role,
-              enrollment_status: row.original.enrollment_status,
-            }}
-          >
-            <Button variant="ghost" size="sm" className="h-7 px-2" title="Edit enrolment details">
-              <Pencil className="size-3" />
-              <span className="sr-only">Edit enrolment</span>
-            </Button>
-          </EnrolmentEditSheet>
         </div>
       ),
     },

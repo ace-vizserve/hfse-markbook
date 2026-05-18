@@ -55,6 +55,7 @@ import {
 } from "@/lib/admissions/dashboard";
 import { getAdmissionsPriority } from "@/lib/admissions/priority";
 import { buildDrillRows } from "@/lib/admissions/drill";
+import { getAdmissionsFeedback, getPreCourseStats } from "@/lib/admissions/feedback";
 import { admissionsChaseInsights, admissionsInsights } from "@/lib/dashboard/insights";
 import { formatRangeLabel, resolveRange, FLEXIBLE_PRESETS, type DashboardSearchParams } from "@/lib/dashboard/range";
 import { getDashboardWindows } from "@/lib/dashboard/windows";
@@ -208,6 +209,11 @@ export default async function AdmissionsDashboard({
           termWindows={windows.term}
           ayWindows={windows.ay}
           presets={FLEXIBLE_PRESETS}
+          trustStrip={
+            <p className="text-[11px] text-muted-foreground">
+              Filtering by <strong className="font-semibold text-foreground">application date</strong> · drills that count enrolments switch to enrollment date.
+            </p>
+          }
         />
 
         <Link
@@ -258,6 +264,8 @@ export default async function AdmissionsDashboard({
     drillRows,
     chaseSummary,
     admissionsChasePriority,
+    feedbackResult,
+    preCourseStats,
   ] = await Promise.all([
     getSisDashboardSummary(selectedAy),
     getPipelineStageBreakdown(selectedAy),
@@ -287,6 +295,8 @@ export default async function AdmissionsDashboard({
     // priority panel + chase strip do their own internal fetch.
     getAdmissionsCompletenessForChase(selectedAy, "all").then((r) => r.summary),
     getAdmissionsPriority({ ayCode: selectedAy }),
+    getAdmissionsFeedback(selectedAy),
+    getPreCourseStats(selectedAy),
   ]);
 
   // Freshen runs in parallel with the data fetches above; awaited here so
@@ -391,6 +401,11 @@ export default async function AdmissionsDashboard({
         termWindows={windows.term}
         ayWindows={windows.ay}
         presets={FLEXIBLE_PRESETS}
+        trustStrip={
+          <p className="text-[11px] text-muted-foreground">
+            Filtering by <strong className="font-semibold text-foreground">application date</strong> · drills that count enrolments switch to enrollment date.
+          </p>
+        }
       />
 
       {/* KD #77 — early-bird signal. Renders only when an upcoming AY is
@@ -408,7 +423,7 @@ export default async function AdmissionsDashboard({
           counts via the KPI grid + drill sheets below. */}
       {isOperational && (
         <>
-          <DocumentChaseQueueStrip ayCode={selectedAy} module="admissions" />
+          <DocumentChaseQueueStrip ayCode={selectedAy} lens="admissions" />
           <PriorityPanel payload={admissionsChasePriority} />
           <InsightsPanel insights={chaseInsights} />
         </>
@@ -622,6 +637,26 @@ export default async function AdmissionsDashboard({
         </div>
       </section>
 
+      {/* Pre-course + feedback spotlight cards */}
+      <section className="@container/main">
+        <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2">
+          <SummaryStat
+            label="Pre-course counselling"
+            value={preCourseStats.completionPct !== null ? `${preCourseStats.completionPct}%` : '—'}
+            icon={TrendingUp}
+            footnote={`${preCourseStats.complete} of ${preCourseStats.total} funnel applicants completed`}
+            href={`/admissions/cohorts/pre-course?ay=${selectedAy}`}
+          />
+          <SummaryStat
+            label="Avg application rating"
+            value={feedbackResult.stats.avgRating !== null ? feedbackResult.stats.avgRating.toFixed(1) : '—'}
+            icon={ChartBar}
+            footnote={`out of 5 · ${feedbackResult.stats.ratingCount} response${feedbackResult.stats.ratingCount !== 1 ? 's' : ''}`}
+            href={`/admissions/feedback?ay=${selectedAy}`}
+          />
+        </div>
+      </section>
+
       <section className="space-y-3 print:hidden">
         <div className="space-y-1">
           <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -651,20 +686,22 @@ function SummaryStat({
   value,
   icon: Icon,
   footnote,
+  href,
 }: {
   label: string;
-  value: number;
+  value: number | string;
   icon: React.ComponentType<{ className?: string }>;
   footnote: string;
+  href?: string;
 }) {
-  return (
-    <Card className="@container/card">
+  const card = (
+    <Card className={`@container/card${href ? ' transition-all hover:-translate-y-0.5 hover:shadow-sm hover:border-brand-indigo/40' : ''}`}>
       <CardHeader>
         <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
           {label}
         </CardDescription>
         <CardTitle className="font-serif text-[32px] font-semibold leading-none tabular-nums text-foreground @[240px]/card:text-[38px]">
-          {value.toLocaleString("en-SG")}
+          {typeof value === 'number' ? value.toLocaleString("en-SG") : value}
         </CardTitle>
         <CardAction>
           <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
@@ -675,6 +712,8 @@ function SummaryStat({
       <CardFooter className="text-xs text-muted-foreground">{footnote}</CardFooter>
     </Card>
   );
+  if (href) return <Link href={href}>{card}</Link>;
+  return card;
 }
 
 function QuickLink({

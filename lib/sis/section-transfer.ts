@@ -16,6 +16,7 @@ export type TransferTermInfo = {
 
 export type TransferOk = {
   ok: true;
+  studentNumber: string;
   fromSection: string;
   fromLevel: string;
   toSection: string;
@@ -211,11 +212,13 @@ export async function transferStudentSection(
   // The student being transferred isn't in target yet (filtered above as
   // single active row in source), so the count above is the standalone
   // target-section size. Compare directly to the cap.
+  // Per Hard Rule #5 the cap is 50 active-or-late_enrollee (both count toward
+  // the class headcount for grading and attendance purposes).
   const { count: targetTotalActive, error: capErr } = await service
     .from('section_students')
     .select('id', { count: 'exact', head: true })
     .eq('section_id', targetSec.id)
-    .eq('enrollment_status', 'active');
+    .in('enrollment_status', ['active', 'late_enrollee']);
   if (capErr) {
     return { ok: false, error: `Capacity check failed: ${capErr.message}`, status: 500 };
   }
@@ -223,7 +226,7 @@ export async function transferStudentSection(
   if (totalActive >= MAX_ACTIVE_PER_SECTION) {
     return {
       ok: false,
-      error: `Section ${targetSec.name} is at capacity (${MAX_ACTIVE_PER_SECTION} active)`,
+      error: `Section ${targetSec.name} is at capacity (${MAX_ACTIVE_PER_SECTION} students)`,
       status: 422,
     };
   }
@@ -302,6 +305,7 @@ export async function transferStudentSection(
 
   return {
     ok: true,
+    studentNumber,
     fromSection: sourceSec.name,
     fromLevel: sourceLevelLabel ?? '',
     toSection: targetSec.name,

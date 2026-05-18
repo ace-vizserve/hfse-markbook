@@ -567,3 +567,24 @@ export const VlAllowanceSchema = z.object({
 });
 
 export type VlAllowanceInput = z.infer<typeof VlAllowanceSchema>;
+
+// ──────────────────────────────────────────────────────────────────────────
+// Residence history (ICA STP requirement — past 5 years per applicant)
+// ──────────────────────────────────────────────────────────────────────────
+//
+// Written to `ay{YY}_enrolment_applications.residenceHistory` (jsonb).
+// PATCH /api/sis/students/[enroleeNumber]/residence-history accepts null
+// (clear) or an array of up to 20 entries. Per KD #23 zod pattern.
+
+export const ResidenceEntrySchema = z.object({
+  fromYear: z.number().int().min(1900).max(2100),
+  toYear: z.number().int().min(1900).max(2100),
+  country: z.string().min(1).max(100),
+  cityOrTown: z.string().min(1).max(100),
+  purposeOfStay: z.string().max(200).optional(),
+});
+
+export const ResidenceHistorySchema = z.array(ResidenceEntrySchema).max(20).nullable();
+
+export type ResidenceEntry = z.infer<typeof ResidenceEntrySchema>;
+export type ResidenceHistory = z.infer<typeof ResidenceHistorySchema>;

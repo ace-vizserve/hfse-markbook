@@ -27,6 +27,8 @@ export type SchoolCalendarRow = {
   isHoliday: boolean;
   label: string | null;
   audience: Audience;
+  /** When true, a school_holiday row is also encodable as HBL (migration 051). */
+  hblOverlay: boolean;
 };
 
 export type CalendarEventRow = {
@@ -49,6 +51,7 @@ type RawSchoolCalendarRow = {
   is_holiday: boolean;
   label: string | null;
   audience: Audience;
+  hbl_overlay: boolean;
 };
 
 type RawCalendarEventRow = {
@@ -82,7 +85,7 @@ export async function getSchoolCalendarForTerm(
   const service = createServiceClient();
   const { data, error } = await service
     .from('school_calendar')
-    .select('id, term_id, date, day_type, is_holiday, label, audience')
+    .select('id, term_id, date, day_type, is_holiday, label, audience, hbl_overlay')
     .eq('term_id', termId)
     .in('audience', audienceFilterValues(audience))
     .order('date', { ascending: true });
@@ -98,6 +101,7 @@ export async function getSchoolCalendarForTerm(
     isHoliday: r.is_holiday,
     label: r.label,
     audience: r.audience,
+    hblOverlay: r.hbl_overlay ?? false,
   }));
 }
 
@@ -170,7 +174,7 @@ export async function getEncodableDatesForTerm(
   levelType: 'primary' | 'secondary' | null = null,
 ): Promise<string[]> {
   const rows = await getDedupedSchoolCalendarForTerm(termId, levelType);
-  return rows.filter((r) => isEncodableDayType(r.dayType)).map((r) => r.date);
+  return rows.filter((r) => isEncodableDayType(r.dayType, r.hblOverlay)).map((r) => r.date);
 }
 
 // Fast lookup: is a given date a holiday in this term? Returns null when
@@ -198,7 +202,7 @@ export async function isHoliday(
   const audiences: Audience[] = levelType ? ['all', levelType] : ['all'];
   const { data } = await service
     .from('school_calendar')
-    .select('day_type, audience')
+    .select('day_type, audience, hbl_overlay')
     .eq('term_id', termId)
     .eq('date', date)
     .in('audience', audiences);
@@ -207,10 +211,10 @@ export async function isHoliday(
     return true;
   }
   // Audience precedence: prefer the level-specific row over 'all'.
-  const rows = data as Array<{ day_type: DayType; audience: Audience }>;
+  const rows = data as Array<{ day_type: DayType; audience: Audience; hbl_overlay: boolean }>;
   const specific = rows.find((r) => r.audience === levelType);
   const chosen = specific ?? rows[0];
-  return !isEncodableDayType(chosen.day_type);
+  return !isEncodableDayType(chosen.day_type, chosen.hbl_overlay ?? false);
 }
 
 // Find the most recent prior AY that has a term with the given term_number,

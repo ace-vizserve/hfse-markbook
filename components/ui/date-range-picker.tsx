@@ -4,7 +4,6 @@ import * as React from 'react';
 import { CalendarIcon, ArrowRightIcon } from 'lucide-react';
 import type { DateRange as DayPickerRange, Matcher } from 'react-day-picker';
 
-import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
   Popover,
@@ -14,7 +13,6 @@ import {
 import { cn } from '@/lib/utils';
 import {
   PRESET_LABEL,
-  autoComparisonAcademic,
   detectPreset,
   formatRangeLabel,
   parseLocalDate,
@@ -28,28 +26,18 @@ import {
 
 /**
  * DateRangePicker — canonical range primitive (KD #44 sibling to
- * DatePicker / DateTimePicker). Popover + shadcn Calendar in `mode="range"`,
- * left-rail preset list, comparison strip with auto-prior-period default.
+ * DatePicker / DateTimePicker).
  *
- * Replacement for `<input type="date">` ranges. Value + comparison are ISO
- * `yyyy-MM-dd` strings. The component is controlled — the parent toolbar owns
- * the state and writes URL params.
+ * Trigger: two inline text inputs showing from/to in YYYY-MM-DD format,
+ * directly typeable. Validation fires on blur or Enter; errors show above
+ * the preset rail. Popover closes and auto-applies on Enter, click-outside,
+ * or Escape when the pending range is valid and different from the committed
+ * value. Preset clicks apply and close immediately.
  */
 
 export type DateRangePickerProps = {
   value: DateRange;
-  /**
-   * Fires when the user picks a new range (calendar click or preset). The
-   * second arg is the picker's auto-computed comparison range — only set
-   * when the user already has a comparison enabled, so changing the current
-   * range slides the comparison along with it. The parent applies both in a
-   * single state/URL update.
-   */
-  onChange: (next: DateRange, autoComparison?: DateRange) => void;
-  /** Null when no comparison is set — comparison is opt-in. */
-  comparison: DateRange | null;
-  /** Pass `null` to clear the comparison entirely. */
-  onComparisonChange?: (next: DateRange | null) => void;
+  onChange: (next: DateRange) => void;
   termWindows: TermWindows;
   ayWindows: AYWindows;
   presets?: Preset[];
@@ -60,10 +48,6 @@ export type DateRangePickerProps = {
   className?: string;
 };
 
-// `'custom'` is a state, not an action — when no preset window matches the
-// current range, `detectPreset` returns `'custom'` and the trigger-button
-// chip is suppressed. The calendar itself is the custom-range UI; rendering
-// `'custom'` as a clickable preset row was misleading (it had no action).
 const DEFAULT_PRESETS: Preset[] = [
   'last7d',
   'last30d',
@@ -77,8 +61,6 @@ const DEFAULT_PRESETS: Preset[] = [
 export function DateRangePicker({
   value,
   onChange,
-  comparison,
-  onComparisonChange,
   termWindows,
   ayWindows,
   presets = DEFAULT_PRESETS,
@@ -89,16 +71,23 @@ export function DateRangePicker({
   className,
 }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
-  const [editingComparison, setEditingComparison] = React.useState(false);
+  const [pendingRange, setPendingRange] = React.useState<DayPickerRange | undefined>(undefined);
+
+  // Text inputs — YYYY-MM-DD strings, editable directly in the trigger.
+  const [fromText, setFromText] = React.useState(value.from);
+  const [toText, setToText] = React.useState(value.to);
+  const [fromError, setFromError] = React.useState<string | null>(null);
+  const [toError, setToError] = React.useState<string | null>(null);
+
+  // Tracks the most recently applied range synchronously so handlePopoverChange
+  // can reset texts to the right value before the async RSC prop update arrives.
+  const appliedRangeRef = React.useRef<DateRange>(value);
 
   const windows = React.useMemo(
     () => ({ term: termWindows, ay: ayWindows }),
     [termWindows, ayWindows],
   );
-  // Pass the picker's visible preset shortlist to detectPreset so the
-  // active-preset chip never lights up on a preset the user can't see
-  // (e.g. flexible-module picker matching `t2` because today happens to
-  // sit inside Term 2 — wrong chip for a module that doesn't expose terms).
+
   const activePreset = detectPreset(value, windows, undefined, presets);
 
   const calendarValue: DayPickerRange | undefined = React.useMemo(() => {
@@ -108,104 +97,135 @@ export function DateRangePicker({
     return { from, to };
   }, [value.from, value.to]);
 
-  const cmpCalendarValue: DayPickerRange | undefined = React.useMemo(() => {
-    if (!comparison) return undefined;
-    const from = parseLocalDate(comparison.from);
-    const to = parseLocalDate(comparison.to);
-    if (!from || !to) return undefined;
-    return { from, to };
-  }, [comparison]);
-
-  // Calendar selection is staged here until the user hits Apply (or completes
-  // a multi-day range). Auto-committing on every click broke the flow:
-  // first click pushed `?from=A&to=A`, the picker re-rendered with that as a
-  // complete range, and react-day-picker started a fresh range on the next
-  // click — making multi-day selection impossible. Single-day selection is
-  // an explicit Apply.
-  const [pendingRange, setPendingRange] = React.useState<DayPickerRange | undefined>(undefined);
-  const [pendingComparison, setPendingComparison] = React.useState<DayPickerRange | undefined>(undefined);
-
-  // Seed the staged ranges from URL state whenever the popover opens.
+  // When value changes from outside (URL param reset, AY switch): update the
+  // ref + sync visible texts if the popover is closed. Intentionally omits
+  // `open` from deps — we only want to react to prop changes, not toggle state.
   React.useEffect(() => {
-    if (!open) return;
-    setPendingRange(calendarValue);
-    setPendingComparison(cmpCalendarValue);
-    // intentionally only on open — re-syncing on every value/comparison change
-    // would clobber an in-progress selection.
+    appliedRangeRef.current = value;
+    if (!open) {
+      setFromText(value.from);
+      setToText(value.to);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value.from, value.to]);
+
+  // On open: seed calendar pending state. Close logic lives in handlePopoverChange.
+  React.useEffect(() => {
+    if (open) {
+      setPendingRange(calendarValue);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // What the calendar renders as `selected`. Prefer the staged range so the
-  // user sees their click feedback even before they hit Apply.
   const liveCalendarValue = pendingRange ?? calendarValue;
-  const liveCmpCalendarValue = pendingComparison ?? cmpCalendarValue;
 
-  // Comparison auto-slides with the current range only when the user
-  // already opted into a comparison. Passing the auto-comparison
-  // unconditionally would silently re-introduce a comparison the user had
-  // explicitly removed.
-  function autoCmpIfEnabled(range: DateRange): DateRange | undefined {
-    if (!comparison) return undefined;
-    return autoComparisonAcademic(range, windows) ?? undefined;
+  // ── Popover open/close ────────────────────────────────────────────────────
+
+  // Handles all popover close events (click-outside, Escape, Enter key, explicit close).
+  //
+  // Source-of-truth priority: text inputs (fromText / toText) over pendingRange.
+  // Reason: validate* functions call setPendingRange which is async setState — the
+  // state update hasn't propagated yet when Enter triggers an immediate close, so
+  // pendingRange is always one render stale in that path. fromText / toText are
+  // updated on every keystroke (synchronous per-event re-renders) and are always
+  // current in the closure by the time any close event fires.
+  function handlePopoverChange(next: boolean) {
+    if (!next && open) {
+      let applied = false;
+      if (!fromError && !toError) {
+        const fromDate = parseLocalDate(fromText.trim());
+        const toDate = parseLocalDate(toText.trim());
+        if (fromDate && toDate && toDate >= fromDate) {
+          const draftFrom = toISODate(fromDate);
+          const draftTo = toISODate(toDate);
+          if (draftFrom !== appliedRangeRef.current.from || draftTo !== appliedRangeRef.current.to) {
+            const range: DateRange = { from: draftFrom, to: draftTo };
+            appliedRangeRef.current = range;
+            onChange(range);
+            setFromText(range.from);
+            setToText(range.to);
+            setPendingRange(undefined);
+            applied = true;
+          }
+        }
+      }
+      if (!applied) {
+        setFromText(appliedRangeRef.current.from);
+        setToText(appliedRangeRef.current.to);
+      }
+      setFromError(null);
+      setToError(null);
+    }
+    setOpen(next);
   }
+
+  // ── Presets ────────────────────────────────────────────────────────────────
 
   function applyPreset(p: Preset) {
     if (p === 'custom') return;
     const range = resolvePreset(p, windows);
     if (!range) return;
-    onChange(range, autoCmpIfEnabled(range));
-    setEditingComparison(false);
+    appliedRangeRef.current = range;
+    onChange(range);
+    setFromText(range.from);
+    setToText(range.to);
+    setFromError(null);
+    setToError(null);
     setPendingRange(undefined);
-    setPendingComparison(undefined);
     setOpen(false);
   }
+
+  // ── Text input validation ──────────────────────────────────────────────────
+
+  function validateFrom(text: string = fromText): boolean {
+    const parsed = parseLocalDate(text.trim());
+    if (!parsed) {
+      setFromError('Invalid date — use YYYY-MM-DD');
+      return false;
+    }
+    setFromError(null);
+    setFromText(toISODate(parsed));
+    setPendingRange((prev) => ({ from: parsed, to: prev?.to }));
+    return true;
+  }
+
+  function validateTo(text: string = toText): boolean {
+    const parsed = parseLocalDate(text.trim());
+    if (!parsed) {
+      setToError('Invalid date — use YYYY-MM-DD');
+      return false;
+    }
+    const fromDate = pendingRange?.from ?? parseLocalDate(fromText) ?? parseLocalDate(value.from);
+    if (fromDate && parsed < fromDate) {
+      setToError('End date must be on or after the start date');
+      return false;
+    }
+    setToError(null);
+    setToText(toISODate(parsed));
+    setPendingRange((prev) => ({
+      from: prev?.from ?? fromDate ?? new Date(),
+      to: parsed,
+    }));
+    return true;
+  }
+
+  // ── Calendar ───────────────────────────────────────────────────────────────
 
   function onRangeSelect(next: DayPickerRange | undefined) {
-    // Always defer to the explicit Apply button — never auto-commit. The
-    // previous auto-commit-on-second-click closed the popover before the
-    // user could navigate to a third month, blocking multi-month custom
-    // ranges.
     setPendingRange(next);
-  }
-
-  function onComparisonSelect(next: DayPickerRange | undefined) {
-    setPendingComparison(next);
-  }
-
-  function applyPending() {
-    if (editingComparison) {
-      if (!pendingComparison?.from || !onComparisonChange) return;
-      onComparisonChange({
-        from: toISODate(pendingComparison.from),
-        to: toISODate(pendingComparison.to ?? pendingComparison.from),
-      });
-      setPendingComparison(undefined);
-      setEditingComparison(false);
-      return;
+    if (next?.from) {
+      setFromText(toISODate(next.from));
+      setFromError(null);
     }
-    if (!pendingRange?.from) return;
-    const range: DateRange = {
-      from: toISODate(pendingRange.from),
-      to: toISODate(pendingRange.to ?? pendingRange.from),
-    };
-    onChange(range, autoCmpIfEnabled(range));
-    setPendingRange(undefined);
-    setOpen(false);
+    if (next?.to) {
+      setToText(toISODate(next.to));
+      setToError(null);
+    } else if (next?.from) {
+      setToText(toISODate(next.from));
+    }
   }
 
-  // True when the staged selection differs from the URL-committed value.
-  const hasUnappliedChanges = (() => {
-    if (editingComparison) {
-      if (!pendingComparison?.from) return false;
-      const draftFrom = toISODate(pendingComparison.from);
-      const draftTo = toISODate(pendingComparison.to ?? pendingComparison.from);
-      return draftFrom !== comparison?.from || draftTo !== comparison?.to;
-    }
-    if (!pendingRange?.from) return false;
-    const draftFrom = toISODate(pendingRange.from);
-    const draftTo = toISODate(pendingRange.to ?? pendingRange.from);
-    return draftFrom !== value.from || draftTo !== value.to;
-  })();
+  // ── Helpers ────────────────────────────────────────────────────────────────
 
   function buildDisabledMatcher(
     min: string | undefined,
@@ -219,63 +239,112 @@ export function DateRangePicker({
     return undefined;
   }
 
-  function resetComparison() {
-    if (!onComparisonChange) return;
-    const auto = autoComparisonAcademic(value, windows);
-    if (auto) onComparisonChange(auto);
-    setEditingComparison(false);
-  }
+  const namedPresets = presets.filter((p) => p !== 'custom');
 
-  function addComparison() {
-    if (!onComparisonChange) return;
-    const auto = autoComparisonAcademic(value, windows);
-    if (auto) {
-      onComparisonChange(auto);
-      setEditingComparison(true);
-    }
-  }
-
-  function removeComparison() {
-    if (!onComparisonChange) return;
-    onComparisonChange(null);
-    setEditingComparison(false);
-    setPendingComparison(undefined);
-  }
+  const pendingLabel =
+    pendingRange?.from
+      ? formatRangeLabel({
+          from: toISODate(pendingRange.from),
+          to: toISODate(pendingRange.to ?? pendingRange.from),
+        })
+      : formatRangeLabel(value);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handlePopoverChange}>
       <PopoverTrigger asChild>
-        <Button
+        <div
           id={id}
-          type="button"
-          variant="outline"
-          disabled={disabled}
+          role="group"
+          aria-label="Date range picker"
           className={cn(
-            'h-10 min-w-[15rem] justify-start gap-2 font-normal',
+            'flex h-10 cursor-default items-center gap-2 rounded-md border border-input bg-background px-3',
+            'ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2',
+            disabled && 'pointer-events-none opacity-50',
             className,
           )}
         >
-          <CalendarIcon className="h-4 w-4 text-ink-4" />
-          <span className="font-mono text-[12px] tabular-nums text-foreground">
-            {formatRangeLabel(value)}
-          </span>
+          <CalendarIcon className="size-4 shrink-0 text-ink-4" />
+
+          <input
+            type="text"
+            value={fromText}
+            placeholder="YYYY-MM-DD"
+            disabled={disabled}
+            aria-label="Start date"
+            onChange={(e) => { setFromText(e.target.value); setFromError(null); }}
+            onFocus={() => setOpen(true)}
+            onBlur={() => validateFrom()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                const ok = validateFrom();
+                if (ok) handlePopoverChange(false);
+              }
+            }}
+            onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+            className={cn(
+              'w-[6.5rem] bg-transparent font-mono text-[12px] tabular-nums focus:outline-none',
+              fromError ? 'text-destructive' : 'text-foreground',
+            )}
+          />
+
+          <ArrowRightIcon className="size-3 shrink-0 text-ink-4" />
+
+          <input
+            type="text"
+            value={toText}
+            placeholder="YYYY-MM-DD"
+            disabled={disabled}
+            aria-label="End date"
+            onChange={(e) => { setToText(e.target.value); setToError(null); }}
+            onFocus={() => setOpen(true)}
+            onBlur={() => validateTo()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                const ok = validateTo();
+                if (ok) handlePopoverChange(false);
+              }
+            }}
+            onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+            className={cn(
+              'w-[6.5rem] bg-transparent font-mono text-[12px] tabular-nums focus:outline-none',
+              toError ? 'text-destructive' : 'text-foreground',
+            )}
+          />
+
           {activePreset !== 'custom' && (
-            <span className="ml-1.5 rounded bg-accent px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-accent-foreground">
+            <span className="ml-1 rounded bg-accent px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-accent-foreground">
               {PRESET_LABEL[activePreset]}
             </span>
           )}
-        </Button>
+        </div>
       </PopoverTrigger>
+
       <PopoverContent className="w-auto p-0" align="end">
+        {(fromError || toError) && (
+          <div className="border-b border-destructive/30 bg-destructive/5 px-4 py-2.5 space-y-1">
+            {fromError && (
+              <p className="font-mono text-[11px] text-destructive">
+                <span className="font-semibold">From:</span> {fromError}
+              </p>
+            )}
+            {toError && (
+              <p className="font-mono text-[11px] text-destructive">
+                <span className="font-semibold">To:</span> {toError}
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="flex">
+          {/* Preset rail */}
           <div className="flex w-44 flex-col gap-0.5 border-r border-border bg-muted/40 p-2">
             <div className="px-2 pb-1 pt-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-4">
               Range
             </div>
-            {presets.map((p) => {
-              const range = p === 'custom' ? null : resolvePreset(p, windows);
-              const enabled = p === 'custom' || !!range;
-              const isActive = activePreset === p && !editingComparison;
+            {namedPresets.map((p) => {
+              const range = resolvePreset(p, windows);
+              const enabled = !!range;
+              const isActive = activePreset === p;
               return (
                 <button
                   key={p}
@@ -301,95 +370,25 @@ export function DateRangePicker({
             })}
           </div>
 
+          {/* Calendar panel */}
           <div className="flex flex-col">
             <div className="border-b border-border px-4 py-2.5">
               <div className="font-mono text-[10px] font-semibold uppercase tracking-wider text-ink-4">
-                {editingComparison ? 'Comparison period' : 'Current period'}
+                Selected period
               </div>
               <div className="mt-0.5 font-mono text-[12px] tabular-nums text-foreground">
-                {editingComparison && comparison
-                  ? formatRangeLabel(comparison)
-                  : formatRangeLabel(value)}
+                {pendingLabel}
               </div>
             </div>
+
             <Calendar
               mode="range"
               numberOfMonths={2}
-              selected={editingComparison ? liveCmpCalendarValue : liveCalendarValue}
-              onSelect={editingComparison ? onComparisonSelect : onRangeSelect}
+              selected={liveCalendarValue}
+              onSelect={onRangeSelect}
               captionLayout="dropdown"
               disabled={buildDisabledMatcher(minDate, maxDate)}
             />
-            <div className="flex items-center justify-between gap-3 border-t border-border bg-muted/30 px-4 py-2.5">
-              <div className="flex items-center gap-2 text-xs text-ink-4">
-                {comparison ? (
-                  <>
-                    <span className="font-mono text-[10px] uppercase tracking-wider">
-                      Compared to
-                    </span>
-                    <ArrowRightIcon className="size-3 text-ink-5" />
-                    <span className="font-mono text-[11px] tabular-nums text-foreground">
-                      {formatRangeLabel(comparison)}
-                    </span>
-                  </>
-                ) : (
-                  <span className="font-mono text-[10px] uppercase tracking-wider">
-                    No comparison
-                  </span>
-                )}
-              </div>
-              <div className="flex gap-1.5">
-                {onComparisonChange && !comparison && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs"
-                    onClick={addComparison}
-                  >
-                    Add comparison
-                  </Button>
-                )}
-                {onComparisonChange && comparison && editingComparison && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 text-xs"
-                    onClick={resetComparison}
-                  >
-                    Auto
-                  </Button>
-                )}
-                {onComparisonChange && comparison && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 text-xs text-ink-4 hover:text-foreground"
-                    onClick={removeComparison}
-                  >
-                    Remove
-                  </Button>
-                )}
-                {onComparisonChange && comparison && (
-                  <Button
-                    size="sm"
-                    variant={editingComparison ? 'default' : 'outline'}
-                    className="h-7 text-xs"
-                    onClick={() => setEditingComparison((prev) => !prev)}
-                  >
-                    {editingComparison ? 'Done' : 'Edit'}
-                  </Button>
-                )}
-                <Button
-                  size="sm"
-                  variant="default"
-                  className="h-7 text-xs"
-                  disabled={!hasUnappliedChanges}
-                  onClick={applyPending}
-                >
-                  Apply
-                </Button>
-              </div>
-            </div>
           </div>
         </div>
       </PopoverContent>

@@ -71,6 +71,27 @@ export async function listApproversForFlow(flow: ApproverFlow): Promise<Approver
     .filter((u): u is ApproverUser => u !== null);
 }
 
+/**
+ * True when the user has at least one assignment for the given flow. Used to
+ * gate the "you must decide" priority headline in module dashboards so that
+ * non-assigned school_admins (and registrar) don't see a callout for work
+ * they can't act on. Superadmins are checked separately at the call site.
+ */
+export async function isUserAssignedApprover(userId: string, flow: ApproverFlow): Promise<boolean> {
+  const service = createServiceClient();
+  const { data, error } = await service
+    .from('approver_assignments')
+    .select('id', { count: 'exact', head: false })
+    .eq('user_id', userId)
+    .eq('flow', flow)
+    .limit(1);
+  if (error) {
+    console.error('[approvers] isUserAssignedApprover failed:', error.message);
+    return false;
+  }
+  return (data?.length ?? 0) > 0;
+}
+
 export type AllApproversByFlow = Record<ApproverFlow, ApproverUser[]>;
 
 /**

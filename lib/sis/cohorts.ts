@@ -1,6 +1,7 @@
-import { unstable_cache } from 'next/cache';
+import { unstable_cache } from "next/cache";
 
-import { createServiceClient } from '@/lib/supabase/service';
+import { createServiceClient } from "@/lib/supabase/service";
+import { fetchAllPages } from "@/lib/supabase/paginate";
 
 // ──────────────────────────────────────────────────────────────────────────
 // Cohort views — Wave 1 shared infrastructure (2026-04-27).
@@ -23,23 +24,23 @@ import { createServiceClient } from '@/lib/supabase/service';
 const CACHE_TTL_SECONDS = 60;
 
 function prefixFor(ayCode: string): string {
-  return `ay${ayCode.replace(/^AY/i, '').toLowerCase()}`;
+  return `ay${ayCode.replace(/^AY/i, "").toLowerCase()}`;
 }
 
 function tag(ayCode: string): string[] {
-  return ['sis', `sis:${ayCode}`];
+  return ["sis", `sis:${ayCode}`];
 }
 
 // ─── Scope ──────────────────────────────────────────────────────────────────
 
-export type CohortScope = 'enrolled' | 'funnel';
+export type CohortScope = "enrolled" | "funnel";
 
-const ENROLLED_STATUSES = new Set(['Enrolled', 'Enrolled (Conditional)']);
-const FUNNEL_STATUSES = new Set(['Submitted', 'Ongoing Verification', 'Processing']);
+const ENROLLED_STATUSES = new Set(["Enrolled", "Enrolled (Conditional)"]);
+const FUNNEL_STATUSES = new Set(["Submitted", "Ongoing Verification", "Processing"]);
 
 function inScope(applicationStatus: string | null, scope: CohortScope): boolean {
-  const s = (applicationStatus ?? '').trim();
-  if (scope === 'enrolled') return ENROLLED_STATUSES.has(s);
+  const s = (applicationStatus ?? "").trim();
+  if (scope === "enrolled") return ENROLLED_STATUSES.has(s);
   return FUNNEL_STATUSES.has(s);
 }
 
@@ -67,11 +68,10 @@ export type CohortStudentRow = {
   levelApplied: string | null;
   applicationStatus: string | null;
 
-  // STP-specific
+  // STP-specific (migration 050 — replaced 3-doc-slot model with a single
+  // stpApplicationStatus enum on the apps row, co-located with stpApplicationType).
   stpApplicationType?: string | null;
-  icaPhotoStatus?: string | null;
-  financialSupportDocsStatus?: string | null;
-  vaccinationInformationStatus?: string | null;
+  stpApplicationStatus?: string | null;
   residenceHistoryFilled?: boolean;
   stpComplete?: boolean;
 
@@ -85,7 +85,7 @@ export type CohortStudentRow = {
 
   // Pass-expiry-specific
   studentPassExpiry?: string | null;
-  studentPassExpiryKind?: 'passport' | 'pass' | null;
+  studentPassExpiryKind?: "passport" | "pass" | null;
   parentPassExpiries?: ParentPassExpiry[];
   earliestExpiry?: string | null;
   daysUntilEarliestExpiry?: number | null;
@@ -96,6 +96,15 @@ export type CohortStudentRow = {
   earliestPromisedUntil?: string | null;
   daysUntilEarliestPromise?: number | null;
   hasPastDuePromise?: boolean;
+
+  // Pre-course-counselling-specific
+  preCourseAnswer?: 'Yes' | 'No' | null;
+  preCourseDate?: string | null;
+  preCourseAcknowledgedAt?: string | null;
+  // complete = answered Yes OR formal acknowledgement recorded
+  // not-yet  = answered No (hasn't attended yet)
+  // pending  = no response yet
+  preCourseStatus?: 'complete' | 'not-yet' | 'pending';
 };
 
 // ─── Snapshot read helpers ──────────────────────────────────────────────────
@@ -123,56 +132,39 @@ type Snapshot = {
   docsByEnrolee: Map<string, DocRow>;
 };
 
-async function loadSnapshot(
-  ayCode: string,
-  appColumns: string[],
-  withDocs: boolean,
-): Promise<Snapshot> {
+async function loadSnapshot(ayCode: string, appColumns: string[], withDocs: boolean): Promise<Snapshot> {
   const prefix = prefixFor(ayCode);
   const supabase = createServiceClient();
 
-  const ensuredAppColumns = Array.from(new Set(['enroleeNumber', ...appColumns]));
+  const ensuredAppColumns = Array.from(new Set(["enroleeNumber", ...appColumns]));
 
-  // PostgREST query builders are thenable — `Promise.all` accepts them via the
-  // PromiseLike contract, but the type signature wants concrete Promises.
-  // We wrap each in `Promise.resolve(...)` to satisfy the array type without
-  // an extra `await`.
-  const appsPromise = Promise.resolve(
-    supabase.from(`${prefix}_enrolment_applications`).select(ensuredAppColumns.join(', ')),
-  );
-  const statusPromise = Promise.resolve(
-    supabase.from(`${prefix}_enrolment_status`).select('enroleeNumber, applicationStatus'),
-  );
-  const docsPromise = withDocs
-    ? Promise.resolve(
-        supabase
-          .from(`${prefix}_enrolment_documents`)
-          .select(
-            'enroleeNumber, icaPhotoStatus, financialSupportDocsStatus, vaccinationInformationStatus',
-          ),
-      )
-    : null;
+  type PageResult<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
 
-  const [appsRes, statusRes, docsRes] = await Promise.all([
-    appsPromise,
-    statusPromise,
-    docsPromise,
+  // fetchAllPages walks past the PostgREST 1000-row cap (L5). AYs with
+  // > 1000 enrolled applicants silently truncated without this.
+  // Cast required: Supabase can't infer row shapes for dynamic table names.
+  const [apps, statuses, docs] = await Promise.all([
+    fetchAllPages<AppRow>((from, to) =>
+      supabase
+        .from(`${prefix}_enrolment_applications`)
+        .select(ensuredAppColumns.join(", "))
+        .range(from, to) as unknown as PageResult<AppRow>,
+    ),
+    fetchAllPages<StatusRow>((from, to) =>
+      supabase
+        .from(`${prefix}_enrolment_status`)
+        .select("enroleeNumber, applicationStatus")
+        .range(from, to) as unknown as PageResult<StatusRow>,
+    ),
+    withDocs
+      ? fetchAllPages<DocRow>((from, to) =>
+          supabase
+            .from(`${prefix}_enrolment_documents`)
+            .select("enroleeNumber, icaPhotoStatus, financialSupportDocsStatus, vaccinationInformationStatus")
+            .range(from, to) as unknown as PageResult<DocRow>,
+        )
+      : Promise.resolve([] as DocRow[]),
   ]);
-
-  if (appsRes.error) {
-    console.warn('[sis/cohorts] apps fetch failed:', appsRes.error.message);
-    return { apps: [], statusByEnrolee: new Map(), docsByEnrolee: new Map() };
-  }
-  if (statusRes.error) {
-    console.warn('[sis/cohorts] status fetch failed:', statusRes.error.message);
-  }
-  if (docsRes?.error) {
-    console.warn('[sis/cohorts] documents fetch failed:', docsRes.error.message);
-  }
-
-  const apps = ((appsRes.data ?? []) as unknown) as AppRow[];
-  const statuses = ((statusRes.data ?? []) as unknown) as StatusRow[];
-  const docs = ((docsRes?.data ?? []) as unknown) as DocRow[];
 
   const statusByEnrolee = new Map<string, StatusRow>();
   for (const s of statuses) {
@@ -186,7 +178,10 @@ async function loadSnapshot(
   return { apps, statusByEnrolee, docsByEnrolee };
 }
 
-function commonFields(app: AppRow, status: StatusRow | undefined): {
+function commonFields(
+  app: AppRow,
+  status: StatusRow | undefined,
+): {
   enroleeNumber: string;
   studentNumber: string | null;
   enroleeFullName: string | null;
@@ -194,7 +189,7 @@ function commonFields(app: AppRow, status: StatusRow | undefined): {
   applicationStatus: string | null;
 } {
   return {
-    enroleeNumber: (app.enroleeNumber as string | null) ?? '',
+    enroleeNumber: (app.enroleeNumber as string | null) ?? "",
     studentNumber: (app.studentNumber as string | null) ?? null,
     enroleeFullName: (app.enroleeFullName as string | null) ?? null,
     levelApplied: (app.levelApplied as string | null) ?? null,
@@ -205,33 +200,33 @@ function commonFields(app: AppRow, status: StatusRow | undefined): {
 // ─── STP cohort ─────────────────────────────────────────────────────────────
 
 const STP_APP_COLUMNS = [
-  'enroleeNumber',
-  'studentNumber',
-  'enroleeFullName',
-  'levelApplied',
-  'stpApplicationType',
-  'residenceHistory',
+  "enroleeNumber",
+  "studentNumber",
+  "enroleeFullName",
+  "levelApplied",
+  "stpApplicationType",
+  "stpApplicationStatus",
+  "residenceHistory",
 ];
 
 function isResidencePopulated(raw: unknown): boolean {
   if (raw == null) return false;
   if (Array.isArray(raw)) return raw.length > 0;
-  if (typeof raw === 'string') {
+  if (typeof raw === "string") {
     const trimmed = raw.trim();
-    if (!trimmed || trimmed === '[]' || trimmed === '{}') return false;
+    if (!trimmed || trimmed === "[]" || trimmed === "{}") return false;
     return true;
   }
-  if (typeof raw === 'object') {
+  if (typeof raw === "object") {
     return Object.keys(raw as Record<string, unknown>).length > 0;
   }
   return false;
 }
 
-async function loadStpCohortUncached(
-  ayCode: string,
-  scope: CohortScope,
-): Promise<CohortStudentRow[]> {
-  const snapshot = await loadSnapshot(ayCode, STP_APP_COLUMNS, true);
+async function loadStpCohortUncached(ayCode: string, scope: CohortScope): Promise<CohortStudentRow[]> {
+  // No more docs snapshot — STP completeness now flows from
+  // stpApplicationStatus on the apps row (migration 050).
+  const snapshot = await loadSnapshot(ayCode, STP_APP_COLUMNS, false);
   const rows: CohortStudentRow[] = [];
 
   for (const app of snapshot.apps) {
@@ -242,20 +237,17 @@ async function loadStpCohortUncached(
     const status = snapshot.statusByEnrolee.get(app.enroleeNumber);
     if (!inScope(status?.applicationStatus ?? null, scope)) continue;
 
-    const docs = snapshot.docsByEnrolee.get(app.enroleeNumber);
-    const ica = docs?.icaPhotoStatus ?? null;
-    const fin = docs?.financialSupportDocsStatus ?? null;
-    const vac = docs?.vaccinationInformationStatus ?? null;
+    const stpStatus = (app.stpApplicationStatus as string | null) ?? null;
     const residenceFilled = isResidencePopulated(app.residenceHistory);
-    const stpComplete =
-      ica === 'Valid' && fin === 'Valid' && vac === 'Valid' && residenceFilled;
+    // "Complete" now means ICA approved the pass. Anything earlier in the
+    // ladder (Pending / Submitted) or terminal-negative (Rejected) is
+    // still actionable.
+    const stpComplete = stpStatus === "Approved" && residenceFilled;
 
     rows.push({
       ...commonFields(app, status),
       stpApplicationType: stpType,
-      icaPhotoStatus: ica,
-      financialSupportDocsStatus: fin,
-      vaccinationInformationStatus: vac,
+      stpApplicationStatus: stpStatus,
       residenceHistoryFilled: residenceFilled,
       stpComplete,
     });
@@ -266,55 +258,48 @@ async function loadStpCohortUncached(
     const ac = a.stpComplete ? 1 : 0;
     const bc = b.stpComplete ? 1 : 0;
     if (ac !== bc) return ac - bc;
-    return (a.enroleeFullName ?? '').localeCompare(b.enroleeFullName ?? '');
+    return (a.enroleeFullName ?? "").localeCompare(b.enroleeFullName ?? "");
   });
   return rows;
 }
 
-export async function getStpCohort(
-  ayCode: string,
-  scope: CohortScope,
-): Promise<CohortStudentRow[]> {
-  return unstable_cache(
-    () => loadStpCohortUncached(ayCode, scope),
-    ['sis', 'cohort', 'stp', ayCode, scope],
-    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS },
-  )();
+export async function getStpCohort(ayCode: string, scope: CohortScope): Promise<CohortStudentRow[]> {
+  return unstable_cache(() => loadStpCohortUncached(ayCode, scope), ["sis", "cohort", "stp", ayCode, scope], {
+    tags: tag(ayCode),
+    revalidate: CACHE_TTL_SECONDS,
+  })();
 }
 
 // ─── Medical cohort ─────────────────────────────────────────────────────────
 
 const MEDICAL_FLAG_COLUMNS = [
-  'allergies',
-  'asthma',
-  'foodAllergies',
-  'heartConditions',
-  'epilepsy',
-  'diabetes',
-  'eczema',
+  "allergies",
+  "asthma",
+  "foodAllergies",
+  "heartConditions",
+  "epilepsy",
+  "diabetes",
+  "eczema",
 ] as const;
 
 const MEDICAL_APP_COLUMNS = [
-  'enroleeNumber',
-  'studentNumber',
-  'enroleeFullName',
-  'levelApplied',
+  "enroleeNumber",
+  "studentNumber",
+  "enroleeFullName",
+  "levelApplied",
   ...MEDICAL_FLAG_COLUMNS,
-  'allergyDetails',
-  'foodAllergyDetails',
-  'otherMedicalConditions',
-  'paracetamolConsent',
-  'dietaryRestrictions',
+  "allergyDetails",
+  "foodAllergyDetails",
+  "otherMedicalConditions",
+  "paracetamolConsent",
+  "dietaryRestrictions",
 ];
 
 function nonEmpty(s: unknown): boolean {
-  return typeof s === 'string' && s.trim().length > 0;
+  return typeof s === "string" && s.trim().length > 0;
 }
 
-async function loadMedicalCohortUncached(
-  ayCode: string,
-  scope: CohortScope,
-): Promise<CohortStudentRow[]> {
+async function loadMedicalCohortUncached(ayCode: string, scope: CohortScope): Promise<CohortStudentRow[]> {
   const snapshot = await loadSnapshot(ayCode, MEDICAL_APP_COLUMNS, false);
   const rows: CohortStudentRow[] = [];
 
@@ -333,8 +318,8 @@ async function loadMedicalCohortUncached(
     }
     const hasOther = nonEmpty(app.otherMedicalConditions);
     const hasDietary = nonEmpty(app.dietaryRestrictions);
-    if (hasOther) flags.push('otherMedicalConditions');
-    if (hasDietary) flags.push('dietaryRestrictions');
+    if (hasOther) flags.push("otherMedicalConditions");
+    if (hasDietary) flags.push("dietaryRestrictions");
 
     if (flags.length === 0) continue; // not in cohort
 
@@ -350,46 +335,43 @@ async function loadMedicalCohortUncached(
   }
 
   rows.sort((a, b) => {
-    const aLen = (a.medicalFlags?.length ?? 0);
-    const bLen = (b.medicalFlags?.length ?? 0);
+    const aLen = a.medicalFlags?.length ?? 0;
+    const bLen = b.medicalFlags?.length ?? 0;
     if (aLen !== bLen) return bLen - aLen;
-    return (a.enroleeFullName ?? '').localeCompare(b.enroleeFullName ?? '');
+    return (a.enroleeFullName ?? "").localeCompare(b.enroleeFullName ?? "");
   });
+
   return rows;
 }
 
-export async function getMedicalCohort(
-  ayCode: string,
-  scope: CohortScope,
-): Promise<CohortStudentRow[]> {
-  return unstable_cache(
-    () => loadMedicalCohortUncached(ayCode, scope),
-    ['sis', 'cohort', 'medical', ayCode, scope],
-    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS },
-  )();
+export async function getMedicalCohort(ayCode: string, scope: CohortScope): Promise<CohortStudentRow[]> {
+  return unstable_cache(() => loadMedicalCohortUncached(ayCode, scope), ["sis", "cohort", "medical", ayCode, scope], {
+    tags: tag(ayCode),
+    revalidate: CACHE_TTL_SECONDS,
+  })();
 }
 
 // ─── Pass expiry cohort ─────────────────────────────────────────────────────
 
 const PASS_EXPIRY_APP_COLUMNS = [
-  'enroleeNumber',
-  'studentNumber',
-  'enroleeFullName',
-  'levelApplied',
-  'passportExpiry',
-  'passExpiry',
-  'motherPassportExpiry',
-  'motherPassExpiry',
-  'fatherPassportExpiry',
-  'fatherPassExpiry',
-  'guardianPassportExpiry',
-  'guardianPassExpiry',
+  "enroleeNumber",
+  "studentNumber",
+  "enroleeFullName",
+  "levelApplied",
+  "passportExpiry",
+  "passExpiry",
+  "motherPassportExpiry",
+  "motherPassExpiry",
+  "fatherPassportExpiry",
+  "fatherPassExpiry",
+  "guardianPassportExpiry",
+  "guardianPassExpiry",
 ];
 
 const MS_PER_DAY = 86_400_000;
 
 function parseDate(raw: unknown): { iso: string; ms: number } | null {
-  if (!raw || typeof raw !== 'string') return null;
+  if (!raw || typeof raw !== "string") return null;
   const trimmed = raw.trim();
   if (!trimmed) return null;
   const ms = Date.parse(trimmed);
@@ -397,10 +379,7 @@ function parseDate(raw: unknown): { iso: string; ms: number } | null {
   return { iso: trimmed, ms };
 }
 
-async function loadPassExpiryCohortUncached(
-  ayCode: string,
-  scope: CohortScope,
-): Promise<CohortStudentRow[]> {
+async function loadPassExpiryCohortUncached(ayCode: string, scope: CohortScope): Promise<CohortStudentRow[]> {
   const snapshot = await loadSnapshot(ayCode, PASS_EXPIRY_APP_COLUMNS, false);
   const rows: CohortStudentRow[] = [];
   const todayMs = Date.now();
@@ -416,25 +395,23 @@ async function loadPassExpiryCohortUncached(
     // Student earliest of passportExpiry / passExpiry.
     const passport = parseDate(app.passportExpiry);
     const pass = parseDate(app.passExpiry);
-    let studentEarliest: { iso: string; ms: number; kind: 'passport' | 'pass' } | null = null;
+    let studentEarliest: { iso: string; ms: number; kind: "passport" | "pass" } | null = null;
     if (passport && pass) {
-      studentEarliest = passport.ms <= pass.ms
-        ? { ...passport, kind: 'passport' }
-        : { ...pass, kind: 'pass' };
+      studentEarliest = passport.ms <= pass.ms ? { ...passport, kind: "passport" } : { ...pass, kind: "pass" };
     } else if (passport) {
-      studentEarliest = { ...passport, kind: 'passport' };
+      studentEarliest = { ...passport, kind: "passport" };
     } else if (pass) {
-      studentEarliest = { ...pass, kind: 'pass' };
+      studentEarliest = { ...pass, kind: "pass" };
     }
 
     // Parent expiries — keep all populated (for chip strip).
     const parentSpecs: Array<{ kind: string; raw: unknown }> = [
-      { kind: 'mother passport', raw: app.motherPassportExpiry },
-      { kind: 'mother pass', raw: app.motherPassExpiry },
-      { kind: 'father passport', raw: app.fatherPassportExpiry },
-      { kind: 'father pass', raw: app.fatherPassExpiry },
-      { kind: 'guardian passport', raw: app.guardianPassportExpiry },
-      { kind: 'guardian pass', raw: app.guardianPassExpiry },
+      { kind: "mother passport", raw: app.motherPassportExpiry },
+      { kind: "mother pass", raw: app.motherPassExpiry },
+      { kind: "father passport", raw: app.fatherPassportExpiry },
+      { kind: "father pass", raw: app.fatherPassExpiry },
+      { kind: "guardian passport", raw: app.guardianPassportExpiry },
+      { kind: "guardian pass", raw: app.guardianPassExpiry },
     ];
     const parentExpiries: Array<{ kind: string; iso: string; ms: number }> = [];
     for (const spec of parentSpecs) {
@@ -473,13 +450,10 @@ async function loadPassExpiryCohortUncached(
   return rows;
 }
 
-export async function getPassExpiryCohort(
-  ayCode: string,
-  scope: CohortScope,
-): Promise<CohortStudentRow[]> {
+export async function getPassExpiryCohort(ayCode: string, scope: CohortScope): Promise<CohortStudentRow[]> {
   return unstable_cache(
     () => loadPassExpiryCohortUncached(ayCode, scope),
-    ['sis', 'cohort', 'pass-expiry', ayCode, scope],
+    ["sis", "cohort", "pass-expiry", ayCode, scope],
     { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS },
   )();
 }
@@ -500,18 +474,15 @@ function promiseDaysUntil(promisedUntil: string, todayMs: number): number {
   return Math.floor((ms - todayMs) / MS_PER_DAY_PROMISED);
 }
 
-async function loadPromisedCohortUncached(
-  ayCode: string,
-  scope: CohortScope,
-): Promise<CohortStudentRow[]> {
-  if (scope !== 'funnel') return [];
+async function loadPromisedCohortUncached(ayCode: string, scope: CohortScope): Promise<CohortStudentRow[]> {
+  if (scope !== "funnel") return [];
 
   // Lazy-imported to keep `lib/admissions/dashboard.ts` out of the eager
   // dep graph for the other cohort loaders.
-  const { getAdmissionsCompletenessForChase } = await import('@/lib/admissions/dashboard');
-  const { getLatestPromisesForRoster } = await import('@/lib/p-files/outreach');
+  const { getAdmissionsCompletenessForChase } = await import("@/lib/admissions/dashboard");
+  const { getLatestPromisesForRoster } = await import("@/lib/p-files/outreach");
 
-  const { students } = await getAdmissionsCompletenessForChase(ayCode, 'to-follow');
+  const { students } = await getAdmissionsCompletenessForChase(ayCode, "to-follow");
   if (students.length === 0) return [];
 
   const enroleeNumbers = students.map((s) => s.enroleeNumber);
@@ -528,7 +499,7 @@ async function loadPromisedCohortUncached(
     let hasPastDue = false;
 
     for (const slot of s.slots) {
-      if (slot.status !== 'to-follow') continue;
+      if (slot.status !== "to-follow") continue;
       const promise = promisesBySlot.get(slot.key);
       if (promise) {
         const days = promiseDaysUntil(promise.promisedUntil, todayMs);
@@ -570,8 +541,7 @@ async function loadPromisedCohortUncached(
       toFollowSlots,
       toFollowCount: toFollowSlots.length,
       earliestPromisedUntil: earliestIso,
-      daysUntilEarliestPromise:
-        earliestMs === null ? null : Math.floor((earliestMs - todayMs) / MS_PER_DAY_PROMISED),
+      daysUntilEarliestPromise: earliestMs === null ? null : Math.floor((earliestMs - todayMs) / MS_PER_DAY_PROMISED),
       hasPastDuePromise: hasPastDue,
     });
   }
@@ -582,7 +552,7 @@ async function loadPromisedCohortUncached(
     const av = a.daysUntilEarliestPromise ?? null;
     const bv = b.daysUntilEarliestPromise ?? null;
     if (av === null && bv === null) {
-      return (a.enroleeFullName ?? '').localeCompare(b.enroleeFullName ?? '');
+      return (a.enroleeFullName ?? "").localeCompare(b.enroleeFullName ?? "");
     }
     if (av === null) return 1;
     if (bv === null) return -1;
@@ -592,62 +562,138 @@ async function loadPromisedCohortUncached(
   return rows;
 }
 
-export async function getPromisedCohort(
-  ayCode: string,
-  scope: CohortScope,
-): Promise<CohortStudentRow[]> {
+export async function getPromisedCohort(ayCode: string, scope: CohortScope): Promise<CohortStudentRow[]> {
+  return unstable_cache(() => loadPromisedCohortUncached(ayCode, scope), ["sis", "cohort", "promised", ayCode, scope], {
+    tags: tag(ayCode),
+    revalidate: CACHE_TTL_SECONDS,
+  })();
+}
+
+// ─── Pre-course counselling cohort ─────────────────────────────────────────
+//
+// Monitoring lens for the mandatory Pre-Course Counselling Acknowledgement.
+// Before enrolment, HFSE provides counselling on course information, fees,
+// refund policy, Student's Pass procedures, and key regulations. The parent
+// must sign the acknowledgement form; `preCourseAcknowledgedAt` is the
+// completion signal.
+//
+// Unlike other cohorts, this includes ALL funnel applicants (the counselling
+// is mandatory for every intake, not gated on a sub-attribute). The status
+// tabs filter to action-needed rows by default.
+
+const PRE_COURSE_APP_COLUMNS = [
+  "enroleeNumber",
+  "studentNumber",
+  "enroleeFullName",
+  "levelApplied",
+  "preCourseAnswer",
+  "preCourseDate",
+  "preCourseAcknowledgedAt",
+];
+
+function toNullableString(raw: unknown): string | null {
+  if (raw == null) return null;
+  const s = String(raw).trim();
+  return s || null;
+}
+
+async function loadPreCourseCohortUncached(ayCode: string, scope: CohortScope): Promise<CohortStudentRow[]> {
+  const snapshot = await loadSnapshot(ayCode, PRE_COURSE_APP_COLUMNS, false);
+  const rows: CohortStudentRow[] = [];
+
+  for (const app of snapshot.apps) {
+    if (!app.enroleeNumber) continue;
+    const status = snapshot.statusByEnrolee.get(app.enroleeNumber);
+    if (!inScope(status?.applicationStatus ?? null, scope)) continue;
+
+    const rawAnswer = toNullableString(app.preCourseAnswer);
+    const answer: 'Yes' | 'No' | null =
+      rawAnswer === 'Yes' ? 'Yes' : rawAnswer === 'No' ? 'No' : null;
+    const date = toNullableString(app.preCourseDate);
+    const acknowledgedAt = toNullableString(app.preCourseAcknowledgedAt);
+
+    // "complete" = parent answered Yes OR the SIS recorded a formal timestamp.
+    // "not-yet"  = parent explicitly said No (needs follow-up / scheduling).
+    // "pending"  = no response at all yet.
+    const preCourseStatus: 'complete' | 'not-yet' | 'pending' =
+      answer === 'Yes' || acknowledgedAt !== null
+        ? 'complete'
+        : answer === 'No'
+          ? 'not-yet'
+          : 'pending';
+
+    rows.push({
+      ...commonFields(app, status),
+      preCourseAnswer: answer,
+      preCourseDate: date,
+      preCourseAcknowledgedAt: acknowledgedAt,
+      preCourseStatus,
+    });
+  }
+
+  // Sort: not-yet first (explicitly declined — needs scheduling), then pending
+  // (no response — needs outreach), then complete; alphabetically within each group.
+  const PRIORITY: Record<string, number> = { 'not-yet': 0, pending: 1, complete: 2 };
+  rows.sort((a, b) => {
+    const ap = PRIORITY[a.preCourseStatus ?? 'pending'] ?? 0;
+    const bp = PRIORITY[b.preCourseStatus ?? 'pending'] ?? 0;
+    if (ap !== bp) return ap - bp;
+    return (a.enroleeFullName ?? '').localeCompare(b.enroleeFullName ?? '');
+  });
+
+  return rows;
+}
+
+export async function getPreCourseCohort(ayCode: string, scope: CohortScope): Promise<CohortStudentRow[]> {
   return unstable_cache(
-    () => loadPromisedCohortUncached(ayCode, scope),
-    ['sis', 'cohort', 'promised', ayCode, scope],
+    () => loadPreCourseCohortUncached(ayCode, scope),
+    ["sis", "cohort", "pre-course", ayCode, scope],
     { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS },
   )();
 }
 
 // ─── Cohort key + dispatcher ────────────────────────────────────────────────
 
-export type CohortKey = 'stp' | 'medical' | 'pass-expiry' | 'promised';
+export type CohortKey = "stp" | "medical" | "pass-expiry" | "promised" | "pre-course";
 
-const COHORT_KEYS: readonly CohortKey[] = [
-  'stp',
-  'medical',
-  'pass-expiry',
-  'promised',
-] as const;
+const COHORT_KEYS: readonly CohortKey[] = ["stp", "medical", "pass-expiry", "promised", "pre-course"] as const;
 
 export function isCohortKey(value: unknown): value is CohortKey {
-  return typeof value === 'string' && (COHORT_KEYS as readonly string[]).includes(value);
+  return typeof value === "string" && (COHORT_KEYS as readonly string[]).includes(value);
 }
 
-export async function getCohort(
-  cohort: CohortKey,
-  ayCode: string,
-  scope: CohortScope,
-): Promise<CohortStudentRow[]> {
+export async function getCohort(cohort: CohortKey, ayCode: string, scope: CohortScope): Promise<CohortStudentRow[]> {
   switch (cohort) {
-    case 'stp':
+    case "stp":
       return getStpCohort(ayCode, scope);
-    case 'medical':
+    case "medical":
       return getMedicalCohort(ayCode, scope);
-    case 'pass-expiry':
+    case "pass-expiry":
       return getPassExpiryCohort(ayCode, scope);
-    case 'promised':
+    case "promised":
       return getPromisedCohort(ayCode, scope);
+    case "pre-course":
+      return getPreCourseCohort(ayCode, scope);
   }
 }
 
 // ─── Display metadata ───────────────────────────────────────────────────────
 
 export const COHORT_TITLES: Record<CohortKey, string> = {
-  stp: 'STP applications',
-  medical: 'Medical alerts',
-  'pass-expiry': 'Pass expiry',
-  promised: 'Promised follow-ups',
+  stp: "STP applications",
+  medical: "Medical alerts",
+  "pass-expiry": "Pass expiry",
+  promised: "Promised follow-ups",
+  "pre-course": "Pre-Course Counselling",
 };
 
 export const COHORT_DESCRIPTIONS: Record<CohortKey, string> = {
-  stp: 'Singapore ICA Student Pass applicants — track residence history and the 3 STP-conditional document slots.',
-  medical: 'Students with any medical flag, allergy, dietary restriction, or paracetamol-consent on file.',
-  'pass-expiry': 'Students with a student or parent travel-document expiry within the next 12 months (or already expired).',
+  stp: "Singapore ICA Student Pass applicants — track ICA application progress (Pending / Submitted / Approved / Rejected) and residence history.",
+  medical: "Students with any medical flag, allergy, dietary restriction, or paracetamol-consent on file.",
+  "pass-expiry":
+    "Students with a student or parent travel-document expiry within the next 12 months (or already expired).",
   promised:
-    'Funnel applicants with documents marked To follow — sorted by the soonest date the parent committed to upload by.',
+    "Funnel applicants with documents marked To follow — sorted by the soonest date the parent committed to upload by.",
+  "pre-course":
+    "Tracks whether each applicant's parent has completed and signed the Pre-Course Counselling Acknowledgement — covering course information, fees, refund policy, Student's Pass procedures, and key regulations. Required before enrolment.",
 };

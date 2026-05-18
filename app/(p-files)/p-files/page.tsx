@@ -211,6 +211,13 @@ export default async function PFilesDashboard({
           termWindows={windows.term}
           ayWindows={windows.ay}
           presets={FLEXIBLE_PRESETS}
+          trustStrip={
+            <p className="text-[11px] text-muted-foreground">
+              Date range filters the{" "}
+              <strong className="font-semibold text-foreground">Revisions</strong> KPI
+              + chart only — slot status, expiring, and total counts are AY-wide.
+            </p>
+          }
         />
 
         {/* Escape hatch back to the full dashboard. The AY param is preserved
@@ -314,6 +321,13 @@ export default async function PFilesDashboard({
         termWindows={windows.term}
         ayWindows={windows.ay}
         presets={FLEXIBLE_PRESETS}
+        trustStrip={
+          <p className="text-[11px] text-muted-foreground">
+            Date range filters the{" "}
+            <strong className="font-semibold text-foreground">Revisions</strong> KPI
+            + chart only — slot status, expiring, and total counts are AY-wide.
+          </p>
+        }
       />
 
       {/* Officer-only operational top-of-fold (KD #57) — chase priority +
@@ -322,7 +336,7 @@ export default async function PFilesDashboard({
           officer's voice ("you owe these reminders"). */}
       {isOfficer && priority && <PriorityPanel payload={priority} />}
       {isOfficer && (
-        <DocumentChaseQueueStrip ayCode={selectedAy} module="p-files" />
+        <DocumentChaseQueueStrip ayCode={selectedAy} lens="p-files" />
       )}
 
       <InsightsPanel insights={insights} />

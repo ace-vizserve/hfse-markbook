@@ -21,10 +21,13 @@ export const ENROLLMENT_STATUS_VALUES = [
 ] as const;
 export type EnrollmentStatus = (typeof ENROLLMENT_STATUS_VALUES)[number];
 
+export const WITHDRAWAL_REASON_MAX = 200;
+
 export const EnrolmentMetadataSchema = z.object({
   bus_no: optionalText(40),
   classroom_officer_role: optionalText(80),
   enrollment_status: z.enum(ENROLLMENT_STATUS_VALUES).optional(),
+  reason: optionalText(WITHDRAWAL_REASON_MAX).optional(),
 });
 
 export type EnrolmentMetadataInput = z.infer<typeof EnrolmentMetadataSchema>;

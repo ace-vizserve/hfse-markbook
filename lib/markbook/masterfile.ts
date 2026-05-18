@@ -60,6 +60,15 @@ export type MasterfileSubjectRow = {
   overall: number | null;
   // Subject Award badge. null when non-examinable or withdrawn.
   award: SubjectAwardLabel;
+  // For non-examinable subjects only: registrar-entered year-end letter/text.
+  // Always null for examinable subjects. Sourced from the T4 grade_entries row.
+  annualLetter: string | null;
+  // grade_entries.id for the T4 row — needed by the masterfile inline editor.
+  // null when no T4 entry exists for this student × subject.
+  annualLetterEntryId: string | null;
+  // grading_sheets.id for the T4 sheet — forms the first segment of the
+  // PATCH URL /api/grading-sheets/[sheetId]/entries/[entryId]/annual-letter.
+  annualLetterSheetId: string | null;
 };
 
 export type MasterfileAttendanceTermCell = {
@@ -323,17 +332,19 @@ async function loadMasterfileUncached(
   const { data: entriesRaw } = sheets.length > 0
     ? await service
         .from('grade_entries')
-        .select('grading_sheet_id, section_student_id, quarterly_grade, letter_grade, is_na')
+        .select('id, grading_sheet_id, section_student_id, quarterly_grade, letter_grade, is_na, annual_letter_grade')
         .in('grading_sheet_id', sheets.map((s) => s.id))
         .in('section_student_id', allEnrolmentIds)
     : { data: [] };
 
   type EntryRow = {
+    id: string;
     grading_sheet_id: string;
     section_student_id: string;
     quarterly_grade: number | null;
     letter_grade: string | null;
     is_na: boolean;
+    annual_letter_grade: string | null;
   };
   const entries = (entriesRaw ?? []) as EntryRow[];
 
@@ -381,6 +392,10 @@ async function loadMasterfileUncached(
 
     // Subject rows.
     const subjectRows: MasterfileSubjectRow[] = subjects.map((sub) => {
+      let annualLetter: string | null = null;
+      let annualLetterEntryId: string | null = null;
+      let annualLetterSheetId: string | null = null;
+
       const cells: MasterfileCell[] = terms.map((t) => {
         // All sheets covering (this term × this subject) across the
         // student's enrolments — union covers the mid-year transfer case.
@@ -402,6 +417,13 @@ async function loadMasterfileUncached(
         const pool = filled.length > 0 ? filled : candidates;
         const best =
           pool.find((e) => e.section_student_id === primary.id) ?? pool[0];
+
+        if (t.term_number === 4 && !sub.isExaminable) {
+          annualLetter = best.annual_letter_grade ?? null;
+          annualLetterEntryId = best.id;
+          annualLetterSheetId = best.grading_sheet_id;
+        }
+
         return {
           quarterly: best.quarterly_grade,
           letter: best.letter_grade,
@@ -436,6 +458,9 @@ async function loadMasterfileUncached(
         cells,
         overall,
         award,
+        annualLetter,
+        annualLetterEntryId,
+        annualLetterSheetId,
       };
     });
 

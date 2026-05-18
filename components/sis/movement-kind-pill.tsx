@@ -14,6 +14,7 @@ const LABELS: Record<MovementKind, string> = {
   'section-transfer': 'Transfer',
   withdrawn: 'Withdrawn',
   'late-enrolled': 'Late enrolled',
+  're-enrolled': 'Re-enrolled',
 };
 
 const VARIANT: Record<MovementKind, NonNullable<BadgeProps['variant']>> = {
@@ -23,6 +24,8 @@ const VARIANT: Record<MovementKind, NonNullable<BadgeProps['variant']>> = {
   withdrawn: 'blocked',
   // Amber gradient — time-bounded join after term start.
   'late-enrolled': 'warning',
+  // Success (mint) gradient — positive reversal of a withdrawal.
+  're-enrolled': 'success',
 };
 
 export function MovementKindPill({ kind }: { kind: MovementKind }) {

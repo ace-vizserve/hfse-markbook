@@ -114,6 +114,43 @@ function StalenessBadge({ days }: { days: number | null }) {
   );
 }
 
+const ENROLL_TIERS = [
+  {
+    label: 'Fast',
+    maxDays: 7,
+    className:
+      'border-brand-mint bg-gradient-to-b from-brand-mint/35 to-brand-mint/15 text-ink',
+  },
+  {
+    label: 'Typical',
+    maxDays: 30,
+    className: 'border-hairline bg-gradient-to-b from-muted to-muted/60 text-ink-3',
+  },
+  {
+    label: 'Slow',
+    maxDays: 60,
+    className: 'border-chart-4/50 bg-chart-4/15 text-ink',
+  },
+  {
+    label: 'Very slow',
+    maxDays: Infinity,
+    className:
+      'border-destructive/40 bg-gradient-to-b from-destructive/15 to-destructive/5 text-destructive',
+  },
+] as const;
+
+function EnrollTimeTierBadge({ days }: { days: number }) {
+  const tier = ENROLL_TIERS.find((t) => days <= t.maxDays) ?? ENROLL_TIERS[ENROLL_TIERS.length - 1];
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-sm tabular-nums text-foreground">{days}d</span>
+      <Badge variant="outline" className={`${BADGE_BASE} ${tier.className}`}>
+        {tier.label}
+      </Badge>
+    </div>
+  );
+}
+
 type StatusStyle = {
   icon: LucideIcon;
   label: string;
@@ -280,7 +317,10 @@ function buildDrillUrl(
 // ─────────────────────────────────────────────────────────────────────────────
 // Column factory
 
-function buildColumnDef(key: DrillColumnKey): ColumnDef<DrillRow, unknown> {
+function buildColumnDef(
+  key: DrillColumnKey,
+  opts?: { showDaysTier?: boolean },
+): ColumnDef<DrillRow, unknown> {
   const header = DRILL_COLUMN_LABELS[key];
   switch (key) {
     case 'fullName':
@@ -288,19 +328,29 @@ function buildColumnDef(key: DrillColumnKey): ColumnDef<DrillRow, unknown> {
         id: 'fullName',
         accessorKey: 'fullName',
         header,
-        cell: ({ row }) => (
-          <div className="space-y-0.5">
-            <Link
-              href={`/admissions/applications/${encodeURIComponent(row.original.enroleeNumber)}`}
-              className="font-medium text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
-            >
-              {row.original.fullName}
-            </Link>
-            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-              {row.original.enroleeNumber}
+        cell: ({ row }) => {
+          const { enroleeNumber, studentNumber, status } = row.original;
+          // KD #81: Enrolled rows route to Records; pre-Enrolled stay on Admissions.
+          const isEnrolled = status === 'Enrolled' || status === 'Enrolled (Conditional)';
+          const href = isEnrolled
+            ? studentNumber
+              ? `/records/students/${encodeURIComponent(studentNumber)}`
+              : `/records/students/by-enrolee/${encodeURIComponent(enroleeNumber)}`
+            : `/admissions/applications/${encodeURIComponent(enroleeNumber)}`;
+          return (
+            <div className="space-y-0.5">
+              <Link
+                href={href}
+                className="font-medium text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
+              >
+                {row.original.fullName}
+              </Link>
+              <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                {enroleeNumber}
+              </div>
             </div>
-          </div>
-        ),
+          );
+        },
         enableSorting: true,
       };
     case 'enroleeNumber':
@@ -386,6 +436,40 @@ function buildColumnDef(key: DrillColumnKey): ColumnDef<DrillRow, unknown> {
         ),
         enableSorting: true,
       };
+    case 'assessmentMath':
+      return {
+        id: 'assessmentMath',
+        accessorKey: 'assessmentMath',
+        header,
+        cell: ({ row }) => (
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm tabular-nums text-foreground">
+              {row.original.assessmentMath ?? '—'}
+            </span>
+            {row.original.assessmentMath != null && (
+              <AssessmentBadge outcome={row.original.assessmentMathOutcome} />
+            )}
+          </div>
+        ),
+        enableSorting: true,
+      };
+    case 'assessmentEnglish':
+      return {
+        id: 'assessmentEnglish',
+        accessorKey: 'assessmentEnglish',
+        header,
+        cell: ({ row }) => (
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm tabular-nums text-foreground">
+              {row.original.assessmentEnglish ?? '—'}
+            </span>
+            {row.original.assessmentEnglish != null && (
+              <AssessmentBadge outcome={row.original.assessmentEnglishOutcome} />
+            )}
+          </div>
+        ),
+        enableSorting: true,
+      };
     case 'applicationDate':
       return {
         id: 'applicationDate',
@@ -415,13 +499,12 @@ function buildColumnDef(key: DrillColumnKey): ColumnDef<DrillRow, unknown> {
         id: 'daysToEnroll',
         accessorKey: 'daysToEnroll',
         header,
-        cell: ({ row }) => (
-          <span className="text-sm tabular-nums text-foreground">
-            {row.original.daysToEnroll === null
-              ? '—'
-              : `${row.original.daysToEnroll}d`}
-          </span>
-        ),
+        cell: ({ row }) => {
+          const days = row.original.daysToEnroll;
+          if (days === null) return <span className="text-sm text-muted-foreground">—</span>;
+          if (opts?.showDaysTier) return <EnrollTimeTierBadge days={days} />;
+          return <span className="text-sm tabular-nums text-foreground">{days}d</span>;
+        },
         enableSorting: true,
         sortingFn: (a, b) => {
           const av = a.original.daysToEnroll;
@@ -499,7 +582,9 @@ export function AdmissionsDrillSheet({
   );
   const [selectedStatuses, setSelectedStatuses] = React.useState<string[]>([]);
   const [selectedLevels, setSelectedLevels] = React.useState<string[]>([]);
-  const [groupBy, setGroupBy] = React.useState<DrillDownGroupBy>('none');
+  const [groupBy, setGroupBy] = React.useState<DrillDownGroupBy>(() =>
+    target === 'conversion' ? 'status' : 'none',
+  );
   const [density, setDensity] = React.useState<DrillDownDensity>('comfortable');
   const [visibleColumnKeys, setVisibleColumnKeys] = React.useState<DrillColumnKey[]>(
     () => defaultColumnsForTarget(target),
@@ -565,6 +650,21 @@ export function AdmissionsDrillSheet({
     });
   }, [rows, selectedStatuses, selectedLevels]);
 
+  // ── Conversion group labels (computed from preFiltered so they update with filters) ─
+  const conversionGroupLabels = React.useMemo(() => {
+    if (target !== 'conversion') return null;
+    const total = preFiltered.length;
+    const convertedCount = preFiltered.filter(
+      (r) => r.status === 'Enrolled' || r.status === 'Enrolled (Conditional)',
+    ).length;
+    const notConvertedCount = total - convertedCount;
+    const pct = total > 0 ? Math.round((convertedCount / total) * 100) : 0;
+    return {
+      converted: `Converted — ${convertedCount} (${pct}%)`,
+      notConverted: `Did not convert — ${notConvertedCount} (${100 - pct}%)`,
+    };
+  }, [target, preFiltered]);
+
   // ── Filter options derived from the *fetched* row set ────────────────────
   // (Not the pre-filtered set — otherwise selecting a status would empty
   //  the level dropdown for the unselected statuses.)
@@ -584,8 +684,8 @@ export function AdmissionsDrillSheet({
   // Build full column set in canonical order; DrillDownSheet handles
   // visibility filtering via `visibleColumnKeys`.
   const columns = React.useMemo<ColumnDef<DrillRow, unknown>[]>(
-    () => ALL_DRILL_COLUMNS.map(buildColumnDef),
-    [],
+    () => ALL_DRILL_COLUMNS.map((k) => buildColumnDef(k, { showDaysTier: target === 'avg-time' })),
+    [target],
   );
 
   const columnOptions = React.useMemo(
@@ -600,6 +700,13 @@ export function AdmissionsDrillSheet({
   // ── Group accessor ───────────────────────────────────────────────────────
   const groupAccessor = React.useCallback(
     (row: DrillRow): string | null => {
+      if (target === 'conversion' && conversionGroupLabels) {
+        const isConverted =
+          row.status === 'Enrolled' || row.status === 'Enrolled (Conditional)';
+        return isConverted
+          ? conversionGroupLabels.converted
+          : conversionGroupLabels.notConverted;
+      }
       switch (groupBy) {
         case 'level':
           return row.level ?? 'Unknown';
@@ -611,11 +718,37 @@ export function AdmissionsDrillSheet({
           return null;
       }
     },
-    [groupBy],
+    [groupBy, target, conversionGroupLabels],
   );
+
+  // ── Display rows — pre-sorted by actionability signal per target ─────────
+  const displayRows = React.useMemo<DrillRow[]>(() => {
+    if (target === 'avg-time') {
+      return [...preFiltered].sort(
+        (a, b) => (b.daysToEnroll ?? -1) - (a.daysToEnroll ?? -1),
+      );
+    }
+    if (target === 'applications' || target === 'outdated') {
+      return [...preFiltered].sort(
+        (a, b) => (b.daysSinceUpdate ?? -1) - (a.daysSinceUpdate ?? -1),
+      );
+    }
+    return preFiltered;
+  }, [target, preFiltered]);
 
   // ── Header + CSV ────────────────────────────────────────────────────────
   const heading = drillHeaderForTarget(target, segment ?? null);
+
+  // KD #82: each target anchors on a specific date column. Surface this so
+  // the user understands why the date range picker affects some drills
+  // differently from others.
+  const dateAnchorLabel =
+    target === 'enrolled' || target === 'avg-time'
+      ? 'Anchored on enrollment date'
+      : target === 'time-to-enroll-bucket'
+        ? 'AY-wide · date range ignored'
+        : 'Anchored on application date';
+
   const csvHref = buildDrillUrl(
     target,
     ayCode,
@@ -630,20 +763,23 @@ export function AdmissionsDrillSheet({
   // For target-rows where every status is "Enrolled" / "Enrolled (Conditional)",
   // grouping by stage is meaningless. We still surface the control — the user
   // can flip back to None — but we let the option set degenerate naturally.
+  // For 'conversion' the two-group layout is the feature; hide the control.
   const enrolledOnly =
     target === 'avg-time' ||
     target === 'time-to-enroll-bucket' ||
     target === 'enrolled';
-  const showGroupBy = !enrolledOnly || groupBy !== 'none';
+  const showGroupBy =
+    target !== 'conversion' && (!enrolledOnly || groupBy !== 'none');
 
   return (
     <DrillDownSheet<DrillRow>
       title={heading.title}
       eyebrow={heading.eyebrow}
+      description={dateAnchorLabel}
       count={preFiltered.length}
       csvHref={csvHref}
       columns={columns}
-      rows={preFiltered}
+      rows={displayRows}
       // Toolkit
       statusOptions={statusOptions}
       selectedStatuses={selectedStatuses}

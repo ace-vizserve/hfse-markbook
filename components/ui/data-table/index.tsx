@@ -103,6 +103,45 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
     return rows;
   }, [data, statusTabs, statusTab, mineActive, meScope, meScopeEnabled]);
 
+  // "Data after every active filter except status" — drives the per-tab
+  // count badges so each tab shows how many rows would match it if the
+  // user clicked it, narrowed by the other filters they've already set.
+  // Replicates facet (column filter) + global search + mine logic on raw
+  // data so the answer doesn't depend on which tab is currently active.
+  const tabCountData = useMemo(() => {
+    let rows = data;
+    if (mineActive && meScope && meScopeEnabled) {
+      rows = rows.filter((r) => meScope.predicate(r, meScope.userId));
+    }
+    for (const f of columnFilters) {
+      const value = f.value;
+      if (value == null) continue;
+      const valueArr = Array.isArray(value) ? value : [value];
+      if (valueArr.length === 0) continue;
+      const valueSet = new Set(valueArr.map((v) => String(v)));
+      rows = rows.filter((r) => {
+        const raw = (r as unknown as Record<string, unknown>)[f.id];
+        const cell = raw == null || raw === '' ? '(unassigned)' : String(raw);
+        return valueSet.has(cell);
+      });
+    }
+    if (search && searchKeys && searchKeys.length > 0) {
+      const lower = search.toLowerCase();
+      rows = rows.filter((r) => {
+        const hay = searchKeys
+          .map((k) =>
+            typeof k === 'function'
+              ? k(r)
+              : String((r as unknown as Record<string, unknown>)[k as string] ?? ''),
+          )
+          .join(' ')
+          .toLowerCase();
+        return hay.includes(lower);
+      });
+    }
+    return rows;
+  }, [data, mineActive, meScope, meScopeEnabled, columnFilters, search, searchKeys]);
+
   const table = useReactTable<TRow>({
     data: tabFilteredData,
     columns,
@@ -315,7 +354,9 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
         <Tabs value={statusTab} onValueChange={setStatusTab}>
           <TabsList>
             {statusTabs.map((t) => {
-              const count = t.countOverride ? t.countOverride(data) : data.filter(t.predicate).length;
+              const count = t.countOverride
+                ? t.countOverride(tabCountData)
+                : tabCountData.filter(t.predicate).length;
               return (
                 <TabsTrigger key={t.value} value={t.value} className="gap-1.5">
                   <span>{t.label}</span>

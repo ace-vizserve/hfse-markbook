@@ -72,8 +72,13 @@ export const DAY_TYPE_VALUES = [
 ] as const;
 export type DayType = (typeof DAY_TYPE_VALUES)[number];
 
-export function isEncodableDayType(t: DayType | null | undefined): boolean {
-  return t === 'school_day' || t === 'hbl';
+export function isEncodableDayType(t: DayType | null | undefined, hblOverlay?: boolean): boolean {
+  if (t === 'school_day' || t === 'hbl') return true;
+  // school_holiday with hbl_overlay=true is encodable — teachers deliver
+  // home-based learning while the day is officially a school holiday for
+  // students (Path B per KD #50, migration 051).
+  if (t === 'school_holiday' && hblOverlay === true) return true;
+  return false;
 }
 
 export const DAY_TYPE_LABELS: Record<DayType, string> = {
@@ -137,6 +142,9 @@ export const SchoolCalendarUpsertSchema = z.object({
           dayType: z.enum(DAY_TYPE_VALUES).optional(),
           isHoliday: z.boolean().optional(),
           label: z.string().trim().max(200).optional().nullable(),
+          // When true, a school_holiday row is also encodable — teachers take
+          // attendance. Only meaningful when dayType='school_holiday'.
+          hblOverlay: z.boolean().optional().default(false),
         })
         .refine((v) => v.dayType !== undefined || v.isHoliday !== undefined, {
           message: 'Provide dayType (preferred) or isHoliday (legacy)',

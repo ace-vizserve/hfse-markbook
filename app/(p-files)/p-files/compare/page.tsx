@@ -53,13 +53,6 @@ export default async function PFilesComparePage({
       lowerIsBetter: true,
     },
     {
-      key: 'pendingReview',
-      label: 'Pending review',
-      format: 'number',
-      getValue: (d) => d.pendingReview,
-      lowerIsBetter: true,
-    },
-    {
       key: 'totalDocuments',
       label: 'Total documents',
       format: 'number',

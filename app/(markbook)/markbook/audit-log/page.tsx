@@ -12,45 +12,57 @@ import {
 import { PageShell } from '@/components/ui/page-shell';
 import { AuditLogDataTable, type MergedRow } from './audit-log-data-table';
 
+// Explicit allowlist — every action emitted by the markbook module.
+// Positive filter prevents non-markbook prefixes from leaking in
+// (the prior negative filter only excluded pfile.* and sis.*).
+// grade_audit_log (pre-migration-006 rows) is no longer unioned here;
+// the table stays in Postgres but is off-screen (Hard Rule #6).
+const MARKBOOK_AUDIT_ALLOWLIST = [
+  'sheet.create', 'sheet.bulk_create',
+  'sheet.lock', 'sheet.unlock',
+  'sheet.unlock_force_with_pending_crs',
+  'sheet.unlock_force_deadline_passed',
+  'sheet.lock_overdue_batch',
+  'entry.update', 'totals.update',
+  'comment.update',
+  'publication.create', 'publication.delete',
+  'grade_change_requested', 'grade_change_approved',
+  'grade_change_rejected', 'grade_change_cancelled',
+  'grade_change_applied', 'grade_change_undo_rejection',
+  'grade_correction',
+  'grade_entry.annual_letter.update',
+] as const;
+
 export default async function AuditLogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sheet_id?: string; action?: string }>;
+  searchParams: Promise<{ sheet_id?: string; action?: string; page?: string; pageSize?: string }>;
 }) {
   const params = await searchParams;
   const sessionUser = await getSessionUser();
   const canExport = sessionUser?.role === 'school_admin' || sessionUser?.role === 'superadmin';
   const supabase = await createClient();
 
-  // Push filters to DB when present to avoid fetching 1000 rows for a targeted view
-  let newQ = supabase
+  const PAGE_SIZE = Math.min(Number(params.pageSize ?? 50), 200);
+  const page = Math.max(Number(params.page ?? 1), 1);
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
+  let q = supabase
     .from('audit_log')
-    .select('id, actor_email, action, entity_type, entity_id, context, created_at')
-    .not('action', 'like', 'pfile.%')
-    .not('action', 'like', 'sis.%');
-  let legacyQ = supabase
-    .from('grade_audit_log')
-    .select('*');
+    .select('id, actor_email, action, entity_type, entity_id, context, created_at', { count: 'exact' })
+    .in('action', MARKBOOK_AUDIT_ALLOWLIST);
 
-  if (params.action) {
-    newQ = newQ.eq('action', params.action);
-    // Legacy rows don't have an 'action' column — they're always entry/totals updates
-    const isLegacyAction = params.action === 'entry.update' || params.action === 'totals.update';
-    if (!isLegacyAction) legacyQ = legacyQ.limit(0); // skip legacy if filtering to a non-legacy action
-  }
-  if (params.sheet_id) {
-    newQ = newQ.contains('context', { grading_sheet_id: params.sheet_id });
-    legacyQ = legacyQ.eq('grading_sheet_id', params.sheet_id);
-  }
+  if (params.action) q = q.eq('action', params.action);
+  if (params.sheet_id) q = q.contains('context', { grading_sheet_id: params.sheet_id });
 
-  const [newRes, legacyRes] = await Promise.all([
-    newQ.order('created_at', { ascending: false }).limit(500),
-    legacyQ.order('changed_at', { ascending: false }).limit(500),
-  ]);
+  const { data, count, error } = await q
+    .order('created_at', { ascending: false })
+    .range(from, to);
 
-  const errors = [newRes.error?.message, legacyRes.error?.message].filter(Boolean);
+  const totalPages = count ? Math.ceil(count / PAGE_SIZE) : 1;
 
-  type NewRow = {
+  const rows: MergedRow[] = ((data ?? []) as Array<{
     id: string;
     actor_email: string;
     action: string;
@@ -58,90 +70,25 @@ export default async function AuditLogPage({
     entity_id: string | null;
     context: Record<string, unknown>;
     created_at: string;
-  };
-  type LegacyRow = {
-    id: string;
-    grading_sheet_id: string;
-    grade_entry_id: string;
-    field_changed: string;
-    old_value: string | null;
-    new_value: string | null;
-    approval_reference: string | null;
-    changed_by: string;
-    changed_at: string;
-  };
+  }>).map((r): MergedRow => ({
+    id: `new-${r.id}`,
+    at: r.created_at,
+    actor: r.actor_email,
+    action: r.action,
+    entity_type: r.entity_type,
+    entity_id: r.entity_id,
+    context: r.context ?? {},
+    sheet_id:
+      (r.context as Record<string, unknown> | null)?.['grading_sheet_id'] as
+        | string
+        | null
+        | undefined ??
+      (r.entity_type === 'grading_sheet' ? r.entity_id : null),
+    source: 'audit_log',
+  }));
 
-  // Map both sources to MergedRow — both arrive in descending order from DB
-  const newRows: MergedRow[] = ((newRes.data ?? []) as NewRow[]).map(
-    (r): MergedRow => ({
-      id: `new-${r.id}`,
-      at: r.created_at,
-      actor: r.actor_email,
-      action: r.action,
-      entity_type: r.entity_type,
-      entity_id: r.entity_id,
-      context: r.context ?? {},
-      sheet_id:
-        (r.context as Record<string, unknown> | null)?.['grading_sheet_id'] as
-          | string
-          | null
-          | undefined ??
-        (r.entity_type === 'grading_sheet' ? r.entity_id : null),
-      source: 'audit_log',
-    }),
-  );
-  const legacyRows: MergedRow[] = ((legacyRes.data ?? []) as LegacyRow[]).map(
-    (r): MergedRow => ({
-      id: `legacy-${r.id}`,
-      at: r.changed_at,
-      actor: r.changed_by,
-      action:
-        r.field_changed.startsWith('ww_totals') ||
-        r.field_changed.startsWith('pt_totals') ||
-        r.field_changed === 'qa_total'
-          ? 'totals.update'
-          : 'entry.update',
-      entity_type:
-        r.field_changed.startsWith('ww_totals') ||
-        r.field_changed.startsWith('pt_totals') ||
-        r.field_changed === 'qa_total'
-          ? 'grading_sheet'
-          : 'grade_entry',
-      entity_id: r.grade_entry_id,
-      context: {
-        field: r.field_changed,
-        old: r.old_value,
-        new: r.new_value,
-        was_locked: true,
-        approval_reference: r.approval_reference,
-        grading_sheet_id: r.grading_sheet_id,
-        legacy: true,
-      },
-      sheet_id: r.grading_sheet_id,
-      source: 'grade_audit_log',
-    }),
-  );
-
-  // Linear merge of two pre-sorted (desc) arrays — O(n) instead of O(n log n)
-  const merged: MergedRow[] = [];
-  let i = 0;
-  let j = 0;
-  while (merged.length < 500 && (i < newRows.length || j < legacyRows.length)) {
-    const a = newRows[i];
-    const b = legacyRows[j];
-    if (!b || (a && a.at >= b.at)) {
-      merged.push(a);
-      i++;
-    } else {
-      merged.push(b);
-      j++;
-    }
-  }
-
-  // Stats compute over the FULL window (not the filtered view) — registrars
-  // want a global health snapshot here, not a contextual count.
-  const uniqueActors = new Set(merged.map((r) => r.actor)).size;
-  const lockedEdits = merged.filter(
+  const uniqueActors = new Set(rows.map((r) => r.actor)).size;
+  const lockedEdits = rows.filter(
     (r) =>
       (r.action === 'entry.update' || r.action === 'totals.update') &&
       r.context['was_locked'] === true,
@@ -166,9 +113,8 @@ export default async function AuditLogPage({
             Audit log.
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            A history of every change — sheet creation, lock and unlock, score edits (before and after
-            lock), totals, student sync, assignments, attendance, comments, and report card publications.
-            Past entries are kept on the record.
+            A history of every grading change — sheet creation, locks and unlocks, score edits,
+            totals, change requests, and report card publications. Past entries are kept on the record.
           </p>
         </div>
       </header>
@@ -178,17 +124,21 @@ export default async function AuditLogPage({
         <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-3">
           <StatCard
             description="Entries loaded"
-            value={merged.length.toLocaleString('en-SG')}
+            value={rows.length.toLocaleString('en-SG')}
             icon={ListChecks}
-            footerTitle="Capped at 500 most recent"
-            footerDetail="Older entries stay in the database, just off-screen"
+            footerTitle={
+              count != null
+                ? `${count.toLocaleString('en-SG')} total entries`
+                : `${rows.length.toLocaleString('en-SG')} entries`
+            }
+            footerDetail={`Page ${page} of ${totalPages} · ${PAGE_SIZE} per page`}
           />
           <StatCard
             description="Unique actors"
             value={uniqueActors.toLocaleString('en-SG')}
             icon={Users}
             footerTitle={uniqueActors === 1 ? '1 user' : `${uniqueActors} users`}
-            footerDetail="Distinct accounts in this window"
+            footerDetail="Distinct accounts on this page"
           />
           <StatCard
             description="Post-lock edits"
@@ -200,7 +150,7 @@ export default async function AuditLogPage({
         </div>
       </div>
 
-      {errors.length > 0 && (
+      {error && (
         <div className="flex items-start gap-4 rounded-xl border border-destructive/30 bg-destructive/5 p-5">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-destructive text-destructive-foreground shadow-brand-tile">
             <AlertTriangle className="size-4" />
@@ -209,16 +159,17 @@ export default async function AuditLogPage({
             <p className="font-serif text-base font-semibold leading-tight text-foreground">
               Could not load audit entries
             </p>
-            <p className="text-sm leading-relaxed text-muted-foreground">{errors.join(' · ')}</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">{error.message}</p>
           </div>
         </div>
       )}
 
       <AuditLogDataTable
-        rows={merged}
+        rows={rows}
         initialSheetIdFilter={params.sheet_id ?? null}
         initialActionFilter={params.action ?? null}
         canExport={canExport}
+        pagination={{ page, pageSize: PAGE_SIZE, totalPages, total: count ?? 0 }}
       />
     </PageShell>
   );

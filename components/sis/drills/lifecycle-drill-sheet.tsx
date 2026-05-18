@@ -573,6 +573,7 @@ export function LifecycleDrillSheet({
     <DrillDownSheet<LifecycleDrillRow>
       title={heading.title}
       eyebrow={heading.eyebrow}
+      description="Enrolled students open in Records; pre-enrolment applicants open in Admissions."
       count={preFiltered.length}
       csvHref={csvHref}
       columns={columns}

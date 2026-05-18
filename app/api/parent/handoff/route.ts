@@ -4,6 +4,7 @@ import {
   PARENT_SESSION_COOKIE,
   signParentSession,
 } from '@/lib/parent/cookie';
+import { logAction } from '@/lib/audit/log-action';
 import { createServiceClient } from '@/lib/supabase/service';
 
 // Parent-portal → SIS handoff endpoint. The parent-portal's "View report
@@ -52,6 +53,14 @@ export async function POST(request: Request) {
     sameSite: 'lax',
     path: '/',
     maxAge,
+  });
+  await logAction({
+    service: supabase,
+    actor: { id: data.user.id, email },
+    action: 'parent.session.issued',
+    entityType: 'user_account',
+    entityId: data.user.id,
+    context: { reason: 'sso_handoff' },
   });
   return res;
 }

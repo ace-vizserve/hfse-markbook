@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from '@/lib/auth/require-role';
 import { logAction } from '@/lib/audit/log-action';
+import { resolveRecipients, sendReminder } from '@/lib/notifications/email-pfile-reminder';
 import { DocumentValidationSchema } from '@/lib/schemas/sis';
 import { DOCUMENT_SLOTS } from '@/lib/sis/queries';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -22,10 +23,12 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ enroleeNumber: string; slotKey: string }> },
 ) {
-  // 'admissions' added Sprint 37 — admissions team is the primary user of the
-  // new awaiting-validation triage page (KD #70 chase scope split). Matches
-  // KD #74's pattern of gating 'admissions' for operational queues.
-  const auth = await requireRole(['registrar', 'school_admin', 'superadmin', 'admissions']);
+  // 'admissions' added Sprint 37 (KD #70). 'p-file' added alongside the P-Files
+  // document-validation page so officers can approve / reject enrolled-student slots.
+  // 'registrar' added per KD #37: Records is the sole writer of 'Rejected' for
+  // enrolled students; 'school_admin' intentionally excluded (read-only oversight,
+  // KD #74 + KD #31).
+  const auth = await requireRole(['registrar', 'superadmin', 'admissions', 'p-file']);
   if ('error' in auth) return auth.error;
 
   const { enroleeNumber, slotKey } = await params;
@@ -123,8 +126,67 @@ export async function PATCH(
     return NextResponse.json({ error: upErr.message }, { status: 500 });
   }
 
-  const rejectionReason =
-    parsed.data.status === 'Rejected' ? parsed.data.rejectionReason : null;
+  const rejectedData = parsed.data.status === 'Rejected' ? parsed.data : null;
+  const isRejection = rejectedData !== null;
+  const rejectionReason = rejectedData?.rejectionReason ?? null;
+
+  // Fire rejection email before logAction so we can capture notified: bool in audit.
+  let notified = false;
+  if (isRejection && rejectionReason) {
+    try {
+      const appsTable = `${prefix}_enrolment_applications`;
+      const statusTable = `${prefix}_enrolment_status`;
+      const [{ data: appRow }, { data: statusRow }] = await Promise.all([
+        supabase
+          .from(appsTable)
+          .select('enroleeFullName, motherEmail, fatherEmail, guardianEmail, levelApplied')
+          .eq('enroleeNumber', enroleeNumber)
+          .maybeSingle(),
+        supabase
+          .from(statusTable)
+          .select('classSection')
+          .eq('enroleeNumber', enroleeNumber)
+          .maybeSingle(),
+      ]);
+      if (appRow) {
+        const appData = appRow as {
+          enroleeFullName: string;
+          motherEmail: string | null;
+          fatherEmail: string | null;
+          guardianEmail: string | null;
+          levelApplied: string | null;
+        };
+        const classSection = (statusRow as { classSection: string | null } | null)?.classSection ?? null;
+        const slotMeta = SLOT_META.get(slotKey)!;
+        const envelope = resolveRecipients(slotKey, {
+          motherEmail: appData.motherEmail,
+          fatherEmail: appData.fatherEmail,
+          guardianEmail: appData.guardianEmail,
+        });
+        if (envelope.kind !== 'none') {
+          const result = await sendReminder(
+            {
+              kind: 'rejection',
+              studentName: appData.enroleeFullName,
+              level: appData.levelApplied,
+              section: classSection,
+              slotKey,
+              slotLabel: slotMeta.label,
+              statusKind: 'rejected',
+              expiryDateIso: null,
+              rejectionReason,
+              enroleeNumber,
+              ayCode,
+            },
+            envelope,
+          );
+          notified = result.sent > 0;
+        }
+      }
+    } catch (e) {
+      console.error('[sis document PATCH] rejection email failed (non-fatal):', e);
+    }
+  }
 
   await logAction({
     service: supabase,
@@ -137,7 +199,7 @@ export async function PATCH(
       slot_key: slotKey,
       prior_status: priorStatus,
       new_status: parsed.data.status,
-      ...(rejectionReason ? { rejection_reason: rejectionReason } : {}),
+      ...(rejectionReason ? { rejection_reason: rejectionReason, notified } : {}),
     },
   });
 

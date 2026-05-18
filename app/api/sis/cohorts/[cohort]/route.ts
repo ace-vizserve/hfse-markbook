@@ -164,11 +164,41 @@ const PROMISED_CSV: CsvSpec = {
   },
 };
 
+const PRE_COURSE_CSV: CsvSpec = {
+  headers: [
+    'Enrolee #',
+    'Student #',
+    'Full name',
+    'Level',
+    'App status',
+    'PCC status',
+    'Session date',
+    "Completed (parent's answer)",
+    'Acknowledged at',
+  ],
+  build: (r) => [
+    r.enroleeNumber,
+    r.studentNumber ?? '',
+    r.enroleeFullName ?? '',
+    r.levelApplied ?? '',
+    r.applicationStatus ?? '',
+    r.preCourseStatus === 'complete'
+      ? 'Completed'
+      : r.preCourseStatus === 'not-yet'
+        ? 'Not yet'
+        : 'Pending',
+    r.preCourseDate?.slice(0, 10) ?? '',
+    r.preCourseAnswer ?? '',
+    r.preCourseAcknowledgedAt?.slice(0, 10) ?? '',
+  ],
+};
+
 const CSV_BY_COHORT: Record<CohortKey, CsvSpec> = {
   stp: STP_CSV,
   medical: MEDICAL_CSV,
   'pass-expiry': PASS_EXPIRY_CSV,
   promised: PROMISED_CSV,
+  'pre-course': PRE_COURSE_CSV,
 };
 
 // ─── Handler ───────────────────────────────────────────────────────────────

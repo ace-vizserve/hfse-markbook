@@ -2,7 +2,9 @@
 
 Split out of [`10-parent-portal.md`](./10-parent-portal.md) for length. Read it when you need an exact column name, or when the parent portal bumps its schema and this repo has to keep up.
 
-Frozen copy of the admissions table definitions, as of 2026-04-20, pulled from the parent portal's Supabase project (verified live against all four AY-prefixed tables). **Update this block whenever the parent portal bumps its schema** — the "what the SIS reads" list in `10-parent-portal.md` only stays accurate if this ground truth does, and `supabase/migrations/012_ay_setup_helpers.sql` (the wizard's DDL template) must be updated in lockstep.
+Frozen copy of the admissions table definitions, as of 2026-05-15, pulled from the parent portal's Supabase project (verified live against all four AY-prefixed tables). **Update this block whenever the parent portal bumps its schema** — the "what the SIS reads" list in `10-parent-portal.md` only stays accurate if this ground truth does, and `supabase/migrations/012_ay_setup_helpers.sql` (the wizard's DDL template) must be updated in lockstep.
+
+**Changes since 2026-04-20:** `"stpApplicationStatus" text` column + its 4-value CHECK constraint added to `enrolment_applications`; `capture_doc_revision_trigger` body documented on `enrolment_documents`.
 
 Column name identifiers are quoted camelCase. This is what PostgREST returns when you `.select('*')` from these tables in JavaScript; the Supabase JS client handles the quoting automatically in both `.select()` and `.or()` filter strings.
 
@@ -194,7 +196,23 @@ create table public.ay2026_enrolment_applications (
   "motherWhatsappTeamsConsent" boolean null,
   "residenceHistory" jsonb null,
   "dietaryRestrictions" text null,
-  constraint ay2026_enrolment_applications_pkey primary key (id)
+  "stpApplicationStatus" text null,                          -- added 2026-05
+  constraint ay2026_enrolment_applications_pkey primary key (id),
+  constraint ay2026_enrolment_applications_stpapp_status_chk check (
+    (
+      ("stpApplicationStatus" is null)
+      or (
+        "stpApplicationStatus" = any (
+          array[
+            'Pending'::text,
+            'Submitted'::text,
+            'Approved'::text,
+            'Rejected'::text
+          ]
+        )
+      )
+    )
+  )
 ) TABLESPACE pg_default;
 ```
 
@@ -250,6 +268,17 @@ create table public.ay2026_enrolment_documents (
   "vaccinationInformationStatus" character varying null,
   constraint ay2026_enrolment_documents_pkey primary key (id)
 ) TABLESPACE pg_default;
+
+-- Fires after UPDATE on any of the 16 document URL columns.
+-- Inserts one p_file_revisions row per changed slot (KD #63).
+create trigger capture_doc_revision_trigger
+after update OF
+  form12, medical, passport, "birthCert", pass, "educCert",
+  "motherPassport", "motherPass", "fatherPassport", "fatherPass",
+  "guardianPassport", "guardianPass", "idPicture",
+  "icaPhoto", "financialSupportDocs", "vaccinationInformation"
+on ay2026_enrolment_documents
+for each row execute function capture_doc_revision();
 ```
 
 ### `ay2026_enrolment_status`

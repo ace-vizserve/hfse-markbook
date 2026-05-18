@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowRightLeft, Users } from "lucide-react";
+import { ArrowRightLeft, Pencil, Users } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 
@@ -9,6 +9,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { EnrollmentStatusBadge } from "@/components/ui/enrollment-status-badge";
 import { Button } from "@/components/ui/button";
 
+import { EnrolmentEditSheet } from "@/components/sis/enrolment-edit-sheet";
 import {
   SectionTransferDialog,
   type SiblingSection,
@@ -21,6 +22,8 @@ export type SectionRosterRow = {
   studentNumber: string;
   enroleeNumber: string | null; // null when admissions row missing — Move disabled
   enrollmentStatus: "active" | "late_enrollee" | "withdrawn";
+  busNo?: string | null;
+  classroomOfficerRole?: string | null;
   // Optional date fields — promoted to hidden-by-default columns (KD #68 pattern).
   // Pages that query enrollment_date + withdrawal_date from section_students
   // can pass them; components that don't will see "—" in those columns.
@@ -42,11 +45,13 @@ export function SectionRosterTable({
   rows,
   ayCode,
   sectionName,
+  sectionId,
   siblings,
 }: {
   rows: SectionRosterRow[];
   ayCode: string;
   sectionName: string;
+  sectionId: string;
   siblings: SiblingSection[];
 }) {
   const columns: ColumnDef<SectionRosterRow>[] = React.useMemo(
@@ -150,30 +155,47 @@ export function SectionRosterTable({
         header: "",
         cell: ({ row }) => {
           const r = row.original;
-          if (r.enrollmentStatus === "active" && r.enroleeNumber) {
-            return (
-              <SectionTransferDialog
-                enroleeNumber={r.enroleeNumber}
+          return (
+            <div className="flex items-center justify-end gap-1">
+              <EnrolmentEditSheet
+                sectionId={sectionId}
+                enrolmentId={r.enrolmentId}
                 studentName={r.studentName}
-                fromSectionName={sectionName}
-                ayCode={ayCode}
-                siblings={siblings}
-                trigger={
-                  <Button variant="ghost" size="sm" className="gap-1.5">
-                    <ArrowRightLeft className="size-3" />
-                    Move
-                  </Button>
-                }
-              />
-            );
-          }
-          return <span className="text-[10px] text-muted-foreground">—</span>;
+                indexNumber={r.indexNumber}
+                initial={{
+                  bus_no: r.busNo ?? null,
+                  classroom_officer_role: r.classroomOfficerRole ?? null,
+                  enrollment_status: r.enrollmentStatus,
+                }}
+              >
+                <Button variant="ghost" size="sm" className="h-7 px-2" title="Edit enrolment details">
+                  <Pencil className="size-3" />
+                  <span className="sr-only">Edit enrolment</span>
+                </Button>
+              </EnrolmentEditSheet>
+              {r.enrollmentStatus !== "withdrawn" && r.enroleeNumber && (
+                <SectionTransferDialog
+                  enroleeNumber={r.enroleeNumber}
+                  studentName={r.studentName}
+                  fromSectionName={sectionName}
+                  ayCode={ayCode}
+                  siblings={siblings}
+                  trigger={
+                    <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs">
+                      <ArrowRightLeft className="size-3" />
+                      Move
+                    </Button>
+                  }
+                />
+              )}
+            </div>
+          );
         },
         enableSorting: false,
         enableHiding: false,
       },
     ],
-    [ayCode, sectionName, siblings],
+    [ayCode, sectionId, sectionName, siblings],
   );
 
   const statusTabs = [

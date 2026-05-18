@@ -113,6 +113,13 @@ export function LetterGradeGrid({
           r.entry_id === entryId ? { ...r, letter_grade: effectiveLetter } : r,
         ),
       );
+      // Locked-sheet branch: confirm what landed so the registrar knows the
+      // apply went through (and the teacher will be emailed).
+      if ('change_request_id' in extraPayload) {
+        toast.success('Change request applied — teacher will be notified');
+      } else if ('correction_reason' in extraPayload) {
+        toast.success('Correction logged on activity history');
+      }
     } finally {
       setSavingId(null);
     }

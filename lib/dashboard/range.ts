@@ -403,23 +403,50 @@ export function resolveRange(
   // calendar window. `windows.ay.thisAY` is null only for malformed AY
   // codes — when null, accept any well-formed URL range so non-standard
   // AY codes don't break legitimate pages.
+  //
+  // Exception: future AYs (early-bird, KD #77). Their applications are
+  // submitted in the CURRENT calendar year, not the future AY window. Skipping
+  // the guard means a user-picked range like "May 2026" is accepted even though
+  // the AY2027 calendar hasn't started yet.
   const ayWindow = windows.ay.thisAY;
+  const t = today ?? new Date();
+  const ayWindowIsInFuture = ayWindow ? parseLocalDate(ayWindow.from)! > t : false;
   const explicitInAy =
-    explicitRange && ayWindow ? rangesOverlap(explicitRange, ayWindow) : true;
+    explicitRange && ayWindow && !ayWindowIsInFuture
+      ? rangesOverlap(explicitRange, ayWindow)
+      : true;
   const explicitRangeAccepted = explicitRange != null && explicitInAy;
 
   // Default-preset takes precedence over the legacy thisTerm cascade when
   // the page passes one. Lets flexible modules (Admissions/P-Files/Records)
-  // default to `thisMonth` instead of resolving thisTerm — which is the
-  // active term in AY9999, but irrelevant on a flexible picker.
+  // default to `thisMonth` instead of resolving thisTerm.
+  //
+  // For future AYs: ignore the preset entirely and use year-to-date (Jan 1 →
+  // today). Early-bird applications are submitted over several months in the
+  // current calendar year; "thisMonth" would miss everything submitted before
+  // the current month. The AY-window guard is also skipped (see above).
+  //
+  // For historical AYs: validate the preset against the AY window. If it
+  // falls outside (e.g. "thisMonth" = May 2026 vs AY2025 ended Nov 2025),
+  // discard and cascade so the dashboard isn't empty.
   const fallbackFromPreset = options?.defaultPreset
     ? resolvePreset(options.defaultPreset, windows, today)
     : null;
+  let validFallback: DateRange | null;
+  if (ayWindowIsInFuture) {
+    validFallback = { from: `${t.getFullYear()}-01-01`, to: toISODate(t) };
+  } else {
+    const fallbackInAy =
+      fallbackFromPreset && ayWindow
+        ? rangesOverlap(fallbackFromPreset, ayWindow)
+        : true;
+    validFallback = fallbackInAy ? fallbackFromPreset : null;
+  }
 
   const current: DateRange =
     explicitRangeAccepted
       ? explicitRange!
-      : fallbackFromPreset ?? windows.term.thisTerm ?? windows.ay.thisAY ?? lastNDays(30, today);
+      : validFallback ?? windows.term.thisTerm ?? windows.ay.thisAY ?? lastNDays(30, today);
 
   // Comparison is OPT-IN. The server only honors a comparison range when
   // the URL explicitly carries `cmpFrom` + `cmpTo`. No auto-compute,

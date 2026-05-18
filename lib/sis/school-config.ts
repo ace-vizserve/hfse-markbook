@@ -3,7 +3,8 @@ import 'server-only';
 import { createServiceClient } from '@/lib/supabase/service';
 
 // Singleton school-wide settings — principal / CEO / PEI reg / default publish
-// window (migration 022) + attendance quota defaults (migration 048, KD #94).
+// window (migration 022) + attendance quota defaults (migration 048, KD #94)
+// + letterhead fields (migration 054).
 // Row id=1 is seeded by migration 022 — query always resolves it.
 
 export type SchoolConfig = {
@@ -17,6 +18,16 @@ export type SchoolConfig = {
   subjectAwardSilverMin: number;
   subjectAwardGoldMin: number;
   subjectAwardMax: number;
+  // Letterhead block (migration 054) — drive <ReportCardLetterhead />
+  organizationName: string;
+  addressLine1: string;
+  addressLine2: string;
+  phoneNumber: string;
+  websiteUrl: string;
+  contactEmail: string;
+  peiRegistrationStartDate: string | null;  // ISO yyyy-mm-dd
+  peiRegistrationEndDate: string | null;    // ISO yyyy-mm-dd
+  logoUrl: string;                          // empty = fall back to /hfse-logo.webp
 };
 
 export const DEFAULT_SCHOOL_CONFIG: SchoolConfig = {
@@ -30,6 +41,15 @@ export const DEFAULT_SCHOOL_CONFIG: SchoolConfig = {
   subjectAwardSilverMin: 91.5,
   subjectAwardGoldMin: 95.5,
   subjectAwardMax: 100.0,
+  organizationName: 'HFSE Global Education Group',
+  addressLine1: '223 Mountbatten Road, #01-08, 223@Mountbatten',
+  addressLine2: 'Singapore 398008',
+  phoneNumber: '+65 6451 0080',
+  websiteUrl: 'https://hfse.edu.sg',
+  contactEmail: 'enquiry@hfse.edu.sg',
+  peiRegistrationStartDate: '2025-03-26',
+  peiRegistrationEndDate: '2029-03-25',
+  logoUrl: '',
 };
 
 export async function getSchoolConfig(): Promise<SchoolConfig> {
@@ -37,7 +57,7 @@ export async function getSchoolConfig(): Promise<SchoolConfig> {
   const { data, error } = await service
     .from('school_config')
     .select(
-      'principal_name, ceo_name, pei_registration_number, default_publish_window_days, default_compassionate_allowance_per_year, default_vl_allowance_per_term, subject_award_bronze_min, subject_award_silver_min, subject_award_gold_min, subject_award_max',
+      'principal_name, ceo_name, pei_registration_number, default_publish_window_days, default_compassionate_allowance_per_year, default_vl_allowance_per_term, subject_award_bronze_min, subject_award_silver_min, subject_award_gold_min, subject_award_max, organization_name, address_line_1, address_line_2, phone_number, website_url, contact_email, pei_registration_start_date, pei_registration_end_date, logo_url',
     )
     .eq('id', 1)
     .maybeSingle();
@@ -67,5 +87,14 @@ export async function getSchoolConfig(): Promise<SchoolConfig> {
       Number(data.subject_award_gold_min ?? DEFAULT_SCHOOL_CONFIG.subjectAwardGoldMin),
     subjectAwardMax:
       Number(data.subject_award_max ?? DEFAULT_SCHOOL_CONFIG.subjectAwardMax),
+    organizationName: (data.organization_name as string | null) ?? DEFAULT_SCHOOL_CONFIG.organizationName,
+    addressLine1: (data.address_line_1 as string | null) ?? DEFAULT_SCHOOL_CONFIG.addressLine1,
+    addressLine2: (data.address_line_2 as string | null) ?? DEFAULT_SCHOOL_CONFIG.addressLine2,
+    phoneNumber: (data.phone_number as string | null) ?? DEFAULT_SCHOOL_CONFIG.phoneNumber,
+    websiteUrl: (data.website_url as string | null) ?? DEFAULT_SCHOOL_CONFIG.websiteUrl,
+    contactEmail: (data.contact_email as string | null) ?? DEFAULT_SCHOOL_CONFIG.contactEmail,
+    peiRegistrationStartDate: (data.pei_registration_start_date as string | null) ?? null,
+    peiRegistrationEndDate: (data.pei_registration_end_date as string | null) ?? null,
+    logoUrl: (data.logo_url as string | null) ?? '',
   };
 }

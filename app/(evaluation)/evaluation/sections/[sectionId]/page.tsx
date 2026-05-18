@@ -1,4 +1,4 @@
-import { ArrowLeft, ClipboardList, MessageCircle, Sparkle, SquarePen } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CalendarClock, ClipboardList, MessageCircle, Sparkle, SquarePen } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -18,6 +18,7 @@ import {
   listTeacherSubjectsForSection,
 } from "@/lib/evaluation/checklist";
 import { getEvaluationTermConfig, getSectionRoster, listFormAdviserSectionIds } from "@/lib/evaluation/queries";
+import { daysUntilPtc, findPtcForWriteupTerm, getPtcEventsForAy } from "@/lib/evaluation/ptc-resolver";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 
 export default async function EvaluationSectionRosterPage({
@@ -105,6 +106,29 @@ export default async function EvaluationSectionRosterPage({
   const canEdit = sessionUser.role !== "teacher" || !!config?.virtueTheme;
   const submittedCount = roster.filter((r) => r.submitted).length;
   const totalCount = roster.length;
+
+  // PTC awareness for the term being viewed. The audience filter prevents a
+  // secondary-only PTC from leaking into a primary section's deadline (and
+  // vice versa) — see KD #76 calendar audience scope. Preschool sections
+  // (level_type unset / 'preschool') fall back to 'all'.
+  const audience: 'all' | 'primary' | 'secondary' | undefined =
+    level?.level_type === 'primary'
+      ? 'primary'
+      : level?.level_type === 'secondary'
+        ? 'secondary'
+        : undefined;
+  const ptcEvents = ay ? await getPtcEventsForAy(ay.ay_code, audience ? { audience } : {}) : [];
+  const ptcForTerm = findPtcForWriteupTerm(selectedTerm.id, ptcEvents);
+  const ptcDays = ptcForTerm ? daysUntilPtc(ptcForTerm.startDate) : null;
+  const ptcIsTentative = ptcForTerm?.tentative === true;
+  const pendingWriteups = Math.max(0, totalCount - submittedCount);
+  // Tentative PTC dates show as an info pill (so the adviser knows it's
+  // pencilled in) but don't trigger the urgent/overdue banner — the
+  // registrar hasn't locked the date in yet, so escalation would be
+  // premature pressure on the adviser.
+  const ptcUrgent = !ptcIsTentative && ptcDays != null && ptcDays >= 0 && ptcDays <= 30;
+  const ptcOverdue = !ptcIsTentative && ptcDays != null && ptcDays < 0 && pendingWriteups > 0;
+  const ptcTentativeNote = ptcIsTentative && ptcForTerm;
 
   // Writeups tab is only available to form_adviser + registrar+.
   // Checklists tab is available to form_adviser + subject_teacher + registrar+.
@@ -263,6 +287,71 @@ export default async function EvaluationSectionRosterPage({
         </div>
       )}
 
+      {/* Tentative PTC info pill — fires when a date is pencilled in but
+          not yet confirmed by the registrar. Calm tone, informational
+          only; never escalates. Replaced by the urgent banner below once
+          the registrar flips tentative=false. */}
+      {ptcTentativeNote && (
+        <div className="flex items-start gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs text-muted-foreground">
+          <CalendarClock className="mt-0.5 size-3.5 shrink-0" />
+          <span>
+            {selectedTerm.label} PTC is pencilled in for{" "}
+            <span className="font-medium text-foreground">
+              {formatPtcRangeForBanner(ptcForTerm!.startDate, ptcForTerm!.endDate)}
+            </span>
+            {" "}
+            <span className="italic">(tentative — date not yet confirmed by the registrar)</span>
+          </span>
+        </div>
+      )}
+
+      {/* PTC awareness banner — fires when the term's discussion meeting is
+          within 30 days (urgent), or past with writeups still unsubmitted
+          (overdue). Hidden otherwise so the page stays calm in normal
+          conditions. PTC date comes from the school calendar (KD #76);
+          audience-scoped so primary sections don't see secondary-only
+          events as their deadline and vice versa. Skipped when the PTC is
+          marked tentative — the info pill above covers that case. */}
+      {(ptcUrgent || ptcOverdue) && ptcForTerm && (
+        <div
+          className={
+            ptcOverdue
+              ? "rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm"
+              : ptcDays != null && ptcDays <= 3
+                ? "rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm"
+                : "rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-900 dark:text-amber-100"
+          }
+        >
+          <div className="flex items-start gap-3">
+            <div
+              className={
+                ptcOverdue || (ptcDays != null && ptcDays <= 3)
+                  ? "flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-destructive to-rose-700 text-white shadow-brand-tile-destructive"
+                  : "flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-amber to-amber-600 text-white shadow-brand-tile-amber"
+              }
+            >
+              {ptcOverdue ? <AlertTriangle className="size-4" /> : <CalendarClock className="size-4" />}
+            </div>
+            <div className="space-y-1">
+              <p className="font-medium text-foreground">
+                {ptcOverdue
+                  ? `${selectedTerm.label} PTC was ${formatPtcRangeForBanner(ptcForTerm.startDate, ptcForTerm.endDate)} — ${pendingWriteups} writeup${pendingWriteups === 1 ? "" : "s"} still unsubmitted`
+                  : ptcDays === 0
+                    ? `${selectedTerm.label} PTC is today (${formatPtcRangeForBanner(ptcForTerm.startDate, ptcForTerm.endDate)})`
+                    : ptcDays === 1
+                      ? `${selectedTerm.label} PTC is tomorrow (${formatPtcRangeForBanner(ptcForTerm.startDate, ptcForTerm.endDate)})`
+                      : `${selectedTerm.label} PTC is in ${ptcDays} days (${formatPtcRangeForBanner(ptcForTerm.startDate, ptcForTerm.endDate)})`}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {pendingWriteups === 0
+                  ? "All writeups submitted — parents will see the finalised report card."
+                  : `Parents will review this term's report card at the meeting. ${pendingWriteups} writeup${pendingWriteups === 1 ? " is" : "s are"} still pending.`}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Tabs defaultValue={initialTab}>
         <TabsList>
           {canAccessWriteups && (
@@ -347,4 +436,26 @@ export default async function EvaluationSectionRosterPage({
       </Tabs>
     </PageShell>
   );
+}
+
+// Inline PTC date-range formatter for the banner copy. "8 Apr" for a
+// single day, "8–9 Apr" for same-month, "29 Apr – 2 May" for cross-month.
+// Mirrors the recipe in the registrar dashboard so both surfaces read the
+// same way to parents-of-staff who toggle between them.
+function formatPtcRangeForBanner(startIso: string, endIso: string): string {
+  try {
+    const start = new Date(`${startIso}T00:00:00+08:00`);
+    const end = new Date(`${endIso}T00:00:00+08:00`);
+    if (startIso === endIso) {
+      return start.toLocaleDateString("en-SG", { day: "numeric", month: "short" });
+    }
+    const sameMonth =
+      start.getUTCMonth() === end.getUTCMonth() && start.getUTCFullYear() === end.getUTCFullYear();
+    if (sameMonth) {
+      return `${start.toLocaleDateString("en-SG", { day: "numeric" })}–${end.toLocaleDateString("en-SG", { day: "numeric", month: "short" })}`;
+    }
+    return `${start.toLocaleDateString("en-SG", { day: "numeric", month: "short" })} – ${end.toLocaleDateString("en-SG", { day: "numeric", month: "short" })}`;
+  } catch {
+    return startIso;
+  }
 }

@@ -17,7 +17,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 // Zod schema. Duplicate code → 409 with the existing id so the UI can
 // jump to it instead of silently failing.
 export async function POST(request: NextRequest) {
-  const auth = await requireRole(['superadmin']);
+  const auth = await requireRole(['school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const body = await request.json().catch(() => null);

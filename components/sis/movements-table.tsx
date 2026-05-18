@@ -3,11 +3,12 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, ArrowRightLeft } from 'lucide-react';
+import { ArrowRight, ArrowRightLeft, Search } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { MovementKindPill } from '@/components/sis/movement-kind-pill';
@@ -83,6 +84,23 @@ function buildColumns(includeAllAYs: boolean): ColumnDef<MovementEvent, unknown>
       enableSorting: false,
     },
     {
+      id: 'reason',
+      header: 'Reason',
+      cell: ({ row }) => {
+        if (row.original.kind !== 'withdrawn') {
+          return <span className="text-muted-foreground">—</span>;
+        }
+        const reason = (row.original as Extract<MovementEvent, { kind: 'withdrawn' }>).reason;
+        if (!reason) return <span className="text-muted-foreground">—</span>;
+        return (
+          <span className="max-w-[200px] truncate text-sm text-foreground" title={reason}>
+            {reason}
+          </span>
+        );
+      },
+      enableSorting: false,
+    },
+    {
       id: 'level',
       accessorKey: 'level',
       header: 'Level',
@@ -147,6 +165,7 @@ type Props = {
   events: MovementEvent[];
   ayCode: string;
   includeAllAYs: boolean;
+  reasonSearch?: string;
 };
 
 const KIND_TABS: Array<{ value: string; label: string; kind?: MovementKind }> = [
@@ -154,16 +173,37 @@ const KIND_TABS: Array<{ value: string; label: string; kind?: MovementKind }> = 
   { value: 'section-transfer', label: 'Transfers', kind: 'section-transfer' },
   { value: 'withdrawn', label: 'Withdrawn', kind: 'withdrawn' },
   { value: 'late-enrolled', label: 'Late enrolled', kind: 'late-enrolled' },
+  { value: 're-enrolled', label: 'Re-enrolled', kind: 're-enrolled' },
 ];
 
-export function MovementsTable({ events, ayCode, includeAllAYs }: Props) {
+export function MovementsTable({ events, ayCode, includeAllAYs, reasonSearch }: Props) {
   const router = useRouter();
   const [, startTransition] = React.useTransition();
+  const [localReason, setLocalReason] = React.useState(reasonSearch ?? '');
+  const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleScopeToggle = (next: boolean) => {
+    const params = new URLSearchParams();
+    if (next) params.set('scope', 'all');
+    if (localReason) params.set('reasonSearch', localReason);
+    const qs = params.toString();
     startTransition(() => {
-      router.push(next ? '/records/movements?scope=all' : '/records/movements');
+      router.push(`/records/movements${qs ? `?${qs}` : ''}`);
     });
+  };
+
+  const handleReasonInput = (value: string) => {
+    setLocalReason(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const params = new URLSearchParams();
+      if (includeAllAYs) params.set('scope', 'all');
+      if (value) params.set('reasonSearch', value);
+      const qs = params.toString();
+      startTransition(() => {
+        router.push(`/records/movements${qs ? `?${qs}` : ''}`);
+      });
+    }, 300);
   };
 
   const columns = React.useMemo(() => buildColumns(includeAllAYs), [includeAllAYs]);
@@ -186,18 +226,29 @@ export function MovementsTable({ events, ayCode, includeAllAYs }: Props) {
   }, [includeAllAYs]);
 
   const toolbarLeading = (
-    <div className="flex items-center gap-2">
-      <Switch
-        id="include-all-ays"
-        checked={includeAllAYs}
-        onCheckedChange={(v) => handleScopeToggle(v)}
-      />
-      <Label
-        htmlFor="include-all-ays"
-        className="cursor-pointer text-sm text-muted-foreground"
-      >
-        Include prior years
-      </Label>
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="flex items-center gap-2">
+        <Switch
+          id="include-all-ays"
+          checked={includeAllAYs}
+          onCheckedChange={(v) => handleScopeToggle(v)}
+        />
+        <Label
+          htmlFor="include-all-ays"
+          className="cursor-pointer text-sm text-muted-foreground"
+        >
+          Include prior years
+        </Label>
+      </div>
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={localReason}
+          onChange={(e) => handleReasonInput(e.target.value)}
+          placeholder="Filter by withdrawal reason…"
+          className="h-8 w-52 pl-8 text-sm"
+        />
+      </div>
     </div>
   );
 

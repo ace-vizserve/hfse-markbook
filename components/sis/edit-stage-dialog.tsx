@@ -8,6 +8,7 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,7 @@ import {
 const OTHER_SENTINEL = '__other__';
 
 type ExtraValues = Record<string, string | null>;
+type MidTermPayload = { termNumber: number; termLabel: string; sectionId: string; sectionStudentId: string };
 
 export function EditStageDialog({
   ayCode,
@@ -72,6 +74,9 @@ export function EditStageDialog({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [pendingMidTerm, setPendingMidTerm] = useState<MidTermPayload | null>(null);
+  const [markAsLate, setMarkAsLate] = useState(true);
+  const [applyingLate, setApplyingLate] = useState(false);
 
   const cols = STAGE_COLUMN_MAP[stageKey];
   const canonicalOptions = STAGE_STATUS_OPTIONS[stageKey];
@@ -190,33 +195,60 @@ export function EditStageDialog({
       const autoSync = body.autoSync as
         | { change?: string; reason?: string; error?: string }
         | undefined;
-      const autoSyncChange = autoSync?.change;
-      const autoSyncSkipped =
-        classAutoAssigned && (!autoSyncChange || autoSyncChange === 'skipped');
+      const autoSyncFailed = body.autoSyncFailed === true;
+      const withdrawalCascade = body.withdrawalCascade as
+        | { rowsAffected: number; sectionStudentIds: string[] }
+        | null
+        | undefined;
 
-      // When the application was flipped to Enrolled and the class was auto-
-      // assigned but syncOneStudent didn't actually insert the section_students
-      // row, surface the reason loud. The student WILL appear as Enrolled in
-      // admissions but WON'T show up on the section's roster until the cause
-      // (usually a missing studentNumber on the apps row) is fixed.
-      if (autoSyncSkipped) {
+      // Withdrawn / Cancelled cascade outcome takes priority on the toast.
+      // The cascade only fires when the flip actually changed section rows;
+      // null means "no active section to withdraw from" (acceptable no-op).
+      if (withdrawalCascade && withdrawalCascade.rowsAffected > 0) {
+        toast.success(
+          `${STAGE_LABELS[stageKey]} updated · ${withdrawalCascade.rowsAffected} section row${
+            withdrawalCascade.rowsAffected === 1 ? '' : 's'
+          } flipped to withdrawn`,
+        );
+      } else if (autoSyncFailed) {
+        // Either Enrolled (class auto-assigned then sync skipped) OR
+        // Enrolled (Conditional) with classSection already set but sync
+        // failed for a non-empty reason. Either way the student appears
+        // Enrolled in admissions but is missing from grading/attendance
+        // rosters until the underlying reason is fixed.
         toast.warning(
-          'Enrolled · class auto-assigned, but section roster sync was skipped',
+          classAutoAssigned
+            ? 'Enrolled · class auto-assigned, but section roster sync was skipped'
+            : 'Enrolled (Conditional) · section roster sync was skipped',
           {
             description:
               autoSync?.reason ??
               autoSync?.error ??
-              'Unknown reason — check the server log for "[stage PATCH] auto-sync skipped".',
+              'Check /records/unsynced to assign a section and complete the sync.',
           },
         );
+      } else if (classAutoAssigned) {
+        toast.success('Enrolled · class auto-assigned · synced to roster');
+      } else if (
+        stageKey === 'application' &&
+        autoSync?.change &&
+        autoSync.change !== 'skipped' &&
+        autoSync.change !== 'no-op'
+      ) {
+        // Conditional path where the sync DID land a section_students row.
+        toast.success('Enrolled (Conditional) · synced to roster');
       } else {
         toast.success(
-          classAutoAssigned
-            ? `Enrolled · class auto-assigned · synced to roster`
-            : changed === 0
-              ? `${STAGE_LABELS[stageKey]} saved (no changes)`
-              : `${STAGE_LABELS[stageKey]} updated`,
+          changed === 0
+            ? `${STAGE_LABELS[stageKey]} saved (no changes)`
+            : `${STAGE_LABELS[stageKey]} updated`,
         );
+      }
+      const midTermPayload = body.midTermEnrolment as MidTermPayload | null | undefined;
+      if (midTermPayload?.sectionId) {
+        setPendingMidTerm(midTermPayload);
+        setMarkAsLate(true);
+        return;
       }
       setOpen(false);
       router.refresh();
@@ -233,6 +265,7 @@ export function EditStageDialog({
       onOpenChange={(next) => {
         setOpen(next);
         if (!next) {
+          setPendingMidTerm(null);
           // Reset to initials on close.
           setStatusChoice(initialStatus === null ? '' : initialIsCanonical ? initialStatus : OTHER_SENTINEL);
           setStatusOther(initialStatus !== null && !initialIsCanonical ? initialStatus : '');
@@ -254,14 +287,91 @@ export function EditStageDialog({
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="font-serif text-lg font-semibold">
-            Edit {STAGE_LABELS[stageKey]}
-          </DialogTitle>
-          <DialogDescription>
-            Update the status, remarks, and any stage-specific fields.
-          </DialogDescription>
-        </DialogHeader>
+        {pendingMidTerm ? (
+          <>
+            <DialogHeader>
+              <DialogTitle className="font-serif text-lg font-semibold">
+                Enrolling mid-year
+              </DialogTitle>
+              <DialogDescription>
+                Today falls in <strong>{pendingMidTerm.termLabel}</strong>. Most students who join in {pendingMidTerm.termLabel} are marked as late enrollees so the system knows to skip assessments that happened before they joined.
+              </DialogDescription>
+            </DialogHeader>
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm">
+              <Checkbox
+                checked={markAsLate}
+                onCheckedChange={(v) => setMarkAsLate(v === true)}
+                className="mt-0.5"
+              />
+              <span>
+                Mark this student as a <strong>late enrollee</strong>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  Assessments dated before today will be marked N/A on this student&apos;s report card and grading sheets.
+                </span>
+              </span>
+            </label>
+            <DialogFooter className="gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={applyingLate}
+                onClick={() => {
+                  setPendingMidTerm(null);
+                  setOpen(false);
+                  router.refresh();
+                }}
+              >
+                Skip
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={applyingLate}
+                onClick={async () => {
+                  if (!markAsLate) {
+                    setPendingMidTerm(null);
+                    setOpen(false);
+                    router.refresh();
+                    return;
+                  }
+                  setApplyingLate(true);
+                  try {
+                    const res = await fetch(
+                      `/api/sections/${pendingMidTerm.sectionId}/students/${pendingMidTerm.sectionStudentId}`,
+                      {
+                        method: 'PATCH',
+                        headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ enrollment_status: 'late_enrollee' }),
+                      },
+                    );
+                    if (!res.ok) throw new Error('Failed to mark as late enrollee');
+                    toast.success(`Marked as late enrollee · ${pendingMidTerm.termLabel}`);
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : 'Could not mark as late enrollee');
+                  } finally {
+                    setApplyingLate(false);
+                    setPendingMidTerm(null);
+                    setOpen(false);
+                    router.refresh();
+                  }
+                }}
+              >
+                {applyingLate && <Loader2 className="size-3.5 animate-spin" />}
+                {applyingLate ? 'Saving…' : 'Confirm'}
+              </Button>
+            </DialogFooter>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle className="font-serif text-lg font-semibold">
+                Edit {STAGE_LABELS[stageKey]}
+              </DialogTitle>
+              <DialogDescription>
+                Update the status, remarks, and any stage-specific fields.
+              </DialogDescription>
+            </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
@@ -413,6 +523,8 @@ export function EditStageDialog({
             </DialogFooter>
           </form>
         </Form>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

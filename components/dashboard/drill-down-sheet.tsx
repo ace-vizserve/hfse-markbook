@@ -71,6 +71,8 @@ export type DrillDownSheetProps<T> = {
   columns: ColumnDef<T, unknown>[];
   rows: T[];
   filters?: React.ReactNode;
+  /** Optional muted line rendered below the title in the sheet header. */
+  description?: React.ReactNode;
   searchable?: boolean;
   emptyMessage?: string;
 
@@ -156,6 +158,7 @@ export function DrillDownSheet<T>({
   columns,
   rows,
   filters,
+  description,
   searchable = true,
   emptyMessage = 'No rows to show for this filter.',
 
@@ -324,6 +327,9 @@ export function DrillDownSheet<T>({
             {count.toLocaleString('en-SG')} rows
           </Badge>
         </div>
+        {description && (
+          <p className="mt-1 text-[11px] text-muted-foreground">{description}</p>
+        )}
       </div>
 
       {/* Filter bar — Row 1 (search + CSV) and Row 2 (secondary) */}

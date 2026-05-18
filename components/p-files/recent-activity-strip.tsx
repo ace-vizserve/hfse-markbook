@@ -18,9 +18,6 @@ const SLOT_SHORT_LABEL: Record<string, string> = {
   fatherPass: 'Father Pass',
   guardianPassport: 'Guardian PP',
   guardianPass: 'Guardian Pass',
-  icaPhoto: 'ICA Photo',
-  financialSupportDocs: 'Financial',
-  vaccinationInformation: 'Vaccination',
 };
 
 function relativeTime(iso: string): string {

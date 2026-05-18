@@ -8,8 +8,17 @@ import { requireCurrentAyCode } from '@/lib/academic-year';
 // POST /api/grading-sheets/[id]/unlock — registrar+ only.
 // Unlocking restores teacher edit access. The audit log is NEVER purged;
 // unlocking simply gates future edits off the approval_reference check.
+//
+// Pending-CR gate: if any change request on this sheet is still `pending`,
+// the request is rejected (409) so the registrar resolves them first —
+// approving + applying or rejecting them — instead of leaving teachers'
+// requests orphaned by the unlock. `approved` CRs don't block: the approval
+// decision is closed, and an unlock is a deliberate registrar override of
+// the pending apply step. Break-glass: pass `?force=true` to unlock anyway;
+// the audit log records the pending count under a distinct action so the
+// override is traceable.
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
@@ -17,6 +26,62 @@ export async function POST(
 
   const { id } = await params;
   const service = createServiceClient();
+
+  const url = new URL(request.url);
+  const force = url.searchParams.get('force') === 'true';
+
+  // Grading deadline gate — if the term's grading_lock_date is in the past
+  // (Singapore local date), the unlock requires ?force=true so the override
+  // is deliberate and audit-logged.
+  const { data: sheetTermRow } = await service
+    .from('grading_sheets')
+    .select('term:terms(grading_lock_date, label)')
+    .eq('id', id)
+    .maybeSingle();
+  type TermMeta = { grading_lock_date: string | null; label: string } | null;
+  const termMeta = sheetTermRow
+    ? (Array.isArray(sheetTermRow.term) ? sheetTermRow.term[0] : sheetTermRow.term) as TermMeta
+    : null;
+  const todaySgt = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Singapore' });
+  const deadlinePassed =
+    termMeta?.grading_lock_date != null && termMeta.grading_lock_date < todaySgt;
+
+  if (deadlinePassed && !force) {
+    return NextResponse.json(
+      {
+        error: 'grading_lock_date_passed',
+        termLabel: termMeta?.label ?? 'this term',
+        lockDate: termMeta?.grading_lock_date,
+        message: `The grading deadline for ${termMeta?.label ?? 'this term'} has passed (${termMeta?.grading_lock_date}). Use ?force=true to override.`,
+      },
+      { status: 409 },
+    );
+  }
+
+  // Count pending CRs on this sheet — the unlock gate.
+  const { count: pendingCount, error: countErr } = await service
+    .from('grade_change_requests')
+    .select('id', { count: 'exact', head: true })
+    .eq('grading_sheet_id', id)
+    .eq('status', 'pending');
+  if (countErr) {
+    return NextResponse.json({ error: countErr.message }, { status: 500 });
+  }
+  const pending = pendingCount ?? 0;
+
+  if (pending > 0 && !force) {
+    return NextResponse.json(
+      {
+        error: 'pending_change_requests',
+        pendingCount: pending,
+        message:
+          pending === 1
+            ? 'This sheet has 1 pending change request. Resolve it before unlocking, or force the unlock.'
+            : `This sheet has ${pending} pending change requests. Resolve them before unlocking, or force the unlock.`,
+      },
+      { status: 409 },
+    );
+  }
 
   const { data, error } = await service
     .from('grading_sheets')
@@ -33,13 +98,24 @@ export async function POST(
     return NextResponse.json({ error: error?.message ?? 'unlock failed' }, { status: 500 });
   }
 
+  const unlockAction =
+    force && deadlinePassed
+      ? 'sheet.unlock_force_deadline_passed'
+      : force && pending > 0
+        ? 'sheet.unlock_force_with_pending_crs'
+        : 'sheet.unlock';
   await logAction({
     service,
     actor: { id: auth.user.id, email: auth.user.email ?? null },
-    action: 'sheet.unlock',
+    action: unlockAction,
     entityType: 'grading_sheet',
     entityId: id,
-    context: {},
+    context:
+      force && deadlinePassed
+        ? { lockDate: termMeta?.grading_lock_date, pendingCount: pending }
+        : force && pending > 0
+          ? { pendingCount: pending }
+          : {},
   });
 
   invalidateDrillTags('markbook', await requireCurrentAyCode(service));

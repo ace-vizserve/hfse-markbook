@@ -49,6 +49,24 @@ export const SchoolConfigUpdateSchema = z.object({
   subjectAwardSilverMin: z.number().min(0).max(100).optional(),
   subjectAwardGoldMin: z.number().min(0).max(100).optional(),
   subjectAwardMax: z.number().min(0).max(100).optional(),
+  // Migration 054 — letterhead fields for <ReportCardLetterhead />.
+  organizationName: z.string().trim().max(200).optional(),
+  addressLine1: z.string().trim().max(200).optional(),
+  addressLine2: z.string().trim().max(200).optional(),
+  phoneNumber: z.string().trim().max(200).optional(),
+  websiteUrl: z.string().trim().max(200).url().or(z.literal('')).optional(),
+  contactEmail: z.string().trim().max(200).email().or(z.literal('')).optional(),
+  peiRegistrationStartDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be a date in YYYY-MM-DD format')
+    .nullable()
+    .optional(),
+  peiRegistrationEndDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be a date in YYYY-MM-DD format')
+    .nullable()
+    .optional(),
+  logoUrl: z.string().trim().max(500).url().or(z.literal('')).optional(),
 });
 
 export type SchoolConfigUpdateInput = z.infer<typeof SchoolConfigUpdateSchema>;

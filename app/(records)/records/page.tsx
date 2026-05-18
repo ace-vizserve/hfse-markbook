@@ -12,6 +12,8 @@ import {
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { Alert, AlertDescription, AlertIcon, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { ActionList, type ActionItem } from "@/components/dashboard/action-list";
 import { TrendChart } from "@/components/dashboard/charts/trend-chart";
 import { ComparisonToolbar } from "@/components/dashboard/comparison-toolbar";
@@ -175,19 +177,25 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
         ]}
       />
 
-      {/* Unsynced-students alert chip — only when the current AY has gaps.
-          Routes to /records/unsynced where the registrar can assign a class
-          section inline. Conditional render keeps the hero clean on the
-          happy path (everyone has a section, no chip). */}
+      {/* Unsynced-students banner — single Alert for every role when the
+          current AY has gaps. Routes to /records/unsynced where the
+          registrar assigns a class section. Happy path renders nothing. */}
       {unsyncedCount > 0 && isCurrentAy && (
-        <Link
-          href="/records/unsynced"
-          className="inline-flex items-center gap-2 self-start rounded-full border border-brand-amber/40 bg-gradient-to-b from-brand-amber/15 to-brand-amber/5 px-3 py-1 text-sm font-medium text-brand-amber transition-colors hover:bg-brand-amber/20"
-        >
-          <AlertTriangle className="size-3.5" />
-          {unsyncedCount.toLocaleString("en-SG")} student
-          {unsyncedCount === 1 ? "" : "s"} without a class section — review
-        </Link>
+        <Alert variant="warning">
+          <AlertIcon variant="warning">
+            <AlertTriangle className="size-4" />
+          </AlertIcon>
+          <AlertTitle>
+            {unsyncedCount.toLocaleString("en-SG")} enrolled student
+            {unsyncedCount === 1 ? "" : "s"} without a class section
+          </AlertTitle>
+          <AlertDescription>
+            Grading and attendance can&rsquo;t reach them until a section is assigned.
+          </AlertDescription>
+          <Button asChild size="sm" variant="outline" className="col-start-2 mt-2 w-fit">
+            <Link href="/records/unsynced">Students needing setup</Link>
+          </Button>
+        </Alert>
       )}
 
       <ComparisonToolbar
@@ -207,7 +215,7 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
       {/* Document chase queue — registrar-only operational top-of-fold.
           Oversight roles see the same data via the analytical cards below
           but skip this top strip because they don't act on the buckets. */}
-      {isOperational && <DocumentChaseQueueStrip ayCode={selectedAy} />}
+      {isOperational && <DocumentChaseQueueStrip ayCode={selectedAy} lens="p-files" />}
 
       <InsightsPanel insights={insights} />
 
@@ -400,7 +408,7 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
             description="Students with documents expiring soon or already overdue."
             items={expiringItems}
             emptyLabel="No documents expiring in range."
-            viewAllHref="/p-files"
+            viewAllHref={`/p-files?ay=${selectedAy}`}
           />
 
           <ClassAssignmentReadinessCard data={classAssignment} ayCode={selectedAy} />

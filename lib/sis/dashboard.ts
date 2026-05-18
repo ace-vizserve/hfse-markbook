@@ -521,7 +521,7 @@ async function loadRecentSisActivityUncached(limit: number): Promise<RecentActiv
   const { data, error } = await supabase
     .from('audit_log')
     .select('id, action, actor_email, entity_id, created_at, context')
-    .like('action', 'sis.%')
+    .or('action.like.sis.%,action.like.student.%,action.like.enrolment.%,action.like.ay.%,action.like.pfile.%')
     .order('created_at', { ascending: false })
     .limit(limit);
 

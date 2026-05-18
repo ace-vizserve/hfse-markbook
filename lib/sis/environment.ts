@@ -1,8 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { seedPopulated, type PopulatedSeedResult } from './seeder/populated';
-import { seedPriorYearTestAy } from './seeder/prior-year';
-import { seedTestAy, type SeedResult } from './seeder/students';
+import {
+  seedAdmissionsMinimal,
+  type AdmissionsMinimalResult,
+} from './seeder/admissions-minimal';
 import { ensureTestStructure, type StructureSeedResult } from './seeder/structural';
 
 // Environment abstraction over the AY switcher. UI-side, users pick
@@ -95,39 +96,6 @@ async function ensureTestAy(service: SupabaseClient): Promise<AyRow> {
   return fresh as AyRow;
 }
 
-/**
- * Ensures the prior-year test AY (AY9998) exists. Created on demand via the
- * same `create_academic_year` RPC. Used by switchEnvironment to provision a
- * second test AY for compare-mode demos. Never marked `is_current` — it's a
- * passive comparison fixture.
- */
-async function ensurePriorTestAy(service: SupabaseClient): Promise<AyRow> {
-  const { data: existing } = await service
-    .from('academic_years')
-    .select('id, ay_code, label, is_current')
-    .eq('ay_code', PRIOR_TEST_AY_CODE)
-    .maybeSingle();
-  if (existing) return existing as AyRow;
-
-  const { error: rpcErr } = await service.rpc('create_academic_year', {
-    p_ay_code: PRIOR_TEST_AY_CODE,
-    p_label: PRIOR_TEST_AY_LABEL,
-  });
-  if (rpcErr) {
-    throw new Error(`ensurePriorTestAy: RPC failed — ${rpcErr.message}`);
-  }
-
-  const { data: fresh, error: reErr } = await service
-    .from('academic_years')
-    .select('id, ay_code, label, is_current')
-    .eq('ay_code', PRIOR_TEST_AY_CODE)
-    .single();
-  if (reErr || !fresh) {
-    throw new Error(`ensurePriorTestAy: post-RPC read failed — ${reErr?.message ?? 'no row'}`);
-  }
-  return fresh as AyRow;
-}
-
 // Two-step flip mirroring the existing AY Setup PATCH handler: clear all
 // is_current=false, then set target=true. Idempotent; converges on re-run.
 async function flipIsCurrent(
@@ -160,9 +128,8 @@ export type SwitchResult = {
   fromAyCode: string | null;
   toAyCode: string;
   toEnvironment: Environment;
-  seed: SeedResult | null;
   structure: StructureSeedResult | null;
-  populated: PopulatedSeedResult | null;
+  admissions: AdmissionsMinimalResult | null;
 };
 
 export async function switchEnvironment(
@@ -172,53 +139,31 @@ export async function switchEnvironment(
 ): Promise<SwitchResult> {
   if (target === 'test') {
     const testAy = await ensureTestAy(service);
-    const priorTestAy = await ensurePriorTestAy(service);
     const flip = await flipIsCurrent(service, testAy.ay_code);
 
     const currentYear = new Date().getFullYear();
 
-    // 1) Structural config for current-year test AY (AY9999).
-    const structure = await ensureTestStructure(service, {
-      id: testAy.id,
-      ay_code: testAy.ay_code,
-    }, { targetYear: currentYear, forceOverwriteDates: true });
+    // 1) Structural config — sections / terms / levels / subjects / users
+    //    so the AY is usable end-to-end. No student / grade / attendance
+    //    data is seeded here; those are owned by the user.
+    const structure = await ensureTestStructure(
+      service,
+      { id: testAy.id, ay_code: testAy.ay_code },
+      { targetYear: currentYear, forceOverwriteDates: true },
+    );
 
-    // 2) Structural config for prior-year test AY (AY9998).
-    await ensureTestStructure(service, {
-      id: priorTestAy.id,
-      ay_code: priorTestAy.ay_code,
-    }, { targetYear: currentYear - 1, forceOverwriteDates: true });
-
-    // 3) Student seed for current AY.
-    const { data: sectionRows } = await service
-      .from('sections')
-      .select('id')
-      .eq('academic_year_id', testAy.id);
-    const sectionIds = (sectionRows ?? []).map((r) => (r as { id: string }).id);
-    let seed: SeedResult | null = null;
-    if (sectionIds.length > 0) {
-      const { count } = await service
-        .from('section_students')
-        .select('id', { count: 'exact', head: true })
-        .in('section_id', sectionIds);
-      if ((count ?? 0) === 0) {
-        seed = await seedTestAy(service, testAy.id, testAy.ay_code);
-      }
-    }
-
-    // 4) Populated layer for AY9999.
-    const populated = await seedPopulated(service, testAy);
-
-    // 5) Prior-year fixture: provision AY9998 students + populated data.
-    await seedPriorYearTestAy(service, priorTestAy);
+    // 2) Minimal admissions seed — exactly 10 hardcoded apps + status +
+    //    documents rows covering every document status the registrar
+    //    should see (To follow / Valid / Rejected / Uploaded / near-
+    //    expiring), plus STP variants and KD #69 single-mother case.
+    const admissions = await seedAdmissionsMinimal(service, testAy);
 
     return {
       fromAyCode: flip.fromAyCode,
       toAyCode: flip.toAyCode,
       toEnvironment: 'test',
-      seed,
       structure,
-      populated,
+      admissions,
     };
   }
 
@@ -250,9 +195,8 @@ export async function switchEnvironment(
     fromAyCode: flip.fromAyCode,
     toAyCode: flip.toAyCode,
     toEnvironment: 'production',
-    seed: null,
     structure: null,
-    populated: null,
+    admissions: null,
   };
 }
 
@@ -294,6 +238,7 @@ export type ResetResult = {
     students_test: number;
     p_file_revisions: number;
     admissions_rows: number;
+    seeded_teacher_accounts: number;
   };
   rpcSummary: unknown;
 };
@@ -342,6 +287,7 @@ export async function resetTestEnvironment(service: SupabaseClient): Promise<Res
     students_test: 0,
     p_file_revisions: 0,
     admissions_rows: 0,
+    seeded_teacher_accounts: 0,
   };
   const aggregateRpcSummary: unknown[] = [];
 
@@ -351,6 +297,17 @@ export async function resetTestEnvironment(service: SupabaseClient): Promise<Res
       aggregateDeleted[k] += perAy.deleted[k];
     }
     aggregateRpcSummary.push(perAy.rpcSummary);
+  }
+
+  // Purge seeded teacher auth accounts (global — not per-AY).
+  // Identified by user_metadata.seeded_teacher = true set during seedTestTeachers.
+  const { data: allUsers } = await service.auth.admin.listUsers({ perPage: 1000 });
+  const seededTeacherIds = (allUsers?.users ?? [])
+    .filter((u) => u.user_metadata?.seeded_teacher === true)
+    .map((u) => u.id);
+  for (const uid of seededTeacherIds) {
+    const { error } = await service.auth.admin.deleteUser(uid);
+    if (!error) aggregateDeleted.seeded_teacher_accounts++;
   }
 
   return {
@@ -414,6 +371,7 @@ async function wipeOneTestAy(
     students_test: 0,
     p_file_revisions: 0,
     admissions_rows: 0,
+    seeded_teacher_accounts: 0, // purged at resetTestEnvironment level, not per-AY
   };
 
   // Chunk `.in()` filters to stay under PostgREST's ~8 KB URL cap.
@@ -482,12 +440,12 @@ async function wipeOneTestAy(
     await wipe('section_students', 'section_students', 'section_id', sectionIds);
   }
 
-  // Seeded test students (student_number like 'TEST-%').
+  // Seeded test students (TEST-% legacy format + H270% realistic format).
   {
     const { count, error } = await service
       .from('students')
       .delete({ count: 'exact' })
-      .like('student_number', 'TEST-%');
+      .or('student_number.like.TEST-%,student_number.like.H270%');
     if (error) {
       console.error('[reset] students TEST-% wipe failed:', error.message);
     } else {

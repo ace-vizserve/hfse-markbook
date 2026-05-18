@@ -121,7 +121,7 @@ export function SubjectConfigEditDialog({
               </DialogTitle>
               <DialogDescription className="text-[13px] leading-relaxed text-muted-foreground">
                 {draft
-                  ? "Changes apply to every grading sheet for this (subject × level) inside the AY."
+                  ? "Changes apply to every grading sheet for this subject and year level. Locked sheets are not changed."
                   : "Pick a cell to edit."}
               </DialogDescription>
             </div>

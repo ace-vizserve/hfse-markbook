@@ -19,9 +19,26 @@ export async function getSidebarChangeRequestCount(
   role: Role,
   userId: string,
 ): Promise<number> {
+  // Resolve current AY id once; if none, no CRs are in-scope for any role.
+  const { data: ayData } = await service
+    .from('academic_years')
+    .select('id')
+    .eq('is_current', true)
+    .maybeSingle();
+  const currentAyId = (ayData as { id: string } | null)?.id ?? null;
+  if (!currentAyId) return 0;
+
+  // Nested !inner join via grading_sheet → section.academic_year_id mirrors
+  // the page query at app/(markbook)/markbook/change-requests/page.tsx so
+  // the badge and the page agree on which AY's CRs are in-scope. Without
+  // this, stale pending CRs from prior/test AYs inflate the badge.
   let query = service
     .from('grade_change_requests')
-    .select('id', { count: 'exact', head: true });
+    .select(
+      'id, grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))',
+      { count: 'exact', head: true },
+    )
+    .eq('grading_sheet.section.academic_year_id', currentAyId);
 
   if (role === 'teacher') {
     query = query.eq('requested_by', userId).eq('status', 'pending');

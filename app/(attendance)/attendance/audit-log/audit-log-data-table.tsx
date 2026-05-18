@@ -1,9 +1,11 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { type ColumnDef } from "@tanstack/react-table";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { type FacetConfig } from "@/components/ui/data-table/types";
 import { IdentifierLink } from "@/components/ui/identifier-link";
@@ -30,8 +32,16 @@ export type AttendanceAuditRow = {
   context: Record<string, unknown>;
 };
 
+type PaginationInfo = {
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  total: number;
+};
+
 type Props = {
   rows: AttendanceAuditRow[];
+  pagination?: PaginationInfo;
 };
 
 // ---------------------------------------------------------------------------
@@ -242,27 +252,75 @@ const COLUMNS: ColumnDef<AttendanceAuditRow>[] = [
 // Public component
 // ---------------------------------------------------------------------------
 
-export function AttendanceAuditLogDataTable({ rows }: Props) {
+export function AttendanceAuditLogDataTable({ rows, pagination }: Props) {
+  const router = useRouter();
+
+  const handlePageChange = React.useCallback(
+    (newPage: number) => {
+      const params = new URLSearchParams(window.location.search);
+      params.set("page", String(newPage));
+      router.push(`?${params.toString()}`);
+    },
+    [router],
+  );
+
   return (
-    <DataTable<AttendanceAuditRow>
-      data={rows}
-      columns={COLUMNS}
-      getRowId={(row) => row.id}
-      searchKeys={["actor_display", "actor_email", "action", "entity_type"]}
-      searchPlaceholder="Search actor, action, details…"
-      facets={FACETS}
-      initialSort={[{ id: "at", desc: true }]}
-      pageSize={25}
-      url={{ enabled: true }}
-      csv={{ filename: "attendance-audit-log.csv" }}
-      emptyState={{
-        title: "No audit entries yet.",
-        body: "Once daily attendance is recorded, entries appear here.",
-      }}
-      emptyFilteredState={{
-        title: "No entries match the current filters.",
-        body: "Try clearing the action or actor filter.",
-      }}
-    />
+    <>
+      <DataTable<AttendanceAuditRow>
+        data={rows}
+        columns={COLUMNS}
+        getRowId={(row) => row.id}
+        searchKeys={["actor_display", "actor_email", "action", "entity_type"]}
+        searchPlaceholder="Search actor, action, details…"
+        facets={FACETS}
+        initialSort={[{ id: "at", desc: true }]}
+        pageSize={pagination ? Math.max(rows.length, 1) : 25}
+        url={{ enabled: true }}
+        csv={{ filename: "attendance-audit-log.csv" }}
+        emptyState={{
+          title: "No audit entries yet.",
+          body: "Once daily attendance is recorded, entries appear here.",
+        }}
+        emptyFilteredState={{
+          title: "No entries match the current filters.",
+          body: "Try clearing the action or actor filter.",
+        }}
+      />
+      {pagination && (
+        <div className="flex items-center justify-between rounded-b-xl border border-t-0 border-border bg-muted/30 px-4 py-3 text-sm">
+          <p className="text-muted-foreground tabular-nums">
+            {pagination.total === 0
+              ? "No entries"
+              : `Showing ${((pagination.page - 1) * pagination.pageSize + 1).toLocaleString("en-SG")}–${Math.min(
+                  pagination.page * pagination.pageSize,
+                  pagination.total,
+                ).toLocaleString("en-SG")} of ${pagination.total.toLocaleString("en-SG")}`}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2.5 text-xs"
+              disabled={pagination.page <= 1}
+              onClick={() => handlePageChange(pagination.page - 1)}
+            >
+              ← Prev
+            </Button>
+            <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+              {pagination.page.toLocaleString("en-SG")} / {pagination.totalPages.toLocaleString("en-SG")}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2.5 text-xs"
+              disabled={pagination.page >= pagination.totalPages}
+              onClick={() => handlePageChange(pagination.page + 1)}
+            >
+              Next →
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

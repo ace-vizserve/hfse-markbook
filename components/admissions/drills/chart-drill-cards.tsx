@@ -93,9 +93,27 @@ export function ReferralDrillCard({
   drillRows,
 }: CommonDrillProps & { data: ReferralSource[] }) {
   const [segment, setSegment] = React.useState<string | null>(null);
+
+  const handleSegmentClick = React.useCallback(
+    (seg: string) => {
+      if (seg === 'Other') {
+        // Encode the named top-N sources so the drill can exclude them exactly
+        // rather than guessing which sources were collapsed into "Other".
+        const named = data
+          .filter((d) => d.source !== 'Other')
+          .map((d) => d.source)
+          .join('|');
+        setSegment(`__other__:${named}`);
+      } else {
+        setSegment(seg);
+      }
+    },
+    [data],
+  );
+
   return (
     <Sheet open={!!segment} onOpenChange={(o) => !o && setSegment(null)}>
-      <ReferralSourceChart data={data} onSegmentClick={setSegment} />
+      <ReferralSourceChart data={data} onSegmentClick={handleSegmentClick} />
       {segment && (
         <AdmissionsDrillSheet
           target="referral"

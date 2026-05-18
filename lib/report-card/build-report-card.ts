@@ -17,6 +17,10 @@ export type SubjectRow = {
   t3: Cell;
   t4: Cell;
   annual: number | null;
+  /** Freeform year-end letter/text for non-examinable subjects, registrar-
+   *  entered via the masterfile. Read from the T4 grade_entries row.
+   *  Always null for examinable subjects. */
+  annual_letter: string | null;
 };
 
 export type Term = {
@@ -214,7 +218,7 @@ export async function buildReportCard(
   const { data: entries } = sheetList.length > 0
     ? await supabase
         .from('grade_entries')
-        .select('grading_sheet_id, section_student_id, quarterly_grade, letter_grade, is_na')
+        .select('grading_sheet_id, section_student_id, quarterly_grade, letter_grade, is_na, annual_letter_grade')
         .in('grading_sheet_id', sheetList.map((s) => s.id))
         .in('section_student_id', allEnrolmentIds)
     : { data: [] };
@@ -225,6 +229,7 @@ export async function buildReportCard(
     quarterly_grade: number | null;
     letter_grade: string | null;
     is_na: boolean;
+    annual_letter_grade: string | null;
   };
   const allEntries = (entries ?? []) as EntryRow[];
 
@@ -243,6 +248,7 @@ export async function buildReportCard(
 
   const subjectRows: SubjectRow[] = subjects.map((sub) => {
     const byTerm: Record<number, Cell> = {};
+    let annual_letter: string | null = null;
     for (const t of termList) {
       // Find every sheet covering this (term, subject) across the student's
       // sections, then every entry against any of the student's enrolments.
@@ -258,6 +264,9 @@ export async function buildReportCard(
             is_na: Boolean(entry.is_na),
           }
         : empty;
+      if (t.term_number === 4 && !sub.is_examinable && entry) {
+        annual_letter = entry.annual_letter_grade ?? null;
+      }
     }
     const annual = sub.is_examinable
       ? computeAnnualGrade(
@@ -274,6 +283,7 @@ export async function buildReportCard(
       t3: byTerm[3] ?? empty,
       t4: byTerm[4] ?? empty,
       annual,
+      annual_letter,
     };
   });
 

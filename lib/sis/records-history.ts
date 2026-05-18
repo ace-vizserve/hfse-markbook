@@ -16,6 +16,7 @@ export type StudentHeader = {
 };
 
 export type PlacementRow = {
+  enrolmentId: string;
   ayCode: string;
   ayLabel: string;
   sectionId: string;
@@ -26,6 +27,8 @@ export type PlacementRow = {
   indexNumber: number;
   enrollmentDate: string | null;
   withdrawalDate: string | null;
+  busNo: string | null;
+  classroomOfficerRole: string | null;
 };
 
 export type AcademicTermRow = {
@@ -87,7 +90,8 @@ export async function getPlacementHistory(studentId: string): Promise<PlacementR
     .from('section_students')
     .select(
       `
-        enrollment_status, enrollment_date, withdrawal_date, index_number,
+        id, enrollment_status, enrollment_date, withdrawal_date, index_number,
+        bus_no, classroom_officer_role,
         section:sections(
           id, name,
           level:levels(code, label),
@@ -98,10 +102,13 @@ export async function getPlacementHistory(studentId: string): Promise<PlacementR
     .eq('student_id', studentId);
 
   type Row = {
+    id: string;
     enrollment_status: 'active' | 'late_enrollee' | 'withdrawn';
     enrollment_date: string | null;
     withdrawal_date: string | null;
     index_number: number;
+    bus_no: string | null;
+    classroom_officer_role: string | null;
     section:
       | {
           id: string;
@@ -126,6 +133,7 @@ export async function getPlacementHistory(studentId: string): Promise<PlacementR
         : section.academic_year;
       if (!level || !ay) return null;
       return {
+        enrolmentId: r.id,
         ayCode: ay.ay_code,
         ayLabel: ay.label,
         sectionId: section.id,
@@ -136,6 +144,8 @@ export async function getPlacementHistory(studentId: string): Promise<PlacementR
         indexNumber: r.index_number,
         enrollmentDate: r.enrollment_date,
         withdrawalDate: r.withdrawal_date,
+        busNo: r.bus_no,
+        classroomOfficerRole: r.classroom_officer_role,
       } satisfies PlacementRow;
     })
     .filter((r): r is PlacementRow => r !== null)

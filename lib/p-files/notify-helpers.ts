@@ -5,12 +5,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { DOCUMENT_SLOTS } from "@/lib/p-files/document-config";
 import {
   type SlotStatusKind,
-  type RecipientCandidate,
+  type RecipientEnvelope,
   type ReminderKind,
   resolveRecipients,
   sendReminder,
 } from "@/lib/notifications/email-pfile-reminder";
 import { getActiveCooldown } from "@/lib/p-files/outreach";
+import { prefixFor, ENROLLED_STATUSES, ADMISSIONS_FUNNEL_STATUSES } from "@/lib/p-files/_shared";
 
 // Shared orchestration used by both the single-slot notify route and the
 // bulk fan-out wrapper. Per call: looks up the student + slot context,
@@ -21,18 +22,11 @@ import { getActiveCooldown } from "@/lib/p-files/outreach";
 // not write the audit_log row itself — the caller does that so it can
 // log a single bulk-totals entry instead of N per-item entries.
 
-const ENROLLED_STATUSES = new Set(["Enrolled", "Enrolled (Conditional)"]);
-// Admissions pre-enrolment funnel statuses — used when kind='initial-chase'
-// to gate the chase to active applicants. Cancelled / Withdrawn are
-// excluded (no point chasing a closed application). Enrolled* are excluded
-// because that's the renewal-lifecycle scope (P-Files).
-const ADMISSIONS_FUNNEL_STATUSES = new Set([
-  "Submitted",
-  "Ongoing Verification",
-  "Processing",
-]);
-
 const EXPIRING_SOON_DAYS = 60;
+
+// Local sets for fast .has() lookups — built from the imported shared arrays.
+const ENROLLED_STATUSES_SET = new Set<string>(ENROLLED_STATUSES);
+const ADMISSIONS_FUNNEL_STATUSES_SET = new Set<string>(ADMISSIONS_FUNNEL_STATUSES);
 
 export type NotifyOutcome =
   | { ok: true; recipients: number; sent: number; failed: number }
@@ -60,10 +54,6 @@ export type NotifyContext = {
   kind?: ReminderKind;
 };
 
-function prefixFor(ayCode: string): string {
-  return `ay${ayCode.replace(/^AY/i, "").toLowerCase()}`;
-}
-
 function fullName(app: Record<string, unknown>): string {
   const last = (app.lastName as string | null) ?? "";
   const first = (app.firstName as string | null) ?? "";
@@ -80,6 +70,7 @@ function classifyStatus(
   const s = (status ?? "").trim().toLowerCase();
   if (s === "rejected") return "rejected";
   if (s === "expired") return "expired";
+  if (s === "to follow") return "toFollow";
   if (!url && !status) return "missing";
   // Only flag expiringSoon when slot is currently 'Valid' and within window.
   if (s === "valid" && expiry) {
@@ -134,7 +125,7 @@ export async function runNotify(
   // back-compat with existing P-Files callers; admissions surfaces map
   // it to a generic "not in chaseable scope" message.
   const kind: ReminderKind = ctx.kind ?? "renewal";
-  const allowedStatuses = kind === "initial-chase" ? ADMISSIONS_FUNNEL_STATUSES : ENROLLED_STATUSES;
+  const allowedStatuses = kind === "initial-chase" ? ADMISSIONS_FUNNEL_STATUSES_SET : ENROLLED_STATUSES_SET;
   if (!applicationStatus || !allowedStatuses.has(applicationStatus)) {
     return { ok: false, reason: "not_enrolled" };
   }
@@ -146,12 +137,12 @@ export async function runNotify(
   const statusKind = classifyStatus(slotStatus, slotUrl, slotExpiry);
   if (!statusKind) return { ok: false, reason: "no_actionable_status" };
 
-  const recipients: RecipientCandidate[] = resolveRecipients(ctx.slotKey, {
+  const envelope: RecipientEnvelope = resolveRecipients(ctx.slotKey, {
     motherEmail: (app.motherEmail as string | null) ?? null,
     fatherEmail: (app.fatherEmail as string | null) ?? null,
     guardianEmail: (app.guardianEmail as string | null) ?? null,
   });
-  if (recipients.length === 0) return { ok: false, reason: "no_recipients" };
+  if (envelope.kind === "none") return { ok: false, reason: "no_recipients" };
 
   const cooldown = await getActiveCooldown(ctx.ayCode, ctx.enroleeNumber, ctx.slotKey, service);
   if (cooldown) {
@@ -159,7 +150,7 @@ export async function runNotify(
       ok: false,
       reason: "cooldown",
       cooldownLastSentAt: cooldown.lastSentAt,
-      recipients: recipients.length,
+      recipients: 1,
     };
   }
 
@@ -176,29 +167,25 @@ export async function runNotify(
       enroleeNumber: ctx.enroleeNumber,
       ayCode: ctx.ayCode,
     },
-    recipients,
+    envelope,
   );
 
   if (result.sent === 0) {
-    return { ok: false, reason: "send_failed", recipients: recipients.length };
+    return { ok: false, reason: "send_failed", recipients: 1 };
   }
 
-  // Insert one p_file_outreach row per successful send.
-  const rows = result.outcomes
-    .filter((o) => o.ok)
-    .map((o) => ({
+  // Insert one p_file_outreach row per send (one envelope = one send).
+  if (result.sent > 0) {
+    const { error } = await service.from("p_file_outreach").insert({
       ay_code: ctx.ayCode,
       enrolee_number: ctx.enroleeNumber,
       slot_key: ctx.slotKey,
       kind: "reminder" as const,
       channel: "email",
-      recipient_email: o.recipient.email,
+      recipient_email: envelope.to,
       created_by_user_id: actor.id,
       created_by_email: actor.email,
-    }));
-
-  if (rows.length > 0) {
-    const { error } = await service.from("p_file_outreach").insert(rows);
+    });
     if (error) {
       // Email already went out — log and proceed. The audit row at the
       // route layer captures the send so we don't lose visibility.
@@ -206,5 +193,5 @@ export async function runNotify(
     }
   }
 
-  return { ok: true, recipients: recipients.length, sent: result.sent, failed: result.failed };
+  return { ok: true, recipients: 1, sent: result.sent, failed: result.failed };
 }

@@ -1,5 +1,6 @@
 import {
   Globe,
+  Heart,
   Phone,
   Tags,
   User,
@@ -137,8 +138,37 @@ export function ProfileTab({
     { label: 'Contract signatory', value: app.contractSignatory },
   ];
 
+  // Medical flags — boolean conditions reported on the application.
+  const medicalFlags: Array<{ label: string; value: boolean | null | undefined }> = [
+    { label: 'Allergies', value: app.allergies },
+    { label: 'Food allergies', value: app.foodAllergies },
+    { label: 'Asthma', value: app.asthma },
+    { label: 'Heart conditions', value: app.heartConditions },
+    { label: 'Epilepsy', value: app.epilepsy },
+    { label: 'Diabetes', value: app.diabetes },
+    { label: 'Eczema', value: app.eczema },
+  ];
+  const medicalDetails: Field[] = [
+    { label: 'Allergy details', value: app.allergyDetails, wide: true, multiline: true },
+    { label: 'Food allergy details', value: app.foodAllergyDetails, wide: true, multiline: true },
+    { label: 'Other conditions', value: app.otherMedicalConditions, wide: true, multiline: true },
+    { label: 'Dietary restrictions', value: app.dietaryRestrictions, wide: true, multiline: true },
+  ];
+
+  // Show the medical card only when at least one flag is true or a detail field has a value.
+  const hasMedical =
+    medicalFlags.some((f) => f.value === true) ||
+    medicalDetails.some((f) => !isFieldEmpty(f));
+
+  const paracetamolLabel =
+    app.paracetamolConsent === true
+      ? 'Yes'
+      : app.paracetamolConsent === false
+        ? 'No'
+        : null;
+
   // Total fields filled across all 4 sections — drives the hero progress
-  // bar. Booleans count as filled (matches isFieldEmpty semantics).
+  // bar. Medical fields are optional health info and excluded intentionally.
   const allFields = [...identityFields, ...travelFields, ...contactFields, ...preferencesFields];
   const totalFilled = allFields.filter((f) => !isFieldEmpty(f)).length;
   const total = allFields.length;
@@ -234,6 +264,56 @@ export function ProfileTab({
           fields={preferencesFields}
         />
       </div>
+
+      {/* Medical / health — full-width, shown only when at least one field has data */}
+      {hasMedical && (
+        <Card className="gap-0 overflow-hidden p-0">
+          <CardHeader className="border-b border-border px-5 py-4">
+            <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
+              Medical &amp; health
+            </CardDescription>
+            <CardTitle className="font-serif text-[15px] font-semibold tracking-tight text-foreground">
+              Conditions &amp; dietary needs
+            </CardTitle>
+            <CardAction>
+              <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-amber to-brand-navy text-white shadow-brand-tile">
+                <Heart className="size-4" />
+              </div>
+            </CardAction>
+          </CardHeader>
+          <CardContent className="space-y-4 px-5 py-4">
+            {/* Boolean condition flags */}
+            <div>
+              <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Reported conditions
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {medicalFlags.map((f) =>
+                  f.value === true ? (
+                    <Badge key={f.label} variant="warning">
+                      {f.label}
+                    </Badge>
+                  ) : null,
+                )}
+                {medicalFlags.every((f) => !f.value) && (
+                  <span className="text-sm text-muted-foreground">None reported</span>
+                )}
+              </div>
+            </div>
+            {/* Detail text fields */}
+            <FieldGrid fields={medicalDetails} dimEmpty />
+            {/* Paracetamol consent */}
+            {app.paracetamolConsent !== null && app.paracetamolConsent !== undefined && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Paracetamol consent:</span>
+                <Badge variant={app.paracetamolConsent ? 'success' : 'blocked'}>
+                  {paracetamolLabel}
+                </Badge>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

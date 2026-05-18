@@ -1,13 +1,7 @@
-import {
-  AlertTriangle,
-  CalendarRange,
-  CheckCircle2,
-  FileText,
-  Globe2,
-  Plane,
-} from 'lucide-react';
+import { CalendarRange, Globe2, Plane } from 'lucide-react';
 
 import { ResidenceHistoryEditor } from '@/components/sis/residence-history-editor';
+import { StpStatusEditor } from '@/components/sis/stp-status-editor';
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
@@ -17,61 +11,32 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import type { ApplicationRow, DocumentSlot } from '@/lib/sis/queries';
-import { STP_CONDITIONAL_SLOT_KEYS } from '@/lib/sis/queries';
-import { cn } from '@/lib/utils';
+import type { ApplicationRow, StpApplicationStatus } from '@/lib/sis/queries';
 
 /**
  * StpApplicationCard — Singapore ICA Student Pass surface for foreign-student
  * applicants who opted into the STP sub-flow on the parent portal.
  *
  * Renders only when `application.stpApplicationType IS NOT NULL`. Composes
- * three sections:
- *   1. STP slot status strip — 3 status tiles for icaPhoto,
- *      financialSupportDocs, vaccinationInformation. Click to anchor-jump
- *      to the slot in the Documents tab via `#slot-{key}`.
- *   2. Residence history preview — list of parsed `residenceHistory`
- *      entries (country + cityOrTown + (fromYear → toYear) + purposeOfStay).
- *   3. Edit residence history button — opens a Dialog with a structured
- *      row editor for the 5-year history ICA expects.
+ * two sections:
+ *   1. STP application status — Pending/Submitted/Approved/Rejected editor
+ *      writing to `ay{YY}_enrolment_status.stpApplicationStatus` (migration 050).
+ *      Parents file STP documents directly with ICA; the school just records
+ *      which phase they're in.
+ *   2. Residence history — ICA expects past 5 years of residency. Preview +
+ *      structured editor live here.
  *
- * Visual language matches `components/sis/documents-viewer.tsx` — gradient
- * icon tiles per status bucket and shadcn Badge variants (success/warning/
- * blocked) so the STP card and the Documents tab below it scan with the
- * same color grammar.
- *
- * Spec: docs/context/21-stp-application.md
+ * Replaces the prior 3-document-slot model (icaPhoto / financialSupportDocs /
+ * vaccinationInformation) per migration 050. The slot columns remain on
+ * `ay{YY}_enrolment_documents` for historical preservation but are no longer
+ * collected or displayed.
  */
 
-type StatusBucket = 'valid' | 'pending' | 'rejected' | 'missing';
-
-function statusBucket(status: string | null | undefined): StatusBucket {
-  const v = (status ?? '').trim().toLowerCase();
-  if (v === 'valid') return 'valid';
-  if (v === 'rejected' || v === 'expired') return 'rejected';
-  if (v === 'uploaded' || v === 'to follow') return 'pending';
-  return 'missing';
-}
-
-const TILE_GRADIENT: Record<StatusBucket, string> = {
-  valid: 'bg-gradient-to-br from-brand-mint to-brand-sky',
-  pending: 'bg-gradient-to-br from-brand-amber to-brand-amber/80',
-  rejected: 'bg-gradient-to-br from-destructive to-destructive/80',
-  missing: 'bg-gradient-to-br from-ink-4 to-ink-3',
-};
-
-type GradientBadgeVariant = 'success' | 'warning' | 'blocked' | 'outline';
-function badgeVariant(bucket: StatusBucket): GradientBadgeVariant {
-  if (bucket === 'valid') return 'success';
-  if (bucket === 'pending') return 'warning';
-  if (bucket === 'rejected') return 'blocked';
-  return 'outline';
-}
-
-const STP_SLOT_LABELS: Record<(typeof STP_CONDITIONAL_SLOT_KEYS)[number], string> = {
-  icaPhoto: 'ICA Photo',
-  financialSupportDocs: 'Financial Support',
-  vaccinationInformation: 'Vaccination Records',
+const STATUS_BADGE: Record<StpApplicationStatus, 'warning' | 'default' | 'success' | 'blocked'> = {
+  Pending: 'warning',
+  Submitted: 'default',
+  Approved: 'success',
+  Rejected: 'blocked',
 };
 
 type ResidenceEntry = {
@@ -85,8 +50,6 @@ type ResidenceEntry = {
 function parseResidenceHistory(raw: unknown):
   | { ok: true; entries: ResidenceEntry[] }
   | { ok: false } {
-  // The column is jsonb. Supabase returns parsed JSON, so it's typically
-  // already an array — but we defensively handle string-encoded fallbacks too.
   let value: unknown = raw;
   if (typeof raw === 'string') {
     try {
@@ -114,32 +77,29 @@ function formatYearRange(
   return `${fromStr} → ${toStr}`;
 }
 
+function isStpStatus(v: string | null): v is StpApplicationStatus {
+  return v === 'Pending' || v === 'Submitted' || v === 'Approved' || v === 'Rejected';
+}
+
 export function StpApplicationCard({
   application,
-  documents,
+  stpApplicationStatus,
   ayCode,
 }: {
   application: ApplicationRow;
-  documents: DocumentSlot[];
+  stpApplicationStatus: string | null;
   ayCode: string;
 }) {
-  // Gate — never render when the parent didn't opt into the STP flow.
   if (!application.stpApplicationType) return null;
 
-  const docByKey = new Map(documents.map((d) => [d.key, d]));
-  const stpDocs = STP_CONDITIONAL_SLOT_KEYS.map((key) => ({
-    key,
-    label: STP_SLOT_LABELS[key],
-    doc: docByKey.get(key),
-  }));
-
-  const validatedCount = stpDocs.filter(({ doc }) => statusBucket(doc?.status) === 'valid').length;
+  const normalizedStatus: StpApplicationStatus | null = isStpStatus(stpApplicationStatus)
+    ? stpApplicationStatus
+    : null;
   const parsed = parseResidenceHistory(application.residenceHistory);
   const residenceCount = parsed.ok ? parsed.entries.length : 0;
 
   return (
     <Card className="gap-0 overflow-hidden p-0">
-      {/* Header — gradient tile + serif title + STP application-type badge */}
       <CardHeader className="border-b border-border px-5 py-4">
         <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
           Singapore ICA · Student Pass
@@ -149,9 +109,9 @@ export function StpApplicationCard({
         </CardTitle>
         <div className="mt-1 flex flex-wrap items-center gap-1.5">
           <Badge variant="default">{application.stpApplicationType}</Badge>
-          <Badge variant={validatedCount === 3 ? 'success' : 'warning'}>
-            {validatedCount} of 3 validated
-          </Badge>
+          {normalizedStatus && (
+            <Badge variant={STATUS_BADGE[normalizedStatus]}>{normalizedStatus}</Badge>
+          )}
         </div>
         <CardAction>
           <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile [&>svg]:size-5">
@@ -161,23 +121,25 @@ export function StpApplicationCard({
       </CardHeader>
 
       <CardContent className="space-y-6 p-5">
-        {/* Section 1 — STP slot status strip */}
+        {/* Section 1 — STP application status editor */}
         <section className="space-y-3">
           <SectionHeader
-            icon={FileText}
-            title="STP document slots"
-            subtitle="Three ICA-required documents on top of the standard package. Click a tile to jump to the slot below."
+            icon={Plane}
+            title="ICA application status"
+            subtitle="Parents file the Student Pass directly with ICA. Use this control to record which phase they're in so registrars across the team have a single source of truth."
           />
-          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            {stpDocs.map(({ key, label, doc }) => (
-              <li key={key}>
-                <StpSlotTile slotKey={key} label={label} status={doc?.status ?? null} />
-              </li>
-            ))}
-          </ul>
+          <StpStatusEditor
+            ayCode={ayCode}
+            enroleeNumber={application.enroleeNumber}
+            initialStatus={normalizedStatus}
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Pending = parent hasn&rsquo;t filed yet · Submitted = filed with ICA · Approved = ICA
+            issued the pass · Rejected = ICA declined.
+          </p>
         </section>
 
-        {/* Section 2 — Residence history preview */}
+        {/* Section 2 — Residence history */}
         <section className="space-y-3">
           <SectionHeader
             icon={Globe2}
@@ -215,7 +177,6 @@ export function StpApplicationCard({
             </div>
           )}
 
-          {/* Section 3 — Edit residence history */}
           <div className="pt-1">
             <ResidenceHistoryEditor
               ayCode={ayCode}
@@ -228,8 +189,6 @@ export function StpApplicationCard({
     </Card>
   );
 }
-
-// ─── helpers ────────────────────────────────────────────────────────────────
 
 function SectionHeader({
   icon: Icon,
@@ -255,50 +214,6 @@ function SectionHeader({
       </div>
       <p className="text-xs leading-relaxed text-muted-foreground">{subtitle}</p>
     </div>
-  );
-}
-
-function StpSlotTile({
-  slotKey,
-  label,
-  status,
-}: {
-  slotKey: string;
-  label: string;
-  status: string | null;
-}) {
-  const bucket = statusBucket(status);
-  return (
-    <a
-      href={`#slot-${slotKey}`}
-      className={cn(
-        'group flex items-start gap-3 rounded-xl border border-hairline bg-card p-3 transition-all',
-        'hover:-translate-y-0.5 hover:border-brand-indigo/30 hover:shadow-sm',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-indigo/40',
-      )}
-    >
-      <div
-        className={cn(
-          'flex size-9 shrink-0 items-center justify-center rounded-xl text-white shadow-brand-tile transition-colors',
-          TILE_GRADIENT[bucket],
-        )}
-      >
-        {bucket === 'valid' && <CheckCircle2 className="size-4" />}
-        {bucket === 'pending' && <FileText className="size-4" />}
-        {bucket === 'rejected' && <AlertTriangle className="size-4" />}
-        {bucket === 'missing' && <FileText className="size-4" />}
-      </div>
-      <div className="min-w-0 flex-1 space-y-1.5">
-        <p className="truncate font-serif text-sm font-semibold leading-tight tracking-tight text-foreground">
-          {label}
-        </p>
-        {status ? (
-          <Badge variant={badgeVariant(bucket)}>{status}</Badge>
-        ) : (
-          <Badge variant="outline">Missing</Badge>
-        )}
-      </div>
-    </a>
   );
 }
 

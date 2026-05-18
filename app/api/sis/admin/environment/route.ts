@@ -53,11 +53,11 @@ export async function POST(request: Request) {
         from_ay: result.fromAyCode,
         to_ay: result.toAyCode,
         to_environment: result.toEnvironment,
-        seeded: result.seed !== null,
+        seeded: result.admissions !== null,
       },
     });
 
-    if (result.structure || result.seed || result.populated) {
+    if (result.structure || result.admissions) {
       await logAction({
         service,
         actor: { id: auth.user.id, email: auth.user.email ?? null },
@@ -67,9 +67,7 @@ export async function POST(request: Request) {
         context: {
           ay_code: result.toAyCode,
           structure: result.structure,
-          populated: result.populated,
-          students_inserted: result.seed?.students_inserted ?? 0,
-          section_count: result.seed?.section_count ?? 0,
+          admissions: result.admissions,
         },
       });
     }
@@ -84,9 +82,8 @@ export async function POST(request: Request) {
       from: result.fromAyCode,
       to: result.toAyCode,
       environment: result.toEnvironment,
-      seed: result.seed,
       structure: result.structure,
-      populated: result.populated,
+      admissions: result.admissions,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'environment switch failed';

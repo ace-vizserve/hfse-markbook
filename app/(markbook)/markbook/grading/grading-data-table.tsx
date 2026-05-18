@@ -14,7 +14,13 @@ export type GradingSheetRow = {
   id: string;
   section: string;
   level: string;
+  /** 'primary' | 'secondary' — coarser-than-`level` filter axis for the
+   *  School level facet. Sourced from levels.level_type. */
+  school_level: 'primary' | 'secondary';
   subject: string;
+  /** Subject format: true for numeric-graded (quarterly), false for the 8
+   *  letter-graded subjects (MUSIC/ARTS/PE/HE/CL/CA/PEH/PMPD per KD #95). */
+  is_examinable: boolean;
   term: string;
   teacher: string | null;
   /** auth user_id of the (section, subject) subject_teacher — drives the
@@ -26,8 +32,9 @@ export type GradingSheetRow = {
   /** auth user_id of the section's form_adviser — drives "My sheets". */
   form_adviser_id?: string | null;
   is_locked: boolean;
-  blanks_remaining: number;
+  graded_count: number;
   total_students: number;
+  graded_pct: number;
 };
 
 const BADGE_CLASS = 'h-6 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]';
@@ -74,6 +81,34 @@ const COLUMNS: ColumnDef<GradingSheetRow>[] = [
     },
   },
   {
+    accessorKey: 'school_level',
+    header: 'School level',
+    cell: ({ row }) => (
+      <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+        {row.original.school_level === 'primary' ? 'Primary' : 'Secondary'}
+      </span>
+    ),
+    filterFn: (row, _id, value) => {
+      if (!value || (Array.isArray(value) && value.length === 0)) return true;
+      const cell = row.original.school_level === 'primary' ? 'Primary' : 'Secondary';
+      return Array.isArray(value) ? value.includes(cell) : cell === value;
+    },
+  },
+  {
+    accessorKey: 'is_examinable',
+    header: 'Format',
+    cell: ({ row }) => (
+      <span className="text-muted-foreground">
+        {row.original.is_examinable ? 'Examinable' : 'Non-examinable'}
+      </span>
+    ),
+    filterFn: (row, _id, value) => {
+      if (!value || (Array.isArray(value) && value.length === 0)) return true;
+      const cell = row.original.is_examinable ? 'Examinable' : 'Non-examinable';
+      return Array.isArray(value) ? value.includes(cell) : cell === value;
+    },
+  },
+  {
     accessorKey: 'teacher',
     header: 'Teacher',
     cell: ({ row }) => (
@@ -102,27 +137,33 @@ const COLUMNS: ColumnDef<GradingSheetRow>[] = [
     },
   },
   {
-    accessorKey: 'blanks_remaining',
-    header: ({ column }) => <SortableHeader column={column}>Blanks</SortableHeader>,
+    accessorKey: 'graded_pct',
+    header: ({ column }) => <SortableHeader column={column}>Graded</SortableHeader>,
     cell: ({ row }) => {
-      const { blanks_remaining, total_students } = row.original;
-      if (blanks_remaining === 0) {
+      const { graded_count, total_students, graded_pct } = row.original;
+      if (total_students === 0) {
         return (
-          <Badge variant="success" className={BADGE_CLASS}>
-            <CheckCircle2 className="h-3 w-3" />
-            Complete
+          <Badge variant="outline" className={BADGE_CLASS}>
+            No students
           </Badge>
         );
       }
+      const variant =
+        graded_pct === 100 ? 'success' : graded_pct >= 50 ? 'warning' : 'blocked';
+      const icon = graded_pct === 100 ? <CheckCircle2 className="h-3 w-3" /> : null;
       return (
-        <Badge variant="blocked" className={BADGE_CLASS}>
-          {blanks_remaining} of {total_students} blank
+        <Badge variant={variant} className={BADGE_CLASS}>
+          {icon}
+          {graded_count}/{total_students} · {graded_pct}%
         </Badge>
       );
     },
-    sortingFn: (a, b) => a.original.blanks_remaining - b.original.blanks_remaining,
+    sortingFn: (a, b) => a.original.graded_pct - b.original.graded_pct,
     filterFn: (row, _id, value) => {
-      if (value === 'blanks') return row.original.blanks_remaining > 0;
+      const { graded_pct, total_students } = row.original;
+      if (value === 'incomplete') return total_students > 0 && graded_pct < 100;
+      if (value === 'complete') return total_students > 0 && graded_pct === 100;
+      if (value === 'empty') return total_students === 0;
       return true;
     },
   },
@@ -168,9 +209,9 @@ const STATUS_TABS: StatusTabConfig<GradingSheetRow>[] = [
     predicate: (r) => r.is_locked,
   },
   {
-    value: 'blanks',
-    label: 'With blanks',
-    predicate: (r) => r.blanks_remaining > 0,
+    value: 'incomplete',
+    label: 'Incomplete',
+    predicate: (r) => r.total_students > 0 && r.graded_pct < 100,
   },
 ];
 
@@ -225,7 +266,9 @@ export function GradingDataTable({
   }, [data, formAdviserOptions]);
 
   const facets = useMemo<FacetConfig[]>(() => [
+    { columnId: 'school_level', label: 'School level', valueOptions: ['Primary', 'Secondary'] },
     { columnId: 'level', label: 'Level' },
+    { columnId: 'is_examinable', label: 'Format', valueOptions: ['Examinable', 'Non-examinable'] },
     { columnId: 'subject', label: 'Subject' },
     { columnId: 'term', label: 'Term' },
     {
@@ -266,7 +309,7 @@ export function GradingDataTable({
         { id: 'level', desc: false },
         { id: 'section', desc: false },
       ]}
-      initialColumnVisibility={{ form_adviser: false }}
+      initialColumnVisibility={{ form_adviser: false, school_level: false, is_examinable: false }}
       pageSize={20}
       pageSizeOptions={[10, 20, 50, 100]}
       url={{ enabled: true }}

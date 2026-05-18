@@ -197,7 +197,7 @@ export function freshenAyDocuments(ayCode: string): Promise<FreshenResult> {
     ['p-files', 'freshen-documents', ayCode],
     {
       revalidate: CACHE_TTL_SECONDS,
-      tags: ['sis', `sis:${ayCode}`],
+      tags: ['sis', `sis:${ayCode}`, `p-files-freshen:${ayCode}`],
     },
   )();
 }

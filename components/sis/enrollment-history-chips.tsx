@@ -31,13 +31,16 @@ export function EnrollmentHistoryChips({
             {sorted.map((entry) => {
               const isCurrent = entry.ayCode === currentAyCode;
               const summary = [entry.level, entry.section].filter(Boolean).join(' · ') || '—';
+              // KD #81: Enrolled entries route to Records; non-enrolled to Admissions.
+              const isEnrolled =
+                entry.status === 'Enrolled' || entry.status === 'Enrolled (Conditional)';
+              const chipHref = isEnrolled
+                ? { pathname: `/records/students/by-enrolee/${entry.enroleeNumber}`, query: { ay: entry.ayCode } }
+                : { pathname: `/admissions/applications/${entry.enroleeNumber}`, query: { ay: entry.ayCode } };
               return (
                 <Link
                   key={`${entry.ayCode}:${entry.enroleeNumber}`}
-                  href={{
-                    pathname: `/records/students/by-enrolee/${entry.enroleeNumber}`,
-                    query: { ay: entry.ayCode },
-                  }}
+                  href={chipHref}
                   className={cn(
                     'group inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 transition-all',
                     isCurrent

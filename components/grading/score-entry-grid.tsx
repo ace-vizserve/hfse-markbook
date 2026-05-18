@@ -176,6 +176,14 @@ export function ScoreEntryGrid({
               : r,
           ),
         );
+        // Locked-sheet branch: registrar consciously clicks through the
+        // approval dialog. Confirm what happened so they know the apply
+        // landed (and the teacher will be notified by email).
+        if ('change_request_id' in extraPayload) {
+          toast.success('Change request applied — teacher will be notified');
+        } else if ('correction_reason' in extraPayload) {
+          toast.success('Correction logged on activity history');
+        }
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Failed to save entry');
       } finally {

@@ -18,10 +18,14 @@ import {
   OPTIONAL_DOCUMENT_SLOT_KEYS,
   STP_CONDITIONAL_SLOT_KEYS,
 } from '@/lib/sis/queries';
+import { detectMidTermEnrolment } from '@/lib/sis/terms';
 import { createServiceClient } from '@/lib/supabase/service';
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
 import { syncOneStudent } from '@/lib/sync/students';
-import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
+import {
+  invalidateAllOperationalDrills,
+  invalidateDrillTags,
+} from '@/lib/cache/invalidate-drill-tags';
 
 // Documents-stage gate: setting documentStatus to one of these "done"
 // values requires every required slot to be 'Valid' in the per-AY
@@ -40,7 +44,9 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ enroleeNumber: string; stageKey: string }> },
 ) {
-  const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
+  // Per KD #74: admissions IS the operational role for /admissions/* writes.
+  // school_admin is read-only oversight and must not silently overwrite stage data.
+  const auth = await requireRole(['admissions', 'registrar', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const { enroleeNumber, stageKey: rawStage } = await params;
@@ -111,6 +117,27 @@ export async function PATCH(
   }
   if (!before) {
     return NextResponse.json({ error: 'No status row for this enrolee in this AY' }, { status: 404 });
+  }
+
+  // 1.5) Terminal-status reversal guard (M7 / KD #59).
+  // Cancelled and Withdrawn are terminal states in the SIS funnel. Flipping
+  // back to Enrolled without admin-level intervention bypasses the full intake
+  // workflow and leaves the audit trail inconsistent. Contact a system
+  // administrator to reset the status directly if genuine re-enrollment is needed.
+  if (stageKey === 'application') {
+    const preRow = before as unknown as Record<string, unknown>;
+    const currentStatus = (preRow[cols.statusCol] as string | null) ?? null;
+    if (
+      (currentStatus === 'Withdrawn' || currentStatus === 'Cancelled') &&
+      (status === 'Enrolled' || status === 'Enrolled (Conditional)')
+    ) {
+      return NextResponse.json(
+        {
+          error: `Cannot change from "${currentStatus}" to "${status}" — this application was marked as terminal. Contact the system administrator to reset the application status if re-enrollment is needed.`,
+        },
+        { status: 422 },
+      );
+    }
   }
 
   // 2) Build update payload.
@@ -400,17 +427,26 @@ export async function PATCH(
   invalidateDrillTags('records', ayCode);
 
   // 5) Auto-sync the grading roster when class placement is now complete.
-  // Fires in two paths:
+  // Fires in three paths:
   //   (a) application → Enrolled — auto-assigned the class above.
-  //   (b) class stage manually set to Finished (registrar override or
+  //   (b) application → Enrolled (Conditional) — the registrar override
+  //       deliberately bypasses the prereq + auto-assign gate, but if a
+  //       classSection is already on the admissions row (mid-year transfer,
+  //       previously assigned then status edited) we still need to create
+  //       the section_students row. The classCheck below guards the
+  //       'no classSection yet' branch with a clean no-op.
+  //   (c) class stage manually set to Finished (registrar override or
   //       reassignment) — need to confirm classLevel + classSection are
   //       both populated before syncing.
   // Post-update re-read ensures both class columns are non-null regardless
-  // of path. Best-effort — failures log but don't fail the PATCH; the
-  // bulk sync at /markbook/sync-students is still available as fallback.
+  // of path. When sync fails we surface autoSyncFailed in the response so
+  // the dialog can warn — silent failure on (a)/(b) was the gap that left
+  // enrolled students missing from Records' placement section.
   let autoSync: { change: string; reason?: string; error?: string } | null = null;
+  let autoSyncFailed = false;
   const shouldSync =
     classAutoAssigned ||
+    (stageKey === 'application' && status === 'Enrolled (Conditional)') ||
     (stageKey === 'class' && status === 'Finished');
 
   if (shouldSync) {
@@ -457,7 +493,175 @@ export async function PATCH(
           },
         });
       } else if (!result.ok) {
-        console.warn('[stage PATCH] auto-sync skipped:', result.reason ?? result.error);
+        // Conditional path with no classSection set yet is the expected
+        // no-op (registrar will assign a section later via the unsynced
+        // queue). Don't flag it as a failure.
+        const isConditionalNoSection =
+          stageKey === 'application' &&
+          status === 'Enrolled (Conditional)' &&
+          (result.reason === 'missing classLevel or classSection' ||
+            result.reason === 'no studentNumber');
+        if (!isConditionalNoSection) {
+          autoSyncFailed = true;
+          console.warn('[stage PATCH] auto-sync failed:', result.reason ?? result.error);
+        }
+      }
+    }
+  }
+
+  // 6) enrollment_date stamp + mid-term enrolment detection.
+  // When autosync lands a fresh/reactivated section_students row, stamp
+  // enrollment_date=today so downstream term inference (KD #68 per-row "·T2"
+  // badge, late-enrollee N/A logic) uses the actual Enrolled-flip date, not
+  // the admissions row's earlier stamp. Boundary-only — only fires on the
+  // three change values that indicate a real insertion or reactivation.
+  // Then detect whether today is T2/T3/T4; if so, return the term info so
+  // the dialog can surface the "Mark as late enrollee?" second-step prompt.
+  type MidTermPayload = { termNumber: number; termLabel: string; sectionId: string; sectionStudentId: string };
+  let midTermEnrolment: MidTermPayload | null = null;
+  if (
+    shouldSync &&
+    autoSync &&
+    (autoSync.change === 'enrolled' ||
+      autoSync.change === 'inserted' ||
+      autoSync.change === 'reactivated')
+  ) {
+    const { data: ss } = await supabase
+      .from('section_students')
+      .select('id, section_id, enrollment_date')
+      .eq('enrolee_number', enroleeNumber)
+      .neq('enrollment_status', 'withdrawn')
+      .maybeSingle();
+    const ssRow = ss as { id: string; section_id: string; enrollment_date: string | null } | null;
+    if (ssRow?.id && ssRow?.section_id) {
+      const today = new Date().toISOString().slice(0, 10);
+      if (ssRow.enrollment_date !== today) {
+        const { error: dateErr } = await supabase
+          .from('section_students')
+          .update({ enrollment_date: today })
+          .eq('id', ssRow.id);
+        if (dateErr) {
+          console.warn('[stage PATCH] enrollment_date stamp failed:', dateErr.message);
+        }
+      }
+      const term = await detectMidTermEnrolment(ayCode, supabase);
+      if (term) {
+        midTermEnrolment = { ...term, sectionId: ssRow.section_id, sectionStudentId: ssRow.id };
+      }
+    }
+  }
+
+  // 7) Withdrawn / Cancelled cascade.
+  // When admissions flips applicationStatus to Withdrawn or Cancelled, every
+  // active section_students row for this student in this AY needs to flip to
+  // withdrawn — otherwise the student keeps appearing on rosters, attendance
+  // grids, grading sheets, and dashboard KPIs. Mirrors the symmetric design
+  // of the Enrolled auto-sync (admissions writes → grading-side reflects).
+  // Honors Hard Rule #6 (append-only): we flip status + set withdrawal_date,
+  // never delete; the row stays for grade preservation.
+  let withdrawalCascade: {
+    rowsAffected: number;
+    sectionStudentIds: string[];
+  } | null = null;
+  if (
+    stageKey === 'application' &&
+    (status === 'Withdrawn' || status === 'Cancelled')
+  ) {
+    // Resolve student_number via the admissions apps row — section_students
+    // is keyed off public.students.id, so we go enroleeNumber → studentNumber
+    // → student_id → section_students.
+    const admissions = createAdmissionsClient();
+    const { data: appsRow } = await admissions
+      .from(`${prefix}_enrolment_applications`)
+      .select('studentNumber')
+      .eq('enroleeNumber', enroleeNumber)
+      .maybeSingle();
+    const studentNumber = (appsRow as { studentNumber: string | null } | null)?.studentNumber ?? null;
+
+    if (studentNumber) {
+      const { data: studentRow } = await supabase
+        .from('students')
+        .select('id')
+        .eq('student_number', studentNumber)
+        .maybeSingle();
+      const studentId = (studentRow as { id: string } | null)?.id ?? null;
+
+      if (studentId) {
+        // Resolve the AY id so the cascade only touches THIS AY's rows.
+        // section_students.section_id → sections.academic_year_id is the
+        // path; we filter via a join inline.
+        const { data: ayRow } = await supabase
+          .from('academic_years')
+          .select('id')
+          .eq('ay_code', ayCode)
+          .maybeSingle();
+        const ayId = (ayRow as { id: string } | null)?.id ?? null;
+
+        if (ayId) {
+          // Load active+late_enrollee rows for this student in this AY so we
+          // can capture the audit detail (which sections they were on) and
+          // perform a targeted update.
+          // Use 'sections.academic_year_id' (table name, not alias) — PostgREST
+          // requires the unaliased FK table name for embedded column filters.
+          // '.eq("section.academic_year_id", ...)' with the alias 'section:'
+          // is silently ignored and returns rows from all AYs.
+          const { data: activeRows } = await supabase
+            .from('section_students')
+            .select('id, section_id, enrollment_status, section:sections!inner(id, name, academic_year_id)')
+            .eq('student_id', studentId)
+            .in('enrollment_status', ['active', 'late_enrollee'])
+            .eq('sections.academic_year_id', ayId);
+
+          const rows = ((activeRows ?? []) as Array<{
+            id: string;
+            section_id: string;
+            enrollment_status: string;
+            section: { id: string; name: string; academic_year_id: string } | { id: string; name: string; academic_year_id: string }[] | null;
+          }>).map((r) => ({
+            id: r.id,
+            section_id: r.section_id,
+            previous_status: r.enrollment_status,
+            section_name: (Array.isArray(r.section) ? r.section[0] : r.section)?.name ?? null,
+          }));
+
+          if (rows.length > 0) {
+            const todayDate = new Date().toISOString().slice(0, 10);
+            const ids = rows.map((r) => r.id);
+            const { error: cascadeErr } = await supabase
+              .from('section_students')
+              .update({ enrollment_status: 'withdrawn', withdrawal_date: todayDate })
+              .in('id', ids);
+            if (cascadeErr) {
+              console.warn('[stage PATCH] withdrawal cascade update failed:', cascadeErr.message);
+            } else {
+              withdrawalCascade = { rowsAffected: rows.length, sectionStudentIds: ids };
+              await logAction({
+                service: supabase,
+                actor: { id: auth.user.id, email: auth.user.email ?? null },
+                action: 'student.withdrawal.cascade',
+                entityType: 'section_student',
+                entityId: enroleeNumber,
+                context: {
+                  ay_code: ayCode,
+                  trigger: `stage.application.${status.toLowerCase()}`,
+                  enroleeNumber,
+                  studentNumber,
+                  rowsAffected: rows.length,
+                  sections: rows.map((r) => ({
+                    section_student_id: r.id,
+                    section_id: r.section_id,
+                    section_name: r.section_name,
+                    previous_status: r.previous_status,
+                  })),
+                  withdrawal_date: todayDate,
+                },
+              });
+              // Cascade touches grading-side rosters across every operational
+              // module — fan out drill invalidation accordingly.
+              invalidateAllOperationalDrills(ayCode);
+            }
+          }
+        }
       }
     }
   }
@@ -467,5 +671,8 @@ export async function PATCH(
     changed: changes.length,
     classAutoAssigned,
     autoSync,
+    autoSyncFailed,
+    withdrawalCascade,
+    midTermEnrolment,
   });
 }

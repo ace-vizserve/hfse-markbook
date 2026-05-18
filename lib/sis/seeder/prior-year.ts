@@ -1,3 +1,6 @@
+// Currently unused — will be revived in a follow-up pass for cross-year
+// drill testing (AY9998 prior-year data). Do not call until then.
+
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { seedPopulated } from './populated';

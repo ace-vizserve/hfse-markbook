@@ -12,6 +12,12 @@ import {
   type RangeResult,
 } from '@/lib/dashboard/range';
 import type { VelocityPoint } from '@/lib/dashboard/velocity';
+import {
+  daysUntilPtc,
+  findPtcForWriteupTerm,
+  getPtcEventsForAy,
+  sgToday,
+} from '@/lib/evaluation/ptc-resolver';
 
 // Evaluation dashboard aggregators — read-only view over
 // `evaluation_writeups`. The Evaluation module is the sole writer
@@ -262,6 +268,85 @@ export function getSubmissionVelocityRange(
 // evaluation_terms.is_open flag is false (or no current term exists).
 // ──────────────────────────────────────────────────────────────────────────
 
+// ── Active writeup term resolver ──────────────────────────────────────────
+// Matches the markbook + grade-distribution fallback pattern (Sprint 38):
+// prefer the `is_current=true` flag, but fall back to a date-based pick so a
+// missing flag doesn't black out the priority panel. T4 is excluded
+// structurally — no FCA writeup ever lives there (KD #49).
+type ActiveTerm = { id: string; term_number: number; label: string };
+
+async function resolveActiveWriteupTerm(
+  service: ReturnType<typeof createServiceClient>,
+  ayCode: string,
+): Promise<ActiveTerm | null> {
+  const { data: ayRow } = await service
+    .from('academic_years')
+    .select('id')
+    .eq('ay_code', ayCode)
+    .maybeSingle();
+  const ayId = (ayRow as { id: string } | null)?.id ?? null;
+  if (!ayId) return null;
+
+  const { data: termRows } = await service
+    .from('terms')
+    .select('id, term_number, label, is_current, start_date, end_date')
+    .eq('academic_year_id', ayId)
+    .neq('term_number', 4)
+    .order('term_number', { ascending: true });
+  type TermRow = {
+    id: string;
+    term_number: number;
+    label: string;
+    is_current: boolean | null;
+    start_date: string | null;
+    end_date: string | null;
+  };
+  const terms = (termRows ?? []) as TermRow[];
+  if (terms.length === 0) return null;
+
+  const today = sgToday();
+  const current = terms.find((t) => t.is_current === true);
+  const containingToday = terms.find(
+    (t) => t.start_date && t.end_date && t.start_date <= today && t.end_date >= today,
+  );
+  const lastFinished = [...terms]
+    .filter((t) => t.end_date && t.end_date < today)
+    .sort((a, b) => (a.end_date! < b.end_date! ? 1 : -1))[0];
+  const picked = current ?? containingToday ?? lastFinished ?? terms[0];
+  if (!picked) return null;
+  return { id: picked.id, term_number: picked.term_number, label: picked.label };
+}
+
+// Format a PTC date range as a plain-English label.
+// Single day → "8 Apr". Same-month span → "8–9 Apr". Cross-month → "29 Apr – 2 May".
+function formatPtcRangeLabel(startIso: string, endIso: string): string {
+  try {
+    const start = new Date(`${startIso}T00:00:00+08:00`);
+    const end = new Date(`${endIso}T00:00:00+08:00`);
+    const sameDay = startIso === endIso;
+    if (sameDay) {
+      return start.toLocaleDateString('en-SG', { day: 'numeric', month: 'short' });
+    }
+    const sameMonth =
+      start.getUTCMonth() === end.getUTCMonth() && start.getUTCFullYear() === end.getUTCFullYear();
+    if (sameMonth) {
+      return `${start.toLocaleDateString('en-SG', { day: 'numeric' })}–${end.toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}`;
+    }
+    return `${start.toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })} – ${end.toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}`;
+  } catch {
+    return startIso;
+  }
+}
+
+// "in 5 days" / "today" / "tomorrow" / "5 days ago".
+function formatPtcDaysLabel(days: number): string {
+  if (days === 0) return 'today';
+  if (days === 1) return 'tomorrow';
+  if (days > 0) return `in ${days} days`;
+  if (days === -1) return 'yesterday';
+  return `${Math.abs(days)} days ago`;
+}
+
 export type EvaluationTeacherPriorityInput = {
   ayCode: string;
   teacherUserId: string;
@@ -289,21 +374,14 @@ async function loadEvaluationTeacherPriorityUncached(
     };
   }
 
-  // 2. Find the current open term in this AY (T1-T3 only).
-  const { data: termRows } = await service
-    .from('terms')
-    .select('id, term_number, label, academic_years!inner(ay_code)')
-    .eq('academic_years.ay_code', input.ayCode)
-    .neq('term_number', 4)
-    .eq('is_current', true)
-    .limit(1)
-    .maybeSingle();
-
-  const currentTerm = termRows as { id: string; term_number: number; label: string } | null;
+  // 2. Find the current writeup term — `is_current` first, with a date-based
+  //    fallback so a missing flag doesn't black out the panel (Sprint 38
+  //    fallback pattern, matches getGradeDistribution + markbook currentTerm).
+  const currentTerm = await resolveActiveWriteupTerm(service, input.ayCode);
   if (!currentTerm) {
     return {
       eyebrow: 'Priority · this term',
-      title: 'No active term',
+      title: 'No writeup term configured',
       headline: { value: 0, label: 'writeups pending', severity: 'good' },
       chips: [],
       cta: undefined,
@@ -311,21 +389,47 @@ async function loadEvaluationTeacherPriorityUncached(
     };
   }
 
-  // 3. Confirm the evaluation window for this term is open.
-  const { data: evalTermRow } = await service
-    .from('evaluation_terms')
-    .select('is_open')
-    .eq('term_id', currentTerm.id)
-    .maybeSingle();
+  // 3. Confirm the evaluation window for this term is open. Pull PTC info up
+  //    front so even the "window closed" branch can flag an approaching PTC
+  //    (the registrar may simply have forgotten to flip the toggle).
+  const [evalTermRes, ptcEvents] = await Promise.all([
+    service
+      .from('evaluation_terms')
+      .select('is_open')
+      .eq('term_id', currentTerm.id)
+      .maybeSingle(),
+    getPtcEventsForAy(input.ayCode),
+  ]);
+  const isOpen = (evalTermRes.data as { is_open: boolean } | null)?.is_open ?? false;
+  const ptcForTerm = findPtcForWriteupTerm(currentTerm.id, ptcEvents);
+  const ptcDays = ptcForTerm ? daysUntilPtc(ptcForTerm.startDate) : null;
+  // Tentative PTC dates render in the label but never escalate severity —
+  // the registrar hasn't confirmed the date, so we shouldn't push the
+  // adviser to "urgent" mode against a date that might still move.
+  const ptcIsTentative = ptcForTerm?.tentative === true;
+  const ptcLabel = ptcForTerm
+    ? `${currentTerm.label} PTC ${formatPtcRangeLabel(ptcForTerm.startDate, ptcForTerm.endDate)} (${formatPtcDaysLabel(ptcDays ?? 0)}${ptcIsTentative ? ', tentative' : ''})`
+    : null;
 
-  if (!(evalTermRow as { is_open: boolean } | null)?.is_open) {
+  if (!isOpen) {
+    // When closed AND PTC is within 30 days, surface a louder headline so
+    // the adviser flags it to the registrar instead of assuming they're idle.
+    const ptcSoon = ptcDays != null && !ptcIsTentative && ptcDays >= 0 && ptcDays <= 30;
     return {
       eyebrow: 'Priority · this term',
-      title: 'Evaluation window closed for this term',
-      headline: { value: 0, label: 'writeups pending', severity: 'good' },
+      title: ptcSoon
+        ? `${currentTerm.label} window closed — ${ptcLabel}`
+        : 'Evaluation window closed for this term',
+      headline: {
+        value: 0,
+        label: ptcSoon
+          ? 'window not open · writeups blocked'
+          : ptcLabel ?? 'writeups pending',
+        severity: ptcSoon ? 'warn' : 'good',
+      },
       chips: [],
       cta: undefined,
-      iconKey: 'pen',
+      iconKey: ptcSoon ? 'warning' : 'pen',
     };
   }
 
@@ -369,20 +473,49 @@ async function loadEvaluationTeacherPriorityUncached(
       severity: 'warn' as const,
     }));
 
+  // PTC deadline pressure — bump severity / decorate the title when the
+  // discussion meeting is within 30 days and writeups still aren't done.
+  // Tentative dates skip the escalation; they show in the label but don't
+  // change panel severity.
+  const ptcUrgent = !ptcIsTentative && ptcDays != null && ptcDays >= 0 && ptcDays <= 30;
+  const ptcOverdue = !ptcIsTentative && ptcDays != null && ptcDays < 0;
+  const baseTitle =
+    totalPending === 0 ? 'All writeups submitted' : 'Writeups still need your input';
+  const title =
+    ptcUrgent && totalPending > 0
+      ? `${ptcLabel} — finalise writeups`
+      : ptcOverdue && totalPending > 0
+        ? `${ptcLabel} · ${totalPending} writeups still unsubmitted`
+        : baseTitle;
+  const headlineLabel =
+    totalPending === 0
+      ? ptcLabel
+        ? `caught up · ${ptcLabel}`
+        : 'caught up'
+      : ptcLabel
+        ? `writeups pending · ${ptcLabel}`
+        : 'writeups pending across your advisories';
+  const headlineSeverity =
+    totalPending === 0
+      ? 'good'
+      : ptcOverdue || (ptcUrgent && totalPending > 0) || totalPending > 5
+        ? 'bad'
+        : 'warn';
+
   return {
     eyebrow: `Priority · ${currentTerm.label}`,
-    title: totalPending === 0 ? 'All writeups submitted' : 'Writeups still need your input',
+    title,
     headline: {
       value: totalPending,
-      label: totalPending === 0 ? 'caught up' : 'writeups pending across your advisories',
-      severity: totalPending === 0 ? 'good' : totalPending <= 5 ? 'warn' : 'bad',
+      label: headlineLabel,
+      severity: headlineSeverity,
     },
     chips,
     cta:
       totalPending > 0
         ? { label: 'Open my sections', href: '/evaluation/sections' }
         : undefined,
-    iconKey: 'pen',
+    iconKey: ptcUrgent || ptcOverdue ? 'warning' : 'pen',
   };
 }
 
@@ -403,20 +536,14 @@ async function loadEvaluationRegistrarPriorityUncached(
 ): Promise<PriorityPayload> {
   const service = createServiceClient();
 
-  // Current open term in current AY (T1-T3).
-  const { data: termRow } = await service
-    .from('terms')
-    .select('id, term_number, label, academic_years!inner(ay_code)')
-    .eq('academic_years.ay_code', input.ayCode)
-    .neq('term_number', 4)
-    .eq('is_current', true)
-    .maybeSingle();
-
-  const currentTerm = termRow as { id: string; term_number: number; label: string } | null;
+  // Same fallback ladder as the teacher loader — is_current → containing
+  // today → most-recently-finished T1-T3. Without it the panel blanked out
+  // whenever nobody flipped the is_current flag (AY9999 default state).
+  const currentTerm = await resolveActiveWriteupTerm(service, input.ayCode);
   if (!currentTerm) {
     return {
       eyebrow: 'Priority · today',
-      title: 'No active evaluation term',
+      title: 'No writeup term configured',
       headline: { value: 0, label: 'writeups pending', severity: 'good' },
       chips: [],
       cta: undefined,
@@ -424,21 +551,46 @@ async function loadEvaluationRegistrarPriorityUncached(
     };
   }
 
-  // Confirm window is open.
-  const { data: evalTermRow } = await service
-    .from('evaluation_terms')
-    .select('is_open')
-    .eq('term_id', currentTerm.id)
-    .maybeSingle();
+  const [evalTermRes, ptcEvents] = await Promise.all([
+    service
+      .from('evaluation_terms')
+      .select('is_open')
+      .eq('term_id', currentTerm.id)
+      .maybeSingle(),
+    getPtcEventsForAy(input.ayCode),
+  ]);
+  const isOpen = (evalTermRes.data as { is_open: boolean } | null)?.is_open ?? false;
+  const ptcForTerm = findPtcForWriteupTerm(currentTerm.id, ptcEvents);
+  const ptcDays = ptcForTerm ? daysUntilPtc(ptcForTerm.startDate) : null;
+  const ptcIsTentative = ptcForTerm?.tentative === true;
+  const ptcLabel = ptcForTerm
+    ? `${currentTerm.label} PTC ${formatPtcRangeLabel(ptcForTerm.startDate, ptcForTerm.endDate)} (${formatPtcDaysLabel(ptcDays ?? 0)}${ptcIsTentative ? ', tentative' : ''})`
+    : null;
+  // Tentative dates: registrar sees the line in the label so they remember
+  // it's coming, but the panel doesn't escalate to "bad" severity until the
+  // date is locked in.
+  const ptcUrgent = !ptcIsTentative && ptcDays != null && ptcDays >= 0 && ptcDays <= 30;
+  const ptcOverdue = !ptcIsTentative && ptcDays != null && ptcDays < 0;
 
-  if (!(evalTermRow as { is_open: boolean } | null)?.is_open) {
+  if (!isOpen) {
+    // Closed window + PTC inside 30 days = the registrar's actual issue.
     return {
       eyebrow: 'Priority · today',
-      title: 'Evaluation window closed',
-      headline: { value: 0, label: 'no writeups expected', severity: 'good' },
+      title: ptcUrgent
+        ? `${ptcLabel} — open the evaluation window`
+        : 'Evaluation window closed',
+      headline: {
+        value: 0,
+        label: ptcUrgent
+          ? 'advisers blocked · open the window'
+          : ptcLabel
+            ? `closed · ${ptcLabel}`
+            : 'no writeups expected',
+        severity: ptcUrgent ? 'bad' : 'good',
+      },
       chips: [],
       cta: undefined,
-      iconKey: 'clipboard',
+      iconKey: ptcUrgent ? 'warning' : 'clipboard',
     };
   }
 
@@ -483,20 +635,43 @@ async function loadEvaluationRegistrarPriorityUncached(
       severity: 'warn' as const,
     }));
 
+  const baseRegTitle =
+    totalPending === 0 ? 'All writeups submitted' : 'Writeups still pending school-wide';
+  const regTitle =
+    ptcUrgent && totalPending > 0
+      ? `${ptcLabel} — chase pending writeups`
+      : ptcOverdue && totalPending > 0
+        ? `${ptcLabel} · ${totalPending} writeups still unsubmitted`
+        : baseRegTitle;
+  const regHeadlineLabel =
+    totalPending === 0
+      ? ptcLabel
+        ? `all sections complete · ${ptcLabel}`
+        : 'all sections complete'
+      : ptcLabel
+        ? `writeups due · ${ptcLabel}`
+        : 'writeups still due across all sections';
+  const regSeverity =
+    totalPending === 0
+      ? 'good'
+      : ptcOverdue || (ptcUrgent && totalPending > 0)
+        ? 'bad'
+        : 'warn';
+
   return {
     eyebrow: `Priority · ${currentTerm.label}`,
-    title: totalPending === 0 ? 'All writeups submitted' : 'Writeups still pending school-wide',
+    title: regTitle,
     headline: {
       value: totalPending,
-      label: totalPending === 0 ? 'all sections complete' : 'writeups still due across all sections',
-      severity: totalPending === 0 ? 'good' : 'warn',
+      label: regHeadlineLabel,
+      severity: regSeverity,
     },
     chips,
     cta:
       totalPending > 0
         ? { label: 'Open writeups roster', href: '/evaluation/sections' }
         : undefined,
-    iconKey: 'clipboard',
+    iconKey: ptcUrgent || ptcOverdue ? 'warning' : 'clipboard',
   };
 }
 

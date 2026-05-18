@@ -71,6 +71,7 @@ export async function POST(
     context: {
       ay_code: ayCode,
       enroleeNumber,
+      studentNumber: result.studentNumber,
       fromSection: result.fromSection,
       fromLevel: result.fromLevel,
       toSection: result.toSection,

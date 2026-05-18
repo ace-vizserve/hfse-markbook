@@ -16,7 +16,7 @@ import {
 import { Sheet, SheetTrigger } from '@/components/ui/sheet';
 import {
   getDocumentChaseQueueCounts,
-  type ChaseQueueModule,
+  type ChaseQueueLens,
 } from '@/lib/sis/document-chase-queue';
 import type { LifecycleDrillTarget } from '@/lib/sis/drill';
 
@@ -39,7 +39,7 @@ import type { LifecycleDrillTarget } from '@/lib/sis/drill';
 
 export type DocumentChaseQueueStripProps = {
   ayCode: string;
-  module?: ChaseQueueModule;
+  lens?: ChaseQueueLens;
 };
 
 type ChaseTile = {
@@ -98,7 +98,7 @@ const CHIP_COLOR_BY_SEVERITY: Record<ChaseTile['severity'], ChartLegendChipColor
 
 export async function DocumentChaseQueueStrip({
   ayCode,
-  module: moduleKey = 'admissions',
+  lens: moduleKey = 'admissions',
 }: DocumentChaseQueueStripProps) {
   const counts = await getDocumentChaseQueueCounts(ayCode, moduleKey);
   const total = counts.promised + counts.validation + counts.revalidation + counts.expiringSoon;

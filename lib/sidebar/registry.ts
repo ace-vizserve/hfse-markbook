@@ -22,6 +22,7 @@ import {
   History,
   LayoutDashboard,
   LayoutGrid,
+  MessageSquare,
   RefreshCw,
   Settings2,
   ShieldCheck,
@@ -178,7 +179,10 @@ export const SIDEBAR_REGISTRY: Record<SidebarModule, ModuleSidebarConfig> = {
       "/admissions/applications": FileStack,
       "/admissions/applications/closed": Archive,
       "/admissions/document-validation": FileCheck,
+      "/admissions/cohorts/pre-course": ClipboardList,
+      "/admissions/feedback": MessageSquare,
       "/admissions/audit-log": History,
+      "/sis/admin/discount-codes": Tag,
       // Pre-enrolment chase quicklinks (Workstream A) — focused-view
       // filters on the dashboard for the un-enrolled scope. Mirror the
       // P-Files renewal quicklinks pattern from KD #64.
@@ -211,6 +215,7 @@ export const SIDEBAR_REGISTRY: Record<SidebarModule, ModuleSidebarConfig> = {
       "/evaluation/sections?term=1": CalendarDays,
       "/evaluation/sections?term=2": CalendarRange,
       "/evaluation/sections?term=3": CalendarClock,
+      "/evaluation/audit-log": History,
     },
     quickActionByRole: {
       teacher: { label: "Open writeups", href: "/evaluation/sections", icon: SquarePen },
@@ -236,6 +241,7 @@ export const SIDEBAR_REGISTRY: Record<SidebarModule, ModuleSidebarConfig> = {
       "/sis/admin/users": UserCog,
       "/sis/admin/settings": Settings2,
       "/sis/sync-students": Database,
+      "/sis/audit-log": History,
     },
     quickActionByRole: {
       // school_admin: most-used config surface is the calendar.

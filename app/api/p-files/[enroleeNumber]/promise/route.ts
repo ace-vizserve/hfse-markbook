@@ -6,6 +6,8 @@ import { requireCurrentAyCode } from "@/lib/academic-year";
 import { logAction, type AuditAction } from "@/lib/audit/log-action";
 import { createServiceClient } from "@/lib/supabase/service";
 import { DOCUMENT_SLOTS } from "@/lib/p-files/document-config";
+import { prefixFor, ENROLLED_STATUSES, ADMISSIONS_FUNNEL_STATUSES, resolveModule } from "@/lib/p-files/_shared";
+import { PromiseSchema } from "@/lib/schemas/p-files";
 import { invalidateDrillTags } from "@/lib/cache/invalidate-drill-tags";
 
 // PATCH /api/p-files/[enroleeNumber]/promise
@@ -24,24 +26,7 @@ import { invalidateDrillTags } from "@/lib/cache/invalidate-drill-tags";
 //   - 'p-files' → 'pfile.mark.promised' + Enrolled / Enrolled (Conditional)
 //   - 'admissions' → 'admissions.mark.promised' + active funnel statuses
 
-const ENROLLED_STATUSES = new Set(["Enrolled", "Enrolled (Conditional)"]);
-const ADMISSIONS_FUNNEL_STATUSES = new Set([
-  "Submitted",
-  "Ongoing Verification",
-  "Processing",
-]);
 const MAX_PROMISE_HORIZON_DAYS = 90;
-
-const MODULE_VALUES = new Set(["p-files", "admissions"]);
-type ChaseModule = "p-files" | "admissions";
-function resolveModule(raw: unknown): ChaseModule {
-  if (typeof raw === "string" && MODULE_VALUES.has(raw)) return raw as ChaseModule;
-  return "p-files";
-}
-
-function prefixFor(ayCode: string): string {
-  return `ay${ayCode.replace(/^AY/i, "").toLowerCase()}`;
-}
 
 function isFutureWithinHorizon(iso: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
@@ -57,30 +42,24 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ enroleeNumber: string }> },
 ) {
-  const auth = await requireRole([
-    "p-file",
-    "admissions",
-    "registrar",
-    "school_admin",
-    "superadmin",
-  ]);
-  if ("error" in auth) return auth.error;
-
   const { enroleeNumber } = await params;
   if (!enroleeNumber.trim()) {
     return NextResponse.json({ error: "Missing enroleeNumber" }, { status: 400 });
   }
 
   const body = await request.json().catch(() => null);
-  const slotKey = body && typeof body.slotKey === "string" ? body.slotKey.trim() : "";
-  const promisedUntil = body && typeof body.promisedUntil === "string" ? body.promisedUntil.trim() : "";
-  const noteRaw = body && typeof body.note === "string" ? body.note.trim() : "";
-  const note = noteRaw.length > 0 ? noteRaw.slice(0, 500) : null;
-  const moduleKey = resolveModule(body?.module);
-
-  if (!slotKey) {
-    return NextResponse.json({ error: "slotKey is required" }, { status: 400 });
+  const parsed = PromiseSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid request body", details: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
+
+  const { slotKey, promisedUntil } = parsed.data;
+  const note = parsed.data.note?.trim() || null;
+  const moduleKey = resolveModule(parsed.data.module);
+
   const slot = DOCUMENT_SLOTS.find((s) => s.key === slotKey);
   if (!slot) {
     return NextResponse.json({ error: `invalid slotKey: ${slotKey}` }, { status: 400 });
@@ -91,6 +70,14 @@ export async function PATCH(
       { status: 400 },
     );
   }
+
+  // Per-module role gate.
+  const allowedRoles =
+    moduleKey === "admissions"
+      ? ["admissions", "registrar", "school_admin", "superadmin"]
+      : ["p-file", "superadmin"];
+  const auth = await requireRole(allowedRoles as import("@/lib/auth/roles").Role[]);
+  if ("error" in auth) return auth.error;
 
   const service = createServiceClient();
   const ayCode = await requireCurrentAyCode(service);
@@ -113,9 +100,9 @@ export async function PATCH(
     return NextResponse.json({ error: "Student status row not found" }, { status: 404 });
   }
   const applicationStatus = (statusRes.data as { applicationStatus: string | null }).applicationStatus;
-  const allowedStatuses =
+  const allowedStatusList =
     moduleKey === "admissions" ? ADMISSIONS_FUNNEL_STATUSES : ENROLLED_STATUSES;
-  if (!applicationStatus || !allowedStatuses.has(applicationStatus)) {
+  if (!applicationStatus || !(allowedStatusList as ReadonlyArray<string>).includes(applicationStatus)) {
     const message =
       moduleKey === "admissions"
         ? "Promises can only be recorded for applicants in the active funnel (Submitted / Ongoing Verification / Processing)."

@@ -379,6 +379,137 @@ async function enrichWithDocs(rows: RecordsDrillRow[], ayCode: string): Promise<
   });
 }
 
+// ─── Unsynced readiness rows ────────────────────────────────────────────────
+
+// Enrolled students not yet assigned to a section_students row — the KD #90
+// unsynced cohort. These rows are absent from buildRecordsDrillRows (which
+// starts from section_students). Cached separately; the drill route merges
+// them in when target='class-assignment-readiness' (H3).
+//
+// Mirrors the "enrolled NOT in section_students" logic from
+// loadClassAssignmentReadinessUncached so the drill count matches the
+// dashboard card count (M13).
+async function loadUnsyncedReadinessDrillRowsUncached(
+  ayCode: string,
+): Promise<RecordsDrillRow[]> {
+  const prefix = prefixFor(ayCode);
+  const service = createServiceClient();
+  const admissions = createAdmissionsClient();
+
+  const { data: ayRow } = await service
+    .from('academic_years')
+    .select('id')
+    .eq('ay_code', ayCode)
+    .maybeSingle();
+  const ayId = (ayRow?.id as string | undefined) ?? null;
+  if (!ayId) return [];
+
+  const { data: sectionsData } = await service
+    .from('sections')
+    .select('id')
+    .eq('academic_year_id', ayId);
+  const sectionIds = ((sectionsData ?? []) as { id: string }[]).map((r) => r.id);
+
+  const [statusRes, appsRes, ssRes] = await Promise.all([
+    admissions
+      .from(`${prefix}_enrolment_status`)
+      .select('enroleeNumber, applicationStatus, applicationUpdatedDate, classLevel')
+      .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']),
+    admissions
+      .from(`${prefix}_enrolment_applications`)
+      .select('enroleeNumber, studentNumber, enroleeFullName, firstName, lastName, levelApplied, created_at'),
+    sectionIds.length > 0
+      ? service
+          .from('section_students')
+          .select('enrolee_number')
+          .in('section_id', sectionIds)
+      : Promise.resolve({ data: [] as { enrolee_number: string | null }[] }),
+  ]);
+
+  if (statusRes.error || appsRes.error) return [];
+
+  type StatusRow = {
+    enroleeNumber: string | null;
+    applicationStatus: string | null;
+    applicationUpdatedDate: string | null;
+    classLevel: string | null;
+  };
+  type AppsRow = {
+    enroleeNumber: string | null;
+    studentNumber: string | null;
+    enroleeFullName: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    levelApplied: string | null;
+    created_at: string | null;
+  };
+
+  // Build the set of already-assigned enroleeNumbers from section_students
+  // so we can exclude them (mirrors loadClassAssignmentReadinessUncached's
+  // logic for M13 count alignment).
+  const assignedEnrolees = new Set(
+    ((ssRes.data ?? []) as { enrolee_number: string | null }[])
+      .map((r) => r.enrolee_number)
+      .filter((v): v is string => v !== null),
+  );
+
+  const appsByEnrolee = new Map<string, AppsRow>();
+  for (const a of (appsRes.data ?? []) as AppsRow[]) {
+    if (a.enroleeNumber) appsByEnrolee.set(a.enroleeNumber, a);
+  }
+
+  const today = Date.now();
+  const out: RecordsDrillRow[] = [];
+
+  for (const status of (statusRes.data ?? []) as StatusRow[]) {
+    if (!status.enroleeNumber) continue;
+    // Skip if already present in section_students.
+    if (assignedEnrolees.has(status.enroleeNumber)) continue;
+
+    const app = appsByEnrolee.get(status.enroleeNumber);
+    const nameParts = [app?.firstName, app?.lastName].filter(Boolean);
+    const fullName = (app?.enroleeFullName ?? nameParts.join(' ')) || status.enroleeNumber;
+    const level = (status.classLevel ?? app?.levelApplied ?? '').trim() || 'Unknown';
+    const applicationStatus = (status.applicationStatus ?? '').trim();
+    const updated = status.applicationUpdatedDate ?? app?.created_at ?? null;
+    const updatedMs = updated ? Date.parse(updated) : NaN;
+    const daysSinceUpdate = !Number.isNaN(updatedMs)
+      ? Math.floor((today - updatedMs) / 86_400_000)
+      : null;
+
+    out.push({
+      enroleeNumber: status.enroleeNumber,
+      studentNumber: app?.studentNumber ?? null,
+      fullName,
+      enrollmentStatus: 'active', // virtual — passes ENROLLED_STATUSES check in applyTargetFilter
+      applicationStatus,
+      level,
+      sectionId: null, // null signals "no section"; used as routing discriminator in drill sheet (KD #81)
+      sectionName: null,
+      pipelineStage: 'Enrolled',
+      enrollmentDate: null,
+      withdrawalDate: null,
+      daysSinceUpdate,
+      hasMissingDocs: false,
+      expiringDocsCount: 0,
+      documentsComplete: 0,
+      documentsTotal: CORE_DOC_STATUS_COLUMNS.length,
+    });
+  }
+
+  return out;
+}
+
+export async function buildUnsyncedReadinessDrillRows(
+  ayCode: string,
+): Promise<RecordsDrillRow[]> {
+  return unstable_cache(
+    () => loadUnsyncedReadinessDrillRowsUncached(ayCode),
+    ['records-unsynced-readiness-drill', ayCode],
+    { revalidate: CACHE_TTL_SECONDS, tags: tags(ayCode) },
+  )();
+}
+
 // ─── Public builder ─────────────────────────────────────────────────────────
 
 export async function buildRecordsDrillRows(
@@ -404,6 +535,8 @@ export function applyTargetFilter(
 ): RecordsDrillRow[] {
   switch (target) {
     case 'enrollments-range': {
+      // KD #82 scope-anchor: enrolment-velocity chart anchors on
+      // section_students.enrollment_date; drill must match (M12).
       if (!range) return rows.filter((r) => ENROLLED_STATUSES.has(r.enrollmentStatus));
       return rows.filter((r) => {
         if (!ENROLLED_STATUSES.has(r.enrollmentStatus)) return false;

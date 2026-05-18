@@ -28,7 +28,7 @@ import { preloadTermsForAYs, termForDateInPreloaded } from '@/lib/sis/terms';
 // filter post-enrichment via the resolved section_students → sections AY.
 // Transfer rows DO carry ay_code so they get filtered at the SQL layer.
 
-export type MovementKind = 'section-transfer' | 'withdrawn' | 'late-enrolled';
+export type MovementKind = 'section-transfer' | 'withdrawn' | 'late-enrolled' | 're-enrolled';
 
 export type MovementEvent =
   | {
@@ -48,7 +48,21 @@ export type MovementEvent =
     }
   | {
       id: string;
-      kind: 'withdrawn' | 'late-enrolled';
+      kind: 'withdrawn';
+      studentNumber: string | null;
+      studentName: string;
+      enroleeNumber: string;
+      level: string;
+      ayCode: string;
+      termNumber: number | null;
+      termLabel: string | null;
+      date: string;
+      actorEmail: string | null;
+      reason?: string | null;
+    }
+  | {
+      id: string;
+      kind: 'late-enrolled' | 're-enrolled';
       studentNumber: string | null;
       studentName: string;
       enroleeNumber: string;
@@ -95,12 +109,13 @@ type TransferPartial = {
 // student/section/AY/level all resolved during enrichment.
 type MetadataPartial = {
   id: string;
-  kind: 'withdrawn' | 'late-enrolled';
+  kind: 'withdrawn' | 'late-enrolled' | 're-enrolled';
   sectionStudentId: string;
   date: string;
   actorEmail: string | null;
   ctxTermNumber: number | null;
   ctxTermLabel: string | null;
+  reason?: string | null;
 };
 
 // Enriched intermediate — has everything except term enrichment.
@@ -118,6 +133,7 @@ type EnrichedPartial = {
   toSection?: string;
   ctxTermNumber: number | null;
   ctxTermLabel: string | null;
+  reason?: string | null;
 };
 
 // ── Public API ──────────────────────────────────────────────────────────────
@@ -178,6 +194,22 @@ export async function getMovementEvents(
         actorEmail: e.actorEmail,
         fromSection: e.fromSection ?? '',
         toSection: e.toSection ?? '',
+      };
+    }
+    if (e.kind === 'withdrawn') {
+      return {
+        id: e.id,
+        kind: 'withdrawn',
+        studentNumber: e.studentNumber,
+        studentName: e.studentName,
+        enroleeNumber: e.enroleeNumber,
+        level: e.level,
+        ayCode: e.ayCode,
+        termNumber,
+        termLabel,
+        date: e.date,
+        actorEmail: e.actorEmail,
+        reason: e.reason ?? null,
       };
     }
     return {
@@ -278,10 +310,11 @@ async function fetchMetadataEvents(
   // `enrichWithStudents` after the section_students lookup resolves the AY.
   let withdrawnRows: AuditRow[] = [];
   let lateRows: AuditRow[] = [];
+  let reEnrolledRows: AuditRow[] = [];
 
   if (includeAll) {
     try {
-      [withdrawnRows, lateRows] = await Promise.all([
+      [withdrawnRows, lateRows, reEnrolledRows] = await Promise.all([
         fetchAllPages<AuditRow>((from, to) =>
           service
             .from('audit_log')
@@ -300,6 +333,15 @@ async function fetchMetadataEvents(
             .order('created_at', { ascending: false })
             .range(from, to),
         ),
+        fetchAllPages<AuditRow>((from, to) =>
+          service
+            .from('audit_log')
+            .select('id, actor_email, entity_id, context, created_at')
+            .eq('action', 'enrolment.metadata.update')
+            .eq('context->>reEnrolment', 'true')
+            .order('created_at', { ascending: false })
+            .range(from, to),
+        ),
       ]);
     } catch (e) {
       console.warn(
@@ -309,7 +351,7 @@ async function fetchMetadataEvents(
       return [];
     }
   } else {
-    const [wRes, lRes] = await Promise.all([
+    const [wRes, lRes, rRes] = await Promise.all([
       service
         .from('audit_log')
         .select('id, actor_email, entity_id, context, created_at')
@@ -322,6 +364,12 @@ async function fetchMetadataEvents(
         .eq('action', 'enrolment.metadata.update')
         .eq('context->>lateEnrolleeTransition', 'true')
         .order('created_at', { ascending: false }),
+      service
+        .from('audit_log')
+        .select('id, actor_email, entity_id, context, created_at')
+        .eq('action', 'enrolment.metadata.update')
+        .eq('context->>reEnrolment', 'true')
+        .order('created_at', { ascending: false }),
     ]);
     if (wRes.error) {
       console.warn('[movements] withdrawn fetch failed:', wRes.error.message);
@@ -333,11 +381,17 @@ async function fetchMetadataEvents(
     } else {
       lateRows = (lRes.data ?? []) as AuditRow[];
     }
+    if (rRes.error) {
+      console.warn('[movements] re-enrolled fetch failed:', rRes.error.message);
+    } else {
+      reEnrolledRows = (rRes.data ?? []) as AuditRow[];
+    }
   }
 
   const out: MetadataPartial[] = [];
   for (const row of withdrawnRows) {
     if (!row.entity_id) continue;
+    const ctx = (row.context ?? {}) as Record<string, unknown>;
     out.push({
       id: row.id,
       kind: 'withdrawn',
@@ -346,6 +400,7 @@ async function fetchMetadataEvents(
       actorEmail: row.actor_email,
       ctxTermNumber: null,
       ctxTermLabel: null,
+      reason: (ctx.reason as string | null | undefined) ?? null,
     });
   }
   for (const row of lateRows) {
@@ -361,6 +416,18 @@ async function fetchMetadataEvents(
         (ctx.lateEnrolleeTermNumber as number | null | undefined) ?? null,
       ctxTermLabel:
         (ctx.lateEnrolleeTermLabel as string | null | undefined) ?? null,
+    });
+  }
+  for (const row of reEnrolledRows) {
+    if (!row.entity_id) continue;
+    out.push({
+      id: row.id,
+      kind: 're-enrolled',
+      sectionStudentId: row.entity_id,
+      date: row.created_at.slice(0, 10),
+      actorEmail: row.actor_email,
+      ctxTermNumber: null,
+      ctxTermLabel: null,
     });
   }
   return out;
@@ -618,6 +685,7 @@ async function enrichWithStudents(
       actorEmail: m.actorEmail,
       ctxTermNumber: m.ctxTermNumber,
       ctxTermLabel: m.ctxTermLabel,
+      reason: m.reason,
     });
   }
 

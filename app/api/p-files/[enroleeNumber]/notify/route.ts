@@ -4,8 +4,9 @@ import { requireRole } from "@/lib/auth/require-role";
 import { requireCurrentAyCode } from "@/lib/academic-year";
 import { logAction, type AuditAction } from "@/lib/audit/log-action";
 import { createServiceClient } from "@/lib/supabase/service";
-import { DOCUMENT_SLOTS } from "@/lib/p-files/document-config";
 import { runNotify } from "@/lib/p-files/notify-helpers";
+import { resolveModule } from "@/lib/p-files/_shared";
+import { NotifySchema } from "@/lib/schemas/p-files";
 import { invalidateDrillTags } from "@/lib/cache/invalidate-drill-tags";
 
 // POST /api/p-files/[enroleeNumber]/notify
@@ -21,45 +22,34 @@ import { invalidateDrillTags } from "@/lib/cache/invalidate-drill-tags";
 // Other gates (24h cooldown, actionable status, recipient resolution)
 // are unchanged across modules.
 //
-// On success: one row per recipient inserted into `p_file_outreach`,
+// On success: one outreach row inserted into `p_file_outreach`,
 // one audit row, JSON 200.
-const MODULE_VALUES = new Set(["p-files", "admissions"]);
-
-type ChaseModule = "p-files" | "admissions";
-
-function resolveModule(raw: unknown): ChaseModule {
-  if (typeof raw === "string" && MODULE_VALUES.has(raw)) return raw as ChaseModule;
-  return "p-files";
-}
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ enroleeNumber: string }> },
 ) {
-  // Role gate widened to allow admissions team when chasing pre-enrolment
-  // documents (module='admissions'). P-Files renewal chase keeps the
-  // existing p-file + superadmin scope. requireRole here is a union; the
-  // module-aware not_enrolled check + audit action enforce the right scope
-  // downstream.
-  const auth = await requireRole([
-    "p-file",
-    "admissions",
-    "registrar",
-    "school_admin",
-    "superadmin",
-  ]);
-  if ("error" in auth) return auth.error;
-
   const { enroleeNumber } = await params;
   const body = await request.json().catch(() => null);
-  const slotKey = body && typeof body.slotKey === "string" ? body.slotKey.trim() : "";
-  const moduleKey = resolveModule(body?.module);
-  if (!slotKey) {
-    return NextResponse.json({ error: "slotKey is required" }, { status: 400 });
+  const parsed = NotifySchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid request body", details: parsed.error.flatten() },
+      { status: 400 },
+    );
   }
-  if (!DOCUMENT_SLOTS.some((s) => s.key === slotKey)) {
-    return NextResponse.json({ error: `invalid slotKey: ${slotKey}` }, { status: 400 });
-  }
+
+  const { slotKey } = parsed.data;
+  const moduleKey = resolveModule(parsed.data.module);
+
+  // Per-module role gate: admissions chase is wider (admissions team + registrar
+  // + school_admin); P-Files renewal chase is scoped to p-file officers + superadmin.
+  const allowedRoles =
+    moduleKey === "admissions"
+      ? ["admissions", "registrar", "school_admin", "superadmin"]
+      : ["p-file", "superadmin"];
+  const auth = await requireRole(allowedRoles as import("@/lib/auth/roles").Role[]);
+  if ("error" in auth) return auth.error;
 
   const service = createServiceClient();
   const ayCode = await requireCurrentAyCode(service);

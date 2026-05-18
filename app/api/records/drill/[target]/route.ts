@@ -6,6 +6,7 @@ import {
   ALL_DRILL_COLUMNS,
   applyTargetFilter,
   buildRecordsDrillRows,
+  buildUnsyncedReadinessDrillRows,
   defaultColumnsForTarget,
   drillHeaderForTarget,
   DRILL_COLUMN_LABELS,
@@ -71,7 +72,17 @@ export async function GET(
     { withDocs: DOC_TARGETS.has(target) },
   );
   const rangeForFilter = from && to ? { from, to } : undefined;
-  const rows = applyTargetFilter(all, target, segment, rangeForFilter);
+  let rows = applyTargetFilter(all, target, segment, rangeForFilter);
+
+  // H3: class-assignment-readiness drill must include enrolled students with
+  // no classSection (the KD #90 unsynced cohort). These rows are absent from
+  // section_students so buildRecordsDrillRows never includes them; fetched
+  // separately and appended here. All unsynced rows have sectionId=null which
+  // passes the applyTargetFilter sectionId===null check by construction.
+  if (target === 'class-assignment-readiness') {
+    const unsyncedRows = await buildUnsyncedReadinessDrillRows(ayCode);
+    rows = [...rows, ...unsyncedRows];
+  }
 
   if (format === 'csv') {
     return csvResponse(rows, target, segment, ayCode, columnsParam);

@@ -8,6 +8,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import * as React from "react";
 import type { DateRange } from "react-day-picker";
 import { type ColumnDef } from "@tanstack/react-table";
@@ -42,11 +43,19 @@ export type MergedRow = {
   source: "audit_log" | "grade_audit_log";
 };
 
+type PaginationInfo = {
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  total: number;
+};
+
 type Props = {
   rows: MergedRow[];
   initialSheetIdFilter?: string | null;
   initialActionFilter?: string | null;
   canExport?: boolean;
+  pagination?: PaginationInfo;
 };
 
 function toIsoDay(d: Date): string {
@@ -144,6 +153,7 @@ export function AuditLogDataTable({
   initialSheetIdFilter,
   initialActionFilter,
   canExport = false,
+  pagination,
 }: Props) {
   const [exportRange, setExportRange] = React.useState<DateRange | undefined>(undefined);
   const [exportOpen, setExportOpen] = React.useState(false);
@@ -377,6 +387,7 @@ export function AuditLogDataTable({
       toolbarLeading={toolbarLeading}
       toolbarTrailing={toolbarTrailing}
       initialColumnFilters={initialColumnFilters}
+      pagination={pagination}
     />
   );
 }
@@ -389,35 +400,85 @@ function _AuditLogTable({
   toolbarLeading,
   toolbarTrailing,
   initialColumnFilters,
+  pagination,
 }: {
   filteredRows: MergedRow[];
   facets: FacetConfig[];
   toolbarLeading: React.ReactNode;
   toolbarTrailing: React.ReactNode;
   initialColumnFilters: Array<{ id: string; value: string[] }>;
+  pagination?: PaginationInfo;
 }) {
+  const router = useRouter();
+
+  const handlePageChange = React.useCallback(
+    (newPage: number) => {
+      const params = new URLSearchParams(window.location.search);
+      params.set("page", String(newPage));
+      router.push(`?${params.toString()}`);
+    },
+    [router],
+  );
+
   return (
-    <DataTable<MergedRow>
-      data={filteredRows}
-      columns={COLUMNS}
-      getRowId={(row) => row.id}
-      searchKeys={["actor", "action", "entity_type"]}
-      searchPlaceholder="Search actor, action, details…"
-      facets={facets}
-      toolbarLeading={toolbarLeading}
-      toolbarTrailing={toolbarTrailing}
-      initialSort={[{ id: "at", desc: true }]}
-      pageSize={25}
-      url={{ enabled: true }}
-      emptyState={{
-        title: "No audit entries yet.",
-        body: "Activity in the markbook — sheet creation, score edits, locks, and more — will appear here.",
-      }}
-      emptyFilteredState={{
-        title: "No audit entries match the current filters.",
-        body: "Try clearing the date range or filters.",
-      }}
-    />
+    <>
+      <DataTable<MergedRow>
+        data={filteredRows}
+        columns={COLUMNS}
+        getRowId={(row) => row.id}
+        searchKeys={["actor", "action", "entity_type"]}
+        searchPlaceholder="Search actor, action, details…"
+        facets={facets}
+        toolbarLeading={toolbarLeading}
+        toolbarTrailing={toolbarTrailing}
+        initialSort={[{ id: "at", desc: true }]}
+        pageSize={pagination ? Math.max(filteredRows.length, 1) : 25}
+        url={{ enabled: true }}
+        emptyState={{
+          title: "No audit entries yet.",
+          body: "Activity — sheet creation, score edits, locks, and more — will appear here.",
+        }}
+        emptyFilteredState={{
+          title: "No audit entries match the current filters.",
+          body: "Try clearing the date range or filters.",
+        }}
+      />
+      {pagination && (
+        <div className="flex items-center justify-between rounded-b-xl border border-t-0 border-border bg-muted/30 px-4 py-3 text-sm">
+          <p className="text-muted-foreground tabular-nums">
+            {pagination.total === 0
+              ? "No entries"
+              : `Showing ${((pagination.page - 1) * pagination.pageSize + 1).toLocaleString("en-SG")}–${Math.min(
+                  pagination.page * pagination.pageSize,
+                  pagination.total,
+                ).toLocaleString("en-SG")} of ${pagination.total.toLocaleString("en-SG")}`}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2.5 text-xs"
+              disabled={pagination.page <= 1}
+              onClick={() => handlePageChange(pagination.page - 1)}
+            >
+              ← Prev
+            </Button>
+            <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+              {pagination.page.toLocaleString("en-SG")} / {pagination.totalPages.toLocaleString("en-SG")}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-2.5 text-xs"
+              disabled={pagination.page >= pagination.totalPages}
+              onClick={() => handlePageChange(pagination.page + 1)}
+            >
+              Next →
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -471,6 +532,18 @@ function ActionDetails({ row }: { row: MergedRow }) {
       return <span>Locked grading sheet {row.sheet_id?.slice(0, 8)}…</span>;
     case "sheet.unlock":
       return <span>Unlocked grading sheet {row.sheet_id?.slice(0, 8)}…</span>;
+    case "sheet.unlock_force_with_pending_crs": {
+      const pendingCount = Number(ctx["pendingCount"] ?? 0);
+      return (
+        <span>
+          Unlocked grading sheet {row.sheet_id?.slice(0, 8)}…{" "}
+          <span className="text-destructive">
+            (forced — {pendingCount}{" "}
+            pending {pendingCount === 1 ? "request" : "requests"} bypassed)
+          </span>
+        </span>
+      );
+    }
     case "student.sync": {
       const added = ctx["added"] ?? 0;
       const updated = ctx["updated"] ?? 0;

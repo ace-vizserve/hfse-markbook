@@ -28,6 +28,7 @@ import {
   type RecordsDrillRow,
   type RecordsDrillTarget,
 } from '@/lib/sis/drill';
+import { compareLevelLabels } from '@/lib/sis/levels';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Props
@@ -80,7 +81,7 @@ function StalenessBadge({ days }: { days: number | null }) {
         className={`${BADGE_BASE} border-destructive/40 bg-gradient-to-b from-destructive/15 to-destructive/5 text-destructive`}
       >
         <AlertTriangle className="h-3 w-3" aria-hidden />
-        {days}d stale
+        {days}d overdue
       </Badge>
     );
   }
@@ -91,7 +92,7 @@ function StalenessBadge({ days }: { days: number | null }) {
         className={`${BADGE_BASE} border-chart-4/50 bg-gradient-to-b from-chart-4/20 to-chart-4/5 text-ink`}
       >
         <AlertCircle className="h-3 w-3" aria-hidden />
-        {days}d stale
+        {days}d ago
       </Badge>
     );
   }
@@ -101,7 +102,7 @@ function StalenessBadge({ days }: { days: number | null }) {
       className={`${BADGE_BASE} border-brand-mint bg-gradient-to-b from-brand-mint/35 to-brand-mint/15 text-ink`}
     >
       <CheckCircle2 className="h-3 w-3" aria-hidden />
-      Fresh · {days}d
+      Up to date · {days}d
     </Badge>
   );
 }
@@ -166,31 +167,12 @@ function formatDate(iso: string | null): string {
   });
 }
 
-const CANONICAL_LEVELS = [
-  'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'S1', 'S2', 'S3', 'S4',
-] as const;
-const CANONICAL_LEVEL_INDEX: Record<string, number> = CANONICAL_LEVELS.reduce(
-  (acc, lvl, i) => {
-    acc[lvl] = i;
-    return acc;
-  },
-  {} as Record<string, number>,
-);
-
+// compareLevelLabels from lib/sis/levels.ts is the canonical ordering
+// (YS-L → YS-J → YS-S → P1-P6 → S1-S4 → CS1 → CS2). Using it here
+// instead of a locally-hardcoded list prevents PEH / preschool ordering
+// drift when new levels are added.
 function compareLevels(a: string, b: string): number {
-  const aIsUnknown = a === 'Unknown';
-  const bIsUnknown = b === 'Unknown';
-  if (aIsUnknown && bIsUnknown) return 0;
-  if (aIsUnknown) return 1;
-  if (bIsUnknown) return -1;
-  const aIdx = CANONICAL_LEVEL_INDEX[a];
-  const bIdx = CANONICAL_LEVEL_INDEX[b];
-  const aIsCanon = aIdx !== undefined;
-  const bIsCanon = bIdx !== undefined;
-  if (aIsCanon && bIsCanon) return aIdx - bIdx;
-  if (aIsCanon) return -1;
-  if (bIsCanon) return 1;
-  return a.localeCompare(b);
+  return compareLevelLabels(a === 'Unknown' ? null : a, b === 'Unknown' ? null : b);
 }
 
 function buildDrillUrl(
@@ -228,12 +210,14 @@ function buildColumnDef(key: DrillColumnKey): ColumnDef<RecordsDrillRow, unknown
         accessorKey: 'fullName',
         header,
         cell: ({ row }) => {
-          // KD #4: studentNumber is the cross-year stable URL. Fall back to
-          // the enroleeNumber-scoped detail page when studentNumber hasn't
-          // been synced yet (matches student-data-table.tsx behavior).
-          const href = row.original.studentNumber
-            ? `/records/students/${encodeURIComponent(row.original.studentNumber)}`
-            : `/records/students/by-enrolee/${encodeURIComponent(row.original.enroleeNumber)}`;
+          // KD #81: unsynced rows (sectionId===null) route to the assign-section
+          // queue; synced rows use KD #4's studentNumber-stable URL with the
+          // enroleeNumber fallback for pre-sync states.
+          const href = row.original.sectionId === null
+            ? `/records/unsynced`
+            : row.original.studentNumber
+              ? `/records/students/${encodeURIComponent(row.original.studentNumber)}`
+              : `/records/students/by-enrolee/${encodeURIComponent(row.original.enroleeNumber)}`;
           return (
             <div className="space-y-0.5">
               <Link

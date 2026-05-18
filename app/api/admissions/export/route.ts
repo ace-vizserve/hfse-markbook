@@ -1,22 +1,19 @@
 import { NextResponse } from 'next/server';
 
-import { createClient } from '@/lib/supabase/server';
-import { getUserRole } from '@/lib/auth/roles';
+import { requireRole } from '@/lib/auth/require-role';
 import { requireCurrentAyCode } from '@/lib/academic-year';
 import { getOutdatedApplications } from '@/lib/admissions/dashboard';
 import { buildCsv } from '@/lib/csv';
+import { createClient } from '@/lib/supabase/server';
 
-// Admin + superadmin CSV export of the outdated-applications table for a
-// given AY. Surfaces the same rows the dashboard shows, but serialized for
-// offline triage. Gated at the route level — registrar / teacher get 403.
+// Superadmin-only CSV export of the outdated-applications table for a given AY
+// (KD #17). Surfaces the same rows the dashboard shows, serialized for offline
+// triage.
 export async function GET(req: Request) {
-  const supabase = await createClient();
-  const { data: userData } = await supabase.auth.getUser();
-  const role = getUserRole(userData.user);
-  if (role !== 'school_admin' && role !== 'superadmin') {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-  }
+  const auth = await requireRole(['superadmin']);
+  if ('error' in auth) return auth.error;
 
+  const supabase = await createClient();
   const url = new URL(req.url);
   const ayParam = url.searchParams.get('ay');
   const ayCode =

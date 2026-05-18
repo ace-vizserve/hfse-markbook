@@ -8,11 +8,16 @@ export type AuditAction =
   | 'sheet.bulk_create'
   | 'sheet.lock'
   | 'sheet.unlock'
+  | 'sheet.unlock_force_with_pending_crs'
+  | 'sheet.unlock_force_deadline_passed'
+  | 'sheet.lock_overdue_batch'
   | 'entry.update'
   | 'totals.update'
   | 'student.sync'
   | 'student.add'
   | 'student.section.transfer'
+  | 'student.withdrawal.cascade'
+  | 'student.reenrolment.cascade'
   | 'sis.student.assign_section'
   | 'enrolment.metadata.update'
   | 'assignment.create'
@@ -51,6 +56,7 @@ export type AuditAction =
   | 'sis.profile.update'
   | 'sis.family.update'
   | 'sis.stage.update'
+  | 'sis.stp.update'
   | 'sis.discount_code.create'
   | 'sis.discount_code.update'
   | 'sis.discount_code.expire'
@@ -100,7 +106,11 @@ export type AuditAction =
   | 'user.enable'
   | 'environment.switch'
   | 'environment.seed'
-  | 'environment.topup';
+  | 'environment.topup'
+  | 'grade_entry.annual_letter.update'
+  | 'user.login'
+  | 'parent.session.issued'
+  | 'parent.session.cleared';
 
 export type AuditEntityType =
   | 'grading_sheet'

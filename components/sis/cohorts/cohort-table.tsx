@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Mail } from 'lucide-react';
 import { type ColumnDef } from '@tanstack/react-table';
 
+import { ApplicationStatusBadge } from '@/components/ui/application-status-badge';
 import { Badge } from '@/components/ui/badge';
 import { DataTable } from '@/components/ui/data-table';
 import { ChartLegendChip, type ChartLegendChipColor } from '@/components/dashboard/chart-legend-chip';
@@ -23,15 +24,16 @@ export type { CohortStudentRow as StpCohortRow };
 
 // ─── Public API ─────────────────────────────────────────────────────────────
 
-export type CohortKind = 'stp' | 'promised' | 'pass-expiry' | 'medical';
+export type CohortKind = 'stp' | 'promised' | 'pass-expiry' | 'medical' | 'pre-course';
 export type { CohortScope };
 
-// All four kinds use CohortStudentRow — the shared loader shape.
+// All kinds use CohortStudentRow — the shared loader shape.
 type CohortRowMap = {
   stp: CohortStudentRow;
   promised: CohortStudentRow;
   'pass-expiry': CohortStudentRow;
   medical: CohortStudentRow;
+  'pre-course': CohortStudentRow;
 };
 
 export type CohortTableProps<K extends CohortKind> = {
@@ -48,22 +50,6 @@ function formatDate(iso: string | null | undefined): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('en-SG', { year: 'numeric', month: 'short', day: 'numeric' });
-}
-
-// ─── STP slot pill ───────────────────────────────────────────────────────────
-
-function slotChipColor(status: string | null | undefined) {
-  const s = (status ?? '').trim();
-  if (s === 'Valid') return 'fresh' as const;
-  if (s === 'Uploaded') return 'primary' as const;
-  if (s === 'Rejected' || s === 'Expired') return 'very-stale' as const;
-  if (s === 'Pending') return 'stale' as const;
-  return 'neutral' as const;
-}
-
-function SlotPill({ status, label }: { status: string | null | undefined; label: string }) {
-  const display = (status ?? '').trim() || '—';
-  return <ChartLegendChip color={slotChipColor(status)} label={`${label} · ${display}`} />;
 }
 
 // ─── STP detail href resolver ─────────────────────────────────────────────────
@@ -123,28 +109,22 @@ function buildStpColumns(scope: CohortScope, ayCode: string): ColumnDef<CohortSt
       enableSorting: true,
     },
     {
-      id: 'icaPhoto',
-      accessorKey: 'icaPhotoStatus',
-      header: 'ICA Photo',
-      cell: ({ row }) => <SlotPill status={row.original.icaPhotoStatus} label="ICA" />,
-      enableSorting: true,
-    },
-    {
-      id: 'financialSupport',
-      accessorKey: 'financialSupportDocsStatus',
-      header: 'Financial support',
-      cell: ({ row }) => (
-        <SlotPill status={row.original.financialSupportDocsStatus} label="Fin." />
-      ),
-      enableSorting: true,
-    },
-    {
-      id: 'vaccination',
-      accessorKey: 'vaccinationInformationStatus',
-      header: 'Vaccination',
-      cell: ({ row }) => (
-        <SlotPill status={row.original.vaccinationInformationStatus} label="Vac." />
-      ),
+      id: 'stpStatus',
+      accessorKey: 'stpApplicationStatus',
+      header: 'ICA status',
+      cell: ({ row }) => {
+        const v = row.original.stpApplicationStatus ?? null;
+        if (!v) return <Badge variant="outline">Not set</Badge>;
+        const variant: 'warning' | 'default' | 'success' | 'blocked' =
+          v === 'Approved'
+            ? 'success'
+            : v === 'Rejected'
+              ? 'blocked'
+              : v === 'Submitted'
+                ? 'default'
+                : 'warning';
+        return <Badge variant={variant}>{v}</Badge>;
+      },
       enableSorting: true,
     },
     {
@@ -207,6 +187,7 @@ const STP_STATUS_TABS: StatusTabConfig<CohortStudentRow>[] = [
 const STP_FACETS = [
   { columnId: 'levelApplied', label: 'Level' },
   { columnId: 'stpType', label: 'STP type' },
+  { columnId: 'stpStatus', label: 'ICA status' },
   { columnId: 'applicationStatus', label: 'App status' },
 ];
 
@@ -564,7 +545,7 @@ function medicalDetailHref(row: CohortStudentRow, scope: CohortScope, ayCode: st
   if (scope === 'enrolled' && row.studentNumber) {
     return `/records/students/${encodeURIComponent(row.studentNumber)}`;
   }
-  const params = new URLSearchParams({ ay: ayCode, tab: 'lifecycle' });
+  const params = new URLSearchParams({ ay: ayCode, tab: 'profile' });
   return `/admissions/applications/${encodeURIComponent(row.enroleeNumber)}?${params.toString()}`;
 }
 
@@ -693,7 +674,7 @@ function buildMedicalColumns(scope: CohortScope, ayCode: string): ColumnDef<Coho
       accessorKey: 'applicationStatus',
       header: 'App status',
       cell: ({ row }) => (
-        <Badge variant="outline">{row.original.applicationStatus ?? '—'}</Badge>
+        <ApplicationStatusBadge status={row.original.applicationStatus ?? null} />
       ),
       enableSorting: true,
     },
@@ -746,6 +727,151 @@ const MEDICAL_FACETS = [
 const MEDICAL_EMPTY_STATE = {
   title: 'No medical flags on record.',
   body: 'Students with allergies, asthma, or other flagged conditions will appear here.',
+};
+
+// ─── Pre-course detail href ───────────────────────────────────────────────────
+
+function preCourseDetailHref(enroleeNumber: string, ayCode: string): string {
+  const params = new URLSearchParams({ ay: ayCode, tab: 'profile' });
+  return `/admissions/applications/${encodeURIComponent(enroleeNumber)}?${params.toString()}`;
+}
+
+// ─── Pre-course status badge ──────────────────────────────────────────────────
+
+function PreCourseStatusBadge({ status }: { status: 'complete' | 'not-yet' | 'pending' | undefined }) {
+  if (status === 'complete') return <Badge variant="success">Completed</Badge>;
+  if (status === 'not-yet') return <Badge variant="blocked">Not yet</Badge>;
+  return <Badge variant="muted">Pending</Badge>;
+}
+
+function PreCourseAnswerBadge({ answer }: { answer: 'Yes' | 'No' | null | undefined }) {
+  if (answer === 'Yes') return <Badge variant="success">Yes — completed</Badge>;
+  if (answer === 'No') return <Badge variant="warning">No — not yet</Badge>;
+  return <span className="text-xs text-muted-foreground">—</span>;
+}
+
+// ─── Pre-course column builder ────────────────────────────────────────────────
+
+function buildPreCourseColumns(ayCode: string): ColumnDef<CohortStudentRow>[] {
+  return [
+    {
+      id: 'student',
+      accessorFn: (r) => r.enroleeFullName ?? r.enroleeNumber,
+      header: 'Student',
+      cell: ({ row }) => (
+        <Link
+          href={preCourseDetailHref(row.original.enroleeNumber, ayCode)}
+          className="block space-y-0.5 hover:underline"
+        >
+          <div className="font-medium text-foreground">
+            {row.original.enroleeFullName ?? '—'}
+          </div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+            {row.original.enroleeNumber}
+            {row.original.studentNumber ? ` · ${row.original.studentNumber}` : ''}
+          </div>
+        </Link>
+      ),
+      enableSorting: true,
+    },
+    {
+      id: 'levelApplied',
+      accessorKey: 'levelApplied',
+      header: 'Level',
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">{row.original.levelApplied ?? '—'}</span>
+      ),
+      enableSorting: true,
+    },
+    {
+      id: 'applicationStatus',
+      accessorKey: 'applicationStatus',
+      header: 'App status',
+      cell: ({ row }) => (
+        <Badge variant="outline">{row.original.applicationStatus ?? '—'}</Badge>
+      ),
+      enableSorting: true,
+    },
+    {
+      id: 'preCourseStatus',
+      accessorFn: (r) =>
+        r.preCourseStatus === 'complete' ? 2 : r.preCourseStatus === 'not-yet' ? 0 : 1,
+      header: 'Status',
+      cell: ({ row }) => <PreCourseStatusBadge status={row.original.preCourseStatus} />,
+      enableSorting: true,
+    },
+    {
+      id: 'preCourseDate',
+      accessorFn: (r) => r.preCourseDate ?? '',
+      header: 'Session date',
+      cell: ({ row }) => (
+        <span className="text-sm tabular-nums text-foreground">
+          {formatDate(row.original.preCourseDate)}
+        </span>
+      ),
+      enableSorting: true,
+    },
+    {
+      id: 'preCourseAnswer',
+      accessorFn: (r) => r.preCourseAnswer ?? '',
+      header: "Parent's answer",
+      cell: ({ row }) => <PreCourseAnswerBadge answer={row.original.preCourseAnswer} />,
+      enableSorting: true,
+    },
+    {
+      id: 'preCourseAcknowledgedAt',
+      accessorFn: (r) => r.preCourseAcknowledgedAt ?? '',
+      header: 'Acknowledged',
+      cell: ({ row }) => (
+        <span className="text-sm tabular-nums text-foreground">
+          {formatDate(row.original.preCourseAcknowledgedAt)}
+        </span>
+      ),
+      enableSorting: true,
+    },
+  ];
+}
+
+// ─── Pre-course status-tab config ─────────────────────────────────────────────
+
+const PRE_COURSE_STATUS_TABS: StatusTabConfig<CohortStudentRow>[] = [
+  {
+    value: 'incomplete',
+    label: 'Incomplete',
+    predicate: (r) => r.preCourseStatus !== 'complete',
+    isDefault: true,
+  },
+  {
+    value: 'not-yet',
+    label: 'Answered No',
+    predicate: (r) => r.preCourseStatus === 'not-yet',
+  },
+  {
+    value: 'pending',
+    label: 'No response',
+    predicate: (r) => r.preCourseStatus === 'pending',
+  },
+  {
+    value: 'complete',
+    label: 'Completed',
+    predicate: (r) => r.preCourseStatus === 'complete',
+  },
+  {
+    value: 'all',
+    label: 'All',
+    predicate: () => true,
+  },
+];
+
+const PRE_COURSE_FACETS = [
+  { columnId: 'levelApplied', label: 'Level' },
+  { columnId: 'applicationStatus', label: 'App status' },
+  { columnId: 'preCourseStatus', label: 'PCC status' },
+];
+
+const PRE_COURSE_EMPTY_STATE = {
+  title: 'No applicants in this view.',
+  body: 'Pre-Course Counselling acknowledgement status will appear here once parents complete the counselling session.',
 };
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -870,6 +996,26 @@ export function CohortTable<K extends CohortKind>(props: CohortTableProps<K>) {
           onSuccess={() => setBulkItems([])}
         />
       </>
+    );
+  }
+
+  if (kind === 'pre-course') {
+    const preCourseRows = rows as CohortStudentRow[];
+    return (
+      <DataTable<CohortStudentRow>
+        data={preCourseRows}
+        columns={buildPreCourseColumns(ayCode)}
+        getRowId={(r) => r.enroleeNumber}
+        searchKeys={['enroleeFullName', 'enroleeNumber', 'studentNumber']}
+        searchPlaceholder="Search students…"
+        facets={PRE_COURSE_FACETS}
+        statusTabs={PRE_COURSE_STATUS_TABS}
+        pageSize={25}
+        csv={{ filename: `pre-course-cohort-${ayCode}.csv` }}
+        url={{ enabled: true }}
+        emptyState={PRE_COURSE_EMPTY_STATE}
+        emptyFilteredState={{ title: 'No matches for current filters.' }}
+      />
     );
   }
 

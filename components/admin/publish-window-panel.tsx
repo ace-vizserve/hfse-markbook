@@ -548,7 +548,7 @@ export function PublishWindowPanel({
                     ? `All ${checklist.grading_sheets.total} sheet${checklist.grading_sheets.total === 1 ? "" : "s"} locked and ready to publish.`
                     : `Unlocked subject${checklist.grading_sheets.unlocked.length === 1 ? "" : "s"}: ${checklist.grading_sheets.unlocked.map((s) => s.subject_name).join(", ")}`
                 }
-                href={`/markbook/grading?section=${sectionId}`}
+                href={`/markbook/grading?q=${encodeURIComponent(sectionName)}`}
                 actionLabel={sheetsOk ? "View" : "Lock sheets"}
               />
 
@@ -620,7 +620,7 @@ export function PublishWindowPanel({
                             .map((t) => `T${t.term_number}: ${t.subjects.join(", ")}`)
                             .join(" · ")
                     }
-                    href={`/markbook/grading?section=${sectionId}`}
+                    href={`/markbook/grading?q=${encodeURIComponent(sectionName)}`}
                     actionLabel={t4LockedOk ? "View" : "Lock prior terms"}
                   />
 
@@ -647,7 +647,7 @@ export function PublishWindowPanel({
                             ? ` … and ${checklist.t4_readiness.missing_annual_count - 5} more`
                             : "")
                     }
-                    href={`/markbook/grading?section=${sectionId}`}
+                    href={`/markbook/grading?q=${encodeURIComponent(sectionName)}`}
                     actionLabel={t4GradesOk ? "View" : "Backfill grades"}
                   />
                 </>

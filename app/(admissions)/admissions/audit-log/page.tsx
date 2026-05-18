@@ -14,11 +14,31 @@ import {
 import { PageShell } from '@/components/ui/page-shell';
 import { AuditLogDataTable, type MergedRow } from '@/app/(markbook)/markbook/audit-log/audit-log-data-table';
 
-// Admissions audit log — same underlying filter as Records (sis.*) since
-// admissions team edits apps via the same API routes that emit sis.* audit
-// actions. Splitting into a dedicated `admissions.*` prefix is a follow-up
-// once per-module separation is worth the churn.
-export default async function AdmissionsAuditLogPage() {
+// Admissions-relevant audit actions per KD #42 / KD #70.
+// `sis.*` prefix covers identity + stage + doc edits made by the admissions
+// team (internal identifier stays `sis.*` even on the admissions surface);
+// `admissions.*` covers chase + promise events. Records-side movement
+// actions (student.section.transfer, student.withdrawal.cascade, etc.) are
+// excluded — those surface on /records/movements and /records/audit-log.
+const ADMISSIONS_AUDIT_ACTIONS = [
+  'sis.profile.update',
+  'sis.family.update',
+  'sis.stage.update',
+  'sis.stp.update',
+  'sis.document.approve',
+  'sis.document.reject',
+  'sis.documents.auto-expire',
+  'sis.documents.auto-revive',
+  'admissions.reminder.sent',
+  'admissions.reminder.bulk',
+  'admissions.mark.promised',
+] as const;
+
+export default async function AdmissionsAuditLogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; pageSize?: string }>;
+}) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
   if (
@@ -33,14 +53,24 @@ export default async function AdmissionsAuditLogPage() {
   const canExport =
     sessionUser.role === 'school_admin' ||
     sessionUser.role === 'superadmin';
+  const params = await searchParams;
+  const PAGE_SIZE = Math.min(Number(params.pageSize ?? 50), 200);
+  const page = Math.max(Number(params.page ?? 1), 1);
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  // Widen prefix filter per KD #83: section transfers emit student.*, AY
+  // accepting-applications toggles emit ay.*, so limit to sis.% missed them.
+  const { data, count, error } = await supabase
     .from('audit_log')
-    .select('id, actor_email, action, entity_type, entity_id, context, created_at')
-    .like('action', 'sis.%')
+    .select('id, actor_email, action, entity_type, entity_id, context, created_at', { count: 'exact' })
+    .in('action', ADMISSIONS_AUDIT_ACTIONS)
     .order('created_at', { ascending: false })
-    .limit(500);
+    .range(from, to);
+
+  const totalPages = count ? Math.ceil(count / PAGE_SIZE) : 1;
 
   const rows: MergedRow[] = ((data ?? []) as Array<{
     id: string;
@@ -93,8 +123,12 @@ export default async function AdmissionsAuditLogPage() {
             description="Entries loaded"
             value={rows.length.toLocaleString('en-SG')}
             icon={ListChecks}
-            footerTitle="Capped at 500 most recent"
-            footerDetail="Older entries stay in the database"
+            footerTitle={
+              count != null
+                ? `${count.toLocaleString('en-SG')} total entries`
+                : `${rows.length.toLocaleString('en-SG')} entries`
+            }
+            footerDetail={`Page ${page} of ${totalPages} · ${PAGE_SIZE} per page`}
           />
           <StatCard
             description="Unique actors"
@@ -120,7 +154,11 @@ export default async function AdmissionsAuditLogPage() {
         </div>
       )}
 
-      <AuditLogDataTable rows={rows} canExport={canExport} />
+      <AuditLogDataTable
+        rows={rows}
+        canExport={canExport}
+        pagination={{ page, pageSize: PAGE_SIZE, totalPages, total: count ?? 0 }}
+      />
     </PageShell>
   );
 }

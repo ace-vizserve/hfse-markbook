@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import type { Role, SidebarBadgeKey, SidebarBadges } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/client";
@@ -53,21 +54,40 @@ function subscribeChannels(
         recount: async () => {
           // Scope MUST mirror getSidebarChangeRequestCount (SSR sibling)
           // and the /markbook/change-requests page query — see KD #41.
-          // school_admin/superadmin only see CRs where they're a
-          // designated approver, or legacy rows with both approvers null.
+          // Two axes: approver scope (school_admin/superadmin see only
+          // their designated CRs or legacy null-approver rows) AND AY
+          // scope (page filters via grading_sheet.section.academic_year_id;
+          // without it, pending CRs from prior/test AYs inflate the badge).
+          const { data: ayData } = await supabase
+            .from("academic_years")
+            .select("id")
+            .eq("is_current", true)
+            .maybeSingle();
+          const currentAyId = (ayData as { id: string } | null)?.id ?? null;
+          if (!currentAyId) return 0;
+
           let query = supabase
             .from("grade_change_requests")
-            .select("id", { count: "exact", head: true });
+            .select(
+              "id, grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))",
+              { count: "exact", head: true },
+            )
+            .eq("grading_sheet.section.academic_year_id", currentAyId);
           if (role === "teacher") {
             query = query.eq("requested_by", userId).eq("status", "pending");
           } else if (role === "registrar") {
             query = query.eq("status", "approved");
-          } else if (role === "school_admin" || role === "superadmin") {
+          } else if (role === "school_admin") {
+            // Designated approver scope (KD #41): only requests this admin is
+            // primary/secondary on, plus legacy null-approver rows.
             query = query
               .eq("status", "pending")
               .or(
                 `primary_approver_id.eq.${userId},secondary_approver_id.eq.${userId},and(primary_approver_id.is.null,secondary_approver_id.is.null)`,
               );
+          } else if (role === "superadmin") {
+            // Oversight scope: full visibility, matches the page filter.
+            query = query.eq("status", "pending");
           } else {
             return null;
           }
@@ -81,11 +101,28 @@ function subscribeChannels(
   return channels;
 }
 
+// Audit-log actions that indicate P-Files awaiting-verification count may
+// have changed. INSERT on audit_log with one of these actions triggers a
+// router.refresh() so the SSR-rendered badge re-fetches from the server.
+const PFILE_VERIFICATION_ACTIONS = [
+  "pfile.upload",
+  "pfile.reminder.sent",
+  "sis.document.approve",
+  "sis.document.reject",
+  "sis.documents.auto-expire",
+  "sis.documents.auto-revive",
+] as const;
+
+// Roles that see the pfileAwaitingVerification badge. Mirrors the p-files
+// layout gate (p-file, school_admin, superadmin per KD #31 + KD #74).
+const PFILE_BADGE_ROLES: Role[] = ["p-file", "school_admin", "superadmin"];
+
 export function useRealtimeBadges(
   role: Role | null,
   userId: string,
   initial: SidebarBadges,
 ): SidebarBadges {
+  const router = useRouter();
   const [badges, setBadges] = useState<SidebarBadges>(initial);
 
   // Sync with the SSR-provided baseline when its CONTENT changes — not
@@ -141,6 +178,33 @@ export function useRealtimeBadges(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role, userId]);
+
+  // pfileAwaitingVerification — SSR-rendered badge; realtime channel fires
+  // router.refresh() on document-related audit_log INSERTs so the layout
+  // RSC re-fetches countAwaitingVerification from the server.
+  // Gated on roles that see the P-Files sidebar (p-file, school_admin, superadmin).
+  useEffect(() => {
+    if (!role || !PFILE_BADGE_ROLES.includes(role)) return;
+    if (initial.pfileAwaitingVerification == null) return;
+
+    const supabase = createClient();
+    const filter = `action=in.(${PFILE_VERIFICATION_ACTIONS.join(",")})`;
+    const channel = supabase
+      .channel("sidebar-badge-pfile-awaiting-verification")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "audit_log", filter },
+        () => {
+          router.refresh();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role]);
 
   return badges;
 }

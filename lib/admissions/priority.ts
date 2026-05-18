@@ -2,6 +2,7 @@ import { unstable_cache } from 'next/cache';
 
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
 import type { PriorityPayload } from '@/lib/dashboard/priority';
+import { prefixFor } from '@/lib/admissions/_shared';
 
 // Admissions PriorityPanel payload — top-of-fold "what should I act on right
 // now?" answer for the Admissions module. Surfaces students who have just
@@ -18,10 +19,6 @@ import type { PriorityPayload } from '@/lib/dashboard/priority';
 // `admissions-dashboard:${ayCode}` tag (KD #18).
 
 const CACHE_TTL_SECONDS = 60;
-
-function prefixFor(ayCode: string): string {
-  return `ay${ayCode.replace(/^AY/i, '').toLowerCase()}`;
-}
 
 function tag(ayCode: string): string[] {
   return ['admissions-dashboard', `admissions-dashboard:${ayCode}`];

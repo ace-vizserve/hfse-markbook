@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   ArrowLeft,
   CalendarClock,
-  CheckCircle2,
   FileWarning,
   History as HistoryIcon,
   Mail,
@@ -63,8 +62,9 @@ export default async function StudentDocumentDetailPage({
   // gating the detail render and have no shared state. Cached 60s.
   // P-Files is enrolled-only (KD #31). Hide pre-enrolment applicants from
   // the detail surface entirely — they belong on /admissions during the
-  // initial-chase phase. Strict whitelist (Enrolled / Enrolled (Conditional)
-  // + classSection set) — admissions surfaces show the rest.
+  // initial-chase phase. Whitelist: Enrolled / Enrolled (Conditional)
+  // — per KD #91 classSection is no longer required (legacy Directus rows
+  // without classSection render with an amber alert instead of 404).
   const [, enrolled] = await Promise.all([
     freshenAyDocuments(selectedAy),
     isStudentEnrolled(selectedAy, enroleeNumber),
@@ -78,6 +78,9 @@ export default async function StudentDocumentDetailPage({
   const canWrite = sessionUser.role === 'p-file' || sessionUser.role === 'superadmin';
 
   const pct = student.total > 0 ? Math.round((student.complete / student.total) * 100) : 0;
+  const circleR = 40;
+  const circleCircumference = 2 * Math.PI * circleR;
+  const circleDashOffset = circleCircumference - (pct / 100) * circleCircumference;
 
   // Per-slot meta lookup so we don't repeat .find inside the render loops.
   const slotConfigByKey = new Map(DOCUMENT_SLOTS.map((s) => [s.key, s]));
@@ -125,7 +128,7 @@ export default async function StudentDocumentDetailPage({
   // ── Document groups (existing layout) — slots within each group are
   //    re-sorted by urgency so the most pressing ones appear first.
   const groups: { group: DocumentGroup; label: string; slots: typeof student.slots }[] = [];
-  const groupOrder: DocumentGroup[] = ['student-expiring', 'parent', 'student', 'stp'];
+  const groupOrder: DocumentGroup[] = ['student-expiring', 'parent', 'student'];
   for (const g of groupOrder) {
     const groupSlots = student.slots
       .filter((slot) => slotConfigByKey.get(slot.key)?.group === g)
@@ -169,7 +172,9 @@ export default async function StudentDocumentDetailPage({
                 expiryDate={slot.expiryDate}
                 expires={config?.expires ?? false}
                 meta={config?.meta ?? null}
+                ayCode={selectedAy}
                 canWrite={canWrite}
+                studentName={student.fullName}
                 recipients={student.recipients}
                 lastReminderAt={outreach?.lastReminderAt ?? null}
                 activePromise={outreach?.activePromise ?? null}
@@ -192,12 +197,12 @@ export default async function StudentDocumentDetailPage({
       </Link>
 
       {/* ── Hero ──────────────────────────────────────────────────────── */}
-      <header className="space-y-5">
-        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          {canWrite ? 'P-Files · Student documents' : 'P-Files · Read-only oversight'}
-        </p>
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-6">
-          <div className="space-y-3">
+      <header>
+        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-4">
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              {canWrite ? 'P-Files · Student documents' : 'P-Files · Read-only oversight'}
+            </p>
             <h1 className="font-serif text-[38px] font-semibold leading-[1.05] tracking-tight text-foreground md:text-[44px]">
               {student.fullName}.
             </h1>
@@ -222,58 +227,86 @@ export default async function StudentDocumentDetailPage({
               )}
               <span className="font-mono tabular-nums">{selectedAy}</span>
             </div>
+            {/* Status pills — only rendered when count > 0. */}
+            <div className="flex flex-wrap items-center gap-2">
+              {student.expired > 0 && (
+                <Badge variant="blocked">
+                  <ShieldAlert />
+                  {student.expired} expired
+                </Badge>
+              )}
+              {rejectedCount > 0 && (
+                <Badge variant="blocked">
+                  <XCircle />
+                  {rejectedCount} rejected
+                </Badge>
+              )}
+              {student.missing > 0 && (
+                <Badge variant="outline" className="border-dashed text-muted-foreground">
+                  <FileWarning />
+                  {student.missing} missing
+                </Badge>
+              )}
+              {promisedCount > 0 && (
+                <Badge variant="default">
+                  <CalendarClock />
+                  {promisedCount} promised
+                </Badge>
+              )}
+              {remindedCount > 0 && (
+                <Badge variant="warning">
+                  <Mail />
+                  {remindedCount} reminded
+                </Badge>
+              )}
+            </div>
           </div>
 
-          {/* Status pill row — only render counts that are > 0. */}
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={pct === 100 ? 'success' : 'outline'}>
-              <CheckCircle2 />
-              {student.complete}/{student.total} on file · {pct}%
-            </Badge>
-            {student.expired > 0 && (
-              <Badge variant="blocked">
-                <ShieldAlert />
-                {student.expired} expired
-              </Badge>
-            )}
-            {rejectedCount > 0 && (
-              <Badge variant="blocked">
-                <XCircle />
-                {rejectedCount} rejected
-              </Badge>
-            )}
-            {student.missing > 0 && (
-              <Badge variant="outline" className="border-dashed text-muted-foreground">
-                <FileWarning />
-                {student.missing} missing
-              </Badge>
-            )}
-            {promisedCount > 0 && (
-              <Badge variant="default">
-                <CalendarClock />
-                {promisedCount} promised
-              </Badge>
-            )}
-            {remindedCount > 0 && (
-              <Badge variant="warning">
-                <Mail />
-                {remindedCount} reminded
-              </Badge>
-            )}
+          {/* Circular completion indicator — right column. */}
+          <div className="flex shrink-0 flex-col items-center gap-2">
+            <div className="relative size-24">
+              <svg
+                className="absolute inset-0 -rotate-90"
+                width="96"
+                height="96"
+                viewBox="0 0 96 96"
+                aria-hidden="true"
+              >
+                <circle
+                  cx="48"
+                  cy="48"
+                  r={circleR}
+                  fill="none"
+                  strokeWidth="6"
+                  stroke="currentColor"
+                  className="text-muted-foreground/20"
+                />
+                <circle
+                  cx="48"
+                  cy="48"
+                  r={circleR}
+                  fill="none"
+                  strokeWidth="6"
+                  strokeLinecap="round"
+                  strokeDasharray={circleCircumference}
+                  strokeDashoffset={circleDashOffset}
+                  stroke="currentColor"
+                  className={pct === 100 ? 'text-brand-mint' : 'text-primary'}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
+                <span className="font-mono text-lg font-semibold tabular-nums text-foreground">
+                  {pct}%
+                </span>
+                <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
+                  complete
+                </span>
+              </div>
+            </div>
+            <p className="font-mono text-[11px] tabular-nums text-muted-foreground">
+              {student.complete}/{student.total} on file
+            </p>
           </div>
-        </div>
-
-        {/* Inline progress bar. */}
-        <div className="flex items-center gap-3">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-            <div
-              className={`h-full ${pct === 100 ? 'bg-brand-mint' : 'bg-primary'}`}
-              style={{ width: `${pct}%`, transition: 'width 0.4s ease' }}
-            />
-          </div>
-          <span className="font-mono text-[11px] font-semibold tabular-nums text-muted-foreground">
-            {pct}%
-          </span>
         </div>
       </header>
 
@@ -299,8 +332,8 @@ export default async function StudentDocumentDetailPage({
         </Alert>
       )}
 
-      {/* ── Operational row — Action queue + Family/STP ─────────────── */}
-      <section className="grid gap-4 lg:grid-cols-3">
+      {/* ── Operational row — Action queue + Family contact ──────────── */}
+      <section className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <ActionQueueCard
             enroleeNumber={enroleeNumber}

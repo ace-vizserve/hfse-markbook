@@ -57,7 +57,17 @@ export async function POST(request: NextRequest) {
     context: { termId, startDate, endDate, label, category, audience, tentative },
   });
 
-  invalidateDrillTags('attendance', await requireCurrentAyCode(service));
+  // Calendar events are shared infrastructure: attendance reads day-type
+  // overlays + term_exam/term_break/etc. for grid annotations; evaluation
+  // reads PTC events (KD #76 + the PTC resolver) for adviser/registrar
+  // deadline awareness. Bust both module caches on every mutation so the
+  // 60s priority panel TTL doesn't strand stale dates after the registrar
+  // moves an event.
+  {
+    const ayCode = await requireCurrentAyCode(service);
+    invalidateDrillTags('attendance', ayCode);
+    invalidateDrillTags('evaluation', ayCode);
+  }
 
   return NextResponse.json({ ok: true, id: data.id });
 }
@@ -108,7 +118,17 @@ export async function PATCH(request: NextRequest) {
     context: { id, ...fields },
   });
 
-  invalidateDrillTags('attendance', await requireCurrentAyCode(service));
+  // Calendar events are shared infrastructure: attendance reads day-type
+  // overlays + term_exam/term_break/etc. for grid annotations; evaluation
+  // reads PTC events (KD #76 + the PTC resolver) for adviser/registrar
+  // deadline awareness. Bust both module caches on every mutation so the
+  // 60s priority panel TTL doesn't strand stale dates after the registrar
+  // moves an event.
+  {
+    const ayCode = await requireCurrentAyCode(service);
+    invalidateDrillTags('attendance', ayCode);
+    invalidateDrillTags('evaluation', ayCode);
+  }
 
   return NextResponse.json({ ok: true });
 }
@@ -136,7 +156,17 @@ export async function DELETE(request: NextRequest) {
     context: {},
   });
 
-  invalidateDrillTags('attendance', await requireCurrentAyCode(service));
+  // Calendar events are shared infrastructure: attendance reads day-type
+  // overlays + term_exam/term_break/etc. for grid annotations; evaluation
+  // reads PTC events (KD #76 + the PTC resolver) for adviser/registrar
+  // deadline awareness. Bust both module caches on every mutation so the
+  // 60s priority panel TTL doesn't strand stale dates after the registrar
+  // moves an event.
+  {
+    const ayCode = await requireCurrentAyCode(service);
+    invalidateDrillTags('attendance', ayCode);
+    invalidateDrillTags('evaluation', ayCode);
+  }
 
   return NextResponse.json({ ok: true });
 }

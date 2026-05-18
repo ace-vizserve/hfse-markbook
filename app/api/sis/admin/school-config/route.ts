@@ -29,7 +29,7 @@ export async function PATCH(request: NextRequest) {
   const { data: before, error: loadErr } = await service
     .from('school_config')
     .select(
-      'principal_name, ceo_name, pei_registration_number, default_publish_window_days, default_compassionate_allowance_per_year, default_vl_allowance_per_term, subject_award_bronze_min, subject_award_silver_min, subject_award_gold_min, subject_award_max',
+      'principal_name, ceo_name, pei_registration_number, default_publish_window_days, default_compassionate_allowance_per_year, default_vl_allowance_per_term, subject_award_bronze_min, subject_award_silver_min, subject_award_gold_min, subject_award_max, organization_name, address_line_1, address_line_2, phone_number, website_url, contact_email, pei_registration_start_date, pei_registration_end_date, logo_url',
     )
     .eq('id', 1)
     .maybeSingle();
@@ -57,6 +57,16 @@ export async function PATCH(request: NextRequest) {
     ['subjectAwardSilverMin', 'subject_award_silver_min'],
     ['subjectAwardGoldMin', 'subject_award_gold_min'],
     ['subjectAwardMax', 'subject_award_max'],
+    // Letterhead fields (migration 054)
+    ['organizationName', 'organization_name'],
+    ['addressLine1', 'address_line_1'],
+    ['addressLine2', 'address_line_2'],
+    ['phoneNumber', 'phone_number'],
+    ['websiteUrl', 'website_url'],
+    ['contactEmail', 'contact_email'],
+    ['peiRegistrationStartDate', 'pei_registration_start_date'],
+    ['peiRegistrationEndDate', 'pei_registration_end_date'],
+    ['logoUrl', 'logo_url'],
   ];
 
   // Cross-field ordering check before write — mirrors the DB CHECK in

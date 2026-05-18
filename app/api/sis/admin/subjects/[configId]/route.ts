@@ -18,7 +18,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ configId: string }> },
 ) {
-  const auth = await requireRole(['superadmin']);
+  const auth = await requireRole(['school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const { configId } = await params;
@@ -62,6 +62,19 @@ export async function PATCH(
     .eq('id', configId);
   if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 });
 
+  // Sync all unlocked grading sheets that reference this config. Weights are
+  // read at render time (no sync needed), but ww_max_slots / pt_max_slots /
+  // qa_max are denormalized at sheet-creation time and must be propagated.
+  // Locked sheets are never touched per Hard Rule #5.
+  const { data: syncResult, error: syncErr } = await service.rpc(
+    'sync_grading_sheets_from_config',
+    { p_config_id: configId },
+  );
+  if (syncErr) {
+    // Log and proceed — the config update succeeded; the sync is best-effort.
+    console.error('[subject_config patch] sheet sync failed:', syncErr.message);
+  }
+
   await logAction({
     service,
     actor: { id: auth.user.id, email: auth.user.email ?? null },
@@ -88,6 +101,7 @@ export async function PATCH(
         pt_max_slots,
         qa_max,
       },
+      sheets_synced: (syncResult as { updated_sheets?: number } | null)?.updated_sheets ?? 0,
     },
   });
 

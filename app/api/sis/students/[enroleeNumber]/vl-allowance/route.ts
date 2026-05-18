@@ -1,3 +1,4 @@
+import { revalidateTag } from 'next/cache';
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { requireCurrentAyCode } from '@/lib/academic-year';
@@ -99,6 +100,7 @@ export async function PATCH(
     },
   });
 
+  revalidateTag(`sis:${ayCode}`, 'max');
   invalidateDrillTags('attendance', ayCode);
 
   return NextResponse.json({ ok: true, changed: true, vlAllowance });

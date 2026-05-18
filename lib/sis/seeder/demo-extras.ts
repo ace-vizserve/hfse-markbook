@@ -1,59 +1,22 @@
+// Currently unused — will be revived alongside the populated seeder rewrite.
+// Do not call until section_students / grades / attendance are seeded again.
+
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { hashString, mulberry32, prefixFor } from './random';
 
-// Demo-extras seeder. Layered on top of seedPopulated() to fill the
-// dashboard charts + KPIs that the existing seeder leaves thin. Targeted
-// at the 1-hour CEO/user demo where the focus is "do dashboards look like
-// real production usage."
+// Demo-extras seeder. Layered on top of seedPopulated() to seed the
+// school calendar: typed events + audience overrides + tentative flags.
 //
-// Nine passes, all idempotent (skip-guarded by an existence count):
-//   1. seedPublicationsExpanded   — 3 published report-card windows across T1+T2
-//   2. seedParentAccounts         — 5 parent auth.users tied to enrolled emails
-//   3. seedPFileLifecycle         — outreach rows + 60d/90d expiry buckets
-//   4. seedEvaluationLifecycle    — T1 closed / T2 open / T2 partial writeups + PTC
-//   5. seedCalendarEnhancements   — typed events + audience overrides + tentative
-//   6. seedEnrollmentStatusMix    — flips a few rows to late_enrollee + withdrawn
-//                                   so PP6's caption + PP9's "withdrawn at the
-//                                   bottom" + KD #68's late-enrollee term suffix
-//                                   all have data to render against.
-//   7. seedVacationLeaveEntries   — flips ~1 attendance entry per student in one
-//                                   target section to EX:vacation in T1 so the
-//                                   VacationLeaveQuotaCard has data (KD #94).
-//   8. seedEvaluationTopics       — 6 checklist topics for one (section × subject
-//                                   × term) so the topic manager + roster grid
-//                                   have data to render (KD #92 / #93).
-//   9. seedEvaluationRatings      — 1-5 rating per student per topic for the
-//                                   topics seeded in pass 8 so the per-topic
-//                                   1-5 RatingSelector demo lights up (KD #92).
-//
-// `seedChangeRequests` is intentionally NOT invoked from this orchestrator
-// (the function still exists in this file for future re-enablement). The
-// auto-generated CRs created field/reason combinations that didn't always
-// align with the realistic teacher workflow we want to demo, so the demo
-// flow now has the presenter file a fresh CR live, then approve it,
-// rather than relying on pre-seeded rows.
+// One pass, idempotent (skip-guarded by an existence count):
+//   1. seedCalendarEnhancements — typed events + audience overrides + tentative
 //
 // All passes use service-role + skip-guards so re-running on a partially
-// seeded AY9999 is safe (no duplicate inserts, no failed unique-key
-// errors).
+// seeded AY9999 is safe (no duplicate inserts, no failed unique-key errors).
 
 export type DemoExtrasResult = {
-  publications_extra: number;
-  parent_accounts: number;
-  pfile_outreach: number;
-  pfile_expiry_updates: number;
-  evaluation_terms: number;
-  evaluation_writeups_t2: number;
-  evaluation_ptc_feedback: number;
   calendar_events_extra: number;
   school_calendar_audience_overrides: number;
-  late_enrollees_flipped: number;
-  withdrawals_flipped: number;
-  change_requests_inserted: number;
-  vacation_leave_entries: number;
-  evaluation_topics: number;
-  evaluation_ratings: number;
 };
 
 export async function seedDemoExtras(
@@ -61,44 +24,13 @@ export async function seedDemoExtras(
   testAy: { id: string; ay_code: string },
 ): Promise<DemoExtrasResult> {
   const result: DemoExtrasResult = {
-    publications_extra: 0,
-    parent_accounts: 0,
-    pfile_outreach: 0,
-    pfile_expiry_updates: 0,
-    evaluation_terms: 0,
-    evaluation_writeups_t2: 0,
-    evaluation_ptc_feedback: 0,
     calendar_events_extra: 0,
     school_calendar_audience_overrides: 0,
-    late_enrollees_flipped: 0,
-    withdrawals_flipped: 0,
-    change_requests_inserted: 0,
-    vacation_leave_entries: 0,
-    evaluation_topics: 0,
-    evaluation_ratings: 0,
   };
 
-  result.publications_extra = await seedPublicationsExpanded(service, testAy);
-  result.parent_accounts = await seedParentAccounts(service, testAy);
-  const pf = await seedPFileLifecycle(service, testAy);
-  result.pfile_outreach = pf.outreach;
-  result.pfile_expiry_updates = pf.expiryUpdates;
-  const ev = await seedEvaluationLifecycle(service, testAy);
-  result.evaluation_terms = ev.terms;
-  result.evaluation_writeups_t2 = ev.writeupsT2;
-  result.evaluation_ptc_feedback = ev.ptc;
   const cal = await seedCalendarEnhancements(service, testAy);
   result.calendar_events_extra = cal.events;
   result.school_calendar_audience_overrides = cal.audienceOverrides;
-  const enr = await seedEnrollmentStatusMix(service, testAy);
-  result.late_enrollees_flipped = enr.late;
-  result.withdrawals_flipped = enr.withdrawn;
-  // seedChangeRequests intentionally not invoked — see header comment.
-  // The presenter files + approves a CR live during the demo instead.
-  result.vacation_leave_entries = await seedVacationLeaveEntries(service, testAy);
-  const evTopics = await seedEvaluationTopics(service, testAy);
-  result.evaluation_topics = evTopics.topics;
-  result.evaluation_ratings = await seedEvaluationRatings(service, testAy, evTopics);
 
   return result;
 }
@@ -482,7 +414,7 @@ async function seedEvaluationLifecycle(
           .limit(10);
         const students = ((enrolments ?? []) as Array<{ student_id: string }>);
         // ~30% of the section gets a partial writeup.
-        const targetCount = Math.max(1, Math.floor(students.length * 0.3));
+        const targetCount = Math.min(students.length, Math.max(1, Math.floor(students.length * 0.3)));
         for (let i = 0; i < targetCount; i++) {
           const tmpl = T2_TEMPLATES[Math.floor(rand() * T2_TEMPLATES.length)];
           writeupRows.push({
@@ -540,7 +472,7 @@ async function seedEvaluationLifecycle(
         .limit(5);
       const students = ((enrolments ?? []) as Array<{ student_id: string }>);
       // ~half the section has a PTC note recorded.
-      const targetCount = Math.max(1, Math.floor(students.length * 0.5));
+      const targetCount = Math.min(students.length, Math.max(1, Math.floor(students.length * 0.5)));
       for (let i = 0; i < targetCount; i++) {
         ptcRows.push({
           term_id: t1.id,

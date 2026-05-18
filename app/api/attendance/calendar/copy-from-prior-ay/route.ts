@@ -118,7 +118,13 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  invalidateDrillTags('attendance', await requireCurrentAyCode(service));
+  // Cross-cutting: copy-from-prior-AY may bring PTC events with it, so bust
+  // the evaluation cache too. Same rationale as the events route.
+  {
+    const ayCode = await requireCurrentAyCode(service);
+    invalidateDrillTags('attendance', ayCode);
+    invalidateDrillTags('evaluation', ayCode);
+  }
 
   return NextResponse.json({ ok: true, dayTypeRowsCopied, eventsCopied });
 }

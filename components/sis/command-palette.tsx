@@ -120,12 +120,19 @@ const NAV_ENTRIES: NavEntry[] = [
   { href: "/", label: "Home — Module picker", group: "Modules", icon: HomeIcon },
   { href: "/admissions", label: "Admissions — Dashboard", group: "Modules", icon: InboxIcon },
   { href: "/admissions/applications", label: "Admissions — Applications", group: "Modules", icon: FileTextIcon },
+  { href: "/admissions/upcoming/applications", label: "Admissions — Upcoming AY Applications", group: "Modules", icon: InboxIcon },
+  { href: "/admissions/document-validation", label: "Admissions — Document Validation Queue", group: "Modules", icon: ClipboardListIcon },
   { href: "/records", label: "Records — Dashboard", group: "Modules", icon: UsersIcon },
   { href: "/records/students", label: "Records — Students", group: "Modules", icon: UsersIcon },
+  { href: "/records/movements", label: "Records — Enrolment Movements", group: "Modules", icon: UsersIcon },
+  { href: "/records/unsynced", label: "Records — Unsynced Students", group: "Modules", icon: UserIcon },
   { href: "/p-files", label: "P-Files — Dashboard", group: "Modules", icon: FileTextIcon },
   { href: "/markbook", label: "Markbook — Dashboard", group: "Modules", icon: GraduationCapIcon },
   { href: "/markbook/grading", label: "Markbook — Grading", group: "Modules", icon: GraduationCapIcon },
   { href: "/markbook/report-cards", label: "Markbook — Report Cards", group: "Modules", icon: FileTextIcon },
+  { href: "/markbook/masterfile", label: "Markbook — Masterfile", group: "Modules", icon: FileTextIcon },
+  { href: "/markbook/change-requests", label: "Markbook — Change Requests", group: "Modules", icon: InboxIcon },
+  { href: "/markbook/audit-log", label: "Markbook — Audit Log", group: "Modules", icon: ClipboardListIcon },
   { href: "/attendance", label: "Attendance — Dashboard", group: "Modules", icon: ClipboardListIcon },
   { href: "/attendance/sections", label: "Attendance — Sections", group: "Modules", icon: UsersIcon },
   { href: "/evaluation", label: "Evaluation — Dashboard", group: "Modules", icon: SparklesIcon },
@@ -153,17 +160,27 @@ const NAV_ENTRIES: NavEntry[] = [
   { href: "/sis/calendar", label: "School Calendar", group: "Admin", icon: ClipboardListIcon },
   { href: "/sis/sections", label: "Sections", group: "Admin", icon: UsersIcon },
   { href: "/sis/ay-setup", label: "Academic Year Setup", group: "Admin", icon: Settings2Icon },
+  { href: "/sis/admin/template", label: "Class Template (Sections & Subjects)", group: "Admin", icon: GraduationCapIcon },
   { href: "/sis/admin/discount-codes", label: "Discount Codes", group: "Admin", icon: WalletIcon },
   { href: "/sis/admin/subjects", label: "Subject Weights", group: "Admin", icon: GraduationCapIcon },
+  { href: "/sis/admin/evaluation-checklists", label: "Evaluation Checklists", group: "Admin", icon: ClipboardListIcon },
+  { href: "/sis/admin/school-config", label: "School Config", group: "Admin", icon: Settings2Icon },
   { href: "/sis/admin/users", label: "Users", group: "Admin", icon: UsersIcon },
   { href: "/sis/admin/approvers", label: "Approvers", group: "Admin", icon: UsersIcon },
-  { href: "/sis/admin/school-config", label: "School Config", group: "Admin", icon: Settings2Icon },
   { href: "/sis/admin/settings", label: "System Settings (Test environment)", group: "Admin", icon: Settings2Icon },
   { href: "/sis/sync-students", label: "Sync from Admissions", group: "Admin", icon: UsersIcon },
 ];
 
 // Roles that can search students via /api/sis/search.
-const STUDENT_SEARCH_ROLES: Role[] = ["registrar", "school_admin", "superadmin"];
+// Teachers need it for student navigation; admissions officers need it for
+// finding applicants. The server route enforces the same list.
+const STUDENT_SEARCH_ROLES: Role[] = [
+  "teacher",
+  "admissions",
+  "registrar",
+  "school_admin",
+  "superadmin",
+];
 
 // API response shape (mirrors lib/sis/queries.ts::CrossAyMatch).
 type StudentMatch = {

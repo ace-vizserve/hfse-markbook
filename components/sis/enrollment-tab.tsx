@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import {
   AlertTriangle,
   ArrowRightLeft,
@@ -19,27 +18,21 @@ import {
   Users,
   X,
   type LucideIcon,
-} from 'lucide-react';
+} from "lucide-react";
+import Link from "next/link";
 
-import { EditStageDialog } from '@/components/sis/edit-stage-dialog';
-import { type Field } from '@/components/sis/field-grid';
-import { StageScrollLink } from '@/components/sis/stage-scroll-link';
-import { StageStatusBadge } from '@/components/sis/status-badge';
-import { Badge } from '@/components/ui/badge';
-import { StatusBadge } from '@/components/ui/status-badge';
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { ENROLLED_PREREQ_STAGES, type StageKey } from '@/lib/schemas/sis';
-import { isFieldEmpty } from '@/lib/sis/field-helpers';
-import type { ApplicationRow, StatusRow } from '@/lib/sis/queries';
-import { cn } from '@/lib/utils';
+import { EditStageDialog } from "@/components/sis/edit-stage-dialog";
+import { type Field } from "@/components/sis/field-grid";
+import { StageScrollLink } from "@/components/sis/stage-scroll-link";
+import { StageStatusBadge } from "@/components/sis/status-badge";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { ENROLLED_PREREQ_STAGES, type StageKey } from "@/lib/schemas/sis";
+import { isFieldEmpty } from "@/lib/sis/field-helpers";
+import type { ApplicationRow, StatusRow } from "@/lib/sis/queries";
+import { cn } from "@/lib/utils";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EnrollmentTab — STATUS UI (take 2: status-driven richness, no progress).
@@ -87,46 +80,46 @@ type StageCard = {
   extrasInitial: Record<string, string | null>;
 };
 
-type ApplicationTone = 'enrolled' | 'enrolledConditional' | 'cancelled' | 'withdrawn' | 'open';
+type ApplicationTone = "enrolled" | "enrolledConditional" | "cancelled" | "withdrawn" | "open";
 
 const APPLICATION_TILE: Record<
   ApplicationTone,
   { gradient: string; bandTint: string; bandBorder: string; icon: LucideIcon; label: string }
 > = {
   enrolled: {
-    gradient: 'from-brand-mint to-brand-sky',
-    bandTint: 'bg-brand-mint/10',
-    bandBorder: 'border-brand-mint/30',
+    gradient: "from-brand-mint to-brand-sky",
+    bandTint: "bg-brand-mint/10",
+    bandBorder: "border-brand-mint/30",
     icon: CheckCircle2,
-    label: 'Enrolled',
+    label: "Enrolled",
   },
   enrolledConditional: {
-    gradient: 'from-brand-amber to-brand-amber/80',
-    bandTint: 'bg-brand-amber/10',
-    bandBorder: 'border-brand-amber/40',
+    gradient: "from-brand-amber to-brand-amber/80",
+    bandTint: "bg-brand-amber/10",
+    bandBorder: "border-brand-amber/40",
     icon: ShieldCheck,
-    label: 'Enrolled (Conditional)',
+    label: "Enrolled (Conditional)",
   },
   cancelled: {
-    gradient: 'from-destructive to-destructive/80',
-    bandTint: 'bg-destructive/10',
-    bandBorder: 'border-destructive/30',
+    gradient: "from-destructive to-destructive/80",
+    bandTint: "bg-destructive/10",
+    bandBorder: "border-destructive/30",
     icon: X,
-    label: 'Cancelled',
+    label: "Cancelled",
   },
   withdrawn: {
-    gradient: 'from-destructive to-destructive/80',
-    bandTint: 'bg-destructive/10',
-    bandBorder: 'border-destructive/30',
+    gradient: "from-destructive to-destructive/80",
+    bandTint: "bg-destructive/10",
+    bandBorder: "border-destructive/30",
     icon: X,
-    label: 'Withdrawn',
+    label: "Withdrawn",
   },
   open: {
-    gradient: 'from-brand-indigo to-brand-navy',
-    bandTint: 'bg-muted/30',
-    bandBorder: 'border-hairline',
+    gradient: "from-brand-indigo to-brand-navy",
+    bandTint: "bg-muted/30",
+    bandBorder: "border-hairline",
     icon: ClipboardList,
-    label: 'In progress',
+    label: "In progress",
   },
 };
 
@@ -135,31 +128,25 @@ const APPLICATION_TILE: Record<
 // both answer the same question ("what state is this stage in?"). Status
 // values are the canonical set from STAGE_STATUS_OPTIONS in lib/schemas/sis.
 function statusStripeClass(status: string | null): string {
-  const s = (status ?? '').trim();
-  if (!s) return 'bg-border';
+  const s = (status ?? "").trim();
+  if (!s) return "bg-border";
   // Done — terminal-positive.
-  if (
-    /^(finished|verified|paid|signed|claimed|enrolled|enrolled \(conditional\))$/i.test(s)
-  ) {
-    return 'bg-brand-mint';
+  if (/^(finished|verified|paid|signed|claimed|enrolled|enrolled \(conditional\))$/i.test(s)) {
+    return "bg-brand-mint";
   }
   // Failed — terminal-negative.
   if (/^(cancelled|withdrawn|rejected|expired)$/i.test(s)) {
-    return 'bg-destructive/70';
+    return "bg-destructive/70";
   }
   // Pending — needs attention.
   if (/^(pending|unpaid|incomplete)$/i.test(s)) {
-    return 'bg-brand-amber';
+    return "bg-brand-amber";
   }
   // Active / in-flight.
-  if (
-    /^(submitted|ongoing verification|processing|ongoing assessment|generated|sent|invoiced|re-invoiced)$/i.test(
-      s,
-    )
-  ) {
-    return 'bg-brand-indigo';
+  if (/^(submitted|ongoing verification|processing|ongoing assessment|generated|sent|invoiced|re-invoiced)$/i.test(s)) {
+    return "bg-brand-indigo";
   }
-  return 'bg-border';
+  return "bg-border";
 }
 
 // Per-stage iconography. Used in the stage-tile's top-left gradient tile
@@ -179,10 +166,10 @@ const STAGE_ICON: Record<StageKey, LucideIcon> = {
 };
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-SG', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
+  return new Date(iso).toLocaleDateString("en-SG", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
   });
 }
 
@@ -193,17 +180,14 @@ function ExtrasChips({ fields }: { fields: Field[] }) {
     <div className="flex flex-wrap items-center gap-1.5">
       {nonEmpty.map((f) => {
         const value =
-          f.asDate && typeof f.value === 'string'
-            ? new Date(f.value).toLocaleDateString('en-SG', { day: '2-digit', month: 'short' })
-            : String(f.value ?? '—');
+          f.asDate && typeof f.value === "string"
+            ? new Date(f.value).toLocaleDateString("en-SG", { day: "2-digit", month: "short" })
+            : String(f.value ?? "—");
         return (
           <span
             key={f.label}
-            className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-muted/40 px-2 py-0.5 text-[11px] text-foreground"
-          >
-            <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
-              {f.label}
-            </span>
+            className="inline-flex items-center gap-1.5 rounded-md border border-hairline bg-muted/40 px-2 py-0.5 text-[11px] text-foreground">
+            <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-muted-foreground">{f.label}</span>
             <span className="font-medium tabular-nums">{value}</span>
           </span>
         );
@@ -225,10 +209,10 @@ function stageBucketCounts(stages: StageCard[]): {
   const counts = { total: stages.length, done: 0, pending: 0, failed: 0, active: 0, empty: 0 };
   for (const s of stages) {
     const stripe = statusStripeClass(s.status);
-    if (stripe === 'bg-brand-mint') counts.done += 1;
-    else if (stripe === 'bg-destructive/70') counts.failed += 1;
-    else if (stripe === 'bg-brand-amber') counts.pending += 1;
-    else if (stripe === 'bg-brand-indigo') counts.active += 1;
+    if (stripe === "bg-brand-mint") counts.done += 1;
+    else if (stripe === "bg-destructive/70") counts.failed += 1;
+    else if (stripe === "bg-brand-amber") counts.pending += 1;
+    else if (stripe === "bg-brand-indigo") counts.active += 1;
     else counts.empty += 1;
   }
   return counts;
@@ -236,41 +220,34 @@ function stageBucketCounts(stages: StageCard[]): {
 
 // ─── main component ─────────────────────────────────────────────────────────
 
-export function EnrollmentTab({
-  status,
-  app,
-  ayCode,
-  enroleeNumber,
-  statusFetchError,
-  currentSectionId,
-}: Props) {
+export function EnrollmentTab({ status, app, ayCode, enroleeNumber, statusFetchError, currentSectionId }: Props) {
   const s = status ?? ({} as StatusRow);
 
   const applicationCard: StageCard = {
-    key: 'application',
-    label: 'Application',
+    key: "application",
+    label: "Application",
     status: s.applicationStatus,
     remarks: s.applicationRemarks,
     updatedAt: s.applicationUpdatedDate,
     updatedBy: s.applicationUpdatedBy,
     extras: [
-      { label: 'Enrolment date', value: s.enrolmentDate, asDate: true },
-      { label: 'Enrolee type', value: s.enroleeType },
+      { label: "Enrolment date", value: s.enrolmentDate, asDate: true },
+      { label: "Enrolee type", value: s.enroleeType },
     ],
     extrasInitial: {},
   };
 
   const intakeCards: StageCard[] = [
     {
-      key: 'registration',
-      label: 'Registration',
+      key: "registration",
+      label: "Registration",
       status: s.registrationStatus,
       remarks: s.registrationRemarks,
       updatedAt: s.registrationUpdatedDate,
       updatedBy: s.registrationUpdatedBy,
       extras: [
-        { label: 'Invoice', value: s.registrationInvoice },
-        { label: 'Payment date', value: s.registrationPaymentDate, asDate: true },
+        { label: "Invoice", value: s.registrationInvoice },
+        { label: "Payment date", value: s.registrationPaymentDate, asDate: true },
       ],
       extrasInitial: {
         invoice: s.registrationInvoice,
@@ -278,8 +255,8 @@ export function EnrollmentTab({
       },
     },
     {
-      key: 'documents',
-      label: 'Documents',
+      key: "documents",
+      label: "Documents",
       status: s.documentStatus,
       remarks: s.documentRemarks,
       updatedAt: s.documentUpdatedDate,
@@ -287,17 +264,17 @@ export function EnrollmentTab({
       extrasInitial: {},
     },
     {
-      key: 'assessment',
-      label: 'Assessment',
+      key: "assessment",
+      label: "Assessment",
       status: s.assessmentStatus,
       remarks: s.assessmentRemarks,
       updatedAt: s.assessmentUpdatedDate,
       updatedBy: s.assessmentUpdatedBy,
       extras: [
-        { label: 'Schedule', value: s.assessmentSchedule, asDate: true },
-        { label: 'Math', value: s.assessmentGradeMath as string | number | null },
-        { label: 'English', value: s.assessmentGradeEnglish as string | number | null },
-        { label: 'Medical', value: s.assessmentMedical },
+        { label: "Schedule", value: s.assessmentSchedule, asDate: true },
+        { label: "Math", value: s.assessmentGradeMath as string | number | null },
+        { label: "English", value: s.assessmentGradeEnglish as string | number | null },
+        { label: "Medical", value: s.assessmentMedical },
       ],
       extrasInitial: {
         schedule: s.assessmentSchedule,
@@ -310,8 +287,8 @@ export function EnrollmentTab({
 
   const commitmentsCards: StageCard[] = [
     {
-      key: 'contract',
-      label: 'Contract',
+      key: "contract",
+      label: "Contract",
       status: s.contractStatus,
       remarks: s.contractRemarks,
       updatedAt: s.contractUpdatedDate,
@@ -319,16 +296,16 @@ export function EnrollmentTab({
       extrasInitial: {},
     },
     {
-      key: 'fees',
-      label: 'Fees',
+      key: "fees",
+      label: "Fees",
       status: s.feeStatus,
       remarks: s.feeRemarks,
       updatedAt: s.feeUpdatedDate,
       updatedBy: s.feeUpdatedBy,
       extras: [
-        { label: 'Invoice', value: s.feeInvoice },
-        { label: 'Payment date', value: s.feePaymentDate, asDate: true },
-        { label: 'Start date', value: s.feeStartDate, asDate: true },
+        { label: "Invoice", value: s.feeInvoice },
+        { label: "Payment date", value: s.feePaymentDate, asDate: true },
+        { label: "Start date", value: s.feeStartDate, asDate: true },
       ],
       extrasInitial: {
         invoice: s.feeInvoice,
@@ -340,16 +317,16 @@ export function EnrollmentTab({
 
   const placementCards: StageCard[] = [
     {
-      key: 'class',
-      label: 'Class assignment',
+      key: "class",
+      label: "Class assignment",
       status: s.classStatus,
       remarks: s.classRemarks,
       updatedAt: s.classUpdatedDate,
       updatedBy: s.classUpdatedBy,
       extras: [
-        { label: 'Class AY', value: s.classAY },
-        { label: 'Level', value: s.classLevel },
-        { label: 'Section', value: s.classSection },
+        { label: "Class AY", value: s.classAY },
+        { label: "Level", value: s.classLevel },
+        { label: "Section", value: s.classSection },
       ],
       extrasInitial: {
         classAY: s.classAY,
@@ -358,38 +335,38 @@ export function EnrollmentTab({
       },
     },
     {
-      key: 'supplies',
-      label: 'Supplies',
+      key: "supplies",
+      label: "Supplies",
       status: s.suppliesStatus,
       remarks: s.suppliesRemarks,
       updatedAt: s.suppliesUpdatedDate,
       updatedBy: s.suppliesUpdatedBy,
-      extras: [{ label: 'Claimed date', value: s.suppliesClaimedDate, asDate: true }],
+      extras: [{ label: "Claimed date", value: s.suppliesClaimedDate, asDate: true }],
       extrasInitial: { claimedDate: s.suppliesClaimedDate },
     },
     {
-      key: 'orientation',
-      label: 'Orientation',
+      key: "orientation",
+      label: "Orientation",
       status: s.orientationStatus,
       remarks: s.orientationRemarks,
       updatedAt: s.orientationUpdatedDate,
       updatedBy: s.orientationUpdatedBy,
-      extras: [{ label: 'Schedule', value: s.orientationScheduleDate, asDate: true }],
+      extras: [{ label: "Schedule", value: s.orientationScheduleDate, asDate: true }],
       extrasInitial: { scheduleDate: s.orientationScheduleDate },
     },
   ];
 
   const applicationStatus = s.applicationStatus ?? null;
   const applicationTone: ApplicationTone =
-    applicationStatus === 'Enrolled'
-      ? 'enrolled'
-      : applicationStatus === 'Enrolled (Conditional)'
-        ? 'enrolledConditional'
-        : applicationStatus === 'Cancelled'
-          ? 'cancelled'
-          : applicationStatus === 'Withdrawn'
-            ? 'withdrawn'
-            : 'open';
+    applicationStatus === "Enrolled"
+      ? "enrolled"
+      : applicationStatus === "Enrolled (Conditional)"
+        ? "enrolledConditional"
+        : applicationStatus === "Cancelled"
+          ? "cancelled"
+          : applicationStatus === "Withdrawn"
+            ? "withdrawn"
+            : "open";
 
   return (
     <div className="space-y-5">
@@ -399,10 +376,10 @@ export function EnrollmentTab({
           <div className="space-y-1 text-xs leading-relaxed">
             <p className="font-medium text-foreground">Status row lookup returned an error.</p>
             <p className="text-muted-foreground">
-              This usually means multiple rows exist in{' '}
-              <code className="font-mono">{ayCode.toLowerCase()}_enrolment_status</code> for this
-              enrolee — the schema allows duplicates. Status fields below may not reflect reality;
-              contact an engineer to dedupe before editing.
+              This usually means multiple rows exist in{" "}
+              <code className="font-mono">{ayCode.toLowerCase()}_enrolment_status</code> for this enrolee — the schema
+              allows duplicates. Status fields below may not reflect reality; contact an engineer to dedupe before
+              editing.
             </p>
           </div>
         </div>
@@ -525,17 +502,9 @@ function StageProgressCard({
 
       {/* Journey rails */}
       <CardContent className="space-y-5 px-5 py-5">
-        <JourneyRail
-          eyebrow="Required for Enrolled"
-          stages={prereqStages}
-          variant="prereq"
-        />
+        <JourneyRail eyebrow="Required for Enrolled" stages={prereqStages} variant="prereq" />
         <div className="border-t border-hairline" />
-        <JourneyRail
-          eyebrow="Post-enrollment"
-          stages={postEnrolStages}
-          variant="postEnrol"
-        />
+        <JourneyRail eyebrow="Post-enrollment" stages={postEnrolStages} variant="postEnrol" />
       </CardContent>
     </Card>
   );
@@ -563,14 +532,12 @@ function ApplicationStatusCard({
 }) {
   const tile = APPLICATION_TILE[applicationTone];
   const TileIcon = tile.icon;
-  const isEnrolled =
-    applicationTone === 'enrolled' || applicationTone === 'enrolledConditional';
-  const classChip =
-    isEnrolled && s.classLevel && s.classSection ? `${s.classLevel} · ${s.classSection}` : null;
+  const isEnrolled = applicationTone === "enrolled" || applicationTone === "enrolledConditional";
+  const classChip = isEnrolled && s.classLevel && s.classSection ? `${s.classLevel} · ${s.classSection}` : null;
 
   return (
     <Card className="gap-0 overflow-hidden p-0">
-      <CardHeader className={cn('border-b px-5 py-4', tile.bandBorder)}>
+      <CardHeader className={cn("border-b px-5 py-4", tile.bandBorder)}>
         <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
           Application status
         </CardDescription>
@@ -580,31 +547,27 @@ function ApplicationStatusCard({
         <CardAction>
           <div
             className={cn(
-              'flex size-10 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-brand-tile',
+              "flex size-10 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-brand-tile",
               tile.gradient,
             )}>
             <TileIcon className="size-5" />
           </div>
         </CardAction>
       </CardHeader>
-      <CardContent className={cn('space-y-3 px-5 py-4', tile.bandTint)}>
+      <CardContent className={cn("space-y-3 px-5 py-4", tile.bandTint)}>
         <div className="flex flex-wrap items-center gap-4 rounded-xl border border-hairline bg-gradient-to-t from-primary/5 to-card p-4 shadow-xs">
           <div
             className={cn(
-              'flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-brand-tile',
+              "flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-brand-tile",
               tile.gradient,
             )}>
             <TileIcon className="size-6" />
           </div>
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex flex-wrap items-baseline gap-2">
-              <p className="font-serif text-base font-semibold leading-snug text-foreground">
-                {tile.label}
-              </p>
+              <p className="font-serif text-base font-semibold leading-snug text-foreground">{tile.label}</p>
               {classChip && (
-                <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-                  · {classChip}
-                </span>
+                <span className="font-mono text-[11px] tabular-nums text-muted-foreground">· {classChip}</span>
               )}
               {isEnrolled && !classChip && (
                 <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -616,9 +579,7 @@ function ApplicationStatusCard({
               <p className="font-mono text-[10px] uppercase tracking-wider tabular-nums text-muted-foreground">
                 Updated {formatDate(applicationCard.updatedAt)}
                 {applicationCard.updatedBy && (
-                  <span className="ml-1.5 normal-case text-muted-foreground/80">
-                    by {applicationCard.updatedBy}
-                  </span>
+                  <span className="ml-1.5 normal-case text-muted-foreground/80">by {applicationCard.updatedBy}</span>
                 )}
               </p>
             )}
@@ -651,26 +612,20 @@ function ApplicationStatusCard({
 // Stage status → visual tone discriminator. Five buckets matching
 // `statusStripeClass` regex groups so the disc recipes stay in lockstep
 // with the §9.3 tone vocabulary used elsewhere on this page.
-type StageTone = 'done' | 'failed' | 'pending' | 'active' | 'empty';
+type StageTone = "done" | "failed" | "pending" | "active" | "empty";
 
 function stageTone(status: string | null): StageTone {
-  const s = (status ?? '').trim();
-  if (!s) return 'empty';
-  if (
-    /^(finished|verified|paid|signed|claimed|enrolled|enrolled \(conditional\))$/i.test(s)
-  ) {
-    return 'done';
+  const s = (status ?? "").trim();
+  if (!s) return "empty";
+  if (/^(finished|verified|paid|signed|claimed|enrolled|enrolled \(conditional\))$/i.test(s)) {
+    return "done";
   }
-  if (/^(cancelled|withdrawn|rejected|expired)$/i.test(s)) return 'failed';
-  if (/^(pending|unpaid|incomplete)$/i.test(s)) return 'pending';
-  if (
-    /^(submitted|ongoing verification|processing|ongoing assessment|generated|sent|invoiced|re-invoiced)$/i.test(
-      s,
-    )
-  ) {
-    return 'active';
+  if (/^(cancelled|withdrawn|rejected|expired)$/i.test(s)) return "failed";
+  if (/^(pending|unpaid|incomplete)$/i.test(s)) return "pending";
+  if (/^(submitted|ongoing verification|processing|ongoing assessment|generated|sent|invoiced|re-invoiced)$/i.test(s)) {
+    return "active";
   }
-  return 'empty';
+  return "empty";
 }
 
 // Per-tone visual recipe for stepper discs. Done discs earn the project
@@ -687,29 +642,29 @@ const STAGE_DISC_RECIPE: Record<
   }
 > = {
   done: {
-    discBg: 'bg-gradient-to-br from-brand-mint to-brand-sky shadow-brand-tile-mint',
-    discIcon: 'text-white',
-    statusText: 'text-brand-mint',
+    discBg: "bg-gradient-to-br from-brand-mint to-brand-sky shadow-brand-tile-mint",
+    discIcon: "text-white",
+    statusText: "text-brand-mint",
   },
   failed: {
-    discBg: 'bg-gradient-to-br from-destructive to-destructive/80 shadow-brand-tile-destructive',
-    discIcon: 'text-white',
-    statusText: 'text-destructive',
+    discBg: "bg-gradient-to-br from-destructive to-destructive/80 shadow-brand-tile-destructive",
+    discIcon: "text-white",
+    statusText: "text-destructive",
   },
   pending: {
-    discBg: 'bg-gradient-to-br from-brand-amber to-brand-amber/80 shadow-brand-tile-amber',
-    discIcon: 'text-white',
-    statusText: 'text-brand-amber',
+    discBg: "bg-gradient-to-br from-brand-amber to-brand-amber/80 shadow-brand-tile-amber",
+    discIcon: "text-white",
+    statusText: "text-brand-amber",
   },
   active: {
-    discBg: 'bg-gradient-to-br from-brand-indigo to-brand-navy shadow-brand-tile',
-    discIcon: 'text-white',
-    statusText: 'text-brand-indigo',
+    discBg: "bg-gradient-to-br from-brand-indigo to-brand-navy shadow-brand-tile",
+    discIcon: "text-white",
+    statusText: "text-brand-indigo",
   },
   empty: {
-    discBg: 'border-2 border-hairline bg-card',
-    discIcon: 'text-muted-foreground',
-    statusText: 'text-muted-foreground',
+    discBg: "border-2 border-hairline bg-card",
+    discIcon: "text-muted-foreground",
+    statusText: "text-muted-foreground",
   },
 };
 
@@ -717,30 +672,28 @@ const STAGE_DISC_RECIPE: Record<
 // of the §9.3 status pill tones — gives the registrar the at-a-glance
 // "ready / not yet" answer that the disc row can't carry on its own.
 type RollupReadiness =
-  | { tone: 'healthy'; label: string }
-  | { tone: 'warning'; label: string }
-  | { tone: 'locked'; label: string }
-  | { tone: 'info'; label: string }
-  | { tone: 'muted'; label: string };
+  | { tone: "healthy"; label: string }
+  | { tone: "warning"; label: string }
+  | { tone: "locked"; label: string }
+  | { tone: "info"; label: string }
+  | { tone: "muted"; label: string };
 
 function readinessForPrereq(counts: ReturnType<typeof stageBucketCounts>): RollupReadiness {
-  if (counts.total === 0) return { tone: 'muted', label: 'No prereqs' };
-  if (counts.done === counts.total) return { tone: 'healthy', label: 'Ready for Enrolled' };
-  if (counts.failed > 0) return { tone: 'locked', label: `${counts.failed} cancelled` };
+  if (counts.total === 0) return { tone: "muted", label: "No prereqs" };
+  if (counts.done === counts.total) return { tone: "healthy", label: "Ready for Enrolled" };
+  if (counts.failed > 0) return { tone: "locked", label: `${counts.failed} cancelled` };
   const remaining = counts.total - counts.done;
-  return { tone: 'warning', label: `${remaining} to complete` };
+  return { tone: "warning", label: `${remaining} to complete` };
 }
 
-function readinessForPostEnrol(
-  counts: ReturnType<typeof stageBucketCounts>,
-): RollupReadiness {
-  if (counts.total === 0) return { tone: 'muted', label: 'Not applicable' };
-  if (counts.done === counts.total) return { tone: 'healthy', label: 'All done' };
+function readinessForPostEnrol(counts: ReturnType<typeof stageBucketCounts>): RollupReadiness {
+  if (counts.total === 0) return { tone: "muted", label: "Not applicable" };
+  if (counts.done === counts.total) return { tone: "healthy", label: "All done" };
   if (counts.done === 0 && counts.active === 0) {
-    return { tone: 'muted', label: 'Activates after Enrolled' };
+    return { tone: "muted", label: "Activates after Enrolled" };
   }
-  if (counts.failed > 0) return { tone: 'locked', label: `${counts.failed} cancelled` };
-  return { tone: 'info', label: 'In progress' };
+  if (counts.failed > 0) return { tone: "locked", label: `${counts.failed} cancelled` };
+  return { tone: "info", label: "In progress" };
 }
 
 function JourneyRail({
@@ -750,11 +703,10 @@ function JourneyRail({
 }: {
   eyebrow: string;
   stages: StageCard[];
-  variant: 'prereq' | 'postEnrol';
+  variant: "prereq" | "postEnrol";
 }) {
   const counts = stageBucketCounts(stages);
-  const readiness =
-    variant === 'prereq' ? readinessForPrereq(counts) : readinessForPostEnrol(counts);
+  const readiness = variant === "prereq" ? readinessForPrereq(counts) : readinessForPostEnrol(counts);
 
   return (
     <section className="space-y-3">
@@ -806,8 +758,8 @@ function StageNode({
   // Connector logic: a segment is "complete" (mint) when BOTH flanking
   // nodes are in their terminal-done state. Anything else stays hairline
   // — don't lie about partial progress.
-  const leftSegmentDone = !isFirst && prevTone === 'done' && tone === 'done';
-  const rightSegmentDone = !isLast && nextTone === 'done' && tone === 'done';
+  const leftSegmentDone = !isFirst && prevTone === "done" && tone === "done";
+  const rightSegmentDone = !isLast && nextTone === "done" && tone === "done";
 
   return (
     <StageScrollLink
@@ -818,8 +770,8 @@ function StageNode({
         <span
           aria-hidden="true"
           className={cn(
-            'absolute left-0 right-[calc(50%+1.375rem)] top-[22px] h-0.5 -translate-y-1/2',
-            leftSegmentDone ? 'bg-brand-mint' : 'bg-hairline',
+            "absolute left-0 right-[calc(50%+1.375rem)] top-[22px] h-0.5 -translate-y-1/2",
+            leftSegmentDone ? "bg-brand-mint" : "bg-hairline",
           )}
         />
       )}
@@ -827,30 +779,28 @@ function StageNode({
         <span
           aria-hidden="true"
           className={cn(
-            'absolute left-[calc(50%+1.375rem)] right-0 top-[22px] h-0.5 -translate-y-1/2',
-            rightSegmentDone ? 'bg-brand-mint' : 'bg-hairline',
+            "absolute left-[calc(50%+1.375rem)] right-0 top-[22px] h-0.5 -translate-y-1/2",
+            rightSegmentDone ? "bg-brand-mint" : "bg-hairline",
           )}
         />
       )}
 
       <div
         className={cn(
-          'relative z-10 flex size-11 items-center justify-center rounded-full transition-colors',
+          "relative z-10 flex size-11 items-center justify-center rounded-full transition-colors",
           recipe.discBg,
           recipe.discIcon,
         )}>
         <Icon className="size-[18px]" />
       </div>
       <div className="w-full min-w-0 px-1 text-center">
-        <p className="truncate font-serif text-[12px] font-semibold leading-tight text-foreground">
-          {stage.label}
-        </p>
+        <p className="truncate font-serif text-[12px] font-semibold leading-tight text-foreground">{stage.label}</p>
         <p
           className={cn(
-            'mt-0.5 truncate font-mono text-[9px] font-semibold uppercase tracking-[0.12em] tabular-nums',
+            "mt-0.5 truncate font-mono text-[9px] font-semibold uppercase tracking-[0.12em] tabular-nums",
             recipe.statusText,
           )}>
-          {stage.status?.trim() || 'Not set'}
+          {stage.status?.trim() || "Not set"}
         </p>
       </div>
     </StageScrollLink>
@@ -895,9 +845,7 @@ function StatusGroupCard({
         <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
           {eyebrow}
         </CardDescription>
-        <CardTitle className="font-serif text-[22px] font-semibold tracking-tight text-foreground">
-          {title}
-        </CardTitle>
+        <CardTitle className="font-serif text-[22px] font-semibold tracking-tight text-foreground">{title}</CardTitle>
         <CardAction>
           <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
             <Icon className="size-5" />
@@ -906,13 +854,12 @@ function StatusGroupCard({
       </CardHeader>
       <div className="flex flex-wrap gap-x-4 gap-y-1 border-b border-border bg-muted/30 px-6 py-3">
         <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          {counts.total} {counts.total === 1 ? 'stage' : 'stages'}
+          {counts.total} {counts.total === 1 ? "stage" : "stages"}
         </span>
         {metaParts.map((part) => (
           <span
             key={part}
-            className="font-mono text-[10px] uppercase tracking-wider tabular-nums text-muted-foreground"
-          >
+            className="font-mono text-[10px] uppercase tracking-wider tabular-nums text-muted-foreground">
             · {part}
           </span>
         ))}
@@ -924,7 +871,7 @@ function StatusGroupCard({
             stage={stage}
             ayCode={ayCode}
             enroleeNumber={enroleeNumber}
-            currentSectionId={stage.key === 'class' ? currentSectionId : null}
+            currentSectionId={stage.key === "class" ? currentSectionId : null}
           />
         ))}
       </div>
@@ -951,13 +898,13 @@ function StageStatusTile({
   // applicationStatus flips to Enrolled. Post-Enrolled changes route
   // through the dedicated section-transfer endpoint (KD #67), not the
   // stage edit dialog. Hide the edit button here and label as auto.
-  const autoManaged = stage.key === 'class';
+  const autoManaged = stage.key === "class";
 
   return (
     <div
       id={`stage-${stage.key}`}
       className="group relative flex scroll-mt-24 flex-col gap-2.5 overflow-hidden rounded-xl border border-hairline bg-gradient-to-t from-primary/5 to-card p-4 shadow-xs transition-all duration-200 target:ring-2 target:ring-brand-mint hover:-translate-y-0.5 hover:shadow-md">
-      <span aria-hidden="true" className={cn('absolute inset-y-0 left-0 w-1', stripe)} />
+      <span aria-hidden="true" className={cn("absolute inset-y-0 left-0 w-1", stripe)} />
 
       <div className="flex items-start justify-between gap-2 pl-1">
         <div className="flex min-w-0 items-center gap-2.5">
@@ -991,11 +938,9 @@ function StageStatusTile({
 
       {stage.updatedAt ? (
         <span className="pl-1 font-mono text-[10px] uppercase tracking-wider tabular-nums text-muted-foreground">
-          {autoManaged && 'Auto-assigned · '}
+          {autoManaged && "Auto-assigned · "}
           {formatDate(stage.updatedAt)}
-          {stage.updatedBy && (
-            <span className="ml-1.5 normal-case text-muted-foreground/80">by {stage.updatedBy}</span>
-          )}
+          {stage.updatedBy && <span className="ml-1.5 normal-case text-muted-foreground/80">by {stage.updatedBy}</span>}
         </span>
       ) : autoManaged ? (
         <span className="pl-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -1027,31 +972,30 @@ function StageStatusTile({
 // ─── medical + billing ──────────────────────────────────────────────────────
 
 const MEDICAL_FLAGS: Array<{ key: keyof ApplicationRow; label: string }> = [
-  { key: 'allergies', label: 'Allergies' },
-  { key: 'foodAllergies', label: 'Food allergies' },
-  { key: 'asthma', label: 'Asthma' },
-  { key: 'heartConditions', label: 'Heart conditions' },
-  { key: 'epilepsy', label: 'Epilepsy' },
-  { key: 'diabetes', label: 'Diabetes' },
-  { key: 'eczema', label: 'Eczema' },
+  { key: "allergies", label: "Allergies" },
+  { key: "foodAllergies", label: "Food allergies" },
+  { key: "asthma", label: "Asthma" },
+  { key: "heartConditions", label: "Heart conditions" },
+  { key: "epilepsy", label: "Epilepsy" },
+  { key: "diabetes", label: "Diabetes" },
+  { key: "eczema", label: "Eczema" },
 ];
 
 const MEDICAL_DETAILS: Array<{ key: keyof ApplicationRow; label: string }> = [
-  { key: 'allergyDetails', label: 'Allergy details' },
-  { key: 'foodAllergyDetails', label: 'Food allergy details' },
-  { key: 'otherMedicalConditions', label: 'Other conditions' },
-  { key: 'dietaryRestrictions', label: 'Dietary restrictions' },
+  { key: "allergyDetails", label: "Allergy details" },
+  { key: "foodAllergyDetails", label: "Food allergy details" },
+  { key: "otherMedicalConditions", label: "Other conditions" },
+  { key: "dietaryRestrictions", label: "Dietary restrictions" },
 ];
 
 function MedicalCard({ app }: { app: ApplicationRow }) {
   const raisedFlags = MEDICAL_FLAGS.filter((f) => app[f.key] === true);
   const detailEntries = MEDICAL_DETAILS.filter((f) => {
     const v = app[f.key] as string | null | undefined;
-    return v !== null && v !== undefined && String(v).trim() !== '';
+    return v !== null && v !== undefined && String(v).trim() !== "";
   });
   const paracetamolConsent = app.paracetamolConsent;
-  const hasAnyContent =
-    raisedFlags.length > 0 || detailEntries.length > 0 || paracetamolConsent !== null;
+  const hasAnyContent = raisedFlags.length > 0 || detailEntries.length > 0 || paracetamolConsent !== null;
 
   return (
     <Card className="gap-0 overflow-hidden p-0">
@@ -1063,7 +1007,7 @@ function MedicalCard({ app }: { app: ApplicationRow }) {
           Medical
           {raisedFlags.length > 0 && (
             <Badge variant="warning">
-              {raisedFlags.length} flag{raisedFlags.length === 1 ? '' : 's'}
+              {raisedFlags.length} flag{raisedFlags.length === 1 ? "" : "s"}
             </Badge>
           )}
         </CardTitle>
@@ -1105,11 +1049,9 @@ function MedicalCard({ app }: { app: ApplicationRow }) {
             <dl className="space-y-3">
               {detailEntries.map((f) => (
                 <div key={String(f.key)}>
-                  <dt className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                    {f.label}
-                  </dt>
+                  <dt className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{f.label}</dt>
                   <dd className="mt-1 whitespace-pre-line text-sm leading-relaxed text-foreground">
-                    {String(app[f.key] ?? '')}
+                    {String(app[f.key] ?? "")}
                   </dd>
                 </div>
               ))}
@@ -1120,20 +1062,16 @@ function MedicalCard({ app }: { app: ApplicationRow }) {
         {paracetamolConsent !== null && (
           <div
             className={cn(
-              'flex items-center gap-2.5 rounded-lg border px-3 py-2 text-xs',
-              paracetamolConsent
-                ? 'border-brand-mint/50 bg-brand-mint/10'
-                : 'border-hairline bg-muted/20',
-            )}
-          >
+              "flex items-center gap-2.5 rounded-lg border px-3 py-2 text-xs",
+              paracetamolConsent ? "border-brand-mint/50 bg-brand-mint/10" : "border-hairline bg-muted/20",
+            )}>
             {paracetamolConsent ? (
               <CheckCircle2 className="size-3.5 shrink-0 text-brand-mint" />
             ) : (
               <X className="size-3.5 shrink-0 text-destructive" />
             )}
             <span className="text-foreground">
-              Paracetamol consent:{' '}
-              <span className="font-medium">{paracetamolConsent ? 'Granted' : 'Withheld'}</span>
+              Paracetamol consent: <span className="font-medium">{paracetamolConsent ? "Granted" : "Withheld"}</span>
             </span>
           </div>
         )}
@@ -1144,15 +1082,15 @@ function MedicalCard({ app }: { app: ApplicationRow }) {
 
 function BillingCard({ app }: { app: ApplicationRow }) {
   const discountSlots = [
-    { label: 'Discount 1', value: app.discount1 },
-    { label: 'Discount 2', value: app.discount2 },
-    { label: 'Discount 3', value: app.discount3 },
+    { label: "Discount 1", value: app.discount1 },
+    { label: "Discount 2", value: app.discount2 },
+    { label: "Discount 3", value: app.discount3 },
   ];
   const consents: Array<{ label: string; value: boolean | null }> = [
-    { label: 'Social media consent', value: app.socialMediaConsent ?? null },
-    { label: 'Feedback consent', value: app.feedbackConsent ?? null },
+    { label: "Social media consent", value: app.socialMediaConsent ?? null },
+    { label: "Feedback consent", value: app.feedbackConsent ?? null },
   ];
-  const activeDiscounts = discountSlots.filter((d) => d.value && String(d.value).trim() !== '');
+  const activeDiscounts = discountSlots.filter((d) => d.value && String(d.value).trim() !== "");
 
   return (
     <Card className="gap-0 overflow-hidden p-0">
@@ -1164,7 +1102,7 @@ function BillingCard({ app }: { app: ApplicationRow }) {
           Discounts &amp; consents
           {activeDiscounts.length > 0 && (
             <Badge variant="default">
-              {activeDiscounts.length} discount{activeDiscounts.length === 1 ? '' : 's'}
+              {activeDiscounts.length} discount{activeDiscounts.length === 1 ? "" : "s"}
             </Badge>
           )}
         </CardTitle>
@@ -1181,24 +1119,19 @@ function BillingCard({ app }: { app: ApplicationRow }) {
           </p>
           <ul className="space-y-1.5">
             {discountSlots.map((d) => {
-              const filled = !!d.value && String(d.value).trim() !== '';
+              const filled = !!d.value && String(d.value).trim() !== "";
               return (
                 <li
                   key={d.label}
                   className={cn(
-                    'flex items-center gap-2.5 rounded-md border px-3 py-2 text-xs',
-                    filled
-                      ? 'border-brand-indigo/30 bg-brand-indigo/5'
-                      : 'border-hairline bg-muted/20',
-                  )}
-                >
+                    "flex items-center gap-2.5 rounded-md border px-3 py-2 text-xs",
+                    filled ? "border-brand-indigo/30 bg-brand-indigo/5" : "border-hairline bg-muted/20",
+                  )}>
                   <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                     {d.label}
                   </span>
                   {filled ? (
-                    <span className="font-mono font-medium tabular-nums text-brand-indigo-deep">
-                      {String(d.value)}
-                    </span>
+                    <span className="font-mono font-medium tabular-nums text-brand-indigo-deep">{String(d.value)}</span>
                   ) : (
                     <span className="text-muted-foreground">Empty</span>
                   )}
@@ -1216,25 +1149,19 @@ function BillingCard({ app }: { app: ApplicationRow }) {
             {consents.map((c) => {
               const Icon = c.value === true ? CheckCircle2 : c.value === false ? X : Circle;
               const iconClass =
-                c.value === true
-                  ? 'text-brand-mint'
-                  : c.value === false
-                    ? 'text-destructive'
-                    : 'text-muted-foreground';
+                c.value === true ? "text-brand-mint" : c.value === false ? "text-destructive" : "text-muted-foreground";
               const bgClass =
                 c.value === true
-                  ? 'border-brand-mint/40 bg-brand-mint/10'
+                  ? "border-brand-mint/40 bg-brand-mint/10"
                   : c.value === false
-                    ? 'border-destructive/30 bg-destructive/5'
-                    : 'border-hairline bg-muted/20';
-              const valueLabel =
-                c.value === true ? 'Granted' : c.value === false ? 'Withheld' : 'Not answered';
+                    ? "border-destructive/30 bg-destructive/5"
+                    : "border-hairline bg-muted/20";
+              const valueLabel = c.value === true ? "Granted" : c.value === false ? "Withheld" : "Not answered";
               return (
                 <li
                   key={c.label}
-                  className={cn('flex items-center gap-2.5 rounded-md border px-3 py-2 text-xs', bgClass)}
-                >
-                  <Icon className={cn('size-3.5 shrink-0', iconClass)} />
+                  className={cn("flex items-center gap-2.5 rounded-md border px-3 py-2 text-xs", bgClass)}>
+                  <Icon className={cn("size-3.5 shrink-0", iconClass)} />
                   <span className="text-foreground">{c.label}</span>
                   <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                     {valueLabel}

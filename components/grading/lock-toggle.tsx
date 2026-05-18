@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2, Lock, LockOpen } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, Loader2, Lock, LockOpen } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -27,16 +28,37 @@ export function LockToggle({
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Surfaced after the server returns 409 because pending CRs exist; the
+  // dialog this state opens is the explicit break-glass override path.
+  const [pendingBlock, setPendingBlock] = useState<{ pendingCount: number } | null>(null);
+  const [deadlineBlock, setDeadlineBlock] = useState<{ termLabel: string; lockDate: string } | null>(null);
 
   const action: 'lock' | 'unlock' = isLocked ? 'unlock' : 'lock';
 
-  async function runToggle() {
+  async function runToggle(opts: { force?: boolean } = {}) {
     setBusy(true);
     try {
-      const res = await fetch(`/api/grading-sheets/${sheetId}/${action}`, { method: 'POST' });
+      const qs = opts.force ? '?force=true' : '';
+      const res = await fetch(`/api/grading-sheets/${sheetId}/${action}${qs}`, {
+        method: 'POST',
+      });
       const body = await res.json();
+      if (res.status === 409 && body?.error === 'grading_lock_date_passed') {
+        setDeadlineBlock({ termLabel: body.termLabel ?? 'this term', lockDate: body.lockDate ?? '' });
+        return;
+      }
+      if (res.status === 409 && body?.error === 'pending_change_requests') {
+        setPendingBlock({ pendingCount: body.pendingCount ?? 0 });
+        return;
+      }
       if (!res.ok) throw new Error(body.error ?? `${action} failed`);
-      toast.success(action === 'lock' ? 'Sheet locked' : 'Sheet unlocked');
+      toast.success(
+        action === 'lock'
+          ? 'Sheet locked'
+          : opts.force
+            ? 'Sheet unlocked (pending requests bypassed)'
+            : 'Sheet unlocked',
+      );
       router.refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : `Failed to ${action} sheet`);
@@ -87,6 +109,118 @@ export function LockToggle({
               }}
             >
               {isLocked ? 'Unlock' : 'Lock'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Deadline break-glass — opens after server returns 409
+          `grading_lock_date_passed`. Force-unlock is audit-logged as
+          `sheet.unlock_force_deadline_passed`. */}
+      <AlertDialog
+        open={deadlineBlock != null}
+        onOpenChange={(o) => !o && setDeadlineBlock(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-start gap-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-destructive to-rose-700 text-white shadow-brand-tile">
+                <AlertTriangle className="size-4" />
+              </div>
+              <div className="space-y-2">
+                <AlertDialogTitle>Grading deadline has passed</AlertDialogTitle>
+                <AlertDialogDescription className="space-y-2">
+                  <span className="block">
+                    The grading deadline for{' '}
+                    <span className="font-medium text-foreground">{deadlineBlock?.termLabel}</span>{' '}
+                    was{' '}
+                    <span className="font-medium text-foreground">
+                      {deadlineBlock?.lockDate
+                        ? new Date(deadlineBlock.lockDate).toLocaleDateString('en-SG', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })
+                        : '—'}
+                    </span>
+                    . Sheets are locked for report card publishing.
+                  </span>
+                  <span className="block">
+                    Forcing an unlock will be recorded in the audit log. Only do this if the
+                    registrar has explicitly approved a late correction.
+                  </span>
+                </AlertDialogDescription>
+              </div>
+            </div>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-2">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={async () => {
+                setDeadlineBlock(null);
+                await runToggle({ force: true });
+              }}
+            >
+              Force unlock
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Break-glass override dialog — only opens after the server returns
+          409 with `error=pending_change_requests`. Lists the count and the
+          plain-English consequence; the Force-unlock action is audit-logged
+          as `sheet.unlock_force_with_pending_crs`. */}
+      <AlertDialog
+        open={pendingBlock != null}
+        onOpenChange={(o) => !o && setPendingBlock(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-start gap-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-amber to-amber-600 text-white shadow-brand-tile-amber">
+                <AlertTriangle className="size-4" />
+              </div>
+              <div className="space-y-2">
+                <AlertDialogTitle>Pending change requests block this unlock</AlertDialogTitle>
+                <AlertDialogDescription className="space-y-2">
+                  <span className="block">
+                    This sheet has{' '}
+                    <span className="font-medium text-foreground">
+                      {pendingBlock?.pendingCount ?? 0}{' '}
+                      {pendingBlock?.pendingCount === 1
+                        ? 'pending change request'
+                        : 'pending change requests'}
+                    </span>
+                    . Resolve them first so teachers&apos; requests aren&apos;t orphaned by the
+                    unlock.
+                  </span>
+                  <span className="block">
+                    Approve / decline each one on the change requests queue, or use the
+                    force option to unlock without resolving — the override is recorded in
+                    the audit log.
+                  </span>
+                </AlertDialogDescription>
+              </div>
+            </div>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/markbook/change-requests?sheet_id=${sheetId}`}>
+                Open change requests
+                <ArrowUpRight className="h-3 w-3" />
+              </Link>
+            </Button>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={async () => {
+                setPendingBlock(null);
+                await runToggle({ force: true });
+              }}
+            >
+              Force unlock
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

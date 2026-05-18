@@ -16,7 +16,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ enroleeNumber: string }> },
 ) {
-  const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
+  // Per KD #74: admissions is the operational writer; school_admin is read-only oversight.
+  const auth = await requireRole(['admissions', 'registrar', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const { enroleeNumber } = await params;
@@ -91,6 +92,5 @@ export async function PATCH(
 
   revalidateTag(`sis:${ayCode}`, 'max');
   invalidateDrillTags('admissions', ayCode);
-  invalidateDrillTags('records', ayCode);
   return NextResponse.json({ ok: true, changed: changes.length });
 }

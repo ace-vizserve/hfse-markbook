@@ -1,21 +1,8 @@
 import type { User } from "@supabase/supabase-js";
 
-export type Role =
-  | "teacher"
-  | "registrar"
-  | "school_admin"
-  | "superadmin"
-  | "p-file"
-  | "admissions";
+export type Role = "teacher" | "registrar" | "school_admin" | "superadmin" | "p-file" | "admissions";
 
-export const ROLES: Role[] = [
-  "teacher",
-  "registrar",
-  "school_admin",
-  "superadmin",
-  "p-file",
-  "admissions",
-];
+export const ROLES: Role[] = ["teacher", "registrar", "school_admin", "superadmin", "p-file", "admissions"];
 
 export type Module = "markbook" | "p-files" | "records" | "sis" | "attendance" | "evaluation" | "admissions";
 
@@ -27,10 +14,7 @@ export type NavItem = {
 };
 export type NavSection = { label?: string; items: NavItem[] };
 
-export type SidebarBadgeKey =
-  | "changeRequests"
-  | "pendingDocValidation"
-  | "unsyncedStudents";
+export type SidebarBadgeKey = "changeRequests" | "pendingDocValidation" | "unsyncedStudents" | "pfileAwaitingVerification";
 export type SidebarBadges = Partial<Record<SidebarBadgeKey, number>>;
 
 const PFILES_NAV: NavSection[] = [
@@ -50,47 +34,46 @@ const PFILES_NAV: NavSection[] = [
     // school_admin — sees the same lists but in read-only mode).
     label: "Quick filters",
     items: [
-      { href: "/p-files?status=missing", label: "Missing documents" },
       { href: "/p-files?status=expired", label: "Expired documents" },
-      { href: "/p-files?status=uploaded", label: "Pending review" },
-      { href: "/p-files?status=complete", label: "Fully validated" },
     ],
   },
   {
-    // Renewal-outreach windows — officer-only because these are the lists
-    // the bulk-remind action operates on. Oversight roles get the same data
-    // via the read-only completeness table on the dashboard.
+    // Renewal-outreach windows — officer+ only (p-file / school_admin /
+    // superadmin) because these are the lists the bulk-remind action operates
+    // on. school_admin sees the same data in read-only mode (per KD #74 — no
+    // bulk-notify CTA). Oversight-only roles (registrar etc.) are not granted
+    // these quicklinks.
     label: "Expiring soon",
     items: [
       {
         href: "/p-files?expiring=30",
         label: "Within 30 days",
-        requiresRoles: ["p-file", "superadmin"],
+        requiresRoles: ["p-file", "school_admin", "superadmin"],
       },
       {
         href: "/p-files?expiring=60",
         label: "Within 60 days",
-        requiresRoles: ["p-file", "superadmin"],
+        requiresRoles: ["p-file", "school_admin", "superadmin"],
       },
       {
         href: "/p-files?expiring=90",
         label: "Within 90 days",
-        requiresRoles: ["p-file", "superadmin"],
+        requiresRoles: ["p-file", "school_admin", "superadmin"],
       },
     ],
   },
   {
-    // Workflow shortcut — symmetric with Admissions's "Document validation"
-    // quicklink. P-Files validates Expired + Rejected slots for ENROLLED
-    // students (post-enrolment renewals); the Expired bucket is the most
-    // common trigger so the link routes there. school_admin sees this as a
+    // Workflow shortcut — dedicated validation queue for enrolled students.
+    // Badge = count of Uploaded non-expiring slots awaiting officer review.
+    // Triage mode available to p-file / superadmin; school_admin sees
     // read-only watchlist; the actual validate/notify CTAs are gated by
     // `canWrite` on the detail + completeness rows.
     label: "Quicklinks",
     items: [
       {
-        href: "/p-files?status=expired",
+        href: "/p-files/document-validation",
         label: "Document validation",
+        badgeKey: "pfileAwaitingVerification",
         requiresRoles: ["p-file", "school_admin", "superadmin"],
       },
     ],
@@ -133,13 +116,6 @@ const RECORDS_NAV: NavSection[] = [
         href: "/records/unsynced",
         label: "Students needing setup",
         badgeKey: "unsyncedStudents",
-      },
-      // Discount-codes catalogue is config — moved to SIS Admin
-      // (2026-04-22). Cross-module link kept here for registrar convenience.
-      {
-        href: "/sis/admin/discount-codes",
-        label: "Discount Codes",
-        requiresRoles: ["registrar", "school_admin", "superadmin"],
       },
       // Bulk admissions→SIS sync lives in SIS Admin (2026-04-23). Cross-module
       // link kept here for registrar convenience — they own roster ingest and
@@ -252,6 +228,14 @@ const ADMISSIONS_NAV: NavSection[] = [
       // renders an empty state when no such AY exists, so the entry can
       // safely stay in nav even when early-bird is closed.
       { href: "/admissions/upcoming/applications", label: "Upcoming AY applications" },
+      // Discount codes apply to enrolment fees — operationally owned by
+      // admissions (they assign codes to applicants). Config lives in SIS
+      // Admin; this is the cross-module convenience link.
+      {
+        href: "/sis/admin/discount-codes",
+        label: "Discount Codes",
+        requiresRoles: ["admissions", "registrar", "school_admin", "superadmin"],
+      },
     ],
   },
   // Cohort views — Admissions scope = funnel students (Submitted /
@@ -267,6 +251,13 @@ const ADMISSIONS_NAV: NavSection[] = [
       { href: "/admissions/cohorts/stp", label: "STP applications" },
       { href: "/admissions/cohorts/medical", label: "Medical alerts" },
       { href: "/admissions/cohorts/promised", label: "Promised follow-ups" },
+      { href: "/admissions/cohorts/pre-course", label: "Pre-Course Counselling" },
+    ],
+  },
+  {
+    label: "Analytics",
+    items: [
+      { href: "/admissions/feedback", label: "Application Feedback" },
     ],
   },
   // History — terminal applicants (Cancelled / Withdrawn) who exited the
@@ -276,9 +267,7 @@ const ADMISSIONS_NAV: NavSection[] = [
   // without this group they are operationally orphaned.
   {
     label: "History",
-    items: [
-      { href: "/admissions/applications/closed", label: "Closed applications" },
-    ],
+    items: [{ href: "/admissions/applications/closed", label: "Closed applications" }],
   },
   {
     label: "Quicklinks",
@@ -336,6 +325,16 @@ const EVALUATION_NAV: NavSection[] = [
       { href: "/evaluation/sections?term=3", label: "Term 3 write-ups" },
     ],
   },
+  {
+    label: "Administration",
+    items: [
+      {
+        href: "/evaluation/audit-log",
+        label: "Audit Log",
+        requiresRoles: ["registrar", "school_admin", "superadmin"],
+      },
+    ],
+  },
 ];
 
 // SIS admin hub — the system-level admin surface where structural ops live.
@@ -371,7 +370,11 @@ const SIS_NAV: NavSection[] = [
       },
       { href: "/sis/admin/subjects", label: "Subject Weights", requiresRoles: ["school_admin", "superadmin"] },
       { href: "/sis/admin/template", label: "Class Template", requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/admin/evaluation-checklists", label: "Eval Checklists", requiresRoles: ["school_admin", "superadmin"] },
+      {
+        href: "/sis/admin/evaluation-checklists",
+        label: "Eval Checklists",
+        requiresRoles: ["school_admin", "superadmin"],
+      },
       {
         href: "/sis/sync-students",
         label: "Sync from Admissions",
@@ -391,6 +394,7 @@ const SIS_NAV: NavSection[] = [
     items: [
       { href: "/sis/admin/school-config", label: "School Config", requiresRoles: ["school_admin", "superadmin"] },
       { href: "/sis/admin/settings", label: "Settings", requiresRoles: ["school_admin", "superadmin"] },
+      { href: "/sis/audit-log", label: "Audit Log", requiresRoles: ["school_admin", "superadmin"] },
     ],
   },
 ];
@@ -421,7 +425,12 @@ export const NAV_BY_MODULE: {
       },
     ],
     registrar: [
-      { items: [{ href: "/markbook", label: "Dashboard" }, { href: "/markbook/compare", label: "Compare" }] },
+      {
+        items: [
+          { href: "/markbook", label: "Dashboard" },
+          { href: "/markbook/compare", label: "Compare" },
+        ],
+      },
       {
         label: "Grading",
         items: [
@@ -431,9 +440,7 @@ export const NAV_BY_MODULE: {
       },
       {
         label: "Students",
-        items: [
-          { href: "/markbook/sections", label: "Sections" },
-        ],
+        items: [{ href: "/markbook/sections", label: "Sections" }],
       },
       {
         items: [
@@ -453,7 +460,12 @@ export const NAV_BY_MODULE: {
     // old `admin` twin was retired). Sees the Change Requests approval
     // inbox + audit log alongside the section/report-card surfaces.
     school_admin: [
-      { items: [{ href: "/markbook", label: "Dashboard" }, { href: "/markbook/compare", label: "Compare" }] },
+      {
+        items: [
+          { href: "/markbook", label: "Dashboard" },
+          { href: "/markbook/compare", label: "Compare" },
+        ],
+      },
       {
         label: "Students",
         items: [{ href: "/markbook/sections", label: "Sections" }],
@@ -473,7 +485,12 @@ export const NAV_BY_MODULE: {
       },
     ],
     superadmin: [
-      { items: [{ href: "/markbook", label: "Dashboard" }, { href: "/markbook/compare", label: "Compare" }] },
+      {
+        items: [
+          { href: "/markbook", label: "Dashboard" },
+          { href: "/markbook/compare", label: "Compare" },
+        ],
+      },
       {
         label: "Grading",
         items: [
@@ -483,9 +500,7 @@ export const NAV_BY_MODULE: {
       },
       {
         label: "Students",
-        items: [
-          { href: "/markbook/sections", label: "Sections" },
-        ],
+        items: [{ href: "/markbook/sections", label: "Sections" }],
       },
       {
         items: [
@@ -526,11 +541,13 @@ export const ROUTE_ACCESS: Array<{ prefix: string; allowed: Role[] }> = [
   { prefix: "/sis/ay-setup", allowed: ["school_admin", "superadmin"] },
   { prefix: "/sis/calendar", allowed: ["registrar", "school_admin", "superadmin"] },
   { prefix: "/sis/sections", allowed: ["registrar", "school_admin", "superadmin"] },
+  { prefix: "/sis/audit-log", allowed: ["school_admin", "superadmin"] },
   { prefix: "/sis/sync-students", allowed: ["registrar", "school_admin", "superadmin"] },
   { prefix: "/admin/admissions", allowed: ["registrar", "school_admin", "superadmin"] },
   { prefix: "/attendance/import", allowed: ["registrar", "school_admin", "superadmin"] },
   { prefix: "/attendance/calendar", allowed: ["registrar", "school_admin", "superadmin"] },
   { prefix: "/attendance", allowed: ["teacher", "registrar", "school_admin", "superadmin"] },
+  { prefix: "/evaluation/audit-log", allowed: ["registrar", "school_admin", "superadmin"] },
   { prefix: "/evaluation", allowed: ["teacher", "registrar", "school_admin", "superadmin"] },
   // Masterfile is registrar+ only — KD #95 restricts the cross-subject
   // view to operational/oversight roles. Must precede the broader

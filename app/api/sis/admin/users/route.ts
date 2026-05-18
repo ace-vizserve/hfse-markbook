@@ -22,7 +22,7 @@ import { InviteUserSchema } from '@/lib/schemas/user-admin';
 // Superadmin only. If the email already exists, the route returns 409 —
 // no silent re-creates or duplicate accounts.
 export async function POST(request: NextRequest) {
-  const auth = await requireRole(['superadmin']);
+  const auth = await requireRole(['school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const body = await request.json().catch(() => null);

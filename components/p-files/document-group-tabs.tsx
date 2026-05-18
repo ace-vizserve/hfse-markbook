@@ -5,11 +5,12 @@ import * as React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-// Tab wrapper for the four P-Files document groups (student-expiring,
-// parent, student, stp). Each tab's content is server-rendered and
-// passed in as ReactNode — the tabs themselves are client-side state
-// (Radix Tabs needs interactivity), but the DocumentCard grid inside
-// each panel stays in the RSC tree.
+// Tab wrapper for the three P-Files document groups (student-expiring,
+// parent, student) — STP slots removed in migration 050 per KD #96.
+// Each tab's content is server-rendered and passed in as ReactNode —
+// the tabs themselves are client-side state (Radix Tabs needs
+// interactivity), but the DocumentCard grid inside each panel stays
+// in the RSC tree.
 //
 // Per-trigger badge surfaces the "need action" count so the registrar
 // sees which group has work waiting without flipping through every tab.

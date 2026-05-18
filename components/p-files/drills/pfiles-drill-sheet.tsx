@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   Clock,
   FileX,
-  HelpCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -28,6 +27,7 @@ import {
   type PFilesDrillRow,
   type PFilesDrillTarget,
 } from '@/lib/p-files/drill';
+import { compareLevelLabels } from '@/lib/sis/levels';
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -54,11 +54,25 @@ function StatusBadge({ status }: { status: PFilesDrillRow['status'] }) {
           On file
         </Badge>
       );
-    case 'Pending review':
+    case 'Awaiting validation':
       return (
         <Badge variant="muted" className={BADGE_BASE}>
           <Clock className="h-3 w-3" aria-hidden />
-          Pending
+          Awaiting validation
+        </Badge>
+      );
+    case 'Promised':
+      return (
+        <Badge variant="muted" className={BADGE_BASE}>
+          <Clock className="h-3 w-3" aria-hidden />
+          Promised
+        </Badge>
+      );
+    case 'Rejected':
+      return (
+        <Badge variant="blocked" className={BADGE_BASE}>
+          <AlertTriangle className="h-3 w-3" aria-hidden />
+          Rejected
         </Badge>
       );
     case 'Expired':
@@ -73,13 +87,6 @@ function StatusBadge({ status }: { status: PFilesDrillRow['status'] }) {
         <Badge variant="blocked" className={BADGE_BASE}>
           <FileX className="h-3 w-3" aria-hidden />
           Missing
-        </Badge>
-      );
-    case 'N/A':
-      return (
-        <Badge variant="outline" className={`${BADGE_BASE} border-hairline bg-gradient-to-b from-muted to-muted/60 text-ink-3`}>
-          <HelpCircle className="h-3 w-3" aria-hidden />
-          N/A
         </Badge>
       );
   }
@@ -97,23 +104,6 @@ function ExpiryCell({ days }: { days: number | null }) {
       {days < 0 ? `Expired ${-days}d` : `${days}d`}
     </span>
   );
-}
-
-// ─── Sort helpers ───────────────────────────────────────────────────────────
-
-const CANONICAL_LEVEL_ORDER = ['P1','P2','P3','P4','P5','P6','S1','S2','S3','S4'];
-function compareLevels(a: string | null, b: string | null): number {
-  const av = a ?? 'Unknown';
-  const bv = b ?? 'Unknown';
-  if (av === bv) return 0;
-  if (av === 'Unknown') return 1;
-  if (bv === 'Unknown') return -1;
-  const ai = CANONICAL_LEVEL_ORDER.indexOf(av);
-  const bi = CANONICAL_LEVEL_ORDER.indexOf(bv);
-  if (ai !== -1 && bi !== -1) return ai - bi;
-  if (ai !== -1) return -1;
-  if (bi !== -1) return 1;
-  return av.localeCompare(bv);
 }
 
 function formatDate(iso: string | null): string {
@@ -163,7 +153,7 @@ function buildColumns(visible: DrillColumnKey[]): ColumnDef<PFilesDrillRow, unkn
           accessorKey: 'level',
           header: DRILL_COLUMN_LABELS.level,
           cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.level ?? '—'}</span>,
-          sortingFn: (a, b) => compareLevels(a.original.level, b.original.level),
+          sortingFn: (a, b) => compareLevelLabels(a.original.level, b.original.level),
         });
         break;
       case 'slotLabel':
@@ -293,7 +283,7 @@ export function PFilesDrillSheet(props: PFilesDrillSheetProps) {
     const s = new Set<string>();
     for (const r of rows) s.add(r.level ?? 'Unknown');
     const arr = Array.from(s);
-    arr.sort(compareLevels);
+    arr.sort(compareLevelLabels);
     return arr;
   }, [rows]);
 

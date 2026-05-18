@@ -6,7 +6,6 @@ import {
   FlaskConical,
   Globe,
   Loader2,
-  Sparkles,
   Trash2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -146,49 +145,11 @@ export function EnvironmentCard({
   const router = useRouter();
   const [submitting, setSubmitting] = useState<Environment | null>(null);
   const [resetting, setResetting] = useState(false);
-  const [toppingUp, setToppingUp] = useState(false);
   // Which prod AY the user has selected to switch INTO. Only meaningful when
   // there are 2+ prod AYs; the single-AY case skips the picker and just sends
   // the implicit default. The dropdown is rendered inside the Production
   // tile (visible only when ≥2 options exist).
   const [pickedProdAy, setPickedProdAy] = useState<string | null>(defaultProdAyCode);
-
-  // Top up demo extras — re-runs seedPopulated against the current test AY
-  // without wiping anything. Idempotent (every seeder step has a skip-guard
-  // on its natural key), so any new seeder passes added since last seed get
-  // applied without re-creating existing rows. Used after merging new
-  // demo-extras passes (e.g. seedEnrollmentStatusMix, seedChangeRequests)
-  // without forcing a full Reset + Switch cycle.
-  async function topUpDemoData() {
-    setToppingUp(true);
-    try {
-      const res = await fetch('/api/sis/admin/environment/topup', { method: 'POST' });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error ?? 'Top-up failed');
-      const populated = body.populated as
-        | (PopulatedSummary & { demo_extras?: Record<string, number> | null })
-        | null;
-      const extras = populated?.demo_extras ?? null;
-      const lines: string[] = [];
-      if (populated?.grade_entries_inserted) lines.push(`${populated.grade_entries_inserted} grade entries`);
-      if (populated?.attendance_daily_inserted) lines.push(`${populated.attendance_daily_inserted} attendance rows`);
-      if (extras?.change_requests_inserted) lines.push(`${extras.change_requests_inserted} change requests`);
-      if (extras?.late_enrollees_flipped) lines.push(`${extras.late_enrollees_flipped} late enrollees`);
-      if (extras?.withdrawals_flipped) lines.push(`${extras.withdrawals_flipped} withdrawals`);
-      if (extras?.publications_extra) lines.push(`${extras.publications_extra} extra publications`);
-      if (extras?.parent_accounts) lines.push(`${extras.parent_accounts} parent accounts`);
-      const description =
-        lines.length === 0
-          ? 'Already fully topped up — no missing rows found.'
-          : `Added: ${lines.join(' · ')}.`;
-      toast.success(`Topped up ${body.ayCode}.`, { description });
-      router.refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Top-up failed');
-    } finally {
-      setToppingUp(false);
-    }
-  }
 
   async function resetTestEnv() {
     setResetting(true);
@@ -312,39 +273,6 @@ export function EnvironmentCard({
           onSwitch={() => switchTo('test')}
         />
       </div>
-
-      {current === 'test' && (
-        <div className="flex flex-col gap-3 rounded-xl border border-brand-mint/40 bg-gradient-to-b from-brand-mint/10 to-brand-mint/0 p-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-mint to-brand-sky text-white shadow-brand-tile-mint">
-              <Sparkles className="size-4" />
-            </div>
-            <div className="min-w-0 space-y-1">
-              <div className="font-serif text-sm font-semibold text-foreground">
-                Top up demo data
-              </div>
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                Re-runs the seeder against the current Test AY without wiping
-                anything. Use this after merging new seeder code (e.g.
-                change-requests, late-enrollee flips) to patch the existing
-                Test environment in place. Every step is idempotent — already-
-                seeded rows are left untouched; only what&apos;s missing gets
-                inserted.
-              </p>
-            </div>
-          </div>
-          <Button
-            variant="default"
-            size="sm"
-            disabled={toppingUp || submitting !== null || resetting}
-            onClick={topUpDemoData}
-            className="shrink-0"
-          >
-            {toppingUp ? <Loader2 className="animate-spin" /> : <Sparkles />}
-            {toppingUp ? 'Topping up…' : 'Top up demo data'}
-          </Button>
-        </div>
-      )}
 
       <div className="flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-start gap-3">

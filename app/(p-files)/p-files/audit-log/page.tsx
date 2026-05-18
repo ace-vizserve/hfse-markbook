@@ -13,20 +13,43 @@ import {
 import { PageShell } from '@/components/ui/page-shell';
 import { AuditLogDataTable, type MergedRow } from '@/app/(markbook)/markbook/audit-log/audit-log-data-table';
 
-export default async function PFilesAuditLogPage() {
+export default async function PFilesAuditLogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; pageSize?: string }>;
+}) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
   if (sessionUser.role !== 'p-file' && sessionUser.role !== 'school_admin' && sessionUser.role !== 'superadmin') redirect('/');
 
   const canExport = sessionUser.role === 'school_admin' || sessionUser.role === 'superadmin';
+  const params = await searchParams;
+  const PAGE_SIZE = Math.min(Number(params.pageSize ?? 50), 200);
+  const page = Math.max(Number(params.page ?? 1), 1);
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  const PFILES_AUDIT_ALLOWLIST = [
+    'pfile.upload',
+    'pfile.reminder.sent',
+    'pfile.reminder.bulk',
+    'pfile.mark.promised',
+    'sis.document.approve',
+    'sis.document.reject',
+    'sis.documents.auto-expire',
+    'sis.documents.auto-revive',
+  ] as const;
+
+  const { data, count, error } = await supabase
     .from('audit_log')
-    .select('id, actor_email, action, entity_type, entity_id, context, created_at')
-    .like('action', 'pfile.%')
+    .select('id, actor_email, action, entity_type, entity_id, context, created_at', { count: 'exact' })
+    .in('action', PFILES_AUDIT_ALLOWLIST)
     .order('created_at', { ascending: false })
-    .limit(500);
+    .range(from, to);
+
+  const totalPages = count ? Math.ceil(count / PAGE_SIZE) : 1;
 
   const rows: MergedRow[] = ((data ?? []) as Array<{
     id: string;
@@ -49,7 +72,12 @@ export default async function PFilesAuditLogPage() {
   }));
 
   const uniqueActors = new Set(rows.map((r) => r.actor)).size;
-  const uploads = rows.filter((r) => r.action === 'pfile.upload').length;
+  const officerActivity = rows.filter(
+    (r) =>
+      r.action === 'pfile.upload' ||
+      r.action === 'sis.document.approve' ||
+      r.action === 'sis.document.reject',
+  ).length;
 
   return (
     <PageShell>
@@ -80,8 +108,12 @@ export default async function PFilesAuditLogPage() {
             description="Entries loaded"
             value={rows.length.toLocaleString('en-SG')}
             icon={ListChecks}
-            footerTitle="Capped at 500 most recent"
-            footerDetail="Older entries stay in the database"
+            footerTitle={
+              count != null
+                ? `${count.toLocaleString('en-SG')} total entries`
+                : `${rows.length.toLocaleString('en-SG')} entries`
+            }
+            footerDetail={`Page ${page} of ${totalPages} · ${PAGE_SIZE} per page`}
           />
           <StatCard
             description="Unique actors"
@@ -91,11 +123,11 @@ export default async function PFilesAuditLogPage() {
             footerDetail="Distinct accounts in this window"
           />
           <StatCard
-            description="Uploads"
-            value={uploads.toLocaleString('en-SG')}
+            description="Officer activity"
+            value={officerActivity.toLocaleString('en-SG')}
             icon={FileCheck}
-            footerTitle="Staff uploads on behalf"
-            footerDetail="Documents uploaded by P-File officers"
+            footerTitle="Documents officers uploaded, validated, or replaced this AY"
+            footerDetail="Uploads, approvals, and rejections"
           />
         </div>
       </div>
@@ -114,7 +146,11 @@ export default async function PFilesAuditLogPage() {
         </div>
       )}
 
-      <AuditLogDataTable rows={rows} canExport={canExport} />
+      <AuditLogDataTable
+        rows={rows}
+        canExport={canExport}
+        pagination={{ page, pageSize: PAGE_SIZE, totalPages, total: count ?? 0 }}
+      />
     </PageShell>
   );
 }

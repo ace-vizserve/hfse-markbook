@@ -4,18 +4,20 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import type { ColumnDef } from '@tanstack/react-table';
-import { GalleryHorizontalEndIcon, ListIcon } from 'lucide-react';
+import { CalendarClock, GalleryHorizontalEndIcon, ListIcon } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
-import { IdentifierLink } from '@/components/ui/identifier-link';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Toggle } from '@/components/ui/toggle';
 import type {
-  ValidationQueueCategory,
-  ValidationQueueRow,
-} from '@/lib/admissions/document-validation';
+  FacetConfig,
+  MeScopeConfig,
+  StatusTabConfig,
+} from '@/components/ui/data-table/types';
+import { IdentifierLink } from '@/components/ui/identifier-link';
+import { SortableHeader } from '@/components/ui/data-table/sortable-header';
+import { Toggle } from '@/components/ui/toggle';
+import type { ValidationQueueRow } from '@/lib/admissions/document-validation';
 
 import { RejectDialog } from './reject-dialog';
 import { TriagePane } from './triage-pane';
@@ -28,7 +30,6 @@ type Props = {
 export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
   const router = useRouter();
   const [mode, setMode] = React.useState<'table' | 'triage'>('table');
-  const [activeTab, setActiveTab] = React.useState<ValidationQueueCategory>('general');
   const [rows, setRows] = React.useState<ValidationQueueRow[]>(initialRows);
   const [actingKey, setActingKey] = React.useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = React.useState<ValidationQueueRow | null>(null);
@@ -38,17 +39,10 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
     setRows(initialRows);
   }, [initialRows]);
 
-  // Per-tab row split + counts. Counts derive from local state so optimistic
-  // removal (after Approve/Reject) ticks each tab badge down immediately.
-  const generalRows = React.useMemo(
-    () => rows.filter((r) => r.category === 'general'),
-    [rows],
-  );
-  const stpRows = React.useMemo(
-    () => rows.filter((r) => r.category === 'stp'),
-    [rows],
-  );
-  const tabRows = activeTab === 'general' ? generalRows : stpRows;
+  // Single-list now — STP docs were removed from the enrollment workflow
+  // (migration 050; parents file directly with ICA). All remaining rows
+  // are general admissions slots.
+  const tabRows = rows;
 
   const rowKey = React.useCallback(
     (r: ValidationQueueRow) => `${r.enroleeNumber}::${r.slotKey}`,
@@ -97,7 +91,7 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
     () => [
       {
         accessorKey: 'fullName',
-        header: 'Student',
+        header: ({ column }) => <SortableHeader column={column}>Student</SortableHeader>,
         cell: ({ row }) => (
           <div className="space-y-0.5">
             <IdentifierLink
@@ -113,7 +107,7 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
       },
       {
         accessorKey: 'slotLabel',
-        header: 'Document',
+        header: ({ column }) => <SortableHeader column={column}>Document</SortableHeader>,
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
             <Badge variant="secondary">{row.original.slotLabel}</Badge>
@@ -122,9 +116,32 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
         ),
       },
       {
+        accessorKey: 'owner',
+        header: 'Owner',
+        cell: ({ row }) => (
+          <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-wider">
+            {row.original.owner}
+          </Badge>
+        ),
+        filterFn: 'arrIncludesSome',
+      },
+      {
         accessorKey: 'levelApplied',
-        header: 'Level',
-        cell: ({ row }) => row.original.levelApplied ?? '—',
+        header: ({ column }) => <SortableHeader column={column}>Level</SortableHeader>,
+        cell: ({ row }) => (
+          <span className="text-sm text-muted-foreground">
+            {row.original.levelApplied ?? '—'}
+          </span>
+        ),
+        filterFn: 'arrIncludesSome',
+      },
+      {
+        accessorKey: 'applicationStatus',
+        header: 'App status',
+        cell: ({ row }) => (
+          <Badge variant="outline">{row.original.applicationStatus}</Badge>
+        ),
+        filterFn: 'arrIncludesSome',
       },
       {
         id: 'preview',
@@ -172,6 +189,58 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
     [actingKey, ayCode, patchStatus, rowKey],
   );
 
+  // Facets: document type, owner, level, app status. The shell renders
+  // each as a multi-select chip dropdown via FacetDropdown.
+  const facets: FacetConfig[] = React.useMemo(
+    () => [
+      { columnId: 'slotLabel', label: 'Document' },
+      { columnId: 'owner', label: 'Owner' },
+      { columnId: 'levelApplied', label: 'Level' },
+      { columnId: 'applicationStatus', label: 'App status' },
+    ],
+    [],
+  );
+
+  // Status tabs split by application-pipeline stage so registrars can
+  // triage Submitted (fresh upload — first review) vs Ongoing Verification
+  // / Processing (later stages, often re-uploads after a Rejected). All
+  // tab keeps the unfiltered view.
+  const statusTabs: StatusTabConfig<ValidationQueueRow>[] = React.useMemo(
+    () => [
+      { value: 'all', label: 'All', predicate: () => true, isDefault: true },
+      {
+        value: 'submitted',
+        label: 'Submitted',
+        predicate: (r) => r.applicationStatus === 'Submitted',
+      },
+      {
+        value: 'ongoing',
+        label: 'Ongoing',
+        predicate: (r) => r.applicationStatus === 'Ongoing Verification',
+      },
+      {
+        value: 'processing',
+        label: 'Processing',
+        predicate: (r) => r.applicationStatus === 'Processing',
+      },
+    ],
+    [],
+  );
+
+  // Expires-only toggle (passport / pass / parent-pass slots). The
+  // predicate has nothing to do with the viewer so we opt in via
+  // `enabled: true` + `userId: null` per MeScopeConfig JSDoc.
+  const expiresScope: MeScopeConfig<ValidationQueueRow> = React.useMemo(
+    () => ({
+      enabled: true,
+      userId: null,
+      label: 'Expirable only',
+      icon: CalendarClock,
+      predicate: (r) => r.isExpirable,
+    }),
+    [],
+  );
+
   // Toolbar: mode toggle.
   const modeToggle = (
     <div className="flex items-center gap-1 rounded-lg border border-hairline p-0.5">
@@ -196,36 +265,9 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
     </div>
   );
 
-  // Tabs surface (one row per category). Sticks to the same mode toggle +
-  // PATCH handlers — only the row source changes per tab. The STP tab is
-  // always rendered (even when empty) so the team learns where STP docs
-  // would land if any showed up.
-  const tabs = (
-    <Tabs
-      value={activeTab}
-      onValueChange={(v) => setActiveTab(v as ValidationQueueCategory)}
-    >
-      <TabsList>
-        <TabsTrigger value="general" className="gap-2">
-          General
-          <Badge variant="secondary" className="font-mono text-[10px] tabular-nums">
-            {generalRows.length}
-          </Badge>
-        </TabsTrigger>
-        <TabsTrigger value="stp" className="gap-2">
-          STP
-          <Badge variant="secondary" className="font-mono text-[10px] tabular-nums">
-            {stpRows.length}
-          </Badge>
-        </TabsTrigger>
-      </TabsList>
-    </Tabs>
-  );
-
   if (mode === 'triage') {
     return (
       <div className="space-y-4">
-        {tabs}
         <TriagePane
           rows={tabRows}
           ayCode={ayCode}
@@ -243,12 +285,18 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
 
   return (
     <div className="space-y-4">
-      {tabs}
       <DataTable
         columns={columns}
         data={tabRows}
         getRowId={rowKey}
+        searchKeys={['fullName', 'enroleeNumber', 'slotLabel']}
+        searchPlaceholder="Search student or document…"
+        facets={facets}
+        statusTabs={statusTabs}
+        meScope={expiresScope}
         toolbarTrailing={modeToggle}
+        initialSort={[{ id: 'fullName', desc: false }]}
+        pageSize={25}
       />
       <RejectDialog
         open={rejectTarget != null}

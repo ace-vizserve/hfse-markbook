@@ -1,13 +1,14 @@
 // Canonical fixture data for the Test environment seeder. Mirrors the
 // shape of `supabase/seed.sql` (levels, subjects, sections, subject_configs)
 // and extends with term dates + virtue themes + grading-lock dates +
-// synthetic school-calendar holidays so switch-to-Test yields a fully
-// usable school without depending on anything in production.
+// school-calendar holidays so switch-to-Test yields a fully usable school
+// without depending on anything in production.
 //
+// Term dates + calendar entries are based on HFSE's actual AY 2026 calendar.
 // All constants are TS-only; nothing here references the DB. The structural
 // seeder reads these and upserts against Supabase.
 
-import type { DayType } from '@/lib/schemas/attendance';
+import type { DayType, EventCategory, Audience } from '@/lib/schemas/attendance';
 
 export type LevelSeed = {
   code: string;
@@ -88,55 +89,57 @@ export const SECTIONS: SectionSeed[] = [
   { level_code: 'S4', name: 'Excellence' },
 ];
 
-// Term templates pinned to a single academic calendar year (KD #13: HFSE
-// AY runs January through November). Registrar can re-edit via
-// /sis/ay-setup → Dates.
+// Term templates mirroring HFSE's actual AY 2026 academic calendar (KD #13:
+// HFSE AY runs January through November of a single calendar year). The
+// year is parameterised so AY9999 and AY9998 get the same term shape.
+// Registrar can re-edit dates via /sis/ay-setup → Dates.
 export type TermTemplate = {
   term_number: 1 | 2 | 3 | 4;
-  start_date: string;  // ISO
+  start_date: string;  // ISO yyyy-MM-dd
   end_date: string;
   virtue_theme: string | null;
   grading_lock_date: string;
 };
 
 /**
- * Builds the four-term calendar for `targetYear`. HFSE AY runs January
- * through November of a single calendar year per KD #13. Layout is
- * today-anchored when `targetYear` is the current year — T1 closed by Apr 3,
- * T2 active (Apr 13–Jul 3), T3+T4 future. For prior years (AY9998), all
- * four terms fall in the past so they all have full data.
+ * Builds the four-term calendar for `targetYear`. Mirrors HFSE's AY 2026
+ * term structure:
+ *   T1: Jan 8 – Mar 13   (term break Mar 14–22)
+ *   T2: Mar 24 – May 29  (term break May 30 – Jun 28)
+ *   T3: Jun 29 – Sep 6   (term break Sep 7–13)
+ *   T4: Sep 14 – Nov 21
  */
 export function buildTermTemplates(targetYear: number): TermTemplate[] {
   const y = String(targetYear);
   return [
     {
       term_number: 1,
-      start_date: `${y}-01-13`,
-      end_date: `${y}-04-03`,
+      start_date: `${y}-01-08`,
+      end_date: `${y}-03-13`,
       virtue_theme: 'Faith',
-      grading_lock_date: `${y}-03-30`,
+      grading_lock_date: `${y}-03-09`,
     },
     {
       term_number: 2,
-      start_date: `${y}-04-13`,
-      end_date: `${y}-07-03`,
+      start_date: `${y}-03-24`,
+      end_date: `${y}-05-29`,
       virtue_theme: 'Hope',
-      grading_lock_date: `${y}-06-29`,
+      grading_lock_date: `${y}-05-25`,
     },
     {
       term_number: 3,
-      start_date: `${y}-07-13`,
-      end_date: `${y}-10-02`,
+      start_date: `${y}-06-29`,
+      end_date: `${y}-09-06`,
       virtue_theme: 'Love',
-      grading_lock_date: `${y}-09-28`,
+      grading_lock_date: `${y}-09-02`,
     },
-    // T4 has no FCA comment section per KD #49 — virtue_theme left null.
+    // T4 has no FCA comment per KD #49 — virtue_theme left null.
     {
       term_number: 4,
-      start_date: `${y}-10-13`,
-      end_date: `${y}-11-27`,
+      start_date: `${y}-09-14`,
+      end_date: `${y}-11-21`,
       virtue_theme: null,
-      grading_lock_date: `${y}-11-23`,
+      grading_lock_date: `${y}-11-17`,
     },
   ];
 }
@@ -145,41 +148,112 @@ export function buildTermTemplates(targetYear: number): TermTemplate[] {
 // fallow-ignore-next-line unused-export
 export const TERM_TEMPLATES: TermTemplate[] = buildTermTemplates(new Date().getFullYear());
 
-// Synthetic holidays & special days pinned to AY term windows.
-// Not an attempt at the real SG calendar — defensible stand-ins so the grid
-// has a mix of day-types to demo. Registrar can re-classify via the UI.
+// School calendar entries based on HFSE's AY 2026 official calendar.
+// Only includes dates that fall within the term windows defined above —
+// public/school holidays that fall during term breaks are omitted because
+// school_calendar rows are per-term.
+//
+// `hblOverlay` (migration 051): when true, a school_holiday day is also an
+// HBL day — teachers deliver home-based learning while students have no class.
+// Applies to Marking Days and Awards Deliberation Day per HFSE's published
+// calendar (which shows both labels on those cells).
 export type CannedCalendarEntry = {
-  date: string;  // ISO yyyy-MM-dd
+  date: string;          // ISO yyyy-MM-dd
   day_type: DayType;
   label: string;
+  hblOverlay?: boolean;  // only meaningful when day_type='school_holiday'
 };
 
 /**
- * Synthetic holidays + special days, year-parametric. Substitutes
- * `targetYear` for the literal year in each ISO date. Dates fall within
- * the Jan–Nov term windows defined by `buildTermTemplates(targetYear)`.
+ * Public holidays + school holidays + HBL days based on HFSE's AY 2026
+ * calendar, parameterised by `targetYear`. Only dates that fall within
+ * the four term windows are included.
+ *
+ * HBL-overlay holidays (Marking Days + Awards Deliberation) have
+ * `hblOverlay: true` — they are school_holiday for students but encodable
+ * as attendance for teachers (Path B, migration 051).
  */
 export function buildCannedCalendar(targetYear: number): CannedCalendarEntry[] {
   const y = String(targetYear);
   return [
-    { date: `${y}-02-13`, day_type: 'public_holiday', label: 'Chinese New Year (Day 1)' },
-    { date: `${y}-02-14`, day_type: 'public_holiday', label: 'Chinese New Year (Day 2)' },
-    { date: `${y}-03-31`, day_type: 'public_holiday', label: 'Hari Raya Puasa' },
-    { date: `${y}-05-01`, day_type: 'public_holiday', label: 'Labour Day' },
-    { date: `${y}-06-08`, day_type: 'public_holiday', label: 'Hari Raya Haji' },
-    { date: `${y}-08-09`, day_type: 'public_holiday', label: 'National Day' },
-    { date: `${y}-10-26`, day_type: 'public_holiday', label: 'Deepavali' },
-    { date: `${y}-11-12`, day_type: 'no_class',       label: 'Teacher Planning Day' },
+    // ── T1 (Jan 8 – Mar 13) ────────────────────────────────────────────
+    { date: `${y}-02-17`, day_type: 'public_holiday',  label: 'Chinese New Year (Day 1)' },
+    { date: `${y}-02-18`, day_type: 'public_holiday',  label: 'Chinese New Year (Day 2)' },
+    { date: `${y}-02-20`, day_type: 'hbl',             label: 'Homebased Learning (HBL)' },
+    { date: `${y}-03-06`, day_type: 'school_holiday',  label: 'Term 1 Marking Day', hblOverlay: true },
+
+    // ── T2 (Mar 24 – May 29) ───────────────────────────────────────────
+    // Hari Raya Puasa (Mar 21) and its In Lieu (Mar 23) fall in the
+    // term break (Mar 14–22) — not within any term, so omitted here.
+    { date: `${y}-04-03`, day_type: 'public_holiday',  label: 'Good Friday' },
+    { date: `${y}-04-10`, day_type: 'school_holiday',  label: 'Staff Development Day' },
+    { date: `${y}-05-01`, day_type: 'public_holiday',  label: 'Labour Day' },
+    { date: `${y}-05-22`, day_type: 'school_holiday',  label: 'Term 2 Marking Day', hblOverlay: true },
+    { date: `${y}-05-25`, day_type: 'school_holiday',  label: 'In-Lieu of Family Sportsfest' },
+
+    // ── T3 (Jun 29 – Sep 6) ────────────────────────────────────────────
+    // Vesak Day (May 31) + In Lieu (Jun 1) fall in the break — omitted.
+    { date: `${y}-07-05`, day_type: 'public_holiday',  label: 'Youth Day' },
+    { date: `${y}-07-06`, day_type: 'public_holiday',  label: 'In Lieu of Youth Day' },
+    { date: `${y}-07-08`, day_type: 'hbl',             label: 'Homebased Learning (HBL)' },
+    { date: `${y}-07-17`, day_type: 'hbl',             label: 'Homebased Learning (HBL)' },
+    { date: `${y}-07-24`, day_type: 'school_holiday',  label: 'Staff Development Day' },
+    { date: `${y}-08-09`, day_type: 'public_holiday',  label: 'National Day' },
+    { date: `${y}-08-10`, day_type: 'public_holiday',  label: 'In Lieu of National Day' },
+    { date: `${y}-08-28`, day_type: 'school_holiday',  label: 'Term 3 Marking Day', hblOverlay: true },
+    { date: `${y}-09-04`, day_type: 'public_holiday',  label: "Teacher's Day" },
+
+    // ── T4 (Sep 14 – Nov 21) ───────────────────────────────────────────
+    { date: `${y}-10-02`, day_type: 'public_holiday',  label: "Children's Day" },
+    { date: `${y}-10-23`, day_type: 'school_holiday',  label: 'Term 4 Marking Day', hblOverlay: true },
+    { date: `${y}-11-06`, day_type: 'school_holiday',  label: 'Awards Deliberation Day', hblOverlay: true },
+    { date: `${y}-11-08`, day_type: 'public_holiday',  label: 'Deepavali' },
+    { date: `${y}-11-09`, day_type: 'public_holiday',  label: 'In Lieu of Deepavali' },
   ];
 }
 
-export type CannedEvent = { start_date: string; end_date: string; label: string };
+// Calendar events (informational overlay on the calendar grid). Mirrors the
+// events section of HFSE's AY 2026 calendar. Each event is placed within
+// the term that contains its start_date.
+export type CannedEvent = {
+  start_date: string;
+  end_date: string;
+  label: string;
+  category: EventCategory;
+  audience: Audience;
+};
 
 export function buildCannedEvents(targetYear: number): CannedEvent[] {
   const y = String(targetYear);
   return [
-    { start_date: `${y}-03-23`, end_date: `${y}-03-27`, label: 'Assessment Week' },
-    { start_date: `${y}-09-21`, end_date: `${y}-09-25`, label: 'Mathematics Week' },
+    // ── T1 events ──────────────────────────────────────────────────────
+    { start_date: `${y}-01-08`, end_date: `${y}-01-08`, label: 'Start of 11th Academic Year',          category: 'start_of_term',    audience: 'all'       },
+    { start_date: `${y}-02-02`, end_date: `${y}-02-06`, label: 'Mathematics Week',                     category: 'subject_week',     audience: 'all'       },
+    { start_date: `${y}-02-25`, end_date: `${y}-02-27`, label: 'Secondary School Term 1 Exam',         category: 'term_exam',        audience: 'secondary' },
+    { start_date: `${y}-03-02`, end_date: `${y}-03-05`, label: 'Secondary School Term 1 Exam',         category: 'term_exam',        audience: 'secondary' },
+    { start_date: `${y}-03-04`, end_date: `${y}-03-05`, label: 'Primary School Term 1 Exam',           category: 'term_exam',        audience: 'primary'   },
+
+    // ── T2 events ──────────────────────────────────────────────────────
+    { start_date: `${y}-03-24`, end_date: `${y}-03-24`, label: 'Start of Term 2',                      category: 'start_of_term',    audience: 'all'       },
+    { start_date: `${y}-04-08`, end_date: `${y}-04-09`, label: 'General PTC (Online)',                  category: 'ptc',              audience: 'all'       },
+    { start_date: `${y}-04-13`, end_date: `${y}-04-17`, label: 'English Week',                         category: 'subject_week',     audience: 'all'       },
+    { start_date: `${y}-04-27`, end_date: `${y}-04-30`, label: 'Science Week',                         category: 'subject_week',     audience: 'all'       },
+    { start_date: `${y}-05-13`, end_date: `${y}-05-15`, label: 'Secondary School Term 2 Exam',         category: 'term_exam',        audience: 'secondary' },
+    { start_date: `${y}-05-20`, end_date: `${y}-05-21`, label: 'Primary School Term 2 Exam',           category: 'term_exam',        audience: 'primary'   },
+
+    // ── T3 events ──────────────────────────────────────────────────────
+    { start_date: `${y}-06-29`, end_date: `${y}-06-29`, label: 'Start of Term 3',                      category: 'start_of_term',    audience: 'all'       },
+    { start_date: `${y}-07-27`, end_date: `${y}-07-31`, label: 'STAR Week',                            category: 'subject_week',     audience: 'all'       },
+    { start_date: `${y}-08-10`, end_date: `${y}-08-14`, label: 'Mother Tongue Week',                   category: 'subject_week',     audience: 'all'       },
+    { start_date: `${y}-08-18`, end_date: `${y}-08-21`, label: 'Secondary School Term 3 Exam',         category: 'term_exam',        audience: 'secondary' },
+    { start_date: `${y}-08-26`, end_date: `${y}-08-27`, label: 'Primary School Term 3 Exam',           category: 'term_exam',        audience: 'primary'   },
+
+    // ── T4 events ──────────────────────────────────────────────────────
+    { start_date: `${y}-09-14`, end_date: `${y}-09-14`, label: 'Start of Term 4',                      category: 'start_of_term',    audience: 'all'       },
+    { start_date: `${y}-10-14`, end_date: `${y}-10-16`, label: 'Secondary School Term 4 Exam',         category: 'term_exam',        audience: 'secondary' },
+    { start_date: `${y}-10-19`, end_date: `${y}-10-22`, label: 'Secondary School Term 4 Final Exam',   category: 'term_exam',        audience: 'secondary' },
+    { start_date: `${y}-10-21`, end_date: `${y}-10-22`, label: 'Primary School Term 4 Exam',           category: 'term_exam',        audience: 'primary'   },
+    { start_date: `${y}-11-04`, end_date: `${y}-11-05`, label: 'General PTC (Online)',                  category: 'ptc',              audience: 'all'       },
   ];
 }
 

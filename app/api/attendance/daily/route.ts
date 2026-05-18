@@ -8,6 +8,7 @@ import { levelTypeForAudienceLookup } from '@/lib/sis/levels';
 import {
   DailyBulkSchema,
   DailyEntrySchema,
+  isEncodableDayType,
   type DailyEntryInput,
   type Audience,
   type DayType,
@@ -198,7 +199,7 @@ export async function PATCH(request: NextRequest) {
     const audiences: Audience[] = levelType ? ['all', levelType] : ['all'];
     const { data } = await service
       .from('school_calendar')
-      .select('day_type, audience')
+      .select('day_type, audience, hbl_overlay')
       .eq('term_id', termId)
       .eq('date', date)
       .in('audience', audiences);
@@ -215,11 +216,12 @@ export async function PATCH(request: NextRequest) {
       return isBlocked;
     }
     // Audience precedence — prefer the level-specific row over 'all'.
-    const rows = data as Array<{ day_type: DayType; audience: Audience }>;
+    const rows = data as Array<{ day_type: DayType; audience: Audience; hbl_overlay: boolean }>;
     const specific = rows.find((r) => r.audience === levelType);
     const chosen = specific ?? rows[0];
-    const dt = chosen.day_type;
-    const isBlocked = dt !== 'school_day' && dt !== 'hbl';
+    // school_holiday+hbl_overlay=true is encodable — teachers deliver HBL
+    // while the day is a school closure for students (migration 051).
+    const isBlocked = !isEncodableDayType(chosen.day_type, chosen.hbl_overlay ?? false);
     blockCache.set(key, isBlocked);
     return isBlocked;
   }

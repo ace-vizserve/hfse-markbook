@@ -5,6 +5,16 @@ import { useRouter } from 'next/navigation';
 import { Loader2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -57,6 +67,7 @@ export function EnrolmentEditSheet({
   const [officer, setOfficer] = useState(initial.classroom_officer_role ?? '');
   const [status, setStatus] = useState<EnrollmentStatus>(initial.enrollment_status);
   const [saving, setSaving] = useState(false);
+  const [confirmWithdraw, setConfirmWithdraw] = useState(false);
 
   function handleOpenChange(next: boolean) {
     setOpen(next);
@@ -68,8 +79,22 @@ export function EnrolmentEditSheet({
     }
   }
 
-  async function onSubmit(e: React.FormEvent) {
+  // Withdrawing flips both section_students AND admissions applicationStatus
+  // to Withdrawn (server-side cascade). Confirm before firing.
+  const isWithdrawing =
+    status === 'withdrawn' && initial.enrollment_status !== 'withdrawn';
+
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (isWithdrawing) {
+      setConfirmWithdraw(true);
+      return;
+    }
+    void doSave();
+  }
+
+  async function doSave() {
+    setConfirmWithdraw(false);
     setSaving(true);
     try {
       const res = await fetch(
@@ -92,10 +117,15 @@ export function EnrolmentEditSheet({
       // back gracefully when the date sits outside any defined term window.
       const lateTerm = (body as { lateEnrolleeTerm?: { termLabel: string } | null })
         .lateEnrolleeTerm;
+      const admissionsCascade = (body as {
+        admissionsCascade?: { enroleeNumber: string; ayCode: string } | null;
+      }).admissionsCascade;
       if (lateTerm?.termLabel) {
         toast.success(`Tagged ${studentName} as late enrollee · ${lateTerm.termLabel}`);
       } else if (status === 'late_enrollee') {
         toast.success(`Tagged ${studentName} as late enrollee · between terms`);
+      } else if (admissionsCascade) {
+        toast.success(`Withdrew ${studentName} · admissions also marked Withdrawn`);
       } else {
         toast.success(`Updated ${studentName}`);
       }
@@ -122,7 +152,7 @@ export function EnrolmentEditSheet({
             </SheetDescription>
           </SheetHeader>
 
-          <form onSubmit={onSubmit}>
+          <form onSubmit={handleSubmit}>
           <div className="flex flex-col gap-5 p-6">
             <div className="space-y-2">
               <Label htmlFor="busNo">Bus number</Label>
@@ -184,6 +214,25 @@ export function EnrolmentEditSheet({
         </form>
         </ScrollArea>
       </SheetContent>
+
+      <AlertDialog open={confirmWithdraw} onOpenChange={setConfirmWithdraw}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Withdraw {studentName}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes them from this section roster and marks them as Withdrawn in
+              admissions. Their grades, attendance, and history remain on file. To move
+              them to another section instead, cancel and use Move student.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void doSave()}>
+              Withdraw
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   );
 }

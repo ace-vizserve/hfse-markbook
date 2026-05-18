@@ -55,13 +55,15 @@ export async function isStudentEnrolled(
 ): Promise<boolean> {
   const service = createServiceClient();
   const prefix = prefixFor(ayCode);
-  const { data } = await service
+  const { data, error } = await service
     .from(`${prefix}_enrolment_status`)
     .select('"applicationStatus"')
     .eq('enroleeNumber', enroleeNumber)
-    .maybeSingle();
-  if (!data) return false;
-  const status = (data as Record<string, unknown>).applicationStatus;
+    .limit(1);
+  if (error) throw error;
+  const row = (data as Array<Record<string, unknown>> | null)?.[0] ?? null;
+  if (!row) return false;
+  const status = row.applicationStatus;
   return status === 'Enrolled' || status === 'Enrolled (Conditional)';
 }
 
@@ -183,14 +185,13 @@ export async function getDocumentDashboardData(ayCode: string): Promise<{
     docs.map((d) => [str(d, 'enroleeNumber'), d]),
   );
 
-  // Filter to enrolled students only (same logic as admissions dashboard)
+  // Filter to enrolled students only (KD #91 — status-only gate; classSection IS NOT
+  // NULL was relaxed so legacy/imported Enrolled rows without a section still appear).
   const enrolledApps = apps.filter((a) => {
     const s = statusByEnrolee.get(str(a, 'enroleeNumber'));
     if (!s) return false;
     const appStatus = str(s, 'applicationStatus') ?? '';
-    const section = str(s, 'classSection');
-    if (['Cancelled', 'Withdrawn'].includes(appStatus)) return false;
-    return section != null && section.length > 0;
+    return appStatus === 'Enrolled' || appStatus === 'Enrolled (Conditional)';
   });
 
   const students = enrolledApps.map((app) => {

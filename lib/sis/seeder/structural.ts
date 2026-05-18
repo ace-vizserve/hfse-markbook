@@ -225,9 +225,9 @@ export async function ensureTestStructure(
   if (termsWithDates.length > 0) {
     // Build the weekday-school_day set first, then overlay canned entries
     // (holidays win when they collide with a weekday).
-    const overlay = new Map<string, { day_type: string; label: string | null }>();
+    const overlay = new Map<string, { day_type: string; label: string | null; hbl_overlay: boolean }>();
     for (const c of cannedCalendar) {
-      overlay.set(c.date, { day_type: c.day_type, label: c.label });
+      overlay.set(c.date, { day_type: c.day_type, label: c.label, hbl_overlay: c.hblOverlay ?? false });
     }
 
     // Migration 037 widened the unique key from (term_id, date) to
@@ -237,11 +237,14 @@ export async function ensureTestStructure(
     // skips inserts silently (no error, no rows) — which then leaves
     // school_calendar empty and downstream attendance seeding inserts
     // zero rows because schoolDays.length === 0.
+    // Migration 051: hbl_overlay column — true on marking days + awards
+    // deliberation day (school_holiday+HBL dual-label per AY 2026 calendar).
     const rows: Array<{
       term_id: string;
       date: string;
       day_type: string;
       is_holiday: boolean;
+      hbl_overlay: boolean;
       label: string | null;
       audience: 'all';
     }> = [];
@@ -265,6 +268,7 @@ export async function ensureTestStructure(
             date: iso,
             day_type: overlayEntry.day_type,
             is_holiday: overlayEntry.day_type !== 'school_day' && overlayEntry.day_type !== 'hbl',
+            hbl_overlay: overlayEntry.hbl_overlay,
             label: overlayEntry.label,
             audience: 'all',
           });
@@ -274,6 +278,7 @@ export async function ensureTestStructure(
             date: iso,
             day_type: 'school_day',
             is_holiday: false,
+            hbl_overlay: false,
             label: null,
             audience: 'all',
           });
@@ -307,6 +312,8 @@ export async function ensureTestStructure(
       start_date: string;
       end_date: string;
       label: string;
+      category: string;
+      audience: string;
     }> = [];
     for (const ev of cannedEvents) {
       const hostTerm = termsWithDates.find(
@@ -318,6 +325,8 @@ export async function ensureTestStructure(
         start_date: ev.start_date,
         end_date: ev.end_date,
         label: ev.label,
+        category: ev.category,
+        audience: ev.audience,
       });
     }
 

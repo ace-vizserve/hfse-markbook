@@ -27,6 +27,7 @@ import {
   type MarkbookDrillTarget,
   type SheetRow,
 } from '@/lib/markbook/drill';
+import { applyTargetFilterClient } from '@/lib/markbook/drill-target-filter';
 
 export type MarkbookDrillSheetProps = {
   target: MarkbookDrillTarget;
@@ -158,7 +159,7 @@ function buildEntryColumns(visible: DrillColumnKey[]): ColumnDef<GradeEntryRow, 
           header: DRILL_COLUMN_LABELS.sectionName,
           cell: ({ row }) => (
             <Link
-              href={`/markbook/grading?section=${encodeURIComponent(row.original.sectionId)}`}
+              href={`/markbook/grading?q=${encodeURIComponent(row.original.sectionName)}`}
               className="text-sm text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
             >
               {row.original.sectionName}
@@ -180,15 +181,46 @@ function buildEntryColumns(visible: DrillColumnKey[]): ColumnDef<GradeEntryRow, 
           header: DRILL_COLUMN_LABELS.rawScore,
           cell: ({ row }) => <span className="tabular-nums">{row.original.rawScore ?? '—'}/{row.original.maxScore}</span> });
         break;
+      case 'wwScores':
+        cols.push({ id: 'wwScores', accessorKey: 'wwScores',
+          header: DRILL_COLUMN_LABELS.wwScores,
+          cell: ({ row }) => (
+            <span className="font-mono text-xs tabular-nums">
+              {(row.original.wwScores ?? []).length === 0
+                ? '—'
+                : (row.original.wwScores ?? []).map((s) => (s == null ? '—' : s)).join(' · ')}
+            </span>
+          ) });
+        break;
+      case 'ptScores':
+        cols.push({ id: 'ptScores', accessorKey: 'ptScores',
+          header: DRILL_COLUMN_LABELS.ptScores,
+          cell: ({ row }) => (
+            <span className="font-mono text-xs tabular-nums">
+              {(row.original.ptScores ?? []).length === 0
+                ? '—'
+                : (row.original.ptScores ?? []).map((s) => (s == null ? '—' : s)).join(' · ')}
+            </span>
+          ) });
+        break;
+      case 'qaScore':
+        cols.push({ id: 'qaScore', accessorKey: 'qaScore',
+          header: DRILL_COLUMN_LABELS.qaScore,
+          cell: ({ row }) => (
+            <span className="font-mono text-xs tabular-nums">
+              {row.original.qaScore ?? '—'}/{row.original.qaMax ?? '—'}
+            </span>
+          ) });
+        break;
       case 'computedGrade':
         cols.push({ id: 'computedGrade', accessorKey: 'computedGrade',
           header: DRILL_COLUMN_LABELS.computedGrade,
           cell: ({ row }) => <span className="font-mono text-sm font-semibold tabular-nums">{row.original.computedGrade ?? '—'}</span> });
         break;
-      case 'gradeBucket':
-        cols.push({ id: 'gradeBucket', accessorKey: 'gradeBucket',
-          header: DRILL_COLUMN_LABELS.gradeBucket,
-          cell: ({ row }) => <GradeBucketBadge bucket={row.original.gradeBucket} /> });
+      case 'letterGrade':
+        cols.push({ id: 'letterGrade', accessorKey: 'letterGrade',
+          header: DRILL_COLUMN_LABELS.letterGrade,
+          cell: ({ row }) => <span className="font-mono text-sm font-semibold">{row.original.letterGrade ?? '—'}</span> });
         break;
       case 'isLocked':
         cols.push({ id: 'isLocked', accessorKey: 'isLocked',
@@ -230,14 +262,22 @@ function buildSheetColumns(visible: DrillColumnKey[]): ColumnDef<SheetRow, unkno
       case 'sectionName':
         cols.push({ id: 'sectionName', accessorKey: 'sectionName',
           header: DRILL_COLUMN_LABELS.sectionName,
-          cell: ({ row }) => (
-            <Link
-              href={`/markbook/grading?section=${encodeURIComponent(row.original.sectionId)}`}
-              className="text-sm text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
-            >
-              {row.original.sectionName}
-            </Link>
-          ) });
+          cell: ({ row }) => {
+            const p: Record<string, string> = {
+              q: row.original.sectionName,
+              status: row.original.isLocked ? 'locked' : 'open',
+            };
+            if (row.original.subjectName) p.subject = row.original.subjectName;
+            if (row.original.termLabel) p.term = row.original.termLabel;
+            return (
+              <Link
+                href={`/markbook/grading?${new URLSearchParams(p).toString()}`}
+                className="text-sm text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
+              >
+                {row.original.sectionName}
+              </Link>
+            );
+          } });
         break;
       case 'level':
         cols.push({ id: 'level', accessorKey: 'level',
@@ -295,7 +335,7 @@ function buildChangeRequestColumns(visible: DrillColumnKey[]): ColumnDef<ChangeR
         cols.push({ id: 'sectionName', accessorKey: 'sectionName', header: DRILL_COLUMN_LABELS.sectionName,
           cell: ({ row }) => (
             <Link
-              href={`/markbook/grading?section=${encodeURIComponent(row.original.sectionId)}`}
+              href={`/markbook/grading?q=${encodeURIComponent(row.original.sectionName)}`}
               className="text-sm text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
             >
               {row.original.sectionName}
@@ -352,11 +392,26 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
   } = props;
 
   const kind = rowKindForTarget(target);
+  // Seed rows arrive scope-filtered (lockedAt/publishedAt or requestedAt in
+  // range) but NOT target-narrowed. Without the client-side filter pass, the
+  // drill displays the whole scope-filtered universe — e.g. "sheets-locked"
+  // drill includes unlocked sheets, "change-requests pending" drill includes
+  // approved/rejected rows — and the count diverges from the metric card.
+  // Apply the same logic the API uses so the seed shortcut renders the same
+  // rows the API would have returned.
   const seedRows: MarkbookDrillRow[] = React.useMemo(() => {
-    if (kind === 'entry') return initialEntries ?? [];
-    if (kind === 'sheet') return initialSheets ?? [];
-    return initialChangeRequests ?? [];
-  }, [kind, initialEntries, initialSheets, initialChangeRequests]);
+    const raw: MarkbookDrillRow[] =
+      kind === 'entry'
+        ? initialEntries ?? []
+        : kind === 'sheet'
+          ? initialSheets ?? []
+          : initialChangeRequests ?? [];
+    if (raw.length === 0) return raw;
+    return applyTargetFilterClient(raw, target, segment ?? null, {
+      from: initialFrom,
+      to: initialTo,
+    });
+  }, [kind, target, segment, initialFrom, initialTo, initialEntries, initialSheets, initialChangeRequests]);
 
   const [rows, setRows] = React.useState<MarkbookDrillRow[]>(seedRows);
   const [loading, setLoading] = React.useState(seedRows.length === 0);

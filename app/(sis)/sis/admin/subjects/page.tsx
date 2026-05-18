@@ -30,7 +30,9 @@ export default async function SubjectConfigPage({
 }) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
-  if (sessionUser.role !== 'superadmin') redirect('/sis');
+  if (sessionUser.role !== 'superadmin' && sessionUser.role !== 'school_admin') {
+    redirect('/sis');
+  }
 
   const sp = await searchParams;
   const service = createServiceClient();

@@ -1,3 +1,4 @@
+import { revalidateTag } from 'next/cache';
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { requireRole } from '@/lib/auth/require-role';
@@ -102,6 +103,7 @@ export async function PATCH(
     },
   });
 
+  revalidateTag(`sis:${ayCode}`, 'max');
   invalidateDrillTags('records', ayCode);
 
   return NextResponse.json({ ok: true, changed: true, allowance });

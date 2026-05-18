@@ -12,15 +12,17 @@ import {
 // dashboards. Counts students (not slots) with at least one slot in the
 // per-module action states. Per-module split:
 //
-//   admissions  → Pre-enrolment chase (KD #51). Populates promised
+//   admissions  → Pre-enrolment chase (KD #51 + KD #70). Populates promised
 //                 (To follow), validation (Uploaded), revalidation
-//                 (Rejected only — Expired belongs to P-Files renewal
-//                 lifecycle). expiringSoon zeroed — admissions doesn't
-//                 chase renewals.
+//                 (Rejected + Expired per KD #70 — both signal parent re-upload
+//                 needed). expiringSoon zeroed — admissions doesn't chase renewals.
 //   p-files     → Post-enrolment renewal lifecycle (KD #31 + KD #64).
-//                 Populates revalidation (Expired only — Rejected belongs
-//                 to admissions) + expiringSoon. promised + validation
-//                 zeroed — those buckets are admissions-side.
+//                 Populates revalidation (Rejected + Expired — both kinds) +
+//                 expiringSoon. promised + validation zeroed.
+//
+// KD #70: chase = {To follow, Rejected, Expired} for BOTH modules.
+// The distinction between modules is enrollment-status scope + which buckets
+// are zeroed out, not which revalidation kind is counted.
 //
 // Filtering by enrollment status keeps the two surfaces non-overlapping:
 //   admissions  → applicationStatus IN ('Submitted', 'Ongoing Verification', 'Processing')
@@ -32,12 +34,12 @@ import {
 // etc.) automatically refreshes these counts.
 // ──────────────────────────────────────────────────────────────────────────
 
-export type ChaseQueueModule = 'admissions' | 'p-files';
+export type ChaseQueueLens = 'admissions' | 'p-files';
 
 export type DocumentChaseQueueCounts = {
   promised: number;     // any slot at 'To follow' (admissions only — zero for p-files)
   validation: number;   // any slot at 'Uploaded' (admissions only — zero for p-files)
-  revalidation: number; // 'Rejected' for admissions; 'Expired' for p-files
+  revalidation: number; // Rejected + Expired for both modules per KD #70
   expiringSoon: number; // any Valid slot expiring within 30 days (p-files only — zero for admissions)
 };
 
@@ -57,7 +59,7 @@ function prefixFor(ayCode: string): string {
 
 async function loadChaseQueueUncached(
   ayCode: string,
-  moduleKey: ChaseQueueModule,
+  moduleKey: ChaseQueueLens,
 ): Promise<DocumentChaseQueueCounts> {
   const prefix = prefixFor(ayCode);
   const supabase = createAdmissionsClient();
@@ -126,16 +128,12 @@ async function loadChaseQueueUncached(
   type DocRow = Record<string, string | null>;
   const rows = (docsRes.data ?? []) as unknown as DocRow[];
 
-  // Per-module revalidation discriminator — admissions cares about
-  // Rejected (parent uploaded but registrar bounced); p-files cares
-  // about Expired (renewal lifecycle).
-  const revalidationKind: 'rejected' | 'expired' =
-    moduleKey === 'admissions' ? 'rejected' : 'expired';
-
+  // KD #70: chase = {To follow, Rejected, Expired} for both modules.
+  // No kindFilter — the default 'both' in scanDocStatusForActionFlags counts
+  // both Rejected and Expired as revalidation for all modules.
   for (const row of rows) {
     const flags = scanDocStatusForActionFlags(row, {
       expiringSoonThresholdDays: EXPIRING_SOON_THRESHOLD_DAYS,
-      kindFilter: { revalidation: revalidationKind },
     });
     if (flags.hasPromised) promised += 1;
     if (flags.hasValidation) validation += 1;
@@ -156,7 +154,7 @@ async function loadChaseQueueUncached(
 
 export async function getDocumentChaseQueueCounts(
   ayCode: string,
-  moduleKey: ChaseQueueModule = 'admissions',
+  moduleKey: ChaseQueueLens = 'admissions',
 ): Promise<DocumentChaseQueueCounts> {
   return unstable_cache(
     () => loadChaseQueueUncached(ayCode, moduleKey),

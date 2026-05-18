@@ -89,19 +89,40 @@ type FailureBody = {
   studentNumber?: string;
 };
 
+type TermInfo = { termNumber: number; termLabel: string };
+
 export function ManualAddStudent({
   sectionId,
   nextIndex,
+  ayCode,
 }: {
   sectionId: string;
   nextIndex: number;
+  ayCode: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [midTermInfo, setMidTermInfo] = useState<TermInfo | null>(null);
   const form = useForm<ManualAddStudentInput>({
     resolver: zodResolver(ManualAddStudentSchema),
     defaultValues: DEFAULTS,
   });
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetch(`/api/sis/today-term?ay=${encodeURIComponent(ayCode)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { midTerm: TermInfo | null } | null) => {
+        if (cancelled || !data?.midTerm) return;
+        setMidTermInfo(data.midTerm);
+        form.setValue('late_enrollee', true, { shouldDirty: true });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open, ayCode, form]);
 
   // Admissions search state. Debounced input → /api/sis/search → click a
   // match to lock it in. The `pickedMatch` is the only path to a valid
@@ -285,6 +306,7 @@ export function ManualAddStudent({
           setSearchQuery('');
           setSearchResults([]);
           setPickedMatch(null);
+          setMidTermInfo(null);
         }
       }}
     >
@@ -482,7 +504,9 @@ export function ManualAddStudent({
                           <span>
                             Late enrollee
                             <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
-                              Assessments before the enrolment date will be marked N/A.
+                              {midTermInfo
+                                ? `Today falls in ${midTermInfo.termLabel} — auto-ticked. Untick if this enrolment is back-dated.`
+                                : 'Assessments before the enrolment date will be marked N/A.'}
                             </span>
                           </span>
                         </label>

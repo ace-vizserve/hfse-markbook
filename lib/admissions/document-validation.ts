@@ -24,12 +24,11 @@
 import { unstable_cache } from 'next/cache';
 
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
-import {
-  DOCUMENT_SLOTS,
-  STP_CONDITIONAL_SLOT_KEYS,
-} from '@/lib/sis/queries';
+import { DOCUMENT_SLOTS } from '@/lib/sis/queries';
 
 export type ValidationQueueCategory = 'general' | 'stp';
+
+export type ValidationQueueOwner = 'Student' | 'Mother' | 'Father' | 'Guardian';
 
 export type ValidationQueueRow = {
   enroleeNumber: string;
@@ -41,13 +40,22 @@ export type ValidationQueueRow = {
   slotLabel: string;
   fileUrl: string;
   isExpirable: boolean;
-  // 'general' = the 13 always-applicable slots. 'stp' = the 3 STP-
-  // conditional slots (icaPhoto / financialSupportDocs /
-  // vaccinationInformation) that only appear when the applicant has
-  // stpApplicationType set. Drives the General / STP tab split on the
-  // validation page.
+  // Who the document belongs to, derived from slotKey prefix. Lets the
+  // validation page facet on "Student" vs "Mother / Father / Guardian"
+  // so registrars can batch through parent-side docs vs student-side docs.
+  owner: ValidationQueueOwner;
+  // 'general' = the 13 always-applicable slots. 'stp' was the 3 STP-
+  // conditional slots before migration 050 retired them — kept on the
+  // type for back-compat with consumers; new rows always emit 'general'.
   category: ValidationQueueCategory;
 };
+
+function deriveOwner(slotKey: string): ValidationQueueOwner {
+  if (slotKey.startsWith('mother')) return 'Mother';
+  if (slotKey.startsWith('father')) return 'Father';
+  if (slotKey.startsWith('guardian')) return 'Guardian';
+  return 'Student';
+}
 
 const PENDING_APP_STATUSES = [
   'Submitted',
@@ -55,8 +63,6 @@ const PENDING_APP_STATUSES = [
   'Processing',
 ] as const;
 type PendingAppStatus = (typeof PENDING_APP_STATUSES)[number];
-
-const STP_CONDITIONAL_SLOT_KEY_SET = new Set<string>(STP_CONDITIONAL_SLOT_KEYS);
 
 async function loadPendingDocValidationUncached(
   ayCode: string,
@@ -140,12 +146,6 @@ async function loadPendingDocValidationUncached(
     if (!PENDING_APP_STATUSES.includes(appStatus as PendingAppStatus)) continue;
 
     for (const slot of DOCUMENT_SLOTS) {
-      // STP-conditional gate (KD #61) — skip when stpApplicationType is null/empty.
-      if (STP_CONDITIONAL_SLOT_KEY_SET.has(slot.key)) {
-        const stp = app.stpApplicationType;
-        if (!stp || String(stp).trim().length === 0) continue;
-      }
-
       const status = docRow[slot.statusCol];
       if (status !== 'Uploaded') continue;
 
@@ -170,7 +170,8 @@ async function loadPendingDocValidationUncached(
         slotLabel: slot.label,
         fileUrl,
         isExpirable: slot.expiryCol != null,
-        category: STP_CONDITIONAL_SLOT_KEY_SET.has(slot.key) ? 'stp' : 'general',
+        owner: deriveOwner(slot.key),
+        category: 'general',
       });
     }
   }

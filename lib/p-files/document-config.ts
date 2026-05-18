@@ -1,14 +1,16 @@
-// Static configuration for the 16 document slots tracked per student.
+// Static configuration for the 13 document slots tracked per student (post KD #96).
 // Each slot maps to columns in `ay{YY}_enrolment_documents`:
 //   {key}        — URL (text, nullable)
 //   {key}Status  — status string (varchar, nullable)
 //   {key}Expiry  — expiry date (date, nullable) — only for expiring docs
 //
-// 4 STP-conditional slots (icaPhoto, financialSupportDocs, vaccinationInformation +
-// conceptually form12 if it's STP-only at HFSE — kept in 'student' group for now)
-// are gated by `stpApplicationType` on the apps row per KD #61.
+// The 3 ICA-side STP document slots (icaPhoto, financialSupportDocs,
+// vaccinationInformation) were removed in KD #96 — parents upload those
+// directly on the Singapore ICA website; the school never receives them.
+// The STP *application* workflow (stpApplicationType / stpApplicationStatus)
+// is still tracked; only the document slots are gone.
 
-export type DocumentGroup = 'student' | 'student-expiring' | 'parent' | 'stp';
+export type DocumentGroup = 'student' | 'student-expiring' | 'parent';
 
 /**
  * For expiring document slots, describes which columns in
@@ -51,7 +53,7 @@ export const DOCUMENT_SLOTS: DocumentSlot[] = [
   { key: 'medical', label: 'Medical Exam', expires: false, group: 'student', conditional: null, meta: null },
   { key: 'form12', label: 'Form 12', expires: false, group: 'student', conditional: null, meta: null },
   // Expiring (student)
-  { key: 'passport', label: 'Passport', expires: true, group: 'student-expiring', conditional: null, meta: { kind: 'passport', numberCol: 'passportNumber', expiryCol: 'passportExpiry' } },
+  { key: 'passport', label: 'Student Passport', expires: true, group: 'student-expiring', conditional: null, meta: { kind: 'passport', numberCol: 'passportNumber', expiryCol: 'passportExpiry' } },
   { key: 'pass', label: 'Student Pass', expires: true, group: 'student-expiring', conditional: null, meta: { kind: 'pass', numberCol: 'pass', expiryCol: 'passExpiry' } },
   // Mother (always required)
   { key: 'motherPassport', label: 'Mother Passport', expires: true, group: 'parent', conditional: null, meta: { kind: 'passport', numberCol: 'motherPassport', expiryCol: 'motherPassportExpiry' } },
@@ -62,19 +64,12 @@ export const DOCUMENT_SLOTS: DocumentSlot[] = [
   // Guardian (conditional on guardianEmail)
   { key: 'guardianPassport', label: 'Guardian Passport', expires: true, group: 'parent', conditional: 'guardianEmail', meta: { kind: 'passport', numberCol: 'guardianPassport', expiryCol: 'guardianPassportExpiry' } },
   { key: 'guardianPass', label: 'Guardian Pass', expires: true, group: 'parent', conditional: 'guardianEmail', meta: { kind: 'pass', numberCol: 'guardianPass', expiryCol: 'guardianPassExpiry' } },
-  // STP (Singapore Student Pass) — gated on stpApplicationType being non-null on
-  // the apps row. HFSE is Edutrust Certified and sponsors STP applications via ICA.
-  // See KD #61 + docs/context/21-stp-application.md.
-  { key: 'icaPhoto', label: 'ICA Photo (STP)', expires: false, group: 'stp', conditional: 'stpApplicationType', meta: null },
-  { key: 'financialSupportDocs', label: 'Financial Support (STP)', expires: false, group: 'stp', conditional: 'stpApplicationType', meta: null },
-  { key: 'vaccinationInformation', label: 'Vaccination Info (STP)', expires: false, group: 'stp', conditional: 'stpApplicationType', meta: null },
 ];
 
 export const GROUP_LABELS: Record<DocumentGroup, string> = {
   student: 'Student Documents (Non-Expiring)',
   'student-expiring': 'Student Documents (Expiring)',
   parent: 'Parent / Guardian Documents',
-  stp: 'Singapore Student Pass (STP)',
 };
 
 // P-Files is a repository, not a review queue — but it does render every
@@ -129,7 +124,5 @@ export function resolveStatus(
   if (s === 'uploaded' || s === 'pending') return 'uploaded';
   if (s === 'valid') return 'valid';
 
-  // Unknown status string falls through to 'missing' so it lands in
-  // the chase queue rather than silently passing as Valid.
   return 'missing';
 }

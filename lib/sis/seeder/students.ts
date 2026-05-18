@@ -1,3 +1,7 @@
+// Currently unused — legacy TEST-NNN student seeder superseded by the
+// admissions-minimal seeder (E990NNN test-distinct personas). Do not call until the
+// populated seeder rewrite restores section_students seeding.
+
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { pickNames } from './names';

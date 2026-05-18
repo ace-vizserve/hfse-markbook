@@ -24,7 +24,7 @@ type ApplyTemplateRpcResult = {
 // Per-AY data (e.g. `sections.form_class_adviser`) is preserved by the UPDATE
 // leaving non-template columns alone.
 export async function POST(request: NextRequest) {
-  const auth = await requireRole(['superadmin']);
+  const auth = await requireRole(['school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const body = await request.json().catch(() => null);

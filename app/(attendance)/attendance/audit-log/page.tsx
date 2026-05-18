@@ -1,12 +1,12 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { AlertTriangle, ArrowLeft, History, ListChecks, Users } from 'lucide-react';
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getSessionUser } from '@/lib/supabase/server';
 import { getStaffDisplayEntries } from '@/lib/auth/staff-list';
 import {
   Card,
   CardAction,
-  CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
@@ -15,19 +15,40 @@ import {
 import { PageShell } from '@/components/ui/page-shell';
 import { AttendanceAuditLogDataTable, type AttendanceAuditRow } from './audit-log-data-table';
 
-export default async function AttendanceAuditLogPage() {
+export default async function AttendanceAuditLogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; pageSize?: string }>;
+}) {
+  const sessionUser = await getSessionUser();
+  if (!sessionUser) redirect('/login');
+  if (
+    sessionUser.role !== 'registrar' &&
+    sessionUser.role !== 'school_admin' &&
+    sessionUser.role !== 'superadmin'
+  ) {
+    redirect('/');
+  }
+
+  const params = await searchParams;
+  const PAGE_SIZE = Math.min(Number(params.pageSize ?? 50), 200);
+  const page = Math.max(Number(params.page ?? 1), 1);
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
   const supabase = await createClient();
 
-  // TODO(server-pagination): raise 500-row cap to true server pagination per spec §5.24 + §7.4
-  const [{ data: rows, error }, staffEntries] = await Promise.all([
+  const [{ data: rows, count, error }, staffEntries] = await Promise.all([
     supabase
       .from('audit_log')
-      .select('id, actor_email, action, entity_type, entity_id, context, created_at')
+      .select('id, actor_email, action, entity_type, entity_id, context, created_at', { count: 'exact' })
       .like('action', 'attendance.%')
       .order('created_at', { ascending: false })
-      .limit(500),
+      .range(from, to),
     getStaffDisplayEntries(),
   ]);
+
+  const totalPages = count ? Math.ceil(count / PAGE_SIZE) : 1;
 
   type RawRow = {
     id: string;
@@ -87,8 +108,12 @@ export default async function AttendanceAuditLogPage() {
             description="Entries loaded"
             value={entries.length.toLocaleString('en-SG')}
             icon={ListChecks}
-            footerTitle="Capped at 500 most recent"
-            footerDetail="Older rows stay in the database"
+            footerTitle={
+              count != null
+                ? `${count.toLocaleString('en-SG')} total entries`
+                : `${entries.length.toLocaleString('en-SG')} entries`
+            }
+            footerDetail={`Page ${page} of ${totalPages} · ${PAGE_SIZE} per page`}
           />
           <StatCard
             description="Unique actors"
@@ -121,13 +146,10 @@ export default async function AttendanceAuditLogPage() {
         </div>
       )}
 
-      <AttendanceAuditLogDataTable rows={entries} />
-
-      {entries.length > 0 && (
-        <CardContent className="border border-border bg-muted/20 px-4 py-2 text-[11px] text-muted-foreground rounded-lg">
-          Showing {entries.length.toLocaleString('en-SG')} most recent entries.
-        </CardContent>
-      )}
+      <AttendanceAuditLogDataTable
+        rows={entries}
+        pagination={{ page, pageSize: PAGE_SIZE, totalPages, total: count ?? 0 }}
+      />
     </PageShell>
   );
 }

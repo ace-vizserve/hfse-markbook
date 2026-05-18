@@ -8,7 +8,7 @@ import { escapeHtml, renderEmailFrame } from "@/lib/notifications/email-frame";
 // to a P-Files document slot. Mirrors the send/dev-redirect pattern of
 // `email-parents-publication.ts` per KD #16 + KD #29.
 
-export type SlotStatusKind = "expired" | "expiringSoon" | "rejected" | "missing";
+export type SlotStatusKind = "expired" | "expiringSoon" | "rejected" | "missing" | "toFollow";
 
 // `kind` selects the email tone:
 //   - 'renewal' (default): post-enrolment chase aimed at parents whose
@@ -19,7 +19,12 @@ export type SlotStatusKind = "expired" | "expiringSoon" | "rejected" | "missing"
 //     awaiting validation). Used by Admissions during the application
 //     funnel — copy stresses "completing the application" rather than
 //     "renewing existing docs".
-export type ReminderKind = "renewal" | "initial-chase";
+//   - 'rejection': fired automatically when a P-Files officer or registrar
+//     rejects a parent-uploaded document via the document validation queue.
+//     Includes the specific rejection reason so the parent knows exactly
+//     what to fix before re-uploading. Bypasses the runNotify() 24h cooldown
+//     because rejection is a discrete event, not a recurring chase reminder.
+export type ReminderKind = "renewal" | "initial-chase" | "rejection";
 
 export type ReminderContext = {
   studentName: string;
@@ -30,6 +35,10 @@ export type ReminderContext = {
   statusKind: SlotStatusKind;
   expiryDateIso: string | null; // for expired / expiringSoon
   kind?: ReminderKind; // default 'renewal' for back-compat
+  /** Required when kind='rejection'. The verbatim reason the officer entered
+   *  when rejecting the document — included in the email body so the parent
+   *  knows exactly what to fix before re-uploading. */
+  rejectionReason?: string;
   /** Enrolee number for the AY whose docs slot is being chased. Used to
    *  build the parent-portal upload deep-link. */
   enroleeNumber: string;
@@ -43,35 +52,63 @@ export type RecipientCandidate = {
   role: "mother" | "father" | "guardian";
 };
 
+/** A single email envelope representing one send: one To address + zero or
+ *  more Cc addresses. Replaces the multi-recipient `RecipientCandidate[]`
+ *  pattern so each notify call maps to exactly one Resend send. */
+export type RecipientEnvelope =
+  | {
+      kind: "parent";
+      to: string;
+      cc: string[];
+      primaryRole: "mother" | "father" | "guardian";
+    }
+  | { kind: "none"; reason: "no-parent-emails" };
+
 // Resolve which parent email addresses receive a reminder for a given
-// slot. Mother-prefixed slots go to the mother only; father-prefixed to
-// the father; guardian-prefixed to the guardian. Student slots (passport,
-// pass, idPicture, etc.) go to mother + father, falling back to guardian
-// when both parent emails are missing.
+// slot, collapsed to a single envelope. Mother-prefixed slots go to the
+// mother only; father-prefixed to the father; guardian-prefixed to the
+// guardian. Student slots (passport, pass, idPicture, etc.) go to mother
+// as To + father as Cc, falling back to guardian when both are missing.
 export function resolveRecipients(
   slotKey: string,
   emails: { motherEmail: string | null; fatherEmail: string | null; guardianEmail: string | null },
-): RecipientCandidate[] {
+): RecipientEnvelope {
   const motherEmail = emails.motherEmail?.trim() || null;
   const fatherEmail = emails.fatherEmail?.trim() || null;
   const guardianEmail = emails.guardianEmail?.trim() || null;
 
   if (slotKey.startsWith("mother")) {
-    return motherEmail ? [{ email: motherEmail, role: "mother" }] : [];
+    return motherEmail
+      ? { kind: "parent", to: motherEmail, cc: [], primaryRole: "mother" }
+      : { kind: "none", reason: "no-parent-emails" };
   }
   if (slotKey.startsWith("father")) {
-    return fatherEmail ? [{ email: fatherEmail, role: "father" }] : [];
+    return fatherEmail
+      ? { kind: "parent", to: fatherEmail, cc: [], primaryRole: "father" }
+      : { kind: "none", reason: "no-parent-emails" };
   }
   if (slotKey.startsWith("guardian")) {
-    return guardianEmail ? [{ email: guardianEmail, role: "guardian" }] : [];
+    return guardianEmail
+      ? { kind: "parent", to: guardianEmail, cc: [], primaryRole: "guardian" }
+      : { kind: "none", reason: "no-parent-emails" };
   }
 
-  // Student-owned slot — mother + father, fall back to guardian.
-  const out: RecipientCandidate[] = [];
-  if (motherEmail) out.push({ email: motherEmail, role: "mother" });
-  if (fatherEmail) out.push({ email: fatherEmail, role: "father" });
-  if (out.length === 0 && guardianEmail) out.push({ email: guardianEmail, role: "guardian" });
-  return out;
+  // Student-owned slot — mother as To, father as Cc, fallback guardian.
+  if (motherEmail) {
+    return {
+      kind: "parent",
+      to: motherEmail,
+      cc: fatherEmail ? [fatherEmail] : [],
+      primaryRole: "mother",
+    };
+  }
+  if (fatherEmail) {
+    return { kind: "parent", to: fatherEmail, cc: [], primaryRole: "father" };
+  }
+  if (guardianEmail) {
+    return { kind: "parent", to: guardianEmail, cc: [], primaryRole: "guardian" };
+  }
+  return { kind: "none", reason: "no-parent-emails" };
 }
 
 function daysBetween(aIso: string, bIso: string): number {
@@ -92,6 +129,7 @@ function statusDescriptor(ctx: ReminderContext): string {
     return days <= 0 ? "expires today" : `expires in ${days} days`;
   }
   if (ctx.statusKind === "rejected") return "needs replacement";
+  if (ctx.statusKind === "toFollow") return "has been promised but not yet received";
   return "is missing";
 }
 
@@ -114,6 +152,44 @@ function renderReminder(ctx: ReminderContext): RenderedReminder {
   const portalUrl = process.env.NEXT_PUBLIC_PARENT_PORTAL_URL ?? "https://enrol.hfse.edu.sg";
   const descriptor = statusDescriptor(ctx);
   const kind: ReminderKind = ctx.kind ?? "renewal";
+  const ctaHref = parentPortalUploadUrl(portalUrl, ctx.enroleeNumber, ctx.ayCode);
+
+  if (kind === "rejection") {
+    const rejectionReason = ctx.rejectionReason ?? "(no reason provided)";
+    const sectionLabel =
+      ctx.level && ctx.section ? `${ctx.level} ${ctx.section}` : ctx.level ?? ctx.section ?? "";
+    const subject = `Action needed: ${ctx.slotLabel} not accepted — ${ctx.studentName}`;
+    const headline = `${ctx.slotLabel} — document not accepted`;
+    const bodyHtml = `
+      <p style="font-size:16px;line-height:26px;color:#1d1c1d;margin:0 0 16px;">
+        Dear Parent / Guardian,
+      </p>
+      <p style="font-size:16px;line-height:26px;color:#1d1c1d;margin:0 0 16px;">
+        The <strong>${escapeHtml(ctx.slotLabel)}</strong> submitted for
+        <strong>${escapeHtml(ctx.studentName)}</strong>${sectionLabel ? ` (${escapeHtml(sectionLabel)})` : ""}
+        could not be accepted for the following reason:
+      </p>
+      <blockquote style="margin:0 0 16px;padding:12px 16px;border-left:4px solid #e2e8f0;background:#f8fafc;color:#334155;font-size:15px;line-height:24px;">
+        ${escapeHtml(rejectionReason)}
+      </blockquote>
+      <p style="font-size:16px;line-height:26px;color:#1d1c1d;margin:0 0 16px;">
+        Please re-upload a corrected document so we can continue processing the enrolment.
+      </p>
+    `;
+    const html = renderEmailFrame({
+      headline,
+      bodyHtml,
+      ctas: [{ label: `Re-upload ${ctx.slotLabel} for ${ctx.studentName}`, href: ctaHref }],
+      reviewLinkHtml: `
+        <p style="font-size:14px;line-height:24px;color:#1d1c1d;margin:0 0 16px;">
+          Sign in at the parent portal and upload a replacement document under your
+          enrolment details page. If you believe this rejection is in error, please
+          contact the school registrar.
+        </p>
+      `,
+    });
+    return { subject, html };
+  }
 
   // Subject branching matches the existing kind split.
   const subject =
@@ -133,8 +209,6 @@ function renderReminder(ctx: ReminderContext): RenderedReminder {
     kind === "initial-chase"
       ? `Upload ${ctx.slotLabel} for ${ctx.studentName}`
       : `Re-upload ${ctx.slotLabel} for ${ctx.studentName}`;
-
-  const ctaHref = parentPortalUploadUrl(portalUrl, ctx.enroleeNumber, ctx.ayCode);
 
   const expiryLine = ctx.expiryDateIso
     ? `<p style="font-size:16px;line-height:26px;color:#1d1c1d;margin:0 0 12px;">
@@ -210,19 +284,18 @@ export type SendResult = {
   outcomes: SendOutcome[];
 };
 
-// Best-effort send. Returns per-recipient outcomes so the calling route
-// can write one p_file_outreach row per successful send. No DB writes
-// happen here.
+// Best-effort send. One Resend call for the envelope (To + Cc). Returns
+// per-outcome shape for compatibility with callers. No DB writes here.
 export async function sendReminder(
   ctx: ReminderContext,
-  recipients: RecipientCandidate[],
+  envelope: RecipientEnvelope,
 ): Promise<SendResult> {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey || recipients.length === 0) {
+  if (!apiKey || envelope.kind === "none") {
     if (!apiKey) {
       console.warn("[notify] skipping pfile reminder: RESEND_API_KEY unset");
     }
-    return { attempted: recipients.length, sent: 0, failed: 0, outcomes: [] };
+    return { attempted: 0, sent: 0, failed: 0, outcomes: [] };
   }
 
   const resend = new Resend(apiKey);
@@ -230,32 +303,46 @@ export async function sendReminder(
   const devTo = process.env.NODE_ENV !== "production" ? "ace.vizserve@gmail.com" : null;
   const { subject, html } = renderReminder(ctx);
 
-  const outcomes: SendOutcome[] = [];
-  let sent = 0;
-  let failed = 0;
-  for (const recipient of recipients) {
-    try {
-      const res = await resend.emails.send({
-        from: fromAddress,
-        to: devTo ?? recipient.email,
-        subject,
-        html,
-      });
-      if (res.error) {
-        failed += 1;
-        outcomes.push({ recipient, ok: false, error: res.error.message });
-        console.error("[notify] pfile reminder resend error for", recipient.email, res.error);
-      } else {
-        sent += 1;
-        outcomes.push({ recipient, ok: true });
-      }
-    } catch (e) {
-      failed += 1;
-      const msg = e instanceof Error ? e.message : String(e);
-      outcomes.push({ recipient, ok: false, error: msg });
-      console.error("[notify] pfile reminder resend throw for", recipient.email, e);
-    }
-  }
+  const toAddr = devTo ?? envelope.to;
+  const ccAddrs = devTo ? undefined : envelope.cc.length > 0 ? envelope.cc : undefined;
 
-  return { attempted: recipients.length, sent, failed, outcomes };
+  // Represent the primary recipient as a RecipientCandidate for the outcome shape.
+  const primaryRecipient: RecipientCandidate = {
+    email: envelope.to,
+    role: envelope.primaryRole,
+  };
+
+  try {
+    const res = await resend.emails.send({
+      from: fromAddress,
+      to: toAddr,
+      cc: ccAddrs,
+      subject,
+      html,
+    });
+    if (res.error) {
+      console.error("[notify] pfile reminder resend error for", envelope.to, res.error);
+      return {
+        attempted: 1,
+        sent: 0,
+        failed: 1,
+        outcomes: [{ recipient: primaryRecipient, ok: false, error: res.error.message }],
+      };
+    }
+    return {
+      attempted: 1,
+      sent: 1,
+      failed: 0,
+      outcomes: [{ recipient: primaryRecipient, ok: true }],
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[notify] pfile reminder resend throw for", envelope.to, e);
+    return {
+      attempted: 1,
+      sent: 0,
+      failed: 1,
+      outcomes: [{ recipient: primaryRecipient, ok: false, error: msg }],
+    };
+  }
 }

@@ -14,7 +14,11 @@ import {
 import { PageShell } from '@/components/ui/page-shell';
 import { AuditLogDataTable, type MergedRow } from '@/app/(markbook)/markbook/audit-log/audit-log-data-table';
 
-export default async function SisAuditLogPage() {
+export default async function SisAuditLogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; pageSize?: string }>;
+}) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
   if (sessionUser.role !== 'registrar' && sessionUser.role !== 'school_admin' && sessionUser.role !== 'superadmin') {
@@ -24,6 +28,12 @@ export default async function SisAuditLogPage() {
   // Registrar is the primary operator (KD #37, KD #74); school_admin + superadmin
   // are read-only oversight. All three can export a read-only log.
   const canExport = sessionUser.role === 'registrar' || sessionUser.role === 'school_admin' || sessionUser.role === 'superadmin';
+  const params = await searchParams;
+  const PAGE_SIZE = Math.min(Number(params.pageSize ?? 50), 200);
+  const page = Math.max(Number(params.page ?? 1), 1);
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
   const supabase = await createClient();
 
   // Explicit allowlist avoids a LIKE wildcard forcing a sequential scan.
@@ -42,12 +52,14 @@ export default async function SisAuditLogPage() {
     'pfile.upload', 'pfile.reminder.sent', 'pfile.reminder.bulk', 'pfile.mark.promised',
     'enrolment.metadata.update',
   ] as const;
-  const { data, error } = await supabase
+  const { data, count, error } = await supabase
     .from('audit_log')
-    .select('id, actor_email, action, entity_type, entity_id, context, created_at')
+    .select('id, actor_email, action, entity_type, entity_id, context, created_at', { count: 'exact' })
     .in('action', RECORDS_AUDIT_ALLOWLIST)
     .order('created_at', { ascending: false })
-    .limit(500);
+    .range(from, to);
+
+  const totalPages = count ? Math.ceil(count / PAGE_SIZE) : 1;
 
   const rows: MergedRow[] = ((data ?? []) as Array<{
     id: string;
@@ -100,8 +112,12 @@ export default async function SisAuditLogPage() {
             description="Entries loaded"
             value={rows.length.toLocaleString('en-SG')}
             icon={ListChecks}
-            footerTitle="Capped at 500 most recent"
-            footerDetail="Older entries stay in the database"
+            footerTitle={
+              count != null
+                ? `${count.toLocaleString('en-SG')} total entries`
+                : `${rows.length.toLocaleString('en-SG')} entries`
+            }
+            footerDetail={`Page ${page} of ${totalPages} · ${PAGE_SIZE} per page`}
           />
           <StatCard
             description="Unique actors"
@@ -127,7 +143,11 @@ export default async function SisAuditLogPage() {
         </div>
       )}
 
-      <AuditLogDataTable rows={rows} canExport={canExport} />
+      <AuditLogDataTable
+        rows={rows}
+        canExport={canExport}
+        pagination={{ page, pageSize: PAGE_SIZE, totalPages, total: count ?? 0 }}
+      />
     </PageShell>
   );
 }
