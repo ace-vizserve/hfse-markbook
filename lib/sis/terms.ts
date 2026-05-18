@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { unstable_cache } from 'next/cache';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { createServiceClient } from '@/lib/supabase/service';
@@ -7,86 +8,94 @@ import { createServiceClient } from '@/lib/supabase/service';
 // Resolved term info for a given date in an AY.
 export type TermInfo = { termNumber: number; termLabel: string };
 
+type TermWindow = { termNumber: number; startDate: string; endDate: string };
+
+// Per-AY term list, cached for 5 minutes (tagged so AY mutations invalidate).
+// Uses the service client — cookie-scoped clients are forbidden inside
+// unstable_cache per Next 16 (KD #54).
+function _loadTermsForAYUncached(ayCode: string): Promise<TermWindow[]> {
+  return unstable_cache(
+    async () => {
+      const service = createServiceClient();
+      const { data: ayRow } = await service
+        .from('academic_years')
+        .select('id')
+        .eq('ay_code', ayCode)
+        .maybeSingle();
+      if (!ayRow) return [];
+
+      const { data: termRows } = await service
+        .from('terms')
+        .select('term_number, start_date, end_date')
+        .eq('academic_year_id', (ayRow as { id: string }).id);
+      if (!termRows) return [];
+
+      return (termRows as Array<{ term_number: number; start_date: string | null; end_date: string | null }>)
+        .filter((t) => t.start_date && t.end_date)
+        .map((t) => ({
+          termNumber: t.term_number,
+          startDate: t.start_date as string,
+          endDate: t.end_date as string,
+        }));
+    },
+    [`sis-terms-${ayCode}`],
+    { revalidate: 300, tags: ['sis', `sis:${ayCode}`] },
+  )();
+}
+
+// Public helper — returns all term windows for an AY (cached, service-role).
+export function loadTermsForAY(ayCode: string): Promise<TermWindow[]> {
+  return _loadTermsForAYUncached(ayCode);
+}
+
 // Single-date term lookup. Returns the term whose [start_date, end_date]
 // window contains the given date, or null when the date falls outside any
 // defined term window (e.g. between T2 and T3 break, or before T1 starts).
-//
-// Pass a service-role supabase client when caching with `unstable_cache`
-// (cookie-scoped clients can't run inside cache wrappers per Next 16 — see
-// `lib/dashboard/windows.ts` for prior art). When called outside a cache
-// wrapper, the helper creates its own service client.
 export async function getTermForDate(
   date: string,
   ayCode: string,
-  service?: SupabaseClient,
+  _service?: SupabaseClient,
 ): Promise<TermInfo | null> {
-  const supabase = service ?? createServiceClient();
-  const { data: ayRow, error: ayErr } = await supabase
-    .from('academic_years')
-    .select('id')
-    .eq('ay_code', ayCode)
-    .maybeSingle();
-  if (ayErr || !ayRow) return null;
-  const ayId = (ayRow as { id: string }).id;
-
-  const { data: termRows, error: termErr } = await supabase
-    .from('terms')
-    .select('term_number, start_date, end_date')
-    .eq('academic_year_id', ayId);
-  if (termErr || !termRows) return null;
-
-  const match = (termRows as Array<{
-    term_number: number;
-    start_date: string | null;
-    end_date: string | null;
-  }>).find((t) => t.start_date && t.end_date && t.start_date <= date && t.end_date >= date);
+  const terms = await loadTermsForAY(ayCode);
+  const match = terms.find((t) => t.startDate <= date && t.endDate >= date);
   if (!match) return null;
-  return { termNumber: match.term_number, termLabel: `T${match.term_number}` };
+  return { termNumber: match.termNumber, termLabel: `T${match.termNumber}` };
 }
 
 // Bulk variant — preloads every term in every named AY so callers can do
 // many date lookups in memory. Useful for the cross-AY records placement
-// table where each placement is a different AY.
+// table where each placement is a different AY. Delegates to the cached
+// per-AY loader in parallel so cache slots are shared across callers.
 export async function preloadTermsForAYs(
   ayCodes: string[],
-  service?: SupabaseClient,
-): Promise<Map<string, Array<{ termNumber: number; startDate: string; endDate: string }>>> {
-  const out = new Map<string, Array<{ termNumber: number; startDate: string; endDate: string }>>();
-  if (ayCodes.length === 0) return out;
+  _service?: SupabaseClient,
+): Promise<Map<string, TermWindow[]>> {
+  if (ayCodes.length === 0) return new Map();
+  const results = await Promise.all(ayCodes.map((ay) => loadTermsForAY(ay)));
+  return new Map(ayCodes.map((ay, i) => [ay, results[i]]));
+}
 
-  const supabase = service ?? createServiceClient();
-  const { data, error } = await supabase
-    .from('terms')
-    .select('term_number, start_date, end_date, academic_years!inner(ay_code)')
-    .in('academic_years.ay_code', ayCodes);
-  if (error || !data) return out;
-
-  type Row = {
-    term_number: number;
-    start_date: string | null;
-    end_date: string | null;
-    academic_years: { ay_code: string } | { ay_code: string }[];
-  };
-  for (const row of data as Row[]) {
-    if (!row.start_date || !row.end_date) continue;
-    const ay = Array.isArray(row.academic_years) ? row.academic_years[0] : row.academic_years;
-    if (!ay?.ay_code) continue;
-    const arr = out.get(ay.ay_code) ?? [];
-    arr.push({
-      termNumber: row.term_number,
-      startDate: row.start_date,
-      endDate: row.end_date,
-    });
-    out.set(ay.ay_code, arr);
-  }
-  return out;
+// Returns the current term when today falls in T2/T3/T4, null otherwise.
+// T1 enrolments are on-time by definition — no prompt needed.
+// Out-of-term dates (breaks, before T1) also return null.
+// Used by enrolment routes to decide whether to surface the
+// "Mark as late enrollee?" prompt.
+export async function detectMidTermEnrolment(
+  ayCode: string,
+  _service?: SupabaseClient,
+): Promise<TermInfo | null> {
+  const today = new Date().toISOString().slice(0, 10);
+  const term = await getTermForDate(today, ayCode);
+  if (!term) return null;
+  if (term.termNumber <= 1) return null;
+  return term;
 }
 
 // Synchronous lookup against a preloaded map.
 export function termForDateInPreloaded(
   date: string,
   ayCode: string,
-  preloaded: Map<string, Array<{ termNumber: number; startDate: string; endDate: string }>>,
+  preloaded: Map<string, TermWindow[]>,
 ): TermInfo | null {
   const terms = preloaded.get(ayCode);
   if (!terms) return null;

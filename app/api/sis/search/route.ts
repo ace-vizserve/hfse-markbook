@@ -7,7 +7,10 @@ import { searchStudentsAcrossAY } from '@/lib/sis/queries';
 // search box. Service-role inside the helper, capped at 50 rows. Returns
 // 401/403 for non-staff. 200 with empty array if q is too short.
 export async function GET(request: Request) {
-  const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
+  // Teachers are excluded: they are section-scoped and shouldn't have
+  // cross-AY student search. Per KD #74 Records is enrolled-only; admissions
+  // users included for command-palette lookup in the Admissions module.
+  const auth = await requireRole(['admissions', 'registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const { searchParams } = new URL(request.url);
@@ -17,5 +20,8 @@ export async function GET(request: Request) {
   }
 
   const matches = await searchStudentsAcrossAY(q);
-  return NextResponse.json({ matches });
+  return NextResponse.json(
+    { matches },
+    { headers: { 'Cache-Control': 'private, max-age=15, stale-while-revalidate=60' } },
+  );
 }

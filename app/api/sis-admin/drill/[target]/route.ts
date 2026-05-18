@@ -103,14 +103,10 @@ export async function GET(
     return csvResponse(rows, effectiveTarget, segment);
   }
 
-  return NextResponse.json({
-    rows,
-    total: rows.length,
-    target: effectiveTarget,
-    segment,
-    eyebrow,
-    title,
-  });
+  return NextResponse.json(
+    { rows, total: rows.length, target: effectiveTarget, segment, eyebrow, title },
+    { headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' } },
+  );
 }
 
 function csvResponse(

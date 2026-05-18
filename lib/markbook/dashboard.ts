@@ -1,10 +1,8 @@
-import { unstable_cache } from 'next/cache';
+import { unstable_cache } from "next/cache";
 
-import { fetchAllPages } from '@/lib/supabase/paginate';
-import { createServiceClient } from '@/lib/supabase/service';
-import { loadAssignmentsForUser } from '@/lib/auth/teacher-assignments';
-import { getAyIdByCode } from '@/lib/dashboard/ay-id';
-import type { PriorityPayload } from '@/lib/dashboard/priority';
+import { loadAssignmentsForUser } from "@/lib/auth/teacher-assignments";
+import { getAyIdByCode } from "@/lib/dashboard/ay-id";
+import type { PriorityPayload } from "@/lib/dashboard/priority";
 import {
   computeDelta,
   daysInRange,
@@ -12,8 +10,10 @@ import {
   toISODate,
   type RangeInput,
   type RangeResult,
-} from '@/lib/dashboard/range';
-import type { VelocityPoint } from '@/lib/dashboard/velocity';
+} from "@/lib/dashboard/range";
+import type { VelocityPoint } from "@/lib/dashboard/velocity";
+import { fetchAllPages } from "@/lib/supabase/paginate";
+import { createServiceClient } from "@/lib/supabase/service";
 
 // Markbook dashboard aggregators — grading-specific lens.
 //
@@ -26,7 +26,7 @@ import type { VelocityPoint } from '@/lib/dashboard/velocity';
 const CACHE_TTL_SECONDS = 60;
 
 function tag(academicYearId: string): string[] {
-  return ['markbook', `markbook:${academicYearId}`];
+  return ["markbook", `markbook:${academicYearId}`];
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -38,14 +38,14 @@ function tag(academicYearId: string): string[] {
 // inclusive-high except the last which is 95–100.
 // fallow-ignore-next-line unused-export
 export const GRADE_BANDS = [
-  { key: 'dnm', label: '< 75 (DNM)', lo: 0, hi: 74 },
-  { key: 'fs', label: '75–79 (FS)', lo: 75, hi: 79 },
-  { key: 's', label: '80–84 (S)', lo: 80, hi: 84 },
-  { key: 'vs', label: '85–89 (VS)', lo: 85, hi: 89 },
-  { key: 'o', label: '90–100 (O)', lo: 90, hi: 100 },
+  { key: "dnm", label: "< 75 (DNM)", lo: 0, hi: 74 },
+  { key: "fs", label: "75–79 (FS)", lo: 75, hi: 79 },
+  { key: "s", label: "80–84 (S)", lo: 80, hi: 84 },
+  { key: "vs", label: "85–89 (VS)", lo: 85, hi: 89 },
+  { key: "o", label: "90–100 (O)", lo: 90, hi: 100 },
 ] as const;
 
-export type GradeBand = (typeof GRADE_BANDS)[number]['key'];
+export type GradeBand = (typeof GRADE_BANDS)[number]["key"];
 
 export type GradeBucket = {
   key: GradeBand;
@@ -53,35 +53,53 @@ export type GradeBucket = {
   count: number;
 };
 
-async function loadGradeDistributionUncached(
-  academicYearId: string,
-  termId: string | null,
-): Promise<GradeBucket[]> {
+async function loadGradeDistributionUncached(academicYearId: string, termId: string | null): Promise<GradeBucket[]> {
   const service = createServiceClient();
 
-  // Resolve term scope. If termId given, use it; else resolve current term
-  // via academic_years.current_term_id or fall back to most recent term.
+  // Resolve term scope. If termId given, use it; else pick the AY's
+  // `is_current` term so the histogram tracks the term operators are
+  // currently grading — picking the highest term_number defaulted to T4
+  // even mid-T2, which read as "future term has no grades yet".
+  // Fall back to the most-recently-finished term if no `is_current` is set
+  // (e.g. between terms), and finally to the highest term_number for AYs
+  // without per-term date windows.
   let effectiveTermId = termId;
   if (!effectiveTermId) {
-    const { data: termRow } = await service
-      .from('terms')
-      .select('id, term_number')
-      .eq('academic_year_id', academicYearId)
-      .order('term_number', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    effectiveTermId = (termRow?.id as string | undefined) ?? null;
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: termRows } = await service
+      .from("terms")
+      .select("id, term_number, is_current, start_date, end_date")
+      .eq("academic_year_id", academicYearId)
+      .order("term_number", { ascending: true });
+    type TermRow = {
+      id: string;
+      term_number: number;
+      is_current: boolean | null;
+      start_date: string | null;
+      end_date: string | null;
+    };
+    const terms = (termRows ?? []) as TermRow[];
+    const current = terms.find((t) => t.is_current === true);
+    const containingToday = terms.find(
+      (t) => t.start_date && t.end_date && t.start_date <= today && t.end_date >= today,
+    );
+    const lastFinished = [...terms]
+      .filter((t) => t.end_date && t.end_date < today)
+      .sort((a, b) => (a.end_date! < b.end_date! ? 1 : -1))[0];
+    const fallback = terms[terms.length - 1];
+    effectiveTermId =
+      current?.id ?? containingToday?.id ?? lastFinished?.id ?? fallback?.id ?? null;
   }
 
   if (!effectiveTermId) return emptyGradeBuckets();
 
   // Sheet IDs for the target term → entries for those sheets.
   const { data: sheetRows, error: sheetErr } = await service
-    .from('grading_sheets')
-    .select('id')
-    .eq('term_id', effectiveTermId);
+    .from("grading_sheets")
+    .select("id")
+    .eq("term_id", effectiveTermId);
   if (sheetErr) {
-    console.error('[markbook] getGradeDistribution sheets fetch failed:', sheetErr.message);
+    console.error("[markbook] getGradeDistribution sheets fetch failed:", sheetErr.message);
     return emptyGradeBuckets();
   }
   const sheetIds = (sheetRows ?? []).map((r) => r.id as string);
@@ -91,17 +109,16 @@ async function loadGradeDistributionUncached(
   // grade_entries can hit 14K+ rows per term.
   let entryRows: Array<{ quarterly_grade: number | null }> = [];
   try {
-    entryRows = await fetchAllPages<{ quarterly_grade: number | null }>(
-      (from, to) =>
-        service
-          .from('grade_entries')
-          .select('quarterly_grade')
-          .in('grading_sheet_id', sheetIds)
-          .not('quarterly_grade', 'is', null)
-          .range(from, to),
+    entryRows = await fetchAllPages<{ quarterly_grade: number | null }>((from, to) =>
+      service
+        .from("grade_entries")
+        .select("quarterly_grade")
+        .in("grading_sheet_id", sheetIds)
+        .not("quarterly_grade", "is", null)
+        .range(from, to),
     );
   } catch (entryErr) {
-    console.error('[markbook] getGradeDistribution entries fetch failed:', entryErr);
+    console.error("[markbook] getGradeDistribution entries fetch failed:", entryErr);
     return emptyGradeBuckets();
   }
 
@@ -121,13 +138,10 @@ async function loadGradeDistributionUncached(
   return buckets;
 }
 
-export function getGradeDistribution(
-  academicYearId: string,
-  termId: string | null = null,
-): Promise<GradeBucket[]> {
+export function getGradeDistribution(academicYearId: string, termId: string | null = null): Promise<GradeBucket[]> {
   return unstable_cache(
     loadGradeDistributionUncached,
-    ['markbook', 'grade-distribution', academicYearId, termId ?? 'current'],
+    ["markbook", "grade-distribution", academicYearId, termId ?? "current"],
     { tags: tag(academicYearId), revalidate: CACHE_TTL_SECONDS },
   )(academicYearId, termId);
 }
@@ -147,23 +161,21 @@ export type TermLockProgress = {
   open: number;
 };
 
-async function loadSheetLockProgressByTermUncached(
-  academicYearId: string,
-): Promise<TermLockProgress[]> {
+async function loadSheetLockProgressByTermUncached(academicYearId: string): Promise<TermLockProgress[]> {
   const service = createServiceClient();
 
   const [termsRes, sheetsRes] = await Promise.all([
     service
-      .from('terms')
-      .select('id, term_number')
-      .eq('academic_year_id', academicYearId)
-      .order('term_number', { ascending: true }),
-    service.from('grading_sheets').select('term_id, is_locked'),
+      .from("terms")
+      .select("id, term_number")
+      .eq("academic_year_id", academicYearId)
+      .order("term_number", { ascending: true }),
+    service.from("grading_sheets").select("term_id, is_locked"),
   ]);
 
   if (termsRes.error || sheetsRes.error) {
     console.error(
-      '[markbook] getSheetLockProgressByTerm fetch failed:',
+      "[markbook] getSheetLockProgressByTerm fetch failed:",
       termsRes.error?.message ?? sheetsRes.error?.message,
     );
     return [];
@@ -196,26 +208,18 @@ async function loadSheetLockProgressByTermUncached(
   });
 }
 
-export function getSheetLockProgressByTerm(
-  academicYearId: string,
-): Promise<TermLockProgress[]> {
-  return unstable_cache(
-    loadSheetLockProgressByTermUncached,
-    ['markbook', 'sheet-lock-progress', academicYearId],
-    { tags: tag(academicYearId), revalidate: CACHE_TTL_SECONDS },
-  )(academicYearId);
+export function getSheetLockProgressByTerm(academicYearId: string): Promise<TermLockProgress[]> {
+  return unstable_cache(loadSheetLockProgressByTermUncached, ["markbook", "sheet-lock-progress", academicYearId], {
+    tags: tag(academicYearId),
+    revalidate: CACHE_TTL_SECONDS,
+  })(academicYearId);
 }
 
 // ──────────────────────────────────────────────────────────────────────────
 // Change request summary — last N days, status breakdown + avg decision hours.
 // ──────────────────────────────────────────────────────────────────────────
 
-export type ChangeRequestStatus =
-  | 'pending'
-  | 'approved'
-  | 'rejected'
-  | 'applied'
-  | 'cancelled';
+export type ChangeRequestStatus = "pending" | "approved" | "rejected" | "applied" | "cancelled";
 
 export type ChangeRequestSummary = {
   byStatus: Record<ChangeRequestStatus, number>;
@@ -224,10 +228,7 @@ export type ChangeRequestSummary = {
   windowDays: number;
 };
 
-async function loadChangeRequestSummaryUncached(
-  ayCode: string,
-  days: number,
-): Promise<ChangeRequestSummary> {
+async function loadChangeRequestSummaryUncached(ayCode: string, days: number): Promise<ChangeRequestSummary> {
   const service = createServiceClient();
 
   const since = new Date();
@@ -252,15 +253,13 @@ async function loadChangeRequestSummaryUncached(
   }
 
   const { data, error } = await service
-    .from('grade_change_requests')
-    .select(
-      'status, requested_at, reviewed_at, grading_sheets!inner(sections!inner(academic_year_id))',
-    )
-    .eq('grading_sheets.sections.academic_year_id', ayId)
-    .gte('requested_at', sinceIso);
+    .from("grade_change_requests")
+    .select("status, requested_at, reviewed_at, grading_sheets!inner(sections!inner(academic_year_id))")
+    .eq("grading_sheets.sections.academic_year_id", ayId)
+    .gte("requested_at", sinceIso);
 
   if (error) {
-    console.error('[markbook] getChangeRequestSummary fetch failed:', error.message);
+    console.error("[markbook] getChangeRequestSummary fetch failed:", error.message);
     return { byStatus, total: 0, avgDecisionHours: null, windowDays: days };
   }
 
@@ -277,7 +276,7 @@ async function loadChangeRequestSummaryUncached(
   for (const r of rows) {
     total += 1;
     if (r.status in byStatus) byStatus[r.status] += 1;
-    if (r.reviewed_at && (r.status === 'approved' || r.status === 'rejected' || r.status === 'applied')) {
+    if (r.reviewed_at && (r.status === "approved" || r.status === "rejected" || r.status === "applied")) {
       const req = Date.parse(r.requested_at);
       const rev = Date.parse(r.reviewed_at);
       if (!Number.isNaN(req) && !Number.isNaN(rev) && rev >= req) {
@@ -288,21 +287,16 @@ async function loadChangeRequestSummaryUncached(
   }
 
   const avgDecisionHours =
-    decidedCount > 0
-      ? Math.round((totalDecisionMs / decidedCount / (1000 * 60 * 60)) * 10) / 10
-      : null;
+    decidedCount > 0 ? Math.round((totalDecisionMs / decidedCount / (1000 * 60 * 60)) * 10) / 10 : null;
 
   return { byStatus, total, avgDecisionHours, windowDays: days };
 }
 
-export function getChangeRequestSummary(
-  ayCode: string,
-  days: number = 30,
-): Promise<ChangeRequestSummary> {
+export function getChangeRequestSummary(ayCode: string, days: number = 30): Promise<ChangeRequestSummary> {
   return unstable_cache(
     loadChangeRequestSummaryUncached,
-    ['markbook', 'change-request-summary', ayCode, String(days)],
-    { tags: ['markbook'], revalidate: CACHE_TTL_SECONDS },
+    ["markbook", "change-request-summary", ayCode, String(days)],
+    { tags: ["markbook", `markbook:${ayCode}`], revalidate: CACHE_TTL_SECONDS },
   )(ayCode, days);
 }
 
@@ -317,26 +311,22 @@ export type TermPubCoverage = {
   published: number;
 };
 
-async function loadPublicationCoverageUncached(
-  academicYearId: string,
-): Promise<TermPubCoverage[]> {
+async function loadPublicationCoverageUncached(academicYearId: string): Promise<TermPubCoverage[]> {
   const service = createServiceClient();
 
   const [termsRes, sectionsRes, pubsRes] = await Promise.all([
     service
-      .from('terms')
-      .select('id, term_number')
-      .eq('academic_year_id', academicYearId)
-      .order('term_number', { ascending: true }),
-    service.from('sections').select('id').eq('academic_year_id', academicYearId),
-    service
-      .from('report_card_publications')
-      .select('term_id, section_id'),
+      .from("terms")
+      .select("id, term_number")
+      .eq("academic_year_id", academicYearId)
+      .order("term_number", { ascending: true }),
+    service.from("sections").select("id").eq("academic_year_id", academicYearId),
+    service.from("report_card_publications").select("term_id, section_id"),
   ]);
 
   if (termsRes.error || sectionsRes.error || pubsRes.error) {
     console.error(
-      '[markbook] getPublicationCoverage fetch failed:',
+      "[markbook] getPublicationCoverage fetch failed:",
       termsRes.error?.message ?? sectionsRes.error?.message ?? pubsRes.error?.message,
     );
     return [];
@@ -366,11 +356,10 @@ async function loadPublicationCoverageUncached(
 }
 
 export function getPublicationCoverage(academicYearId: string): Promise<TermPubCoverage[]> {
-  return unstable_cache(
-    loadPublicationCoverageUncached,
-    ['markbook', 'publication-coverage', academicYearId],
-    { tags: tag(academicYearId), revalidate: CACHE_TTL_SECONDS },
-  )(academicYearId);
+  return unstable_cache(loadPublicationCoverageUncached, ["markbook", "publication-coverage", academicYearId], {
+    tags: tag(academicYearId),
+    revalidate: CACHE_TTL_SECONDS,
+  })(academicYearId);
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -389,38 +378,34 @@ export type RecentMarkbookActivityRow = {
 // `lib/audit/log-action.ts::AuditAction`. Excludes sis.* / pfile.* / ay.* /
 // approver.* which belong to other module dashboards.
 const MARKBOOK_ACTION_PREFIXES = [
-  'sheet.',
-  'entry.',
-  'totals.',
-  'assignment.',
-  'attendance.',
-  'comment.',
-  'publication.',
-  'grade_change_',
-  'grade_correction',
-  'student.',
+  "sheet.",
+  "entry.",
+  "totals.",
+  "assignment.",
+  "attendance.",
+  "comment.",
+  "publication.",
+  "grade_change_",
+  "grade_correction",
+  "student.",
 ] as const;
 
-async function loadRecentMarkbookActivityUncached(
-  limit: number,
-): Promise<RecentMarkbookActivityRow[]> {
+async function loadRecentMarkbookActivityUncached(limit: number): Promise<RecentMarkbookActivityRow[]> {
   const service = createServiceClient();
 
   // OR chain: actions starting with any markbook-owned prefix. Supabase's
   // `or()` takes a comma-separated string of filter exprs.
-  const orClause = MARKBOOK_ACTION_PREFIXES
-    .map((p) => `action.like.${p}%`)
-    .join(',');
+  const orClause = MARKBOOK_ACTION_PREFIXES.map((p) => `action.like.${p}%`).join(",");
 
   const { data, error } = await service
-    .from('audit_log')
-    .select('id, action, actor_email, entity_id, created_at')
+    .from("audit_log")
+    .select("id, action, actor_email, entity_id, created_at")
     .or(orClause)
-    .order('created_at', { ascending: false })
+    .order("created_at", { ascending: false })
     .limit(limit);
 
   if (error) {
-    console.error('[markbook] getRecentMarkbookActivity fetch failed:', error.message);
+    console.error("[markbook] getRecentMarkbookActivity fetch failed:", error.message);
     return [];
   }
 
@@ -440,15 +425,12 @@ async function loadRecentMarkbookActivityUncached(
   }));
 }
 
-const loadRecentMarkbookActivity = unstable_cache(
-  loadRecentMarkbookActivityUncached,
-  ['markbook', 'recent-activity'],
-  { tags: ['markbook'], revalidate: 120 },
-);
+const loadRecentMarkbookActivity = unstable_cache(loadRecentMarkbookActivityUncached, ["markbook", "recent-activity"], {
+  tags: ["markbook"],
+  revalidate: 120,
+});
 
-export function getRecentMarkbookActivity(
-  limit: number = 8,
-): Promise<RecentMarkbookActivityRow[]> {
+export function getRecentMarkbookActivity(limit: number = 8): Promise<RecentMarkbookActivityRow[]> {
   return loadRecentMarkbookActivity(limit);
 }
 
@@ -473,41 +455,38 @@ async function loadMarkbookKpisForRange(input: RangeInput): Promise<MarkbookRang
 
   // Resolve the AY's UUID — `sections` FKs the AY by uuid (`academic_year_id`),
   // not text `ay_code`, so the nested filter has to use the uuid form.
-  const { data: ayRow } = await service
-    .from('academic_years')
-    .select('id')
-    .eq('ay_code', input.ayCode)
-    .maybeSingle();
+  const { data: ayRow } = await service.from("academic_years").select("id").eq("ay_code", input.ayCode).maybeSingle();
   const ayId = (ayRow as { id: string } | null)?.id ?? null;
   if (!ayId) return emptyMarkbookKpis();
 
-  // All three queries scope to the AY via `section.academic_year_id`
-  // (direct for grading_sheets, two hops for grade_entries +
-  // grade_change_requests via grading_sheet → section). PostgREST
-  // requires `!inner` on every link in the chain or the filter is silently
-  // dropped — without it the dashboard mixed counts from every AY.
+  // "Grades entered" = number of grade_entries with any data anywhere
+  // (≥ 1 WW slot OR ≥ 1 PT slot OR QA OR letter_grade). Counts students
+  // who have been at least partially graded — not events, not auto-
+  // seeded blank rows. Filtered to this AY + updated_at in range
+  // (updated_at is bumped when a teacher writes scores; created_at
+  // would still be the sheet-generation timestamp).
   const [entriesRes, sheetsRes, changeReqRes] = await Promise.all([
     service
-      .from('grade_entries')
+      .from("grade_entries")
       .select(
-        'id, grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))',
-        { count: 'exact', head: true },
+        `ww_scores, pt_scores, qa_score, letter_grade,
+         grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))`,
       )
-      .eq('grading_sheet.section.academic_year_id', ayId)
-      .gte('created_at', fromIso)
-      .lte('created_at', toIso),
+      .eq("grading_sheet.section.academic_year_id", ayId)
+      .gte("updated_at", fromIso)
+      .lte("updated_at", toIso),
     service
-      .from('grading_sheets')
-      .select('is_locked, locked_at, section:sections!inner(academic_year_id)')
-      .eq('section.academic_year_id', ayId),
+      .from("grading_sheets")
+      .select("is_locked, locked_at, section:sections!inner(academic_year_id)")
+      .eq("section.academic_year_id", ayId),
     service
-      .from('grade_change_requests')
+      .from("grade_change_requests")
       .select(
-        'status, requested_at, reviewed_at, grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))',
+        "status, requested_at, reviewed_at, grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))",
       )
-      .eq('grading_sheet.section.academic_year_id', ayId)
-      .gte('requested_at', fromIso)
-      .lte('requested_at', toIso),
+      .eq("grading_sheet.section.academic_year_id", ayId)
+      .gte("requested_at", fromIso)
+      .lte("requested_at", toIso),
   ]);
 
   type SheetRow = { is_locked: boolean; locked_at: string | null };
@@ -518,13 +497,13 @@ async function loadMarkbookKpisForRange(input: RangeInput): Promise<MarkbookRang
 
   type CrRow = { status: string; requested_at: string; reviewed_at: string | null };
   const crRows = (changeReqRes.data ?? []) as CrRow[];
-  const pending = crRows.filter((r) => r.status === 'pending').length;
+  const pending = crRows.filter((r) => r.status === "pending").length;
 
   let decidedCount = 0;
   let totalMs = 0;
   for (const r of crRows) {
     if (!r.reviewed_at) continue;
-    if (r.status !== 'approved' && r.status !== 'rejected' && r.status !== 'applied') continue;
+    if (r.status !== "approved" && r.status !== "rejected" && r.status !== "applied") continue;
     const req = Date.parse(r.requested_at);
     const rev = Date.parse(r.reviewed_at);
     if (Number.isNaN(req) || Number.isNaN(rev) || rev < req) continue;
@@ -533,8 +512,24 @@ async function loadMarkbookKpisForRange(input: RangeInput): Promise<MarkbookRang
   }
   const avgDecisionHours = decidedCount > 0 ? Math.round((totalMs / decidedCount / 3_600_000) * 10) / 10 : null;
 
+  // Count entries that have any encoded data anywhere.
+  type EntryRow = {
+    ww_scores: (number | null)[] | null;
+    pt_scores: (number | null)[] | null;
+    qa_score: number | null;
+    letter_grade: string | null;
+  };
+  const entryRows = (entriesRes.data ?? []) as EntryRow[];
+  const gradesEntered = entryRows.filter((e) => {
+    if (e.qa_score !== null) return true;
+    if (e.letter_grade !== null) return true;
+    if ((e.ww_scores ?? []).some((s) => s !== null)) return true;
+    if ((e.pt_scores ?? []).some((s) => s !== null)) return true;
+    return false;
+  }).length;
+
   return {
-    gradesEntered: entriesRes.count ?? 0,
+    gradesEntered,
     sheetsLocked: lockedInRange,
     sheetsTotal: sheets.length,
     lockedPct: sheets.length > 0 ? (lockedInRange / sheets.length) * 100 : 0,
@@ -554,9 +549,7 @@ function emptyMarkbookKpis(): MarkbookRangeKpis {
   };
 }
 
-async function loadMarkbookKpisRangeUncached(
-  input: RangeInput,
-): Promise<RangeResult<MarkbookRangeKpis>> {
+async function loadMarkbookKpisRangeUncached(input: RangeInput): Promise<RangeResult<MarkbookRangeKpis>> {
   const current = await loadMarkbookKpisForRange(input);
   if (input.cmpFrom == null || input.cmpTo == null) {
     return {
@@ -586,8 +579,8 @@ async function loadMarkbookKpisRangeUncached(
 export function getMarkbookKpisRange(input: RangeInput): Promise<RangeResult<MarkbookRangeKpis>> {
   return unstable_cache(
     loadMarkbookKpisRangeUncached,
-    ['markbook', 'kpis-range', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
-    { tags: ['markbook', `markbook:${input.ayCode}`], revalidate: CACHE_TTL_SECONDS },
+    ["markbook", "kpis-range", input.ayCode, input.from, input.to, input.cmpFrom ?? "", input.cmpTo ?? ""],
+    { tags: ["markbook", `markbook:${input.ayCode}`], revalidate: CACHE_TTL_SECONDS },
   )(input);
 }
 
@@ -612,9 +605,7 @@ function bucketByDay(rows: { ts: string }[], from: string, to: string): Velocity
   return labels.map((x, i) => ({ x, y: buckets[i] }));
 }
 
-async function loadGradeEntryVelocityRangeUncached(
-  input: RangeInput,
-): Promise<RangeResult<VelocityPoint[]>> {
+async function loadGradeEntryVelocityRangeUncached(input: RangeInput): Promise<RangeResult<VelocityPoint[]>> {
   const service = createServiceClient();
   const hasCmp = input.cmpFrom != null && input.cmpTo != null;
   const earliest = hasCmp && input.cmpFrom! < input.from ? input.cmpFrom! : input.from;
@@ -623,11 +614,7 @@ async function loadGradeEntryVelocityRangeUncached(
   // Resolve the AY's UUID — `sections.academic_year_id` is the FK column,
   // not text `ay_code`. Without the correct column the filter silently
   // matched zero rows.
-  const { data: ayRow } = await service
-    .from('academic_years')
-    .select('id')
-    .eq('ay_code', input.ayCode)
-    .maybeSingle();
+  const { data: ayRow } = await service.from("academic_years").select("id").eq("ay_code", input.ayCode).maybeSingle();
   const ayId = (ayRow as { id: string } | null)?.id ?? null;
   if (!ayId) {
     return {
@@ -639,22 +626,39 @@ async function loadGradeEntryVelocityRangeUncached(
     };
   }
 
-  // AY-scoped via grading_sheet → section.academic_year_id. Paginate
-  // around the 1000-row response cap.
-  type Row = { created_at: string };
+  // Velocity = count of partially-or-fully-graded entries per day,
+  // bucketed by updated_at (when the teacher last touched the row).
+  // Filter to rows with any data — drops the auto-seeded blanks from
+  // sheet generation.
+  type Row = {
+    updated_at: string;
+    ww_scores: (number | null)[] | null;
+    pt_scores: (number | null)[] | null;
+    qa_score: number | null;
+    letter_grade: string | null;
+  };
   const data = await fetchAllPages<Row>((from, to) =>
     service
-      .from('grade_entries')
+      .from("grade_entries")
       .select(
-        'created_at, grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))',
+        `updated_at, ww_scores, pt_scores, qa_score, letter_grade,
+         grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))`,
       )
-      .eq('grading_sheet.section.academic_year_id', ayId)
-      .gte('created_at', `${earliest}T00:00:00+08:00`)
-      .lte('created_at', `${latest}T23:59:59+08:00`)
+      .eq("grading_sheet.section.academic_year_id", ayId)
+      .gte("updated_at", `${earliest}T00:00:00+08:00`)
+      .lte("updated_at", `${latest}T23:59:59+08:00`)
       .range(from, to),
   );
 
-  const rows = data.map((r) => ({ ts: r.created_at }));
+  const rows = data
+    .filter((r) => {
+      if (r.qa_score !== null) return true;
+      if (r.letter_grade !== null) return true;
+      if ((r.ww_scores ?? []).some((s) => s !== null)) return true;
+      if ((r.pt_scores ?? []).some((s) => s !== null)) return true;
+      return false;
+    })
+    .map((r) => ({ ts: r.updated_at }));
   const current = bucketByDay(rows, input.from, input.to);
   if (!hasCmp) {
     return {
@@ -678,32 +682,24 @@ async function loadGradeEntryVelocityRangeUncached(
   };
 }
 
-export function getGradeEntryVelocityRange(
-  input: RangeInput,
-): Promise<RangeResult<VelocityPoint[]>> {
+export function getGradeEntryVelocityRange(input: RangeInput): Promise<RangeResult<VelocityPoint[]>> {
   return unstable_cache(
     loadGradeEntryVelocityRangeUncached,
-    ['markbook', 'grade-velocity-range', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
-    { tags: ['markbook', `markbook:${input.ayCode}`], revalidate: CACHE_TTL_SECONDS },
+    ["markbook", "grade-velocity-range", input.ayCode, input.from, input.to, input.cmpFrom ?? "", input.cmpTo ?? ""],
+    { tags: ["markbook", `markbook:${input.ayCode}`], revalidate: CACHE_TTL_SECONDS },
   )(input);
 }
 
 // Change-request velocity — daily counts of newly-requested changes.
 
-async function loadChangeRequestVelocityRangeUncached(
-  input: RangeInput,
-): Promise<RangeResult<VelocityPoint[]>> {
+async function loadChangeRequestVelocityRangeUncached(input: RangeInput): Promise<RangeResult<VelocityPoint[]>> {
   const service = createServiceClient();
   const hasCmp = input.cmpFrom != null && input.cmpTo != null;
   const earliest = hasCmp && input.cmpFrom! < input.from ? input.cmpFrom! : input.from;
   const latest = hasCmp && input.to < input.cmpTo! ? input.cmpTo! : input.to;
 
   // Resolve the AY's UUID — same fix as the grade-entry velocity helper.
-  const { data: ayRow } = await service
-    .from('academic_years')
-    .select('id')
-    .eq('ay_code', input.ayCode)
-    .maybeSingle();
+  const { data: ayRow } = await service.from("academic_years").select("id").eq("ay_code", input.ayCode).maybeSingle();
   const ayId = (ayRow as { id: string } | null)?.id ?? null;
   if (!ayId) {
     return {
@@ -717,13 +713,11 @@ async function loadChangeRequestVelocityRangeUncached(
 
   // AY-scoped via grading_sheet → section.academic_year_id.
   const { data } = await service
-    .from('grade_change_requests')
-    .select(
-      'requested_at, grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))',
-    )
-    .eq('grading_sheet.section.academic_year_id', ayId)
-    .gte('requested_at', `${earliest}T00:00:00+08:00`)
-    .lte('requested_at', `${latest}T23:59:59+08:00`);
+    .from("grade_change_requests")
+    .select("requested_at, grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))")
+    .eq("grading_sheet.section.academic_year_id", ayId)
+    .gte("requested_at", `${earliest}T00:00:00+08:00`)
+    .lte("requested_at", `${latest}T23:59:59+08:00`);
 
   type Row = { requested_at: string };
   const rows = ((data ?? []) as Row[]).map((r) => ({ ts: r.requested_at }));
@@ -750,13 +744,11 @@ async function loadChangeRequestVelocityRangeUncached(
   };
 }
 
-export function getChangeRequestVelocityRange(
-  input: RangeInput,
-): Promise<RangeResult<VelocityPoint[]>> {
+export function getChangeRequestVelocityRange(input: RangeInput): Promise<RangeResult<VelocityPoint[]>> {
   return unstable_cache(
     loadChangeRequestVelocityRangeUncached,
-    ['markbook', 'cr-velocity-range', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
-    { tags: ['markbook', `markbook:${input.ayCode}`], revalidate: CACHE_TTL_SECONDS },
+    ["markbook", "cr-velocity-range", input.ayCode, input.from, input.to, input.cmpFrom ?? "", input.cmpTo ?? ""],
+    { tags: ["markbook", `markbook:${input.ayCode}`], revalidate: CACHE_TTL_SECONDS },
   )(input);
 }
 
@@ -773,25 +765,23 @@ export type MarkbookTeacherPriorityInput = {
   teacherUserId: string;
 };
 
-async function loadMarkbookTeacherPriorityUncached(
-  input: MarkbookTeacherPriorityInput,
-): Promise<PriorityPayload> {
+async function loadMarkbookTeacherPriorityUncached(input: MarkbookTeacherPriorityInput): Promise<PriorityPayload> {
   const service = createServiceClient();
 
   // Resolve teacher's subject_teacher assignments → (section, subject) pairs.
   const assignments = await loadAssignmentsForUser(service, input.teacherUserId);
   const subjectPairs = assignments
-    .filter((a) => a.role === 'subject_teacher' && a.subject_id != null)
+    .filter((a) => a.role === "subject_teacher" && a.subject_id != null)
     .map((a) => ({ section_id: a.section_id, subject_id: a.subject_id as string }));
 
   if (subjectPairs.length === 0) {
     return {
-      eyebrow: 'Priority · this term',
-      title: 'No assigned sections yet',
-      headline: { value: 0, label: 'sheets pending', severity: 'good' },
+      eyebrow: "Priority · this term",
+      title: "No assigned sections yet",
+      headline: { value: 0, label: "sheets pending", severity: "good" },
       chips: [],
       cta: undefined,
-      iconKey: 'list',
+      iconKey: "list",
     };
   }
 
@@ -799,30 +789,30 @@ async function loadMarkbookTeacherPriorityUncached(
 
   // Resolve current AY → terms.
   const { data: termRows } = await service
-    .from('terms')
-    .select('id, term_number, academic_years!inner(ay_code)')
-    .eq('academic_years.ay_code', input.ayCode);
+    .from("terms")
+    .select("id, term_number, academic_years!inner(ay_code)")
+    .eq("academic_years.ay_code", input.ayCode);
   const termIds = ((termRows ?? []) as Array<{ id: string }>).map((t) => t.id);
 
   if (termIds.length === 0) {
     return {
-      eyebrow: 'Priority · this term',
-      title: 'No grading sheets pending',
-      headline: { value: 0, label: 'sheets pending', severity: 'good' },
+      eyebrow: "Priority · this term",
+      title: "No grading sheets pending",
+      headline: { value: 0, label: "sheets pending", severity: "good" },
       chips: [],
       cta: undefined,
-      iconKey: 'list',
+      iconKey: "list",
     };
   }
 
   // Load all sheets for this teacher's section+subject pairs in current AY,
   // open (not locked) only.
   const { data: sheetRows } = await service
-    .from('grading_sheets')
-    .select('id, section_id, subject_id, is_locked, sections!inner(name)')
-    .in('section_id', sectionIds)
-    .in('term_id', termIds)
-    .eq('is_locked', false);
+    .from("grading_sheets")
+    .select("id, section_id, subject_id, is_locked, sections!inner(name)")
+    .in("section_id", sectionIds)
+    .in("term_id", termIds)
+    .eq("is_locked", false);
 
   type SheetRow = {
     id: string;
@@ -841,7 +831,7 @@ async function loadMarkbookTeacherPriorityUncached(
   const bySection = new Map<string, { name: string; count: number }>();
   for (const sheet of myOpenSheets) {
     const sec = Array.isArray(sheet.sections) ? sheet.sections[0] : sheet.sections;
-    const name = sec?.name ?? 'Section';
+    const name = sec?.name ?? "Section";
     const cur = bySection.get(sheet.section_id) ?? { name, count: 0 };
     cur.count += 1;
     bySection.set(sheet.section_id, cur);
@@ -853,31 +843,29 @@ async function loadMarkbookTeacherPriorityUncached(
     .map(([sectionId, info]) => ({
       label: info.name,
       count: info.count,
-      href: `/markbook/grading?section=${sectionId}`,
-      severity: 'warn' as const,
+      href: `/markbook/grading?q=${encodeURIComponent(info.name)}`,
+      severity: "warn" as const,
     }));
 
   const total = myOpenSheets.length;
   return {
-    eyebrow: 'Priority · this term',
-    title: total === 0 ? 'All your sheets are locked or up to date' : 'Grading sheets need your input',
+    eyebrow: "Priority · this term",
+    title: total === 0 ? "All your sheets are locked or up to date" : "Grading sheets need your input",
     headline: {
       value: total,
-      label: total === 0 ? 'all caught up' : 'open sheets across your sections',
-      severity: total === 0 ? 'good' : total <= 5 ? 'warn' : 'bad',
+      label: total === 0 ? "all caught up" : "open sheets across your sections",
+      severity: total === 0 ? "good" : total <= 5 ? "warn" : "bad",
     },
     chips,
-    cta: total > 0 ? { label: 'Open grading', href: '/markbook/grading' } : undefined,
-    iconKey: 'list',
+    cta: total > 0 ? { label: "Open grading", href: "/markbook/grading" } : undefined,
+    iconKey: "list",
   };
 }
 
-export function getMarkbookTeacherPriority(
-  input: MarkbookTeacherPriorityInput,
-): Promise<PriorityPayload> {
+export function getMarkbookTeacherPriority(input: MarkbookTeacherPriorityInput): Promise<PriorityPayload> {
   return unstable_cache(
     loadMarkbookTeacherPriorityUncached,
-    ['markbook', 'priority-teacher', input.ayCode, input.teacherUserId],
+    ["markbook", "priority-teacher", input.ayCode, input.teacherUserId],
     { tags: tag(input.ayCode), revalidate: CACHE_TTL_SECONDS },
   )(input);
 }
@@ -885,29 +873,57 @@ export function getMarkbookTeacherPriority(
 export type MarkbookRegistrarPriorityInput = {
   ayCode: string;
   changeRequestsPending: number;
+  // Date-picker resolved range. Filters the "open sheets" tally to terms
+  // whose [start_date, end_date] overlap [from, to] — so picking "This
+  // term" shows only that term's open sheets instead of all 4.
+  from: string; // yyyy-mm-dd
+  to: string; // yyyy-mm-dd
+  // KD #41: only assigned approvers act on change requests; superadmin is the
+  // break-glass exception. When false, the change-request headline is
+  // suppressed and the panel falls back to the grading-sheets tally so
+  // non-approvers don't see a "you must decide" callout for work they
+  // can't act on.
+  canActOnChangeRequests: boolean;
 };
 
-async function loadMarkbookRegistrarPriorityUncached(
-  input: MarkbookRegistrarPriorityInput,
-): Promise<PriorityPayload> {
+async function loadMarkbookRegistrarPriorityUncached(input: MarkbookRegistrarPriorityInput): Promise<PriorityPayload> {
   const service = createServiceClient();
 
-  // Per-term unlocked-sheet counts.
+  // Pull terms with their date windows so we can intersect against the
+  // picker range. A term qualifies when [start, end] overlaps [from, to]
+  // — the same half-open overlap rule the dashboard ranges helper uses.
   const { data: termRows } = await service
-    .from('terms')
-    .select('id, term_number, academic_years!inner(ay_code)')
-    .eq('academic_years.ay_code', input.ayCode)
-    .order('term_number');
+    .from("terms")
+    .select("id, term_number, start_date, end_date, academic_years!inner(ay_code)")
+    .eq("academic_years.ay_code", input.ayCode)
+    .order("term_number");
 
-  const termList = ((termRows ?? []) as Array<{ id: string; term_number: number }>);
+  type TermRow = {
+    id: string;
+    term_number: number;
+    start_date: string | null;
+    end_date: string | null;
+  };
+  const allTerms = (termRows ?? []) as TermRow[];
+
+  const overlaps = (t: TermRow): boolean => {
+    if (!t.start_date || !t.end_date) return false;
+    return t.start_date <= input.to && t.end_date >= input.from;
+  };
+  const inRangeTerms = allTerms.filter(overlaps);
+  // Fallback: if no term dates overlap (e.g. AY without start/end dates
+  // set yet), don't blank the panel — count every term so the registrar
+  // at least sees the AY-wide tally.
+  const termList = inRangeTerms.length > 0 ? inRangeTerms : allTerms;
+  const isFullAy = termList.length === allTerms.length;
 
   const perTermCounts = await Promise.all(
     termList.map(async (t) => {
       const { count } = await service
-        .from('grading_sheets')
-        .select('*', { count: 'exact', head: true })
-        .eq('term_id', t.id)
-        .eq('is_locked', false);
+        .from("grading_sheets")
+        .select("*", { count: "exact", head: true })
+        .eq("term_id", t.id)
+        .eq("is_locked", false);
       return { termNumber: t.term_number, unlocked: count ?? 0 };
     }),
   );
@@ -920,55 +936,63 @@ async function loadMarkbookRegistrarPriorityUncached(
     .map((t) => ({
       label: `Term ${t.termNumber}`,
       count: t.unlocked,
-      href: `/markbook/grading?term=${t.termNumber}`,
-      severity: 'warn' as const,
+      href: `/markbook/grading?status=open&term=Term+${t.termNumber}+—+${input.ayCode}`,
+      severity: "warn" as const,
     }));
 
-  // Headline = pending change requests (decision queue is the most urgent)
-  // OR if zero, fall back to total open sheets metric.
-  const useChangeRequestHeadline = input.changeRequestsPending > 0;
+  const useChangeRequestHeadline = input.canActOnChangeRequests && input.changeRequestsPending > 0;
   const headlineValue = useChangeRequestHeadline ? input.changeRequestsPending : totalOpen;
+  const rangeLabel = isFullAy
+    ? "across all terms"
+    : termList.length === 1
+      ? `in Term ${termList[0].term_number}`
+      : `across ${termList.length} term${termList.length === 1 ? "" : "s"} in range`;
   const headlineLabel = useChangeRequestHeadline
     ? input.changeRequestsPending === 1
-      ? 'change request awaiting your decision'
-      : 'change requests awaiting your decision'
+      ? "change request awaiting your decision"
+      : "change requests awaiting your decision"
     : totalOpen === 0
-      ? 'all caught up'
-      : 'open grading sheets across all terms';
-  const headlineSeverity: 'bad' | 'warn' | 'good' = useChangeRequestHeadline
-    ? 'bad'
+      ? "all caught up"
+      : `open grading sheets ${rangeLabel}`;
+  const headlineSeverity: "bad" | "warn" | "good" = useChangeRequestHeadline
+    ? "bad"
     : totalOpen === 0
-      ? 'good'
-      : 'warn';
+      ? "good"
+      : "warn";
 
   return {
-    eyebrow: 'Priority · today',
+    eyebrow: "Priority · today",
     title: useChangeRequestHeadline
-      ? 'Change requests need your decision'
+      ? "Change requests need your decision"
       : totalOpen === 0
-        ? 'No outstanding markbook actions'
-        : 'Grading sheets still open across terms',
+        ? "No outstanding markbook actions"
+        : isFullAy
+          ? "Grading sheets still open across terms"
+          : termList.length === 1
+            ? `Grading sheets still open in Term ${termList[0].term_number}`
+            : "Grading sheets still open in selected range",
     headline: { value: headlineValue, label: headlineLabel, severity: headlineSeverity },
     chips,
     cta: useChangeRequestHeadline
-      ? { label: 'Open change requests', href: '/markbook/change-requests' }
+      ? { label: "Open change requests", href: "/markbook/change-requests" }
       : totalOpen > 0
-        ? { label: 'Open grading', href: '/markbook/grading' }
+        ? { label: "Open grading", href: "/markbook/grading" }
         : undefined,
-    iconKey: useChangeRequestHeadline ? 'warning' : 'list',
+    iconKey: useChangeRequestHeadline ? "warning" : "list",
   };
 }
 
-export function getMarkbookRegistrarPriority(
-  input: MarkbookRegistrarPriorityInput,
-): Promise<PriorityPayload> {
+export function getMarkbookRegistrarPriority(input: MarkbookRegistrarPriorityInput): Promise<PriorityPayload> {
   return unstable_cache(
     loadMarkbookRegistrarPriorityUncached,
     [
-      'markbook',
-      'priority-registrar',
+      "markbook",
+      "priority-registrar",
       input.ayCode,
       String(input.changeRequestsPending),
+      input.from,
+      input.to,
+      input.canActOnChangeRequests ? "approver" : "viewer",
     ],
     { tags: tag(input.ayCode), revalidate: CACHE_TTL_SECONDS },
   )(input);

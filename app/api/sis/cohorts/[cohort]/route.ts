@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from '@/lib/auth/require-role';
 import { buildCsv } from '@/lib/csv';
+import { createServiceClient } from '@/lib/supabase/service';
 import {
   getCohort,
   isCohortKey,
@@ -47,9 +48,7 @@ const STP_CSV: CsvSpec = {
     'Level',
     'App status',
     'STP type',
-    'ICA Photo',
-    'Financial Support',
-    'Vaccination',
+    'ICA status',
     'Residence filled',
     'STP complete',
   ],
@@ -60,9 +59,7 @@ const STP_CSV: CsvSpec = {
     r.levelApplied ?? '',
     r.applicationStatus ?? '',
     r.stpApplicationType ?? '',
-    r.icaPhotoStatus ?? '',
-    r.financialSupportDocsStatus ?? '',
-    r.vaccinationInformationStatus ?? '',
+    r.stpApplicationStatus ?? '',
     r.residenceHistoryFilled ? 'Yes' : 'No',
     r.stpComplete ? 'Yes' : 'No',
   ],
@@ -195,6 +192,18 @@ export async function GET(
     return NextResponse.json({ error: 'invalid_ay' }, { status: 400 });
   }
 
+  // L4: sanity-check ay against academic_years table so a typo or
+  // fabricated AY code fails fast rather than returning empty data silently.
+  const service = createServiceClient();
+  const { data: ayRow } = await service
+    .from('academic_years')
+    .select('id')
+    .eq('ay_code', ayCode)
+    .maybeSingle();
+  if (!ayRow) {
+    return NextResponse.json({ error: 'academic year not found' }, { status: 404 });
+  }
+
   const scope = url.searchParams.get('scope');
   if (!isCohortScope(scope)) {
     return NextResponse.json({ error: 'invalid_scope' }, { status: 400 });
@@ -217,11 +226,8 @@ export async function GET(
     });
   }
 
-  return NextResponse.json({
-    rows,
-    total: rows.length,
-    cohort,
-    ayCode,
-    scope,
-  });
+  return NextResponse.json(
+    { rows, total: rows.length, cohort, ayCode, scope },
+    { headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' } },
+  );
 }
