@@ -17,6 +17,7 @@ import {
   Home,
   Layers,
   Mail,
+  Pencil,
   Phone,
   Pill,
   ShieldCheck,
@@ -67,8 +68,13 @@ import {
 import { preloadTermsForAYs, termForDateInPreloaded } from '@/lib/sis/terms';
 import { getCurrentAcademicYear } from '@/lib/academic-year';
 import { CompassionateAllowanceInline } from '@/components/sis/compassionate-allowance-inline';
+import { EnrolmentEditSheet } from '@/components/sis/enrolment-edit-sheet';
 import { StpApplicationCard } from '@/components/sis/stp-application-card';
 import { StudentLifecycleTimeline } from '@/components/sis/student-lifecycle-timeline';
+import {
+  SectionTransferDialog,
+  type SiblingSection,
+} from '@/components/sis/section-transfer-dialog';
 import { getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { freshenAyDocuments } from '@/lib/p-files/freshen-document-statuses';
@@ -181,34 +187,13 @@ export default async function RecordsStudentCrossYearPage({
     getCurrentAcademicYear(),
   ]);
 
-  // Section transfers — audit-log-derived intra-AY moves between sections.
-  // Keyed off every AY's enroleeNumber for this student so cross-year
-  // history surfaces too.
-  const sectionTransfers = await getSectionTransfersForStudent(
-    studentNumber,
-    history.map((h) => h.enroleeNumber),
-  );
-
-  // Preload terms for every AY in the placement list so the placement table
-  // can derive the joining term for late enrollees in one shot (each
-  // placement is a different AY; one round-trip vs N).
+  // Synchronous derivations — no DB calls.
   const placementAyCodes = Array.from(new Set(placements.map((p) => p.ayCode)));
-  const termsByAy = await preloadTermsForAYs(placementAyCodes);
-
-  // ayCode → enroleeNumber lookup so AY references in the historical tables
-  // can deep-link to the admissions detail page for that specific AY. Empty
-  // map when this student has no admissions rows at all (legacy-only path).
   const enroleeByAy = new Map<string, string>(
     history.map((h) => [h.ayCode, h.enroleeNumber] as const),
   );
-
   const ayCount = new Set(placements.map((p) => p.ayCode)).size;
   const activePlacement = placements.find((p) => p.enrollmentStatus === 'active');
-
-  // Resolve the (ayCode, enroleeNumber) pair for the lifecycle snapshot.
-  // Prefer the current-AY entry; fall back to the most recent prior AY when
-  // the student is only in legacy years; skip rendering altogether when no
-  // admissions row exists for this studentNumber at all.
   const lifecycleEntry = (() => {
     if (history.length === 0) return null;
     if (currentAy) {
@@ -217,44 +202,72 @@ export default async function RecordsStudentCrossYearPage({
     }
     return [...history].sort((a, b) => b.ayCode.localeCompare(a.ayCode))[0];
   })();
-
-  // Auto-flip any expired-but-still-Valid doc statuses for this AY before
-  // the page reads them. Cached 60s; existing PATCH routes invalidate via
-  // the sis:${ayCode} tag.
-  if (lifecycleEntry) {
-    await freshenAyDocuments(lifecycleEntry.ayCode);
-  }
-
-  // Compassionate-leave allowance lookup. The editor lives in the
-  // Attendance section card header; the PATCH route keys by the current-
-  // AY enroleeNumber so we resolve that pair here. Records detail is
-  // enrolled-only by route gate (KD #51), so no disabled-state branch
-  // is needed beyond "no current-AY admissions row" (legacy edge case).
-  const allowanceService = createServiceClient();
-  const { data: allowanceRow } = await allowanceService
-    .from('students')
-    .select('urgent_compassionate_allowance')
-    .eq('id', student.studentId)
-    .maybeSingle();
-  const allowance =
-    (allowanceRow as { urgent_compassionate_allowance: number | null } | null)
-      ?.urgent_compassionate_allowance ?? 5;
   const currentEnroleeNumber = currentAy
     ? history.find((h) => h.ayCode === currentAy.ay_code)?.enroleeNumber ?? null
     : null;
 
-  const lifecycleSnapshot = lifecycleEntry
-    ? await getStudentLifecycle(lifecycleEntry.ayCode, lifecycleEntry.enroleeNumber)
-    : null;
+  // Parallel batch A — all independent of each other and of document freshness.
+  // freshenAyDocuments runs here too so it completes before batch B reads docs.
+  const [sectionTransfers, termsByAy, allowanceResult, siblings] = await Promise.all([
+    getSectionTransfersForStudent(studentNumber, history.map((h) => h.enroleeNumber)),
+    preloadTermsForAYs(placementAyCodes),
+    createServiceClient()
+      .from('students')
+      .select('urgent_compassionate_allowance')
+      .eq('id', student.studentId)
+      .maybeSingle(),
+    // Sibling sections: 3-query internal chain, returns SiblingSection[].
+    (async (): Promise<SiblingSection[]> => {
+      if (!activePlacement || !currentAy || activePlacement.ayCode !== currentAy.ay_code) return [];
+      const sibService = createServiceClient();
+      const { data: secRow } = await sibService
+        .from('sections')
+        .select('level_id, academic_year_id')
+        .eq('id', activePlacement.sectionId)
+        .maybeSingle();
+      if (!secRow) return [];
+      const { data: sibRows } = await sibService
+        .from('sections')
+        .select('id, name')
+        .eq('academic_year_id', (secRow as { level_id: string; academic_year_id: string }).academic_year_id)
+        .eq('level_id', (secRow as { level_id: string; academic_year_id: string }).level_id)
+        .neq('id', activePlacement.sectionId);
+      const sibList = (sibRows ?? []) as Array<{ id: string; name: string }>;
+      if (sibList.length === 0) return [];
+      const sibIds = sibList.map((s) => s.id);
+      const { data: countRows } = await sibService
+        .from('section_students')
+        .select('section_id')
+        .eq('enrollment_status', 'active')
+        .in('section_id', sibIds);
+      const sibCounts = new Map<string, number>();
+      for (const cr of (countRows ?? []) as Array<{ section_id: string }>) {
+        sibCounts.set(cr.section_id, (sibCounts.get(cr.section_id) ?? 0) + 1);
+      }
+      return sibList
+        .map((s) => {
+          const c = sibCounts.get(s.id) ?? 0;
+          return { id: s.id, name: s.name, activeCount: c, isAtCapacity: c >= 50 };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name));
+    })(),
+    // freshenAyDocuments must complete before batch B reads doc statuses.
+    lifecycleEntry ? freshenAyDocuments(lifecycleEntry.ayCode) : Promise.resolve(undefined),
+  ]);
 
-  // Current-AY admissions detail — the (application, status, documents)
-  // triple. Powers the post-enrolment checklist + family/services/medical
-  // cards below, and the conditional STP application card. STP visibility is
-  // gated on `application.stpApplicationType IS NOT NULL` per the admissions
-  // detail page.
-  const currentAyDetail = lifecycleEntry
-    ? await getStudentDetail(lifecycleEntry.ayCode, lifecycleEntry.enroleeNumber)
-    : null;
+  const allowance =
+    (allowanceResult.data as { urgent_compassionate_allowance: number | null } | null)
+      ?.urgent_compassionate_allowance ?? 5;
+
+  // Parallel batch B — lifecycle + detail depend on freshened doc state from batch A.
+  const [lifecycleSnapshot, currentAyDetail] = await Promise.all([
+    lifecycleEntry
+      ? getStudentLifecycle(lifecycleEntry.ayCode, lifecycleEntry.enroleeNumber)
+      : Promise.resolve(null),
+    lifecycleEntry
+      ? getStudentDetail(lifecycleEntry.ayCode, lifecycleEntry.enroleeNumber)
+      : Promise.resolve(null),
+  ]);
 
   return (
     <PageShell>
@@ -340,11 +353,18 @@ export default async function RecordsStudentCrossYearPage({
 
         <TabsContent value="overview" className="space-y-6">
           {currentAyDetail ? (
-            <PostEnrolmentChecklist
-              status={currentAyDetail.status}
-              ayCode={currentAyDetail.ayCode}
-              enroleeNumber={currentAyDetail.application.enroleeNumber}
-            />
+            <>
+              <StudentProfileCard
+                app={currentAyDetail.application}
+                status={currentAyDetail.status}
+                ayCode={currentAyDetail.ayCode}
+              />
+              <PostEnrolmentChecklist
+                status={currentAyDetail.status}
+                ayCode={currentAyDetail.ayCode}
+                enroleeNumber={currentAyDetail.application.enroleeNumber}
+              />
+            </>
           ) : (
             <Card>
               <CardContent className="py-6">
@@ -357,7 +377,7 @@ export default async function RecordsStudentCrossYearPage({
           {currentAyDetail?.application.stpApplicationType && (
             <StpApplicationCard
               application={currentAyDetail.application}
-              documents={currentAyDetail.documents}
+              stpApplicationStatus={currentAyDetail.application.stpApplicationStatus ?? null}
               ayCode={currentAyDetail.ayCode}
             />
           )}
@@ -385,7 +405,14 @@ export default async function RecordsStudentCrossYearPage({
         </TabsContent>
 
         <TabsContent value="placements" className="space-y-6">
-          <PlacementSection rows={placements} termsByAy={termsByAy} enroleeByAy={enroleeByAy} />
+          <PlacementSection
+            rows={placements}
+            termsByAy={termsByAy}
+            enroleeByAy={enroleeByAy}
+            currentAyCode={currentAy?.ay_code ?? null}
+            currentEnroleeNumber={currentEnroleeNumber}
+            siblings={siblings}
+          />
           <SectionTransferSection rows={sectionTransfers} enroleeByAy={enroleeByAy} />
         </TabsContent>
 
@@ -461,10 +488,16 @@ function PlacementSection({
   rows,
   termsByAy,
   enroleeByAy,
+  currentAyCode,
+  currentEnroleeNumber,
+  siblings,
 }: {
   rows: PlacementRow[];
   termsByAy: Map<string, Array<{ termNumber: number; startDate: string; endDate: string }>>;
   enroleeByAy: Map<string, string>;
+  currentAyCode: string | null;
+  currentEnroleeNumber: string | null;
+  siblings: SiblingSection[];
 }) {
   return (
     <Card>
@@ -507,6 +540,14 @@ function PlacementSection({
                     r.enrollmentStatus === 'late_enrollee' && r.enrollmentDate
                       ? termForDateInPreloaded(r.enrollmentDate, r.ayCode, termsByAy)
                       : null;
+                  const isCurrentAy = r.ayCode === currentAyCode;
+                  const isEditable =
+                    isCurrentAy &&
+                    (r.enrollmentStatus === 'active' || r.enrollmentStatus === 'withdrawn');
+                  const isTransferable =
+                    isCurrentAy &&
+                    r.enrollmentStatus === 'active' &&
+                    currentEnroleeNumber !== null;
                   return (
                     <tr
                       key={`${r.ayCode}-${r.sectionName}-${r.indexNumber}`}
@@ -516,14 +557,7 @@ function PlacementSection({
                         <AyLink ayCode={r.ayCode} enroleeByAy={enroleeByAy} />
                       </td>
                       <td className="py-2 pr-3">{r.levelCode}</td>
-                      <td className="py-2 pr-3">
-                        <Link
-                          href={`/markbook/sections/${r.sectionId}`}
-                          className="text-foreground underline-offset-2 transition-colors hover:text-brand-indigo hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-indigo/40"
-                        >
-                          {r.sectionName}
-                        </Link>
-                      </td>
+                      <td className="py-2 pr-3 text-foreground">{r.sectionName}</td>
                       <td className="py-2 pr-3 text-right font-mono tabular-nums">
                         #{r.indexNumber}
                       </td>
@@ -549,15 +583,50 @@ function PlacementSection({
                         {r.withdrawalDate ?? '—'}
                       </td>
                       <td className="py-2">
-                        {r.enrollmentStatus !== 'withdrawn' && (
-                          <Link
-                            href={`/sis/sections/${r.sectionId}`}
-                            className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                          >
-                            <ArrowRightLeft className="size-3" />
-                            Move
-                          </Link>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {isEditable && (
+                            <EnrolmentEditSheet
+                              sectionId={r.sectionId}
+                              enrolmentId={r.enrolmentId}
+                              studentName={r.sectionName}
+                              indexNumber={r.indexNumber}
+                              initial={{
+                                bus_no: r.busNo,
+                                classroom_officer_role: r.classroomOfficerRole,
+                                enrollment_status: r.enrollmentStatus,
+                              }}
+                            >
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2"
+                                title="Edit enrolment details"
+                              >
+                                <Pencil className="size-3" />
+                                <span className="sr-only">Edit enrolment</span>
+                              </Button>
+                            </EnrolmentEditSheet>
+                          )}
+                          {isTransferable && (
+                            <SectionTransferDialog
+                              enroleeNumber={currentEnroleeNumber!}
+                              studentName={r.sectionName}
+                              fromSectionName={r.sectionName}
+                              ayCode={r.ayCode}
+                              siblings={siblings}
+                              trigger={
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 gap-1 px-2 text-xs"
+                                >
+                                  <ArrowRightLeft className="size-3" />
+                                  Move
+                                </Button>
+                              }
+                            />
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -928,6 +997,153 @@ function QuickActionsStrip({
         );
       })}
     </section>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Student profile card — personal, ID/travel, application, and learning-needs
+// details drawn from the current-AY ApplicationRow. Read-only on Records
+// (KD #51); the CardFooter deep-links to the admissions profile tab to edit.
+// ──────────────────────────────────────────────────────────────────────────
+
+function FieldItem({ label, value }: { label: string; value: string | null | undefined }) {
+  if (!value) return null;
+  return (
+    <div className="space-y-0.5">
+      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="text-sm text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function StudentProfileCard({
+  app,
+  status,
+  ayCode,
+}: {
+  app: ApplicationRow;
+  status: StatusRow | null;
+  ayCode: string;
+}) {
+  const hasIdDocs = app.nric || app.passportNumber || app.pass;
+  const hasLearningNeeds = app.additionalLearningNeeds || app.otherLearningNeeds;
+  const religion =
+    app.religion === 'Others' && app.religionOther
+      ? `Other: ${app.religionOther}`
+      : app.religion;
+  const howFound =
+    app.howDidYouKnowAboutHFSEIS === 'Others' && app.otherSource
+      ? `Other: ${app.otherSource}`
+      : app.howDidYouKnowAboutHFSEIS;
+  const enroleeType = status?.enroleeType ?? app.category;
+  const assignedClass =
+    [status?.classLevel, status?.classSection].filter(Boolean).join(' ') || null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
+          Student profile · {ayCode}
+        </CardDescription>
+        <CardTitle className="font-serif text-lg font-semibold tracking-tight text-foreground">
+          Personal & enrolment details
+        </CardTitle>
+        <CardAction>
+          <ActionTile icon={UserCircle2} />
+        </CardAction>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Personal */}
+        <div>
+          <p className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Personal
+          </p>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
+            {app.preferredName && app.preferredName !== app.firstName && (
+              <FieldItem label="Preferred name" value={app.preferredName} />
+            )}
+            <FieldItem label="Date of birth" value={formatShort(app.birthDay)} />
+            <FieldItem label="Gender" value={app.gender} />
+            <FieldItem label="Nationality" value={app.nationality} />
+            <FieldItem label="Primary language" value={app.primaryLanguage} />
+            <FieldItem label="Religion" value={religion} />
+          </div>
+        </div>
+
+        {/* ID & travel documents */}
+        {hasIdDocs && (
+          <div className="border-t border-hairline pt-5">
+            <p className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              ID &amp; travel documents
+            </p>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
+              <FieldItem label="NRIC" value={app.nric} />
+              <FieldItem label="Passport no." value={app.passportNumber} />
+              {app.passportExpiry && (
+                <FieldItem label="Passport expiry" value={formatShort(app.passportExpiry)} />
+              )}
+              <FieldItem label="Pass type" value={app.pass} />
+              {app.passExpiry && (
+                <FieldItem label="Pass expiry" value={formatShort(app.passExpiry)} />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Application */}
+        <div className="border-t border-hairline pt-5">
+          <p className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Application
+          </p>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
+            <FieldItem label="Level applied" value={app.levelApplied} />
+            {assignedClass && <FieldItem label="Assigned class" value={assignedClass} />}
+            <FieldItem label="Category" value={enroleeType} />
+            <FieldItem label="Class type" value={app.classType} />
+            <FieldItem label="Preferred schedule" value={app.preferredSchedule} />
+            <FieldItem label="Previous school" value={app.previousSchool} />
+            <FieldItem label="How they found us" value={howFound} />
+          </div>
+        </div>
+
+        {/* Learning needs */}
+        {hasLearningNeeds && (
+          <div className="border-t border-hairline pt-5">
+            <p className="mb-3 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Learning needs
+            </p>
+            <div className="space-y-3">
+              {app.additionalLearningNeeds && (
+                <DetailRow
+                  label="Additional learning needs"
+                  value={app.additionalLearningNeeds}
+                  icon={Sparkles}
+                  tone="warning"
+                />
+              )}
+              {app.otherLearningNeeds && (
+                <DetailRow
+                  label="Other learning needs"
+                  value={app.otherLearningNeeds}
+                  icon={Sparkles}
+                  tone="warning"
+                />
+              )}
+            </div>
+          </div>
+        )}
+      </CardContent>
+      <CardFooter className="border-t border-hairline bg-muted/20">
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/admissions/applications/${app.enroleeNumber}?ay=${ayCode}&tab=profile`}>
+            <ExternalLink className="h-3.5 w-3.5" />
+            Edit in admissions
+          </Link>
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }
 

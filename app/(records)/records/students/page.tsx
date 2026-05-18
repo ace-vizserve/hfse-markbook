@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
+  AlertTriangle,
   ArrowLeft,
   GraduationCap,
   Hourglass,
@@ -13,7 +14,9 @@ import {
 import { AySwitcher } from '@/components/admissions/ay-switcher';
 import { CrossAySearch } from '@/components/sis/cross-ay-search';
 import { StudentDataTable } from '@/components/sis/student-data-table';
+import { Alert, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardAction,
@@ -26,6 +29,7 @@ import {
 import { PageShell } from '@/components/ui/page-shell';
 import { getCurrentAcademicYear, listAyCodes } from '@/lib/academic-year';
 import { getSisDashboardSummary, listStudents } from '@/lib/sis/queries';
+import { countUnsyncedEnrolledStudents } from '@/lib/sis/unsynced-students';
 import { getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 
@@ -45,7 +49,11 @@ export default async function RecordsStudentsPage({
   }
 
   const service = createServiceClient();
-  const currentAy = await getCurrentAcademicYear(service);
+  const { ay: ayParam } = await searchParams;
+  const [currentAy, ayCodes] = await Promise.all([
+    getCurrentAcademicYear(service),
+    listAyCodes(service),
+  ]);
   if (!currentAy) {
     return (
       <PageShell>
@@ -54,15 +62,15 @@ export default async function RecordsStudentsPage({
     );
   }
 
-  const { ay: ayParam } = await searchParams;
-  const ayCodes = await listAyCodes(service);
   const selectedAy = ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
   const isCurrentAy = selectedAy === currentAy.ay_code;
 
-  const [allStudents, summary] = await Promise.all([
+  const [allStudents, summary, unsyncedCount] = await Promise.all([
     listStudents(selectedAy, 'name_asc'),
     getSisDashboardSummary(selectedAy),
+    countUnsyncedEnrolledStudents(selectedAy),
   ]);
+  const isOperational = sessionUser.role === 'registrar';
 
   // Records is the permanent cross-year record of enrolled students only.
   // Pre-enrolment applications live on /admissions/applications.
@@ -120,6 +128,28 @@ export default async function RecordsStudentsPage({
           <AySwitcher current={selectedAy} options={ayCodes} />
         </div>
       </header>
+
+      {/* Unsynced-students banner — surfaces the gap registrars can't otherwise
+          see from this list (unsynced students never made it into
+          public.students so they're absent from the roster below). */}
+      {unsyncedCount > 0 && isCurrentAy && isOperational && (
+        <Alert variant="warning">
+          <AlertIcon variant="warning">
+            <AlertTriangle className="size-4" />
+          </AlertIcon>
+          <AlertTitle>
+            {unsyncedCount.toLocaleString('en-SG')} enrolled student
+            {unsyncedCount === 1 ? '' : 's'} not in this list
+          </AlertTitle>
+          <AlertDescription>
+            They&rsquo;re enrolled in admissions but don&rsquo;t yet have a class section,
+            so they&rsquo;re stranded outside grading and attendance.
+          </AlertDescription>
+          <Button asChild size="sm" variant="outline" className="col-start-2 mt-2 w-fit">
+            <Link href="/records/unsynced">Review queue</Link>
+          </Button>
+        </Alert>
+      )}
 
       {/* Summary stats */}
       <section className="@container/main">

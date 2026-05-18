@@ -21,13 +21,31 @@ export default async function SisAuditLogPage() {
     redirect('/');
   }
 
-  const canExport = sessionUser.role === 'school_admin' || sessionUser.role === 'superadmin';
+  // Registrar is the primary operator (KD #37, KD #74); school_admin + superadmin
+  // are read-only oversight. All three can export a read-only log.
+  const canExport = sessionUser.role === 'registrar' || sessionUser.role === 'school_admin' || sessionUser.role === 'superadmin';
   const supabase = await createClient();
 
+  // Explicit allowlist avoids a LIKE wildcard forcing a sequential scan.
+  // Covers: sis.* student.* ay.* pfile.* enrolment.* (KD #37, #67, #77, #64, #68, #83)
+  const RECORDS_AUDIT_ALLOWLIST = [
+    'sis.profile.update', 'sis.family.update', 'sis.stage.update',
+    'sis.stp.update', 'sis.discount_code.create', 'sis.discount_code.update',
+    'sis.discount_code.expire', 'sis.document.approve', 'sis.document.reject',
+    'sis.documents.auto-expire', 'sis.documents.auto-revive',
+    'sis.allowance.update', 'sis.vl_allowance.update', 'sis.student.assign_section',
+    'student.sync', 'student.add', 'student.section.transfer',
+    'student.withdrawal.cascade', 'student.reenrolment.cascade',
+    'ay.create', 'ay.switch_current', 'ay.accepting_applications.toggle',
+    'ay.delete', 'ay.term_dates.update', 'ay.term_virtue.update',
+    'ay.term_grading_lock.update', 'ay.copy_teacher_assignments',
+    'pfile.upload', 'pfile.reminder.sent', 'pfile.reminder.bulk', 'pfile.mark.promised',
+    'enrolment.metadata.update',
+  ] as const;
   const { data, error } = await supabase
     .from('audit_log')
     .select('id, actor_email, action, entity_type, entity_id, context, created_at')
-    .like('action', 'sis.%')
+    .in('action', RECORDS_AUDIT_ALLOWLIST)
     .order('created_at', { ascending: false })
     .limit(500);
 

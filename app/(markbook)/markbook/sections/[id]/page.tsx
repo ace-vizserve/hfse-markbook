@@ -4,7 +4,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageShell } from "@/components/ui/page-shell";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
-import { ArrowLeft, ArrowUpRight, BookOpen, Calendar, Clock, MessageSquare, UserCheck, UserCog, UserMinus } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  BookOpen,
+  Calendar,
+  Clock,
+  MessageSquare,
+  UserCheck,
+  UserCog,
+  UserMinus,
+} from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ManualAddStudent } from "./manual-add";
@@ -34,44 +44,46 @@ export default async function SectionRosterPage({ params }: { params: Promise<{ 
   const supabase = await createClient();
   const sessionUser = await getSessionUser();
   const canManage =
-    sessionUser?.role === "registrar" ||
-    sessionUser?.role === "school_admin" ||
-    sessionUser?.role === "superadmin";
+    sessionUser?.role === "registrar" || sessionUser?.role === "school_admin" || sessionUser?.role === "superadmin";
 
   const { data: section } = await supabase
     .from("sections")
-    .select("id, name, academic_year_id, level:levels(id, code, label, level_type)")
+    .select("id, name, academic_year_id, level:levels(id, code, label, level_type), academic_year:academic_years(ay_code)")
     .eq("id", id)
     .single();
   if (!section) notFound();
 
-  const { data: rows } = await supabase
-    .from("section_students")
-    .select(
-      "id, index_number, enrollment_status, enrollment_date, withdrawal_date, bus_no, classroom_officer_role, student:students(id, student_number, last_name, first_name, middle_name)",
-    )
-    .eq("section_id", id)
-    .order("index_number");
-
-  // Current term for this section's AY — used by the read-only attendance summary
-  // card (rolls up from the Attendance module's daily ledger).
-  const { data: currentTerm } = await supabase
-    .from("terms")
-    .select("id, label")
-    .eq("academic_year_id", section.academic_year_id)
-    .eq("is_current", true)
-    .maybeSingle();
-
-  // Count grading sheets for this section — drives the "Grading sheets"
-  // stat card's value + footnote. ~10 subjects × 4 terms ≈ 40 sheets per
-  // section in steady state. The card itself is a Link to the grading
-  // list pre-filtered to this section.
-  const { count: gradingSheetsCount } = await supabase
-    .from("grading_sheets")
-    .select("id", { count: "exact", head: true })
-    .eq("section_id", id);
+  // Parallel fetch — roster, current term, and grading-sheet count are all
+  // independent once the section row is resolved.
+  const [
+    { data: rows },
+    { data: currentTerm },
+    { count: gradingSheetsCount },
+  ] = await Promise.all([
+    supabase
+      .from("section_students")
+      .select(
+        "id, index_number, enrollment_status, enrollment_date, withdrawal_date, bus_no, classroom_officer_role, student:students(id, student_number, last_name, first_name, middle_name)",
+      )
+      .eq("section_id", id)
+      .order("index_number"),
+    // Current term for this section's AY — drives the attendance summary card.
+    supabase
+      .from("terms")
+      .select("id, label")
+      .eq("academic_year_id", section.academic_year_id)
+      .eq("is_current", true)
+      .maybeSingle(),
+    // Count grading sheets — drives the "Grading sheets" stat card.
+    supabase
+      .from("grading_sheets")
+      .select("id", { count: "exact", head: true })
+      .eq("section_id", id),
+  ]);
 
   const levelFromSection = (Array.isArray(section.level) ? section.level[0] : section.level) as LevelLite | null;
+  const ayNode = Array.isArray(section.academic_year) ? section.academic_year[0] : section.academic_year;
+  const sectionAyCode = (ayNode as { ay_code: string } | null)?.ay_code ?? '';
 
   const enrolments = (rows ?? []) as unknown as EnrolmentRow[];
   const level = levelFromSection;
@@ -127,40 +139,6 @@ export default async function SectionRosterPage({ params }: { params: Promise<{ 
             {withdrawnCount > 0 && ` · ${withdrawnCount} withdrawn (kept for audit)`}.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Cross-module deep links — every CTA below trails an
-              ArrowUpRight to signal it leaves Markbook. Each module owns
-              its own surface (KD #47 attendance, KD #48 sis sections,
-              KD #49 evaluation writeups). The markbook-internal action
-              is ManualAddStudent (last), which manipulates this section's
-              roster inline. The grading-sheets entry point lives below
-              as a clickable card in the stat strip — keeps the hero from
-              getting cramped. */}
-          {canManage && (
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/sis/sections/${section.id}?tab=teachers`}>
-                <UserCog className="h-4 w-4" />
-                Manage teachers
-                <ArrowUpRight className="h-3 w-3" />
-              </Link>
-            </Button>
-          )}
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/evaluation/sections/${section.id}`}>
-              <MessageSquare className="h-4 w-4" />
-              Write-ups
-              <ArrowUpRight className="h-3 w-3" />
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/attendance/${section.id}`}>
-              <Calendar className="h-4 w-4" />
-              Attendance
-              <ArrowUpRight className="h-3 w-3" />
-            </Link>
-          </Button>
-          <ManualAddStudent sectionId={section.id} nextIndex={nextIndex} />
-        </div>
       </header>
 
       {/* Stat cards */}
@@ -193,9 +171,51 @@ export default async function SectionRosterPage({ params }: { params: Promise<{ 
             icon={BookOpen}
             footerTitle="Open the list"
             footerDetail="Filtered to this section"
-            href={`/markbook/grading?section=${section.id}`}
+            href={`/markbook/grading?q=${encodeURIComponent(section.name)}`}
           />
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Cross-module deep links — every CTA below trails an
+              ArrowUpRight to signal it leaves Markbook. Each module owns
+              its own surface (KD #47 attendance, KD #48 sis sections,
+              KD #49 evaluation writeups). The markbook-internal action
+              is ManualAddStudent (last), which manipulates this section's
+              roster inline. The grading-sheets entry point lives below
+              as a clickable card in the stat strip — keeps the hero from
+              getting cramped. */}
+        {canManage && (
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/sis/sections/${section.id}?tab=teachers`}>
+              <UserCog className="h-4 w-4" />
+              Manage teachers
+              <ArrowUpRight className="h-3 w-3" />
+            </Link>
+          </Button>
+        )}
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/markbook/grading?q=${section.name}`}>
+            <BookOpen className="h-4 w-4" />
+            Grading sheets
+            <ArrowUpRight className="h-3 w-3" />
+          </Link>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/evaluation/sections/${section.id}`}>
+            <MessageSquare className="h-4 w-4" />
+            Write-ups
+            <ArrowUpRight className="h-3 w-3" />
+          </Link>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/attendance/${section.id}`}>
+            <Calendar className="h-4 w-4" />
+            Attendance
+            <ArrowUpRight className="h-3 w-3" />
+          </Link>
+        </Button>
+        <ManualAddStudent sectionId={section.id} nextIndex={nextIndex} ayCode={sectionAyCode} />
       </div>
 
       {/* Attendance summary — reads the Attendance module's rollup. */}
@@ -273,10 +293,7 @@ function LinkStatCard({
   href: string;
 }) {
   return (
-    <Link
-      href={href}
-      className="group block transition-all hover:-translate-y-0.5 focus-visible:outline-none"
-    >
+    <Link href={href} className="group block transition-all hover:-translate-y-0.5 focus-visible:outline-none">
       <Card className="@container/card h-full transition-all group-hover:border-brand-indigo/40 group-hover:shadow-md group-focus-visible:ring-2 group-focus-visible:ring-brand-indigo/40">
         <CardHeader>
           <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
