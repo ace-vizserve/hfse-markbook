@@ -52,7 +52,7 @@ export function MyRequestsCancelButton({ requestId }: { requestId: string }) {
         <AlertDialogHeader>
           <AlertDialogTitle>Cancel this request?</AlertDialogTitle>
           <AlertDialogDescription>
-            This will withdraw the request from the administrator&apos;s review
+            This will withdraw the request from your school admin&apos;s review
             queue. You can file a new one if you change your mind.
           </AlertDialogDescription>
         </AlertDialogHeader>

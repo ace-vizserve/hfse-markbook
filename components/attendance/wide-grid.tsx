@@ -351,7 +351,7 @@ export function AttendanceWideGrid({
           </div>
           <CardTitle className="font-serif">No calendar configured</CardTitle>
           <CardDescription className="mx-auto max-w-md">
-            Attendance can&apos;t be recorded until the registrar configures the school calendar for this term. Seed the
+            Attendance can&apos;t be recorded until your school admin configures the school calendar for this term. Seed the
             weekdays to start encoding.
           </CardDescription>
         </CardHeader>

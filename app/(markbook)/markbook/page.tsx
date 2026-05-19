@@ -480,7 +480,7 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
             <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Tools
             </p>
-            <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">Administrator tools</h2>
+            <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">School admin tools</h2>
           </div>
           <div className="@container/main">
             <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-3">

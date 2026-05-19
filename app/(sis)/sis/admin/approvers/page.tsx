@@ -41,7 +41,7 @@ export default async function ApproversPage() {
           Approver assignments.
         </h1>
         <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-          Designate which school administrators are approvers for each approval flow. When a teacher files a
+          Designate which school admins are approvers for each approval flow. When a teacher files a
           locked-sheet change request, they pick a primary + secondary from the flow&apos;s list; only those two see and
           act on it.
         </p>
@@ -67,7 +67,7 @@ export default async function ApproversPage() {
             requests where they&apos;re already designated. They can still act on those until the request is resolved.
           </li>
           <li>
-            <strong>Only school administrators are eligible</strong> as approvers — superadmins manage this list but
+            <strong>Only school admins are eligible</strong> as approvers — superadmins manage this list but
             don&apos;t approve change requests themselves. If you need someone as an approver, set their role to{" "}
             <code className="rounded bg-muted px-1 py-0.5">school_admin</code>
             {" "}in Supabase Auth first.

@@ -280,7 +280,7 @@ export default async function SisAdminHub({
                 icon={CalendarDays}
                 eyebrow="Academic calendar"
                 title="School Calendar"
-                description="Define school days, holidays, and important dates per term. Every weekday is a school day by default; registrars mark holidays and overlay event labels (Math Week, Staff Dev). The attendance grid and parent portal consume this."
+                description="Define school days, holidays, and important dates per term. Every weekday is a school day by default; school admins mark holidays and overlay event labels (Math Week, Staff Dev). The attendance grid and parent portal consume this."
                 cta="Open school calendar"
                 role={role}
                 allowedRoles={["school_admin", "superadmin"]}

@@ -205,7 +205,7 @@ export function RequestEditButton({ sheetId, isExaminable, wwSlotCount, ptSlotCo
               Request a locked-sheet edit
             </SheetTitle>
             <SheetDescription className="text-sm text-muted-foreground">
-              This request will be sent to the administrator for approval. The registrar applies the change after it is
+              This request will be sent to your school admin for approval. The registrar applies the change after it is
               approved.
             </SheetDescription>
           </SheetHeader>

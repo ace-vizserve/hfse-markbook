@@ -140,7 +140,7 @@ export function AnnualLetterInput({
           </div>
           <div className="rounded-md border border-brand-amber/40 bg-brand-amber/10 px-3 py-2 text-[11px] leading-relaxed text-brand-amber">
             This updates the student&rsquo;s year-end Final Grade on the report card. The change will be logged and all
-            school administrators will be notified.
+            school admins will be notified.
           </div>
           <div className="space-y-1">
             <Label htmlFor={`note-${entryId}`} className="text-xs">

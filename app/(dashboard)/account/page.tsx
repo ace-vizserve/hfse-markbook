@@ -28,7 +28,7 @@ export default async function AccountPage() {
           <CardTitle className="font-serif text-lg font-semibold tracking-tight text-foreground">
             Signed-in identity
           </CardTitle>
-          <CardDescription>Read-only. Ask the registrar to change your email or role.</CardDescription>
+          <CardDescription>Read-only. Ask your school admin to change your email or role.</CardDescription>
         </CardHeader>
         <CardContent className="border-t border-border p-0">
           <dl className="divide-y divide-border">

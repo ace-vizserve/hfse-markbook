@@ -88,7 +88,7 @@ export async function PATCH(
     // approve change requests themselves.
     if (auth.role !== 'school_admin') {
       return NextResponse.json(
-        { error: 'Only school administrators can approve or reject change requests.' },
+        { error: 'Only school admins can approve or reject change requests.' },
         { status: 403 },
       );
     }

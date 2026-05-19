@@ -63,7 +63,7 @@ export async function StudentAttendanceTab({
     return (
       <EmptyState
         title="No current academic year"
-        body="An academic year must be marked current before attendance can be shown. Ask an admin to visit AY Setup."
+        body="An academic year must be marked current before attendance can be shown. Ask your school admin to visit AY Setup."
       />
     );
   }
