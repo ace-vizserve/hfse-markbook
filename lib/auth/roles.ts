@@ -393,7 +393,7 @@ const SIS_NAV: NavSection[] = [
     label: "System",
     items: [
       { href: "/sis/admin/school-config", label: "School Config", requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/admin/settings", label: "Settings", requiresRoles: ["school_admin", "superadmin"] },
+      { href: "/sis/admin/settings", label: "Settings", requiresRoles: ["superadmin"] },
       { href: "/sis/audit-log", label: "Audit Log", requiresRoles: ["school_admin", "superadmin"] },
     ],
   },
