@@ -401,7 +401,7 @@ export default async function GradingSheetPage({
             </p>
             <p className="text-sm leading-relaxed text-muted-foreground">
               {readOnly
-                ? 'Grades have been committed for this term. Contact the registrar to request corrections.'
+                ? 'Grades have been committed for this term. Ask the subject teacher to file a change request, or contact your school admin.'
                 : 'Any edit you make will be written to the audit log. You will be prompted for an approval reference on save.'}
             </p>
             {canManage && (
