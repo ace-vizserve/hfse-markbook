@@ -920,7 +920,7 @@ async function loadLifecycleAggregateUncached(
     },
     {
       key: 'ungated-to-enroll',
-      label: 'Ungated to enroll',
+      label: 'Ready to enrol',
       count: ungatedToEnroll,
       severity: 'good',
       drillTarget: 'ungated-to-enroll',

@@ -64,15 +64,17 @@ export function LifecycleAggregateCard({
   const sorted = sortBuckets(buckets);
   const totalCount = sorted.reduce((acc, b) => acc + b.count, 0);
   const allClear = sorted.every((b) => b.count === 0);
+  // Only render rows with at least one student — zero-count rows add noise.
+  const visible = sorted.filter((b) => b.count > 0);
 
   return (
     <Card className="@container/card">
       <CardHeader>
         <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-          Enrolment lifecycle · what&apos;s holding up enrolment
+          Enrolment lifecycle
         </CardDescription>
         <CardTitle className="font-serif text-xl font-semibold tracking-tight text-foreground">
-          What&apos;s holding up the enrolment funnel
+          What&apos;s blocking enrolment
         </CardTitle>
         <CardAction>
           <ChartLegendChip
@@ -98,7 +100,7 @@ export function LifecycleAggregateCard({
               hideCount
             />
           ) : (
-            sorted.map((bucket) => (
+            visible.map((bucket) => (
               <LifecycleAggregateRow
                 key={bucket.key}
                 bucket={bucket}
