@@ -1,16 +1,19 @@
 import {
   Activity,
   ArrowUpRight,
+  BookOpen,
   Building2,
   CalendarCog,
   CalendarDays,
   Database,
   FolderCog,
+  GitBranch,
   LayoutGrid,
   Settings2,
   ShieldCheck,
   Tag,
   UserCog,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -20,8 +23,16 @@ import { DashboardHero } from "@/components/dashboard/dashboard-hero";
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { ActivityByActorCard } from "@/components/sis/activity-by-actor-card";
+import { AuditAuthEventsCard } from "@/components/sis/audit-auth-events-card";
+import { AuditDailyTrendCard } from "@/components/sis/audit-daily-trend-card";
+import { AuditTopActionsCard } from "@/components/sis/audit-top-actions-card";
 import { AuditByModuleDrillCard } from "@/components/sis/drills/audit-by-module-drill-card";
+import { GradeChangePipelineCard } from "@/components/sis/grade-change-pipeline-card";
+import { HubClassAssignmentCallout } from "@/components/sis/hub-class-assignment-callout";
+import { HubSectionStaffingCard } from "@/components/sis/hub-section-staffing-card";
+import { HubUpcomingEventsCard } from "@/components/sis/hub-upcoming-events-card";
 import { LifecycleAggregateCard } from "@/components/sis/lifecycle-aggregate-card";
+import { StructuralChangesFeedCard } from "@/components/sis/structural-changes-feed-card";
 import { SystemHealthStrip } from "@/components/sis/system-health-strip";
 import {
   Card,
@@ -39,7 +50,19 @@ import type { Role } from "@/lib/auth/roles";
 import { sisInsights } from "@/lib/dashboard/insights";
 import { formatRangeLabel, resolveRange, type DashboardSearchParams } from "@/lib/dashboard/range";
 import { getDashboardWindows } from "@/lib/dashboard/windows";
-import { getActivityByActor, getAuditActivityByModule } from "@/lib/sis/dashboard";
+import {
+  getActivityByActor,
+  getAuditActivityByModule,
+  getAuditDailyTrend,
+  getAuthEventCounts,
+  getClassAssignmentReadiness,
+  getGradeChangePipeline,
+  getHubKpis,
+  getSectionStaffingCoverage,
+  getStructuralChangeFeed,
+  getTopAuditActions,
+  getUpcomingCalendarEvents,
+} from "@/lib/sis/dashboard";
 import { getSystemHealth } from "@/lib/sis/health";
 import { getLifecycleAggregate } from "@/lib/sis/process";
 import { getSessionUser } from "@/lib/supabase/server";
@@ -77,10 +100,23 @@ export default async function SisAdminHub({
   ]);
   const rangeInput = ayCode ? resolveRange(resolvedSearch, windows, ayCode) : null;
 
+  // Hub-specific fetches — only fire on the hub view to avoid wasted DB work
+  // when the user is on the audit tab. Each call is individually guarded so a
+  // single failure can't tank the whole page.
+  const [hubKpis, unassignedStudents, upcomingEvents, staffingCoverage] =
+    view === "hub" && ayCode
+      ? await Promise.all([
+          getHubKpis(ayCode).catch(() => null),
+          getClassAssignmentReadiness(ayCode).catch(() => [] as Awaited<ReturnType<typeof getClassAssignmentReadiness>>),
+          getUpcomingCalendarEvents(ayCode).catch(() => [] as Awaited<ReturnType<typeof getUpcomingCalendarEvents>>),
+          getSectionStaffingCoverage(ayCode).catch(() => null),
+        ])
+      : [null, [] as Awaited<ReturnType<typeof getClassAssignmentReadiness>>, [] as Awaited<ReturnType<typeof getUpcomingCalendarEvents>>, null];
+
   // Audit-activity fetches only fire on the audit view — saves DB work on hub
   // loads. Audit-activity query can be slow on large audit_log tables; guard
   // so a transient DB error never tanks the admin hub.
-  const [auditResult, actorActivity] =
+  const [auditResult, actorActivity, auditDailyTrend, gradeChangePipeline, topAuditActions, authEventCounts, structuralChangeFeed] =
     view === "audit" && rangeInput
       ? await Promise.all([
           getAuditActivityByModule(rangeInput).catch((err) => {
@@ -91,8 +127,13 @@ export default async function SisAdminHub({
             console.error("[sis] getActivityByActor failed:", err);
             return [];
           }),
+          getAuditDailyTrend(rangeInput).catch(() => null),
+          getGradeChangePipeline(rangeInput).catch(() => null),
+          getTopAuditActions(rangeInput).catch(() => [] as { action: string; count: number }[]),
+          getAuthEventCounts(rangeInput).catch(() => null),
+          getStructuralChangeFeed().catch(() => [] as Awaited<ReturnType<typeof getStructuralChangeFeed>>),
         ])
-      : [null, []];
+      : [null, [], null, null, [] as { action: string; count: number }[], null, [] as Awaited<ReturnType<typeof getStructuralChangeFeed>>];
   const comparisonLabel = auditResult?.comparisonRange
     ? `vs ${formatRangeLabel(auditResult.comparisonRange)}`
     : undefined;
@@ -180,6 +221,44 @@ export default async function SisAdminHub({
 
       {view === "hub" ? (
         <>
+          {/* At-a-glance KPI strip — enrolled headcount, sections, pending
+              change requests, and currently-open report card windows. */}
+          {hubKpis && (
+            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <MetricCard
+                label="Enrolled students"
+                value={hubKpis.enrolledStudents}
+                icon={Users}
+                intent="default"
+              />
+              <MetricCard
+                label="Active sections"
+                value={hubKpis.activeSections}
+                icon={LayoutGrid}
+                intent="default"
+              />
+              <MetricCard
+                label="Pending change requests"
+                value={hubKpis.pendingChangeRequests}
+                icon={GitBranch}
+                intent={hubKpis.pendingChangeRequests > 0 ? "warning" : "default"}
+                subtext={hubKpis.pendingChangeRequests > 0 ? "Awaiting approval" : "All clear"}
+              />
+              <MetricCard
+                label="Open report card windows"
+                value={hubKpis.openPublicationWindows}
+                icon={BookOpen}
+                intent={hubKpis.openPublicationWindows > 0 ? "good" : "default"}
+                subtext={hubKpis.openPublicationWindows > 0 ? "Parents can view now" : "None active"}
+              />
+            </section>
+          )}
+
+          {/* Enrolled-but-unplaced students callout — actionable amber alert. */}
+          {unassignedStudents.length > 0 && (
+            <HubClassAssignmentCallout count={unassignedStudents.length} />
+          )}
+
           {/* Academic Year — rolls over once a year (AY rollover + calendar). */}
           <section className="space-y-3">
             <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -208,6 +287,9 @@ export default async function SisAdminHub({
               />
             </div>
           </section>
+
+          {/* Upcoming calendar events — next few events for the current AY. */}
+          <HubUpcomingEventsCard events={upcomingEvents} />
 
           {/* Organisation — AY-scoped structural config. */}
           <section className="space-y-3">
@@ -247,6 +329,11 @@ export default async function SisAdminHub({
               />
             </div>
           </section>
+
+          {/* Section staffing coverage — form adviser assignment progress. */}
+          {staffingCoverage && staffingCoverage.total > 0 && (
+            <HubSectionStaffingCard coverage={staffingCoverage} />
+          )}
 
           {/* Lifecycle blockers — top-of-fold "what's blocking the funnel". */}
           {lifecycleBuckets.length > 0 && (
@@ -388,6 +475,13 @@ export default async function SisAdminHub({
                 />
               </section>
 
+              {auditDailyTrend && (
+                <AuditDailyTrendCard
+                  current={auditDailyTrend.current}
+                  comparison={auditDailyTrend.comparison}
+                />
+              )}
+
               <section className="grid gap-4 lg:grid-cols-2">
                 <AuditByModuleDrillCard
                   data={chartData}
@@ -399,6 +493,18 @@ export default async function SisAdminHub({
                   rangeFrom={rangeInput.from}
                   rangeTo={rangeInput.to}
                 />
+              </section>
+
+              <section className="grid gap-4 lg:grid-cols-2">
+                {gradeChangePipeline && (
+                  <GradeChangePipelineCard pipeline={gradeChangePipeline} />
+                )}
+                <AuditTopActionsCard actions={topAuditActions} />
+              </section>
+
+              <section className="grid gap-4 lg:grid-cols-2">
+                {authEventCounts && <AuditAuthEventsCard counts={authEventCounts} />}
+                <StructuralChangesFeedCard rows={structuralChangeFeed} />
               </section>
             </>
           ) : (

@@ -6,6 +6,7 @@ import { DOCUMENT_SLOTS, resolveStatus, type DocumentGroup } from '@/lib/p-files
 import { STAGE_COLUMN_MAP, STAGE_KEYS, STAGE_LABELS, type StageKey } from '@/lib/schemas/sis';
 import { compareLevelLabels } from '@/lib/sis/levels';
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
+import { fetchAllPages } from '@/lib/supabase/paginate';
 import { createServiceClient } from '@/lib/supabase/service';
 import {
   computeDelta,
@@ -1072,4 +1073,427 @@ export async function getActivityByActor(
     revalidate: 60,
     tags: ['sis-dashboard', 'audit-log'],
   })();
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Audit daily trend — events bucketed by day over the selected range.
+// ──────────────────────────────────────────────────────────────────────────
+
+export type AuditDailyTrendResult = RangeResult<VelocityPoint[]>;
+
+async function loadAuditDailyForRange(from: string, to: string): Promise<VelocityPoint[]> {
+  const service = createServiceClient();
+  const rows = await fetchAllPages<{ created_at: string }>((f, t) =>
+    service
+      .from('audit_log')
+      .select('created_at')
+      .gte('created_at', `${from}T00:00:00+08:00`)
+      .lte('created_at', `${to}T23:59:59+08:00`)
+      .range(f, t),
+  );
+  return bucketByDay(rows.map((r) => ({ ts: r.created_at })), from, to);
+}
+
+async function loadAuditDailyTrendUncached(input: RangeInput): Promise<AuditDailyTrendResult> {
+  const current = await loadAuditDailyForRange(input.from, input.to);
+  if (input.cmpFrom == null || input.cmpTo == null) {
+    return { current, comparison: null, delta: null, range: { from: input.from, to: input.to }, comparisonRange: null };
+  }
+  const comparison = await loadAuditDailyForRange(input.cmpFrom, input.cmpTo);
+  const currentTotal = current.reduce((s, p) => s + p.y, 0);
+  const comparisonTotal = comparison.reduce((s, p) => s + p.y, 0);
+  return {
+    current,
+    comparison,
+    delta: computeDelta(currentTotal, comparisonTotal),
+    range: { from: input.from, to: input.to },
+    comparisonRange: { from: input.cmpFrom, to: input.cmpTo },
+  };
+}
+
+export function getAuditDailyTrend(input: RangeInput): Promise<AuditDailyTrendResult> {
+  return unstable_cache(
+    loadAuditDailyTrendUncached,
+    ['sis', 'audit-daily-trend', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
+    { tags: ['sis'], revalidate: 120 },
+  )(input);
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Grade change request pipeline — funnel of the approval workflow.
+// ──────────────────────────────────────────────────────────────────────────
+
+export type GradeChangePipeline = {
+  submitted: number;
+  approved: number;
+  rejected: number;
+  applied: number;
+  undoneRejections: number;
+};
+
+async function loadGradeChangePipelineUncached(input: RangeInput): Promise<GradeChangePipeline> {
+  const service = createServiceClient();
+  const fromTs = `${input.from}T00:00:00+08:00`;
+  const toTs = `${input.to}T23:59:59+08:00`;
+
+  const countFor = async (action: string) => {
+    const { count } = await service
+      .from('audit_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('action', action)
+      .gte('created_at', fromTs)
+      .lte('created_at', toTs);
+    return count ?? 0;
+  };
+
+  const [submitted, approved, rejected, applied, undoneRejections] = await Promise.all([
+    countFor('grade_change_requested'),
+    countFor('grade_change_approved'),
+    countFor('grade_change_rejected'),
+    countFor('grade_change_applied'),
+    countFor('grade_change_undo_rejection'),
+  ]);
+
+  return { submitted, approved, rejected, applied, undoneRejections };
+}
+
+export function getGradeChangePipeline(input: RangeInput): Promise<GradeChangePipeline> {
+  return unstable_cache(
+    loadGradeChangePipelineUncached,
+    ['sis', 'grade-change-pipeline', input.ayCode, input.from, input.to],
+    { tags: ['sis'], revalidate: 120 },
+  )(input);
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Top audit actions — most frequent action strings in the range.
+// ──────────────────────────────────────────────────────────────────────────
+
+export type TopAuditAction = { action: string; count: number };
+
+async function loadTopAuditActionsUncached(input: RangeInput): Promise<TopAuditAction[]> {
+  const service = createServiceClient();
+  const rows = await fetchAllPages<{ action: string }>((f, t) =>
+    service
+      .from('audit_log')
+      .select('action')
+      .gte('created_at', `${input.from}T00:00:00+08:00`)
+      .lte('created_at', `${input.to}T23:59:59+08:00`)
+      .range(f, t),
+  );
+
+  const counts = new Map<string, number>();
+  for (const r of rows) counts.set(r.action, (counts.get(r.action) ?? 0) + 1);
+
+  return Array.from(counts.entries())
+    .map(([action, count]) => ({ action, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+}
+
+export function getTopAuditActions(input: RangeInput): Promise<TopAuditAction[]> {
+  return unstable_cache(
+    loadTopAuditActionsUncached,
+    ['sis', 'top-audit-actions', input.ayCode, input.from, input.to],
+    { tags: ['sis'], revalidate: 120 },
+  )(input);
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Auth event counts — staff logins + parent session events in the range.
+// ──────────────────────────────────────────────────────────────────────────
+
+export type AuthEventCounts = {
+  staffLogins: number;
+  parentSessionsIssued: number;
+  parentSessionsCleared: number;
+};
+
+async function loadAuthEventCountsUncached(input: RangeInput): Promise<AuthEventCounts> {
+  const service = createServiceClient();
+  const fromTs = `${input.from}T00:00:00+08:00`;
+  const toTs = `${input.to}T23:59:59+08:00`;
+
+  const countFor = async (action: string) => {
+    const { count } = await service
+      .from('audit_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('action', action)
+      .gte('created_at', fromTs)
+      .lte('created_at', toTs);
+    return count ?? 0;
+  };
+
+  const [staffLogins, parentSessionsIssued, parentSessionsCleared] = await Promise.all([
+    countFor('user.login'),
+    countFor('parent.session.issued'),
+    countFor('parent.session.cleared'),
+  ]);
+
+  return { staffLogins, parentSessionsIssued, parentSessionsCleared };
+}
+
+export function getAuthEventCounts(input: RangeInput): Promise<AuthEventCounts> {
+  return unstable_cache(
+    loadAuthEventCountsUncached,
+    ['sis', 'auth-event-counts', input.ayCode, input.from, input.to],
+    { tags: ['sis'], revalidate: 120 },
+  )(input);
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Structural changes feed — last 5 high-impact admin actions (cross-range).
+// ──────────────────────────────────────────────────────────────────────────
+
+export const STRUCTURAL_ACTIONS = [
+  'school_config.update',
+  'template.apply',
+  'environment.switch',
+  'environment.seed',
+  'environment.topup',
+  'user.role.update',
+  'user.create',
+  'ay.create',
+  'ay.switch_current',
+  'ay.delete',
+  'ay.accepting_applications.toggle',
+  'approver.assign',
+  'approver.revoke',
+] as const;
+
+export type StructuralChangeRow = {
+  id: string;
+  action: string;
+  actorEmail: string;
+  createdAt: string;
+  context: Record<string, unknown>;
+};
+
+async function loadStructuralChangeFeedUncached(): Promise<StructuralChangeRow[]> {
+  const service = createServiceClient();
+  const { data, error } = await service
+    .from('audit_log')
+    .select('id, action, actor_email, created_at, context')
+    .in('action', [...STRUCTURAL_ACTIONS])
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  if (error) {
+    console.error('[sis] getStructuralChangeFeed fetch failed:', error.message);
+    return [];
+  }
+
+  type AuditLite = {
+    id: string;
+    action: string;
+    actor_email: string | null;
+    created_at: string;
+    context: Record<string, unknown> | null;
+  };
+
+  return ((data ?? []) as AuditLite[]).map((r) => ({
+    id: r.id,
+    action: r.action,
+    actorEmail: r.actor_email ?? '(unknown)',
+    createdAt: r.created_at,
+    context: r.context ?? {},
+  }));
+}
+
+const loadStructuralChangeFeedCached = unstable_cache(
+  loadStructuralChangeFeedUncached,
+  ['sis', 'structural-change-feed'],
+  { tags: ['sis'], revalidate: 120 },
+);
+
+export function getStructuralChangeFeed(): Promise<StructuralChangeRow[]> {
+  return loadStructuralChangeFeedCached();
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Hub KPIs — at-a-glance counts for the admin hub tab.
+// ──────────────────────────────────────────────────────────────────────────
+
+export type HubKpis = {
+  enrolledStudents: number;
+  activeSections: number;
+  pendingChangeRequests: number;
+  openPublicationWindows: number;
+};
+
+async function loadHubKpisUncached(ayCode: string): Promise<HubKpis> {
+  const service = createServiceClient();
+  const ayId = await getAyIdByCode(ayCode);
+  if (ayId == null) {
+    return { enrolledStudents: 0, activeSections: 0, pendingChangeRequests: 0, openPublicationWindows: 0 };
+  }
+
+  const { data: sectionsData } = await service
+    .from('sections')
+    .select('id')
+    .eq('academic_year_id', ayId);
+  const sectionIds = ((sectionsData ?? []) as { id: string }[]).map((r) => r.id);
+
+  const now = new Date().toISOString();
+
+  const [enrolledRes, sectionsRes, pendingCrRes, openPubRes] = await Promise.all([
+    sectionIds.length > 0
+      ? service
+          .from('section_students')
+          .select('id', { count: 'exact', head: true })
+          .in('section_id', sectionIds)
+          .in('enrollment_status', ['active', 'late_enrollee'])
+      : Promise.resolve({ count: 0, data: null, error: null }),
+    service
+      .from('sections')
+      .select('id', { count: 'exact', head: true })
+      .eq('academic_year_id', ayId),
+    service
+      .from('grade_change_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending'),
+    sectionIds.length > 0
+      ? service
+          .from('report_card_publications')
+          .select('id', { count: 'exact', head: true })
+          .in('section_id', sectionIds)
+          .lte('publish_from', now)
+          .gte('publish_until', now)
+      : Promise.resolve({ count: 0, data: null, error: null }),
+  ]);
+
+  return {
+    enrolledStudents: enrolledRes.count ?? 0,
+    activeSections: sectionsRes.count ?? 0,
+    pendingChangeRequests: pendingCrRes.count ?? 0,
+    openPublicationWindows: openPubRes.count ?? 0,
+  };
+}
+
+export function getHubKpis(ayCode: string): Promise<HubKpis> {
+  return unstable_cache(
+    loadHubKpisUncached,
+    ['sis', 'hub-kpis', ayCode],
+    { tags: tag(ayCode), revalidate: 120 },
+  )(ayCode);
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Upcoming calendar events — next N events from the current AY's terms.
+// ──────────────────────────────────────────────────────────────────────────
+
+export type UpcomingCalendarEvent = {
+  id: string;
+  label: string;
+  startDate: string;
+  endDate: string | null;
+  category: string;
+  tentative: boolean;
+};
+
+async function loadUpcomingCalendarEventsUncached(
+  ayCode: string,
+  limit: number,
+): Promise<UpcomingCalendarEvent[]> {
+  const service = createServiceClient();
+  const ayId = await getAyIdByCode(ayCode);
+  if (ayId == null) return [];
+
+  const { data: termsData } = await service
+    .from('terms')
+    .select('id')
+    .eq('academic_year_id', ayId);
+  const termIds = ((termsData ?? []) as { id: string }[]).map((r) => r.id);
+  if (termIds.length === 0) return [];
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { data, error } = await service
+    .from('calendar_events')
+    .select('id, label, start_date, end_date, category, tentative')
+    .in('term_id', termIds)
+    .gte('start_date', today)
+    .order('start_date', { ascending: true })
+    .limit(limit);
+
+  if (error) {
+    console.error('[sis] getUpcomingCalendarEvents fetch failed:', error.message);
+    return [];
+  }
+
+  type EventLite = {
+    id: string;
+    label: string;
+    start_date: string;
+    end_date: string | null;
+    category: string;
+    tentative: boolean;
+  };
+
+  return ((data ?? []) as EventLite[]).map((r) => ({
+    id: r.id,
+    label: r.label,
+    startDate: r.start_date,
+    endDate: r.end_date,
+    category: r.category,
+    tentative: r.tentative ?? false,
+  }));
+}
+
+export function getUpcomingCalendarEvents(
+  ayCode: string,
+  limit: number = 5,
+): Promise<UpcomingCalendarEvent[]> {
+  return unstable_cache(
+    loadUpcomingCalendarEventsUncached,
+    ['sis', 'upcoming-calendar-events', ayCode, String(limit)],
+    { tags: tag(ayCode), revalidate: 120 },
+  )(ayCode, limit);
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Section staffing coverage — sections that have a form adviser assigned.
+// ──────────────────────────────────────────────────────────────────────────
+
+export type SectionStaffingCoverage = {
+  total: number;
+  withAdviser: number;
+};
+
+async function loadSectionStaffingCoverageUncached(
+  ayCode: string,
+): Promise<SectionStaffingCoverage> {
+  const service = createServiceClient();
+  const ayId = await getAyIdByCode(ayCode);
+  if (ayId == null) return { total: 0, withAdviser: 0 };
+
+  const { data: sectionsData } = await service
+    .from('sections')
+    .select('id')
+    .eq('academic_year_id', ayId);
+  const sectionIds = ((sectionsData ?? []) as { id: string }[]).map((r) => r.id);
+  const total = sectionIds.length;
+  if (total === 0) return { total: 0, withAdviser: 0 };
+
+  const { data: assignmentsData } = await service
+    .from('teacher_assignments')
+    .select('section_id')
+    .in('section_id', sectionIds)
+    .eq('role', 'form_adviser');
+
+  const advisedSectionIds = new Set(
+    ((assignmentsData ?? []) as { section_id: string }[]).map((r) => r.section_id),
+  );
+
+  return { total, withAdviser: advisedSectionIds.size };
+}
+
+export function getSectionStaffingCoverage(
+  ayCode: string,
+): Promise<SectionStaffingCoverage> {
+  return unstable_cache(
+    loadSectionStaffingCoverageUncached,
+    ['sis', 'section-staffing-coverage', ayCode],
+    { tags: tag(ayCode), revalidate: 120 },
+  )(ayCode);
 }
