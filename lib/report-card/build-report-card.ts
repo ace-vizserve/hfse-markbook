@@ -21,10 +21,16 @@ export type SubjectRow = {
   t3: Cell;
   t4: Cell;
   annual: number | null;
-  /** Freeform year-end letter/text for non-examinable subjects, registrar-
-   *  entered via the masterfile. Read from the T4 grade_entries row.
-   *  Always null for examinable subjects. */
+  /** Resolved year-end letter for non-examinable: override ?? derived. Always null for examinable. */
   annual_letter: string | null;
+  /** Raw DB value of grade_entries.annual_letter_grade (null if not explicitly set). */
+  annual_letter_override: string | null;
+  /** Auto-derived annual letter from term quarterly scores, ignoring any override. */
+  annual_letter_derived: string | null;
+  /** T4 grade_entry.id — null if no T4 entry exists yet. Used by the report-card edit control. */
+  t4_entry_id: string | null;
+  /** T4 grading_sheet.id — null if no T4 sheet exists. Used by the report-card edit control. */
+  t4_sheet_id: string | null;
 };
 
 export type Term = {
@@ -222,12 +228,13 @@ export async function buildReportCard(
   const { data: entries } = sheetList.length > 0
     ? await supabase
         .from('grade_entries')
-        .select('grading_sheet_id, section_student_id, quarterly_grade, letter_grade, is_na, annual_letter_grade')
+        .select('id, grading_sheet_id, section_student_id, quarterly_grade, letter_grade, is_na, annual_letter_grade')
         .in('grading_sheet_id', sheetList.map((s) => s.id))
         .in('section_student_id', allEnrolmentIds)
     : { data: [] };
 
   type EntryRow = {
+    id: string;
     grading_sheet_id: string;
     section_student_id: string;
     quarterly_grade: number | null;
@@ -252,7 +259,9 @@ export async function buildReportCard(
 
   const subjectRows: SubjectRow[] = subjects.map((sub) => {
     const byTerm: Record<number, Cell> = {};
-    let annual_letter: string | null = null;
+    let annual_letter_override: string | null = null;
+    let t4_entry_id: string | null = null;
+    let t4_sheet_id: string | null = null;
     for (const t of termList) {
       // Find every sheet covering this (term, subject) across the student's
       // sections, then every entry against any of the student's enrolments.
@@ -275,18 +284,22 @@ export async function buildReportCard(
           }
         : empty;
       if (t.term_number === 4 && !sub.is_examinable && entry) {
-        annual_letter = entry.annual_letter_grade ?? null;
+        annual_letter_override = entry.annual_letter_grade ?? null;
+        t4_entry_id = entry.id;
+        t4_sheet_id = entry.grading_sheet_id;
       }
     }
-    // When no registrar override exists, derive from the weighted term average.
-    if (!sub.is_examinable && annual_letter === null) {
-      annual_letter = deriveAnnualLetterForNonExam(
-        [1, 2, 3, 4].map((n) => ({
-          quarterly: byTerm[n]?.quarterly ?? null,
-          isNa: byTerm[n]?.is_na ?? false,
-        })),
-      );
-    }
+    const annual_letter_derived = !sub.is_examinable
+      ? deriveAnnualLetterForNonExam(
+          [1, 2, 3, 4].map((n) => ({
+            quarterly: byTerm[n]?.quarterly ?? null,
+            isNa: byTerm[n]?.is_na ?? false,
+          })),
+        )
+      : null;
+    const annual_letter = !sub.is_examinable
+      ? (annual_letter_override ?? annual_letter_derived)
+      : null;
     const annual = sub.is_examinable
       ? computeAnnualGrade(
           byTerm[1]?.quarterly ?? null,
@@ -303,6 +316,10 @@ export async function buildReportCard(
       t4: byTerm[4] ?? empty,
       annual,
       annual_letter,
+      annual_letter_override,
+      annual_letter_derived,
+      t4_entry_id,
+      t4_sheet_id,
     };
   });
 

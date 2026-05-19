@@ -8,10 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DEFAULT_GRID_FILTERS, GridFilterToolbar, type GridFilters } from "./grid-filter-toolbar";
 import { useChangeReference, type ChangeReferenceTarget } from "./use-approval-reference";
+import { resolveNonExaminableLetter } from "@/lib/compute/letter-grade";
 
 export type GradeRow = {
   entry_id: string;
@@ -50,6 +51,8 @@ type Props = {
   slotLabels?: SlotLabels;
   /** Whether the current user may edit labels (teacher on own sheet, or registrar+). */
   canEditLabels?: boolean;
+  /** When true, renders the Quarterly column as a derived letter (non-examinable subjects). */
+  letterDisplay?: boolean;
 };
 
 function parseCell(raw: string): number | null {
@@ -72,6 +75,7 @@ export function ScoreEntryGrid({
   requireApproval = false,
   slotLabels,
   canEditLabels = false,
+  letterDisplay = false,
 }: Props) {
   const [rows, setRows] = useState<GradeRow[]>(initialRows);
   const rowsRef = useRef(rows);
@@ -259,53 +263,61 @@ export function ScoreEntryGrid({
       <Card className="overflow-hidden p-0">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/40 hover:bg-muted/40">
-              <TableHead className="sticky left-0 z-10 bg-muted/40 text-right">#</TableHead>
-              <TableHead className="sticky left-8 z-10 bg-muted/40">Student</TableHead>
-              {wwTotals.map((max, i) => {
-                const label = labels.ww[i] ?? null;
-                return (
-                  <TableHead key={`ww-${i}`} className="text-center">
-                    <div>
-                      W{i + 1}
-                      <sup className="ml-0.5 text-muted-foreground">/{max}</sup>
-                    </div>
-                    {label && (
-                      <span className="mt-0.5 block truncate text-center text-[10px] font-normal italic text-muted-foreground">
-                        {label}
-                      </span>
-                    )}
-                  </TableHead>
-                );
-              })}
-              {ptTotals.map((max, i) => {
-                const label = labels.pt[i] ?? null;
-                return (
-                  <TableHead key={`pt-${i}`} className="text-center">
-                    <div>
-                      PT{i + 1}
-                      <sup className="ml-0.5 text-muted-foreground">/{max}</sup>
-                    </div>
-                    {label && (
-                      <span className="mt-0.5 block truncate text-center text-[10px] font-normal italic text-muted-foreground">
-                        {label}
-                      </span>
-                    )}
-                  </TableHead>
-                );
-              })}
-              <TableHead className="text-center">
-                <div>
-                  QA
-                  {qaTotal != null && <sup className="ml-0.5 text-muted-foreground">/{qaTotal}</sup>}
-                </div>
-                <span className="mt-0.5 block text-center text-[10px] font-normal italic text-muted-foreground">
-                  Exam
-                </span>
+            {/* Row 1 — group headers */}
+            <TableRow className="bg-muted/60 hover:bg-muted/60">
+              <TableHead rowSpan={2} className="sticky left-0 z-10 bg-muted/60 align-bottom text-right">
+                #
               </TableHead>
-              <TableHead className="text-right">Initial</TableHead>
-              <TableHead className="text-right">Quarterly</TableHead>
-              <TableHead className="text-center">N/A</TableHead>
+              <TableHead rowSpan={2} className="sticky left-8 z-10 bg-muted/60 align-bottom">
+                Student
+              </TableHead>
+              {wwLen > 0 && (
+                <TableHead
+                  colSpan={wwLen}
+                  className="border-r border-border/40 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Written Works
+                </TableHead>
+              )}
+              {ptLen > 0 && (
+                <TableHead
+                  colSpan={ptLen}
+                  className="border-r border-border/40 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Performance Tasks
+                </TableHead>
+              )}
+              <TableHead className="border-r border-border/40 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Quarterly Assessment
+              </TableHead>
+              <TableHead rowSpan={2} className="align-bottom text-right">
+                Initial
+              </TableHead>
+              <TableHead rowSpan={2} className="align-bottom text-right">
+                Quarterly
+              </TableHead>
+              <TableHead rowSpan={2} className="align-bottom text-center">
+                N/A
+              </TableHead>
+            </TableRow>
+            {/* Row 2 — individual slot headers */}
+            <TableRow className="bg-muted/40 hover:bg-muted/40">
+              {/* # and Student are rowSpan=2 above */}
+              {wwTotals.map((max, i) => (
+                <TableHead key={`ww-${i}`} className="text-center">
+                  W{i + 1}
+                  <sup className="ml-0.5 text-muted-foreground">/{max}</sup>
+                </TableHead>
+              ))}
+              {ptTotals.map((max, i) => (
+                <TableHead key={`pt-${i}`} className="text-center">
+                  PT{i + 1}
+                  <sup className="ml-0.5 text-muted-foreground">/{max}</sup>
+                </TableHead>
+              ))}
+              <TableHead className="text-center">
+                QA
+                {qaTotal != null && <sup className="ml-0.5 text-muted-foreground">/{qaTotal}</sup>}
+              </TableHead>
+              {/* Initial, Quarterly, N/A are rowSpan=2 above */}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -431,8 +443,6 @@ export function ScoreEntryGrid({
   );
 }
 
-// Unified strip that shows slot label status + grade legend (non-examinable)
-// and provides the edit drawer. Replaces the standalone LetterGradeLegend.
 function ScoringGuide({
   wwTotals,
   ptTotals,
@@ -452,49 +462,81 @@ function ScoringGuide({
   onDrawerOpenChange: (open: boolean) => void;
   onSave: (type: "ww" | "pt", slotIndex: number, value: string | null) => void;
 }) {
-  return (
-    <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 space-y-3">
-      {/* Slot status row */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-x-1 gap-y-1.5 text-xs">
-          {/* WW slots */}
-          {wwTotals.map((max, i) => {
-            const label = labels.ww[i] ?? null;
-            return <SlotChip key={`ww-${i}`} code={`W${i + 1}`} max={max} label={label} />;
-          })}
-          {wwTotals.length > 0 && ptTotals.length > 0 && <span className="mx-1 text-border">|</span>}
-          {/* PT slots */}
-          {ptTotals.map((max, i) => {
-            const label = labels.pt[i] ?? null;
-            return <SlotChip key={`pt-${i}`} code={`PT${i + 1}`} max={max} label={label} />;
-          })}
-          {(wwTotals.length > 0 || ptTotals.length > 0) && <span className="mx-1 text-border">|</span>}
-          {/* QA — always Exam */}
-          <SlotChip code="QA" label="Exam" fixed />
-        </div>
+  const totalSlots = wwTotals.length + ptTotals.length;
+  const labelledCount = wwTotals.filter((_, i) => !!labels.ww[i]).length +
+    ptTotals.filter((_, i) => !!labels.pt[i]).length;
+  const hasMissing = canEditLabels && missingLabelCount > 0;
 
-        {canEditLabels && (
-          <Sheet open={drawerOpen} onOpenChange={onDrawerOpenChange}>
-            <SheetTrigger asChild>
-              <Button className="h-7 shrink-0 gap-1.5 px-2 text-xs">
-                <Pencil className="h-3 w-3" />
-                Edit Labels
-                {missingLabelCount > 0 && <Badge variant="secondary">{missingLabelCount}</Badge>}
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-96 sm:w-[440px]">
-              <SheetHeader>
-                <SheetTitle>Activity Labels</SheetTitle>
-                <SheetDescription>
-                  Describe each activity column. Slots without a description are disabled until labelled.
-                </SheetDescription>
-              </SheetHeader>
-              <ActivityLabelsForm wwTotals={wwTotals} ptTotals={ptTotals} labels={labels} onSave={onSave} />
-            </SheetContent>
-          </Sheet>
-        )}
-      </div>
+  const chipRow = (
+    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5">
+      {wwTotals.map((max, i) => (
+        <SlotChip key={`ww-${i}`} code={`W${i + 1}`} max={max} label={labels.ww[i] ?? null} warn={canEditLabels} />
+      ))}
+      {wwTotals.length > 0 && ptTotals.length > 0 && (
+        <span className="select-none text-border/60">·</span>
+      )}
+      {ptTotals.map((max, i) => (
+        <SlotChip key={`pt-${i}`} code={`PT${i + 1}`} max={max} label={labels.pt[i] ?? null} warn={canEditLabels} />
+      ))}
+      {(wwTotals.length > 0 || ptTotals.length > 0) && (
+        <span className="select-none text-border/60">·</span>
+      )}
+      <SlotChip code="QA" label="Exam" fixed />
     </div>
+  );
+
+  return (
+    <>
+      {canEditLabels && (
+        <Sheet open={drawerOpen} onOpenChange={onDrawerOpenChange}>
+          <SheetContent side="right" className="w-96 sm:w-[440px]">
+            <SheetHeader>
+              <SheetTitle>Activity Labels</SheetTitle>
+              <SheetDescription>
+                Describe each activity column. Slots without a description are disabled until labelled.
+              </SheetDescription>
+            </SheetHeader>
+            <ActivityLabelsForm wwTotals={wwTotals} ptTotals={ptTotals} labels={labels} onSave={onSave} />
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {/* Setup state — shown to teachers with missing labels */}
+      {hasMissing ? (
+        <div className="rounded-lg border border-brand-amber/30 bg-brand-amber/5 p-4 space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">Label your activity columns to start entering scores</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {labelledCount} of {totalSlots} labelled — unlabelled columns are locked
+              </p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => onDrawerOpenChange(true)}
+              className="h-8 shrink-0 gap-1.5 px-3 text-xs">
+              <Pencil className="h-3 w-3" />
+              Add Labels
+            </Button>
+          </div>
+          {chipRow}
+        </div>
+      ) : (
+        /* Reference strip — compact once everything is labelled */
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+          {chipRow}
+          {canEditLabels && (
+            <button
+              type="button"
+              onClick={() => onDrawerOpenChange(true)}
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
+              <Pencil className="h-3 w-3" />
+              Edit
+            </button>
+          )}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -503,25 +545,28 @@ function SlotChip({
   max,
   label,
   fixed = false,
+  warn = false,
 }: {
   code: string;
   max?: number;
   label: string | null;
   fixed?: boolean;
+  warn?: boolean;
 }) {
-  const hasLabel = !!label;
+  const done = !!label || fixed;
   return (
     <span
-      className={`inline-flex items-baseline gap-1 rounded px-1.5 py-0.5 font-mono text-[11px] border ${
-        hasLabel || fixed
+      className={`inline-flex items-baseline gap-1 rounded border px-1.5 py-0.5 font-mono text-[11px] ${
+        done
           ? "border-border bg-muted/60 text-foreground"
-          : "border-dashed border-border/50 text-muted-foreground/60"
+          : warn
+            ? "border-dashed border-brand-amber/50 text-brand-amber"
+            : "border-dashed border-border/50 text-muted-foreground/60"
       }`}>
       <span className="font-semibold">{code}</span>
-      {max != null && <span className="text-[9px] text-muted-foreground/50">/{max}</span>}
-      {(hasLabel || fixed) && label && (
-        <span
-          className={`ml-0.5 font-sans font-normal not-italic ${fixed ? "text-muted-foreground" : "italic text-muted-foreground"}`}>
+      {max != null && <span className="text-[9px] opacity-50">/{max}</span>}
+      {done && label && (
+        <span className={`ml-0.5 font-sans font-normal ${fixed ? "text-muted-foreground" : "italic text-muted-foreground"}`}>
           {label}
         </span>
       )}

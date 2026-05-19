@@ -129,6 +129,7 @@ export const SIDEBAR_REGISTRY: Record<SidebarModule, ModuleSidebarConfig> = {
     fallbackIcon: FolderOpen,
     iconByHref: {
       "/p-files": LayoutDashboard,
+      "/p-files/document-validation": FileCheck,
       "/p-files/audit-log": History,
       // P-Files only surfaces the renewal lens for enrolled students:
       // already-expired + the 30/60/90-day expiring window. Initial-chase

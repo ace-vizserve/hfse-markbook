@@ -36,12 +36,23 @@ export type InviteUserInput = z.infer<typeof InviteUserSchema>;
 // PATCH /api/sis/admin/users/[id] — partial update. All fields optional.
 // Passing `role: "x"` updates app_metadata.role; `disabled: true` bans the
 // user indefinitely via `ban_duration`; `disabled: false` lifts the ban.
+// `displayName`, `email`, and `password` are superadmin-only (enforced in
+// the route handler, not the schema).
 export const UpdateUserSchema = z
   .object({
     role: RoleEnum.optional(),
     disabled: z.boolean().optional(),
+    displayName: z.string().trim().max(120).optional(),
+    email: z.string().trim().toLowerCase().email('Valid email required').optional(),
+    password: z.string().min(8).max(72).optional(),
   })
-  .refine((v) => v.role !== undefined || v.disabled !== undefined, {
-    message: 'At least one field (role or disabled) required',
-  });
+  .refine(
+    (v) =>
+      v.role !== undefined ||
+      v.disabled !== undefined ||
+      v.displayName !== undefined ||
+      v.email !== undefined ||
+      v.password !== undefined,
+    { message: 'At least one field required' },
+  );
 export type UpdateUserInput = z.infer<typeof UpdateUserSchema>;

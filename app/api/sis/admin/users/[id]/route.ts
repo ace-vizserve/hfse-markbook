@@ -5,8 +5,11 @@ import { logAction } from '@/lib/audit/log-action';
 import { createServiceClient } from '@/lib/supabase/service';
 import { UpdateUserSchema } from '@/lib/schemas/user-admin';
 
-// PATCH /api/sis/admin/users/[id] — update role and/or enabled state.
-// Superadmin only.
+// PATCH /api/sis/admin/users/[id] — update role, enabled state, and/or
+// identity fields.
+//
+// `role` + `disabled` are available to school_admin and superadmin.
+// `displayName`, `email`, and `password` require superadmin (identity edits).
 //
 // `role` writes to `app_metadata.role` (KD #2). `disabled: true` bans the
 // user for 100 years (effectively indefinite); `disabled: false` clears the
@@ -35,7 +38,16 @@ export async function PATCH(
       { status: 400 },
     );
   }
-  const { role, disabled } = parsed.data;
+  const { role, disabled, displayName, email, password } = parsed.data;
+
+  // Identity edits (name / email / password) are superadmin-only.
+  if ((displayName !== undefined || email !== undefined || password !== undefined) &&
+    auth.role !== 'superadmin') {
+    return NextResponse.json(
+      { error: 'Only superadmins can update name, email, or password.' },
+      { status: 403 },
+    );
+  }
 
   const service = createServiceClient();
 
@@ -51,15 +63,27 @@ export async function PATCH(
   const beforeDisabled = Boolean(
     before.banned_until && new Date(before.banned_until).getTime() > Date.now(),
   );
+  const beforeDisplayName =
+    (before.user_metadata as { display_name?: string } | null)?.display_name ?? null;
 
   const updates: Parameters<typeof service.auth.admin.updateUserById>[1] = {};
   if (role !== undefined) {
     updates.app_metadata = { ...(before.app_metadata ?? {}), role };
   }
   if (disabled !== undefined) {
-    // `none` clears the ban; a long string bans indefinitely. Supabase JS
-    // doesn't expose a "forever" helper, so we use ~100 years.
     updates.ban_duration = disabled ? '876000h' : 'none';
+  }
+  if (displayName !== undefined) {
+    updates.user_metadata = {
+      ...((before.user_metadata as Record<string, unknown>) ?? {}),
+      display_name: displayName || null,
+    };
+  }
+  if (email !== undefined) {
+    updates.email = email;
+  }
+  if (password !== undefined) {
+    updates.password = password;
   }
 
   const { error: updateErr } = await service.auth.admin.updateUserById(id, updates);
@@ -86,6 +110,33 @@ export async function PATCH(
       entityType: 'user_account',
       entityId: id,
       context: { email: before.email, role: role ?? beforeRole },
+    });
+  }
+
+  if (displayName !== undefined || email !== undefined) {
+    await logAction({
+      service,
+      actor: { id: auth.user.id, email: auth.user.email ?? null },
+      action: 'user.info.update',
+      entityType: 'user_account',
+      entityId: id,
+      context: {
+        email: before.email,
+        ...(displayName !== undefined
+          ? { before: { displayName: beforeDisplayName }, after: { displayName } }
+          : {}),
+        ...(email !== undefined ? { emailChanged: true } : {}),
+        ...(password !== undefined ? { passwordReset: true } : {}),
+      },
+    });
+  } else if (password !== undefined) {
+    await logAction({
+      service,
+      actor: { id: auth.user.id, email: auth.user.email ?? null },
+      action: 'user.info.update',
+      entityType: 'user_account',
+      entityId: id,
+      context: { email: before.email, passwordReset: true },
     });
   }
 

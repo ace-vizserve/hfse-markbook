@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getSessionUser } from '@/lib/supabase/server';
 import { buildReportCard } from '@/lib/report-card/build-report-card';
 import { ReportCardDocument } from '@/components/report-card/report-card-document';
 import { PublicationStatus } from '@/components/admin/publication-status';
@@ -17,7 +17,9 @@ export default async function ReportCardPreview({
 }) {
   const { studentId } = await params;
   const { term: termParam } = await searchParams;
-  const supabase = await createClient();
+  const [supabase, sessionUser] = await Promise.all([createClient(), getSessionUser()]);
+  const role = sessionUser?.role ?? null;
+  const canManage = role === 'registrar' || role === 'school_admin' || role === 'superadmin';
 
   const result = await buildReportCard(supabase, studentId);
   if (!result.ok) {
@@ -112,7 +114,7 @@ export default async function ReportCardPreview({
         <PublicationStatus sectionId={payload.section.id} terms={payload.terms} />
       </div>
 
-      <ReportCardDocument payload={payload} viewingTermNumber={viewingTermNumber} />
+      <ReportCardDocument payload={payload} viewingTermNumber={viewingTermNumber} canManage={canManage} />
     </div>
   );
 }

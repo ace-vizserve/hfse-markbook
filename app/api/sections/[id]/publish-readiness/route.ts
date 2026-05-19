@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireRole } from '@/lib/auth/require-role';
 import { createServiceClient } from '@/lib/supabase/service';
+import { getSchoolConfig } from '@/lib/sis/school-config';
 
 // GET /api/sections/[id]/publish-readiness?term_id=...
 // Returns checklist data for the pre-publish completeness check.
@@ -20,15 +21,16 @@ export async function GET(
 
   const service = createServiceClient();
 
-  // 1) Resolve term_number for T4 detection
-  const { data: term } = await service
+  // 1) Resolve term_number + virtue_theme for T4 detection and virtue check (KD #49).
+  const { data: rawTerm } = await service
     .from('terms')
-    .select('id, term_number, academic_year_id')
+    .select('id, term_number, academic_year_id, virtue_theme')
     .eq('id', termId)
     .single();
-  if (!term) {
+  if (!rawTerm) {
     return NextResponse.json({ error: 'term not found' }, { status: 404 });
   }
+  const term = rawTerm as { id: string; term_number: number; academic_year_id: string; virtue_theme: string | null };
   const isT4 = term.term_number === 4;
 
   // 2+3) Active students and grading sheets are independent — fetch in parallel.
@@ -119,19 +121,39 @@ export async function GET(
       .order('term_number');
     const termIds = (allTerms ?? []).map((t) => t.id);
 
-    // allSheets and grade entries are both independent after termIds resolves.
-    const [{ data: allSheets }, { data: entries }] = await Promise.all([
+    // allSheets, grade entries, and school config are independent — fetch in parallel.
+    type EntryRow = {
+      student_id: string;
+      quarterly_grade: number | null;
+      letter_grade: string | null;
+      is_na: boolean;
+      annual_letter_grade: string | null;
+      grading_sheet: {
+        id: string;
+        term_id: string;
+        subject: { id: string; name: string; is_examinable: boolean };
+      } | {
+        id: string;
+        term_id: string;
+        subject: { id: string; name: string; is_examinable: boolean };
+      }[];
+    };
+
+    const [{ data: allSheets }, { data: rawEntries }, schoolConfig] = await Promise.all([
       service
         .from('grading_sheets')
-        .select('id, term_id, is_locked, subject:subjects(id, name)')
+        .select('id, term_id, is_locked, subject:subjects(id, name, is_examinable)')
         .eq('section_id', sectionId)
         .in('term_id', termIds),
       service
         .from('grade_entries')
-        .select('student_id, quarterly_grade, grading_sheet:grading_sheets!inner(id, term_id, subject:subjects!inner(id, name, is_examinable))')
+        .select('student_id, quarterly_grade, letter_grade, is_na, annual_letter_grade, grading_sheet:grading_sheets!inner(id, term_id, subject:subjects!inner(id, name, is_examinable))')
         .eq('grading_sheet.section_id', sectionId)
         .in('grading_sheet.term_id', termIds),
+      getSchoolConfig(),
     ]);
+
+    const entries = (rawEntries ?? []) as unknown as EntryRow[];
 
     const unlockedByTerm: { term_number: number; subjects: string[] }[] = [];
     for (const t of allTerms ?? []) {
@@ -140,18 +162,33 @@ export async function GET(
         .filter((s) => !s.is_locked)
         .map((s) => {
           const subj = Array.isArray(s.subject) ? s.subject[0] : s.subject;
-          return subj?.name ?? '(unknown)';
+          return (subj as { name: string } | null)?.name ?? '(unknown)';
         });
       if (unlocked.length > 0) {
         unlockedByTerm.push({ term_number: t.term_number, subjects: unlocked });
       }
     }
 
-    // Check for missing quarterly grades across all 4 terms (examinable only)
+    // Collect the subject sets for this section from the sheet list.
+    const examinableSubjectNames = new Set<string>();
+    const nonExaminableSubjectNames = new Set<string>();
+    for (const sh of allSheets ?? []) {
+      const subj = Array.isArray(sh.subject) ? sh.subject[0] : sh.subject;
+      if (!subj) continue;
+      const s = subj as { name: string; is_examinable: boolean };
+      if (s.is_examinable) {
+        examinableSubjectNames.add(s.name);
+      } else {
+        nonExaminableSubjectNames.add(s.name);
+      }
+    }
 
-    // Build a map: student × subject → [t1_grade, t2_grade, t3_grade, t4_grade]
+    // Check for missing quarterly grades across all 4 terms (examinable only).
+    // Build map: student × subject → [t1, t2, t3, t4] quarterly grades.
+    // Fix: iterate activeStudents × examinableSubjectNames (not gradeMap.keys()) so
+    // students with zero entry rows at all are caught and not silently skipped.
     const gradeMap = new Map<string, Map<string, (number | null)[]>>();
-    for (const e of entries ?? []) {
+    for (const e of entries) {
       const gs = Array.isArray(e.grading_sheet) ? e.grading_sheet[0] : e.grading_sheet;
       if (!gs) continue;
       const subj = Array.isArray(gs.subject) ? gs.subject[0] : gs.subject;
@@ -170,9 +207,8 @@ export async function GET(
     const missingAnnual: { student_name: string; subject_name: string; missing_terms: number[] }[] = [];
     for (const s of activeStudents) {
       if (!s.studentId) continue;
-      const subjMap = gradeMap.get(s.studentId);
-      if (!subjMap) continue;
-      for (const [subjName, grades] of subjMap) {
+      for (const subjName of examinableSubjectNames) {
+        const grades = gradeMap.get(s.studentId)?.get(subjName) ?? [null, null, null, null];
         const missing = grades
           .map((g, i) => (g == null ? i + 1 : null))
           .filter((t): t is number => t !== null);
@@ -186,13 +222,68 @@ export async function GET(
       }
     }
 
+    // Check non-examinable subjects: at least one of (quarterly / letter_grade override /
+    // is_na / annual_letter_grade) must be present across T1–T4 for each (student × subject).
+    // A row with none of these will render "—" in the Final Grade cell on the published card
+    // (KD #104). Mirrors the precedence of resolveNonExaminableLetter.
+    type NonExamKey = string; // `${studentId}::${subjName}`
+    const nonExamHasData = new Map<NonExamKey, boolean>();
+    for (const e of entries) {
+      const gs = Array.isArray(e.grading_sheet) ? e.grading_sheet[0] : e.grading_sheet;
+      if (!gs) continue;
+      const subj = Array.isArray(gs.subject) ? gs.subject[0] : gs.subject;
+      if (!subj || subj.is_examinable) continue;
+      const key: NonExamKey = `${e.student_id}::${subj.name}`;
+      if (!nonExamHasData.has(key)) nonExamHasData.set(key, false);
+      const hasValue =
+        e.quarterly_grade !== null ||
+        (e.letter_grade !== null && e.letter_grade.trim() !== '') ||
+        e.is_na === true ||
+        (e.annual_letter_grade !== null && e.annual_letter_grade.trim() !== '');
+      if (hasValue) nonExamHasData.set(key, true);
+    }
+
+    const missingNonExam: { student_name: string; subject_name: string }[] = [];
+    for (const s of activeStudents) {
+      if (!s.studentId) continue;
+      for (const subjName of nonExaminableSubjectNames) {
+        const key: NonExamKey = `${s.studentId}::${subjName}`;
+        if (!nonExamHasData.get(key)) {
+          missingNonExam.push({ student_name: s.name, subject_name: subjName });
+        }
+      }
+    }
+
+    // Letterhead: principalName, ceoName, peiRegistrationNumber must all be non-empty
+    // (KD #101). Empty values produce blank signature lines on the T4 final card.
+    const letterheadMissing: string[] = [];
+    if (!schoolConfig.principalName.trim()) letterheadMissing.push('Principal name');
+    if (!schoolConfig.ceoName.trim()) letterheadMissing.push('CEO / Founder name');
+    if (!schoolConfig.peiRegistrationNumber.trim()) letterheadMissing.push('PEI registration number');
+
     t4Readiness = {
       all_terms_locked: unlockedByTerm.length === 0,
       unlocked_terms: unlockedByTerm,
       missing_annual_grades: missingAnnual.slice(0, 20),
       missing_annual_count: missingAnnual.length,
+      non_examinable_readiness: {
+        missing: missingNonExam.slice(0, 20),
+        missing_count: missingNonExam.length,
+      },
+      letterhead_readiness: {
+        ok: letterheadMissing.length === 0,
+        missing_fields: letterheadMissing,
+      },
     };
   }
+
+  // Virtue theme: only relevant for T1–T3 (T4 has no FCA comment block per KD #49).
+  const virtueReadiness = !isT4
+    ? {
+        ok: !!(term.virtue_theme as string | null)?.trim(),
+        term_label: `Term ${term.term_number}`,
+      }
+    : null;
 
   return NextResponse.json({
     grading_sheets: {
@@ -214,5 +305,6 @@ export async function GET(
       missing: missingAttendance.map((s) => ({ name: s.name, index: s.indexNumber })),
     },
     t4_readiness: t4Readiness,
+    virtue_readiness: virtueReadiness,
   });
 }

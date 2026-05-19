@@ -545,6 +545,7 @@ export default async function GradingSheetPage({
         requireApproval={requireApproval}
         slotLabels={sheet.slot_labels as { ww?: (string | null)[]; pt?: (string | null)[]; qa?: string | null } | null ?? undefined}
         canEditLabels={isAssignedTeacher || canManage}
+        letterDisplay={!isExaminable}
       />
 
     </PageShell>

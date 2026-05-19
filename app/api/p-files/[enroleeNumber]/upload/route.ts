@@ -21,6 +21,13 @@ function isPdf(file: File): boolean {
   );
 }
 
+function isImage(file: File): boolean {
+  const imageMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  if (imageMimeTypes.includes(file.type)) return true;
+  const ext = (file.name ?? '').toLowerCase().split('.').pop() ?? '';
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+}
+
 // Strip everything up to and including `/<bucket>/` from a Supabase Storage
 // public URL, returning the object path within the bucket. Returns null if
 // the URL does not contain the expected prefix.
@@ -29,8 +36,14 @@ function extractStoragePath(url: string, bucket: string): string | null {
   const idx = url.indexOf(marker);
   if (idx < 0) return null;
   const tail = url.slice(idx + marker.length);
-  // Trim any query string or fragment
-  return tail.split('?')[0].split('#')[0];
+  // Trim any query string or fragment, then decode percent-encoding so that
+  // storage.move() receives the raw path (e.g. "Elijah ID.jpg" not "Elijah%20ID.jpg").
+  const encoded = tail.split('?')[0].split('#')[0];
+  try {
+    return decodeURIComponent(encoded);
+  } catch {
+    return encoded;
+  }
 }
 
 function extFromPath(path: string): string {
@@ -119,14 +132,36 @@ export async function POST(
     );
   }
 
-  // Multi-file: all must be PDFs
-  if (files.length > 1) {
-    const nonPdf = files.find((f) => !isPdf(f));
-    if (nonPdf) {
+  // Slot-based file type restrictions
+  if (slotKey === 'idPicture') {
+    if (files.length > 1) {
       return NextResponse.json(
-        { error: 'When uploading multiple files, all must be PDFs for merging' },
+        { error: 'ID Picture only accepts a single image file' },
         { status: 400 },
       );
+    }
+    if (!isImage(files[0])) {
+      return NextResponse.json(
+        { error: 'ID Picture must be an image file (JPG, PNG, GIF, or WEBP)' },
+        { status: 400 },
+      );
+    }
+  } else {
+    if (files.length === 1 && !isPdf(files[0])) {
+      return NextResponse.json(
+        { error: `"${slot.label}" must be a PDF file` },
+        { status: 400 },
+      );
+    }
+    // Multi-file: all must be PDFs for merging
+    if (files.length > 1) {
+      const nonPdf = files.find((f) => !isPdf(f));
+      if (nonPdf) {
+        return NextResponse.json(
+          { error: 'When uploading multiple files, all must be PDFs for merging' },
+          { status: 400 },
+        );
+      }
     }
   }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { Ban, CheckCircle2, Copy, KeyRound, Loader2, RefreshCw, Shield, UserPlus, Users } from "lucide-react";
+import { Ban, CheckCircle2, Copy, KeyRound, Loader2, Pencil, RefreshCw, Shield, UserPlus, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -38,7 +38,7 @@ const ROLE_LABEL: Record<Role, string> = {
 
 // ─── Columns ──────────────────────────────────────────────────────────────────
 
-function buildColumns(currentUserId: string): ColumnDef<AdminUserRow>[] {
+function buildColumns(currentUserId: string, isSuperadmin: boolean): ColumnDef<AdminUserRow>[] {
   return [
     {
       id: "user",
@@ -120,7 +120,14 @@ function buildColumns(currentUserId: string): ColumnDef<AdminUserRow>[] {
     {
       id: "actions",
       header: "",
-      cell: ({ row }) => <ToggleDisabledButton user={row.original} isSelf={row.original.id === currentUserId} />,
+      cell: ({ row }) => (
+        <div className="flex items-center justify-end gap-2">
+          {isSuperadmin && (
+            <EditUserButton user={row.original} isSelf={row.original.id === currentUserId} />
+          )}
+          <ToggleDisabledButton user={row.original} isSelf={row.original.id === currentUserId} />
+        </div>
+      ),
       enableSorting: false,
       enableHiding: false,
     },
@@ -214,12 +221,198 @@ function ToggleDisabledButton({ user, isSelf }: { user: AdminUserRow; isSelf: bo
   );
 }
 
+// ─── Edit user ────────────────────────────────────────────────────────────────
+
+function EditUserButton({ user, isSelf }: { user: AdminUserRow; isSelf: boolean }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={isSelf}
+        onClick={() => setOpen(true)}
+        className="gap-1.5"
+        title={isSelf ? "Edit your own account at /account" : `Edit ${user.display_name}`}
+      >
+        <Pencil className="size-3.5" />
+        Edit
+      </Button>
+      <EditUserDialog open={open} onOpenChange={setOpen} user={user} />
+    </>
+  );
+}
+
+function EditUserDialog({
+  open,
+  onOpenChange,
+  user,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  user: AdminUserRow;
+}) {
+  const router = useRouter();
+  const [displayName, setDisplayName] = useState(user.display_name === user.email.split("@")[0] ? "" : user.display_name);
+  const [email, setEmail] = useState(user.email);
+  const [password, setPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function fillPassword() {
+    const p = generatePassword();
+    setPassword(p);
+    void navigator.clipboard?.writeText(p).then(
+      () => toast.success("Password generated + copied to clipboard"),
+      () => toast.success("Password generated. Copy it before saving."),
+    );
+  }
+
+  async function copyPassword() {
+    if (!password) return;
+    try {
+      await navigator.clipboard.writeText(password);
+      toast.success("Password copied");
+    } catch {
+      toast.error("Couldn't copy — select + copy manually");
+    }
+  }
+
+  async function submit() {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
+      toast.error("Valid email required");
+      return;
+    }
+    if (password && password.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+
+    const payload: Record<string, unknown> = {};
+    const trimmedName = displayName.trim();
+    if (trimmedName !== user.display_name) payload.displayName = trimmedName;
+    if (trimmedEmail !== user.email) payload.email = trimmedEmail;
+    if (password) payload.password = password;
+
+    if (Object.keys(payload).length === 0) {
+      toast.message("No changes to save.");
+      onOpenChange(false);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/sis/admin/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((body as { error?: string })?.error ?? "update failed");
+      toast.success(`Updated: ${trimmedEmail}`);
+      onOpenChange(false);
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "update failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o && !saving) onOpenChange(false); else onOpenChange(o); }}>
+      <DialogContent className="sm:max-w-xl!">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 font-serif text-lg">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
+              <Pencil className="size-4" />
+            </div>
+            Edit staff user
+          </DialogTitle>
+          <DialogDescription>
+            Changes apply immediately. Share new credentials out-of-band if you reset the password.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-email">Email</Label>
+            <Input
+              id="edit-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-name">Display name</Label>
+            <Input
+              id="edit-name"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="e.g. Jane Smith"
+              maxLength={120}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-password">
+              <span className="inline-flex items-center gap-1.5">
+                <KeyRound className="size-3.5" /> Reset password
+              </span>
+            </Label>
+            <div className="flex gap-1.5">
+              <Input
+                id="edit-password"
+                type="text"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Leave blank to keep current password"
+                className="font-mono tabular-nums"
+                maxLength={72}
+              />
+              <Button type="button" variant="outline" size="icon" onClick={fillPassword} title="Generate strong password + copy">
+                <RefreshCw className="size-3.5" />
+              </Button>
+              <Button type="button" variant="outline" size="icon" onClick={copyPassword} disabled={!password} title="Copy password">
+                <Copy className="size-3.5" />
+              </Button>
+            </div>
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              Leave blank to keep the current password. Generated passwords avoid 0/O/1/l/I.
+            </p>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={submit} disabled={saving || !email}>
+            {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Pencil className="size-3.5" />}
+            {saving ? "Saving…" : "Save changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Main client component ───────────────────────────────────────────────────
 
-export function UsersAdminClient({ users, currentUserId }: { users: AdminUserRow[]; currentUserId: string }) {
+export function UsersAdminClient({
+  users,
+  currentUserId,
+  isSuperadmin,
+}: {
+  users: AdminUserRow[];
+  currentUserId: string;
+  isSuperadmin: boolean;
+}) {
   const [inviteOpen, setInviteOpen] = useState(false);
 
-  const columns = buildColumns(currentUserId);
+  const columns = buildColumns(currentUserId, isSuperadmin);
 
   const toolbarTrailing = <InviteUserDialog open={inviteOpen} onOpenChange={setInviteOpen} />;
 

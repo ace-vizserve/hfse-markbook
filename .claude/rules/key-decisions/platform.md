@@ -12,7 +12,7 @@ Roles in `app_metadata.role` (`teacher | registrar | school_admin | superadmin |
 RLS tightened: JWT role gate + deny-writes on `authenticated` + per-teacher row scoping (migrations 004, 005).
 
 ### KD #9
-Generic `audit_log` (migration 006); every mutating route logs via `lib/audit/log-action.ts`. Module-split render: `pfile.*` rows only on `/p-files/audit-log`.
+Generic `audit_log` (migration 006); every mutating route logs via `lib/audit/log-action.ts`. **Per-module audit-log pages** (Sprint 38+): all 7 modules now have dedicated `/<module>/audit-log` pages using an explicit `.in('action', allowlist)` filter — never a `.like(...)` wildcard (allowlists prevent cross-module row leakage). Performance indexes added in migration 052a: `(action, created_at desc)`, `(actor_email, created_at desc)`, `(entity_id, created_at desc) WHERE entity_id IS NOT NULL`, `(entity_type, created_at desc)`.
 
 ### KD #13
 Dynamic AY via `lib/academic-year.ts`; never hardcode `'AY2026'`. AY codes are single calendar years (`^AY[0-9]{4}$`): AY2026 = January–November 2026, NOT a 2025–2026 split. Display labels follow the same convention (`"Academic Year 2026"`). HFSE's term rhythm is Jan–Nov per calendar year; AY-prefixed admissions tables (`ay{YYYY}_*` per KD #53) and seed/wizard copy align to this.

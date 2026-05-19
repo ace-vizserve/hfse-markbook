@@ -1,13 +1,16 @@
 import { ReportCardLetterhead } from "@/components/report-card/report-card-letterhead";
 import { computeAttendancePercentage, computeGeneralAverage } from "@/lib/compute/annual";
 import type { AttendanceRecord, Cell, CommentRecord, ReportCardPayload } from "@/lib/report-card/build-report-card";
+import { AnnualLetterInput } from "@/components/grading/annual-letter-input";
 
 export function ReportCardDocument({
   payload,
   viewingTermNumber,
+  canManage = false,
 }: {
   payload: ReportCardPayload;
   viewingTermNumber: 1 | 2 | 3 | 4;
+  canManage?: boolean;
 }) {
   const { ay, terms, student, section, level, enrollment_status, subjects, attendance, comments, schoolConfig } =
     payload;
@@ -89,7 +92,23 @@ export function ReportCardDocument({
                     })}
                     {isFinal && (
                       <td className="py-2 text-center font-serif text-base font-semibold tabular-nums text-ink">
-                        {row.subject.is_examinable ? (row.annual ?? "—") : (row.annual_letter ?? "—")}
+                        {row.subject.is_examinable ? (
+                          row.annual ?? "—"
+                        ) : canManage && row.t4_entry_id && row.t4_sheet_id ? (
+                          <>
+                            <span className="hidden print:inline">{row.annual_letter ?? "—"}</span>
+                            <span className="print:hidden">
+                              <AnnualLetterInput
+                                sheetId={row.t4_sheet_id}
+                                entryId={row.t4_entry_id}
+                                initialValue={row.annual_letter_override}
+                                derivedLetter={row.annual_letter_derived}
+                              />
+                            </span>
+                          </>
+                        ) : (
+                          row.annual_letter ?? "—"
+                        )}
                       </td>
                     )}
                   </tr>

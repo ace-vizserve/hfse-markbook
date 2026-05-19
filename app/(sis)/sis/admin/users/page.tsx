@@ -59,7 +59,11 @@ export default async function UsersAdminPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <UsersAdminClient users={users} currentUserId={sessionUser.id} />
+          <UsersAdminClient
+            users={users}
+            currentUserId={sessionUser.id}
+            isSuperadmin={sessionUser.role === 'superadmin'}
+          />
         </CardContent>
       </Card>
     </PageShell>

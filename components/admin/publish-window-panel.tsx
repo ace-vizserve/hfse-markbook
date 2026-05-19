@@ -3,11 +3,14 @@
 import {
   ArrowRight,
   ArrowUpRight,
+  BookOpen,
+  Building2,
   CalendarCheck2,
   CheckCircle2,
   ClipboardCheck,
   Clock,
   FileCheck2,
+  GraduationCap,
   Loader2,
   MessageSquare,
   Share2,
@@ -71,6 +74,18 @@ type ChecklistData = {
     unlocked_terms: { term_number: number; subjects: string[] }[];
     missing_annual_grades: { student_name: string; subject_name: string; missing_terms: number[] }[];
     missing_annual_count: number;
+    non_examinable_readiness: {
+      missing: { student_name: string; subject_name: string }[];
+      missing_count: number;
+    };
+    letterhead_readiness: {
+      ok: boolean;
+      missing_fields: string[];
+    };
+  } | null;
+  virtue_readiness: {
+    ok: boolean;
+    term_label: string;
   } | null;
 };
 
@@ -322,8 +337,15 @@ export function PublishWindowPanel({
       const hasIssues =
         data.grading_sheets.unlocked.length > 0 ||
         data.evaluations.missing.length > 0 ||
+        data.evaluations.drafted > 0 ||
         data.attendance.missing.length > 0 ||
-        (data.t4_readiness && (!data.t4_readiness.all_terms_locked || data.t4_readiness.missing_annual_count > 0));
+        (data.virtue_readiness && !data.virtue_readiness.ok) ||
+        (data.t4_readiness && (
+          !data.t4_readiness.all_terms_locked ||
+          data.t4_readiness.missing_annual_count > 0 ||
+          data.t4_readiness.non_examinable_readiness.missing_count > 0 ||
+          !data.t4_readiness.letterhead_readiness.ok
+        ));
 
       if (!hasIssues) {
         await save(termId);
@@ -353,10 +375,21 @@ export function PublishWindowPanel({
 
   const checklistOpen = checklist !== null;
   const sheetsOk = checklist ? checklist.grading_sheets.unlocked.length === 0 : true;
-  const commentsOk = checklist ? checklist.evaluations.missing.length === 0 : true;
+  // commentsOk is true only when nothing is missing AND nothing is still drafted.
+  // drafted > 0 renders as an amber warning so the registrar sees unfinished writeups.
+  const commentsOk = checklist
+    ? checklist.evaluations.missing.length === 0 && checklist.evaluations.drafted === 0
+    : true;
   const attendanceOk = checklist ? checklist.attendance.missing.length === 0 : true;
   const t4LockedOk = checklist?.t4_readiness ? checklist.t4_readiness.all_terms_locked : true;
   const t4GradesOk = checklist?.t4_readiness ? checklist.t4_readiness.missing_annual_count === 0 : true;
+  const nonExamOk = checklist?.t4_readiness
+    ? checklist.t4_readiness.non_examinable_readiness.missing_count === 0
+    : true;
+  const letterheadOk = checklist?.t4_readiness
+    ? checklist.t4_readiness.letterhead_readiness.ok
+    : true;
+  const virtueOk = checklist?.virtue_readiness ? checklist.virtue_readiness.ok : true;
 
   return (
     <Card className="@container/card gap-0 py-0">
@@ -557,19 +590,24 @@ export function PublishWindowPanel({
                 icon={MessageSquare}
                 eyebrow="Evaluation"
                 title="Adviser comments"
-                summary={
-                  commentsOk
-                    ? `${checklist.evaluations.total_active} written`
-                    : `${checklist.evaluations.missing.length} missing`
-                }
+                summary={(() => {
+                  const { submitted, drafted, missing } = checklist.evaluations;
+                  if (missing.length > 0 && drafted > 0)
+                    return `${missing.length} missing · ${drafted} drafted`;
+                  if (missing.length > 0) return `${missing.length} missing`;
+                  if (drafted > 0) return `${drafted} drafted`;
+                  return `${submitted} submitted`;
+                })()}
                 detail={
                   commentsOk
-                    ? `All ${checklist.evaluations.total_active} active student comment${checklist.evaluations.total_active === 1 ? "" : "s"} on file.`
-                    : undefined
+                    ? `All ${checklist.evaluations.total_active} active student comment${checklist.evaluations.total_active === 1 ? "" : "s"} submitted.`
+                    : checklist.evaluations.drafted > 0 && checklist.evaluations.missing.length === 0
+                      ? `${checklist.evaluations.drafted} comment${checklist.evaluations.drafted === 1 ? "" : "s"} saved as draft — teacher hasn't submitted yet.`
+                      : undefined
                 }
-                studentList={!commentsOk ? checklist.evaluations.missing : undefined}
+                studentList={checklist.evaluations.missing.length > 0 ? checklist.evaluations.missing : undefined}
                 href={`/evaluation/sections/${sectionId}`}
-                actionLabel={commentsOk ? "View" : "Write comments"}
+                actionLabel={commentsOk ? "View" : "Review comments"}
               />
 
               <ChecklistRow
@@ -591,6 +629,24 @@ export function PublishWindowPanel({
                 href={`/attendance/${sectionId}`}
                 actionLabel={attendanceOk ? "View" : "Mark attendance"}
               />
+
+              {/* Virtue theme — T1–T3 only (T4 has no FCA comment block per KD #49). */}
+              {checklist.virtue_readiness && (
+                <ChecklistRow
+                  passed={virtueOk}
+                  icon={BookOpen}
+                  eyebrow="Evaluation · Virtue theme"
+                  title="Virtue theme"
+                  summary={virtueOk ? "Set" : "Not set"}
+                  detail={
+                    virtueOk
+                      ? `The virtue theme for ${checklist.virtue_readiness.term_label} is configured — the FCA comment heading will display correctly.`
+                      : `No virtue theme is set for ${checklist.virtue_readiness.term_label}. The "(HFSE Virtues: …)" parenthetical will be missing from the report card.`
+                  }
+                  href="/sis/ay-setup"
+                  actionLabel={virtueOk ? "View" : "Set theme"}
+                />
+              )}
 
               {/* T4 final-card sub-checks — only render on the T4 publish path. */}
               {checklist.t4_readiness && (
@@ -649,6 +705,45 @@ export function PublishWindowPanel({
                     }
                     href={`/markbook/grading?q=${encodeURIComponent(sectionName)}`}
                     actionLabel={t4GradesOk ? "View" : "Backfill grades"}
+                  />
+
+                  <ChecklistRow
+                    passed={nonExamOk}
+                    icon={GraduationCap}
+                    eyebrow="Markbook · Non-examinable"
+                    title="Letter grades"
+                    summary={
+                      nonExamOk
+                        ? "All present"
+                        : `${checklist.t4_readiness.non_examinable_readiness.missing_count} missing`
+                    }
+                    detail={
+                      nonExamOk
+                        ? "All non-examinable subjects (PE, Music, Arts, etc.) have a grade or N/A on record."
+                        : checklist.t4_readiness.non_examinable_readiness.missing.slice(0, 5)
+                            .map((g) => `${g.student_name} — ${g.subject_name}`)
+                            .join("; ") +
+                          (checklist.t4_readiness.non_examinable_readiness.missing_count > 5
+                            ? ` … and ${checklist.t4_readiness.non_examinable_readiness.missing_count - 5} more`
+                            : "")
+                    }
+                    href="/markbook/masterfile"
+                    actionLabel={nonExamOk ? "View" : "Enter grades"}
+                  />
+
+                  <ChecklistRow
+                    passed={letterheadOk}
+                    icon={Building2}
+                    eyebrow="School config · Letterhead"
+                    title="Report card letterhead"
+                    summary={letterheadOk ? "Complete" : "Incomplete"}
+                    detail={
+                      letterheadOk
+                        ? "Principal name, CEO name, and PEI registration number are all set."
+                        : `Missing: ${checklist.t4_readiness.letterhead_readiness.missing_fields.join(", ")}. Blank fields produce empty signature lines on the final card.`
+                    }
+                    href="/sis/admin/school-config"
+                    actionLabel={letterheadOk ? "View" : "Complete config"}
                   />
                 </>
               )}

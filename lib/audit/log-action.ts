@@ -101,6 +101,7 @@ export type AuditAction =
   | 'school_config.update'
   | 'user.invite'
   | 'user.create'
+  | 'user.info.update'
   | 'user.role.update'
   | 'user.disable'
   | 'user.enable'
