@@ -27,7 +27,6 @@ import {
 } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
 import { ScoreEntryGrid } from '@/components/grading/score-entry-grid';
-import { LetterGradeGrid } from '@/components/grading/letter-grade-grid';
 import { LockToggle } from '@/components/grading/lock-toggle';
 import { TotalsEditor } from '@/components/grading/totals-editor';
 import { listApproversForFlow } from '@/lib/sis/approvers/queries';
@@ -107,7 +106,7 @@ export default async function GradingSheetPage({
   const { data: sheet } = await supabase
     .from('grading_sheets')
     .select(
-      `id, teacher_name, is_locked, locked_at, locked_by, ww_totals, pt_totals, qa_total,
+      `id, teacher_name, is_locked, locked_at, locked_by, ww_totals, pt_totals, qa_total, slot_labels,
        term:terms(id, term_number, label),
        subject:subjects(id, code, name, is_examinable),
        section:sections(id, name, level:levels(code, label)),
@@ -254,7 +253,7 @@ export default async function GradingSheetPage({
   const activeRows = rows.filter((r) => !r.withdrawn);
   const totalStudents = activeRows.length;
   const gradedCount = activeRows.filter((r) =>
-    isExaminable ? r.quarterly_grade !== null : r.letter_grade !== null,
+    r.quarterly_grade !== null || r.letter_grade !== null || r.is_na,
   ).length;
   const gradedPct =
     totalStudents > 0 ? Math.round((gradedCount / totalStudents) * 100) : 0;
@@ -329,7 +328,7 @@ export default async function GradingSheetPage({
               }))}
             />
           )}
-          {canManage && isExaminable && (
+          {canManage && (
             <TotalsEditor
               sheetId={sheet.id}
               wwTotals={(sheet.ww_totals ?? []) as number[]}
@@ -366,18 +365,14 @@ export default async function GradingSheetPage({
             }
           />
           <StatCard
-            description={isExaminable ? 'Weights · WW / PT / QA' : 'Format'}
-            value={isExaminable ? `${wwW}/${ptW}/${qaW}` : 'Letters'}
+            description="Weights · WW / PT / QA"
+            value={`${wwW}/${ptW}/${qaW}`}
             icon={Scale}
-            footerTitle={
-              isExaminable
-                ? 'Written · Performance · Quarterly'
-                : 'A / B / C / IP / UG / NA / INC / CO / E'
-            }
+            footerTitle="Written · Performance · Quarterly"
             footerDetail={
               isExaminable
                 ? 'Configured per subject × level × AY'
-                : 'Non-examinable subject'
+                : 'Letter-displayed final grade'
             }
           />
         </div>
@@ -540,24 +535,17 @@ export default async function GradingSheetPage({
         </div>
       )}
 
-      {isExaminable ? (
-        <ScoreEntryGrid
-          sheetId={sheet.id}
-          wwTotals={(sheet.ww_totals ?? []) as number[]}
-          ptTotals={(sheet.pt_totals ?? []) as number[]}
-          qaTotal={sheet.qa_total as number | null}
-          rows={rows}
-          readOnly={readOnly}
-          requireApproval={requireApproval}
-        />
-      ) : (
-        <LetterGradeGrid
-          sheetId={sheet.id}
-          rows={rows}
-          readOnly={readOnly}
-          requireApproval={requireApproval}
-        />
-      )}
+      <ScoreEntryGrid
+        sheetId={sheet.id}
+        wwTotals={(sheet.ww_totals ?? []) as number[]}
+        ptTotals={(sheet.pt_totals ?? []) as number[]}
+        qaTotal={sheet.qa_total as number | null}
+        rows={rows}
+        readOnly={readOnly}
+        requireApproval={requireApproval}
+        slotLabels={sheet.slot_labels as { ww?: (string | null)[]; pt?: (string | null)[]; qa?: string | null } | null ?? undefined}
+        canEditLabels={isAssignedTeacher || canManage}
+      />
 
     </PageShell>
   );

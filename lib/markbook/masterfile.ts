@@ -3,6 +3,7 @@ import 'server-only';
 import { unstable_cache } from 'next/cache';
 
 import { computeAnnualGrade, computeGeneralAverage } from '@/lib/compute/annual';
+import { deriveAnnualLetterForNonExam } from '@/lib/compute/letter-grade';
 import {
   DEFAULT_AWARD_THRESHOLDS,
   overallAcademicAward,
@@ -60,14 +61,15 @@ export type MasterfileSubjectRow = {
   overall: number | null;
   // Subject Award badge. null when non-examinable or withdrawn.
   award: SubjectAwardLabel;
-  // For non-examinable subjects only: registrar-entered year-end letter/text.
-  // Always null for examinable subjects. Sourced from the T4 grade_entries row.
+  // For non-examinable subjects only: registrar-entered year-end override.
+  // null means "use the auto-derived letter". Always null for examinable.
   annualLetter: string | null;
+  // Auto-derived final letter from the weighted term average (T1×0.20+T2×0.20+T3×0.20+T4×0.40),
+  // N/A terms excluded and re-weighted. null for examinable or when no term data exists.
+  derivedAnnualLetter: string | null;
   // grade_entries.id for the T4 row — needed by the masterfile inline editor.
-  // null when no T4 entry exists for this student × subject.
   annualLetterEntryId: string | null;
-  // grading_sheets.id for the T4 sheet — forms the first segment of the
-  // PATCH URL /api/grading-sheets/[sheetId]/entries/[entryId]/annual-letter.
+  // grading_sheets.id for the T4 sheet.
   annualLetterSheetId: string | null;
 };
 
@@ -440,6 +442,11 @@ async function loadMasterfileUncached(
             cells[3]?.quarterly ?? null,
           )
         : null;
+      const derivedAnnualLetter = examinable
+        ? null
+        : deriveAnnualLetterForNonExam(
+            cells.map((c) => ({ quarterly: c.quarterly, isNa: c.isNa })),
+          );
 
       const eligibility: AwardEligibility = {
         enrolled: primary.enrollmentStatus !== 'withdrawn',
@@ -459,6 +466,7 @@ async function loadMasterfileUncached(
         overall,
         award,
         annualLetter,
+        derivedAnnualLetter,
         annualLetterEntryId,
         annualLetterSheetId,
       };

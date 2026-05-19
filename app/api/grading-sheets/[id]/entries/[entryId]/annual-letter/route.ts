@@ -20,6 +20,7 @@ export async function PATCH(
 
   const body = (await request.json().catch(() => null)) as {
     annual_letter_grade: string | null;
+    correction_note?: string | null;
   } | null;
   if (!body || !('annual_letter_grade' in body)) {
     return NextResponse.json({ error: 'invalid body' }, { status: 400 });
@@ -28,6 +29,10 @@ export async function PATCH(
   const newValue =
     typeof body.annual_letter_grade === 'string' && body.annual_letter_grade.trim() !== ''
       ? body.annual_letter_grade.trim()
+      : null;
+  const correctionNote =
+    typeof body.correction_note === 'string' && body.correction_note.trim() !== ''
+      ? body.correction_note.trim()
       : null;
 
   const service = createServiceClient();
@@ -109,6 +114,7 @@ export async function PATCH(
       grade_entry_id: entryId,
       before: entry.annual_letter_grade,
       after: newValue,
+      ...(correctionNote ? { correction_note: correctionNote } : {}),
     },
   });
 

@@ -17,7 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Sheet, SheetTrigger } from '@/components/ui/sheet';
+import { MetricCardDrillButton } from './metric-card-drill-button';
 import { cn } from '@/lib/utils';
 import { formatDeltaLabel, type Delta } from '@/lib/dashboard/range';
 import { SparklineChart, type SparkPoint } from './charts/sparkline-chart';
@@ -202,14 +202,9 @@ function MetricCardImpl({
 
   if (drillSheet) {
     return (
-      <Sheet>
-        <SheetTrigger asChild>
-          <button type="button" className="block w-full text-left">
-            {inner}
-          </button>
-        </SheetTrigger>
-        {drillSheet()}
-      </Sheet>
+      <MetricCardDrillButton sheet={drillSheet()}>
+        {inner}
+      </MetricCardDrillButton>
     );
   }
 

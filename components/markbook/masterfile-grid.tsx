@@ -3,12 +3,18 @@
 import { memo, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { Pencil } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { MasterfilePayload, MasterfileStudentRow, MasterfileSubjectRow } from "@/lib/markbook/masterfile";
 import { cn } from "@/lib/utils";
+import { resolveNonExaminableLetter } from "@/lib/compute/letter-grade";
 
 // HFSE Masterfile grid (KD #95). Wide cross-subject roster mirroring the
 // AY2025 Final Report Book Masterfile sheet.
@@ -275,7 +281,7 @@ const StudentRowView = memo(function StudentRowView({
         return [
           ...sr.cells.map((cell, ci) => (
             <td key={`${sub.id}-${ci}`} className={cn(baseCellClass, "bg-muted/10")}>
-              <NonExaminableCell letter={cell.letter} isNa={cell.isNa} />
+              <NonExaminableCell letter={cell.letter} isNa={cell.isNa} quarterly={cell.quarterly} />
             </td>
           )),
           <td key={`${sub.id}-final`} className={cn(baseCellClass, "bg-muted/20 p-1")}>
@@ -284,6 +290,7 @@ const StudentRowView = memo(function StudentRowView({
                 sheetId={sr.annualLetterSheetId}
                 entryId={sr.annualLetterEntryId}
                 initialValue={sr.annualLetter}
+                derivedLetter={sr.derivedAnnualLetter}
               />
             ) : (
               <Tooltip>
@@ -352,12 +359,21 @@ function ExaminableSubjectCells({
   );
 }
 
-function NonExaminableCell({ letter, isNa }: { letter: string | null; isNa: boolean }) {
-  if (isNa) {
+function NonExaminableCell({
+  letter,
+  isNa,
+  quarterly,
+}: {
+  letter: string | null;
+  isNa: boolean;
+  quarterly: number | null;
+}) {
+  const resolved = resolveNonExaminableLetter({ isNa, letterOverride: letter, quarterly });
+  if (resolved === 'NA') {
     return <span className="font-mono text-[11px] uppercase text-muted-foreground">N.A.</span>;
   }
-  if (letter) {
-    return <span className="font-medium">{letter}</span>;
+  if (resolved) {
+    return <span className="font-medium">{resolved}</span>;
   }
   return <span className="text-muted-foreground">—</span>;
 }
@@ -366,48 +382,143 @@ function AnnualLetterInput({
   sheetId,
   entryId,
   initialValue,
+  derivedLetter,
 }: {
   sheetId: string;
   entryId: string;
   initialValue: string | null;
+  derivedLetter: string | null;
 }) {
-  const [value, setValue] = useState(initialValue ?? "");
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(initialValue ?? "");
+  const [note, setNote] = useState("");
   const [saved, setSaved] = useState(initialValue ?? "");
+  const [saving, setSaving] = useState(false);
 
-  async function handleBlur() {
-    const trimmed = value.trim();
-    if (trimmed === saved.trim()) return;
+  // The displayed value: saved override or derived fallback.
+  const displayValue = saved.trim() || derivedLetter;
+  const isOverride = !!saved.trim();
+  const overrideDiffersFromDerived = isOverride && saved.trim() !== (derivedLetter ?? "");
+
+  async function handleSave() {
+    const trimmed = draft.trim();
+    if (trimmed === saved.trim()) {
+      setOpen(false);
+      return;
+    }
+    setSaving(true);
     try {
       const res = await fetch(
         `/api/grading-sheets/${sheetId}/entries/${entryId}/annual-letter`,
         {
           method: "PATCH",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ annual_letter_grade: trimmed || null }),
+          body: JSON.stringify({
+            annual_letter_grade: trimmed || null,
+            correction_note: note.trim() || null,
+          }),
         },
       );
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         toast.error((body as { error?: string })?.error ?? "Failed to save");
-        setValue(saved);
         return;
       }
       setSaved(trimmed);
+      setNote("");
+      setOpen(false);
     } catch {
       toast.error("Failed to save");
-      setValue(saved);
+    } finally {
+      setSaving(false);
     }
   }
 
+  function handleOpenChange(next: boolean) {
+    if (next) {
+      setDraft(saved);
+      setNote("");
+    }
+    setOpen(next);
+  }
+
   return (
-    <Input
-      type="text"
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      onBlur={handleBlur}
-      placeholder="—"
-      className="h-7 w-16 text-center font-mono text-[11px] tabular-nums"
-    />
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "flex h-7 w-16 items-center justify-center gap-1 rounded border font-mono text-[11px] tabular-nums transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            overrideDiffersFromDerived
+              ? "border-brand-amber/60 text-brand-amber"
+              : isOverride
+                ? "border-border text-foreground"
+                : "border-border text-muted-foreground",
+          )}>
+          <span>{displayValue ?? "—"}</span>
+          <Pencil className="h-2.5 w-2.5 shrink-0 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-3" align="center" side="left">
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Final Grade Override
+            </Label>
+            {derivedLetter && (
+              <p className="text-xs text-muted-foreground">
+                Auto-derived: <span className="font-mono font-medium text-foreground">{derivedLetter}</span>
+              </p>
+            )}
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor={`override-${entryId}`} className="text-xs">
+              Override value
+            </Label>
+            <Input
+              id={`override-${entryId}`}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSave(); } }}
+              placeholder={derivedLetter ?? "e.g. A"}
+              className="h-7 font-mono text-center text-[11px]"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Leave blank to use the auto-derived letter
+            </p>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor={`note-${entryId}`} className="text-xs">
+              Note <span className="text-muted-foreground">(optional)</span>
+            </Label>
+            <Textarea
+              id={`note-${entryId}`}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Reason for override…"
+              rows={2}
+              className="resize-none text-xs"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleSave}
+              disabled={saving}>
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

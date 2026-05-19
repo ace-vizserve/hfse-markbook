@@ -1,5 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { computeAnnualGrade } from '@/lib/compute/annual';
+import {
+  resolveNonExaminableLetter,
+  deriveAnnualLetterForNonExam,
+} from '@/lib/compute/letter-grade';
 import { getEncodableDatesForTerm } from '@/lib/attendance/calendar';
 import { levelTypeForAudienceLookup } from '@/lib/sis/levels';
 import { DEFAULT_SCHOOL_CONFIG, type SchoolConfig } from '@/lib/sis/school-config';
@@ -260,13 +264,28 @@ export async function buildReportCard(
       byTerm[t.term_number] = entry
         ? {
             quarterly: entry.quarterly_grade ?? null,
-            letter: entry.letter_grade ?? null,
+            letter: sub.is_examinable
+              ? null
+              : resolveNonExaminableLetter({
+                  isNa: Boolean(entry.is_na),
+                  letterOverride: entry.letter_grade,
+                  quarterly: entry.quarterly_grade,
+                }),
             is_na: Boolean(entry.is_na),
           }
         : empty;
       if (t.term_number === 4 && !sub.is_examinable && entry) {
         annual_letter = entry.annual_letter_grade ?? null;
       }
+    }
+    // When no registrar override exists, derive from the weighted term average.
+    if (!sub.is_examinable && annual_letter === null) {
+      annual_letter = deriveAnnualLetterForNonExam(
+        [1, 2, 3, 4].map((n) => ({
+          quarterly: byTerm[n]?.quarterly ?? null,
+          isNa: byTerm[n]?.is_na ?? false,
+        })),
+      );
     }
     const annual = sub.is_examinable
       ? computeAnnualGrade(
