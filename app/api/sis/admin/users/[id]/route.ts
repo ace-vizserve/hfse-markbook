@@ -19,7 +19,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requireRole(['school_admin', 'superadmin']);
+  const auth = await requireRole(['superadmin']);
   if ('error' in auth) return auth.error;
 
   const { id } = await params;

@@ -385,8 +385,8 @@ const SIS_NAV: NavSection[] = [
   {
     label: "Access",
     items: [
-      { href: "/sis/admin/approvers", label: "Approvers", requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/admin/users", label: "Users", requiresRoles: ["school_admin", "superadmin"] },
+      { href: "/sis/admin/approvers", label: "Approvers", requiresRoles: ["superadmin"] },
+      { href: "/sis/admin/users", label: "Users", requiresRoles: ["superadmin"] },
     ],
   },
   {
@@ -530,13 +530,13 @@ export const NAV_BY_MODULE: {
 // must appear before the broader `/sis` rule.
 // fallow-ignore-next-line unused-export
 export const ROUTE_ACCESS: Array<{ prefix: string; allowed: Role[] }> = [
-  { prefix: "/sis/admin/approvers", allowed: ["school_admin", "superadmin"] },
+  { prefix: "/sis/admin/approvers", allowed: ["superadmin"] },
   { prefix: "/sis/admin/subjects", allowed: ["school_admin", "superadmin"] },
   { prefix: "/sis/admin/template", allowed: ["school_admin", "superadmin"] },
   { prefix: "/sis/admin/school-config", allowed: ["school_admin", "superadmin"] },
   { prefix: "/sis/admin/evaluation-checklists", allowed: ["school_admin", "superadmin"] },
-  { prefix: "/sis/admin/users", allowed: ["school_admin", "superadmin"] },
-  { prefix: "/sis/admin/settings", allowed: ["school_admin", "superadmin"] },
+  { prefix: "/sis/admin/users", allowed: ["superadmin"] },
+  { prefix: "/sis/admin/settings", allowed: ["superadmin"] },
   { prefix: "/sis/admin/discount-codes", allowed: ["registrar", "school_admin", "superadmin"] },
   { prefix: "/sis/ay-setup", allowed: ["school_admin", "superadmin"] },
   { prefix: "/sis/calendar", allowed: ["registrar", "school_admin", "superadmin"] },

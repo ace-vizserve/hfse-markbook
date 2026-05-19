@@ -15,7 +15,7 @@ import { getSessionUser } from "@/lib/supabase/server";
 export default async function UsersAdminPage() {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect("/login");
-  if (sessionUser.role !== "superadmin" && sessionUser.role !== "school_admin") {
+  if (sessionUser.role !== "superadmin") {
     redirect("/sis");
   }
 

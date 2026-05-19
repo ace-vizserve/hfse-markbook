@@ -14,7 +14,7 @@ import { getSessionUser } from "@/lib/supabase/server";
 export default async function ApproversPage() {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect("/login");
-  if (sessionUser.role !== "school_admin" && sessionUser.role !== "superadmin") redirect("/sis");
+  if (sessionUser.role !== "superadmin") redirect("/sis");
 
   const [byFlow, candidatesByFlow] = await Promise.all([
     listAllApproverAssignments(),

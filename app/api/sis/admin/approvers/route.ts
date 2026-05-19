@@ -5,13 +5,13 @@ import { requireRole } from '@/lib/auth/require-role';
 import { AssignApproverSchema } from '@/lib/schemas/approvers';
 import { createServiceClient } from '@/lib/supabase/service';
 
-// GET /api/sis/admin/approvers — list all assignments, school_admin+.
-// POST /api/sis/admin/approvers — assign a user to a flow, school_admin+.
+// GET /api/sis/admin/approvers — list all assignments, superadmin only.
+// POST /api/sis/admin/approvers — assign a user to a flow, superadmin only.
 //
 // Per-flow deletion is handled by /api/sis/admin/approvers/[id] DELETE.
 
 export async function GET() {
-  const auth = await requireRole(['school_admin', 'superadmin']);
+  const auth = await requireRole(['superadmin']);
   if ('error' in auth) return auth.error;
 
   const service = createServiceClient();
@@ -29,7 +29,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireRole(['school_admin', 'superadmin']);
+  const auth = await requireRole(['superadmin']);
   if ('error' in auth) return auth.error;
 
   const body = await request.json().catch(() => null);
