@@ -189,6 +189,7 @@ export type StudentLifecycleSnapshot = {
 export type LifecycleBlockerBucket = {
   key: string;
   label: string;
+  description: string;
   count: number;
   severity: 'good' | 'warn' | 'bad' | 'info';
   // String drill-target name consumed by the existing `lib/sis/drill.ts`
@@ -865,6 +866,7 @@ async function loadLifecycleAggregateUncached(
     {
       key: 'awaiting-fee-payment',
       label: 'Awaiting fee payment',
+      description: 'School fee has not been confirmed — enrolment cannot be finalised until payment is received.',
       count: awaitingFeePayment,
       severity: 'warn',
       drillTarget: 'awaiting-fee-payment',
@@ -872,6 +874,7 @@ async function loadLifecycleAggregateUncached(
     {
       key: 'awaiting-document-revalidation',
       label: 'Awaiting document revalidation',
+      description: 'One or more documents were rejected or have expired — the parent needs to re-upload before validation can proceed.',
       count: awaitingDocRevalidation,
       severity: 'bad',
       drillTarget: 'awaiting-document-revalidation',
@@ -879,6 +882,7 @@ async function loadLifecycleAggregateUncached(
     {
       key: 'awaiting-document-validation',
       label: 'Awaiting document validation',
+      description: 'Documents have been uploaded by the parent and are waiting for staff review and approval.',
       count: awaitingDocValidation,
       severity: 'warn',
       drillTarget: 'awaiting-document-validation',
@@ -886,6 +890,7 @@ async function loadLifecycleAggregateUncached(
     {
       key: 'awaiting-promised-documents',
       label: 'Awaiting promised documents',
+      description: 'Parent has committed to submitting these documents but they have not been received yet.',
       count: awaitingPromisedDocs,
       severity: 'warn',
       drillTarget: 'awaiting-promised-documents',
@@ -893,6 +898,7 @@ async function loadLifecycleAggregateUncached(
     {
       key: 'awaiting-stp-completion',
       label: 'Awaiting STP completion',
+      description: 'Student Pass application has been submitted to ICA and is still being processed.',
       count: awaitingStpCompletion,
       severity: 'warn',
       drillTarget: 'awaiting-stp-completion',
@@ -900,6 +906,7 @@ async function loadLifecycleAggregateUncached(
     {
       key: 'awaiting-assessment-schedule',
       label: 'Awaiting assessment schedule',
+      description: 'Entrance assessment has not yet been booked — a schedule must be set before the application can progress.',
       count: awaitingAssessmentSchedule,
       severity: 'info',
       drillTarget: 'awaiting-assessment-schedule',
@@ -907,6 +914,7 @@ async function loadLifecycleAggregateUncached(
     {
       key: 'awaiting-contract-signature',
       label: 'Awaiting contract signature',
+      description: 'Enrolment contract has been issued but not yet signed by the parent.',
       count: awaitingContractSignature,
       severity: 'info',
       drillTarget: 'awaiting-contract-signature',
@@ -914,6 +922,7 @@ async function loadLifecycleAggregateUncached(
     {
       key: 'missing-class-assignment',
       label: 'Missing class assignment',
+      description: 'Student has been enrolled but has not been placed in a class section yet — assign one from the enrolment record.',
       count: missingClassAssignment,
       severity: 'bad',
       drillTarget: 'missing-class-assignment',
@@ -921,6 +930,7 @@ async function loadLifecycleAggregateUncached(
     {
       key: 'ungated-to-enroll',
       label: 'Ready to enrol',
+      description: 'All requirements have been met — enrolment can be finalised for these applicants.',
       count: ungatedToEnroll,
       severity: 'good',
       drillTarget: 'ungated-to-enroll',
@@ -928,6 +938,7 @@ async function loadLifecycleAggregateUncached(
     {
       key: 'new-applications',
       label: 'New applications',
+      description: 'Recently submitted applications that have not yet been actioned by the admissions team.',
       count: newApplications,
       severity: 'info',
       drillTarget: 'new-applications',

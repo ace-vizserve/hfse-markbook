@@ -67,6 +67,11 @@ export function LifecycleAggregateCard({
   // Only render rows with at least one student — zero-count rows add noise.
   const visible = sorted.filter((b) => b.count > 0);
 
+  // Group visible rows into three labelled sections.
+  const actionRows = visible.filter((b) => b.severity === 'bad' || b.severity === 'warn');
+  const infoRows = visible.filter((b) => b.severity === 'info');
+  const goodRows = visible.filter((b) => b.severity === 'good');
+
   return (
     <Card className="@container/card">
       <CardHeader>
@@ -84,12 +89,13 @@ export function LifecycleAggregateCard({
         </CardAction>
       </CardHeader>
       <CardContent className="p-0">
-        <ul className="divide-y divide-hairline">
-          {allClear ? (
+        {allClear ? (
+          <ul className="divide-y divide-hairline">
             <LifecycleAggregateRow
               bucket={{
                 key: 'all-clear',
                 label: 'All clear',
+                description: '',
                 count: 0,
                 severity: 'good',
                 drillTarget: 'noop',
@@ -99,17 +105,62 @@ export function LifecycleAggregateCard({
               bodyOverride="The funnel is fully unblocked."
               hideCount
             />
-          ) : (
-            visible.map((bucket) => (
-              <LifecycleAggregateRow
-                key={bucket.key}
-                bucket={bucket}
-                iconKey={bucket.key as never}
-                ayCode={ayCode}
-              />
-            ))
-          )}
-        </ul>
+          </ul>
+        ) : (
+          <div className="divide-y divide-hairline">
+            {actionRows.length > 0 && (
+              <section>
+                <p className="border-b border-hairline bg-muted/40 px-5 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Needs attention
+                </p>
+                <ul className="divide-y divide-hairline">
+                  {actionRows.map((bucket) => (
+                    <LifecycleAggregateRow
+                      key={bucket.key}
+                      bucket={bucket}
+                      iconKey={bucket.key as never}
+                      ayCode={ayCode}
+                    />
+                  ))}
+                </ul>
+              </section>
+            )}
+            {infoRows.length > 0 && (
+              <section>
+                <p className="border-b border-hairline bg-muted/40 px-5 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  For your information
+                </p>
+                <ul className="divide-y divide-hairline">
+                  {infoRows.map((bucket) => (
+                    <LifecycleAggregateRow
+                      key={bucket.key}
+                      bucket={bucket}
+                      iconKey={bucket.key as never}
+                      ayCode={ayCode}
+                    />
+                  ))}
+                </ul>
+              </section>
+            )}
+            {goodRows.length > 0 && (
+              <section>
+                <p className="border-b border-hairline bg-muted/40 px-5 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Ready
+                </p>
+                <ul className="divide-y divide-hairline">
+                  {goodRows.map((bucket) => (
+                    <LifecycleAggregateRow
+                      key={bucket.key}
+                      bucket={bucket}
+                      iconKey={bucket.key as never}
+                      ayCode={ayCode}
+                    />
+                  ))}
+                </ul>
+              </section>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

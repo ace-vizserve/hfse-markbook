@@ -40,9 +40,8 @@ export function LifecycleAggregateRow({
   hideCount?: boolean;
 }) {
   const title = titleOverride ?? bucket.label;
-  const body =
-    bodyOverride ??
-    `${bucket.count.toLocaleString('en-SG')} student${bucket.count === 1 ? '' : 's'}`;
+  const body = bodyOverride ?? bucket.description;
+  const countLabel = `${bucket.count.toLocaleString('en-SG')} student${bucket.count === 1 ? '' : 's'}`;
 
   const Icon =
     iconKey === 'check-circle'
@@ -76,11 +75,16 @@ export function LifecycleAggregateRow({
             />
           )}
         </p>
-        <p className="text-[13px] leading-relaxed text-muted-foreground">{body}</p>
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-1.5">
+        {body && <p className="text-[13px] leading-relaxed text-muted-foreground">{body}</p>}
         {!hideCount && (
-          <span className="font-mono text-xl font-bold tabular-nums text-foreground">
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70">
+            {countLabel}
+          </p>
+        )}
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-1.5 pt-0.5">
+        {!hideCount && (
+          <span className="font-mono text-2xl font-bold tabular-nums text-foreground">
             {bucket.count.toLocaleString('en-SG')}
           </span>
         )}
