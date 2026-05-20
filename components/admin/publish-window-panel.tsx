@@ -6,6 +6,7 @@ import {
   BookOpen,
   Building2,
   CalendarCheck2,
+  CalendarDays,
   CheckCircle2,
   ClipboardCheck,
   Clock,
@@ -68,6 +69,10 @@ type ChecklistData = {
     total_active: number;
     complete: number;
     missing: { name: string; index: number | null }[];
+  };
+  slot_dates: {
+    sheets_missing_count: number;
+    sheets: { subject_name: string }[];
   };
   t4_readiness: {
     all_terms_locked: boolean;
@@ -339,6 +344,7 @@ export function PublishWindowPanel({
         data.evaluations.missing.length > 0 ||
         data.evaluations.drafted > 0 ||
         data.attendance.missing.length > 0 ||
+        data.slot_dates.sheets_missing_count > 0 ||
         (data.virtue_readiness && !data.virtue_readiness.ok) ||
         (data.t4_readiness && (
           !data.t4_readiness.all_terms_locked ||
@@ -375,6 +381,7 @@ export function PublishWindowPanel({
 
   const checklistOpen = checklist !== null;
   const sheetsOk = checklist ? checklist.grading_sheets.unlocked.length === 0 : true;
+  const slotDatesOk = checklist ? checklist.slot_dates.sheets_missing_count === 0 : true;
   // commentsOk is true only when nothing is missing AND nothing is still drafted.
   // drafted > 0 renders as an amber warning so the registrar sees unfinished writeups.
   const commentsOk = checklist
@@ -583,6 +590,25 @@ export function PublishWindowPanel({
                 }
                 href={`/markbook/grading?q=${encodeURIComponent(sectionName)}`}
                 actionLabel={sheetsOk ? "View" : "Lock sheets"}
+              />
+
+              <ChecklistRow
+                passed={slotDatesOk}
+                icon={CalendarDays}
+                eyebrow="Markbook · Activity dates"
+                title="Administered dates"
+                summary={
+                  slotDatesOk
+                    ? "All recorded"
+                    : `${checklist.slot_dates.sheets_missing_count} sheet${checklist.slot_dates.sheets_missing_count === 1 ? "" : "s"} with scores missing a date`
+                }
+                detail={
+                  slotDatesOk
+                    ? "Every scored activity slot has an administered date on record."
+                    : `Scored slots without a date won't show the correct activity date on the score record. Subject${checklist.slot_dates.sheets.length === 1 ? "" : "s"}: ${checklist.slot_dates.sheets.map((s) => s.subject_name).join(", ")}`
+                }
+                href={`/markbook/grading?q=${encodeURIComponent(sectionName)}`}
+                actionLabel={slotDatesOk ? "View" : "Add dates"}
               />
 
               <ChecklistRow

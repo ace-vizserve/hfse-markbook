@@ -188,3 +188,35 @@ export async function listFormAdviserSectionIds(userId: string): Promise<Set<str
     .eq('role', 'form_adviser');
   return new Set((data ?? []).map((r) => r.section_id as string));
 }
+
+// Which sections does this user teach a subject in? Returns the section_id set.
+// Scoped to `teacher_assignments.role='subject_teacher'`.
+export async function listSubjectTeacherSectionIds(userId: string): Promise<Set<string>> {
+  const service = createServiceClient();
+  const { data } = await service
+    .from('teacher_assignments')
+    .select('section_id')
+    .eq('teacher_user_id', userId)
+    .eq('role', 'subject_teacher');
+  return new Set((data ?? []).map((r) => r.section_id as string));
+}
+
+// Total checklist topic count per section for the given term. Used by the
+// sections picker to show setup progress on subject-teacher cards.
+export async function getChecklistTopicCountByTerm(
+  termId: string,
+  sectionIds: string[],
+): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  if (sectionIds.length === 0) return out;
+  const service = createServiceClient();
+  const { data } = await service
+    .from('evaluation_checklist_items')
+    .select('section_id')
+    .eq('term_id', termId)
+    .in('section_id', sectionIds);
+  for (const row of (data ?? []) as Array<{ section_id: string }>) {
+    out[row.section_id] = (out[row.section_id] ?? 0) + 1;
+  }
+  return out;
+}

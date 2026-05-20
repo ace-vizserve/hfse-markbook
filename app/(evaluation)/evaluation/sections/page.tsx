@@ -24,7 +24,12 @@ import {
 } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getWriteupProgressByTerm, listFormAdviserSectionIds } from '@/lib/evaluation/queries';
+import {
+  getChecklistTopicCountByTerm,
+  getWriteupProgressByTerm,
+  listFormAdviserSectionIds,
+  listSubjectTeacherSectionIds,
+} from '@/lib/evaluation/queries';
 
 type LevelLite = {
   id: string;
@@ -94,8 +99,8 @@ export default async function EvaluationSectionsPickerPage({
     sp.term_id ?? termIdFromNumber ?? terms.find((t) => t.is_current)?.id ?? terms[0]?.id ?? '';
   const selectedTerm = terms.find((t) => t.id === defaultTermId) ?? null;
 
-  // Sections: teachers see only their form_adviser assignments; registrar+
-  // sees the whole AY.
+  // Sections: teachers see every section they have any assignment in
+  // (form_adviser OR subject_teacher); registrar+ sees the whole AY.
   const { data: allSections } = await supabase
     .from('sections')
     .select('id, name, level:levels(id, code, label, level_type)')
@@ -113,14 +118,28 @@ export default async function EvaluationSectionsPickerPage({
     level: Array.isArray(s.level) ? s.level[0] ?? null : s.level,
   }));
 
+  // For teachers, resolve both assignment sets in parallel then filter.
+  // For registrar+, both sets stay empty — all sections treated as adviser
+  // sections for display purposes (write-up progress shown everywhere).
+  let adviserSet = new Set<string>();
+  let subjectTeacherSet = new Set<string>();
   if (sessionUser.role === 'teacher') {
-    const adviserSet = await listFormAdviserSectionIds(sessionUser.id);
-    sections = sections.filter((s) => adviserSet.has(s.id));
+    [adviserSet, subjectTeacherSet] = await Promise.all([
+      listFormAdviserSectionIds(sessionUser.id),
+      listSubjectTeacherSectionIds(sessionUser.id),
+    ]);
+    sections = sections.filter((s) => adviserSet.has(s.id) || subjectTeacherSet.has(s.id));
   }
 
-  const progress = selectedTerm
-    ? await getWriteupProgressByTerm(selectedTerm.id, sections.map((s) => s.id))
-    : {};
+  const sectionIds = sections.map((s) => s.id);
+
+  // Write-up progress + checklist topic counts fetched in parallel.
+  const [progress, checklistTopics] = selectedTerm
+    ? await Promise.all([
+        getWriteupProgressByTerm(selectedTerm.id, sectionIds),
+        getChecklistTopicCountByTerm(selectedTerm.id, sectionIds),
+      ])
+    : [{} as Record<string, { active_count: number; submitted_count: number }>, {} as Record<string, number>];
 
   const sorted = sections.slice().sort((a, b) => {
     const la = a.level?.label ?? '';
@@ -128,16 +147,25 @@ export default async function EvaluationSectionsPickerPage({
     return la.localeCompare(lb) || a.name.localeCompare(b.name);
   });
 
-  const totalActive = Object.values(progress).reduce((n, p) => n + (p?.active_count ?? 0), 0);
-  const totalSubmitted = Object.values(progress).reduce(
-    (n, p) => n + (p?.submitted_count ?? 0),
-    0,
-  );
+  const isTeacher = sessionUser.role === 'teacher';
+
+  // Write-up progress stats are only meaningful for adviser sections.
+  // For registrar+ (adviserSet is empty), all sections count.
+  const adviserSectionIds = isTeacher
+    ? sorted.filter((s) => adviserSet.has(s.id)).map((s) => s.id)
+    : sorted.map((s) => s.id);
+  const totalActive = Object.entries(progress)
+    .filter(([id]) => !isTeacher || adviserSectionIds.includes(id))
+    .reduce((n, [, p]) => n + (p?.active_count ?? 0), 0);
+  const totalSubmitted = Object.entries(progress)
+    .filter(([id]) => !isTeacher || adviserSectionIds.includes(id))
+    .reduce((n, [, p]) => n + (p?.submitted_count ?? 0), 0);
   const completePct =
     totalActive === 0 ? 0 : Math.round((totalSubmitted / totalActive) * 100);
   const levelCount = new Set(sorted.map((s) => s.level?.label).filter(Boolean)).size;
 
-  const isTeacher = sessionUser.role === 'teacher';
+  // Is this teacher exclusively a subject teacher with no advisory sections?
+  const isSubjectTeacherOnly = isTeacher && adviserSet.size === 0;
 
   return (
     <PageShell>
@@ -160,8 +188,10 @@ export default async function EvaluationSectionsPickerPage({
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
             {isTeacher
-              ? "Sections where you're the form class adviser. Open one to write this term's evaluation for each student."
-              : 'Every section in the current academic year. Pick one to view or edit the advisers’ write-ups.'}
+              ? isSubjectTeacherOnly
+                ? "Sections where you teach a subject. Open one to set up checklist topics and record ratings for your students."
+                : "Your assigned sections — advisory and subject. Open one to write evaluations or manage checklist topics."
+              : "Every section in the current academic year. Pick one to view or edit evaluations."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -224,7 +254,7 @@ export default async function EvaluationSectionsPickerPage({
       {/* Stats */}
       {sorted.length > 0 && (
         <div className="@container/main">
-          <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-3">
+          <div className={`grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs ${isSubjectTeacherOnly ? '@xl/main:grid-cols-2' : '@xl/main:grid-cols-3'}`}>
             <SummaryCard
               description={isTeacher ? 'Your sections' : 'Total sections'}
               value={sorted.length.toLocaleString('en-SG')}
@@ -234,24 +264,28 @@ export default async function EvaluationSectionsPickerPage({
             />
             <SummaryCard
               description="Active students"
-              value={totalActive.toLocaleString('en-SG')}
-              icon={Users}
-              footerTitle={
-                totalActive === 0 ? 'No enrolments yet' : 'Currently enrolled'
+              value={
+                Object.values(progress)
+                  .reduce((n, p) => n + (p?.active_count ?? 0), 0)
+                  .toLocaleString('en-SG')
               }
+              icon={Users}
+              footerTitle="Currently enrolled"
               footerDetail="Across every section listed"
             />
-            <SummaryCard
-              description="Write-ups submitted"
-              value={`${completePct}%`}
-              icon={ClipboardCheck}
-              footerTitle={
-                totalActive === 0
-                  ? '—'
-                  : `${totalSubmitted.toLocaleString('en-SG')} of ${totalActive.toLocaleString('en-SG')}`
-              }
-              footerDetail={selectedTerm ? `${selectedTerm.label} progress` : 'No term selected'}
-            />
+            {!isSubjectTeacherOnly && (
+              <SummaryCard
+                description="Write-ups submitted"
+                value={`${completePct}%`}
+                icon={ClipboardCheck}
+                footerTitle={
+                  totalActive === 0
+                    ? '—'
+                    : `${totalSubmitted.toLocaleString('en-SG')} of ${totalActive.toLocaleString('en-SG')}`
+                }
+                footerDetail={selectedTerm ? `${selectedTerm.label} progress` : 'No term selected'}
+              />
+            )}
           </div>
         </div>
       )}
@@ -264,13 +298,11 @@ export default async function EvaluationSectionsPickerPage({
               <GraduationCap className="size-6 text-muted-foreground" />
             </div>
             <div className="font-serif text-lg font-semibold text-foreground">
-              {isTeacher
-                ? 'No form-adviser sections assigned.'
-                : 'No sections in this AY.'}
+              {isTeacher ? 'No assigned sections.' : 'No sections in this AY.'}
             </div>
             <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
               {isTeacher
-                ? 'Ask the registrar to assign you as a form class adviser in SIS Admin → Sections.'
+                ? 'Ask the registrar to add your teacher assignments in SIS Admin → Sections.'
                 : 'Create sections in SIS Admin → Sections for the current academic year.'}
             </p>
           </CardContent>
@@ -282,12 +314,18 @@ export default async function EvaluationSectionsPickerPage({
           </h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {sorted.map((s) => {
+              // Registrar+ always shows adviser-style cards (adviserSet is empty for them).
+              const isAdviserSection = !isTeacher || adviserSet.has(s.id);
               const p = progress[s.id];
               const active = p?.active_count ?? 0;
               const submitted = p?.submitted_count ?? 0;
               const complete = active > 0 && submitted === active;
               const started = submitted > 0;
               const percent = active === 0 ? 0 : Math.round((submitted / active) * 100);
+              const topicCount = checklistTopics[s.id] ?? 0;
+              // A teacher who is both adviser and subject teacher gets the write-up card
+              // (primary responsibility) with a small "also subject teacher" eyebrow note.
+              const isAlsoBoth = isTeacher && adviserSet.has(s.id) && subjectTeacherSet.has(s.id);
 
               return (
                 <Link
@@ -299,6 +337,12 @@ export default async function EvaluationSectionsPickerPage({
                     <CardHeader>
                       <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
                         {s.level?.label ?? 'Unknown level'}
+                        {isAlsoBoth && (
+                          <span className="ml-2 text-muted-foreground/60">· Adviser + Subject</span>
+                        )}
+                        {isTeacher && !isAdviserSection && (
+                          <span className="ml-2 text-brand-indigo/70">· Subject teacher</span>
+                        )}
                       </CardDescription>
                       <CardTitle className="font-serif text-lg font-semibold tracking-tight text-foreground">
                         {s.name}
@@ -309,44 +353,88 @@ export default async function EvaluationSectionsPickerPage({
                         </div>
                       </CardAction>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex items-baseline gap-2">
-                        <span className="font-serif text-2xl font-semibold tabular-nums text-foreground">
-                          {submitted}
-                        </span>
-                        <span className="text-sm text-muted-foreground">
-                          / {active} submitted
-                        </span>
-                      </div>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className={`h-full transition-all ${complete ? 'bg-brand-mint' : 'bg-brand-indigo/70'}`}
-                          style={{ width: `${percent}%` }}
-                        />
-                      </div>
-                    </CardContent>
-                    <CardFooter>
-                      {complete ? (
-                        <Badge className="border-transparent bg-brand-mint text-foreground">
-                          <CheckCircle2 className="mr-1 size-3" />
-                          Complete
-                        </Badge>
-                      ) : started ? (
-                        <Badge
-                          variant="outline"
-                          className="border-brand-indigo/30 bg-brand-indigo/5 text-brand-indigo"
-                        >
-                          In progress · {percent}%
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="outline"
-                          className="border-border bg-muted/40 text-muted-foreground"
-                        >
-                          Not started
-                        </Badge>
-                      )}
-                    </CardFooter>
+
+                    {isAdviserSection ? (
+                      // Adviser card: write-up submission progress.
+                      <>
+                        <CardContent className="space-y-3">
+                          <div className="flex items-baseline gap-2">
+                            <span className="font-serif text-2xl font-semibold tabular-nums text-foreground">
+                              {submitted}
+                            </span>
+                            <span className="text-sm text-muted-foreground">
+                              / {active} submitted
+                            </span>
+                          </div>
+                          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                            <div
+                              className={`h-full transition-all ${complete ? 'bg-brand-mint' : 'bg-brand-indigo/70'}`}
+                              style={{ width: `${percent}%` }}
+                            />
+                          </div>
+                        </CardContent>
+                        <CardFooter>
+                          {complete ? (
+                            <Badge className="border-transparent bg-brand-mint text-foreground">
+                              <CheckCircle2 className="mr-1 size-3" />
+                              Complete
+                            </Badge>
+                          ) : started ? (
+                            <Badge
+                              variant="outline"
+                              className="border-brand-indigo/30 bg-brand-indigo/5 text-brand-indigo"
+                            >
+                              In progress · {percent}%
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="border-border bg-muted/40 text-muted-foreground"
+                            >
+                              Not started
+                            </Badge>
+                          )}
+                        </CardFooter>
+                      </>
+                    ) : (
+                      // Subject-teacher card: checklist topic count + student count.
+                      <>
+                        <CardContent className="space-y-3">
+                          <div className="flex items-baseline gap-2">
+                            <span className="font-serif text-2xl font-semibold tabular-nums text-foreground">
+                              {topicCount}
+                            </span>
+                            <span className="text-sm text-muted-foreground">
+                              {topicCount === 1 ? 'topic' : 'topics'} · {active} {active === 1 ? 'student' : 'students'}
+                            </span>
+                          </div>
+                          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                            <div
+                              className={`h-full transition-all ${topicCount > 0 ? 'bg-brand-indigo/70' : 'bg-transparent'}`}
+                              style={{ width: topicCount > 0 ? '100%' : '0%' }}
+                            />
+                          </div>
+                        </CardContent>
+                        <CardFooter>
+                          {topicCount > 0 ? (
+                            <Badge
+                              variant="outline"
+                              className="border-brand-indigo/30 bg-brand-indigo/5 text-brand-indigo"
+                            >
+                              <CheckCircle2 className="mr-1 size-3" />
+                              Topics set up
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="border-border bg-muted/40 text-muted-foreground"
+                            >
+                              No topics yet
+                            </Badge>
+                          )}
+                        </CardFooter>
+                      </>
+                    )}
                   </Card>
                 </Link>
               );

@@ -9,11 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "@/components/ui/date-picker";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DEFAULT_GRID_FILTERS, GridFilterToolbar, type GridFilters } from "./grid-filter-toolbar";
 import { useChangeReference, type ChangeReferenceTarget } from "./use-approval-reference";
-import { resolveNonExaminableLetter } from "@/lib/compute/letter-grade";
 
 export type GradeRow = {
   entry_id: string;
@@ -145,10 +145,8 @@ export function ScoreEntryGrid({
   // locked sheets are not gated. Existing scores in an undated slot stay editable
   // so we don't retroactively block teachers — only new empty cells are gated.
   const gateByLabel = canEditLabels && !readOnly;
-  const wwSlotGated = (i: number) =>
-    gateByLabel && (!labels.ww[i]?.label || !labels.ww[i]?.date);
-  const ptSlotGated = (i: number) =>
-    gateByLabel && (!labels.pt[i]?.label || !labels.pt[i]?.date);
+  const wwSlotGated = (i: number) => gateByLabel && (!labels.ww[i]?.label || !labels.ww[i]?.date);
+  const ptSlotGated = (i: number) => gateByLabel && (!labels.pt[i]?.label || !labels.pt[i]?.date);
 
   const missingLabelCount =
     (gateByLabel ? wwTotals.filter((_, i) => !labels.ww[i]?.label || !labels.ww[i]?.date).length : 0) +
@@ -490,15 +488,11 @@ function ScoringGuide({
       {wwTotals.map((max, i) => (
         <SlotChip key={`ww-${i}`} code={`W${i + 1}`} max={max} meta={labels.ww[i] ?? null} warn={canEditLabels} />
       ))}
-      {wwTotals.length > 0 && ptTotals.length > 0 && (
-        <span className="select-none text-border/60">·</span>
-      )}
+      {wwTotals.length > 0 && ptTotals.length > 0 && <span className="select-none text-border/60">·</span>}
       {ptTotals.map((max, i) => (
         <SlotChip key={`pt-${i}`} code={`PT${i + 1}`} max={max} meta={labels.pt[i] ?? null} warn={canEditLabels} />
       ))}
-      {(wwTotals.length > 0 || ptTotals.length > 0) && (
-        <span className="select-none text-border/60">·</span>
-      )}
+      {(wwTotals.length > 0 || ptTotals.length > 0) && <span className="select-none text-border/60">·</span>}
       <SlotChip code="QA" fixedLabel="Exam" />
     </div>
   );
@@ -507,15 +501,17 @@ function ScoringGuide({
     <>
       {canEditLabels && (
         <Sheet open={drawerOpen} onOpenChange={onDrawerOpenChange}>
-          <SheetContent side="right" className="w-full sm:w-[580px]">
-            <SheetHeader>
-              <SheetTitle>Activity Details</SheetTitle>
-              <SheetDescription>
-                Describe each activity column, add a date administered, and an optional page reference.
-                Score entry unlocks when both a description and date are set.
-              </SheetDescription>
-            </SheetHeader>
-            <ActivityLabelsForm wwTotals={wwTotals} ptTotals={ptTotals} labels={labels} onSave={onSave} />
+          <SheetContent side="right" className="w-full sm:max-w-xl!">
+            <ScrollArea className="h-full">
+              <SheetHeader>
+                <SheetTitle>Activity Details</SheetTitle>
+                <SheetDescription>
+                  Describe each activity column, add a date administered, and an optional page reference. Score entry
+                  unlocks when both a description and date are set.
+                </SheetDescription>
+              </SheetHeader>
+              <ActivityLabelsForm wwTotals={wwTotals} ptTotals={ptTotals} labels={labels} onSave={onSave} />
+            </ScrollArea>
           </SheetContent>
         </Sheet>
       )}
@@ -525,15 +521,14 @@ function ScoringGuide({
         <div className="rounded-lg border border-brand-amber/30 bg-brand-amber/5 p-4 space-y-3">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-medium text-foreground">Add activity details to start entering scores</p>
+              <p className="text-sm font-medium text-foreground">
+                Add activity descriptions and dates to start entering scores
+              </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 {labelledCount} of {totalSlots} ready — slots without a description and date are locked
               </p>
             </div>
-            <Button
-              size="sm"
-              onClick={() => onDrawerOpenChange(true)}
-              className="h-8 shrink-0 gap-1.5 px-3 text-xs">
+            <Button size="sm" onClick={() => onDrawerOpenChange(true)} className="h-8 shrink-0 gap-1.5 px-3 text-xs">
               <Pencil className="h-3 w-3" />
               Add Details
             </Button>
@@ -598,20 +593,12 @@ function SlotChip({
       <span className="font-semibold">{code}</span>
       {max != null && <span className="text-[9px] opacity-50">/{max}</span>}
       {hasLabel && (
-        <span className={`ml-0.5 font-sans font-normal italic text-muted-foreground`}>
-          {fixedLabel ?? meta?.label}
-        </span>
+        <span className={`ml-0.5 font-sans font-normal italic text-muted-foreground`}>{fixedLabel ?? meta?.label}</span>
       )}
       {hasDate && meta?.date && (
-        <span className="ml-0.5 font-sans font-normal text-muted-foreground/70">
-          · {formatChipDate(meta.date)}
-        </span>
+        <span className="ml-0.5 font-sans font-normal text-muted-foreground/70">· {formatChipDate(meta.date)}</span>
       )}
-      {meta?.page && (
-        <span className="ml-0.5 font-sans font-normal text-muted-foreground/60">
-          · {meta.page}
-        </span>
-      )}
+      {meta?.page && <span className="ml-0.5 font-sans font-normal text-muted-foreground/60">· {meta.page}</span>}
     </span>
   );
 }
@@ -629,7 +616,7 @@ function ActivityLabelsForm({
   onSave: (type: "ww" | "pt", slotIndex: number, field: keyof SlotMeta, value: string | null) => void;
 }) {
   return (
-    <div className="mt-6 space-y-6 overflow-y-auto">
+    <div className="mt-6 space-y-6 pb-4 pr-4 pt-0">
       {wwTotals.length > 0 && (
         <section className="space-y-3">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Written Work</h3>
@@ -696,8 +683,8 @@ function LabelRow({
   const savedLabel = useRef(meta?.label ?? "");
   const savedPage = useRef(meta?.page ?? "");
 
-  const hasLabel = !!(meta?.label);
-  const hasDate = !!(meta?.date);
+  const hasLabel = !!meta?.label;
+  const hasDate = !!meta?.date;
   const isReady = hasLabel && hasDate;
 
   const commitLabel = () => {
@@ -786,19 +773,11 @@ function LabelRow({
               <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
                 Date administered
               </label>
-              <button
-                type="button"
-                onClick={() => handleDateChange(todayISO())}
-                className="text-[11px] text-muted-foreground hover:text-foreground transition-colors">
+              <Badge className="cursor-pointer" onClick={() => handleDateChange(todayISO())}>
                 Use today
-              </button>
+              </Badge>
             </div>
-            <DatePicker
-              value={date}
-              onChange={handleDateChange}
-              placeholder="Pick a date"
-              className="h-8 text-xs"
-            />
+            <DatePicker value={date} onChange={handleDateChange} placeholder="Pick a date" className="h-8 text-xs" />
           </div>
         </div>
       </div>

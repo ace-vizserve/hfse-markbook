@@ -43,7 +43,7 @@ export async function GET(
       .order('index_number'),
     service
       .from('grading_sheets')
-      .select('id, is_locked, subject:subjects(id, name)')
+      .select('id, is_locked, slot_labels, subject:subjects(id, name)')
       .eq('section_id', sectionId)
       .eq('term_id', termId),
   ]);
@@ -57,17 +57,24 @@ export async function GET(
       name: s ? `${s.last_name}, ${s.first_name}` : '(unknown)',
     };
   });
+  type SlotMeta = { label?: string | null; date?: string | null; page?: string | null };
   const sheetList = (sheets ?? []).map((sh) => {
     const subj = Array.isArray(sh.subject) ? sh.subject[0] : sh.subject;
-    return { id: sh.id, is_locked: sh.is_locked, subject_name: subj?.name ?? '(unknown)' };
+    return {
+      id: sh.id,
+      is_locked: sh.is_locked,
+      subject_name: subj?.name ?? '(unknown)',
+      slot_labels: sh.slot_labels as { ww?: (SlotMeta | null)[]; pt?: (SlotMeta | null)[] } | null,
+    };
   });
   const unlockedSheets = sheetList.filter((s) => !s.is_locked);
 
-  // 4+5) Write-ups and attendance both depend on activeStudents — fetch in parallel.
+  // 4+5) Write-ups, attendance, and slot-date check all depend on prior results — fetch in parallel.
   const studentIds = activeStudents.map((s) => s.studentId).filter((id): id is string => !!id);
   const sectionStudentIds = activeStudents.map((s) => s.sectionStudentId);
+  const sheetIds = sheetList.map((s) => s.id);
 
-  const [{ data: writeupRows }, { data: attendanceRows }] = await Promise.all([
+  const [{ data: writeupRows }, { data: attendanceRows }, { data: scoreRows }] = await Promise.all([
     studentIds.length > 0
       ? service
           .from('evaluation_writeups')
@@ -82,6 +89,12 @@ export async function GET(
           .select('section_student_id, school_days, days_present, days_late')
           .eq('term_id', termId)
           .in('section_student_id', sectionStudentIds)
+      : Promise.resolve({ data: [] as unknown[] }),
+    sheetIds.length > 0
+      ? service
+          .from('grade_entries')
+          .select('grading_sheet_id, ww_scores, pt_scores')
+          .in('grading_sheet_id', sheetIds)
       : Promise.resolve({ data: [] as unknown[] }),
   ]);
 
@@ -111,7 +124,34 @@ export async function GET(
     return !rec || rec.school_days == null || rec.days_present == null || rec.days_late == null;
   });
 
-  // 6) T4-specific: all four terms locked + annual grades present
+  // 6) Slot activity-date check: sheets where a scored WW/PT slot has no administered date.
+  //    Soft warning only — does not block publishing (KD #28).
+  type ScoreRow = { grading_sheet_id: string; ww_scores: (number | null)[] | null; pt_scores: (number | null)[] | null };
+  const entriesBySheet = new Map<string, ScoreRow[]>();
+  for (const e of (scoreRows ?? []) as ScoreRow[]) {
+    if (!entriesBySheet.has(e.grading_sheet_id)) entriesBySheet.set(e.grading_sheet_id, []);
+    entriesBySheet.get(e.grading_sheet_id)!.push(e);
+  }
+  const sheetsWithUndatedScores: { subject_name: string }[] = [];
+  for (const sh of sheetList) {
+    if (!sh.slot_labels) continue;
+    const entries = entriesBySheet.get(sh.id) ?? [];
+    let found = false;
+    for (let i = 0; i < (sh.slot_labels.ww?.length ?? 0) && !found; i++) {
+      const slot = sh.slot_labels.ww?.[i];
+      if (!slot?.label || slot.date) continue; // unused or already dated
+      if (entries.some((e) => e.ww_scores != null && e.ww_scores[i] != null)) found = true;
+    }
+    for (let i = 0; i < (sh.slot_labels.pt?.length ?? 0) && !found; i++) {
+      const slot = sh.slot_labels.pt?.[i];
+      if (!slot?.label || slot.date) continue;
+      if (entries.some((e) => e.pt_scores != null && e.pt_scores[i] != null)) found = true;
+    }
+    if (found) sheetsWithUndatedScores.push({ subject_name: sh.subject_name });
+  }
+  const slotDates = { sheets_missing_count: sheetsWithUndatedScores.length, sheets: sheetsWithUndatedScores };
+
+  // 7) T4-specific: all four terms locked + annual grades present
   let t4Readiness = null;
   if (isT4) {
     const { data: allTerms } = await service
@@ -304,6 +344,7 @@ export async function GET(
       complete: activeStudents.length - missingAttendance.length,
       missing: missingAttendance.map((s) => ({ name: s.name, index: s.indexNumber })),
     },
+    slot_dates: slotDates,
     t4_readiness: t4Readiness,
     virtue_readiness: virtueReadiness,
   });
