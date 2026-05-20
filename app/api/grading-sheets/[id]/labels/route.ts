@@ -3,9 +3,17 @@ import { requireRole } from '@/lib/auth/require-role';
 import { createServiceClient } from '@/lib/supabase/service';
 import { createClient } from '@/lib/supabase/server';
 
+type SlotMeta = {
+  label?: string | null;
+  date?: string | null;
+  page?: string | null;
+};
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 // PATCH /api/grading-sheets/[id]/labels
 // Updates the slot_labels on a grading sheet. No lock enforcement — labels
-// are activity descriptions (display metadata), not grade values.
+// are activity metadata (display-side), not grade values.
 // Teachers may only label their own sheet; registrar+ may label any sheet.
 export async function PATCH(
   request: NextRequest,
@@ -17,8 +25,8 @@ export async function PATCH(
   const { id } = await params;
 
   const body = (await request.json().catch(() => null)) as {
-    ww?: (string | null)[];
-    pt?: (string | null)[];
+    ww?: (SlotMeta | null)[];
+    pt?: (SlotMeta | null)[];
     qa?: string | null;
   } | null;
   if (!body) {
@@ -44,7 +52,6 @@ export async function PATCH(
     const sheet = sheetRaw as unknown as { section: IdRow; subject: IdRow };
     const sectionRaw = Array.isArray(sheet.section) ? sheet.section[0] : sheet.section;
     const subjectRaw = Array.isArray(sheet.subject) ? sheet.subject[0] : sheet.subject;
-    // Check teacher has a subject_teacher assignment for this sheet.
     const sectionId = sectionRaw?.id;
     const subjectId = subjectRaw?.id;
     if (!sectionId || !subjectId) {
@@ -63,17 +70,35 @@ export async function PATCH(
     }
   }
 
-  // Sanitize: trim strings, coerce empty to null.
-  const sanitize = (v: string | null | undefined): string | null => {
+  // Sanitize per-field: trim, enforce max length, coerce empty to null.
+  const sanitizeLabel = (v: string | null | undefined): string | null => {
     if (v == null) return null;
     const t = String(v).trim().slice(0, 120);
     return t || null;
   };
+  const sanitizePage = (v: string | null | undefined): string | null => {
+    if (v == null) return null;
+    const t = String(v).trim().slice(0, 40);
+    return t || null;
+  };
+  const sanitizeDate = (v: string | null | undefined): string | null => {
+    if (v == null) return null;
+    const t = String(v).trim();
+    return ISO_DATE_RE.test(t) ? t : null;
+  };
+  const sanitizeMeta = (m: SlotMeta | null | undefined): SlotMeta | null => {
+    if (m == null) return null;
+    return {
+      label: sanitizeLabel(m.label),
+      date: sanitizeDate(m.date),
+      page: sanitizePage(m.page),
+    };
+  };
 
   const newLabels: Record<string, unknown> = {};
-  if ('ww' in body) newLabels.ww = (body.ww ?? []).map(sanitize);
-  if ('pt' in body) newLabels.pt = (body.pt ?? []).map(sanitize);
-  if ('qa' in body) newLabels.qa = sanitize(body.qa);
+  if ('ww' in body) newLabels.ww = (body.ww ?? []).map(sanitizeMeta);
+  if ('pt' in body) newLabels.pt = (body.pt ?? []).map(sanitizeMeta);
+  if ('qa' in body) newLabels.qa = sanitizeLabel(body.qa);
 
   // Merge with existing labels so a ww update doesn't wipe pt labels.
   const { data: existing } = await service

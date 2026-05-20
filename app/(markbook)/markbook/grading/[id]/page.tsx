@@ -543,7 +543,7 @@ export default async function GradingSheetPage({
         rows={rows}
         readOnly={readOnly}
         requireApproval={requireApproval}
-        slotLabels={sheet.slot_labels as { ww?: (string | null)[]; pt?: (string | null)[]; qa?: string | null } | null ?? undefined}
+        slotLabels={sheet.slot_labels as { ww?: ({ label?: string | null; date?: string | null; page?: string | null } | null)[]; pt?: ({ label?: string | null; date?: string | null; page?: string | null } | null)[]; qa?: string | null } | null ?? undefined}
         canEditLabels={isAssignedTeacher || canManage}
         letterDisplay={!isExaminable}
       />
