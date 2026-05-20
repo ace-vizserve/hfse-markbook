@@ -2,12 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { requireRole } from '@/lib/auth/require-role';
 import { createServiceClient } from '@/lib/supabase/service';
 import { createClient } from '@/lib/supabase/server';
-
-type SlotMeta = {
-  label?: string | null;
-  date?: string | null;
-  page?: string | null;
-};
+import type { SlotMeta } from '@/lib/schemas/grading-sheet';
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 

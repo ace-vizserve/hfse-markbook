@@ -371,8 +371,8 @@ const SIS_NAV: NavSection[] = [
       { href: "/sis/admin/subjects", label: "Subject Weights", requiresRoles: ["school_admin", "superadmin"] },
       { href: "/sis/admin/template", label: "Class Template", requiresRoles: ["school_admin", "superadmin"] },
       {
-        href: "/sis/admin/evaluation-checklists",
-        label: "Eval Checklists",
+        href: "/sis/admin/sow",
+        label: "Scheme of Work",
         requiresRoles: ["school_admin", "superadmin"],
       },
       {

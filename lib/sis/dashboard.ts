@@ -992,7 +992,11 @@ async function loadClassAssignmentReadinessUncached(
       .select('enroleeNumber, applicationStatus, applicationUpdatedDate, classLevel, levelApplied')
       .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']),
     sectionIds.length > 0
-      ? service.from('section_students').select('enrolee_number').in('section_id', sectionIds)
+      ? service
+          .from('section_students')
+          .select('enrolee_number')
+          .in('section_id', sectionIds)
+          .neq('enrollment_status', 'withdrawn')
       : Promise.resolve({ data: [] as { enrolee_number: string | null }[] }),
   ]);
 

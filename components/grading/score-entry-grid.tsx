@@ -60,6 +60,10 @@ type Props = {
   canEditLabels?: boolean;
   /** When true, renders the Quarterly column as a derived letter (non-examinable subjects). */
   letterDisplay?: boolean;
+  /** When true, WW/PT label + page fields are SOW-prescribed (read-only); teachers can still set the date. */
+  sowSourced?: boolean;
+  /** Published version number of the applied SOW (e.g. 1, 2). Null when no SOW is applied. */
+  sowVersion?: number | null;
 };
 
 function parseCell(raw: string): number | null {
@@ -89,6 +93,8 @@ export function ScoreEntryGrid({
   slotLabels,
   canEditLabels = false,
   letterDisplay = false,
+  sowSourced = false,
+  sowVersion = null,
 }: Props) {
   const [rows, setRows] = useState<GradeRow[]>(initialRows);
   const rowsRef = useRef(rows);
@@ -268,6 +274,8 @@ export function ScoreEntryGrid({
         ptTotals={ptTotals}
         labels={labels}
         canEditLabels={canEditLabels}
+        sowSourced={sowSourced}
+        sowVersion={sowVersion}
         missingLabelCount={missingLabelCount}
         drawerOpen={drawerOpen}
         onDrawerOpenChange={setDrawerOpen}
@@ -463,6 +471,8 @@ function ScoringGuide({
   ptTotals,
   labels,
   canEditLabels,
+  sowSourced,
+  sowVersion,
   missingLabelCount,
   drawerOpen,
   onDrawerOpenChange,
@@ -472,6 +482,8 @@ function ScoringGuide({
   ptTotals: number[];
   labels: Required<SlotLabels>;
   canEditLabels: boolean;
+  sowSourced: boolean;
+  sowVersion?: number | null;
   missingLabelCount: number;
   drawerOpen: boolean;
   onDrawerOpenChange: (open: boolean) => void;
@@ -481,7 +493,12 @@ function ScoringGuide({
   const labelledCount =
     wwTotals.filter((_, i) => !!labels.ww[i]?.label && !!labels.ww[i]?.date).length +
     ptTotals.filter((_, i) => !!labels.pt[i]?.label && !!labels.pt[i]?.date).length;
-  const hasMissing = canEditLabels && missingLabelCount > 0;
+  // When SOW-sourced, only missing dates count as "missing" (labels are pre-filled)
+  const effectiveMissing = sowSourced
+    ? (canEditLabels ? wwTotals.filter((_, i) => !!labels.ww[i]?.label && !labels.ww[i]?.date).length +
+        ptTotals.filter((_, i) => !!labels.pt[i]?.label && !labels.pt[i]?.date).length : 0)
+    : missingLabelCount;
+  const hasMissing = canEditLabels && effectiveMissing > 0;
 
   const chipRow = (
     <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5">
@@ -506,11 +523,12 @@ function ScoringGuide({
               <SheetHeader>
                 <SheetTitle>Activity Details</SheetTitle>
                 <SheetDescription>
-                  Describe each activity column, add a date administered, and an optional page reference. Score entry
-                  unlocks when both a description and date are set.
+                  {sowSourced
+                    ? "Activity descriptions and page numbers come from the Scheme of Work. Enter the date each activity was administered to unlock score entry."
+                    : "Describe each activity column, add a date administered, and an optional page reference. Score entry unlocks when both a description and date are set."}
                 </SheetDescription>
               </SheetHeader>
-              <ActivityLabelsForm wwTotals={wwTotals} ptTotals={ptTotals} labels={labels} onSave={onSave} />
+              <ActivityLabelsForm wwTotals={wwTotals} ptTotals={ptTotals} labels={labels} sowSourced={sowSourced} onSave={onSave} />
             </ScrollArea>
           </SheetContent>
         </Sheet>
@@ -522,15 +540,17 @@ function ScoringGuide({
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-sm font-medium text-foreground">
-                Add activity descriptions and dates to start entering scores
+                {sowSourced
+                  ? "Enter the date each activity was administered to unlock score entry"
+                  : "Add activity descriptions and dates to start entering scores"}
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {labelledCount} of {totalSlots} ready — slots without a description and date are locked
+                {labelledCount} of {totalSlots} ready — slots without {sowSourced ? "a date" : "a description and date"} are locked
               </p>
             </div>
             <Button size="sm" onClick={() => onDrawerOpenChange(true)} className="h-8 shrink-0 gap-1.5 px-3 text-xs">
               <Pencil className="h-3 w-3" />
-              Add Details
+              {sowSourced ? "Add Dates" : "Add Details"}
             </Button>
           </div>
           {chipRow}
@@ -538,14 +558,25 @@ function ScoringGuide({
       ) : (
         /* Reference strip — compact once everything is ready */
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
-          {chipRow}
+          <div className="flex flex-wrap items-center gap-2">
+            {chipRow}
+            {sowSourced ? (
+              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/60">
+                · SOW{sowVersion != null ? ` v${sowVersion}` : ''}
+              </span>
+            ) : canEditLabels ? (
+              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/40">
+                · No SOW applied
+              </span>
+            ) : null}
+          </div>
           {canEditLabels && (
             <button
               type="button"
               onClick={() => onDrawerOpenChange(true)}
               className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
               <Pencil className="h-3 w-3" />
-              Edit
+              {sowSourced ? "Add Dates" : "Edit"}
             </button>
           )}
         </div>
@@ -608,11 +639,13 @@ function ActivityLabelsForm({
   wwTotals,
   ptTotals,
   labels,
+  sowSourced,
   onSave,
 }: {
   wwTotals: number[];
   ptTotals: number[];
   labels: Required<SlotLabels>;
+  sowSourced: boolean;
   onSave: (type: "ww" | "pt", slotIndex: number, field: keyof SlotMeta, value: string | null) => void;
 }) {
   return (
@@ -627,6 +660,7 @@ function ActivityLabelsForm({
                 slotName={`W${i + 1}`}
                 maxScore={max}
                 meta={(labels.ww[i] ?? null) as SlotMeta | null}
+                sowSourced={sowSourced}
                 onSave={(field, v) => onSave("ww", i, field, v)}
               />
             ))}
@@ -644,6 +678,7 @@ function ActivityLabelsForm({
                 slotName={`PT${i + 1}`}
                 maxScore={max}
                 meta={(labels.pt[i] ?? null) as SlotMeta | null}
+                sowSourced={sowSourced}
                 onSave={(field, v) => onSave("pt", i, field, v)}
               />
             ))}
@@ -669,11 +704,13 @@ function LabelRow({
   slotName,
   maxScore,
   meta,
+  sowSourced,
   onSave,
 }: {
   slotName: string;
   maxScore: number;
   meta: SlotMeta | null;
+  sowSourced: boolean;
   onSave: (field: keyof SlotMeta, value: string | null) => void;
 }) {
   const [label, setLabel] = useState(meta?.label ?? "");
@@ -685,7 +722,8 @@ function LabelRow({
 
   const hasLabel = !!meta?.label;
   const hasDate = !!meta?.date;
-  const isReady = hasLabel && hasDate;
+  // When SOW-sourced, readiness only requires a date (label is pre-filled from SOW)
+  const isReady = sowSourced ? hasDate : (hasLabel && hasDate);
 
   const commitLabel = () => {
     const trimmed = label.trim() || null;
@@ -725,7 +763,13 @@ function LabelRow({
               <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
             )}
             <span className="text-xs text-muted-foreground">
-              {isReady ? "Ready for scoring" : !hasLabel ? "Add a description to unlock" : "Add a date to unlock"}
+              {isReady
+                ? "Ready for scoring"
+                : sowSourced
+                  ? "Add a date to unlock"
+                  : !hasLabel
+                    ? "Add a description to unlock"
+                    : "Add a date to unlock"}
             </span>
           </div>
         </div>
@@ -736,36 +780,48 @@ function LabelRow({
         {/* Description (label) */}
         <div className="space-y-1">
           <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Description</label>
-          <input
-            type="text"
-            value={label}
-            maxLength={120}
-            placeholder="Describe this activity…"
-            onChange={(e) => setLabel(e.target.value)}
-            onBlur={commitLabel}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-            }}
-            className="h-8 w-full rounded-md border border-input bg-background px-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
-          />
+          {sowSourced ? (
+            <div className="flex h-8 w-full items-center rounded-md border border-hairline bg-muted/30 px-2.5 text-sm text-foreground">
+              {meta?.label ?? <span className="text-muted-foreground/50 italic">Not set in SOW</span>}
+            </div>
+          ) : (
+            <input
+              type="text"
+              value={label}
+              maxLength={120}
+              placeholder="Describe this activity…"
+              onChange={(e) => setLabel(e.target.value)}
+              onBlur={commitLabel}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              }}
+              className="h-8 w-full rounded-md border border-input bg-background px-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
+            />
+          )}
         </div>
 
         {/* Page # and Date administered — side by side */}
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
             <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Page #</label>
-            <input
-              type="text"
-              value={page}
-              maxLength={40}
-              placeholder="e.g. p. 45 or pp. 44-47"
-              onChange={(e) => setPage(e.target.value)}
-              onBlur={commitPage}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-              }}
-              className="h-8 w-full rounded-md border border-input bg-background px-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
-            />
+            {sowSourced ? (
+              <div className="flex h-8 w-full items-center rounded-md border border-hairline bg-muted/30 px-2.5 text-sm text-foreground">
+                {meta?.page ?? <span className="text-muted-foreground/50 italic">—</span>}
+              </div>
+            ) : (
+              <input
+                type="text"
+                value={page}
+                maxLength={40}
+                placeholder="e.g. p. 45 or pp. 44-47"
+                onChange={(e) => setPage(e.target.value)}
+                onBlur={commitPage}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                }}
+                className="h-8 w-full rounded-md border border-input bg-background px-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
+              />
+            )}
           </div>
 
           <div className="space-y-1">

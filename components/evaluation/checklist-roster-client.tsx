@@ -78,6 +78,7 @@ export function ChecklistRosterClient({
   canEdit,
   canEditTopics,
   copyFromOptions,
+  sowVersionNumber,
 }: {
   termId: string;
   sectionId: string;
@@ -100,6 +101,7 @@ export function ChecklistRosterClient({
     section_name: string;
     item_count: number;
   }>;
+  sowVersionNumber?: number | null;
 }) {
   const [subjectId, setSubjectId] = useState(initialSubjectId);
 
@@ -486,6 +488,7 @@ export function ChecklistRosterClient({
         topics={topics}
         canEditTopics={canEditTopics}
         copyFromOptions={copyFromOptions}
+        sowVersionNumber={sowVersionNumber}
         addingTopic={addingTopic}
         newTopicText={newTopicText}
         editingTopicId={editingTopicId}
@@ -672,6 +675,7 @@ function TopicManagerPanel({
   topics,
   canEditTopics,
   copyFromOptions,
+  sowVersionNumber,
   addingTopic,
   newTopicText,
   editingTopicId,
@@ -699,6 +703,7 @@ function TopicManagerPanel({
     section_name: string;
     item_count: number;
   }>;
+  sowVersionNumber?: number | null;
   addingTopic: boolean;
   newTopicText: string;
   editingTopicId: string | null;
@@ -727,6 +732,9 @@ function TopicManagerPanel({
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Topics · {topics.length} configured
+          {sowVersionNumber != null && (
+            <span className="ml-1.5 font-normal text-muted-foreground/60">· SOW v{sowVersionNumber}</span>
+          )}
         </h3>
         {canEditTopics && !addingTopic && (
           <Button

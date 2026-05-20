@@ -19,6 +19,7 @@ import {
 } from "@/lib/evaluation/checklist";
 import { getEvaluationTermConfig, getSectionRoster, listFormAdviserSectionIds } from "@/lib/evaluation/queries";
 import { daysUntilPtc, findPtcForWriteupTerm, getPtcEventsForAy } from "@/lib/evaluation/ptc-resolver";
+import { sowExistsForSection } from "@/lib/sis/sow/queries";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 
 export default async function EvaluationSectionRosterPage({
@@ -47,7 +48,7 @@ export default async function EvaluationSectionRosterPage({
   const { data: section } = await supabase
     .from("sections")
     .select(
-      "id, name, academic_year_id, level:levels(id, label, level_type), academic_year:academic_years(id, ay_code, label)",
+      "id, name, academic_year_id, curriculum_track, level:levels(id, label, level_type), academic_year:academic_years(id, ay_code, label)",
     )
     .eq("id", sectionId)
     .single();
@@ -163,20 +164,20 @@ export default async function EvaluationSectionRosterPage({
       ? sp.subject_id
       : (visibleSubjects[0]?.id ?? "");
 
-  // Fetch checklist data for the selected subject. Cheap — a section has
-  // ~10 students × ~10 items = ~100 responses tops. Topics are now per
-  // (subject × section) per migration 047, owned by the subject teacher.
-  const teacherCanEditTopics = sessionUser.role === "teacher" && teacherSubjectIds.includes(selectedSubjectId);
-  const [items, responseMap, commentMap, copyFromOptions] = selectedSubjectId
+  // Topics are admin-prescribed via the SOW builder (KD #107). Teachers see
+  // the topic list read-only; no add/edit/delete/reorder affordances.
+  const teacherCanEditTopics = false;
+  const sectionCurriculumTrack = (section as { curriculum_track?: string }).curriculum_track ?? 'singapore_inspired';
+  const [items, responseMap, commentMap, copyFromOptions, sowCheck] = selectedSubjectId
     ? await Promise.all([
-        listChecklistItems(selectedTerm.id, selectedSubjectId, sectionId),
+        listChecklistItems(selectedTerm.id, selectedSubjectId, level?.id ?? '', sectionCurriculumTrack),
         getResponsesBySectionTerm(sectionId, selectedTerm.id),
         getSubjectCommentsBySectionTerm(sectionId, selectedTerm.id, selectedSubjectId),
-        teacherCanEditTopics
-          ? getSectionsTeacherCanCopyFrom(sessionUser.id, selectedTerm.id, selectedSubjectId, sectionId)
-          : Promise.resolve([] as Awaited<ReturnType<typeof getSectionsTeacherCanCopyFrom>>),
+        Promise.resolve([] as Awaited<ReturnType<typeof getSectionsTeacherCanCopyFrom>>),
+        sowExistsForSection(sectionId, selectedSubjectId, selectedTerm.id),
       ])
-    : [[], new Map(), new Map(), [] as Awaited<ReturnType<typeof getSectionsTeacherCanCopyFrom>>];
+    : [[], new Map(), new Map(), [] as Awaited<ReturnType<typeof getSectionsTeacherCanCopyFrom>>, { exists: false, version: null }];
+  const sowVersionNumber = (sowCheck as { exists: boolean; version: { version_number: number } | null }).version?.version_number ?? null;
 
   const responsesForClient = new Map<string, number | null>();
   for (const [k, row] of responseMap.entries()) {
@@ -413,6 +414,7 @@ export default async function EvaluationSectionRosterPage({
                 canEdit={canEdit}
                 canEditTopics={teacherCanEditTopics}
                 copyFromOptions={copyFromOptions}
+                sowVersionNumber={sowVersionNumber}
               />
             )}
           </TabsContent>

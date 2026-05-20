@@ -32,6 +32,10 @@ const SIS_AUDIT_ALLOWLIST = [
   // Sections + teacher assignments
   'section.create', 'section.rename', 'section.realphabetize',
   'assignment.create', 'assignment.delete',
+  // Scheme of Work (KD #108)
+  'sow.master.upsert', 'sow.version.publish', 'sow.instance.apply',
+  // School calendar (/sis/calendar)
+  'attendance.calendar.upsert', 'attendance.calendar.delete', 'attendance.calendar.copy_from_prior_ay',
   // School config
   'school_config.update',
   // User provisioning (KD #87)

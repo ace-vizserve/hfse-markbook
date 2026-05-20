@@ -159,7 +159,21 @@
       "Bash(cp \"app/\\(admissions\\)/admissions/cohorts/medical/loading.tsx\" \"app/\\(records\\)/records/cohorts/medical/loading.tsx\")",
       "Bash(cp \"app/\\(admissions\\)/admissions/cohorts/medical/loading.tsx\" \"app/\\(records\\)/records/cohorts/pass-expiry/loading.tsx\")",
       "Bash(cp \"app/\\(admissions\\)/admissions/cohorts/medical/loading.tsx\" \"app/\\(records\\)/records/cohorts/stp/loading.tsx\")",
-      "Skill(ui-ux-pro-max:ui-ux-pro-max)"
+      "Skill(ui-ux-pro-max:ui-ux-pro-max)",
+      "Bash(del *)",
+      "Bash(Select-Object -Last 20)",
+      "Bash(bash *)",
+      "Bash(xargs cat)",
+      "Bash(Remove-Item -Recurse -Force \"C:\\\\Users\\\\Ace\\\\OneDrive - HFSE International School\\\\Desktop\\\\hfse-vizserve projects\\\\hfse-markbook\\\\.next\" -ErrorAction SilentlyContinue)",
+      "Bash(Write-Host \"Cleared .next\")",
+      "Bash(Select-String -Path \"C:\\\\Users\\\\Ace\\\\OneDrive - HFSE International School\\\\Desktop\\\\hfse-vizserve projects\\\\hfse-markbook\\\\app\\\\api\\\\**\\\\*.ts\" -Pattern \"requireRole\\\\\\(\" -Recurse)",
+      "Bash(Select-Object Filename, LineNumber, Line)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(Out-String -Width 200)",
+      "Bash(Find-ChildItem -Path \"C:\\\\Users\\\\Ace\\\\OneDrive - HFSE International School\\\\Desktop\\\\hfse-vizserve projects\\\\hfse-markbook\\\\supabase\\\\migrations\" -Filter \"*.sql\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "PowerShell(Get-Content *)"
     ],
     "deny": [
       "Read(./.env.local)"

@@ -256,7 +256,7 @@ export default async function SisAdminHub({
 
           {/* Enrolled-but-unplaced students callout — actionable amber alert. */}
           {unassignedStudents.length > 0 && (
-            <HubClassAssignmentCallout count={unassignedStudents.length} />
+            <HubClassAssignmentCallout count={unassignedStudents.length} ayLabel={currentAy?.label} />
           )}
 
           {/* Academic Year — rolls over once a year (AY rollover + calendar). */}

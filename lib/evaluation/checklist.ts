@@ -9,9 +9,10 @@ export type ChecklistItemRow = {
   id: string;
   term_id: string;
   subject_id: string;
-  // Scope shifted to per-section in migration 047 — teachers own the
-  // topic list per section they teach, not admin per level.
-  section_id: string;
+  // Scope reverted to (subject × level × curriculum_track × term) in
+  // migration 058 — topics are admin-prescribed via the SOW builder (KD #107).
+  level_id: string;
+  curriculum_track: string;
   item_text: string;
   sort_order: number;
 };
@@ -42,22 +43,24 @@ export type PtcFeedbackRow = {
   feedback: string | null;
 };
 
-// List checklist items for one (term × subject × section). Used by the
-// subject-teacher Checklists tab + the admin read-only audit view.
+// List checklist items for one (term × subject × level × curriculum_track).
+// Scope reverted from per-section to per-scope in migration 058 (KD #107):
+// topics are now admin-prescribed via the SOW builder, not teacher-owned.
 export async function listChecklistItems(
   termId: string,
   subjectId: string,
-  sectionId: string,
+  levelId: string,
+  curriculumTrack: string,
 ): Promise<ChecklistItemRow[]> {
   const service = createServiceClient();
   const { data, error } = await service
     .from('evaluation_checklist_items')
-    .select('id, term_id, subject_id, section_id, item_text, sort_order')
+    .select('id, term_id, subject_id, level_id, curriculum_track, item_text, sort_order')
     .eq('term_id', termId)
     .eq('subject_id', subjectId)
-    .eq('section_id', sectionId)
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true });
+    .eq('level_id', levelId)
+    .eq('curriculum_track', curriculumTrack)
+    .order('sort_order', { ascending: true });
   if (error) {
     console.error('[evaluation] listChecklistItems failed:', error.message);
     return [];
@@ -65,66 +68,27 @@ export async function listChecklistItems(
   return (data ?? []) as ChecklistItemRow[];
 }
 
-// Sections (other than currentSectionId) where this teacher has a
-// subject_teacher assignment AND topics already exist for the given
-// (term, subject). Drives the "Copy topics from another section"
-// button on the Checklists tab.
+// Topics are now admin-prescribed via the SOW builder (KD #107). The
+// teacher-owned "copy from another section" feature is removed. This stub
+// preserves the export so call sites that pass teacherCanEditTopics=false
+// can still reference the function without a compile error.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function getSectionsTeacherCanCopyFrom(
-  userId: string,
-  termId: string,
-  subjectId: string,
-  currentSectionId: string,
+  _userId: string,
+  _termId: string,
+  _subjectId: string,
+  _currentSectionId: string,
 ): Promise<Array<{ section_id: string; section_name: string; item_count: number }>> {
-  const service = createServiceClient();
-
-  // Step 1: all sections this teacher teaches for this subject (minus current).
-  const { data: assignments } = await service
-    .from('teacher_assignments')
-    .select('section_id, section:sections(id, name)')
-    .eq('teacher_user_id', userId)
-    .eq('subject_id', subjectId)
-    .eq('role', 'subject_teacher')
-    .neq('section_id', currentSectionId);
-
-  const candidates = ((assignments ?? []) as Array<{
-    section_id: string;
-    section: { id: string; name: string } | { id: string; name: string }[] | null;
-  }>).map((a) => ({
-    section_id: a.section_id,
-    name: (Array.isArray(a.section) ? a.section[0] : a.section)?.name ?? a.section_id,
-  }));
-
-  if (candidates.length === 0) return [];
-
-  // Step 2: count items per candidate for this (term, subject).
-  // N+1 by design — bounded by sections-per-teacher-per-subject (≤5 in
-  // practice). Worth a single round-trip optimization only if scale shifts.
-  const results: Array<{ section_id: string; section_name: string; item_count: number }> = [];
-  for (const c of candidates) {
-    const { count } = await service
-      .from('evaluation_checklist_items')
-      .select('id', { count: 'exact', head: true })
-      .eq('term_id', termId)
-      .eq('subject_id', subjectId)
-      .eq('section_id', c.section_id);
-    if ((count ?? 0) > 0) {
-      results.push({
-        section_id: c.section_id,
-        section_name: c.name,
-        item_count: count ?? 0,
-      });
-    }
-  }
-  return results;
+  return [];
 }
 
 // Decorates each checklist item with the creator's display name (or
-// email fallback). Used by /sis/admin/evaluation-checklists' read-only
-// audit view to show "Created by Mr. James · 13 May 2026".
+// email fallback). Used by admin audit surfaces.
 export async function listChecklistItemsWithCreator(
   termId: string,
   subjectId: string,
-  sectionId: string,
+  levelId: string,
+  curriculumTrack: string,
 ): Promise<
   Array<
     ChecklistItemRow & {
@@ -137,11 +101,12 @@ export async function listChecklistItemsWithCreator(
   const { data } = await service
     .from('evaluation_checklist_items')
     .select(
-      'id, term_id, subject_id, section_id, item_text, sort_order, created_by, created_at',
+      'id, term_id, subject_id, level_id, curriculum_track, item_text, sort_order, created_by, created_at',
     )
     .eq('term_id', termId)
     .eq('subject_id', subjectId)
-    .eq('section_id', sectionId)
+    .eq('level_id', levelId)
+    .eq('curriculum_track', curriculumTrack)
     .order('sort_order', { ascending: true });
 
   const rows = (data ?? []) as Array<

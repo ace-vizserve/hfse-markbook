@@ -154,6 +154,19 @@ export function SubjectConfigEditDialog({
               </div>
             </FieldRow>
 
+            {/* Slot-reduction warning — fires when the user lowers WW or PT count
+                below the current saved value. Grading sheets will be trimmed and
+                any Scheme of Work labels beyond the new limit stop appearing. */}
+            {(Number(wwSlots) < draft.ww_max_slots || Number(ptSlots) < draft.pt_max_slots) && (
+              <div className="flex items-start gap-2 rounded-md border border-brand-amber/40 bg-brand-amber/5 p-3 text-[12px] text-foreground">
+                <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-brand-amber" />
+                <span>
+                  Lowering slot count will trim existing unlocked grading sheets — scores in removed slots will be lost.
+                  If a Scheme of Work has been published for this subject, activity labels beyond the new limit won't appear on future grading sheets.
+                </span>
+              </div>
+            )}
+
             {/* QA max row — single input, label-left input-right. */}
             <FieldRow
               eyebrow="QA max score"

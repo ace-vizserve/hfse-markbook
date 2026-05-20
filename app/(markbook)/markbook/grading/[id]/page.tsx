@@ -30,6 +30,7 @@ import { ScoreEntryGrid } from '@/components/grading/score-entry-grid';
 import { LockToggle } from '@/components/grading/lock-toggle';
 import { TotalsEditor } from '@/components/grading/totals-editor';
 import { listApproversForFlow } from '@/lib/sis/approvers/queries';
+import { sowExistsForSection } from '@/lib/sis/sow/queries';
 import { RequestEditButton } from './request-edit-button';
 
 /**
@@ -49,8 +50,8 @@ function fieldLabelForChangeRequest(
   return 'N/A flag';
 }
 
-type Level = { code: string; label: string };
-type Section = { id: string; name: string; level: Level | Level[] | null };
+type Level = { id: string; code: string; label: string };
+type Section = { id: string; name: string; curriculum_track: string; level: Level | Level[] | null };
 type Subject = { id: string; code: string; name: string; is_examinable: boolean };
 type Term = { id: string; term_number: number; label: string };
 type SubjectConfig = {
@@ -109,7 +110,7 @@ export default async function GradingSheetPage({
       `id, teacher_name, is_locked, locked_at, locked_by, ww_totals, pt_totals, qa_total, slot_labels,
        term:terms(id, term_number, label),
        subject:subjects(id, code, name, is_examinable),
-       section:sections(id, name, level:levels(code, label)),
+       section:sections(id, name, curriculum_track, level:levels(id, code, label)),
        subject_config:subject_configs(ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots)`,
     )
     .eq('id', id)
@@ -190,6 +191,14 @@ export default async function GradingSheetPage({
   const term = first(sheet.term as Term | Term[] | null);
   const config = first(sheet.subject_config as SubjectConfig | SubjectConfig[] | null);
   const isExaminable = subject?.is_examinable !== false;
+
+  // Check if this sheet has a SOW class instance (determines whether labels are
+  // SOW-sourced read-only or teacher-editable). Runs only when section + subject + term are known.
+  const sowCheck =
+    section?.id && subject?.id && term?.id
+      ? await sowExistsForSection(section.id, subject.id, term.id)
+      : { exists: false, version: null };
+  const sowSourced = sowCheck.exists;
 
   // Teacher assignment gate — already fetched concurrently above.
   const isAssignedTeacher =
@@ -546,6 +555,8 @@ export default async function GradingSheetPage({
         slotLabels={sheet.slot_labels as { ww?: ({ label?: string | null; date?: string | null; page?: string | null } | null)[]; pt?: ({ label?: string | null; date?: string | null; page?: string | null } | null)[]; qa?: string | null } | null ?? undefined}
         canEditLabels={isAssignedTeacher || canManage}
         letterDisplay={!isExaminable}
+        sowSourced={sowSourced}
+        sowVersion={sowCheck.version?.version_number ?? null}
       />
 
     </PageShell>

@@ -111,7 +111,10 @@ export type AuditAction =
   | 'grade_entry.annual_letter.update'
   | 'user.login'
   | 'parent.session.issued'
-  | 'parent.session.cleared';
+  | 'parent.session.cleared'
+  | 'sow.master.upsert'
+  | 'sow.version.publish'
+  | 'sow.instance.apply';
 
 export type AuditEntityType =
   | 'grading_sheet'
@@ -146,7 +149,10 @@ export type AuditEntityType =
   | 'evaluation_checklist_item'
   | 'evaluation_checklist_response'
   | 'evaluation_subject_comment'
-  | 'evaluation_ptc_feedback';
+  | 'evaluation_ptc_feedback'
+  | 'sow_master_template'
+  | 'sow_published_version'
+  | 'sow_class_instance';
 
 type LogActionParams = {
   service: SupabaseClient;

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
-export function HubClassAssignmentCallout({ count }: { count: number }) {
+export function HubClassAssignmentCallout({ count, ayLabel }: { count: number; ayLabel?: string }) {
   if (count === 0) return null;
 
   return (
@@ -12,6 +12,7 @@ export function HubClassAssignmentCallout({ count }: { count: number }) {
       <AlertTriangle className="size-4" />
       <AlertTitle>
         {count} enrolled {count === 1 ? 'student' : 'students'} without a section
+        {ayLabel ? <span className="font-normal text-muted-foreground"> · {ayLabel}</span> : null}
       </AlertTitle>
       <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
         <span>
