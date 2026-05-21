@@ -104,8 +104,7 @@ async function checkSections(db: SupabaseClient, ayId: string): Promise<Readines
     .from("sections")
     .select("id")
     .eq("academic_year_id", ayId)
-    .not("level_id", "is", null)
-    .not("curriculum_track", "is", null);
+    .not("level_id", "is", null);
 
   if (!sectionIds || sectionIds.length === 0) {
     return { ...base, status: "not_started", description: "No sections created for this AY" };
