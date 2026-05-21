@@ -3,11 +3,14 @@ import { cookies } from 'next/headers';
 import { getSessionUser } from '@/lib/supabase/server';
 import { ModuleSidebar } from '@/components/module-sidebar';
 import { AyBanner } from '@/components/sis/ay-banner';
+import { AyReadinessPill } from '@/components/sis/ay-readiness-pill';
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
+import { getCurrentAcademicYear } from '@/lib/academic-year';
+import { getAyReadiness } from '@/lib/sis/readiness';
 
 export default async function SisLayout({ children }: { children: React.ReactNode }) {
   const sessionUser = await getSessionUser();
@@ -23,6 +26,12 @@ export default async function SisLayout({ children }: { children: React.ReactNod
   const cookieStore = await cookies();
   const defaultOpen = cookieStore.get('sidebar:state')?.value !== 'false';
 
+  const currentAy = await getCurrentAcademicYear();
+  const readiness =
+    (role === 'school_admin' || role === 'superadmin') && currentAy
+      ? await getAyReadiness(currentAy.ay_code)
+      : null;
+
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
       <ModuleSidebar module="sis" role={role} email={email} userId={id} />
@@ -35,6 +44,7 @@ export default async function SisLayout({ children }: { children: React.ReactNod
           {children}
         </div>
       </SidebarInset>
+      {readiness && <AyReadinessPill readiness={readiness} role={role} />}
     </SidebarProvider>
   );
 }
