@@ -17,6 +17,7 @@ Admins setting up a new academic year have no in-product signal for which setup 
 |----------|--------|
 | Trigger style | Bottom-right pill (progress bar + fraction text) |
 | Appears on | All `/sis/*` pages |
+| Visible to | `school_admin` and `superadmin` only — registrar and below never see the pill or dialog |
 | Visibility logic | Completion-driven: appears when any step incomplete, auto-hides when all 5 done. No dismiss. |
 | Step count | 5 (AY Setup, Calendar, SOW, Sections, Grading Sheets) |
 | SOW display | Progress fraction throughout (gray 0%, yellow partial, green 100%) — done only at 100% coverage |
@@ -31,13 +32,23 @@ Admins setting up a new academic year have no in-product signal for which setup 
 | Step | Done when |
 |------|-----------|
 | **1 · AY Setup** | `academic_years` row for current AY has `start_date IS NOT NULL AND end_date IS NOT NULL` + ≥1 `terms` row linked to that AY |
-| **2 · School Calendar** | ≥1 `school_calendar` row exists whose `term_id` belongs to the current AY |
-| **3 · Scheme of Work** | Every `sow_master_templates` row for this AY has at least one `sow_published_versions` row. Fraction = published / total templates. |
+| **2 · School Calendar** | Every term in the AY has ≥1 `school_calendar` row: `COUNT(DISTINCT term_id) FROM school_calendar WHERE term_id IN (SELECT id FROM terms WHERE academic_year_id = $ayId)` equals the total term count. One orphaned term = not done. |
+| **3 · Scheme of Work** | 100% of the *required* `(subject_id, level_id, curriculum_track)` combinations (derived from `template_subject_configs JOIN template_sections`) have a published version for this AY. Fraction shown throughout. |
 | **4 · Sections** | ≥1 `sections` row for this AY with `level_id IS NOT NULL`, `curriculum_track IS NOT NULL`, and a `teacher_assignments` row with `role='form_adviser'` for that section |
-| **5 · Grading Sheets** | ≥1 `grading_sheets` row for any section belonging to this AY |
+| **5 · Grading Sheets** | All sections for this AY have ≥1 `grading_sheets` row. Coverage fraction shown throughout (same color logic as SOW). |
 
-SOW fraction denominator: `COUNT(*) FROM sow_master_templates WHERE ay_id = $ayId`.  
-SOW fraction numerator: `COUNT(DISTINCT master_id) FROM sow_published_versions pv JOIN sow_master_templates mt ON mt.id = pv.master_id WHERE mt.ay_id = $ayId`.
+**SOW denominator (required set):**  
+`SELECT COUNT(DISTINCT (tsc.subject_id, ts.level_id, ts.curriculum_track)) FROM template_subject_configs tsc JOIN template_sections ts ON ts.id = tsc.template_section_id WHERE ts.curriculum_track IS NOT NULL`  
+This is AY-independent and represents the school's full expected curriculum scope — it does not shift as Chandana drafts or deletes master templates.
+
+**SOW numerator (published set):**  
+`SELECT COUNT(DISTINCT (mt.subject_id, mt.level_id, mt.curriculum_track)) FROM sow_master_templates mt JOIN sow_published_versions pv ON pv.master_id = mt.id WHERE mt.ay_id = $ayId`  
+Done = numerator equals denominator AND denominator > 0. Partial = numerator > 0. Not started = 0.
+
+**Grading Sheets fraction:**  
+`total` = `COUNT(*) FROM sections WHERE academic_year_id = $ayId`  
+`done` = `COUNT(DISTINCT section_id) FROM grading_sheets WHERE section_id IN (SELECT id FROM sections WHERE academic_year_id = $ayId)`  
+Done = done equals total AND total > 0.
 
 ---
 
@@ -55,7 +66,7 @@ type ReadinessStep = {
   description: string    // subtext in the dialog row
   href: string           // "Open →" destination
   status: 'done' | 'partial' | 'not_started'
-  fraction?: { done: number; total: number }  // SOW only
+  fraction?: { done: number; total: number }  // SOW + Grading Sheets
 }
 
 type AyReadiness = {
@@ -70,8 +81,9 @@ type AyReadiness = {
 
 ### `components/sis/ay-readiness-pill.tsx` — client component
 
-Props: `readiness: AyReadiness`
+Props: `readiness: AyReadiness, role: Role`
 
+- Returns `null` when `role !== 'school_admin' && role !== 'superadmin'` (admin-only).
 - Returns `null` when `readiness.complete === readiness.total` (auto-hide).
 - Position: `fixed bottom-6 right-6 z-50`.
 - Visual: white card, indigo→navy gradient icon tile (matches hub AdminCard icon style), progress bar fills left-to-right, subtext "X of 5 complete".
@@ -86,11 +98,11 @@ Renders inside a `<DialogContent>`:
 - Subtitle: `"Steps can be completed in any order."`
 - 5 step rows, each: status icon + label + description + "Open →" link.
   - Done: green check circle, `bg-mint/10 border-mint/30`.
-  - Partial (SOW): yellow `~` circle, amber tint, inline progress bar + `"N/M covered"` fraction in amber.
+  - Partial: yellow `~` circle, amber tint, inline progress bar + fraction in amber. Applies to SOW and Grading Sheets.
   - Not started: muted number circle, neutral border.
 - Footer: `"X of 5 complete · Steps can be completed in any order"`.
 
-SOW row has its own inline `<progress>`-style bar between label and description — same color logic (gray 0%, amber partial, green 100%).
+SOW and Grading Sheets rows each render an inline `<progress>`-style bar between label and description — color logic: gray at 0%, amber when partial, green at 100%.
 
 ### SIS Admin layout (`app/(sis)/sis/layout.tsx`)
 
@@ -143,6 +155,6 @@ After:
 ## Out of scope
 
 - Push notifications or email when setup is incomplete.
-- Per-user or per-section grading sheet completion tracking (AY-wide binary signal is sufficient for v1).
+- Per-subject or per-term grading sheet breakdown (section-level coverage fraction is sufficient for v1).
 - The pill appearing in non-SIS modules (Markbook, Attendance, etc.).
 - Wizard mode that forces step-by-step flow — readiness indicator only, no gating.
