@@ -2,19 +2,38 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Circle, Clock } from "lucide-react";
+import {
+  CalendarCog,
+  CalendarDays,
+  CheckCircle2,
+  ChevronUp,
+  ClipboardCheck,
+  LayoutGrid,
+  Minus,
+  TableProperties,
+  type LucideIcon,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Role } from "@/lib/auth/roles";
-import type { AyReadiness, ReadinessStep } from "@/lib/sis/readiness";
+import type { AyReadiness, ReadinessStep, ReadinessStepId } from "@/lib/sis/readiness";
 
 type Props = {
   readiness: AyReadiness;
   role: Role | null;
+};
+
+const STEP_ICONS: Record<ReadinessStepId, LucideIcon> = {
+  "ay-setup": CalendarCog,
+  calendar: CalendarDays,
+  sections: LayoutGrid,
+  "grading-sheets": TableProperties,
 };
 
 export function AyReadinessPill({ readiness, role }: Props) {
@@ -27,55 +46,81 @@ export function AyReadinessPill({ readiness, role }: Props) {
 
   return (
     <>
+      {/* ── Floating trigger ──────────────────────────────────────────── */}
       <button
+        type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-full border border-border bg-background px-4 py-2 shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-indigo"
-        aria-label="Open AY setup readiness"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-indigo/40"
+        aria-label="Open year setup readiness"
       >
-        <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-indigo to-brand-navy shadow-brand-tile">
-          <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
+          <ClipboardCheck className="size-4" />
         </div>
+
         <div className="text-left">
-          <p className="text-[11px] font-semibold leading-tight text-foreground">
-            {readiness.ayCode} readiness
+          <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Year Setup · {readiness.ayCode}
           </p>
-          <div className="mt-1 h-1 w-32 overflow-hidden rounded-full bg-muted">
+          <p className="mt-0.5 font-serif text-sm font-semibold leading-tight text-foreground">
+            {readiness.complete}{" "}
+            <span className="font-sans text-[13px] font-normal text-muted-foreground">
+              of {readiness.total} complete
+            </span>
+          </p>
+          <div className="mt-1.5 h-1 w-28 overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-brand-indigo to-brand-mint transition-all"
+              className="h-full rounded-full bg-gradient-to-r from-brand-indigo to-brand-mint transition-all duration-500"
               style={{ width: `${pct}%` }}
             />
           </div>
-          <p className="mt-0.5 text-[10px] text-muted-foreground">
-            {readiness.complete} of 4 complete
-          </p>
         </div>
+
+        <ChevronUp className="size-4 shrink-0 text-muted-foreground" />
       </button>
 
+      {/* ── Dialog ────────────────────────────────────────────────────── */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              SIS Admin · {readiness.ayCode}
-            </p>
-            <DialogTitle className="font-serif text-xl font-semibold tracking-tight">
-              Year Setup Readiness
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground">
-              Steps can be completed in any order.
-            </p>
-          </DialogHeader>
-
-          <div className="flex flex-col gap-2 py-2">
-            {readiness.steps.map((step) => (
-              <ReadinessRow key={step.id} step={step} onNavigate={() => setOpen(false)} />
-            ))}
+        <DialogContent className="max-w-lg gap-0 p-0">
+          {/* Header */}
+          <div className="border-b border-hairline bg-gradient-to-b from-primary/5 to-card px-6 pb-5 pt-6">
+            <DialogHeader className="gap-1.5">
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                SIS Admin · {readiness.ayCode}
+              </p>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <DialogTitle className="font-serif text-xl font-semibold leading-tight tracking-tight text-foreground">
+                  Year Setup Readiness
+                </DialogTitle>
+                <Badge
+                  variant={readiness.complete === readiness.total ? "success" : "warning"}
+                  className="h-6">
+                  {readiness.complete} / {readiness.total}
+                </Badge>
+              </div>
+              <p className="text-[13px] text-muted-foreground">Steps can be completed in any order.</p>
+            </DialogHeader>
           </div>
 
-          <div className="flex items-center justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
-            <span className="font-semibold">
-              {readiness.complete} of 4 complete
+          {/* Step rows */}
+          <ScrollArea className="max-h-[60vh]">
+            <div className="space-y-2 p-4">
+              {readiness.steps.map((step) => (
+                <ReadinessRow
+                  key={step.id}
+                  step={step}
+                  icon={STEP_ICONS[step.id]}
+                  onNavigate={() => setOpen(false)}
+                />
+              ))}
+            </div>
+          </ScrollArea>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between border-t border-hairline bg-muted/30 px-6 py-3">
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              {readiness.complete} of {readiness.total} steps complete
             </span>
-            <span>Steps can be completed in any order</span>
+            <span className="text-[11px] text-muted-foreground">Steps can be completed in any order</span>
           </div>
         </DialogContent>
       </Dialog>
@@ -85,68 +130,102 @@ export function AyReadinessPill({ readiness, role }: Props) {
 
 function ReadinessRow({
   step,
+  icon: Icon,
   onNavigate,
 }: {
   step: ReadinessStep;
+  icon: LucideIcon;
   onNavigate: () => void;
 }) {
   const isDone = step.status === "done";
   const isPartial = step.status === "partial";
 
-  const rowBg = isDone
-    ? "bg-brand-mint/10 border-brand-mint/30"
+  const tileClass = isDone
+    ? "bg-gradient-to-br from-brand-mint to-brand-sky shadow-brand-tile-mint"
     : isPartial
-      ? "bg-brand-amber/10 border-brand-amber/30"
-      : "bg-background border-border";
-
-  const iconEl = isDone ? (
-    <CheckCircle2 className="h-5 w-5 text-brand-mint" />
-  ) : isPartial ? (
-    <Clock className="h-5 w-5 text-brand-amber" />
-  ) : (
-    <Circle className="h-5 w-5 text-muted-foreground/40" />
-  );
+      ? "bg-gradient-to-br from-brand-amber to-brand-amber/80 shadow-brand-tile-amber"
+      : "border border-hairline bg-muted/60";
 
   const pct =
     step.fraction && step.fraction.total > 0
       ? Math.round((step.fraction.done / step.fraction.total) * 100)
       : 0;
 
-  const barColor = isDone
-    ? "bg-brand-mint"
-    : isPartial
-      ? "bg-brand-amber"
-      : "bg-muted";
-
   return (
-    <div className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 ${rowBg}`}>
-      <div className="mt-0.5 flex-shrink-0">{iconEl}</div>
-      <div className="min-w-0 flex-1">
-        <p className={`text-sm font-semibold ${isDone || isPartial ? "text-foreground" : "text-muted-foreground"}`}>
-          {step.label}
-        </p>
-        {step.fraction && step.fraction.total > 0 && (
-          <div className="mt-1.5 flex items-center gap-2">
-            <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
-              <div
-                className={`h-full rounded-full transition-all ${barColor}`}
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-            <span className={`flex-shrink-0 font-mono text-[10px] font-semibold ${isDone ? "text-brand-mint" : isPartial ? "text-brand-amber" : "text-muted-foreground"}`}>
-              {step.fraction.done}/{step.fraction.total}
+    <div className="rounded-xl border border-hairline bg-card p-3.5 ring-1 ring-inset ring-border/40">
+      <div className="flex items-start gap-3">
+        {/* Status icon tile */}
+        <div className={`flex size-9 shrink-0 items-center justify-center rounded-xl ${tileClass}`}>
+          {isDone ? (
+            <CheckCircle2 className="size-4 text-white" />
+          ) : isPartial ? (
+            <Icon className="size-4 text-white" />
+          ) : (
+            <span className="font-mono text-[11px] font-bold text-muted-foreground">
+              {String(step.step).padStart(2, "0")}
             </span>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Step {step.step}
+          </p>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <p className="font-serif text-[15px] font-semibold leading-tight tracking-tight text-foreground">
+              {step.label}
+            </p>
+            <Badge
+              variant={isDone ? "success" : isPartial ? "warning" : "secondary"}
+              className="h-5">
+              {isDone ? (
+                <>
+                  <CheckCircle2 />
+                  Done
+                </>
+              ) : isPartial ? (
+                <>
+                  <Minus />
+                  In progress
+                </>
+              ) : (
+                "Not started"
+              )}
+            </Badge>
           </div>
-        )}
-        <p className="mt-0.5 text-[11px] text-muted-foreground">{step.description}</p>
+
+          {/* Fraction progress bar — only for steps that track coverage */}
+          {step.fraction && step.fraction.total > 0 && (
+            <div className="flex items-center gap-2 pt-0.5">
+              <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    isDone ? "bg-brand-mint" : isPartial ? "bg-brand-amber" : "bg-muted-foreground/30"
+                  }`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <span
+                className={`shrink-0 font-mono text-[10px] font-semibold ${
+                  isDone ? "text-brand-mint" : isPartial ? "text-brand-amber" : "text-muted-foreground"
+                }`}>
+                {step.fraction.done}/{step.fraction.total}
+              </span>
+            </div>
+          )}
+
+          <p className="text-[11px] leading-relaxed text-muted-foreground">{step.description}</p>
+        </div>
+
+        {/* Open action */}
+        <Link
+          href={step.href}
+          onClick={onNavigate}
+          className="mt-0.5 shrink-0 rounded-md border border-hairline bg-background px-2.5 py-1 text-[11px] font-medium text-foreground shadow-input transition-colors hover:bg-muted">
+          Open →
+        </Link>
       </div>
-      <Link
-        href={step.href}
-        onClick={onNavigate}
-        className="mt-0.5 flex-shrink-0 text-[11px] font-medium text-brand-indigo hover:underline"
-      >
-        Open →
-      </Link>
     </div>
   );
 }
