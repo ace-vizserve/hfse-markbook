@@ -103,18 +103,20 @@ export default async function EvaluationSectionsPickerPage({
   // (form_adviser OR subject_teacher); registrar+ sees the whole AY.
   const { data: allSections } = await supabase
     .from('sections')
-    .select('id, name, level:levels(id, code, label, level_type)')
+    .select('id, name, curriculum_track, level:levels(id, code, label, level_type)')
     .eq('academic_year_id', ay.id);
 
-  let sections: Array<{ id: string; name: string; level: LevelLite | null }> = (
+  let sections: Array<{ id: string; name: string; curriculumTrack: string; level: LevelLite | null }> = (
     (allSections ?? []) as Array<{
       id: string;
       name: string;
+      curriculum_track: string | null;
       level: LevelLite | LevelLite[] | null;
     }>
   ).map((s) => ({
     id: s.id,
     name: s.name,
+    curriculumTrack: s.curriculum_track ?? 'singapore_inspired',
     level: Array.isArray(s.level) ? s.level[0] ?? null : s.level,
   }));
 
@@ -132,12 +134,17 @@ export default async function EvaluationSectionsPickerPage({
   }
 
   const sectionIds = sections.map((s) => s.id);
+  const sectionsForTopicCount = sections.map((s) => ({
+    id: s.id,
+    levelId: s.level?.id ?? '',
+    curriculumTrack: s.curriculumTrack,
+  }));
 
   // Write-up progress + checklist topic counts fetched in parallel.
   const [progress, checklistTopics] = selectedTerm
     ? await Promise.all([
         getWriteupProgressByTerm(selectedTerm.id, sectionIds),
-        getChecklistTopicCountByTerm(selectedTerm.id, sectionIds),
+        getChecklistTopicCountByTerm(selectedTerm.id, sectionsForTopicCount),
       ])
     : [{} as Record<string, { active_count: number; submitted_count: number }>, {} as Record<string, number>];
 

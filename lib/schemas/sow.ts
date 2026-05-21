@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { SowSlotDescriptorSchema } from './grading-sheet';
+import { CURRICULUM_TRACKS, type CurriculumTrack } from './section';
 
-export const CURRICULUM_TRACKS = ['cambridge', 'o_level', 'singapore_inspired'] as const;
-export type CurriculumTrack = typeof CURRICULUM_TRACKS[number];
+// Re-export so existing consumers of '@/lib/schemas/sow' keep working.
+export { CURRICULUM_TRACKS, type CurriculumTrack };
 
 export const CurriculumTrackSchema = z.enum(CURRICULUM_TRACKS);
 
