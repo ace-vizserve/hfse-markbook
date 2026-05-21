@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Surface the 5-step AY setup sequence (AY Setup → School Calendar → SOW → Sections → Grading Sheets) as a floating readiness pill on all `/sis/*` pages, add numbered hub cards, and add numbered sidebar items — so school_admin and superadmin always know what's complete and what's left.
+**Goal:** Surface the 4-step AY setup sequence (AY Setup → School Calendar → Sections → Grading Sheets) as a floating readiness pill on all `/sis/*` pages, add numbered hub cards, and add numbered sidebar items — so school_admin and superadmin always know what's complete and what's left. SOW is external; the readiness indicator does not track SOW authoring.
 
-**Architecture:** A new `lib/sis/readiness.ts` server lib computes completion state for all 5 steps via 5 parallel Supabase queries, cached under the existing `sis:${ayCode}` tag. The result is fetched in `app/(sis)/layout.tsx` and passed as a prop to a client-side `<AyReadinessPill>` component that floats bottom-right and opens a dialog on click. The hub page gains a "Year Setup" section with 5 numbered `AdminCard`s; the sidebar gains a "Year Setup" nav group with numbered step items.
+**Architecture:** A new `lib/sis/readiness.ts` server lib computes completion state for all 4 steps via 4 parallel Supabase queries, cached under the existing `sis:${ayCode}` tag. The result is fetched in `app/(sis)/layout.tsx` and passed as a prop to a client-side `<AyReadinessPill>` component that floats bottom-right and opens a dialog on click. The hub page gains a "Year Setup" section with 4 numbered `AdminCard`s; the sidebar gains a "Year Setup" nav group with numbered step items.
 
 **Tech Stack:** Next.js 15 App Router (server components + client components), Supabase service client, shadcn `Dialog`, Tailwind v4 tokens (`brand-indigo`, `brand-mint`, `brand-amber`), `unstable_cache`.
 
@@ -41,7 +41,6 @@ import { createServiceClient } from "@/lib/supabase/service";
 export type ReadinessStepId =
   | "ay-setup"
   | "calendar"
-  | "sow"
   | "sections"
   | "grading-sheets";
 
@@ -59,7 +58,7 @@ export type AyReadiness = {
   ayCode: string;
   steps: ReadinessStep[];
   complete: number;
-  total: 5;
+  total: 4;
 };
 ```
 
@@ -136,65 +135,10 @@ async function checkCalendar(db: SupabaseClient, ayId: string): Promise<Readines
   };
 }
 
-async function checkSow(db: SupabaseClient, ayId: string): Promise<ReadinessStep> {
-  const base: Omit<ReadinessStep, "status" | "description" | "fraction"> = {
-    id: "sow",
-    step: 3,
-    label: "Scheme of Work",
-    href: "/sis/admin/sow",
-  };
-
-  // Denominator: distinct (subject_id, level_id, curriculum_track) from master template
-  // template_sections.curriculum_track is NOT NULL DEFAULT — no null filter needed
-  const { data: templateRows } = await db
-    .from("template_subject_configs")
-    .select("subject_id, template_sections!inner(level_id, curriculum_track)");
-
-  const requiredSet = new Set(
-    (templateRows ?? []).map((r) => {
-      const ts = r.template_sections as { level_id: string; curriculum_track: string };
-      return `${r.subject_id}:${ts.level_id}:${ts.curriculum_track}`;
-    }),
-  );
-  const required = requiredSet.size;
-
-  if (required === 0) {
-    return {
-      ...base,
-      status: "not_started",
-      description: "No curriculum template defined yet",
-      fraction: { done: 0, total: 0 },
-    };
-  }
-
-  // Numerator: distinct published (subject_id, level_id, curriculum_track) for this AY
-  const { data: publishedRows } = await db
-    .from("sow_master_templates")
-    .select("subject_id, level_id, curriculum_track, sow_published_versions!inner(id)")
-    .eq("ay_id", ayId);
-
-  const publishedSet = new Set(
-    (publishedRows ?? []).map((r) => `${r.subject_id}:${r.level_id}:${r.curriculum_track}`),
-  );
-  const published = publishedSet.size;
-
-  const done = published === required;
-  const status = done ? "done" : published > 0 ? "partial" : "not_started";
-
-  return {
-    ...base,
-    status,
-    description: done
-      ? "Full SOW coverage published"
-      : `${published} of ${required} subject × level × track combinations published`,
-    fraction: { done: published, total: required },
-  };
-}
-
 async function checkSections(db: SupabaseClient, ayId: string): Promise<ReadinessStep> {
   const base: Omit<ReadinessStep, "status" | "description"> = {
     id: "sections",
-    step: 4,
+    step: 3,
     label: "Sections",
     href: "/sis/sections",
   };
@@ -232,7 +176,7 @@ async function checkSections(db: SupabaseClient, ayId: string): Promise<Readines
 async function checkGradingSheets(db: SupabaseClient, ayId: string): Promise<ReadinessStep> {
   const base: Omit<ReadinessStep, "status" | "description" | "fraction"> = {
     id: "grading-sheets",
-    step: 5,
+    step: 4,
     label: "Grading Sheets",
     href: "/markbook/sections",
   };
@@ -283,11 +227,10 @@ function buildAllNotStarted(ayCode: string): AyReadiness {
   const steps: ReadinessStep[] = [
     { id: "ay-setup", step: 1, label: "AY Setup", href: "/sis/ay-setup", status: "not_started", description: "Create the academic year and define term dates" },
     { id: "calendar", step: 2, label: "School Calendar", href: "/sis/calendar", status: "not_started", description: "Generate school days for all terms" },
-    { id: "sow", step: 3, label: "Scheme of Work", href: "/sis/admin/sow", status: "not_started", description: "Publish SOW for each subject × level × track combination", fraction: { done: 0, total: 0 } },
-    { id: "sections", step: 4, label: "Sections", href: "/sis/sections", status: "not_started", description: "Create sections and assign form advisers" },
-    { id: "grading-sheets", step: 5, label: "Grading Sheets", href: "/markbook/sections", status: "not_started", description: "Bulk-create grading sheets in Markbook → Sections", fraction: { done: 0, total: 0 } },
+    { id: "sections", step: 3, label: "Sections", href: "/sis/sections", status: "not_started", description: "Create sections and assign form advisers" },
+    { id: "grading-sheets", step: 4, label: "Grading Sheets", href: "/markbook/sections", status: "not_started", description: "Bulk-create grading sheets in Markbook → Sections", fraction: { done: 0, total: 0 } },
   ];
-  return { ayCode, steps, complete: 0, total: 5 };
+  return { ayCode, steps, complete: 0, total: 4 };
 }
 
 async function getAyReadinessUncached(ayCode: string): Promise<AyReadiness> {
@@ -301,17 +244,16 @@ async function getAyReadinessUncached(ayCode: string): Promise<AyReadiness> {
 
   if (!ay) return buildAllNotStarted(ayCode);
 
-  const [step1, step2, step3, step4, step5] = await Promise.all([
+  const [step1, step2, step3, step4] = await Promise.all([
     checkAySetup(db, ay.id),
     checkCalendar(db, ay.id),
-    checkSow(db, ay.id),
     checkSections(db, ay.id),
     checkGradingSheets(db, ay.id),
   ]);
 
-  const steps = [step1, step2, step3, step4, step5];
+  const steps = [step1, step2, step3, step4];
   const complete = steps.filter((s) => s.status === "done").length;
-  return { ayCode, steps, complete, total: 5 };
+  return { ayCode, steps, complete, total: 4 };
 }
 
 export const getAyReadiness = (ayCode: string) =>
@@ -379,20 +321,20 @@ const SIS_NAV: NavSection[] = [
   {
     label: "Year Setup",
     items: [
-      { step: 1, href: "/sis/ay-setup",     label: "AY Setup",          requiresRoles: ["school_admin", "superadmin"] },
-      { step: 2, href: "/sis/calendar",     label: "School Calendar",   requiresRoles: ["school_admin", "superadmin"] },
-      { step: 3, href: "/sis/admin/sow",    label: "Scheme of Work",    requiresRoles: ["school_admin", "superadmin"] },
-      { step: 4, href: "/sis/sections",     label: "Sections",          requiresRoles: ["school_admin", "superadmin"] },
-      { step: 5, href: "/markbook/sections",label: "Grading Sheets",    requiresRoles: ["school_admin", "superadmin"] },
+      { step: 1, href: "/sis/ay-setup",      label: "AY Setup",        requiresRoles: ["school_admin", "superadmin"] },
+      { step: 2, href: "/sis/calendar",      label: "School Calendar", requiresRoles: ["school_admin", "superadmin"] },
+      { step: 3, href: "/sis/sections",      label: "Sections",        requiresRoles: ["school_admin", "superadmin"] },
+      { step: 4, href: "/markbook/sections", label: "Grading Sheets",  requiresRoles: ["school_admin", "superadmin"] },
     ],
   },
   {
     label: "Organisation",
     items: [
-      { href: "/sis/admin/discount-codes", label: "Discount Codes",    requiresRoles: ["registrar", "school_admin", "superadmin"] },
-      { href: "/sis/admin/subjects",       label: "Subject Weights",   requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/admin/template",       label: "Class Template",    requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/sync-students",        label: "Sync from Admissions", requiresRoles: ["registrar", "school_admin", "superadmin"] },
+      { href: "/sis/admin/sow",            label: "Scheme of Work",      requiresRoles: ["school_admin", "superadmin"] },
+      { href: "/sis/admin/discount-codes", label: "Discount Codes",      requiresRoles: ["registrar", "school_admin", "superadmin"] },
+      { href: "/sis/admin/subjects",       label: "Subject Weights",     requiresRoles: ["school_admin", "superadmin"] },
+      { href: "/sis/admin/template",       label: "Class Template",      requiresRoles: ["school_admin", "superadmin"] },
+      { href: "/sis/sync-students",        label: "Sync from Admissions",requiresRoles: ["registrar", "school_admin", "superadmin"] },
     ],
   },
   {
@@ -523,7 +465,7 @@ export function AyReadinessPill({ readiness, role }: Props) {
 
   // Admin-only: registrar and below never see this
   if (role !== "school_admin" && role !== "superadmin") return null;
-  // Auto-hide when all steps are done
+  // Auto-hide when all 4 steps are done
   if (readiness.complete === readiness.total) return null;
 
   const pct = Math.round((readiness.complete / readiness.total) * 100);
@@ -579,7 +521,7 @@ export function AyReadinessPill({ readiness, role }: Props) {
 
           <div className="flex items-center justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
             <span className="font-semibold">
-              {readiness.complete} of {readiness.total} complete
+              {readiness.complete} of 4 complete
             </span>
             <span>Steps can be completed in any order</span>
           </div>
@@ -829,7 +771,7 @@ Inside `<CardHeader>`, add the step number before `<CardDescription>`:
 Find the `{/* Academic Year — rolls over once a year */}` section block in `page.tsx`. Replace it entirely:
 
 ```tsx
-{/* Year Setup — the 5-step sequence for a new academic year. */}
+{/* Year Setup — the 4-step sequence for a new academic year. */}
 <section className="space-y-3">
   <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
     Year Setup
@@ -859,17 +801,6 @@ Find the `{/* Academic Year — rolls over once a year */}` section block in `pa
     />
     <AdminCard
       step={3}
-      href="/sis/admin/sow"
-      icon={BookOpenCheck}
-      eyebrow="Curriculum"
-      title="Scheme of Work"
-      description="Publish the curriculum scope for each subject, level, and curriculum track. Grading sheets and evaluation topic lists are built from the published SOW."
-      cta="Open SOW builder"
-      role={role}
-      allowedRoles={["school_admin", "superadmin"]}
-    />
-    <AdminCard
-      step={4}
       href="/sis/sections"
       icon={LayoutGrid}
       eyebrow="Organisation"
@@ -880,12 +811,12 @@ Find the `{/* Academic Year — rolls over once a year */}` section block in `pa
       allowedRoles={["school_admin", "superadmin"]}
     />
     <AdminCard
-      step={5}
+      step={4}
       href="/markbook/sections"
       icon={ClipboardList}
       eyebrow="Markbook"
       title="Grading Sheets"
-      description="Bulk-create grading sheets per section from Markbook → Sections. SOW labels and evaluation topics are applied automatically when a published SOW exists."
+      description="Bulk-create grading sheets per section from Markbook → Sections. Complete once sections are set up."
       cta="Open Markbook sections"
       role={role}
       allowedRoles={["registrar", "school_admin", "superadmin"]}
@@ -894,7 +825,7 @@ Find the `{/* Academic Year — rolls over once a year */}` section block in `pa
 </section>
 ```
 
-Note: `BookOpenCheck` and `ClipboardList` are already imported in the existing file. Verify the import list includes all icons used — if `ClipboardList` is not imported, add it to the lucide-react import.
+Note: `ClipboardList` may not be in the existing file's lucide-react import — add it if missing. `BookOpenCheck` is no longer needed (SOW card removed).
 
 - [ ] **Step 6.3: Remove Sections from the "Organisation" section**
 
@@ -928,16 +859,16 @@ npx next dev --turbo
 - [ ] **Step 7.2: Sign in as `school_admin` and navigate to `/sis`**
 
 Verify:
-- "Year Setup" section appears on the hub with 5 numbered cards (01–05)
+- "Year Setup" section appears on the hub with 4 numbered cards (01–04)
 - Grading Sheets card links to `/markbook/sections`
-- Sidebar shows "Year Setup" group with `01`–`05` prefixes on each item
+- Sidebar shows "Year Setup" group with `01`–`04` prefixes on each item
+- SOW appears in the "Organisation" sidebar group (no step number)
 - Floating pill appears bottom-right (visible if any step is incomplete)
 
 - [ ] **Step 7.3: Click the pill**
 
 Verify:
 - Dialog opens with correct title + subtitle
-- SOW row shows a progress bar and `N/M` fraction if templates exist
 - Grading Sheets row shows a progress bar and `N/M` fraction
 - Done steps show green check; partial show amber; not started show muted circle
 - "Open →" links navigate correctly and close the dialog
@@ -948,9 +879,9 @@ Verify:
 - Pill does NOT appear
 - Sidebar still shows the Year Setup group (registrar has access to the routes, just not the pill)
 
-- [ ] **Step 7.5: Complete all 5 steps in the test AY**
+- [ ] **Step 7.5: Complete all 4 steps in the test AY**
 
-Switch to AY9999 (test env). Verify that once all 5 steps are in "done" state, the pill auto-hides.
+Switch to AY9999 (test env). Verify that once all 4 steps are in "done" state, the pill auto-hides.
 
 - [ ] **Step 7.6: Final commit if any cleanup needed**
 
