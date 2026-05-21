@@ -12,9 +12,9 @@ type SubjectRow = { id: string; code: string; name: string };
 type LevelRow = { id: string; code: string; label: string };
 
 // SIS Admin — Scheme of Work Builder
-// school_admin and superadmin can create/edit/publish SOW master templates.
-// The builder drives evaluation topic lists and WW/PT activity labels across
-// all grading sheets in a given (AY × term × subject × level × track) scope.
+// school_admin and superadmin capture the approved SOW (evaluation topics and
+// WW/PT activity labels) per (AY × term × subject × level). Save & Apply
+// cascades these settings to all matching grading sheets and evaluation checklists.
 export default async function SowBuilderPage({
   searchParams,
 }: {
@@ -23,7 +23,6 @@ export default async function SowBuilderPage({
     term_id?: string;
     subject_id?: string;
     level_id?: string;
-    curriculum_track?: string;
   }>;
 }) {
   const sessionUser = await getSessionUser();
@@ -80,8 +79,7 @@ export default async function SowBuilderPage({
             </h1>
           </div>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            Define activity names and evaluation topics per scope. Publish a version to make it available to sections;
-            registrar applies it when creating grading sheets.
+            Capture the approved SOW — evaluation topics and activity labels — then apply it directly to all matching sections with one click.
           </p>
         </div>
       </header>
@@ -96,7 +94,6 @@ export default async function SowBuilderPage({
           term_id: sp.term_id,
           subject_id: sp.subject_id,
           level_id: sp.level_id,
-          curriculum_track: sp.curriculum_track as 'cambridge' | 'o_level' | 'singapore_inspired' | undefined,
         }}
       />
     </PageShell>
