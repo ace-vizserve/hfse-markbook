@@ -11,6 +11,7 @@ export type NavItem = {
   label: string;
   badgeKey?: SidebarBadgeKey;
   requiresRoles?: Role[];
+  step?: number;
 };
 export type NavSection = { label?: string; items: NavItem[] };
 
@@ -345,56 +346,40 @@ const EVALUATION_NAV: NavSection[] = [
 const SIS_NAV: NavSection[] = [
   { items: [{ href: "/sis", label: "Admin Hub" }] },
   {
-    label: "Academic Year",
+    // Numbered steps guide school_admin through the AY readiness sequence:
+    // 1 AY Setup → 2 School Calendar → 3 Sections → 4 Grading Sheets.
+    label: "Year Setup",
     items: [
-      { href: "/sis/ay-setup", label: "AY Setup", requiresRoles: ["school_admin", "superadmin"] },
-      {
-        href: "/sis/calendar",
-        label: "School Calendar",
-        requiresRoles: ["registrar", "school_admin", "superadmin"],
-      },
+      { step: 1, href: "/sis/ay-setup",      label: "AY Setup",        requiresRoles: ["school_admin", "superadmin"] },
+      { step: 2, href: "/sis/calendar",      label: "School Calendar", requiresRoles: ["school_admin", "superadmin"] },
+      { step: 3, href: "/sis/sections",      label: "Sections",        requiresRoles: ["school_admin", "superadmin"] },
+      { step: 4, href: "/markbook/sections", label: "Grading Sheets",  requiresRoles: ["school_admin", "superadmin"] },
     ],
   },
   {
     label: "Organisation",
     items: [
-      {
-        href: "/sis/sections",
-        label: "Sections",
-        requiresRoles: ["registrar", "school_admin", "superadmin"],
-      },
-      {
-        href: "/sis/admin/discount-codes",
-        label: "Discount Codes",
-        requiresRoles: ["registrar", "school_admin", "superadmin"],
-      },
-      { href: "/sis/admin/subjects", label: "Subject Weights", requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/admin/template", label: "Class Template", requiresRoles: ["school_admin", "superadmin"] },
-      {
-        href: "/sis/admin/sow",
-        label: "Scheme of Work",
-        requiresRoles: ["school_admin", "superadmin"],
-      },
-      {
-        href: "/sis/sync-students",
-        label: "Sync from Admissions",
-        requiresRoles: ["registrar", "school_admin", "superadmin"],
-      },
+      { href: "/sis/admin/sow",            label: "Scheme of Work",       requiresRoles: ["school_admin", "superadmin"] },
+      { href: "/sis/admin/discount-codes", label: "Discount Codes",       requiresRoles: ["registrar", "school_admin", "superadmin"] },
+      { href: "/sis/admin/subjects",       label: "Subject Weights",      requiresRoles: ["school_admin", "superadmin"] },
+      { href: "/sis/admin/template",       label: "Class Template",       requiresRoles: ["school_admin", "superadmin"] },
+      { href: "/sis/sync-students",        label: "Sync from Admissions", requiresRoles: ["registrar", "school_admin", "superadmin"] },
     ],
   },
   {
     label: "Access",
     items: [
       { href: "/sis/admin/approvers", label: "Approvers", requiresRoles: ["superadmin"] },
-      { href: "/sis/admin/users", label: "Users", requiresRoles: ["superadmin"] },
+      { href: "/sis/admin/users",     label: "Users",     requiresRoles: ["superadmin"] },
     ],
   },
   {
     label: "System",
     items: [
-      { href: "/sis/admin/school-config", label: "School Config", requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/admin/settings", label: "Settings", requiresRoles: ["superadmin"] },
-      { href: "/sis/audit-log", label: "Audit Log", requiresRoles: ["school_admin", "superadmin"] },
+      { href: "/sis/admin/school-config",         label: "School Config",         requiresRoles: ["school_admin", "superadmin"] },
+      { href: "/sis/admin/evaluation-checklists", label: "Evaluation Checklists", requiresRoles: ["school_admin", "superadmin"] },
+      { href: "/sis/admin/settings",              label: "Settings",              requiresRoles: ["superadmin"] },
+      { href: "/sis/audit-log",                   label: "Audit Log",             requiresRoles: ["school_admin", "superadmin"] },
     ],
   },
 ];
