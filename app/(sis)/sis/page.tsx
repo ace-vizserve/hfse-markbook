@@ -5,6 +5,7 @@ import {
   Building2,
   CalendarCog,
   CalendarDays,
+  ClipboardList,
   Database,
   FolderCog,
   GitBranch,
@@ -259,31 +260,55 @@ export default async function SisAdminHub({
             <HubClassAssignmentCallout count={unassignedStudents.length} ayLabel={currentAy?.label} />
           )}
 
-          {/* Academic Year — rolls over once a year (AY rollover + calendar). */}
+          {/* Year Setup — the 4-step sequence for a new academic year. */}
           <section className="space-y-3">
             <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Academic Year
+              Year Setup
             </h2>
             <div className="grid gap-4 md:grid-cols-2">
               <AdminCard
+                step={1}
                 href="/sis/ay-setup"
                 icon={CalendarCog}
                 eyebrow="Structural"
                 title="AY Setup"
-                description="Create a new academic year, switch the active AY, or retire an empty one. Sets up everything the new year needs (terms, sections, subjects, admissions data) all at once."
+                description="Create a new academic year, switch the active AY, or retire an empty one. Sets up everything the new year needs — terms, sections, subjects, admissions data."
                 cta="Open AY Setup"
                 role={role}
                 allowedRoles={["school_admin", "superadmin"]}
               />
               <AdminCard
+                step={2}
                 href="/sis/calendar"
                 icon={CalendarDays}
                 eyebrow="Academic calendar"
                 title="School Calendar"
-                description="Define school days, holidays, and important dates per term. Every weekday is a school day by default; school admins mark holidays and overlay event labels (Math Week, Staff Dev). The attendance grid and parent portal consume this."
+                description="Define school days, holidays, and important dates per term. Every weekday is a school day by default; mark holidays and HBL overlays here. Attendance and the parent portal consume this."
                 cta="Open school calendar"
                 role={role}
                 allowedRoles={["school_admin", "superadmin"]}
+              />
+              <AdminCard
+                step={3}
+                href="/sis/sections"
+                icon={LayoutGrid}
+                eyebrow="Organisation"
+                title="Sections"
+                description="Create sections from the master template and assign form advisers and subject teachers. Sections gate grading sheet creation in Markbook."
+                cta="Manage sections"
+                role={role}
+                allowedRoles={["school_admin", "superadmin"]}
+              />
+              <AdminCard
+                step={4}
+                href="/markbook/sections"
+                icon={ClipboardList}
+                eyebrow="Markbook"
+                title="Grading Sheets"
+                description="Bulk-create grading sheets per section from Markbook → Sections. Complete once sections are set up."
+                cta="Open Markbook sections"
+                role={role}
+                allowedRoles={["registrar", "school_admin", "superadmin"]}
               />
             </div>
           </section>
@@ -297,16 +322,6 @@ export default async function SisAdminHub({
               Organisation
             </h2>
             <div className="grid gap-4 md:grid-cols-2">
-              <AdminCard
-                href="/sis/sections"
-                icon={LayoutGrid}
-                eyebrow="Organisation"
-                title="Sections"
-                description="Create and manage sections for the current academic year. Day-to-day operations (roster, grading sheets, attendance) stay in the Markbook module; setup lives here."
-                cta="Manage sections"
-                role={role}
-                allowedRoles={["school_admin", "superadmin"]}
-              />
               <AdminCard
                 href="/sis/admin/discount-codes"
                 icon={Tag}
@@ -539,6 +554,7 @@ function AdminCard({
   cta,
   role,
   allowedRoles,
+  step,
 }: {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -548,6 +564,7 @@ function AdminCard({
   cta: string;
   role: Role | null;
   allowedRoles: Role[];
+  step?: number;
 }) {
   const enabled = role != null && allowedRoles.includes(role);
   const Inner = (
@@ -558,6 +575,11 @@ function AdminCard({
           : "cursor-not-allowed opacity-60"
       }`}>
       <CardHeader>
+        {step != null && (
+          <p className="font-mono text-[11px] font-semibold text-muted-foreground/40">
+            {String(step).padStart(2, "0")}
+          </p>
+        )}
         <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
           {eyebrow}
         </CardDescription>
