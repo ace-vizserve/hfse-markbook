@@ -163,7 +163,6 @@ const NAV_ENTRIES: NavEntry[] = [
   { href: "/sis/admin/template", label: "Class Template (Sections & Subjects)", group: "Admin", icon: GraduationCapIcon },
   { href: "/sis/admin/discount-codes", label: "Discount Codes", group: "Admin", icon: WalletIcon },
   { href: "/sis/admin/subjects", label: "Subject Weights", group: "Admin", icon: GraduationCapIcon },
-  { href: "/sis/admin/evaluation-checklists", label: "Evaluation Checklists", group: "Admin", icon: ClipboardListIcon },
   { href: "/sis/admin/school-config", label: "School Config", group: "Admin", icon: Settings2Icon },
   { href: "/sis/admin/users", label: "Users", group: "Admin", icon: UsersIcon },
   { href: "/sis/admin/approvers", label: "Approvers", group: "Admin", icon: UsersIcon },

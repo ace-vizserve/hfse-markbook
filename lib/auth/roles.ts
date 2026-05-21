@@ -377,7 +377,6 @@ const SIS_NAV: NavSection[] = [
     label: "System",
     items: [
       { href: "/sis/admin/school-config",         label: "School Config",         requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/admin/evaluation-checklists", label: "Evaluation Checklists", requiresRoles: ["school_admin", "superadmin"] },
       { href: "/sis/admin/settings",              label: "Settings",              requiresRoles: ["superadmin"] },
       { href: "/sis/audit-log",                   label: "Audit Log",             requiresRoles: ["school_admin", "superadmin"] },
     ],
@@ -519,7 +518,6 @@ export const ROUTE_ACCESS: Array<{ prefix: string; allowed: Role[] }> = [
   { prefix: "/sis/admin/subjects", allowed: ["school_admin", "superadmin"] },
   { prefix: "/sis/admin/template", allowed: ["school_admin", "superadmin"] },
   { prefix: "/sis/admin/school-config", allowed: ["school_admin", "superadmin"] },
-  { prefix: "/sis/admin/evaluation-checklists", allowed: ["school_admin", "superadmin"] },
   { prefix: "/sis/admin/users", allowed: ["superadmin"] },
   { prefix: "/sis/admin/settings", allowed: ["superadmin"] },
   { prefix: "/sis/admin/discount-codes", allowed: ["registrar", "school_admin", "superadmin"] },

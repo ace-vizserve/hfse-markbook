@@ -173,7 +173,8 @@
       "Bash(Find-ChildItem -Path \"C:\\\\Users\\\\Ace\\\\OneDrive - HFSE International School\\\\Desktop\\\\hfse-vizserve projects\\\\hfse-markbook\\\\supabase\\\\migrations\" -Filter \"*.sql\")",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(Sort-Object)",
-      "PowerShell(Get-Content *)"
+      "PowerShell(Get-Content *)",
+      "Bash(06[0-9]\")"
     ],
     "deny": [
       "Read(./.env.local)"

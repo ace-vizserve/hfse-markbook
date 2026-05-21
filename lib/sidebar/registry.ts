@@ -240,7 +240,6 @@ export const SIDEBAR_REGISTRY: Record<SidebarModule, ModuleSidebarConfig> = {
       "/sis/admin/template": Copy,
       "/sis/admin/school-config": Building2,
       "/sis/admin/sow": BookOpenCheck,
-      "/sis/admin/evaluation-checklists": ClipboardList,
       "/sis/admin/users": UserCog,
       "/sis/admin/settings": Settings2,
       "/sis/sync-students": Database,
