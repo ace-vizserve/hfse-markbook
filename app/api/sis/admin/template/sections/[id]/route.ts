@@ -24,13 +24,13 @@ export async function PATCH(
       { status: 400 },
     );
   }
-  const { name, class_type } = parsed.data;
+  const { name, class_type, curriculum_track } = parsed.data;
 
   const service = createServiceClient();
 
   const { data: before, error: loadErr } = await service
     .from('template_sections')
-    .select('id, level_id, name, class_type')
+    .select('id, level_id, name, class_type, curriculum_track')
     .eq('id', id)
     .maybeSingle();
   if (loadErr) return NextResponse.json({ error: loadErr.message }, { status: 500 });
@@ -41,6 +41,7 @@ export async function PATCH(
     .update({
       name,
       class_type: class_type ?? null,
+      ...(curriculum_track !== undefined ? { curriculum_track } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);
@@ -48,7 +49,7 @@ export async function PATCH(
   if (updateErr) {
     if ((updateErr as { code?: string }).code === '23505') {
       return NextResponse.json(
-        { error: `A template section named "${name}" already exists in this level.` },
+        { error: `A template section named "${name}" already exists for this level and curriculum track.` },
         { status: 409 },
       );
     }
@@ -63,8 +64,8 @@ export async function PATCH(
     entityId: id,
     context: {
       level_id: before.level_id,
-      before: { name: before.name, class_type: before.class_type },
-      after: { name, class_type: class_type ?? null },
+      before: { name: before.name, class_type: before.class_type, curriculum_track: before.curriculum_track },
+      after: { name, class_type: class_type ?? null, curriculum_track: curriculum_track ?? before.curriculum_track },
     },
   });
 

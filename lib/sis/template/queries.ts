@@ -10,6 +10,7 @@ export type TemplateSectionRow = {
   level_id: string;
   name: string;
   class_type: string | null;
+  curriculum_track: string;
   level_label: string;
   level_code: string;
   level_type: 'primary' | 'secondary';
@@ -37,7 +38,7 @@ export async function listTemplateSections(): Promise<TemplateSectionRow[]> {
   const service = createServiceClient();
   const { data, error } = await service
     .from('template_sections')
-    .select('id, level_id, name, class_type, level:levels(code, label, level_type)')
+    .select('id, level_id, name, class_type, curriculum_track, level:levels(code, label, level_type)')
     .order('name');
   if (error) {
     console.error('[template] listTemplateSections failed:', error.message);
@@ -48,6 +49,7 @@ export async function listTemplateSections(): Promise<TemplateSectionRow[]> {
     level_id: string;
     name: string;
     class_type: string | null;
+    curriculum_track: string | null;
     level:
       | { code: string; label: string; level_type: 'primary' | 'secondary' }
       | { code: string; label: string; level_type: 'primary' | 'secondary' }[]
@@ -60,6 +62,7 @@ export async function listTemplateSections(): Promise<TemplateSectionRow[]> {
       level_id: r.level_id,
       name: r.name,
       class_type: r.class_type,
+      curriculum_track: r.curriculum_track ?? 'singapore_inspired',
       level_label: lvl?.label ?? '—',
       level_code: lvl?.code ?? '',
       level_type: (lvl?.level_type ?? 'primary') as 'primary' | 'secondary',

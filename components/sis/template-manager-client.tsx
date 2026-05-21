@@ -73,7 +73,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   SECTION_CLASS_TYPES,
+  CURRICULUM_TRACKS,
+  CURRICULUM_TRACK_LABELS,
   type SectionClassType,
+  type CurriculumTrack,
 } from '@/lib/schemas/section';
 import {
   TemplateSectionCreateSchema,
@@ -333,11 +336,10 @@ function SectionPill({ section }: { section: TemplateSectionRow }) {
         <span className="font-serif text-[14px] font-semibold tracking-tight text-foreground">
           {section.name}
         </span>
-        {section.class_type && (
-          <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
-            {section.class_type}
-          </span>
-        )}
+        <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
+          {CURRICULUM_TRACK_LABELS[section.curriculum_track as CurriculumTrack] ?? section.curriculum_track}
+          {section.class_type ? ` · ${section.class_type}` : ''}
+        </span>
       </div>
       <div className="ml-1 flex items-center gap-0.5 opacity-60 transition-opacity group-hover/pill:opacity-100">
         <EditTemplateSectionButton section={section} compact />
@@ -839,6 +841,7 @@ const BLANK_SECTION: TemplateSectionCreateInput = {
   name: '',
   level_id: '',
   class_type: null,
+  curriculum_track: 'singapore_inspired',
 };
 
 function NewTemplateSectionButton({
@@ -875,6 +878,7 @@ function NewTemplateSectionButton({
           name: values.name.trim(),
           level_id: values.level_id,
           class_type: values.class_type ?? null,
+          curriculum_track: values.curriculum_track ?? 'singapore_inspired',
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -987,6 +991,33 @@ function NewTemplateSectionButton({
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="curriculum_track"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Curriculum track</FormLabel>
+                  <Select
+                    value={field.value ?? 'singapore_inspired'}
+                    onValueChange={(v) => field.onChange(v as CurriculumTrack)}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {CURRICULUM_TRACKS.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {CURRICULUM_TRACK_LABELS[t]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                 Cancel
@@ -1017,6 +1048,7 @@ function EditTemplateSectionButton({
     defaultValues: {
       name: section.name,
       class_type: (section.class_type as SectionClassType | null) ?? null,
+      curriculum_track: (section.curriculum_track as CurriculumTrack) ?? 'singapore_inspired',
     },
   });
 
@@ -1024,9 +1056,10 @@ function EditTemplateSectionButton({
     form.reset({
       name: section.name,
       class_type: (section.class_type as SectionClassType | null) ?? null,
+      curriculum_track: (section.curriculum_track as CurriculumTrack) ?? 'singapore_inspired',
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [section.id, section.name, section.class_type]);
+  }, [section.id, section.name, section.class_type, section.curriculum_track]);
 
   async function onSubmit(values: TemplateSectionUpdateInput) {
     try {
@@ -1036,6 +1069,7 @@ function EditTemplateSectionButton({
         body: JSON.stringify({
           name: values.name.trim(),
           class_type: values.class_type ?? null,
+          curriculum_track: values.curriculum_track ?? 'singapore_inspired',
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -1112,6 +1146,33 @@ function EditTemplateSectionButton({
                       {SECTION_CLASS_TYPES.map((t) => (
                         <SelectItem key={t} value={t}>
                           {t}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="curriculum_track"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Curriculum track</FormLabel>
+                  <Select
+                    value={field.value ?? 'singapore_inspired'}
+                    onValueChange={(v) => field.onChange(v as CurriculumTrack)}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {CURRICULUM_TRACKS.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {CURRICULUM_TRACK_LABELS[t]}
                         </SelectItem>
                       ))}
                     </SelectContent>
