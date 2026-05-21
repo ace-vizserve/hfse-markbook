@@ -35,6 +35,11 @@ export function SidebarNavItem({ item, isActive, config, badges }: SidebarNavIte
         className={NAV_ACTIVE_CLASSES}>
         <Link href={item.href}>
           <Icon />
+          {item.step != null && (
+            <span className="w-5 flex-shrink-0 text-right font-mono text-[10px] text-muted-foreground/60 group-data-[collapsible=icon]:hidden">
+              {String(item.step).padStart(2, "0")}
+            </span>
+          )}
           <span>{item.label}</span>
           {badge > 0 && (
             <span className="ml-auto rounded-full bg-destructive px-1.5 text-[10px] font-semibold tabular-nums text-white group-data-[collapsible=icon]:hidden">
