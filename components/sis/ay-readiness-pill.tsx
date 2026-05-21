@@ -1,8 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import type { Role } from "@/lib/auth/roles";
+import type { AyReadiness, ReadinessStep, ReadinessStepId } from "@/lib/sis/readiness";
+import {
+  ArrowUpRight,
   CalendarCog,
   CalendarDays,
   CheckCircle2,
@@ -13,16 +27,8 @@ import {
   TableProperties,
   type LucideIcon,
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import type { Role } from "@/lib/auth/roles";
-import type { AyReadiness, ReadinessStep, ReadinessStepId } from "@/lib/sis/readiness";
+import Link from "next/link";
+import { useState } from "react";
 
 type Props = {
   readiness: AyReadiness;
@@ -51,12 +57,10 @@ export function AyReadinessPill({ readiness, role }: Props) {
         type="button"
         onClick={() => setOpen(true)}
         className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-indigo/40"
-        aria-label="Open year setup readiness"
-      >
+        aria-label="Open year setup readiness">
         <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
           <ClipboardCheck className="size-4" />
         </div>
-
         <div className="text-left">
           <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             Year Setup · {readiness.ayCode}
@@ -74,32 +78,27 @@ export function AyReadinessPill({ readiness, role }: Props) {
             />
           </div>
         </div>
-
         <ChevronUp className="size-4 shrink-0 text-muted-foreground" />
       </button>
 
       {/* ── Dialog ────────────────────────────────────────────────────── */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg gap-0 p-0">
-          {/* Header */}
-          <div className="border-b border-hairline bg-gradient-to-b from-primary/5 to-card px-6 pb-5 pt-6">
-            <DialogHeader className="gap-1.5">
-              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                SIS Admin · {readiness.ayCode}
-              </p>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <DialogTitle className="font-serif text-xl font-semibold leading-tight tracking-tight text-foreground">
-                  Year Setup Readiness
-                </DialogTitle>
-                <Badge
-                  variant={readiness.complete === readiness.total ? "success" : "warning"}
-                  className="h-6">
-                  {readiness.complete} / {readiness.total}
-                </Badge>
-              </div>
-              <p className="text-[13px] text-muted-foreground">Steps can be completed in any order.</p>
-            </DialogHeader>
-          </div>
+        <DialogContent className="max-w-xl! gap-0 p-0">
+          {/* Gradient header */}
+          <DialogHeader className="gap-1.5 border-b border-hairline bg-gradient-to-b from-primary/5 to-card px-6 pb-5 pt-6">
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              SIS Admin · {readiness.ayCode}
+            </p>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <DialogTitle className="font-serif text-xl font-semibold leading-tight tracking-tight text-foreground">
+                Year Setup Readiness
+              </DialogTitle>
+              <Badge variant={readiness.complete === readiness.total ? "success" : "warning"} className="h-6">
+                {readiness.complete} / {readiness.total}
+              </Badge>
+            </div>
+            <DialogDescription>Steps can be completed in any order.</DialogDescription>
+          </DialogHeader>
 
           {/* Step rows */}
           <ScrollArea className="max-h-[60vh]">
@@ -115,13 +114,15 @@ export function AyReadinessPill({ readiness, role }: Props) {
             </div>
           </ScrollArea>
 
+          <Separator />
+
           {/* Footer */}
-          <div className="flex items-center justify-between border-t border-hairline bg-muted/30 px-6 py-3">
+          <DialogFooter className="justify-between bg-muted/30 px-6 py-3 sm:flex-row sm:justify-between">
             <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               {readiness.complete} of {readiness.total} steps complete
             </span>
             <span className="text-[11px] text-muted-foreground">Steps can be completed in any order</span>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
@@ -147,13 +148,14 @@ function ReadinessRow({
       : "border border-hairline bg-muted/60";
 
   const pct =
-    step.fraction && step.fraction.total > 0
-      ? Math.round((step.fraction.done / step.fraction.total) * 100)
-      : 0;
+    step.fraction && step.fraction.total > 0 ? Math.round((step.fraction.done / step.fraction.total) * 100) : 0;
+
+  const fractionColor = isDone ? "text-brand-mint" : isPartial ? "text-brand-amber" : "text-muted-foreground";
+  const barColor = isDone ? "bg-brand-mint" : isPartial ? "bg-brand-amber" : "bg-muted-foreground/30";
 
   return (
-    <div className="rounded-xl border border-hairline bg-card p-3.5 ring-1 ring-inset ring-border/40">
-      <div className="flex items-start gap-3">
+    <Card className="gap-0 py-0 shadow-none ring-1 ring-inset ring-border/40">
+      <CardContent className="flex items-start gap-3 p-3.5">
         {/* Status icon tile */}
         <div className={`flex size-9 shrink-0 items-center justify-center rounded-xl ${tileClass}`}>
           {isDone ? (
@@ -167,18 +169,16 @@ function ReadinessRow({
           )}
         </div>
 
-        {/* Content */}
+        {/* Text content */}
         <div className="min-w-0 flex-1 space-y-1">
           <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             Step {step.step}
           </p>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <p className="font-serif text-[15px] font-semibold leading-tight tracking-tight text-foreground">
+            <CardTitle className="font-serif text-[15px] font-semibold leading-tight tracking-tight text-foreground">
               {step.label}
-            </p>
-            <Badge
-              variant={isDone ? "success" : isPartial ? "warning" : "secondary"}
-              className="h-5">
+            </CardTitle>
+            <Badge variant={isDone ? "success" : isPartial ? "warning" : "secondary"} className="h-5">
               {isDone ? (
                 <>
                   <CheckCircle2 />
@@ -195,37 +195,29 @@ function ReadinessRow({
             </Badge>
           </div>
 
-          {/* Fraction progress bar — only for steps that track coverage */}
+          {/* Coverage fraction bar — Grading Sheets */}
           {step.fraction && step.fraction.total > 0 && (
             <div className="flex items-center gap-2 pt-0.5">
               <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
-                <div
-                  className={`h-full rounded-full transition-all ${
-                    isDone ? "bg-brand-mint" : isPartial ? "bg-brand-amber" : "bg-muted-foreground/30"
-                  }`}
-                  style={{ width: `${pct}%` }}
-                />
+                <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
               </div>
-              <span
-                className={`shrink-0 font-mono text-[10px] font-semibold ${
-                  isDone ? "text-brand-mint" : isPartial ? "text-brand-amber" : "text-muted-foreground"
-                }`}>
+              <span className={`shrink-0 font-mono text-[10px] font-semibold ${fractionColor}`}>
                 {step.fraction.done}/{step.fraction.total}
               </span>
             </div>
           )}
 
-          <p className="text-[11px] leading-relaxed text-muted-foreground">{step.description}</p>
+          <CardDescription className="text-[11px] leading-relaxed">{step.description}</CardDescription>
         </div>
 
-        {/* Open action */}
-        <Link
-          href={step.href}
-          onClick={onNavigate}
-          className="mt-0.5 shrink-0 rounded-md border border-hairline bg-background px-2.5 py-1 text-[11px] font-medium text-foreground shadow-input transition-colors hover:bg-muted">
-          Open →
-        </Link>
-      </div>
-    </div>
+        {/* Action */}
+        <Button variant="outline" size="sm" className="mt-0.5 shrink-0 gap-1" asChild>
+          <Link href={step.href} onClick={onNavigate}>
+            Open
+            <ArrowUpRight className="size-3.5" />
+          </Link>
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
