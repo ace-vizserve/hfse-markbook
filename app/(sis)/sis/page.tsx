@@ -2,6 +2,7 @@ import {
   Activity,
   ArrowUpRight,
   BookOpen,
+  BookOpenCheck,
   Building2,
   CalendarCog,
   CalendarDays,
@@ -322,6 +323,16 @@ export default async function SisAdminHub({
               Organisation
             </h2>
             <div className="grid gap-4 md:grid-cols-2">
+              <AdminCard
+                href="/sis/admin/sow"
+                icon={BookOpenCheck}
+                eyebrow="Curriculum"
+                title="Scheme of Work"
+                description="Capture the approved SOW — evaluation topics and WW/PT activity labels — per subject, level, and term. Save & Apply cascades these to all matching grading sheets and evaluation checklists."
+                cta="Open SOW builder"
+                role={role}
+                allowedRoles={["school_admin", "superadmin"]}
+              />
               <AdminCard
                 href="/sis/admin/discount-codes"
                 icon={Tag}
