@@ -140,13 +140,22 @@ async function gateAndActivateScopes(
       .map(async ({ scope, version }) => {
         // Bind each section to the published version.
         await Promise.all(
-          [...scope.sectionIds].map((sid) =>
-            createOrUpdateClassInstance(sid, scope.subject_id, scope.term_id, version!.id, false),
-          ),
+          [...scope.sectionIds].map(async (sid) => {
+            const instanceResult = await createOrUpdateClassInstance(
+              sid,
+              scope.subject_id,
+              scope.term_id,
+              version!.id,
+              false,
+            );
+            if (instanceResult.error) {
+              throw new Error(`createOrUpdateClassInstance failed: ${instanceResult.error}`);
+            }
+          }),
         );
 
         // Push SOW label+page into all unlocked sheets in this scope.
-        await service.rpc('sync_grading_sheets_from_sow', {
+        const { error: syncError } = await service.rpc('sync_grading_sheets_from_sow', {
           p_term_id: scope.term_id,
           p_subject_id: scope.subject_id,
           p_level_id: scope.level_id,
@@ -154,20 +163,22 @@ async function gateAndActivateScopes(
           p_ww: version!.ww,
           p_pt: version!.pt,
         });
+        if (syncError) throw new Error(`sync_grading_sheets_from_sow failed: ${syncError.message}`);
 
         // Replace evaluation topics for this scope (clean replace — no scores on
         // newly created sheets). sow_class_instance_id stays NULL because checklist
         // items are scope-level (shared across sections).
-        await service
+        const { error: deleteError } = await service
           .from('evaluation_checklist_items')
           .delete()
           .eq('term_id', scope.term_id)
           .eq('subject_id', scope.subject_id)
           .eq('level_id', scope.level_id)
           .eq('curriculum_track', scope.curriculum_track);
+        if (deleteError) throw new Error(`evaluation topic delete failed: ${deleteError.message}`);
 
         if (version!.topics.length > 0) {
-          await service.from('evaluation_checklist_items').insert(
+          const { error: insertError } = await service.from('evaluation_checklist_items').insert(
             version!.topics.map((t) => ({
               term_id: scope.term_id,
               subject_id: scope.subject_id,
@@ -178,6 +189,7 @@ async function gateAndActivateScopes(
               sow_class_instance_id: null,
             })),
           );
+          if (insertError) throw new Error(`evaluation topic insert failed: ${insertError.message}`);
         }
       }),
   );
@@ -268,7 +280,15 @@ export async function POST(request: NextRequest) {
     resolvedAyId = (sec as { academic_year_id: string }).academic_year_id;
   }
 
-  const result = await gateAndActivateScopes(service, targetSectionIds, resolvedAyId);
+  let result: GateResult;
+  try {
+    result = await gateAndActivateScopes(service, targetSectionIds, resolvedAyId);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'internal error' },
+      { status: 500 },
+    );
+  }
 
   await logAction({
     service,
