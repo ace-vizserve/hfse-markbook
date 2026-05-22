@@ -556,6 +556,7 @@ export default async function GradingSheetPage({
         letterDisplay={!isExaminable}
         sowSourced={sowSourced}
         sowVersion={sowCheck.version?.version_number ?? null}
+        sowPartialRebaseline={sowCheck.partial_rebaseline}
       />
 
     </PageShell>

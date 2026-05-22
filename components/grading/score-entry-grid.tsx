@@ -59,6 +59,8 @@ type Props = {
   sowSourced?: boolean;
   /** Published version number of the applied SOW (e.g. 1, 2). Null when no SOW is applied. */
   sowVersion?: number | null;
+  /** When true, the SOW was re-applied mid-year after scores existed — some slots/topics may have been preserved. */
+  sowPartialRebaseline?: boolean;
 };
 
 function parseCell(raw: string): number | null {
@@ -83,6 +85,7 @@ export function ScoreEntryGrid({
   letterDisplay = false,
   sowSourced = false,
   sowVersion = null,
+  sowPartialRebaseline = false,
 }: Props) {
   const [rows, setRows] = useState<GradeRow[]>(initialRows);
   const rowsRef = useRef(rows);
@@ -220,6 +223,7 @@ export function ScoreEntryGrid({
         labels={labels}
         sowSourced={sowSourced}
         sowVersion={sowVersion}
+        sowPartialRebaseline={sowPartialRebaseline}
       />
       <GridFilterToolbar filters={filters} onChange={setFilters} total={rows.length} visible={visibleRows.length} />
 
@@ -412,12 +416,14 @@ function ScoringGuide({
   labels,
   sowSourced,
   sowVersion,
+  sowPartialRebaseline = false,
 }: {
   wwTotals: number[];
   ptTotals: number[];
   labels: Required<SlotLabels>;
   sowSourced: boolean;
   sowVersion?: number | null;
+  sowPartialRebaseline?: boolean;
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const hasSlots = wwTotals.length > 0 || ptTotals.length > 0;
@@ -436,8 +442,20 @@ function ScoringGuide({
           {hasSlots && <span className="select-none text-border/60">·</span>}
           <SlotChip code="QA" fixedLabel="Exam" />
           {sowSourced && (
-            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/60">
+            <span
+              title={
+                sowPartialRebaseline
+                  ? "SOW updated mid-year. Some slots or topics were preserved because scores already existed."
+                  : undefined
+              }
+              className={
+                sowPartialRebaseline
+                  ? "font-mono text-[10px] uppercase tracking-[0.12em] text-brand-amber"
+                  : "font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/60"
+              }
+            >
               · SOW{sowVersion != null ? ` v${sowVersion}` : ""}
+              {sowPartialRebaseline && " ⚠"}
             </span>
           )}
         </div>
