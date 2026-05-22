@@ -11,9 +11,6 @@ import type { CurriculumTrack } from '@/lib/schemas/sow';
 
 type ServiceClient = ReturnType<typeof createServiceClient>;
 
-type SectionRow = { id: string; level_id: string; curriculum_track: string };
-type SheetRow = { section_id: string; subject_id: string; term_id: string };
-
 type ScopeGroup = {
   term_id: string;
   subject_id: string;
@@ -22,66 +19,82 @@ type ScopeGroup = {
   sectionIds: Set<string>;
 };
 
-type SowResult = {
-  sow_applied: boolean;
-  sow_missing: boolean;
+type GateResult = {
+  inserted: number;
   sow_scopes_applied: number;
-  sow_scopes_missing: number;
+  sow_scopes_blocked: number;
+  blocked_subjects: string[];
 };
 
-// After grading sheets are created, wire up any published SOW versions for the
-// affected sections. Groups by scope (term × subject × level × track) to avoid
-// running the sync RPC and checklist upsert more than once per scope when many
-// sections share the same level + track.
-async function applySowForSheets(
+// SOW Hard Gate: bulk-create only creates grading sheets for scopes that have
+// an approved published SOW version. Scopes without a published SOW are
+// blocked — no sheet is created — and surfaced to the registrar so they know
+// which subjects still need a SOW published before grading can begin.
+//
+// Per scope (term × subject × level × curriculum_track):
+//   - has a published SOW  → create sheets via the selective RPC, then apply
+//     the SOW (class instances + slot labels + evaluation topics)
+//   - no published SOW     → blocked; nothing created
+async function gateAndActivateScopes(
   service: ServiceClient,
   sectionIds: string[],
-): Promise<SowResult> {
-  const empty: SowResult = {
-    sow_applied: false,
-    sow_missing: false,
+  ayId: string,
+): Promise<GateResult> {
+  const empty: GateResult = {
+    inserted: 0,
     sow_scopes_applied: 0,
-    sow_scopes_missing: 0,
+    sow_scopes_blocked: 0,
+    blocked_subjects: [],
   };
   if (!sectionIds.length) return empty;
 
+  // 1. Load sections with level + curriculum_track
   const { data: sections } = await service
     .from('sections')
     .select('id, level_id, curriculum_track')
     .in('id', sectionIds);
   if (!sections?.length) return empty;
 
-  const sectionMap = new Map<string, SectionRow>(
-    (sections as SectionRow[]).map(s => [s.id, s]),
-  );
+  const levelIds = [...new Set(sections.map((s) => (s as { level_id: string }).level_id))];
 
-  const { data: sheets } = await service
-    .from('grading_sheets')
-    .select('section_id, subject_id, term_id')
-    .in('section_id', sectionIds);
-  if (!sheets?.length) return empty;
+  // 2. Load subject configs and terms for this AY
+  const [{ data: configs }, { data: terms }] = await Promise.all([
+    service
+      .from('subject_configs')
+      .select('subject_id, level_id')
+      .eq('academic_year_id', ayId)
+      .in('level_id', levelIds),
+    service.from('terms').select('id').eq('academic_year_id', ayId),
+  ]);
 
-  // Build scope groups: one entry per (term × subject × level × track).
+  if (!configs?.length || !terms?.length) return empty;
+
+  // 3. Build scope groups: (term × subject × level × curriculum_track) → Set<section_id>
   const scopeGroups = new Map<string, ScopeGroup>();
-  for (const sheet of sheets as SheetRow[]) {
-    const sec = sectionMap.get(sheet.section_id);
-    if (!sec) continue;
-    const key = `${sheet.term_id}:${sheet.subject_id}:${sec.level_id}:${sec.curriculum_track}`;
-    if (!scopeGroups.has(key)) {
-      scopeGroups.set(key, {
-        term_id: sheet.term_id,
-        subject_id: sheet.subject_id,
-        level_id: sec.level_id,
-        curriculum_track: sec.curriculum_track,
-        sectionIds: new Set(),
-      });
+  for (const sec of sections as { id: string; level_id: string; curriculum_track: string }[]) {
+    const secConfigs = (configs as { subject_id: string; level_id: string }[]).filter(
+      (c) => c.level_id === sec.level_id,
+    );
+    for (const term of terms as { id: string }[]) {
+      for (const cfg of secConfigs) {
+        const key = `${term.id}:${cfg.subject_id}:${sec.level_id}:${sec.curriculum_track}`;
+        if (!scopeGroups.has(key)) {
+          scopeGroups.set(key, {
+            term_id: term.id,
+            subject_id: cfg.subject_id,
+            level_id: sec.level_id,
+            curriculum_track: sec.curriculum_track,
+            sectionIds: new Set(),
+          });
+        }
+        scopeGroups.get(key)!.sectionIds.add(sec.id);
+      }
     }
-    scopeGroups.get(key)!.sectionIds.add(sheet.section_id);
   }
 
-  // Resolve the latest published SOW version for every unique scope in parallel.
+  // 4. Resolve latest published SOW for each unique scope in parallel
   const scopeVersions = await Promise.all(
-    [...scopeGroups.values()].map(async scope => {
+    [...scopeGroups.values()].map(async (scope) => {
       const version = await getLatestPublished(
         scope.term_id,
         scope.subject_id,
@@ -92,87 +105,125 @@ async function applySowForSheets(
     }),
   );
 
-  let scopesApplied = 0;
-  let scopesMissing = 0;
+  // 5. Split allowed (has SOW) vs blocked (no SOW)
+  const allowedScopes: { section_id: string; subject_id: string; term_id: string }[] = [];
+  const blockedScopeGroups: ScopeGroup[] = [];
 
-  // Apply each scope independently — no shared state between scopes, safe to run in parallel.
+  for (const { scope, version } of scopeVersions) {
+    if (version) {
+      for (const sectionId of scope.sectionIds) {
+        allowedScopes.push({
+          section_id: sectionId,
+          subject_id: scope.subject_id,
+          term_id: scope.term_id,
+        });
+      }
+    } else {
+      blockedScopeGroups.push(scope);
+    }
+  }
+
+  // 6. Create sheets for allowed scopes via selective RPC
+  let inserted = 0;
+  if (allowedScopes.length > 0) {
+    const { data: rpcResult } = await service.rpc('create_grading_sheets_for_scopes', {
+      p_scopes: allowedScopes,
+    });
+    inserted = (rpcResult as { inserted?: number } | null)?.inserted ?? 0;
+  }
+
+  // 7. Apply SOW (class instances + sync labels + upsert topics) for allowed scopes.
+  //    Each scope is independent — no shared state — so it is safe to run in parallel.
   await Promise.all(
-    scopeVersions.map(async ({ scope, version }) => {
-      if (!version) {
-        scopesMissing++;
-        return;
-      }
-
-      // Bind each section to the published version (one class instance per section × subject × term).
-      await Promise.all(
-        [...scope.sectionIds].map(sid =>
-          createOrUpdateClassInstance(sid, scope.subject_id, scope.term_id, version.id),
-        ),
-      );
-
-      // Push SOW label+page into all unlocked sheets in this scope.
-      // sow_class_instance_id is intentionally NULL here — checklist items are
-      // scope-level (shared across sections), so they must not cascade-delete when
-      // any individual section's class instance is deleted.
-      await service.rpc('sync_grading_sheets_from_sow', {
-        p_term_id: scope.term_id,
-        p_subject_id: scope.subject_id,
-        p_level_id: scope.level_id,
-        p_curriculum_track: scope.curriculum_track,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        p_ww: version.ww as any,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        p_pt: version.pt as any,
-      });
-
-      // Replace evaluation topics for this scope.
-      await service
-        .from('evaluation_checklist_items')
-        .delete()
-        .eq('term_id', scope.term_id)
-        .eq('subject_id', scope.subject_id)
-        .eq('level_id', scope.level_id)
-        .eq('curriculum_track', scope.curriculum_track);
-
-      if (version.topics.length > 0) {
-        await service.from('evaluation_checklist_items').insert(
-          version.topics.map(t => ({
-            term_id: scope.term_id,
-            subject_id: scope.subject_id,
-            level_id: scope.level_id,
-            curriculum_track: scope.curriculum_track,
-            item_text: t.text,
-            sort_order: t.sort_order,
-            // sow_class_instance_id intentionally omitted (NULL)
-          })),
+    scopeVersions
+      .filter(({ version }) => version !== null)
+      .map(async ({ scope, version }) => {
+        // Bind each section to the published version.
+        await Promise.all(
+          [...scope.sectionIds].map((sid) =>
+            createOrUpdateClassInstance(sid, scope.subject_id, scope.term_id, version!.id, false),
+          ),
         );
-      }
 
-      scopesApplied++;
-    }),
+        // Push SOW label+page into all unlocked sheets in this scope.
+        await service.rpc('sync_grading_sheets_from_sow', {
+          p_term_id: scope.term_id,
+          p_subject_id: scope.subject_id,
+          p_level_id: scope.level_id,
+          p_curriculum_track: scope.curriculum_track,
+          p_ww: version!.ww,
+          p_pt: version!.pt,
+        });
+
+        // Replace evaluation topics for this scope (clean replace — no scores on
+        // newly created sheets). sow_class_instance_id stays NULL because checklist
+        // items are scope-level (shared across sections).
+        await service
+          .from('evaluation_checklist_items')
+          .delete()
+          .eq('term_id', scope.term_id)
+          .eq('subject_id', scope.subject_id)
+          .eq('level_id', scope.level_id)
+          .eq('curriculum_track', scope.curriculum_track);
+
+        if (version!.topics.length > 0) {
+          await service.from('evaluation_checklist_items').insert(
+            version!.topics.map((t) => ({
+              term_id: scope.term_id,
+              subject_id: scope.subject_id,
+              level_id: scope.level_id,
+              curriculum_track: scope.curriculum_track,
+              item_text: t.text,
+              sort_order: t.sort_order,
+              sow_class_instance_id: null,
+            })),
+          );
+        }
+      }),
   );
 
+  // 8. Resolve human-readable labels for blocked scopes
+  const blockedSubjectIds = [...new Set(blockedScopeGroups.map((s) => s.subject_id))];
+  const blockedTermIds = [...new Set(blockedScopeGroups.map((s) => s.term_id))];
+
+  const [{ data: subjectRows }, { data: termRows }] = await Promise.all([
+    service.from('subjects').select('id, name').in('id', blockedSubjectIds),
+    service.from('terms').select('id, label').in('id', blockedTermIds),
+  ]);
+
+  const subjectName = new Map((subjectRows ?? []).map((s) => [s.id, (s as { name: string }).name]));
+  const termLabel = new Map((termRows ?? []).map((t) => [t.id, (t as { label: string }).label]));
+
+  const uniqueBlockedLabels = [
+    ...new Set(
+      blockedScopeGroups.map(
+        (s) =>
+          `${subjectName.get(s.subject_id) ?? s.subject_id} · ${termLabel.get(s.term_id) ?? s.term_id}`,
+      ),
+    ),
+  ];
+
   return {
-    sow_applied: scopesApplied > 0,
-    sow_missing: scopesMissing > 0,
-    sow_scopes_applied: scopesApplied,
-    sow_scopes_missing: scopesMissing,
+    inserted,
+    sow_scopes_applied: scopeVersions.filter(({ version }) => version !== null).length,
+    sow_scopes_blocked: blockedScopeGroups.length,
+    blocked_subjects: uniqueBlockedLabels,
   };
 }
 
 // POST /api/grading-sheets/bulk-create
 // Body: either { ay_id: uuid } or { section_id: uuid } (exactly one).
 //
-// Delegates to the matching RPC from migration 016. Idempotent — safe to
-// re-click after manual additions; existing sheets are untouched.
+// SOW Hard Gate: a grading sheet is only created for a (term × subject ×
+// level × curriculum_track) scope that has an approved published SOW version.
+// Scopes without a published SOW are blocked — nothing is created — and
+// returned in `blocked_subjects` so the registrar can see what still needs a
+// SOW published.
 //
-// After the RPC, applies any published SOW versions for the affected
-// sections: creates class instances, syncs WW/PT slot labels, and generates
-// evaluation_checklist_items. Soft gate (KD #28): if no SOW is published for
-// a scope the sheet is still created with empty labels (sow_missing: true).
+// For allowed scopes the SOW is applied immediately: class instances are
+// created, WW/PT slot labels are synced, and evaluation topics are generated.
 //
-// Registrar+ only. No class_type gate / no subject allowlist — bulk create
-// creates every sheet the `subject_configs` matrix says should exist.
+// Registrar+ only.
 export async function POST(request: NextRequest) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -183,7 +234,6 @@ export async function POST(request: NextRequest) {
 
   const ayId = body?.ay_id ?? null;
   const sectionId = body?.section_id ?? null;
-
   const hasAy = typeof ayId === 'string' && ayId.length > 0;
   const hasSection = typeof sectionId === 'string' && sectionId.length > 0;
 
@@ -196,33 +246,29 @@ export async function POST(request: NextRequest) {
 
   const service = createServiceClient();
 
-  const rpcName = hasAy ? 'create_grading_sheets_for_ay' : 'create_grading_sheets_for_section';
-  const rpcArgs = hasAy ? { p_ay_id: ayId } : { p_section_id: sectionId };
-
-  const { data, error } = await service.rpc(rpcName, rpcArgs);
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  const r = (typeof data === 'object' && data ? data : {}) as Record<string, unknown>;
-  const inserted = Number(r.inserted ?? 0);
-  const repairedUnconfigured = Number(r.repaired_unconfigured_sheets ?? 0);
-  const resizedEntries = Number(r.resized_entry_arrays ?? 0);
-  const sheetsSeeded = Number(r.sheets_seeded ?? 0);
-
-  // Collect target section IDs for SOW wiring.
+  // Resolve target sections + ayId
   let targetSectionIds: string[] = [];
-  if (hasSection) {
-    targetSectionIds = [sectionId];
-  } else {
+  let resolvedAyId: string;
+
+  if (hasAy) {
+    resolvedAyId = ayId!;
     const { data: aySections } = await service
       .from('sections')
       .select('id')
       .eq('academic_year_id', ayId);
-    targetSectionIds = ((aySections ?? []) as { id: string }[]).map(s => s.id);
+    targetSectionIds = ((aySections ?? []) as { id: string }[]).map((s) => s.id);
+  } else {
+    const { data: sec } = await service
+      .from('sections')
+      .select('id, academic_year_id')
+      .eq('id', sectionId)
+      .single();
+    if (!sec) return NextResponse.json({ error: 'section not found' }, { status: 404 });
+    targetSectionIds = [sectionId!];
+    resolvedAyId = (sec as { academic_year_id: string }).academic_year_id;
   }
 
-  const sow = await applySowForSheets(service, targetSectionIds);
+  const result = await gateAndActivateScopes(service, targetSectionIds, resolvedAyId);
 
   await logAction({
     service,
@@ -234,12 +280,10 @@ export async function POST(request: NextRequest) {
       scope: hasAy ? 'ay' : 'section',
       ay_id: ayId,
       section_id: sectionId,
-      inserted,
-      repaired_unconfigured_sheets: repairedUnconfigured,
-      resized_entry_arrays: resizedEntries,
-      sheets_seeded: sheetsSeeded,
-      sow_scopes_applied: sow.sow_scopes_applied,
-      sow_scopes_missing: sow.sow_scopes_missing,
+      inserted: result.inserted,
+      sow_scopes_applied: result.sow_scopes_applied,
+      sow_scopes_blocked: result.sow_scopes_blocked,
+      blocked_subjects: result.blocked_subjects,
     },
   });
 
@@ -247,13 +291,9 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    inserted,
-    repaired_unconfigured_sheets: repairedUnconfigured,
-    resized_entry_arrays: resizedEntries,
-    sheets_seeded: sheetsSeeded,
-    sow_applied: sow.sow_applied,
-    sow_missing: sow.sow_missing,
-    sow_scopes_applied: sow.sow_scopes_applied,
-    sow_scopes_missing: sow.sow_scopes_missing,
+    inserted: result.inserted,
+    sow_scopes_applied: result.sow_scopes_applied,
+    sow_scopes_blocked: result.sow_scopes_blocked,
+    blocked_subjects: result.blocked_subjects,
   });
 }
