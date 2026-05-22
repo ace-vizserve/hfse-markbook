@@ -158,13 +158,13 @@ export async function mergeGradingSheetSlots(
   sheetId: string,
   newWw: (SowSlotDescriptor | null)[],
   newPt: (SowSlotDescriptor | null)[],
-): Promise<void> {
+): Promise<{ error: string | null; preserved: number }> {
   const { data: sheet } = await service
     .from('grading_sheets')
     .select('slot_labels, ww_totals, pt_totals')
     .eq('id', sheetId)
     .single();
-  if (!sheet) return;
+  if (!sheet) return { error: null, preserved: 0 };
 
   const { data: entries } = await service
     .from('grade_entries')
@@ -178,22 +178,25 @@ export async function mergeGradingSheetSlots(
   const ptHasScore = (i: number) =>
     (entries ?? []).some((e) => ((e.pt_scores ?? []) as (number | null)[])[i] != null);
 
+  let preservedCount = 0;
   const mergedWw = ((sheet.ww_totals ?? []) as number[]).map((_, i) => {
     if (i < newWw.length && newWw[i] !== null) return newWw[i];
-    if (wwHasScore(i)) return current.ww[i] ?? null;
+    if (wwHasScore(i)) { preservedCount++; return current.ww[i] ?? null; }
     return null;
   });
 
   const mergedPt = ((sheet.pt_totals ?? []) as number[]).map((_, i) => {
     if (i < newPt.length && newPt[i] !== null) return newPt[i];
-    if (ptHasScore(i)) return current.pt[i] ?? null;
+    if (ptHasScore(i)) { preservedCount++; return current.pt[i] ?? null; }
     return null;
   });
 
-  await service
+  const { error } = await service
     .from('grading_sheets')
     .update({ slot_labels: { ...current, ww: mergedWw, pt: mergedPt } })
     .eq('id', sheetId);
+
+  return { error: error?.message ?? null, preserved: preservedCount };
 }
 
 /**
@@ -352,11 +355,12 @@ export async function applyInstanceToSection(
     if (gradingSheet?.id) {
       const locked = await isSheetLocked(service, gradingSheet.id);
       if (!locked) {
-        await mergeGradingSheetSlots(service, gradingSheet.id, version.ww, version.pt);
-        sheetsSync = 1;
+        const mergeResult = await mergeGradingSheetSlots(service, gradingSheet.id, version.ww, version.pt);
+        if (!mergeResult.error) {
+          sheetsSync = 1;
+          preservedSlots = mergeResult.preserved;
+        }
       }
-      // Count slots that survive the merge as "preserved" — every scored slot is kept.
-      preservedSlots = version.ww.length + version.pt.length;
     }
   }
 
