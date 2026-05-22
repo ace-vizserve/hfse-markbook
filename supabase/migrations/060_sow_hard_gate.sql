@@ -12,6 +12,7 @@ CREATE OR REPLACE FUNCTION create_grading_sheets_for_scopes(p_scopes jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_scope        jsonb;
@@ -52,8 +53,8 @@ BEGIN
     )
     VALUES (
       v_section_id, v_subject_id, v_term_id, v_config_id,
-      ARRAY(SELECT 10 FROM generate_series(1, v_ww_slots)),
-      ARRAY(SELECT 10 FROM generate_series(1, v_pt_slots)),
+      ARRAY(SELECT 10::numeric FROM generate_series(1, v_ww_slots)),
+      ARRAY(SELECT 10::numeric FROM generate_series(1, v_pt_slots)),
       v_qa_max
     )
     ON CONFLICT (section_id, subject_id, term_id) DO NOTHING
@@ -69,8 +70,8 @@ BEGIN
       SELECT
         v_new_sheet_id,
         ss.id,
-        ARRAY(SELECT NULL::integer FROM generate_series(1, v_ww_slots)),
-        ARRAY(SELECT NULL::integer FROM generate_series(1, v_pt_slots))
+        ARRAY(SELECT NULL::numeric FROM generate_series(1, v_ww_slots)),
+        ARRAY(SELECT NULL::numeric FROM generate_series(1, v_pt_slots))
       FROM section_students ss
       WHERE ss.section_id = v_section_id
         AND ss.enrollment_status IN ('active', 'late_enrollee')
@@ -82,3 +83,7 @@ BEGIN
   RETURN jsonb_build_object('inserted', v_inserted);
 END;
 $$;
+
+-- Restrict to service_role only — called exclusively from API routes via createServiceClient()
+REVOKE EXECUTE ON FUNCTION create_grading_sheets_for_scopes(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION create_grading_sheets_for_scopes(jsonb) TO service_role;
