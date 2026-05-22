@@ -17,6 +17,7 @@ import type { Role } from "@/lib/auth/roles";
 import type { AyReadiness, ReadinessStep, ReadinessStepId } from "@/lib/sis/readiness";
 import {
   ArrowUpRight,
+  BookOpen,
   CalendarCog,
   CalendarDays,
   CheckCircle2,
@@ -39,6 +40,7 @@ const STEP_ICONS: Record<ReadinessStepId, LucideIcon> = {
   "ay-setup": CalendarCog,
   calendar: CalendarDays,
   sections: LayoutGrid,
+  sow: BookOpen,
   "grading-sheets": TableProperties,
 };
 
