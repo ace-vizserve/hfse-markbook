@@ -39,6 +39,7 @@ export type SowClassInstanceRow = {
   subject_id: string;
   term_id: string;
   published_version_id: string;
+  has_partial_rebaseline: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -148,9 +149,9 @@ export async function sowExistsForSection(
   section_id: string,
   subject_id: string,
   term_id: string,
-): Promise<{ exists: boolean; version: SowPublishedVersionRow | null }> {
+): Promise<{ exists: boolean; version: SowPublishedVersionRow | null; partial_rebaseline: boolean }> {
   const instance = await getClassInstance(section_id, subject_id, term_id);
-  if (!instance) return { exists: false, version: null };
+  if (!instance) return { exists: false, version: null, partial_rebaseline: false };
   const version = await getPublishedVersionById(instance.published_version_id);
-  return { exists: true, version };
+  return { exists: true, version, partial_rebaseline: instance.has_partial_rebaseline };
 }
