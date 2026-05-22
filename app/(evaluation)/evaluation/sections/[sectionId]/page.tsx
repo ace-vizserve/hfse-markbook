@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, CalendarClock, ClipboardList, MessageCircle, Sparkle, SquarePen } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowUpRight, CalendarClock, ClipboardList, Lock, MessageCircle, Sparkle, SquarePen } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -390,6 +390,33 @@ export default async function EvaluationSectionRosterPage({
               <div className="rounded-xl border border-dashed border-border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
                 No subjects enabled for this level × AY. Configure via{" "}
                 <span className="whitespace-nowrap font-mono text-[11px]">SIS Admin → Subject Weights</span>.
+              </div>
+            ) : !sowCheck.exists && selectedSubjectId ? (
+              <div className="flex flex-col items-center gap-5 py-16">
+                <div className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-amber to-brand-amber/60 shadow-md">
+                  <Lock className="size-6 text-white" />
+                </div>
+                <div className="space-y-1.5 text-center">
+                  <p className="font-serif text-xl font-semibold text-foreground">SOW not yet approved</p>
+                  <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
+                    Topics for{" "}
+                    <span className="font-medium text-foreground">
+                      {visibleSubjects.find((s) => s.id === selectedSubjectId)?.name ?? "this subject"}
+                    </span>{" "}
+                    will appear here once the administrator publishes and applies the Scheme of Work.
+                  </p>
+                </div>
+                {(sessionUser.role === "registrar" ||
+                  sessionUser.role === "school_admin" ||
+                  sessionUser.role === "superadmin") && (
+                  <Link
+                    href="/sis/admin/sow"
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:underline"
+                  >
+                    Open SOW builder
+                    <ArrowUpRight className="size-3.5" />
+                  </Link>
+                )}
               </div>
             ) : (
               <ChecklistRosterClient
