@@ -155,3 +155,71 @@ export async function sowExistsForSection(
   const version = await getPublishedVersionById(instance.published_version_id);
   return { exists: true, version, partial_rebaseline: instance.has_partial_rebaseline };
 }
+
+// ── Impact-detection helpers ──────────────────────────────────────────────────
+
+/** True if any student in the sheet has a non-null WW or PT score. */
+export async function hasGradingScores(
+  service: ReturnType<typeof createServiceClient>,
+  sheetId: string,
+): Promise<boolean> {
+  const { data: entries } = await service
+    .from('grade_entries')
+    .select('ww_scores, pt_scores')
+    .eq('grading_sheet_id', sheetId);
+
+  return (entries ?? []).some(
+    (e) =>
+      ((e.ww_scores ?? []) as (number | null)[]).some((s) => s !== null) ||
+      ((e.pt_scores ?? []) as (number | null)[]).some((s) => s !== null),
+  );
+}
+
+/** True if any evaluation checklist item in this scope has a non-null rating. */
+export async function hasEvaluationResponses(
+  service: ReturnType<typeof createServiceClient>,
+  scope: { term_id: string; subject_id: string; level_id: string; curriculum_track: string },
+): Promise<boolean> {
+  const { data: items } = await service
+    .from('evaluation_checklist_items')
+    .select('id')
+    .eq('term_id', scope.term_id)
+    .eq('subject_id', scope.subject_id)
+    .eq('level_id', scope.level_id)
+    .eq('curriculum_track', scope.curriculum_track);
+
+  if (!items?.length) return false;
+
+  const { count } = await service
+    .from('evaluation_checklist_responses')
+    .select('id', { count: 'exact', head: true })
+    .in('item_id', items.map((i) => i.id))
+    .not('rating', 'is', null);
+
+  return (count ?? 0) > 0;
+}
+
+/** Returns impact mode for a single section × subject × term scope. */
+export async function detectSowChangeImpact(
+  service: ReturnType<typeof createServiceClient>,
+  sectionId: string,
+  subjectId: string,
+  termId: string,
+  levelId: string,
+  curriculumTrack: string,
+): Promise<{ hasGradingScores: boolean; hasEvaluationResponses: boolean }> {
+  const { data: sheet } = await service
+    .from('grading_sheets')
+    .select('id')
+    .eq('section_id', sectionId)
+    .eq('subject_id', subjectId)
+    .eq('term_id', termId)
+    .maybeSingle();
+
+  const [scores, responses] = await Promise.all([
+    sheet ? hasGradingScores(service, sheet.id) : Promise.resolve(false),
+    hasEvaluationResponses(service, { term_id: termId, subject_id: subjectId, level_id: levelId, curriculum_track: curriculumTrack }),
+  ]);
+
+  return { hasGradingScores: scores, hasEvaluationResponses: responses };
+}
