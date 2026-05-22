@@ -164,7 +164,7 @@ export async function mergeGradingSheetSlots(
     .select('slot_labels, ww_totals, pt_totals')
     .eq('id', sheetId)
     .single();
-  if (!sheet) return { error: null, preserved: 0 };
+  if (!sheet) return { error: 'sheet not found', preserved: 0 };
 
   const { data: entries } = await service
     .from('grade_entries')

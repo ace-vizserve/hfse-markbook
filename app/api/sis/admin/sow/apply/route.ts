@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { requireRole } from '@/lib/auth/require-role';
 import { createServiceClient } from '@/lib/supabase/service';
 import { SowApplySchema } from '@/lib/schemas/sow';
@@ -160,6 +161,17 @@ export async function POST(request: NextRequest) {
       rebaseline_reason: rebaselineReason,
     },
   });
+
+  // Invalidate readiness and SIS caches so the AY readiness pill reflects the
+  // newly applied SOW immediately rather than waiting for the 60s cache TTL.
+  const { data: ay } = await service
+    .from('academic_years')
+    .select('ay_code')
+    .eq('id', master.ay_id)
+    .single();
+  if (ay?.ay_code) {
+    revalidateTag(`sis:${ay.ay_code}`, 'max');
+  }
 
   return NextResponse.json({
     ok: true,

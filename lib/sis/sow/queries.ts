@@ -158,15 +158,18 @@ export async function sowExistsForSection(
 
 // ── Impact-detection helpers ──────────────────────────────────────────────────
 
-/** True if any student in the sheet has a non-null WW or PT score. */
+/** True if any student in the sheet has a non-null WW or PT score.
+ * Returns true on DB error (conservative: assume scores exist to avoid accidental clean-reset). */
 export async function hasGradingScores(
   service: ReturnType<typeof createServiceClient>,
   sheetId: string,
 ): Promise<boolean> {
-  const { data: entries } = await service
+  const { data: entries, error } = await service
     .from('grade_entries')
     .select('ww_scores, pt_scores')
     .eq('grading_sheet_id', sheetId);
+
+  if (error) return true; // conservative — don't risk overwriting on transient failure
 
   return (entries ?? []).some(
     (e) =>
@@ -175,12 +178,13 @@ export async function hasGradingScores(
   );
 }
 
-/** True if any evaluation checklist item in this scope has a non-null rating. */
+/** True if any evaluation checklist item in this scope has a non-null rating.
+ * Returns true on DB error (conservative: assume ratings exist to avoid accidental clean-reset). */
 export async function hasEvaluationResponses(
   service: ReturnType<typeof createServiceClient>,
   scope: { term_id: string; subject_id: string; level_id: string; curriculum_track: string },
 ): Promise<boolean> {
-  const { data: items } = await service
+  const { data: items, error: itemsErr } = await service
     .from('evaluation_checklist_items')
     .select('id')
     .eq('term_id', scope.term_id)
@@ -188,14 +192,16 @@ export async function hasEvaluationResponses(
     .eq('level_id', scope.level_id)
     .eq('curriculum_track', scope.curriculum_track);
 
+  if (itemsErr) return true; // conservative — assume responses exist on fetch failure
   if (!items?.length) return false;
 
-  const { count } = await service
+  const { count, error: countErr } = await service
     .from('evaluation_checklist_responses')
     .select('id', { count: 'exact', head: true })
     .in('item_id', items.map((i) => i.id))
     .not('rating', 'is', null);
 
+  if (countErr) return true; // conservative
   return (count ?? 0) > 0;
 }
 
