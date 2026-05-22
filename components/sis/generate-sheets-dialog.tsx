@@ -69,6 +69,8 @@ export function GenerateSheetsDialog({
       const inserted = Number(json?.inserted ?? 0);
       const repaired = Number(json?.repaired_unconfigured_sheets ?? 0);
       const resized = Number(json?.resized_entry_arrays ?? 0);
+      const blockedCount = Number(json?.sow_scopes_blocked ?? 0);
+      const blockedSubjects: string[] = json?.blocked_subjects ?? [];
       const label = scope.kind === 'ay' ? scope.ayCode : scope.sectionLabel;
 
       // Three meaningful outcomes:
@@ -97,6 +99,13 @@ export function GenerateSheetsDialog({
           `${label} is already fully configured — every sheet has totals + every roster row has an entry.`,
         );
       }
+
+      if (blockedCount > 0) {
+        toast.warning(
+          `${blockedCount} scope${blockedCount === 1 ? '' : 's'} skipped — no approved SOW: ${blockedSubjects.slice(0, 3).join(', ')}${blockedSubjects.length > 3 ? ` +${blockedSubjects.length - 3} more` : ''}.`,
+        );
+      }
+
       setOpen(false);
       router.refresh();
     } catch (e) {

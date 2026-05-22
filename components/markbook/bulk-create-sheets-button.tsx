@@ -42,12 +42,22 @@ export function BulkCreateSheetsButton({
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error ?? 'bulk create failed');
       const inserted = body.inserted ?? 0;
-      if (inserted === 0) {
+      const blockedCount: number = body.sow_scopes_blocked ?? 0;
+      const blockedSubjects: string[] = body.blocked_subjects ?? [];
+
+      if (inserted === 0 && blockedCount === 0) {
         toast.info(`No new sheets needed for ${ayCode} — every (section × subject × term) is already covered.`);
       } else {
-        toast.success(
-          `Created ${inserted.toLocaleString('en-SG')} sheet${inserted === 1 ? '' : 's'} for ${ayCode}.`,
-        );
+        if (inserted > 0) {
+          toast.success(
+            `Created ${inserted.toLocaleString('en-SG')} sheet${inserted === 1 ? '' : 's'} for ${ayCode}.`,
+          );
+        }
+        if (blockedCount > 0) {
+          toast.warning(
+            `${blockedCount} scope${blockedCount === 1 ? '' : 's'} skipped — no approved SOW: ${blockedSubjects.slice(0, 3).join(', ')}${blockedSubjects.length > 3 ? ` +${blockedSubjects.length - 3} more` : ''}.`,
+          );
+        }
       }
       router.refresh();
     } catch (e) {
