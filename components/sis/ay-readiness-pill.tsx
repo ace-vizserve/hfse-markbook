@@ -17,7 +17,6 @@ import type { Role } from "@/lib/auth/roles";
 import type { AyReadiness, ReadinessStep, ReadinessStepId } from "@/lib/sis/readiness";
 import {
   ArrowUpRight,
-  BookOpen,
   CalendarCog,
   CalendarDays,
   CheckCircle2,
@@ -25,6 +24,7 @@ import {
   ClipboardCheck,
   LayoutGrid,
   Minus,
+  ScrollText,
   TableProperties,
   type LucideIcon,
 } from "lucide-react";
@@ -40,7 +40,7 @@ const STEP_ICONS: Record<ReadinessStepId, LucideIcon> = {
   "ay-setup": CalendarCog,
   calendar: CalendarDays,
   sections: LayoutGrid,
-  sow: BookOpen,
+  sow: ScrollText,
   "grading-sheets": TableProperties,
 };
 
