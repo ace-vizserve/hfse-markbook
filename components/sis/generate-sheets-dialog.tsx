@@ -94,7 +94,7 @@ export function GenerateSheetsDialog({
           parts.push(`${resized} entr${resized === 1 ? 'y' : 'ies'} resized`);
         }
         toast.success(`${label}: ${parts.join(' · ')}.`);
-      } else {
+      } else if (blockedCount === 0) {
         toast.info(
           `${label} is already fully configured — every sheet has totals + every roster row has an entry.`,
         );
