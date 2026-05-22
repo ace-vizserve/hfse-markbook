@@ -176,8 +176,8 @@ export default async function EvaluationSectionRosterPage({
         Promise.resolve([] as Awaited<ReturnType<typeof getSectionsTeacherCanCopyFrom>>),
         sowExistsForSection(sectionId, selectedSubjectId, selectedTerm.id),
       ])
-    : [[], new Map(), new Map(), [] as Awaited<ReturnType<typeof getSectionsTeacherCanCopyFrom>>, { exists: false, version: null }];
-  const sowVersionNumber = (sowCheck as { exists: boolean; version: { version_number: number } | null }).version?.version_number ?? null;
+    : [[], new Map(), new Map(), [] as Awaited<ReturnType<typeof getSectionsTeacherCanCopyFrom>>, { exists: false, version: null, partial_rebaseline: false }];
+  const sowVersionNumber = (sowCheck as { exists: boolean; version: { version_number: number } | null; partial_rebaseline: boolean }).version?.version_number ?? null;
 
   const responsesForClient = new Map<string, number | null>();
   for (const [k, row] of responseMap.entries()) {

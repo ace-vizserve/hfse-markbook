@@ -197,7 +197,7 @@ export default async function GradingSheetPage({
   const sowCheck =
     section?.id && subject?.id && term?.id
       ? await sowExistsForSection(section.id, subject.id, term.id)
-      : { exists: false, version: null };
+      : { exists: false, version: null, partial_rebaseline: false };
   const sowSourced = sowCheck.exists;
 
   // Teacher assignment gate — already fetched concurrently above.
