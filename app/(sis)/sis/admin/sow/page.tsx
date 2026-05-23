@@ -5,16 +5,21 @@ import { getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { PageShell } from '@/components/ui/page-shell';
 import { SowBuilder } from '@/components/sis/sow-builder';
+import { SowScopeManager } from '@/components/sis/sow-scope-manager';
+import type { ScopeEntry, LevelOption, SubjectOption } from '@/components/sis/sow-scope-manager';
 
 type AyRow = { id: string; ay_code: string; label: string; is_current: boolean };
 type TermRow = { id: string; academic_year_id: string; label: string; term_number: number };
-type SubjectRow = { id: string; code: string; name: string };
-type LevelRow = { id: string; code: string; label: string };
 
-// SIS Admin — Scheme of Work Builder
-// school_admin and superadmin capture the approved SOW (evaluation topics and
-// WW/PT activity labels) per (AY × term × subject × level). Save & Apply
-// cascades these settings to all matching grading sheets and evaluation checklists.
+type SectionRaw = {
+  id: string;
+  name: string;
+  curriculum_track: string | null;
+  academic_year_id: string;
+  level_id: string;
+  levels: { id: string; code: string; label: string; level_type: string } | { id: string; code: string; label: string; level_type: string }[] | null;
+};
+
 export default async function SowBuilderPage({
   searchParams,
 }: {
@@ -22,7 +27,7 @@ export default async function SowBuilderPage({
     ay_id?: string;
     term_id?: string;
     subject_id?: string;
-    level_id?: string;
+    section_id?: string;
   }>;
 }) {
   const sessionUser = await getSessionUser();
@@ -38,7 +43,9 @@ export default async function SowBuilderPage({
     { data: aysRaw },
     { data: termsRaw },
     { data: subjectsRaw },
+    { data: sectionsRaw },
     { data: levelsRaw },
+    { data: scopesRaw },
   ] = await Promise.all([
     service
       .from('academic_years')
@@ -53,15 +60,46 @@ export default async function SowBuilderPage({
       .select('id, code, name')
       .order('name'),
     service
+      .from('sections')
+      .select('id, name, curriculum_track, academic_year_id, level_id, levels(id, code, label, level_type)')
+      .order('level_id')
+      .order('name'),
+    service
       .from('levels')
-      .select('id, code, label')
+      .select('id, code, label, level_type')
       .order('code'),
+    service
+      .from('sow_subject_scopes')
+      .select('id, level_id, curriculum_track, subject_id, sort_order')
+      .order('sort_order'),
   ]);
 
   const ays = (aysRaw ?? []) as AyRow[];
   const terms = (termsRaw ?? []) as TermRow[];
-  const subjects = (subjectsRaw ?? []) as SubjectRow[];
-  const levels = (levelsRaw ?? []) as LevelRow[];
+  const subjects = (subjectsRaw ?? []) as SubjectOption[];
+  const levels = (levelsRaw ?? []) as LevelOption[];
+  const scopeEntries = (scopesRaw ?? []) as ScopeEntry[];
+
+  const sections = (sectionsRaw ?? []).map((raw) => {
+    const s = raw as unknown as SectionRaw;
+    const lvl = Array.isArray(s.levels) ? s.levels[0] : s.levels;
+    return {
+      id: s.id,
+      name: s.name,
+      level_id: s.level_id,
+      level_code: lvl?.code ?? '',
+      level_label: lvl?.label ?? '',
+      curriculum_track: s.curriculum_track ?? 'singapore_inspired',
+      academic_year_id: s.academic_year_id,
+    };
+  });
+
+  // Minimal scope entries for the builder (only the fields it needs).
+  const builderScopeEntries = scopeEntries.map((e) => ({
+    level_id: e.level_id,
+    curriculum_track: e.curriculum_track,
+    subject_id: e.subject_id,
+  }));
 
   return (
     <PageShell>
@@ -84,16 +122,23 @@ export default async function SowBuilderPage({
         </div>
       </header>
 
+      <SowScopeManager
+        initialScopes={scopeEntries}
+        levels={levels}
+        subjects={subjects}
+      />
+
       <SowBuilder
         ays={ays}
         terms={terms}
         subjects={subjects}
-        levels={levels}
+        sections={sections}
+        scopeEntries={builderScopeEntries}
         initialScope={{
           ay_id: sp.ay_id,
           term_id: sp.term_id,
           subject_id: sp.subject_id,
-          level_id: sp.level_id,
+          section_id: sp.section_id,
         }}
       />
     </PageShell>

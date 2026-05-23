@@ -115,7 +115,9 @@ export type AuditAction =
   | 'parent.session.cleared'
   | 'sow.master.upsert'
   | 'sow.version.publish'
-  | 'sow.instance.apply';
+  | 'sow.instance.apply'
+  | 'sow.scope.add'
+  | 'sow.scope.remove';
 
 export type AuditEntityType =
   | 'grading_sheet'
@@ -153,7 +155,8 @@ export type AuditEntityType =
   | 'evaluation_ptc_feedback'
   | 'sow_master_template'
   | 'sow_published_version'
-  | 'sow_class_instance';
+  | 'sow_class_instance'
+  | 'sow_subject_scope';
 
 type LogActionParams = {
   service: SupabaseClient;

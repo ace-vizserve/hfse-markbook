@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { ChecklistRosterClient } from "@/components/evaluation/checklist-roster-client";
+import { ChecklistSubjectPicker } from "@/components/evaluation/checklist-subject-picker";
 import { PtcRosterClient } from "@/components/evaluation/ptc-roster-client";
 import { TermSwitcher } from "@/components/evaluation/term-switcher";
 import { WriteupRosterClient } from "@/components/evaluation/writeup-roster-client";
@@ -367,13 +368,13 @@ export default async function EvaluationSectionRosterPage({
           {canAccessChecklists && (
             <TabsTrigger value="checklists">
               <ClipboardList className="h-3.5 w-3.5" />
-              Checklists
+              Topics
             </TabsTrigger>
           )}
           {canAccessPtc && (
             <TabsTrigger value="ptc">
               <MessageCircle className="h-3.5 w-3.5" />
-              PTC
+              Conference Notes
             </TabsTrigger>
           )}
         </TabsList>
@@ -392,6 +393,8 @@ export default async function EvaluationSectionRosterPage({
                 <span className="whitespace-nowrap font-mono text-[11px]">SIS Admin → Subject Weights</span>.
               </div>
             ) : !sowCheck.exists && selectedSubjectId ? (
+              <>
+              <ChecklistSubjectPicker subjects={visibleSubjects} selectedSubjectId={selectedSubjectId} />
               <div className="flex flex-col items-center gap-5 py-16">
                 <div className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-amber to-brand-amber/60 shadow-md">
                   <Lock className="size-6 text-white" />
@@ -418,6 +421,7 @@ export default async function EvaluationSectionRosterPage({
                   </Link>
                 )}
               </div>
+              </>
             ) : (
               <ChecklistRosterClient
                 termId={selectedTerm.id}

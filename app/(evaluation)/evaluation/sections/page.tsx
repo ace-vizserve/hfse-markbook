@@ -3,11 +3,10 @@ import { redirect } from 'next/navigation';
 import {
   AlertTriangle,
   ArrowLeft,
-  CheckCircle2,
   ClipboardCheck,
   GraduationCap,
+  LayoutGrid,
   Layers,
-  SquarePen,
   Users,
 } from 'lucide-react';
 
@@ -24,6 +23,7 @@ import {
 } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { EvaluationSectionsList } from '@/components/evaluation/sections-list';
 import {
   getChecklistTopicCountByTerm,
   getWriteupProgressByTerm,
@@ -149,12 +149,21 @@ export default async function EvaluationSectionsPickerPage({
     : [{} as Record<string, { active_count: number; submitted_count: number }>, {} as Record<string, number>];
 
   const sorted = sections.slice().sort((a, b) => {
-    const la = a.level?.label ?? '';
-    const lb = b.level?.label ?? '';
-    return la.localeCompare(lb) || a.name.localeCompare(b.name);
+    const ca = a.level?.code ?? '';
+    const cb = b.level?.code ?? '';
+    return ca.localeCompare(cb) || a.name.localeCompare(b.name);
   });
 
   const isTeacher = sessionUser.role === 'teacher';
+
+  // Unique levels in code-sorted order — used by the client-side level filter.
+  const levels = Array.from(
+    new Map(
+      sorted
+        .filter((s) => s.level?.id)
+        .map((s) => [s.level!.id, { id: s.level!.id, code: s.level!.code, label: s.level!.label }]),
+    ).values(),
+  );
 
   // Write-up progress stats are only meaningful for adviser sections.
   // For registrar+ (adviserSet is empty), all sections count.
@@ -176,6 +185,7 @@ export default async function EvaluationSectionsPickerPage({
 
   return (
     <PageShell>
+      {/* Back nav */}
       <Link
         href="/evaluation"
         className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -188,26 +198,38 @@ export default async function EvaluationSectionsPickerPage({
       <header className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div className="space-y-4">
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Evaluation · Write-ups
+            Evaluation · {selectedTerm?.label ?? ay.ay_code}
           </p>
           <h1 className="font-serif text-[38px] font-semibold leading-[1.05] tracking-tight text-foreground md:text-[44px]">
-            Sections & write-ups.
+            {isTeacher ? 'Your sections.' : 'Sections.'}
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
             {isTeacher
               ? isSubjectTeacherOnly
-                ? "Sections where you teach a subject. Open one to set up checklist topics and record ratings for your students."
-                : "Your assigned sections — advisory and subject. Open one to write evaluations or manage checklist topics."
-              : "Every section in the current academic year. Pick one to view or edit evaluations."}
+                ? 'Sections where you teach a subject. Open one to set up checklist topics and record ratings for your students.'
+                : 'Your assigned sections — advisory and subject. Open one to write evaluations or manage checklist topics.'
+              : 'Every section in the current academic year. Pick one to view or edit evaluations.'}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge
             variant="outline"
-            className="h-7 border-border bg-white px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground"
+            className="h-7 border-border bg-card px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground"
           >
             {ay.ay_code}
           </Badge>
+          {!isSubjectTeacherOnly && totalActive > 0 && (
+            <Badge
+              variant="outline"
+              className={`h-7 border-border bg-card px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                completePct === 100
+                  ? 'border-brand-mint/50 text-emerald-700'
+                  : 'text-muted-foreground'
+              }`}
+            >
+              {completePct}% submitted
+            </Badge>
+          )}
         </div>
       </header>
 
@@ -231,7 +253,7 @@ export default async function EvaluationSectionsPickerPage({
         </Tabs>
       )}
 
-      {/* Virtue theme warning — uses brand-amber tokens per design system */}
+      {/* Virtue theme warning */}
       {selectedTerm && !selectedTerm.virtue_theme && (
         <div className="flex items-start gap-3 rounded-xl border border-brand-amber/40 bg-brand-amber-light/40 p-4">
           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-amber/15 text-brand-amber">
@@ -252,7 +274,7 @@ export default async function EvaluationSectionsPickerPage({
               . Until it&apos;s set,{' '}
               {isTeacher
                 ? 'the write-up fields are locked.'
-                : 'advisers can’t start writing (registrars can still edit if needed).'}
+                : "advisers can't start writing (registrars can still edit if needed)."}
             </p>
           </div>
         </div>
@@ -261,7 +283,13 @@ export default async function EvaluationSectionsPickerPage({
       {/* Stats */}
       {sorted.length > 0 && (
         <div className="@container/main">
-          <div className={`grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs ${isSubjectTeacherOnly ? '@xl/main:grid-cols-2' : '@xl/main:grid-cols-3'}`}>
+          <div
+            className={`grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs ${
+              isSubjectTeacherOnly
+                ? '@xl/main:grid-cols-2'
+                : '@xl/main:grid-cols-3'
+            }`}
+          >
             <SummaryCard
               description={isTeacher ? 'Your sections' : 'Total sections'}
               value={sorted.length.toLocaleString('en-SG')}
@@ -271,11 +299,9 @@ export default async function EvaluationSectionsPickerPage({
             />
             <SummaryCard
               description="Active students"
-              value={
-                Object.values(progress)
-                  .reduce((n, p) => n + (p?.active_count ?? 0), 0)
-                  .toLocaleString('en-SG')
-              }
+              value={Object.values(progress)
+                .reduce((n, p) => n + (p?.active_count ?? 0), 0)
+                .toLocaleString('en-SG')}
               icon={Users}
               footerTitle="Currently enrolled"
               footerDetail="Across every section listed"
@@ -297,16 +323,16 @@ export default async function EvaluationSectionsPickerPage({
         </div>
       )}
 
-      {/* Empty state */}
+      {/* Empty state or sections list */}
       {sorted.length === 0 ? (
         <Card className="items-center py-12 text-center">
           <CardContent className="flex flex-col items-center gap-3">
-            <div className="flex size-12 items-center justify-center rounded-xl bg-muted">
-              <GraduationCap className="size-6 text-muted-foreground" />
+            <div className="flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo/10 to-brand-indigo/5">
+              <GraduationCap className="size-6 text-brand-indigo/60" />
             </div>
-            <div className="font-serif text-lg font-semibold text-foreground">
+            <p className="font-serif text-lg font-semibold text-foreground">
               {isTeacher ? 'No assigned sections.' : 'No sections in this AY.'}
-            </div>
+            </p>
             <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
               {isTeacher
                 ? 'Ask the registrar to add your teacher assignments in SIS Admin → Sections.'
@@ -315,139 +341,41 @@ export default async function EvaluationSectionsPickerPage({
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
-          <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Sections
-          </h2>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {sorted.map((s) => {
-              // Registrar+ always shows adviser-style cards (adviserSet is empty for them).
+        <>
+          {/* Sections label row */}
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-6 items-center justify-center rounded-lg bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
+              <LayoutGrid className="size-3" />
+            </div>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              {sorted.length} {sorted.length === 1 ? 'section' : 'sections'}
+              {selectedTerm && (
+                <span className="ml-2 text-muted-foreground/50">· {selectedTerm.label}</span>
+              )}
+            </p>
+          </div>
+
+          <EvaluationSectionsList
+            levels={levels}
+            selectedTermId={selectedTerm?.id ?? ''}
+            sections={sorted.map((s) => {
               const isAdviserSection = !isTeacher || adviserSet.has(s.id);
               const p = progress[s.id];
-              const active = p?.active_count ?? 0;
-              const submitted = p?.submitted_count ?? 0;
-              const complete = active > 0 && submitted === active;
-              const started = submitted > 0;
-              const percent = active === 0 ? 0 : Math.round((submitted / active) * 100);
-              const topicCount = checklistTopics[s.id] ?? 0;
-              // A teacher who is both adviser and subject teacher gets the write-up card
-              // (primary responsibility) with a small "also subject teacher" eyebrow note.
-              const isAlsoBoth = isTeacher && adviserSet.has(s.id) && subjectTeacherSet.has(s.id);
-
-              return (
-                <Link
-                  key={s.id}
-                  href={`/evaluation/sections/${s.id}?term_id=${selectedTerm?.id ?? ''}`}
-                  className="group"
-                >
-                  <Card className="@container/card h-full gap-3 transition-all group-hover:-translate-y-0.5 group-hover:border-brand-indigo/40 group-hover:shadow-sm">
-                    <CardHeader>
-                      <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-                        {s.level?.label ?? 'Unknown level'}
-                        {isAlsoBoth && (
-                          <span className="ml-2 text-muted-foreground/60">· Adviser + Subject</span>
-                        )}
-                        {isTeacher && !isAdviserSection && (
-                          <span className="ml-2 text-brand-indigo/70">· Subject teacher</span>
-                        )}
-                      </CardDescription>
-                      <CardTitle className="font-serif text-lg font-semibold tracking-tight text-foreground">
-                        {s.name}
-                      </CardTitle>
-                      <CardAction>
-                        <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
-                          <SquarePen className="size-4" />
-                        </div>
-                      </CardAction>
-                    </CardHeader>
-
-                    {isAdviserSection ? (
-                      // Adviser card: write-up submission progress.
-                      <>
-                        <CardContent className="space-y-3">
-                          <div className="flex items-baseline gap-2">
-                            <span className="font-serif text-2xl font-semibold tabular-nums text-foreground">
-                              {submitted}
-                            </span>
-                            <span className="text-sm text-muted-foreground">
-                              / {active} submitted
-                            </span>
-                          </div>
-                          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                            <div
-                              className={`h-full transition-all ${complete ? 'bg-brand-mint' : 'bg-brand-indigo/70'}`}
-                              style={{ width: `${percent}%` }}
-                            />
-                          </div>
-                        </CardContent>
-                        <CardFooter>
-                          {complete ? (
-                            <Badge className="border-transparent bg-brand-mint text-foreground">
-                              <CheckCircle2 className="mr-1 size-3" />
-                              Complete
-                            </Badge>
-                          ) : started ? (
-                            <Badge
-                              variant="outline"
-                              className="border-brand-indigo/30 bg-brand-indigo/5 text-brand-indigo"
-                            >
-                              In progress · {percent}%
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              className="border-border bg-muted/40 text-muted-foreground"
-                            >
-                              Not started
-                            </Badge>
-                          )}
-                        </CardFooter>
-                      </>
-                    ) : (
-                      // Subject-teacher card: checklist topic count + student count.
-                      <>
-                        <CardContent className="space-y-3">
-                          <div className="flex items-baseline gap-2">
-                            <span className="font-serif text-2xl font-semibold tabular-nums text-foreground">
-                              {topicCount}
-                            </span>
-                            <span className="text-sm text-muted-foreground">
-                              {topicCount === 1 ? 'topic' : 'topics'} · {active} {active === 1 ? 'student' : 'students'}
-                            </span>
-                          </div>
-                          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                            <div
-                              className={`h-full transition-all ${topicCount > 0 ? 'bg-brand-indigo/70' : 'bg-transparent'}`}
-                              style={{ width: topicCount > 0 ? '100%' : '0%' }}
-                            />
-                          </div>
-                        </CardContent>
-                        <CardFooter>
-                          {topicCount > 0 ? (
-                            <Badge
-                              variant="outline"
-                              className="border-brand-indigo/30 bg-brand-indigo/5 text-brand-indigo"
-                            >
-                              <CheckCircle2 className="mr-1 size-3" />
-                              Topics set up
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              className="border-border bg-muted/40 text-muted-foreground"
-                            >
-                              No topics yet
-                            </Badge>
-                          )}
-                        </CardFooter>
-                      </>
-                    )}
-                  </Card>
-                </Link>
-              );
+              return {
+                id: s.id,
+                name: s.name,
+                levelId: s.level?.id ?? null,
+                levelLabel: s.level?.label ?? null,
+                isAdviserSection,
+                isAlsoBoth: isTeacher && adviserSet.has(s.id) && subjectTeacherSet.has(s.id),
+                isSubjectTeacherOnly: isTeacher && !adviserSet.has(s.id),
+                active: p?.active_count ?? 0,
+                submitted: p?.submitted_count ?? 0,
+                topicCount: checklistTopics[s.id] ?? 0,
+              };
             })}
-          </div>
-        </div>
+          />
+        </>
       )}
     </PageShell>
   );

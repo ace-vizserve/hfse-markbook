@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollArea } from "../ui/scroll-area";
 import { DEFAULT_GRID_FILTERS, GridFilterToolbar, type GridFilters } from "./grid-filter-toolbar";
 import { useChangeReference, type ChangeReferenceTarget } from "./use-approval-reference";
 
@@ -452,8 +453,7 @@ function ScoringGuide({
                 sowPartialRebaseline
                   ? "font-mono text-[10px] uppercase tracking-[0.12em] text-brand-amber"
                   : "font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/60"
-              }
-            >
+              }>
               · SOW{sowVersion != null ? ` v${sowVersion}` : ""}
               {sowPartialRebaseline && " ⚠"}
             </span>
@@ -471,57 +471,61 @@ function ScoringGuide({
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Activity Details</DialogTitle>
-            <DialogDescription>
-              {sowSourced
-                ? "Activity descriptions and page numbers are set from the Scheme of Work."
-                : "Activity metadata for each scored column."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-6 pt-2">
-            {wwTotals.length > 0 && (
+        <DialogContent className="flex max-h-[min(600px,80vh)] flex-col  sm:max-w-2xl!">
+          <ScrollArea className="flex flex-col overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Activity Details</DialogTitle>
+              <DialogDescription>
+                {sowSourced
+                  ? "Activity descriptions and page numbers are set from the Scheme of Work."
+                  : "Activity metadata for each scored column."}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6 pt-6">
+              {wwTotals.length > 0 && (
+                <section className="space-y-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Written Work</h3>
+                  <div className="space-y-2">
+                    {wwTotals.map((max, i) => (
+                      <SlotDetailRow key={`ww-${i}`} code={`W${i + 1}`} max={max} meta={labels.ww[i] ?? null} />
+                    ))}
+                  </div>
+                </section>
+              )}
+              {ptTotals.length > 0 && (
+                <section className="space-y-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Performance Task
+                  </h3>
+                  <div className="space-y-2">
+                    {ptTotals.map((max, i) => (
+                      <SlotDetailRow key={`pt-${i}`} code={`PT${i + 1}`} max={max} meta={labels.pt[i] ?? null} />
+                    ))}
+                  </div>
+                </section>
+              )}
               <section className="space-y-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Written Work</h3>
-                <div className="space-y-2">
-                  {wwTotals.map((max, i) => (
-                    <SlotDetailRow key={`ww-${i}`} code={`W${i + 1}`} max={max} meta={labels.ww[i] ?? null} />
-                  ))}
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Quarterly Assessment
+                </h3>
+                <div className="flex items-center gap-3 rounded-md border border-border bg-muted/30 px-3 py-2">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-brand-mint" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-foreground">QA — Exam</div>
+                    <div className="text-xs text-muted-foreground">Label is fixed for all sheets</div>
+                  </div>
                 </div>
               </section>
-            )}
-            {ptTotals.length > 0 && (
-              <section className="space-y-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Performance Task</h3>
-                <div className="space-y-2">
-                  {ptTotals.map((max, i) => (
-                    <SlotDetailRow key={`pt-${i}`} code={`PT${i + 1}`} max={max} meta={labels.pt[i] ?? null} />
-                  ))}
+              {sowSourced && (
+                <div className="flex items-center gap-2 rounded-md border border-brand-indigo/20 bg-brand-indigo/5 px-3 py-2">
+                  <BookOpenCheck className="h-4 w-4 shrink-0 text-brand-indigo" />
+                  <p className="text-xs text-muted-foreground">
+                    From Scheme of Work{sowVersion != null ? ` v${sowVersion}` : ""}
+                  </p>
                 </div>
-              </section>
-            )}
-            <section className="space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Quarterly Assessment
-              </h3>
-              <div className="flex items-center gap-3 rounded-md border border-border bg-muted/30 px-3 py-2">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-brand-mint" />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-foreground">QA — Exam</div>
-                  <div className="text-xs text-muted-foreground">Label is fixed for all sheets</div>
-                </div>
-              </div>
-            </section>
-            {sowSourced && (
-              <div className="flex items-center gap-2 rounded-md border border-brand-indigo/20 bg-brand-indigo/5 px-3 py-2">
-                <BookOpenCheck className="h-4 w-4 shrink-0 text-brand-indigo" />
-                <p className="text-xs text-muted-foreground">
-                  From Scheme of Work{sowVersion != null ? ` v${sowVersion}` : ""}
-                </p>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     </>
