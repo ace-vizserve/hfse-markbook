@@ -174,7 +174,8 @@
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(Sort-Object)",
       "PowerShell(Get-Content *)",
-      "Bash(06[0-9]\")"
+      "Bash(06[0-9]\")",
+      "Bash(npm test *)"
     ],
     "deny": [
       "Read(./.env.local)"
