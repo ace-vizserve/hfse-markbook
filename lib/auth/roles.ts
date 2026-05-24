@@ -346,17 +346,6 @@ const EVALUATION_NAV: NavSection[] = [
 const SIS_NAV: NavSection[] = [
   { items: [{ href: "/sis", label: "Admin Hub" }] },
   {
-    // Numbered steps guide school_admin through the AY readiness sequence:
-    // 1 AY Setup → 2 School Calendar → 3 Sections → 4 Grading Sheets.
-    label: "Year Setup",
-    items: [
-      { step: 1, href: "/sis/ay-setup",      label: "AY Setup",        requiresRoles: ["school_admin", "superadmin"] },
-      { step: 2, href: "/sis/calendar",      label: "School Calendar", requiresRoles: ["school_admin", "superadmin"] },
-      { step: 3, href: "/sis/sections",      label: "Sections",        requiresRoles: ["school_admin", "superadmin"] },
-      { step: 4, href: "/markbook/sections", label: "Grading Sheets",  requiresRoles: ["school_admin", "superadmin"] },
-    ],
-  },
-  {
     label: "Organisation",
     items: [
       { href: "/sis/admin/sow",            label: "Scheme of Work",       requiresRoles: ["school_admin", "superadmin"] },
