@@ -48,9 +48,8 @@ export function AyReadinessPill({ readiness, role }: Props) {
   const [open, setOpen] = useState(false);
 
   if (role !== "school_admin" && role !== "superadmin") return null;
-  if (readiness.complete === readiness.total) return null;
-
-  const pct = Math.round((readiness.complete / readiness.total) * 100);
+  const done = readiness.complete === readiness.total;
+  const pct  = done ? 100 : Math.round((readiness.complete / readiness.total) * 100);
 
   return (
     <>
@@ -67,15 +66,26 @@ export function AyReadinessPill({ readiness, role }: Props) {
           <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             Year Setup · {readiness.ayCode}
           </p>
-          <p className="mt-0.5 font-serif text-sm font-semibold leading-tight text-foreground">
-            {readiness.complete}{" "}
-            <span className="font-sans text-[13px] font-normal text-muted-foreground">
-              of {readiness.total} complete
-            </span>
-          </p>
+          {done ? (
+            <p className="mt-0.5 font-serif text-sm font-semibold leading-tight text-brand-mint">
+              All steps complete
+            </p>
+          ) : (
+            <p className="mt-0.5 font-serif text-sm font-semibold leading-tight text-foreground">
+              {readiness.complete}{" "}
+              <span className="font-sans text-[13px] font-normal text-muted-foreground">
+                of {readiness.total} complete
+              </span>
+            </p>
+          )}
           <div className="mt-1.5 h-1 w-28 overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-brand-indigo to-brand-mint transition-all duration-500"
+              className={[
+                "h-full rounded-full transition-all duration-500",
+                done
+                  ? "bg-brand-mint"
+                  : "bg-gradient-to-r from-brand-indigo to-brand-mint",
+              ].join(" ")}
               style={{ width: `${pct}%` }}
             />
           </div>
