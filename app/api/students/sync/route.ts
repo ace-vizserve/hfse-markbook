@@ -14,14 +14,15 @@ import { invalidateAllOperationalDrills } from '@/lib/cache/invalidate-drill-tag
 //     always using max(index)+1 per section.
 //   * Withdrawn students keep their row; enrollment_status flips to 'withdrawn'.
 //   * Never delete; every mutation goes through update/insert only.
-export async function POST() {
+export async function POST(request: Request) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const service = createServiceClient();
 
   try {
-    const ayCode = await requireCurrentAyCode(service);
+    const body = await request.json().catch(() => ({}));
+    const ayCode: string = body?.ayCode ?? await requireCurrentAyCode(service);
     const [snapshot, rows] = await Promise.all([
       loadGradingSnapshot(service, ayCode),
       fetchAdmissionsRoster(ayCode),

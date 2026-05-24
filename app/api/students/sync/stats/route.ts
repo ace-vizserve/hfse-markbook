@@ -6,14 +6,17 @@ import { loadGradingSnapshot } from '@/lib/sync/snapshot';
 import { buildSyncPlan } from '@/lib/sync/students';
 import { requireCurrentAyCode } from '@/lib/academic-year';
 
-// Preview endpoint â€” returns what WOULD happen on sync without writing anything.
-export async function GET() {
+// Preview endpoint — returns what WOULD happen on sync without writing anything.
+// Accepts optional ?ay=AY2026 query param; falls back to current AY.
+export async function GET(request: Request) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   try {
     const service = createServiceClient();
-    const ayCode = await requireCurrentAyCode(service);
+    const { searchParams } = new URL(request.url);
+    const ayParam = searchParams.get('ay');
+    const ayCode = ayParam ?? await requireCurrentAyCode(service);
     const [snapshot, rows] = await Promise.all([
       loadGradingSnapshot(service, ayCode),
       fetchAdmissionsRoster(ayCode),
