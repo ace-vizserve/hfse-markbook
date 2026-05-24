@@ -19,8 +19,6 @@ export type EvaluationWriteupRow = {
 export type EvaluationTermConfig = {
   termId: string;
   virtueTheme: string | null;
-  isOpen: boolean;
-  openedAt: string | null;
 };
 
 export type EvaluationRosterStudent = {
@@ -48,17 +46,9 @@ export async function getEvaluationTermConfig(termId: string): Promise<Evaluatio
     .maybeSingle();
   if (termErr || !term) return null;
 
-  const { data: evalTerm } = await service
-    .from('evaluation_terms')
-    .select('is_open, opened_at')
-    .eq('term_id', termId)
-    .maybeSingle();
-
   return {
     termId: term.id,
     virtueTheme: (term.virtue_theme as string | null) ?? null,
-    isOpen: (evalTerm?.is_open as boolean | undefined) ?? false,
-    openedAt: (evalTerm?.opened_at as string | null | undefined) ?? null,
   };
 }
 
