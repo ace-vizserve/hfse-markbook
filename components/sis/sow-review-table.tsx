@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { Fragment, useEffect, useState, useTransition } from 'react';
 import {
   Select,
   SelectContent,
@@ -109,10 +109,13 @@ export function SowReviewTable({
     loadReview(termId, val, ayCode);
   }
 
-  // Load on first mount
-  if (rows === null && !loading && termId && subjectId && ayCode) {
-    loadReview(termId, subjectId, ayCode);
-  }
+  // Load whenever the scope selectors change (and on mount).
+  useEffect(() => {
+    if (termId && subjectId && ayCode) {
+      void loadReview(termId, subjectId, ayCode);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [termId, subjectId, ayCode]);
 
   // Derive level + section options from loaded data (preserves P1→S4 order from API)
   const levelOptions = rows
@@ -258,8 +261,8 @@ export function SowReviewTable({
             </TableHeader>
             <TableBody>
               {grouped.map(({ levelLabel, rows: levelRows }) => (
-                <>
-                  <TableRow key={`hdr-${levelLabel}`} className="bg-muted/40">
+                <Fragment key={levelLabel}>
+                  <TableRow className="bg-muted/40">
                     <TableCell
                       colSpan={8}
                       className="py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
@@ -299,7 +302,7 @@ export function SowReviewTable({
                       </TableCell>
                     </TableRow>
                   ))}
-                </>
+                </Fragment>
               ))}
             </TableBody>
           </Table>

@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   const { target_section_id, source_section_id, subject_id, term_id } = parsed.data;
   const service = createServiceClient();
 
-  // Auth gate: teacher must be assigned to target section.
+  // Auth gate: teacher must be the subject_teacher for the target section × subject.
   if (auth.role === 'teacher') {
     const { data: assignment } = await service
       .from('teacher_assignments')
@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
       .eq('teacher_user_id', auth.user.id)
       .eq('section_id', target_section_id)
       .eq('subject_id', subject_id)
+      .eq('role', 'subject_teacher')
       .maybeSingle();
     if (!assignment) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }

@@ -247,7 +247,7 @@ export async function syncSowLabelsToSheet(
   if (!error) {
     await service
       .from('grading_sheets')
-      .update({ slot_labels_copied_from_sheet_id: null, slot_labels_copied_at: new Date().toISOString() })
+      .update({ slot_labels_copied_at: new Date().toISOString() })
       .eq('id', sheetId);
   }
 

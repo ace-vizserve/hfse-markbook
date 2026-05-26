@@ -22,7 +22,7 @@ export default async function SowEditorPage({
   const { sectionId, subjectId, termId } = await params;
   const service = createServiceClient();
 
-  // Auth gate: teacher must be assigned to this section+subject.
+  // Auth gate: teacher must be the subject_teacher for this section × subject.
   if (sessionUser.role === 'teacher') {
     const { data: assignment } = await service
       .from('teacher_assignments')
@@ -30,6 +30,7 @@ export default async function SowEditorPage({
       .eq('teacher_user_id', sessionUser.id)
       .eq('section_id', sectionId)
       .eq('subject_id', subjectId)
+      .eq('role', 'subject_teacher')
       .maybeSingle();
     if (!assignment) redirect('/markbook/sow');
   }

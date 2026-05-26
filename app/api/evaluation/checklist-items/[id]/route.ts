@@ -62,8 +62,9 @@ export async function PATCH(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const isReorder = patch.sort_order !== undefined && !patch.item_text;
-  const action = isReorder ? 'evaluation.checklist_item.reorder' : 'evaluation.checklist_item.update';
+  const textChanged = patch.item_text !== undefined;
+  const orderChanged = patch.sort_order !== undefined;
+  const action = orderChanged && !textChanged ? 'evaluation.checklist_item.reorder' : 'evaluation.checklist_item.update';
 
   await logAction({
     service,
@@ -73,15 +74,14 @@ export async function PATCH(
     entityId: id,
     context: {
       itemId: id,
-      ...(isReorder
-        ? {
-            before: { sort_order: (existing as { sort_order: number }).sort_order },
-            after: { sort_order: patch.sort_order },
-          }
-        : {
-            before: { itemText: (existing as { item_text: string }).item_text },
-            after: { itemText: patch.item_text },
-          }),
+      before: {
+        ...(textChanged && { itemText: (existing as { item_text: string }).item_text }),
+        ...(orderChanged && { sort_order: (existing as { sort_order: number }).sort_order }),
+      },
+      after: {
+        ...(textChanged && { itemText: patch.item_text }),
+        ...(orderChanged && { sort_order: patch.sort_order }),
+      },
     },
   });
 

@@ -13,11 +13,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   getPtcFeedbackBySectionTerm,
   getResponsesBySectionTerm,
-  getSectionsTeacherCanCopyFrom,
   getSubjectCommentsBySectionTerm,
   listChecklistItems,
   listTeacherSubjectsForSection,
 } from "@/lib/evaluation/checklist";
+import { createServiceClient } from "@/lib/supabase/service";
 import { getEvaluationTermConfig, getSectionRoster, listFormAdviserSectionIds } from "@/lib/evaluation/queries";
 import { daysUntilPtc, findPtcForWriteupTerm, getPtcEventsForAy } from "@/lib/evaluation/ptc-resolver";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
@@ -170,14 +170,25 @@ export default async function EvaluationSectionRosterPage({
   // (no add/edit/delete/reorder affordances on the audit surface).
   const teacherCanEditTopics = sessionUser.role !== "teacher" || teacherSubjectIds.length > 0;
 
-  const [items, responseMap, commentMap, copyFromOptions] = selectedSubjectId
+  const service = createServiceClient();
+  const [items, responseMap, commentMap, sowInstance] = selectedSubjectId
     ? await Promise.all([
         listChecklistItems(selectedTerm.id, selectedSubjectId, sectionId),
         getResponsesBySectionTerm(sectionId, selectedTerm.id),
         getSubjectCommentsBySectionTerm(sectionId, selectedTerm.id, selectedSubjectId),
-        getSectionsTeacherCanCopyFrom(sessionUser.id, selectedTerm.id, selectedSubjectId, sectionId),
+        service
+          .from('sow_class_instances')
+          .select('id, topics')
+          .eq('section_id', sectionId)
+          .eq('subject_id', selectedSubjectId)
+          .eq('term_id', selectedTerm.id)
+          .maybeSingle()
+          .then((r) => r.data as { id: string; topics: unknown[] } | null),
       ])
-    : [[], new Map(), new Map(), [] as Awaited<ReturnType<typeof getSectionsTeacherCanCopyFrom>>];
+    : [[], new Map(), new Map(), null];
+
+  const sowInstanceId = sowInstance?.id ?? null;
+  const sowHasTopics = (sowInstance?.topics?.length ?? 0) > 0;
 
   const responsesForClient = new Map<string, number | null>();
   for (const [k, row] of responseMap.entries()) {
@@ -414,7 +425,8 @@ export default async function EvaluationSectionRosterPage({
                 initialComments={commentsForClient}
                 canEdit={canEdit}
                 canEditTopics={teacherCanEditTopics}
-                copyFromOptions={copyFromOptions}
+                sowInstanceId={sowInstanceId}
+                sowHasTopics={sowHasTopics}
               />
             )}
           </TabsContent>

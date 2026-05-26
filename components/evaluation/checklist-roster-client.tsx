@@ -5,13 +5,14 @@ import {
   ArrowDown,
   ArrowUp,
   Check,
-  Copy,
   Loader2,
   Pencil,
   Plus,
   Trash2,
   X,
 } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 import {
@@ -77,7 +78,8 @@ export function ChecklistRosterClient({
   initialComments,
   canEdit,
   canEditTopics,
-  copyFromOptions,
+  sowInstanceId,
+  sowHasTopics,
 }: {
   termId: string;
   sectionId: string;
@@ -89,17 +91,14 @@ export function ChecklistRosterClient({
   initialComments: Map<string, string>;
   canEdit: boolean;
   // True when the viewer is the subject_teacher for this (section × subject)
-  // — gates the inline add / edit / delete / reorder / copy affordances.
+  // — gates the inline add / edit / delete / reorder affordances.
   canEditTopics: boolean;
-  // Sections this teacher already teaches the same subject in, which have
-  // topics defined. Drives the "Copy topics from {section}" button shown
-  // when the current section's topic list is empty.
-  copyFromOptions: Array<{
-    section_id: string;
-    section_name: string;
-    item_count: number;
-  }>;
+  // SOW instance for this (section × subject × term), used to power the
+  // "Seed topics from your SOW" CTA when the checklist is empty.
+  sowInstanceId: string | null;
+  sowHasTopics: boolean;
 }) {
+  const router = useRouter();
   const [subjectId, setSubjectId] = useState(initialSubjectId);
 
   const [state, setState] = useState<ChecklistState>(() => ({
@@ -124,7 +123,7 @@ export function ChecklistRosterClient({
   const [editingText, setEditingText] = useState('');
   const [topicBusy, setTopicBusy] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<ChecklistItem | null>(null);
-  const [copyBusy, setCopyBusy] = useState(false);
+  const [seedBusy, setSeedBusy] = useState(false);
   const newTopicInputRef = useRef<HTMLInputElement | null>(null);
 
   const commentTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -246,14 +245,17 @@ export function ChecklistRosterClient({
     }
     setTopicBusy(true);
     try {
+      const nextSortOrder =
+        topics.length === 0 ? 0 : Math.max(...topics.map((t) => t.sort_order)) + 10;
       const res = await fetch('/api/evaluation/checklist-items', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          termId,
-          subjectId,
-          sectionId,
-          itemText: trimmed,
+          term_id: termId,
+          subject_id: subjectId,
+          section_id: sectionId,
+          item_text: trimmed,
+          sort_order: nextSortOrder,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -266,7 +268,7 @@ export function ChecklistRosterClient({
           id: body.id,
           item_text: trimmed,
           sort_order:
-            typeof body.sortOrder === 'number' ? body.sortOrder : prev.length * 10,
+            typeof body.sort_order === 'number' ? body.sort_order : nextSortOrder,
         },
       ]);
       setNewTopicText('');
@@ -294,7 +296,7 @@ export function ChecklistRosterClient({
         {
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ itemText: trimmed }),
+          body: JSON.stringify({ item_text: trimmed }),
         },
       );
       const body = await res.json().catch(() => ({}));
@@ -366,7 +368,7 @@ export function ChecklistRosterClient({
         {
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ sortOrder: b.sort_order }),
+          body: JSON.stringify({ sort_order: b.sort_order }),
         },
       );
       if (!patchA.ok) {
@@ -378,7 +380,7 @@ export function ChecklistRosterClient({
         {
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ sortOrder: a.sort_order }),
+          body: JSON.stringify({ sort_order: a.sort_order }),
         },
       );
       if (!patchB.ok) {
@@ -394,28 +396,21 @@ export function ChecklistRosterClient({
     }
   }
 
-  async function runCopyFrom(sourceSectionId: string) {
-    if (copyBusy) return;
-    setCopyBusy(true);
+  async function seedFromSow() {
+    if (!sowInstanceId || seedBusy) return;
+    setSeedBusy(true);
     try {
-      const res = await fetch('/api/evaluation/checklist-items/copy-from', {
+      const res = await fetch(`/api/sow/${encodeURIComponent(sowInstanceId)}/sync-to-eval`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          sourceSection: sourceSectionId,
-          targetSection: sectionId,
-          termId,
-          subjectId,
-        }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body?.error ?? 'Could not copy the topics');
-      toast.success(`Copied ${body.copied ?? 0} topic${body.copied === 1 ? '' : 's'}`);
-      // Full refresh so the page RSC reloads the new topic list cleanly.
-      window.location.reload();
+      if (!res.ok) throw new Error(body?.error ?? 'Could not seed topics');
+      toast.success(`${body.inserted ?? 0} topic${body.inserted === 1 ? '' : 's'} seeded from your SOW`);
+      router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not copy the topics');
-      setCopyBusy(false);
+      toast.error(e instanceof Error ? e.message : 'Could not seed topics');
+    } finally {
+      setSeedBusy(false);
     }
   }
 
@@ -484,13 +479,11 @@ export function ChecklistRosterClient({
       <TopicManagerPanel
         topics={topics}
         canEditTopics={canEditTopics}
-        copyFromOptions={copyFromOptions}
         addingTopic={addingTopic}
         newTopicText={newTopicText}
         editingTopicId={editingTopicId}
         editingText={editingText}
         topicBusy={topicBusy}
-        copyBusy={copyBusy}
         newTopicInputRef={newTopicInputRef}
         onStartAdd={() => {
           setAddingTopic(true);
@@ -517,14 +510,49 @@ export function ChecklistRosterClient({
         onMoveUp={(id) => void moveTopic(id, 'up')}
         onMoveDown={(id) => void moveTopic(id, 'down')}
         onRequestDelete={(t) => setDeleteConfirm(t)}
-        onCopyFrom={(s) => void runCopyFrom(s)}
       />
 
       {totalItems === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
-          {canEditTopics
-            ? 'No topics yet. Use “+ Add topic” above to add the first one — or copy them from another of your sections.'
-            : 'No topics yet. The subject teacher will add them from their Evaluation view.'}
+          {canEditTopics ? (
+            sowInstanceId && sowHasTopics ? (
+              <div className="flex flex-col items-center gap-3">
+                <p>No topics yet — your SOW has topics ready to import.</p>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void seedFromSow()}
+                  disabled={seedBusy}
+                >
+                  {seedBusy ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                  Seed topics from your SOW
+                </Button>
+              </div>
+            ) : sowInstanceId ? (
+              <p>
+                No topics yet. Use {'"'}+ Add topic{'"'} above, or{' '}
+                <Link
+                  href={`/markbook/sow/${sectionId}/${subjectId}/${termId}`}
+                  className="underline underline-offset-2 hover:text-foreground"
+                >
+                  author topics on your SOW
+                </Link>{' '}
+                first.
+              </p>
+            ) : (
+              <p>
+                No topics yet. Use {'"'}+ Add topic{'"'} above, or{' '}
+                <Link
+                  href={`/markbook/sow/${sectionId}/${subjectId}/${termId}`}
+                  className="underline underline-offset-2 hover:text-foreground"
+                >
+                  start your SOW for this class
+                </Link>.
+              </p>
+            )
+          ) : (
+            'No topics yet. The subject teacher will add them from their Evaluation view.'
+          )}
         </div>
       ) : roster.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
@@ -670,13 +698,11 @@ export function ChecklistRosterClient({
 function TopicManagerPanel({
   topics,
   canEditTopics,
-  copyFromOptions,
   addingTopic,
   newTopicText,
   editingTopicId,
   editingText,
   topicBusy,
-  copyBusy,
   newTopicInputRef,
   onStartAdd,
   onCancelAdd,
@@ -689,21 +715,14 @@ function TopicManagerPanel({
   onMoveUp,
   onMoveDown,
   onRequestDelete,
-  onCopyFrom,
 }: {
   topics: ChecklistItem[];
   canEditTopics: boolean;
-  copyFromOptions: Array<{
-    section_id: string;
-    section_name: string;
-    item_count: number;
-  }>;
   addingTopic: boolean;
   newTopicText: string;
   editingTopicId: string | null;
   editingText: string;
   topicBusy: boolean;
-  copyBusy: boolean;
   newTopicInputRef: React.MutableRefObject<HTMLInputElement | null>;
   onStartAdd: () => void;
   onCancelAdd: () => void;
@@ -716,11 +735,7 @@ function TopicManagerPanel({
   onMoveUp: (id: string) => void;
   onMoveDown: (id: string) => void;
   onRequestDelete: (t: ChecklistItem) => void;
-  onCopyFrom: (sourceSectionId: string) => void;
 }) {
-  const showCopyButtons =
-    canEditTopics && topics.length === 0 && copyFromOptions.length > 0;
-
   return (
     <div className="space-y-2 rounded-xl border border-border bg-card p-4">
       <div className="flex items-baseline justify-between gap-3">
@@ -740,32 +755,6 @@ function TopicManagerPanel({
           </Button>
         )}
       </div>
-
-      {/* Copy-from buttons — only when the list is empty + teacher has other
-          sections with topics. */}
-      {showCopyButtons && (
-        <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-border bg-muted/20 px-3 py-2">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            Or copy from:
-          </span>
-          {copyFromOptions.map((opt) => (
-            <Button
-              key={opt.section_id}
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => onCopyFrom(opt.section_id)}
-              disabled={copyBusy}
-            >
-              <Copy className="size-3.5" />
-              {opt.section_name}
-              <span className="ml-1 font-mono text-[10px] text-muted-foreground">
-                {opt.item_count}
-              </span>
-            </Button>
-          ))}
-        </div>
-      )}
 
       {/* Existing topics list. */}
       {topics.length > 0 && (

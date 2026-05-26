@@ -348,6 +348,7 @@ const SIS_NAV: NavSection[] = [
   {
     label: "Year Setup",
     items: [
+      { href: "/sis/ay-setup",  label: "AY Setup",        requiresRoles: ["school_admin", "superadmin"] },
       { href: "/sis/calendar",  label: "School Calendar", requiresRoles: ["registrar", "school_admin", "superadmin"] },
       { href: "/sis/sections",  label: "Sections",        requiresRoles: ["registrar", "school_admin", "superadmin"] },
     ],
