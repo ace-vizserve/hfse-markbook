@@ -25,6 +25,8 @@ import {
   LayoutGrid,
   MessageSquare,
   RefreshCw,
+  Scale,
+  ScrollText,
   Settings2,
   ShieldCheck,
   SquarePen,
@@ -38,7 +40,7 @@ import {
 
 import type { Module, Role, SidebarBadgeKey } from "@/lib/auth/roles";
 
-export type SidebarModule = Module | "parent";
+export type SidebarModule = Module;
 
 export type QuickAction = {
   label: string;
@@ -53,13 +55,11 @@ export type ModuleSidebarConfig = {
   primaryHref: string;
   iconByHref: Record<string, LucideIcon>;
   fallbackIcon: LucideIcon;
-  quickActionByRole: Partial<Record<Role | "parent", QuickAction>>;
+  quickActionByRole: Partial<Record<Role, QuickAction>>;
 };
 
 // Order shown in the module-switcher popover. Lifecycle: intake →
 // identity → docs → grading → attendance → evaluation → admin config.
-// Parent is excluded — parents only ever reach one module, so they get
-// the single-module fallback header (no popover).
 export const MODULE_ORDER: Module[] = [
   "admissions",
   "records",
@@ -85,6 +85,7 @@ export const SIDEBAR_REGISTRY: Record<SidebarModule, ModuleSidebarConfig> = {
     fallbackIcon: BookOpen,
     iconByHref: {
       "/markbook": LayoutDashboard,
+      "/markbook/sow": ScrollText,
       "/markbook/grading": ClipboardList,
       "/markbook/grading/new": FilePlus2,
       "/markbook/grading/requests": FileText,
@@ -95,7 +96,7 @@ export const SIDEBAR_REGISTRY: Record<SidebarModule, ModuleSidebarConfig> = {
       "/markbook/audit-log": History,
     },
     quickActionByRole: {
-      teacher: { label: "Open my sheets", href: "/markbook/grading", icon: ClipboardList },
+      teacher: { label: "Open my sheets", href: "/markbook/grading?mine=1", icon: ClipboardList },
       registrar: MARKBOOK_QUICK_REGISTRAR,
       // school_admin is the consolidated approver pool (Sprint 33) and
       // gets the same quick action as registrar.
@@ -220,7 +221,7 @@ export const SIDEBAR_REGISTRY: Record<SidebarModule, ModuleSidebarConfig> = {
       "/evaluation/audit-log": History,
     },
     quickActionByRole: {
-      teacher: { label: "Open writeups", href: "/evaluation/sections", icon: SquarePen },
+      teacher: { label: "Open my sections", href: "/evaluation/sections", icon: SquarePen },
       // Registrar+ land on analytics dashboard.
     },
   },
@@ -236,6 +237,7 @@ export const SIDEBAR_REGISTRY: Record<SidebarModule, ModuleSidebarConfig> = {
       "/sis/calendar": CalendarDays,
       "/sis/sections": LayoutGrid,
       "/sis/admin/discount-codes": Tag,
+      "/sis/admin/subjects": Scale,
       "/sis/admin/approvers": ShieldCheck,
       "/sis/admin/template": Copy,
       "/sis/admin/school-config": Building2,
@@ -251,16 +253,5 @@ export const SIDEBAR_REGISTRY: Record<SidebarModule, ModuleSidebarConfig> = {
       // Superadmin lives in AY Setup / structural config more often.
       superadmin: { label: "AY Setup", href: "/sis/ay-setup", icon: CalendarCog },
     },
-  },
-
-  parent: {
-    label: "Parent Portal",
-    icon: Users,
-    primaryHref: "/parent",
-    fallbackIcon: Users,
-    iconByHref: {
-      "/parent": Users,
-    },
-    quickActionByRole: {},
   },
 };

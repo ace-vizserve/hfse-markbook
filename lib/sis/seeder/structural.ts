@@ -31,8 +31,6 @@ export type StructureSeedResult = {
   school_config_applied: boolean;
   grading_sheets_created: number;
   grading_sheets_totals_set: number;
-  sow_masters_inserted: number;
-  sow_versions_published: number;
 };
 
 export async function ensureTestStructure(
@@ -57,8 +55,6 @@ export async function ensureTestStructure(
     school_config_applied: false,
     grading_sheets_created: 0,
     grading_sheets_totals_set: 0,
-    sow_masters_inserted: 0,
-    sow_versions_published: 0,
   };
 
   // ---- 1. levels (global reference) ----
@@ -481,130 +477,6 @@ export async function ensureTestStructure(
             .update({ ww_totals: ww, pt_totals: pt, qa_total: qa })
             .eq('id', sheet.id);
           if (!error) result.grading_sheets_totals_set += 1;
-        }
-      }
-    }
-  }
-
-  // ---- 10. SOW: master templates + published versions (minimal, idempotent) ----
-  // Seeds one sow_master_template + one published version per
-  // (term × subject × level × curriculum_track) scope so:
-  //   - The AY readiness pill "SOW" step shows complete
-  //   - The "Generate Sheets" UI button is not fully blocked
-  //   - Evaluation topics stay empty — registrar uses SOW builder to add them
-  // Class instances are NOT seeded — use POST /api/sis/admin/sow/apply to test that flow.
-  {
-    // Derive the exact scope matrix the readiness step uses:
-    // distinct (level_id, curriculum_track) pairs from sections × subject_configs × terms
-    const { data: sectionLevelRows } = await service
-      .from('sections')
-      .select('level_id, curriculum_track')
-      .eq('academic_year_id', testAy.id);
-
-    const { data: configRows } = await service
-      .from('subject_configs')
-      .select('subject_id, level_id')
-      .eq('academic_year_id', testAy.id);
-
-    const trackPairs = [
-      ...new Map(
-        ((sectionLevelRows ?? []) as Array<{ level_id: string; curriculum_track: string }>).map(
-          (s) => [`${s.level_id}:${s.curriculum_track}`, s],
-        ),
-      ).values(),
-    ];
-
-    const cfgs = (configRows ?? []) as Array<{ subject_id: string; level_id: string }>;
-
-    // Generic slot labels — teachers fill in dates/scores per session
-    const defaultWw = [
-      { label: 'Written Work 1', date: null, page: null },
-      { label: 'Written Work 2', date: null, page: null },
-    ];
-    const defaultPt = [
-      { label: 'Performance Task 1', date: null, page: null },
-      { label: 'Performance Task 2', date: null, page: null },
-      { label: 'Performance Task 3', date: null, page: null },
-    ];
-
-    const masterRows: Array<{
-      ay_id: string;
-      term_id: string;
-      subject_id: string;
-      level_id: string;
-      curriculum_track: string;
-      ww: unknown;
-      pt: unknown;
-      topics: unknown[];
-    }> = [];
-
-    for (const pair of trackPairs) {
-      const subjectsForLevel = cfgs.filter((c) => c.level_id === pair.level_id);
-      for (const term of terms) {
-        for (const cfg of subjectsForLevel) {
-          masterRows.push({
-            ay_id: testAy.id,
-            term_id: term.id,
-            subject_id: cfg.subject_id,
-            level_id: pair.level_id,
-            curriculum_track: pair.curriculum_track,
-            ww: defaultWw,
-            pt: defaultPt,
-            topics: [],
-          });
-        }
-      }
-    }
-
-    if (masterRows.length > 0) {
-      const { data: insertedMasters, error: mastersErr } = await service
-        .from('sow_master_templates')
-        .upsert(masterRows, {
-          onConflict: 'ay_id,term_id,subject_id,level_id,curriculum_track',
-          ignoreDuplicates: true,
-        })
-        .select('id');
-      if (mastersErr) {
-        console.error('[structural seeder] sow_master_templates upsert failed:', mastersErr.message);
-      }
-      result.sow_masters_inserted = insertedMasters?.length ?? 0;
-
-      // Publish version 1 for every master that doesn't have a version yet.
-      const { data: allMasters } = await service
-        .from('sow_master_templates')
-        .select('id')
-        .eq('ay_id', testAy.id);
-
-      if (allMasters?.length) {
-        const allMasterIds = (allMasters as Array<{ id: string }>).map((m) => m.id);
-
-        const { data: existingVersions } = await service
-          .from('sow_published_versions')
-          .select('master_id')
-          .in('master_id', allMasterIds);
-
-        const publishedMasterIds = new Set(
-          (existingVersions ?? []).map((v) => (v as { master_id: string }).master_id),
-        );
-        const unpublished = allMasterIds.filter((id) => !publishedMasterIds.has(id));
-
-        if (unpublished.length > 0) {
-          const versionRows = unpublished.map((master_id) => ({
-            master_id,
-            version_number: 1,
-            ww: defaultWw,
-            pt: defaultPt,
-            topics: [],
-            notes: null,
-          }));
-          const { data: pubs, error: pubsErr } = await service
-            .from('sow_published_versions')
-            .insert(versionRows)
-            .select('id');
-          if (pubsErr) {
-            console.error('[structural seeder] sow_published_versions insert failed:', pubsErr.message);
-          }
-          result.sow_versions_published = pubs?.length ?? 0;
         }
       }
     }

@@ -57,17 +57,6 @@ const PREFIX_MATCH_HREFS = new Set<string>([
 ]);
 
 function resolveSectionsForRole(module: SidebarModule, role: Role | null): NavSection[] {
-  if (module === "parent") {
-    // Parent has a single hardcoded nav item — "My children" → /parent.
-    // Keeping it inline (rather than threading through NAV_BY_MODULE)
-    // since parents are null-role and the registry stays small.
-    return [
-      {
-        items: [{ href: "/parent", label: "My children" }],
-      },
-    ];
-  }
-
   if (module === "markbook") {
     if (!role) return [];
     const byRole = NAV_BY_MODULE.markbook[role] ?? [];
@@ -148,8 +137,8 @@ export function ModuleSidebar({ module, role, email, userId, badges }: ModuleSid
     new URLSearchParams(searchParams?.toString() ?? ""),
   );
 
-  const quickAction = role ? config.quickActionByRole[role] : config.quickActionByRole.parent;
-  const profileRole: Role | "parent" = role ?? "parent";
+  const quickAction = role ? config.quickActionByRole[role] : undefined;
+  const profileRole: Role | null = role ?? null;
 
   return (
     <Sidebar collapsible="icon">

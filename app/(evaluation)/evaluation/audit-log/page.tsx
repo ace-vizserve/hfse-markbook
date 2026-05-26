@@ -14,12 +14,12 @@ import {
 import { PageShell } from '@/components/ui/page-shell';
 import { AuditLogDataTable, type MergedRow } from '@/app/(markbook)/markbook/audit-log/audit-log-data-table';
 
-// 10 live actions emitted by the evaluation module routes.
 // evaluation.term.open + evaluation.term.close are in the enum but never
-// emitted, so they're intentionally excluded.
+// emitted (window concept removed), so they're intentionally excluded.
 const EVALUATION_AUDIT_ALLOWLIST = [
   'evaluation.writeup.save',
   'evaluation.writeup.submit',
+  // Checklist topic CRUD — teacher-owned per section (KD #110)
   'evaluation.checklist_item.create',
   'evaluation.checklist_item.update',
   'evaluation.checklist_item.delete',
@@ -28,6 +28,8 @@ const EVALUATION_AUDIT_ALLOWLIST = [
   'evaluation.checklist_response.save',
   'evaluation.subject_comment.save',
   'evaluation.ptc_feedback.save',
+  // Scheme of Work — evaluation-affecting actions (KD #110)
+  'sow.instance.save', 'sow.instance.import_from', 'sow.topics.synced',
 ] as const;
 
 export default async function EvaluationAuditLogPage({

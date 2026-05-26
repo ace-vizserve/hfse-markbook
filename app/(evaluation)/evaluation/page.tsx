@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowUpRight, CheckCircle2, ClipboardCheck, Clock, NotebookPen, SquarePen, TrendingUp } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CalendarDays, CheckCircle2, ClipboardCheck, Clock, ListChecks, MessageSquare, NotebookPen, SquarePen, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -29,6 +29,8 @@ import { formatRangeLabel, resolveRange, TERM_SCOPED_PRESETS, type DashboardSear
 import { getDashboardWindows } from "@/lib/dashboard/windows";
 import {
   getEvaluationKpisRange,
+  getEvaluationPtcFeedbackCompletenessRange,
+  getEvaluationRatingCompletenessRange,
   getEvaluationRegistrarPriority,
   getEvaluationTeacherPriority,
   getSubmissionVelocityRange,
@@ -85,13 +87,15 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
     ? await getDashboardWindows(ayCode)
     : { term: { thisTerm: null, lastTerm: null, byNumber: { 1: null, 2: null, 3: null, 4: null } }, ay: { thisAY: null, lastAY: null }, activeTermFallback: false };
   const rangeInput = ayCode ? resolveRange(resolvedSearch, windows, ayCode) : null;
-  const [kpisResult, velocity, drillRowSets] = rangeInput
+  const [kpisResult, velocity, drillRowSets, ratingCompleteness, ptcCompleteness] = rangeInput
     ? await Promise.all([
         getEvaluationKpisRange(rangeInput),
         getSubmissionVelocityRange(rangeInput),
         buildAllRowSets({ ayCode, from: rangeInput.from, to: rangeInput.to }),
+        getEvaluationRatingCompletenessRange(rangeInput),
+        getEvaluationPtcFeedbackCompletenessRange(rangeInput),
       ])
-    : [null, null, null];
+    : [null, null, null, null, null];
   const comparisonLabel = kpisResult?.comparisonRange
     ? `vs ${formatRangeLabel(kpisResult.comparisonRange)}`
     : undefined;
@@ -131,7 +135,7 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
       <DashboardHero
         eyebrow="Student Evaluation · Hub"
         title="Form class adviser write-ups"
-        description="One paragraph per student per term, guided by the term's virtue theme. Sole source for T1–T3 report card comments. T4 is inactive."
+        description="FCA write-ups, SOW-topic ratings by subject teachers, and PTC notes — one term at a time. Sole source for T1–T3 report card comments. T4 is FCA-inactive."
         badges={ayCode ? [{ label: ayCode }] : []}
       />
 
@@ -267,6 +271,33 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
             />
           </section>
 
+          {ratingCompleteness && ptcCompleteness && (
+            <section className="grid gap-4 md:grid-cols-2">
+              <MetricCard
+                label="Topic ratings"
+                value={ratingCompleteness.current.pct}
+                format="percent"
+                icon={ListChecks}
+                intent={ratingCompleteness.current.pct >= 80 ? "good" : "warning"}
+                delta={ratingCompleteness.delta ?? undefined}
+                deltaGoodWhen="up"
+                comparisonLabel={comparisonLabel}
+                subtext={`${ratingCompleteness.current.rated.toLocaleString('en-SG')} of ${ratingCompleteness.current.total.toLocaleString('en-SG')} cells rated · across all subjects`}
+              />
+              <MetricCard
+                label="PTC feedback recorded"
+                value={ptcCompleteness.current.pct}
+                format="percent"
+                icon={MessageSquare}
+                intent="default"
+                delta={ptcCompleteness.delta ?? undefined}
+                deltaGoodWhen="up"
+                comparisonLabel={comparisonLabel}
+                subtext={`${ptcCompleteness.current.recorded.toLocaleString('en-SG')} of ${ptcCompleteness.current.total.toLocaleString('en-SG')} students for the term scope`}
+              />
+            </section>
+          )}
+
           {velocity.current.length > 1 && (
             <SubmissionVelocityDrillCard
               current={velocity.current}
@@ -301,7 +332,7 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
         </>
       )}
 
-      <section className="grid gap-4 md:grid-cols-2">
+      <section className="grid gap-4 md:grid-cols-3">
         <HubCard
           href="/evaluation/sections"
           icon={SquarePen}
@@ -321,6 +352,14 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
           title="Virtue theme"
           description="Set in SIS Admin → Term dates, per term. The theme appears as a prompt to advisers and as the parenthetical on printed report cards."
           cta="Open AY Setup"
+        />
+        <HubCard
+          href="/sis/calendar"
+          icon={CalendarDays}
+          eyebrow="Scheduling"
+          title="PTC schedule"
+          description="Parent-teacher-conference dates from the school calendar — the deadline driver for each write-up cycle."
+          cta="Open calendar"
         />
       </section>
 

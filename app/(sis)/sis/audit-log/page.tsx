@@ -30,10 +30,10 @@ const SIS_AUDIT_ALLOWLIST = [
   'template.subject_config.delete', 'template.subject_config.bulk_delete',
   'template.apply',
   // Sections + teacher assignments
-  'section.create', 'section.rename', 'section.curriculum_track.update', 'section.realphabetize',
+  'section.create', 'section.rename', 'section.realphabetize',
   'assignment.create', 'assignment.delete',
-  // Scheme of Work (KD #108)
-  'sow.master.upsert', 'sow.version.publish', 'sow.instance.apply',
+  // Scheme of Work — teacher-owned model (KD #110)
+  'sow.instance.save', 'sow.instance.import_from', 'sow.labels.synced', 'sow.topics.synced',
   // School calendar (/sis/calendar)
   'attendance.calendar.upsert', 'attendance.calendar.delete', 'attendance.calendar.copy_from_prior_ay',
   // School config

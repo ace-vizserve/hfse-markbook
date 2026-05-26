@@ -11,6 +11,7 @@ import {
   Users,
 } from 'lucide-react';
 import { createClient, getSessionUser } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import type { Role } from '@/lib/auth/roles';
 import {
   loadAssignmentsForUser,
@@ -30,7 +31,6 @@ import { ScoreEntryGrid } from '@/components/grading/score-entry-grid';
 import { LockToggle } from '@/components/grading/lock-toggle';
 import { TotalsEditor } from '@/components/grading/totals-editor';
 import { listApproversForFlow } from '@/lib/sis/approvers/queries';
-import { sowExistsForSection } from '@/lib/sis/sow/queries';
 import { RequestEditButton } from './request-edit-button';
 
 /**
@@ -51,7 +51,7 @@ function fieldLabelForChangeRequest(
 }
 
 type Level = { id: string; code: string; label: string };
-type Section = { id: string; name: string; curriculum_track: string; level: Level | Level[] | null };
+type Section = { id: string; name: string; level: Level | Level[] | null };
 type Subject = { id: string; code: string; name: string; is_examinable: boolean };
 type Term = { id: string; term_number: number; label: string };
 type SubjectConfig = {
@@ -110,7 +110,7 @@ export default async function GradingSheetPage({
       `id, teacher_name, is_locked, locked_at, locked_by, ww_totals, pt_totals, qa_total, slot_labels,
        term:terms(id, term_number, label),
        subject:subjects(id, code, name, is_examinable),
-       section:sections(id, name, curriculum_track, level:levels(id, code, label)),
+       section:sections(id, name, level:levels(id, code, label)),
        subject_config:subject_configs(ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots)`,
     )
     .eq('id', id)
@@ -192,13 +192,25 @@ export default async function GradingSheetPage({
   const config = first(sheet.subject_config as SubjectConfig | SubjectConfig[] | null);
   const isExaminable = subject?.is_examinable !== false;
 
-  // Check if this sheet has a SOW class instance (determines whether labels are
-  // SOW-sourced read-only or teacher-editable). Runs only when section + subject + term are known.
-  const sowCheck =
-    section?.id && subject?.id && term?.id
-      ? await sowExistsForSection(section.id, subject.id, term.id)
-      : { exists: false, version: null, partial_rebaseline: false };
-  const sowSourced = sowCheck.exists;
+  // Fetch the SOW instance so the "View activities" dialog can show activity
+  // names even when the teacher hasn't yet clicked "Sync labels to grading sheet".
+  type SowLabel = { label: string; page: string | null };
+  const { data: sowInstanceRaw } = section?.id && subject?.id && term?.id
+    ? await createServiceClient()
+        .from('sow_class_instances')
+        .select('ww_labels, pt_labels')
+        .eq('section_id', section.id)
+        .eq('subject_id', subject.id)
+        .eq('term_id', term.id)
+        .maybeSingle()
+    : { data: null };
+  const sowInst = sowInstanceRaw as { ww_labels?: SowLabel[]; pt_labels?: SowLabel[] } | null;
+  const sowLabels = sowInst
+    ? {
+        ww: (sowInst.ww_labels ?? []).map((l) => ({ label: l.label, page: l.page })),
+        pt: (sowInst.pt_labels ?? []).map((l) => ({ label: l.label, page: l.page })),
+      }
+    : undefined;
 
   // Teacher assignment gate — already fetched concurrently above.
   const isAssignedTeacher =
@@ -549,14 +561,15 @@ export default async function GradingSheetPage({
         wwTotals={(sheet.ww_totals ?? []) as number[]}
         ptTotals={(sheet.pt_totals ?? []) as number[]}
         qaTotal={sheet.qa_total as number | null}
+        wwWeight={Number(config?.ww_weight ?? 0)}
+        ptWeight={Number(config?.pt_weight ?? 0)}
+        qaWeight={Number(config?.qa_weight ?? 0)}
         rows={rows}
         readOnly={readOnly}
         requireApproval={requireApproval}
         slotLabels={sheet.slot_labels as { ww?: ({ label?: string | null; date?: string | null; page?: string | null } | null)[]; pt?: ({ label?: string | null; date?: string | null; page?: string | null } | null)[]; qa?: string | null } | null ?? undefined}
+        sowLabels={sowLabels}
         letterDisplay={!isExaminable}
-        sowSourced={sowSourced}
-        sowVersion={sowCheck.version?.version_number ?? null}
-        sowPartialRebaseline={sowCheck.partial_rebaseline}
       />
 
     </PageShell>

@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpenCheck, CheckCircle2, Eye, Loader2 } from "lucide-react";
+import { CheckCircle2, Eye, Loader2 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -54,14 +54,14 @@ type Props = {
   requireApproval?: boolean;
   /** Teacher-authored activity metadata per column. */
   slotLabels?: SlotLabels;
+  /** SOW-sourced labels — used as fallback in the "View activities" dialog when slot_labels haven't been synced yet. */
+  sowLabels?: { ww: SlotMeta[]; pt: SlotMeta[] };
+  /** Subject weights as decimals (e.g. 0.40 for 40%). Used to compute WS columns. */
+  wwWeight: number;
+  ptWeight: number;
+  qaWeight: number;
   /** When true, renders the Quarterly column as a derived letter (non-examinable subjects). */
   letterDisplay?: boolean;
-  /** When true, WW/PT label + page fields are SOW-prescribed (read-only); teachers can still set the date. */
-  sowSourced?: boolean;
-  /** Published version number of the applied SOW (e.g. 1, 2). Null when no SOW is applied. */
-  sowVersion?: number | null;
-  /** When true, the SOW was re-applied mid-year after scores existed — some slots/topics may have been preserved. */
-  sowPartialRebaseline?: boolean;
 };
 
 function parseCell(raw: string): number | null {
@@ -83,10 +83,11 @@ export function ScoreEntryGrid({
   readOnly = false,
   requireApproval = false,
   slotLabels,
+  sowLabels,
+  wwWeight,
+  ptWeight,
+  qaWeight,
   letterDisplay = false,
-  sowSourced = false,
-  sowVersion = null,
-  sowPartialRebaseline = false,
 }: Props) {
   const [rows, setRows] = useState<GradeRow[]>(initialRows);
   const rowsRef = useRef(rows);
@@ -213,8 +214,16 @@ export function ScoreEntryGrid({
     setRows((current) => current.map((r) => (r.entry_id === entryId ? patch(r) : r)));
   }, []);
 
-  // Total column count for empty-state colspan: # + Student + WW + PT + QA + Initial + Quarterly + N/A
-  const totalCols = 2 + wwLen + ptLen + 1 + 1 + 1 + 1;
+  // Total column count for empty-state colspan.
+  // # + Student | WW slots + (Total PS WS) | PT slots + (Total PS WS) | QA (Exam PS WS) | Initial | Quarterly | N/A
+  const totalCols =
+    2 + (wwLen + 3) + (ptLen > 0 ? ptLen + 3 : 0) + 3 + 1 + 1 + 1;
+
+  const wwPct = Math.round(wwWeight * 100);
+  const ptPct = Math.round(ptWeight * 100);
+  const qaPct = Math.round(qaWeight * 100);
+  const wwMaxTotal = wwTotals.reduce((a, b) => a + b, 0);
+  const ptMaxTotal = ptTotals.reduce((a, b) => a + b, 0);
 
   return (
     <div className="space-y-3">
@@ -222,9 +231,7 @@ export function ScoreEntryGrid({
         wwTotals={wwTotals}
         ptTotals={ptTotals}
         labels={labels}
-        sowSourced={sowSourced}
-        sowVersion={sowVersion}
-        sowPartialRebaseline={sowPartialRebaseline}
+        sowLabels={sowLabels}
       />
       <GridFilterToolbar filters={filters} onChange={setFilters} total={rows.length} visible={visibleRows.length} />
 
@@ -233,59 +240,96 @@ export function ScoreEntryGrid({
           <TableHeader>
             {/* Row 1 — group headers */}
             <TableRow className="bg-muted/60 hover:bg-muted/60">
-              <TableHead rowSpan={2} className="sticky left-0 z-10 bg-muted/60 align-bottom text-right">
+              <TableHead rowSpan={3} className="sticky left-0 z-10 bg-muted/60 align-bottom text-right text-xs">
                 #
               </TableHead>
-              <TableHead rowSpan={2} className="sticky left-8 z-10 bg-muted/60 align-bottom">
+              <TableHead rowSpan={3} className="sticky left-8 z-10 bg-muted/60 align-bottom text-xs">
                 Student
               </TableHead>
               {wwLen > 0 && (
                 <TableHead
-                  colSpan={wwLen}
+                  colSpan={wwLen + 3}
                   className="border-r border-border/40 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  Written Works
+                  Written Works ({wwPct}%)
                 </TableHead>
               )}
               {ptLen > 0 && (
                 <TableHead
-                  colSpan={ptLen}
+                  colSpan={ptLen + 3}
                   className="border-r border-border/40 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  Performance Tasks
+                  Performance Tasks ({ptPct}%)
                 </TableHead>
               )}
-              <TableHead className="border-r border-border/40 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Quarterly Assessment
+              <TableHead
+                colSpan={3}
+                className="border-r border-border/40 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Quarterly Assessment ({qaPct}%)
               </TableHead>
-              <TableHead rowSpan={2} className="align-bottom text-right">
-                Initial
+              <TableHead rowSpan={3} className="align-bottom text-right text-xs">
+                Initial<br />Grade
               </TableHead>
-              <TableHead rowSpan={2} className="align-bottom text-right">
-                Quarterly
+              <TableHead rowSpan={3} className="align-bottom text-right text-xs">
+                Quarterly<br />Grade
               </TableHead>
-              <TableHead rowSpan={2} className="align-bottom text-center">
+              <TableHead rowSpan={3} className="align-bottom text-center text-xs">
                 N/A
               </TableHead>
             </TableRow>
-            {/* Row 2 — individual slot headers */}
+
+            {/* Row 2 — column labels */}
             <TableRow className="bg-muted/40 hover:bg-muted/40">
-              {/* # and Student are rowSpan=2 above */}
-              {wwTotals.map((max, i) => (
-                <TableHead key={`ww-${i}`} className="text-center">
+              {wwTotals.map((_, i) => (
+                <TableHead key={`ww-lbl-${i}`} className="text-center text-xs">
                   W{i + 1}
-                  <sup className="ml-0.5 text-muted-foreground">/{max}</sup>
                 </TableHead>
               ))}
-              {ptTotals.map((max, i) => (
-                <TableHead key={`pt-${i}`} className="text-center">
-                  PT{i + 1}
-                  <sup className="ml-0.5 text-muted-foreground">/{max}</sup>
+              <TableHead className="text-center text-[10px] text-muted-foreground">Total</TableHead>
+              <TableHead className="text-center text-[10px] text-muted-foreground">PS</TableHead>
+              <TableHead className="border-r border-border/40 text-center text-[10px] text-muted-foreground">WS</TableHead>
+              {ptLen > 0 && (
+                <>
+                  {ptTotals.map((_, i) => (
+                    <TableHead key={`pt-lbl-${i}`} className="text-center text-xs">
+                      PT{i + 1}
+                    </TableHead>
+                  ))}
+                  <TableHead className="text-center text-[10px] text-muted-foreground">Total</TableHead>
+                  <TableHead className="text-center text-[10px] text-muted-foreground">PS</TableHead>
+                  <TableHead className="border-r border-border/40 text-center text-[10px] text-muted-foreground">WS</TableHead>
+                </>
+              )}
+              <TableHead className="text-center text-xs">Exam</TableHead>
+              <TableHead className="text-center text-[10px] text-muted-foreground">PS</TableHead>
+              <TableHead className="border-r border-border/40 text-center text-[10px] text-muted-foreground">WS</TableHead>
+            </TableRow>
+
+            {/* Row 3 — max values reference row */}
+            <TableRow className="bg-muted/30 hover:bg-muted/30">
+              {wwTotals.map((max, i) => (
+                <TableHead key={`ww-max-${i}`} className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/70">
+                  {max}
                 </TableHead>
               ))}
-              <TableHead className="text-center">
-                QA
-                {qaTotal != null && <sup className="ml-0.5 text-muted-foreground">/{qaTotal}</sup>}
+              <TableHead className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/70">{wwMaxTotal}</TableHead>
+              <TableHead className="text-center font-mono text-[10px] text-muted-foreground/70">100%</TableHead>
+              <TableHead className="border-r border-border/40 text-center font-mono text-[10px] text-muted-foreground/70">{wwPct}%</TableHead>
+              {ptLen > 0 && (
+                <>
+                  {ptTotals.map((max, i) => (
+                    <TableHead key={`pt-max-${i}`} className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/70">
+                      {max}
+                    </TableHead>
+                  ))}
+                  <TableHead className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/70">{ptMaxTotal}</TableHead>
+                  <TableHead className="text-center font-mono text-[10px] text-muted-foreground/70">100%</TableHead>
+                  <TableHead className="border-r border-border/40 text-center font-mono text-[10px] text-muted-foreground/70">{ptPct}%</TableHead>
+                </>
+              )}
+              <TableHead className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/70">
+                {qaTotal ?? "—"}
               </TableHead>
-              {/* Initial, Quarterly, N/A are rowSpan=2 above */}
+              <TableHead className="text-center font-mono text-[10px] text-muted-foreground/70">100%</TableHead>
+              <TableHead className="border-r border-border/40 text-center font-mono text-[10px] text-muted-foreground/70">{qaPct}%</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -300,11 +344,18 @@ export function ScoreEntryGrid({
               const inputsDisabled = r.withdrawn || r.is_na || readOnly;
               const muted = r.withdrawn || r.is_na || readOnly;
               const rowClass = muted ? "text-muted-foreground" : "";
+
+              const wwTotal = sumScores(r.ww_scores, wwLen);
+              const ptTotal = sumScores(r.pt_scores, ptLen);
+              const wwWs = r.ww_ps != null ? r.ww_ps * wwWeight : null;
+              const ptWs = r.pt_ps != null ? r.pt_ps * ptWeight : null;
+              const qaWs = r.qa_ps != null ? r.qa_ps * qaWeight : null;
+
               return (
                 <TableRow key={r.entry_id} className={rowClass}>
-                  <TableCell className="sticky left-0 z-10 bg-card text-right tabular-nums">{r.index_number}</TableCell>
+                  <TableCell className="sticky left-0 z-10 bg-card text-right tabular-nums text-xs">{r.index_number}</TableCell>
                   <TableCell className="sticky left-8 z-10 bg-card">
-                    <div className={r.withdrawn ? "whitespace-nowrap line-through" : "whitespace-nowrap"}>
+                    <div className={r.withdrawn ? "whitespace-nowrap text-sm line-through" : "whitespace-nowrap text-sm"}>
                       {r.student_name}
                     </div>
                     <div className="text-xs tabular-nums text-muted-foreground">{r.student_number}</div>
@@ -312,7 +363,7 @@ export function ScoreEntryGrid({
                       <div
                         className="mt-0.5 text-[10px] italic text-brand-amber"
                         title="Earlier assessments stay blank and are excluded from the average — proration is automatic.">
-                        Late enrollee — earlier assessments excluded
+                        Late enrollee
                       </div>
                     )}
                   </TableCell>
@@ -337,27 +388,37 @@ export function ScoreEntryGrid({
                       />
                     </TableCell>
                   ))}
+                  <ComputedCell value={wwTotal} dp={0} />
+                  <ComputedCell value={r.ww_ps} />
+                  <ComputedCell value={wwWs} border />
 
-                  {ptTotals.map((max, i) => (
-                    <TableCell key={`pt-${i}`} className="px-1 py-1">
-                      <ScoreInput
-                        value={r.pt_scores[i] ?? null}
-                        max={max}
-                        plaintext={locked}
-                        disabled={inputsDisabled}
-                        onLocalChange={(v) =>
-                          updateLocal(r.entry_id, (row) => ({
-                            ...row,
-                            pt_scores: replaceAt(row.pt_scores, i, v, ptTotals.length),
-                          }))
-                        }
-                        onCommit={(v) => {
-                          const next = replaceAt(r.pt_scores, i, v, ptTotals.length);
-                          patchEntry(r.entry_id, { field: "pt_scores", slotIndex: i }, { pt_scores: next });
-                        }}
-                      />
-                    </TableCell>
-                  ))}
+                  {ptLen > 0 && (
+                    <>
+                      {ptTotals.map((max, i) => (
+                        <TableCell key={`pt-${i}`} className="px-1 py-1">
+                          <ScoreInput
+                            value={r.pt_scores[i] ?? null}
+                            max={max}
+                            plaintext={locked}
+                            disabled={inputsDisabled}
+                            onLocalChange={(v) =>
+                              updateLocal(r.entry_id, (row) => ({
+                                ...row,
+                                pt_scores: replaceAt(row.pt_scores, i, v, ptTotals.length),
+                              }))
+                            }
+                            onCommit={(v) => {
+                              const next = replaceAt(r.pt_scores, i, v, ptTotals.length);
+                              patchEntry(r.entry_id, { field: "pt_scores", slotIndex: i }, { pt_scores: next });
+                            }}
+                          />
+                        </TableCell>
+                      ))}
+                      <ComputedCell value={ptTotal} dp={0} />
+                      <ComputedCell value={r.pt_ps} />
+                      <ComputedCell value={ptWs} border />
+                    </>
+                  )}
 
                   <TableCell className="px-1 py-1">
                     <ScoreInput
@@ -369,8 +430,10 @@ export function ScoreEntryGrid({
                       onCommit={(v) => patchEntry(r.entry_id, { field: "qa_score", slotIndex: null }, { qa_score: v })}
                     />
                   </TableCell>
+                  <ComputedCell value={r.qa_ps} />
+                  <ComputedCell value={qaWs} border />
 
-                  <TableCell className="text-right tabular-nums text-muted-foreground">
+                  <TableCell className="text-right tabular-nums text-sm text-muted-foreground">
                     {r.initial_grade != null ? r.initial_grade.toFixed(2) : "—"}
                   </TableCell>
 
@@ -415,49 +478,42 @@ function ScoringGuide({
   wwTotals,
   ptTotals,
   labels,
-  sowSourced,
-  sowVersion,
-  sowPartialRebaseline = false,
+  sowLabels,
 }: {
   wwTotals: number[];
   ptTotals: number[];
   labels: Required<SlotLabels>;
-  sowSourced: boolean;
-  sowVersion?: number | null;
-  sowPartialRebaseline?: boolean;
+  sowLabels?: { ww: SlotMeta[]; pt: SlotMeta[] };
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const hasSlots = wwTotals.length > 0 || ptTotals.length > 0;
+
+  // Prefer the grading-sheet label (slot_labels) if already synced; fall back
+  // to the SOW label so the dialog shows activity names even before sync.
+  const effectiveWw = (i: number): SlotMeta | null => {
+    const sl = labels.ww[i] ?? null;
+    if (sl?.label) return sl;
+    return sowLabels?.ww[i] ?? null;
+  };
+  const effectivePt = (i: number): SlotMeta | null => {
+    const sl = labels.pt[i] ?? null;
+    if (sl?.label) return sl;
+    return sowLabels?.pt[i] ?? null;
+  };
 
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
         <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5">
           {wwTotals.map((max, i) => (
-            <SlotChip key={`ww-${i}`} code={`W${i + 1}`} max={max} meta={labels.ww[i] ?? null} />
+            <SlotChip key={`ww-${i}`} code={`W${i + 1}`} max={max} meta={effectiveWw(i)} />
           ))}
           {wwTotals.length > 0 && ptTotals.length > 0 && <span className="select-none text-border/60">·</span>}
           {ptTotals.map((max, i) => (
-            <SlotChip key={`pt-${i}`} code={`PT${i + 1}`} max={max} meta={labels.pt[i] ?? null} />
+            <SlotChip key={`pt-${i}`} code={`PT${i + 1}`} max={max} meta={effectivePt(i)} />
           ))}
           {hasSlots && <span className="select-none text-border/60">·</span>}
           <SlotChip code="QA" fixedLabel="Exam" />
-          {sowSourced && (
-            <span
-              title={
-                sowPartialRebaseline
-                  ? "SOW updated mid-year. Some slots or topics were preserved because scores already existed."
-                  : undefined
-              }
-              className={
-                sowPartialRebaseline
-                  ? "font-mono text-[10px] uppercase tracking-[0.12em] text-brand-amber"
-                  : "font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/60"
-              }>
-              · SOW{sowVersion != null ? ` v${sowVersion}` : ""}
-              {sowPartialRebaseline && " ⚠"}
-            </span>
-          )}
         </div>
         {hasSlots && (
           <button
@@ -476,9 +532,7 @@ function ScoringGuide({
             <DialogHeader>
               <DialogTitle>Activity Details</DialogTitle>
               <DialogDescription>
-                {sowSourced
-                  ? "Activity descriptions and page numbers are set from the Scheme of Work."
-                  : "Activity metadata for each scored column."}
+                Activity metadata for each scored column.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-6 pt-6">
@@ -487,7 +541,7 @@ function ScoringGuide({
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Written Work</h3>
                   <div className="space-y-2">
                     {wwTotals.map((max, i) => (
-                      <SlotDetailRow key={`ww-${i}`} code={`W${i + 1}`} max={max} meta={labels.ww[i] ?? null} />
+                      <SlotDetailRow key={`ww-${i}`} code={`W${i + 1}`} max={max} meta={effectiveWw(i)} />
                     ))}
                   </div>
                 </section>
@@ -499,7 +553,7 @@ function ScoringGuide({
                   </h3>
                   <div className="space-y-2">
                     {ptTotals.map((max, i) => (
-                      <SlotDetailRow key={`pt-${i}`} code={`PT${i + 1}`} max={max} meta={labels.pt[i] ?? null} />
+                      <SlotDetailRow key={`pt-${i}`} code={`PT${i + 1}`} max={max} meta={effectivePt(i)} />
                     ))}
                   </div>
                 </section>
@@ -516,14 +570,6 @@ function ScoringGuide({
                   </div>
                 </div>
               </section>
-              {sowSourced && (
-                <div className="flex items-center gap-2 rounded-md border border-brand-indigo/20 bg-brand-indigo/5 px-3 py-2">
-                  <BookOpenCheck className="h-4 w-4 shrink-0 text-brand-indigo" />
-                  <p className="text-xs text-muted-foreground">
-                    From Scheme of Work{sowVersion != null ? ` v${sowVersion}` : ""}
-                  </p>
-                </div>
-              )}
             </div>
           </ScrollArea>
         </DialogContent>
@@ -615,6 +661,21 @@ function QuarterlyPill({ value, muted }: { value: number | null; muted: boolean 
     <Badge variant="outline" className={`h-7 justify-end px-2 text-sm font-semibold tabular-nums ${tone}`}>
       {value}
     </Badge>
+  );
+}
+
+function sumScores(scores: (number | null)[], len: number): number | null {
+  const slice = scores.slice(0, len);
+  if (slice.every((v) => v === null)) return null;
+  return slice.reduce<number>((acc, v) => acc + (v ?? 0), 0);
+}
+
+function ComputedCell({ value, dp = 2, border }: { value: number | null; dp?: number; border?: boolean }) {
+  return (
+    <TableCell
+      className={`px-2 text-right tabular-nums text-xs text-muted-foreground${border ? " border-r border-border/40" : ""}`}>
+      {value != null ? value.toFixed(dp) : "—"}
+    </TableCell>
   );
 }
 

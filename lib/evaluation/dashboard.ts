@@ -389,18 +389,10 @@ async function loadEvaluationTeacherPriorityUncached(
     };
   }
 
-  // 3. Confirm the evaluation window for this term is open. Pull PTC info up
-  //    front so even the "window closed" branch can flag an approaching PTC
-  //    (the registrar may simply have forgotten to flip the toggle).
-  const [evalTermRes, ptcEvents] = await Promise.all([
-    service
-      .from('evaluation_terms')
-      .select('is_open')
-      .eq('term_id', currentTerm.id)
-      .maybeSingle(),
-    getPtcEventsForAy(input.ayCode),
-  ]);
-  const isOpen = (evalTermRes.data as { is_open: boolean } | null)?.is_open ?? false;
+  // 3. Pull PTC awareness for the active term — audience-unfiltered here
+  //    (the full section page handles audience scoping; the priority panel
+  //    just surfaces the nearest event as a deadline signal).
+  const ptcEvents = await getPtcEventsForAy(input.ayCode);
   const ptcForTerm = findPtcForWriteupTerm(currentTerm.id, ptcEvents);
   const ptcDays = ptcForTerm ? daysUntilPtc(ptcForTerm.startDate) : null;
   // Tentative PTC dates render in the label but never escalate severity —
@@ -410,28 +402,6 @@ async function loadEvaluationTeacherPriorityUncached(
   const ptcLabel = ptcForTerm
     ? `${currentTerm.label} PTC ${formatPtcRangeLabel(ptcForTerm.startDate, ptcForTerm.endDate)} (${formatPtcDaysLabel(ptcDays ?? 0)}${ptcIsTentative ? ', tentative' : ''})`
     : null;
-
-  if (!isOpen) {
-    // When closed AND PTC is within 30 days, surface a louder headline so
-    // the adviser flags it to the registrar instead of assuming they're idle.
-    const ptcSoon = ptcDays != null && !ptcIsTentative && ptcDays >= 0 && ptcDays <= 30;
-    return {
-      eyebrow: 'Priority · this term',
-      title: ptcSoon
-        ? `${currentTerm.label} window closed — ${ptcLabel}`
-        : 'Evaluation window closed for this term',
-      headline: {
-        value: 0,
-        label: ptcSoon
-          ? 'window not open · writeups blocked'
-          : ptcLabel ?? 'writeups pending',
-        severity: ptcSoon ? 'warn' : 'good',
-      },
-      chips: [],
-      cta: undefined,
-      iconKey: ptcSoon ? 'warning' : 'pen',
-    };
-  }
 
   // 4. For each adviser section, count active students MINUS submitted writeups
   //    for the current term. evaluation_writeups uses `submitted boolean`
@@ -551,15 +521,7 @@ async function loadEvaluationRegistrarPriorityUncached(
     };
   }
 
-  const [evalTermRes, ptcEvents] = await Promise.all([
-    service
-      .from('evaluation_terms')
-      .select('is_open')
-      .eq('term_id', currentTerm.id)
-      .maybeSingle(),
-    getPtcEventsForAy(input.ayCode),
-  ]);
-  const isOpen = (evalTermRes.data as { is_open: boolean } | null)?.is_open ?? false;
+  const ptcEvents = await getPtcEventsForAy(input.ayCode);
   const ptcForTerm = findPtcForWriteupTerm(currentTerm.id, ptcEvents);
   const ptcDays = ptcForTerm ? daysUntilPtc(ptcForTerm.startDate) : null;
   const ptcIsTentative = ptcForTerm?.tentative === true;
@@ -571,28 +533,6 @@ async function loadEvaluationRegistrarPriorityUncached(
   // date is locked in.
   const ptcUrgent = !ptcIsTentative && ptcDays != null && ptcDays >= 0 && ptcDays <= 30;
   const ptcOverdue = !ptcIsTentative && ptcDays != null && ptcDays < 0;
-
-  if (!isOpen) {
-    // Closed window + PTC inside 30 days = the registrar's actual issue.
-    return {
-      eyebrow: 'Priority · today',
-      title: ptcUrgent
-        ? `${ptcLabel} — open the evaluation window`
-        : 'Evaluation window closed',
-      headline: {
-        value: 0,
-        label: ptcUrgent
-          ? 'advisers blocked · open the window'
-          : ptcLabel
-            ? `closed · ${ptcLabel}`
-            : 'no writeups expected',
-        severity: ptcUrgent ? 'bad' : 'good',
-      },
-      chips: [],
-      cta: undefined,
-      iconKey: ptcUrgent ? 'warning' : 'clipboard',
-    };
-  }
 
   // All sections in current AY → expected vs submitted writeups.
   const { data: sectionRows } = await service
@@ -682,5 +622,215 @@ export function getEvaluationRegistrarPriority(
     loadEvaluationRegistrarPriorityUncached,
     ['evaluation', 'registrar-priority', input.ayCode],
     { tags: tag(input.ayCode), revalidate: 60 },
+  )(input);
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Completeness KPIs — topic ratings + PTC feedback recorded.
+//
+// "Rating completeness" = % of expected (item × student) cells with a
+// non-null rating, scoped to T1–T3 terms that overlap the date range.
+// "PTC completeness" = % of students who have a non-empty PTC feedback
+// comment for the terms that overlap the date range.
+//
+// Both use the evaluation-drill tag so checklist-response and ptc-feedback
+// mutations invalidate them immediately (KD #80 pattern).
+// ──────────────────────────────────────────────────────────────────────────
+
+export type EvaluationRatingCompleteness = {
+  pct: number;
+  rated: number;
+  total: number;
+};
+
+async function loadEvaluationRatingCompletenessRangeUncached(
+  input: RangeInput,
+): Promise<RangeResult<EvaluationRatingCompleteness>> {
+  const service = createServiceClient();
+  const zero: EvaluationRatingCompleteness = { pct: 0, rated: 0, total: 0 };
+
+  const { data: ayRow } = await service
+    .from('academic_years')
+    .select('id')
+    .eq('ay_code', input.ayCode)
+    .maybeSingle();
+  const ayId = (ayRow as { id: string } | null)?.id ?? null;
+  if (!ayId) {
+    return { current: zero, comparison: null, delta: null, range: { from: input.from, to: input.to }, comparisonRange: null };
+  }
+
+  // Sections + active students — AY-scoped, same for both range and comparison.
+  const { data: sectionRows } = await service
+    .from('sections')
+    .select('id')
+    .eq('academic_year_id', ayId);
+  const sectionIds = (sectionRows ?? []).map((s) => (s as { id: string }).id);
+  const { data: ssRows } = sectionIds.length > 0
+    ? await service
+        .from('section_students')
+        .select('section_id')
+        .in('section_id', sectionIds)
+        .eq('enrollment_status', 'active')
+    : { data: [] };
+
+  // Count active students per section — used to compute the total possible
+  // rating slots (items × students) for completeness percentage.
+  const studentCountBySection = new Map<string, number>();
+  for (const row of (ssRows ?? []) as Array<{ section_id: string }>) {
+    studentCountBySection.set(row.section_id, (studentCountBySection.get(row.section_id) ?? 0) + 1);
+  }
+
+  // Find T1–T3 terms overlapping a date window.
+  async function termsForWindow(from: string, to: string): Promise<string[]> {
+    const { data } = await service
+      .from('terms')
+      .select('id')
+      .eq('academic_year_id', ayId)
+      .neq('term_number', 4)
+      .lte('start_date', to)
+      .gte('end_date', from);
+    return (data ?? []).map((r) => r.id as string);
+  }
+
+  // Compute completeness for a set of term IDs.
+  // total = sum of (active students in each item's section) across all items.
+  async function computeForTerms(termIds: string[]): Promise<EvaluationRatingCompleteness> {
+    if (!termIds.length) return zero;
+    const [ratedRes, itemsRes] = await Promise.all([
+      service
+        .from('evaluation_checklist_responses')
+        .select('id', { count: 'exact', head: true })
+        .in('term_id', termIds)
+        .not('rating', 'is', null),
+      service
+        .from('evaluation_checklist_items')
+        .select('section_id')
+        .in('term_id', termIds),
+    ]);
+    let total = 0;
+    for (const item of (itemsRes.data ?? []) as Array<{ section_id: string }>) {
+      total += studentCountBySection.get(item.section_id) ?? 0;
+    }
+    const rated = ratedRes.count ?? 0;
+    return { pct: total > 0 ? (rated / total) * 100 : 0, rated, total };
+  }
+
+  const [rangeTermIds, cmpTermIds] = await Promise.all([
+    termsForWindow(input.from, input.to),
+    input.cmpFrom != null && input.cmpTo != null
+      ? termsForWindow(input.cmpFrom, input.cmpTo)
+      : Promise.resolve<string[]>([]),
+  ]);
+
+  const current = await computeForTerms(rangeTermIds);
+  if (input.cmpFrom == null || input.cmpTo == null) {
+    return { current, comparison: null, delta: null, range: { from: input.from, to: input.to }, comparisonRange: null };
+  }
+  const comparison = await computeForTerms(cmpTermIds);
+  return {
+    current,
+    comparison,
+    delta: computeDelta(current.pct, comparison.pct),
+    range: { from: input.from, to: input.to },
+    comparisonRange: { from: input.cmpFrom, to: input.cmpTo },
+  };
+}
+
+export function getEvaluationRatingCompletenessRange(
+  input: RangeInput,
+): Promise<RangeResult<EvaluationRatingCompleteness>> {
+  return unstable_cache(
+    loadEvaluationRatingCompletenessRangeUncached,
+    ['evaluation', 'rating-completeness', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
+    { revalidate: CACHE_TTL_SECONDS, tags: [...tag(input.ayCode), `evaluation-drill:${input.ayCode}`] },
+  )(input);
+}
+
+export type EvaluationPtcCompleteness = {
+  pct: number;
+  recorded: number;
+  total: number;
+};
+
+async function loadEvaluationPtcFeedbackCompletenessRangeUncached(
+  input: RangeInput,
+): Promise<RangeResult<EvaluationPtcCompleteness>> {
+  const service = createServiceClient();
+  const zero: EvaluationPtcCompleteness = { pct: 0, recorded: 0, total: 0 };
+
+  const { data: ayRow } = await service
+    .from('academic_years')
+    .select('id')
+    .eq('ay_code', input.ayCode)
+    .maybeSingle();
+  const ayId = (ayRow as { id: string } | null)?.id ?? null;
+  if (!ayId) {
+    return { current: zero, comparison: null, delta: null, range: { from: input.from, to: input.to }, comparisonRange: null };
+  }
+
+  // Total active students — AY-scoped denominator (shared by both windows).
+  const { data: sections } = await service.from('sections').select('id').eq('academic_year_id', ayId);
+  const sectionIds = (sections ?? []).map((s) => s.id as string);
+  const { count: activeStudents } = sectionIds.length > 0
+    ? await service
+        .from('section_students')
+        .select('id', { count: 'exact', head: true })
+        .in('section_id', sectionIds)
+        .eq('enrollment_status', 'active')
+    : { count: 0 };
+  const students = activeStudents ?? 0;
+
+  async function termsForWindow(from: string, to: string): Promise<string[]> {
+    const { data } = await service
+      .from('terms')
+      .select('id')
+      .eq('academic_year_id', ayId)
+      .neq('term_number', 4)
+      .lte('start_date', to)
+      .gte('end_date', from);
+    return (data ?? []).map((r) => r.id as string);
+  }
+
+  async function computeForTerms(termIds: string[]): Promise<EvaluationPtcCompleteness> {
+    if (!termIds.length) return zero;
+    const { count: recorded } = await service
+      .from('evaluation_ptc_feedback')
+      .select('id', { count: 'exact', head: true })
+      .in('term_id', termIds)
+      .not('feedback', 'is', null)
+      .neq('feedback', '');
+    const total = students * termIds.length;
+    const rec = recorded ?? 0;
+    return { pct: total > 0 ? (rec / total) * 100 : 0, recorded: rec, total };
+  }
+
+  const [rangeTermIds, cmpTermIds] = await Promise.all([
+    termsForWindow(input.from, input.to),
+    input.cmpFrom != null && input.cmpTo != null
+      ? termsForWindow(input.cmpFrom, input.cmpTo)
+      : Promise.resolve<string[]>([]),
+  ]);
+
+  const current = await computeForTerms(rangeTermIds);
+  if (input.cmpFrom == null || input.cmpTo == null) {
+    return { current, comparison: null, delta: null, range: { from: input.from, to: input.to }, comparisonRange: null };
+  }
+  const comparison = await computeForTerms(cmpTermIds);
+  return {
+    current,
+    comparison,
+    delta: computeDelta(current.pct, comparison.pct),
+    range: { from: input.from, to: input.to },
+    comparisonRange: { from: input.cmpFrom, to: input.cmpTo },
+  };
+}
+
+export function getEvaluationPtcFeedbackCompletenessRange(
+  input: RangeInput,
+): Promise<RangeResult<EvaluationPtcCompleteness>> {
+  return unstable_cache(
+    loadEvaluationPtcFeedbackCompletenessRangeUncached,
+    ['evaluation', 'ptc-completeness', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
+    { revalidate: CACHE_TTL_SECONDS, tags: [...tag(input.ayCode), `evaluation-drill:${input.ayCode}`] },
   )(input);
 }

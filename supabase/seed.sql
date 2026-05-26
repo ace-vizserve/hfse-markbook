@@ -60,38 +60,34 @@ on conflict (code) do nothing;
 -- ---------- Sections (AY2026) ----------
 -- Source: docs/context/03-workflow-and-roles.md
 -- Canonical spellings (sync normalizes admissions typos like "Courageos" → "Courageous").
--- curriculum_track: Primary + S3/S4 = 'singapore_inspired'.
---   S1/S2 Global sections (Discipline 1, Integrity 1) = 'cambridge'.
---   S1/S2 Standard sections (Discipline 2, Integrity 2) = 'singapore_inspired'.
--- ON CONFLICT uses the 4-column key added by migration 058.
-insert into public.sections (academic_year_id, level_id, name, curriculum_track)
-select ay.id, lv.id, sec.name, sec.track::text
+insert into public.sections (academic_year_id, level_id, name)
+select ay.id, lv.id, sec.name
 from (values
-  ('P1', 'Patience',       'singapore_inspired'),
-  ('P1', 'Obedience',      'singapore_inspired'),
-  ('P2', 'Honesty',        'singapore_inspired'),
-  ('P2', 'Humility',       'singapore_inspired'),
-  ('P3', 'Courtesy',       'singapore_inspired'),
-  ('P3', 'Courageous',     'singapore_inspired'),
-  ('P3', 'Responsibility', 'singapore_inspired'),
-  ('P4', 'Diligence',      'singapore_inspired'),
-  ('P4', 'Trust',          'singapore_inspired'),
-  ('P5', 'Commitment',     'singapore_inspired'),
-  ('P5', 'Perseverance',   'singapore_inspired'),
-  ('P5', 'Tenacity',       'singapore_inspired'),
-  ('P6', 'Grit',           'singapore_inspired'),
-  ('P6', 'Loyalty',        'singapore_inspired'),
-  ('S1', 'Discipline 1',   'cambridge'),
-  ('S1', 'Discipline 2',   'singapore_inspired'),
-  ('S2', 'Integrity 1',    'cambridge'),
-  ('S2', 'Integrity 2',    'singapore_inspired'),
-  ('S3', 'Consistency',    'singapore_inspired'),
-  ('S4', 'Excellence',     'singapore_inspired')
-) as sec(level_code, name, track)
+  ('P1', 'Patience'),
+  ('P1', 'Obedience'),
+  ('P2', 'Honesty'),
+  ('P2', 'Humility'),
+  ('P3', 'Courtesy'),
+  ('P3', 'Courageous'),
+  ('P3', 'Responsibility'),
+  ('P4', 'Diligence'),
+  ('P4', 'Trust'),
+  ('P5', 'Commitment'),
+  ('P5', 'Perseverance'),
+  ('P5', 'Tenacity'),
+  ('P6', 'Grit'),
+  ('P6', 'Loyalty'),
+  ('S1', 'Discipline 1'),
+  ('S1', 'Discipline 2'),
+  ('S2', 'Integrity 1'),
+  ('S2', 'Integrity 2'),
+  ('S3', 'Consistency'),
+  ('S4', 'Excellence')
+) as sec(level_code, name)
 join public.levels lv on lv.code = sec.level_code
 cross join public.academic_years ay
 where ay.ay_code = 'AY2026'
-on conflict (academic_year_id, level_id, curriculum_track, name) do nothing;
+on conflict (academic_year_id, level_id, name) do nothing;
 
 -- ---------- Terms (AY2026) ----------
 -- Dates intentionally left null for now — registrar can backfill.

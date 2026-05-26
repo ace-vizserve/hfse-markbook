@@ -78,7 +78,6 @@ export function ChecklistRosterClient({
   canEdit,
   canEditTopics,
   copyFromOptions,
-  sowVersionNumber,
 }: {
   termId: string;
   sectionId: string;
@@ -91,7 +90,6 @@ export function ChecklistRosterClient({
   canEdit: boolean;
   // True when the viewer is the subject_teacher for this (section × subject)
   // — gates the inline add / edit / delete / reorder / copy affordances.
-  // Registrar+ viewers always see false (read-only audit semantic).
   canEditTopics: boolean;
   // Sections this teacher already teaches the same subject in, which have
   // topics defined. Drives the "Copy topics from {section}" button shown
@@ -101,7 +99,6 @@ export function ChecklistRosterClient({
     section_name: string;
     item_count: number;
   }>;
-  sowVersionNumber?: number | null;
 }) {
   const [subjectId, setSubjectId] = useState(initialSubjectId);
 
@@ -488,7 +485,6 @@ export function ChecklistRosterClient({
         topics={topics}
         canEditTopics={canEditTopics}
         copyFromOptions={copyFromOptions}
-        sowVersionNumber={sowVersionNumber}
         addingTopic={addingTopic}
         newTopicText={newTopicText}
         editingTopicId={editingTopicId}
@@ -675,7 +671,6 @@ function TopicManagerPanel({
   topics,
   canEditTopics,
   copyFromOptions,
-  sowVersionNumber,
   addingTopic,
   newTopicText,
   editingTopicId,
@@ -703,7 +698,6 @@ function TopicManagerPanel({
     section_name: string;
     item_count: number;
   }>;
-  sowVersionNumber?: number | null;
   addingTopic: boolean;
   newTopicText: string;
   editingTopicId: string | null;
@@ -732,9 +726,6 @@ function TopicManagerPanel({
       <div className="flex items-baseline justify-between gap-3">
         <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Topics · {topics.length} configured
-          {sowVersionNumber != null && (
-            <span className="ml-1.5 font-normal text-muted-foreground/60">· SOW v{sowVersionNumber}</span>
-          )}
         </h3>
         {canEditTopics && !addingTopic && (
           <Button

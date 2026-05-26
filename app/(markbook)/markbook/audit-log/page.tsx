@@ -31,6 +31,8 @@ const MARKBOOK_AUDIT_ALLOWLIST = [
   'grade_change_applied', 'grade_change_undo_rejection',
   'grade_correction',
   'grade_entry.annual_letter.update',
+  // Scheme of Work — teacher-owned (KD #110)
+  'sow.instance.save', 'sow.instance.import_from', 'sow.labels.synced',
 ] as const;
 
 export default async function AuditLogPage({

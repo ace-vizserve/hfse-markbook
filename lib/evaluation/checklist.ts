@@ -9,10 +9,9 @@ export type ChecklistItemRow = {
   id: string;
   term_id: string;
   subject_id: string;
-  // Scope reverted to (subject × level × curriculum_track × term) in
-  // migration 058 — topics are admin-prescribed via the SOW builder (KD #107).
-  level_id: string;
-  curriculum_track: string;
+  // Scope is per-section (teacher-owned, KD #110). section_id added in migration 061.
+  section_id: string;
+  sow_instance_id: string | null;
   item_text: string;
   sort_order: number;
 };
@@ -43,23 +42,20 @@ export type PtcFeedbackRow = {
   feedback: string | null;
 };
 
-// List checklist items for one (term × subject × level × curriculum_track).
-// Scope reverted from per-section to per-scope in migration 058 (KD #107):
-// topics are now admin-prescribed via the SOW builder, not teacher-owned.
+// List checklist items for one (term × subject × section).
+// Scope is teacher-owned per-section (KD #110, migration 061).
 export async function listChecklistItems(
   termId: string,
   subjectId: string,
-  levelId: string,
-  curriculumTrack: string,
+  sectionId: string,
 ): Promise<ChecklistItemRow[]> {
   const service = createServiceClient();
   const { data, error } = await service
     .from('evaluation_checklist_items')
-    .select('id, term_id, subject_id, level_id, curriculum_track, item_text, sort_order')
+    .select('id, term_id, subject_id, section_id, sow_instance_id, item_text, sort_order')
     .eq('term_id', termId)
     .eq('subject_id', subjectId)
-    .eq('level_id', levelId)
-    .eq('curriculum_track', curriculumTrack)
+    .eq('section_id', sectionId)
     .order('sort_order', { ascending: true });
   if (error) {
     console.error('[evaluation] listChecklistItems failed:', error.message);
@@ -68,18 +64,21 @@ export async function listChecklistItems(
   return (data ?? []) as ChecklistItemRow[];
 }
 
-// Topics are now admin-prescribed via the SOW builder (KD #107). The
-// teacher-owned "copy from another section" feature is removed. This stub
-// preserves the export so call sites that pass teacherCanEditTopics=false
-// can still reference the function without a compile error.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// Returns peer sections the teacher could import SOW topics from (same level × subject × term).
+// Implemented via the lib/sis/sow/queries helper; this re-export keeps the call site stable.
 export async function getSectionsTeacherCanCopyFrom(
   _userId: string,
-  _termId: string,
-  _subjectId: string,
-  _currentSectionId: string,
+  termId: string,
+  subjectId: string,
+  currentSectionId: string,
 ): Promise<Array<{ section_id: string; section_name: string; item_count: number }>> {
-  return [];
+  const { listImportableSowSources } = await import('@/lib/sis/sow/queries');
+  const sources = await listImportableSowSources(currentSectionId, subjectId, termId);
+  return sources.map((s) => ({
+    section_id: s.section_id,
+    section_name: s.section_name,
+    item_count: s.topic_count,
+  }));
 }
 
 // Decorates each checklist item with the creator's display name (or
@@ -87,8 +86,7 @@ export async function getSectionsTeacherCanCopyFrom(
 export async function listChecklistItemsWithCreator(
   termId: string,
   subjectId: string,
-  levelId: string,
-  curriculumTrack: string,
+  sectionId: string,
 ): Promise<
   Array<
     ChecklistItemRow & {
@@ -101,12 +99,11 @@ export async function listChecklistItemsWithCreator(
   const { data } = await service
     .from('evaluation_checklist_items')
     .select(
-      'id, term_id, subject_id, level_id, curriculum_track, item_text, sort_order, created_by, created_at',
+      'id, term_id, subject_id, section_id, sow_instance_id, item_text, sort_order, created_by, created_at',
     )
     .eq('term_id', termId)
     .eq('subject_id', subjectId)
-    .eq('level_id', levelId)
-    .eq('curriculum_track', curriculumTrack)
+    .eq('section_id', sectionId)
     .order('sort_order', { ascending: true });
 
   const rows = (data ?? []) as Array<

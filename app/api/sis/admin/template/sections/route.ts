@@ -21,25 +21,20 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
-  const { name, level_id, class_type, curriculum_track } = parsed.data;
+  const { name, level_id, class_type } = parsed.data;
 
   const service = createServiceClient();
 
   const { data: inserted, error } = await service
     .from('template_sections')
-    .insert({
-      level_id,
-      name,
-      class_type: class_type ?? null,
-      curriculum_track: curriculum_track ?? 'singapore_inspired',
-    })
-    .select('id, level_id, name, class_type, curriculum_track')
+    .insert({ level_id, name, class_type: class_type ?? null })
+    .select('id, level_id, name, class_type')
     .single();
 
   if (error) {
     if ((error as { code?: string }).code === '23505') {
       return NextResponse.json(
-        { error: `A template section named "${name}" already exists for this level and curriculum track.` },
+        { error: `A template section named "${name}" already exists for this level.` },
         { status: 409 },
       );
     }
@@ -52,7 +47,7 @@ export async function POST(request: NextRequest) {
     action: 'template.section.create',
     entityType: 'template_section',
     entityId: inserted.id,
-    context: { name, level_id, class_type: class_type ?? null, curriculum_track: curriculum_track ?? 'singapore_inspired' },
+    context: { name, level_id, class_type: class_type ?? null },
   });
 
   return NextResponse.json({ ok: true, id: inserted.id });

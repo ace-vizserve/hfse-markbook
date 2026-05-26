@@ -193,34 +193,24 @@ export async function listSubjectTeacherSectionIds(userId: string): Promise<Set<
 
 // Total checklist topic count per section for the given term. Used by the
 // sections picker to show setup progress on subject-teacher cards.
-// Topics are scoped to (level × curriculum_track × subject × term) since
-// migration 058 — the count is the total items across all subjects for the
-// section's level+track combination.
+// Topics are scoped per section (migration 061 / KD #110).
 export async function getChecklistTopicCountByTerm(
   termId: string,
-  sections: Array<{ id: string; levelId: string; curriculumTrack: string }>,
+  sections: Array<{ id: string }>,
 ): Promise<Record<string, number>> {
   const out: Record<string, number> = {};
   if (sections.length === 0) return out;
 
-  const levelIds = [...new Set(sections.map((s) => s.levelId).filter(Boolean))];
+  const sectionIds = sections.map((s) => s.id);
   const service = createServiceClient();
   const { data } = await service
     .from('evaluation_checklist_items')
-    .select('level_id, curriculum_track')
+    .select('section_id')
     .eq('term_id', termId)
-    .in('level_id', levelIds);
+    .in('section_id', sectionIds);
 
-  // Build a count map keyed by "level_id|curriculum_track"
-  const countByScope: Record<string, number> = {};
-  for (const row of (data ?? []) as Array<{ level_id: string; curriculum_track: string }>) {
-    const key = `${row.level_id}|${row.curriculum_track}`;
-    countByScope[key] = (countByScope[key] ?? 0) + 1;
-  }
-
-  for (const s of sections) {
-    const key = `${s.levelId}|${s.curriculumTrack}`;
-    out[s.id] = countByScope[key] ?? 0;
+  for (const row of (data ?? []) as Array<{ section_id: string }>) {
+    out[row.section_id] = (out[row.section_id] ?? 0) + 1;
   }
   return out;
 }

@@ -327,9 +327,9 @@ export default async function SisAdminHub({
                 href="/sis/admin/sow"
                 icon={BookOpenCheck}
                 eyebrow="Curriculum"
-                title="Scheme of Work"
-                description="Capture the approved SOW — evaluation topics and WW/PT activity labels — per subject, level, and term. Save & Apply cascades these to all matching grading sheets and evaluation checklists."
-                cta="Open SOW builder"
+                title="SOW Review"
+                description="Spot-check teacher-authored Scheme of Work entries across sections. Teachers author and maintain their own SOW at Markbook → Scheme of Work."
+                cta="Review SOW"
                 role={role}
                 allowedRoles={["school_admin", "superadmin"]}
               />

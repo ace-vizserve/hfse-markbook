@@ -24,7 +24,6 @@ import {
   ClipboardCheck,
   LayoutGrid,
   Minus,
-  ScrollText,
   TableProperties,
   type LucideIcon,
 } from "lucide-react";
@@ -40,7 +39,6 @@ const STEP_ICONS: Record<ReadinessStepId, LucideIcon> = {
   "ay-setup": CalendarCog,
   calendar: CalendarDays,
   sections: LayoutGrid,
-  sow: ScrollText,
   "grading-sheets": TableProperties,
 };
 

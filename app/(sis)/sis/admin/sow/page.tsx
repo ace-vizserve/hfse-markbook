@@ -4,30 +4,17 @@ import { BookOpenCheck } from 'lucide-react';
 import { getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { PageShell } from '@/components/ui/page-shell';
-import { SowBuilder } from '@/components/sis/sow-builder';
-import { SowScopeManager } from '@/components/sis/sow-scope-manager';
-import type { ScopeEntry, LevelOption, SubjectOption } from '@/components/sis/sow-scope-manager';
+import { SowReviewTable } from '@/components/sis/sow-review-table';
 
-type AyRow = { id: string; ay_code: string; label: string; is_current: boolean };
 type TermRow = { id: string; academic_year_id: string; label: string; term_number: number };
 
-type SectionRaw = {
-  id: string;
-  name: string;
-  curriculum_track: string | null;
-  academic_year_id: string;
-  level_id: string;
-  levels: { id: string; code: string; label: string; level_type: string } | { id: string; code: string; label: string; level_type: string }[] | null;
-};
-
-export default async function SowBuilderPage({
+export default async function SowReviewPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    ay_id?: string;
-    term_id?: string;
-    subject_id?: string;
-    section_id?: string;
+    ayCode?: string;
+    termId?: string;
+    subjectId?: string;
   }>;
 }) {
   const sessionUser = await getSessionUser();
@@ -43,9 +30,6 @@ export default async function SowBuilderPage({
     { data: aysRaw },
     { data: termsRaw },
     { data: subjectsRaw },
-    { data: sectionsRaw },
-    { data: levelsRaw },
-    { data: scopesRaw },
   ] = await Promise.all([
     service
       .from('academic_years')
@@ -55,51 +39,21 @@ export default async function SowBuilderPage({
       .from('terms')
       .select('id, academic_year_id, label, term_number')
       .order('term_number'),
-    service
-      .from('subjects')
-      .select('id, code, name')
-      .order('name'),
-    service
-      .from('sections')
-      .select('id, name, curriculum_track, academic_year_id, level_id, levels(id, code, label, level_type)')
-      .order('level_id')
-      .order('name'),
-    service
-      .from('levels')
-      .select('id, code, label, level_type')
-      .order('code'),
-    service
-      .from('sow_subject_scopes')
-      .select('id, level_id, curriculum_track, subject_id, sort_order')
-      .order('sort_order'),
+    service.from('subjects').select('id, code, name').order('name'),
   ]);
 
-  const ays = (aysRaw ?? []) as AyRow[];
+  const ays = (aysRaw ?? []) as { id: string; ay_code: string; label: string; is_current: boolean }[];
   const terms = (termsRaw ?? []) as TermRow[];
-  const subjects = (subjectsRaw ?? []) as SubjectOption[];
-  const levels = (levelsRaw ?? []) as LevelOption[];
-  const scopeEntries = (scopesRaw ?? []) as ScopeEntry[];
+  const subjects = (subjectsRaw ?? []) as { id: string; code: string; name: string }[];
 
-  const sections = (sectionsRaw ?? []).map((raw) => {
-    const s = raw as unknown as SectionRaw;
-    const lvl = Array.isArray(s.levels) ? s.levels[0] : s.levels;
-    return {
-      id: s.id,
-      name: s.name,
-      level_id: s.level_id,
-      level_code: lvl?.code ?? '',
-      level_label: lvl?.label ?? '',
-      curriculum_track: s.curriculum_track ?? 'singapore_inspired',
-      academic_year_id: s.academic_year_id,
-    };
+  const currentAy = ays.find((a) => a.is_current) ?? ays[0];
+  const selectedAyCode = sp.ayCode ?? currentAy?.ay_code ?? '';
+  const ayTerms = terms.filter((t) => {
+    const ay = ays.find((a) => a.ay_code === selectedAyCode);
+    return ay ? t.academic_year_id === ay.id : false;
   });
-
-  // Minimal scope entries for the builder (only the fields it needs).
-  const builderScopeEntries = scopeEntries.map((e) => ({
-    level_id: e.level_id,
-    curriculum_track: e.curriculum_track,
-    subject_id: e.subject_id,
-  }));
+  const selectedTermId = sp.termId ?? ayTerms[0]?.id ?? '';
+  const selectedSubjectId = sp.subjectId ?? subjects[0]?.id ?? '';
 
   return (
     <PageShell>
@@ -117,29 +71,18 @@ export default async function SowBuilderPage({
             </h1>
           </div>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            Capture the approved SOW — evaluation topics and activity labels — then apply it directly to all matching sections with one click.
+            Spot-check teacher-authored SOW entries. Teachers author and maintain their own SOW at Markbook → Scheme of Work.
           </p>
         </div>
       </header>
 
-      <SowScopeManager
-        initialScopes={scopeEntries}
-        levels={levels}
-        subjects={subjects}
-      />
-
-      <SowBuilder
+      <SowReviewTable
         ays={ays}
-        terms={terms}
+        terms={ayTerms}
         subjects={subjects}
-        sections={sections}
-        scopeEntries={builderScopeEntries}
-        initialScope={{
-          ay_id: sp.ay_id,
-          term_id: sp.term_id,
-          subject_id: sp.subject_id,
-          section_id: sp.section_id,
-        }}
+        initialAyCode={selectedAyCode}
+        initialTermId={selectedTermId}
+        initialSubjectId={selectedSubjectId}
       />
     </PageShell>
   );

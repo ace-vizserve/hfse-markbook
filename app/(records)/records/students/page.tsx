@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
 import { getCurrentAcademicYear, listAyCodes } from '@/lib/academic-year';
-import { getSisDashboardSummary, listStudents, type StudentListRow } from '@/lib/sis/queries';
+import { listStudents, type StudentListRow } from '@/lib/sis/queries';
 import { countUnsyncedEnrolledStudents } from '@/lib/sis/unsynced-students';
 import { getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -65,9 +65,8 @@ export default async function RecordsStudentsPage({
   const selectedAy = ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
   const isCurrentAy = selectedAy === currentAy.ay_code;
 
-  const [allStudents, summary, unsyncedCount] = await Promise.all([
+  const [allStudents, unsyncedCount] = await Promise.all([
     listStudents(selectedAy, 'name_asc'),
-    getSisDashboardSummary(selectedAy),
     countUnsyncedEnrolledStudents(selectedAy),
   ]);
   const isOperational = sessionUser.role === 'registrar';
@@ -79,26 +78,40 @@ export default async function RecordsStudentsPage({
     ENROLLED.has((s.applicationStatus ?? '').trim()),
   );
 
-  // Merge enrollment_status from section_students so the Late enrollee tab works.
-  // section_students lives on the main DB; listStudents uses the admissions client,
-  // so we can't join there. Non-withdrawn guard ensures we pick the active row for
-  // transferred students (old row is 'withdrawn', new row is 'active'/'late_enrollee').
+  // Merge enrollment_status from section_students so the Late enrollee tab works,
+  // and so we can count mid-year operational withdrawals (distinct from admissions
+  // funnel dropouts). Fetch all statuses — map only captures the non-withdrawn row
+  // (i.e. the current active row for a transferred student); withdrawn count is
+  // the set of enrolee_numbers that have a withdrawn row but no active/late_enrollee row.
   const enrollmentStatusMap = new Map<string, string>();
+  let withdrawnFromSections = 0;
   if (students.length > 0) {
     const { data: ssRows } = await service
       .from('section_students')
       .select('enrolee_number, enrollment_status')
-      .in('enrolee_number', students.map((s) => s.enroleeNumber))
-      .neq('enrollment_status', 'withdrawn');
+      .in('enrolee_number', students.map((s) => s.enroleeNumber));
     for (const r of ssRows ?? []) {
-      if (r.enrolee_number) enrollmentStatusMap.set(r.enrolee_number, r.enrollment_status as string);
+      if (!r.enrolee_number) continue;
+      if (r.enrollment_status !== 'withdrawn') {
+        enrollmentStatusMap.set(r.enrolee_number, r.enrollment_status as string);
+      }
     }
+    // Truly withdrawn = has a withdrawn row, no active/late_enrollee row
+    const withdrawnSet = new Set(
+      (ssRows ?? [])
+        .filter((r) => r.enrollment_status === 'withdrawn' && r.enrolee_number && !enrollmentStatusMap.has(r.enrolee_number!))
+        .map((r) => r.enrolee_number),
+    );
+    withdrawnFromSections = withdrawnSet.size;
   }
 
   const studentsWithStatus: StudentListRow[] = students.map((s) => ({
     ...s,
     enrollmentStatus: enrollmentStatusMap.get(s.enroleeNumber) ?? null,
   }));
+
+  const activeCount = studentsWithStatus.filter((s) => s.enrollmentStatus === 'active').length;
+  const lateEnrolleeCount = studentsWithStatus.filter((s) => s.enrollmentStatus === 'late_enrollee').length;
 
   const RECORDS_STATUS_BUCKETS: StatusBucketDef[] = [
     { key: 'all', label: 'All' },
@@ -182,28 +195,28 @@ export default async function RecordsStudentsPage({
       <section className="@container/main">
         <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
           <SummaryStat
-            label="Total students"
-            value={summary.totalStudents}
+            label="Enrolled students"
+            value={students.length}
             icon={Users}
-            footnote="In this academic year"
+            footnote="In sections this AY"
           />
           <SummaryStat
-            label="Enrolled"
-            value={summary.enrolled}
+            label="Active"
+            value={activeCount}
             icon={GraduationCap}
-            footnote="Active + conditional"
+            footnote="Current section placement"
           />
           <SummaryStat
-            label="In pipeline"
-            value={summary.pending}
+            label="Late enrollees"
+            value={lateEnrolleeCount}
             icon={Hourglass}
-            footnote="Pre-enrollment stages"
+            footnote="Joined after term start"
           />
           <SummaryStat
             label="Withdrawn"
-            value={summary.withdrawn}
+            value={withdrawnFromSections}
             icon={UserMinus}
-            footnote="Left during the year"
+            footnote="Left class mid-year"
           />
         </div>
       </section>

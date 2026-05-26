@@ -19,7 +19,6 @@ import { PageShell } from '@/components/ui/page-shell';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GenerateSheetsDialog } from '@/components/sis/generate-sheets-dialog';
 import { SectionRenameDialog } from '@/components/sis/section-rename-dialog';
-import type { CurriculumTrack } from '@/lib/schemas/section';
 import { RealphabetizeRosterButton } from '@/components/sis/realphabetize-roster-button';
 import { TeacherAssignmentsPanel } from '@/components/sis/section-teachers-tab';
 import {
@@ -64,7 +63,7 @@ export default async function SisSectionDetailPage({
 
   const { data: section } = await supabase
     .from('sections')
-    .select('id, name, curriculum_track, academic_year_id, level:levels(id, code, label, level_type), academic_year:academic_years(ay_code, label)')
+    .select('id, name, academic_year_id, level:levels(id, code, label, level_type), academic_year:academic_years(ay_code, label)')
     .eq('id', id)
     .single();
   if (!section) notFound();
@@ -263,7 +262,6 @@ export default async function SisSectionDetailPage({
           <SectionRenameDialog
               sectionId={section.id}
               currentName={section.name}
-              currentCurriculumTrack={((section as { curriculum_track?: string | null }).curriculum_track ?? 'singapore_inspired') as CurriculumTrack}
             />
           <GenerateSheetsDialog
             scope={{ kind: 'section', sectionId: section.id, sectionLabel: section.name }}

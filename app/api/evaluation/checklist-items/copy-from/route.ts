@@ -2,14 +2,13 @@ import { NextResponse } from 'next/server';
 
 // POST /api/evaluation/checklist-items/copy-from — deprecated.
 //
-// The teacher-owned "copy topics from another section" feature was removed when
-// evaluation topics were reverted to admin-prescribed scope (KD #107). Topics
-// are now defined once per (subject × level × curriculum_track × term) in the
-// Scheme of Work builder at /sis/admin/sow and apply to all sections at that
-// scope automatically.
+// Direct cross-section topic copying is no longer supported (KD #110).
+// Import from a peer section instead: POST /api/sow/import copies ww_labels,
+// pt_labels, and topics into the target SOW instance, then teachers seed
+// their checklist via POST /api/sow/[id]/sync-to-eval.
 export function POST() {
   return NextResponse.json(
-    { error: 'Topic copying is no longer supported. Topics are set in the Scheme of Work builder at /sis/admin/sow.' },
+    { error: 'Use POST /api/sow/import to copy topics via the SOW import flow.' },
     { status: 410 },
   );
 }

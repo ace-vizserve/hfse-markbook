@@ -25,7 +25,6 @@ export type AuditAction =
   | 'section.create'
   | 'section.rename'
   | 'section.realphabetize'
-  | 'section.curriculum_track.update'
   | 'attendance.update'
   | 'attendance.daily.update'
   | 'attendance.daily.correct'
@@ -117,7 +116,12 @@ export type AuditAction =
   | 'sow.version.publish'
   | 'sow.instance.apply'
   | 'sow.scope.add'
-  | 'sow.scope.remove';
+  | 'sow.scope.remove'
+  // Teacher-owned SOW (KD #110)
+  | 'sow.instance.save'
+  | 'sow.instance.import_from'
+  | 'sow.labels.synced'
+  | 'sow.topics.synced';
 
 export type AuditEntityType =
   | 'grading_sheet'

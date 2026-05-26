@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, ArrowUpRight, CalendarClock, ClipboardList, Lock, MessageCircle, Sparkle, SquarePen } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CalendarClock, ClipboardList, MessageCircle, Sparkle, SquarePen } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -20,7 +20,6 @@ import {
 } from "@/lib/evaluation/checklist";
 import { getEvaluationTermConfig, getSectionRoster, listFormAdviserSectionIds } from "@/lib/evaluation/queries";
 import { daysUntilPtc, findPtcForWriteupTerm, getPtcEventsForAy } from "@/lib/evaluation/ptc-resolver";
-import { sowExistsForSection } from "@/lib/sis/sow/queries";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 
 export default async function EvaluationSectionRosterPage({
@@ -49,7 +48,7 @@ export default async function EvaluationSectionRosterPage({
   const { data: section } = await supabase
     .from("sections")
     .select(
-      "id, name, academic_year_id, curriculum_track, level:levels(id, label, level_type), academic_year:academic_years(id, ay_code, label)",
+      "id, name, academic_year_id, level:levels(id, label, level_type), academic_year:academic_years(id, ay_code, label)",
     )
     .eq("id", sectionId)
     .single();
@@ -108,6 +107,7 @@ export default async function EvaluationSectionRosterPage({
   const canEdit = sessionUser.role !== "teacher" || !!config?.virtueTheme;
   const submittedCount = roster.filter((r) => r.submitted).length;
   const totalCount = roster.length;
+  const isSubjectTeacherOnly = sessionUser.role === "teacher" && !teacherIsFormAdviser;
 
   // PTC awareness for the term being viewed. The audience filter prevents a
   // secondary-only PTC from leaking into a primary section's deadline (and
@@ -165,20 +165,19 @@ export default async function EvaluationSectionRosterPage({
       ? sp.subject_id
       : (visibleSubjects[0]?.id ?? "");
 
-  // Topics are admin-prescribed via the SOW builder (KD #107). Teachers see
-  // the topic list read-only; no add/edit/delete/reorder affordances.
-  const teacherCanEditTopics = false;
-  const sectionCurriculumTrack = (section as { curriculum_track?: string }).curriculum_track ?? 'singapore_inspired';
-  const [items, responseMap, commentMap, copyFromOptions, sowCheck] = selectedSubjectId
+  // Subject teachers can edit topics for their assigned section × subject.
+  // Form-adviser-only teachers and registrar+ see the topic list read-only
+  // (no add/edit/delete/reorder affordances on the audit surface).
+  const teacherCanEditTopics = sessionUser.role !== "teacher" || teacherSubjectIds.length > 0;
+
+  const [items, responseMap, commentMap, copyFromOptions] = selectedSubjectId
     ? await Promise.all([
-        listChecklistItems(selectedTerm.id, selectedSubjectId, level?.id ?? '', sectionCurriculumTrack),
+        listChecklistItems(selectedTerm.id, selectedSubjectId, sectionId),
         getResponsesBySectionTerm(sectionId, selectedTerm.id),
         getSubjectCommentsBySectionTerm(sectionId, selectedTerm.id, selectedSubjectId),
-        Promise.resolve([] as Awaited<ReturnType<typeof getSectionsTeacherCanCopyFrom>>),
-        sowExistsForSection(sectionId, selectedSubjectId, selectedTerm.id),
+        getSectionsTeacherCanCopyFrom(sessionUser.id, selectedTerm.id, selectedSubjectId, sectionId),
       ])
-    : [[], new Map(), new Map(), [] as Awaited<ReturnType<typeof getSectionsTeacherCanCopyFrom>>, { exists: false, version: null, partial_rebaseline: false }];
-  const sowVersionNumber = (sowCheck as { exists: boolean; version: { version_number: number } | null; partial_rebaseline: boolean }).version?.version_number ?? null;
+    : [[], new Map(), new Map(), [] as Awaited<ReturnType<typeof getSectionsTeacherCanCopyFrom>>];
 
   const responsesForClient = new Map<string, number | null>();
   for (const [k, row] of responseMap.entries()) {
@@ -221,7 +220,7 @@ export default async function EvaluationSectionRosterPage({
       <header className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div className="space-y-3">
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Evaluation · Write-ups
+            {isSubjectTeacherOnly ? "Evaluation · Topic ratings" : "Evaluation · Write-ups"}
           </p>
           <div className="flex flex-wrap items-baseline gap-3">
             <h1 className="font-serif text-[38px] font-semibold leading-[1.05] tracking-tight text-foreground md:text-[44px]">
@@ -243,8 +242,9 @@ export default async function EvaluationSectionRosterPage({
             )}
           </div>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            {submittedCount} of {totalCount} write-ups submitted. Autosaves per keystroke; Submit stamps a write-up as
-            finalised (edits stay possible).
+            {isSubjectTeacherOnly
+              ? "Rate each student 1–5 on the SOW-prescribed topics for the selected subject."
+              : `${submittedCount} of ${totalCount} write-ups submitted. Autosaves per keystroke; Submit stamps a write-up as finalised (edits stay possible).`}
           </p>
         </div>
         <div className="flex flex-col items-start gap-2 md:items-end">
@@ -392,36 +392,6 @@ export default async function EvaluationSectionRosterPage({
                 No subjects enabled for this level × AY. Configure via{" "}
                 <span className="whitespace-nowrap font-mono text-[11px]">SIS Admin → Subject Weights</span>.
               </div>
-            ) : !sowCheck.exists && selectedSubjectId ? (
-              <>
-              <ChecklistSubjectPicker subjects={visibleSubjects} selectedSubjectId={selectedSubjectId} />
-              <div className="flex flex-col items-center gap-5 py-16">
-                <div className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-amber to-brand-amber/60 shadow-md">
-                  <Lock className="size-6 text-white" />
-                </div>
-                <div className="space-y-1.5 text-center">
-                  <p className="font-serif text-xl font-semibold text-foreground">SOW not yet approved</p>
-                  <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
-                    Topics for{" "}
-                    <span className="font-medium text-foreground">
-                      {visibleSubjects.find((s) => s.id === selectedSubjectId)?.name ?? "this subject"}
-                    </span>{" "}
-                    will appear here once the administrator publishes and applies the Scheme of Work.
-                  </p>
-                </div>
-                {(sessionUser.role === "registrar" ||
-                  sessionUser.role === "school_admin" ||
-                  sessionUser.role === "superadmin") && (
-                  <Link
-                    href="/sis/admin/sow"
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:underline"
-                  >
-                    Open SOW builder
-                    <ArrowUpRight className="size-3.5" />
-                  </Link>
-                )}
-              </div>
-              </>
             ) : (
               <ChecklistRosterClient
                 termId={selectedTerm.id}
@@ -445,7 +415,6 @@ export default async function EvaluationSectionRosterPage({
                 canEdit={canEdit}
                 canEditTopics={teacherCanEditTopics}
                 copyFromOptions={copyFromOptions}
-                sowVersionNumber={sowVersionNumber}
               />
             )}
           </TabsContent>
