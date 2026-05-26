@@ -15,11 +15,14 @@ export async function GET(request: NextRequest) {
   const sectionId = request.nextUrl.searchParams.get('section_id');
   const mine = request.nextUrl.searchParams.get('mine') === '1';
 
+  const isManager = auth.role === 'registrar' || auth.role === 'school_admin' || auth.role === 'superadmin';
+
   let q = supabase
     .from('teacher_assignments')
     .select('id, teacher_user_id, section_id, subject_id, role');
   if (sectionId) q = q.eq('section_id', sectionId);
-  if (mine) q = q.eq('teacher_user_id', auth.user.id);
+  // Teachers always see only their own rows regardless of ?mine param.
+  if (!isManager) q = q.eq('teacher_user_id', auth.user.id);
 
   const { data, error } = await q;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

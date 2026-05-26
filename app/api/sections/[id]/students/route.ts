@@ -84,8 +84,8 @@ export async function POST(
     );
   }
   const enrollmentStatus = body.enrollment_status === 'late_enrollee' ? 'late_enrollee' : 'active';
-  const busNo = body.bus_no?.toString().trim() || null;
-  const classroomOfficerRole = body.classroom_officer_role?.toString().trim() || null;
+  const busNo = body.bus_no?.toString().trim().slice(0, 30) || null;
+  const classroomOfficerRole = body.classroom_officer_role?.toString().trim().slice(0, 100) || null;
 
   const service = createServiceClient();
 

@@ -53,34 +53,43 @@ export async function POST(request: NextRequest) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
-  const body = (await request.json().catch(() => null)) as
-    | {
-        term_id?: string;
-        section_id?: string;
-        subject_id?: string;
-        ww_totals?: number[];
-        pt_totals?: number[];
-        qa_total?: number | null;
-        teacher_name?: string | null;
-      }
-    | null;
-  if (!body) return NextResponse.json({ error: 'invalid body' }, { status: 400 });
+  const raw = await request.json().catch(() => null);
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return NextResponse.json({ error: 'invalid body' }, { status: 400 });
+  }
+  const body = raw as Record<string, unknown>;
 
-  const { term_id, section_id, subject_id } = body;
+  const term_id = typeof body.term_id === 'string' ? body.term_id.trim() : '';
+  const section_id = typeof body.section_id === 'string' ? body.section_id.trim() : '';
+  const subject_id = typeof body.subject_id === 'string' ? body.subject_id.trim() : '';
   if (!term_id || !section_id || !subject_id) {
     return NextResponse.json(
       { error: 'term_id, section_id, subject_id are required' },
       { status: 400 },
     );
   }
-  const ww_totals = Array.isArray(body.ww_totals) ? body.ww_totals : [];
-  const pt_totals = Array.isArray(body.pt_totals) ? body.pt_totals : [];
-  const qa_total = body.qa_total ?? null;
+
+  const rawTeacherName = body.teacher_name;
+  const teacher_name =
+    rawTeacherName == null
+      ? null
+      : typeof rawTeacherName === 'string'
+        ? rawTeacherName.trim().slice(0, 150) || null
+        : null;
+
+  const ww_totals = Array.isArray(body.ww_totals) ? (body.ww_totals as unknown[]) : [];
+  const pt_totals = Array.isArray(body.pt_totals) ? (body.pt_totals as unknown[]) : [];
+  const rawQa = body.qa_total;
+  const qa_total = rawQa == null ? null : typeof rawQa === 'number' ? rawQa : null;
+
   if (ww_totals.some(v => typeof v !== 'number' || v <= 0)) {
     return NextResponse.json({ error: 'ww_totals must be positive numbers' }, { status: 400 });
   }
   if (pt_totals.some(v => typeof v !== 'number' || v <= 0)) {
     return NextResponse.json({ error: 'pt_totals must be positive numbers' }, { status: 400 });
+  }
+  if (qa_total !== null && (typeof qa_total !== 'number' || qa_total <= 0)) {
+    return NextResponse.json({ error: 'qa_total must be a positive number' }, { status: 400 });
   }
 
   const service = createServiceClient();
@@ -130,7 +139,7 @@ export async function POST(request: NextRequest) {
       section_id,
       subject_id,
       subject_config_id: config.id,
-      teacher_name: body.teacher_name ?? null,
+      teacher_name,
       ww_totals,
       pt_totals,
       qa_total,

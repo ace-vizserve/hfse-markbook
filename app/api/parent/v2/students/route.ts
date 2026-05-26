@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { getAllStudentsByParentEmail } from '@/lib/supabase/admissions';
+import { getClientIp, rateLimit, tooManyRequests } from '@/lib/rate-limit';
 
 // GET /api/parent/v2/students
 //
@@ -40,6 +41,11 @@ export async function GET(request: Request) {
   const origin = request.headers.get('origin');
   const cors = corsHeaders(origin);
 
+  // IP-based limit — checked before any DB work.
+  const ip = getClientIp(request);
+  const ipRl = rateLimit({ ip, scope: 'parent-v2', ipMax: 30, windowSecs: 60 });
+  if (ipRl.limited) return tooManyRequests(ipRl.retryAfter, cors);
+
   // 1. Verify Bearer token.
   const authHeader = request.headers.get('authorization') ?? '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
@@ -53,6 +59,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'invalid or expired token' }, { status: 401, headers: cors });
   }
   const email = userData.user.email.trim().toLowerCase();
+
+  // Per-user limit — checked after token is confirmed valid.
+  const userRl = rateLimit({
+    ip,
+    userId: userData.user.id,
+    scope: 'parent-v2',
+    ipMax: 30,
+    userMax: 20,
+    windowSecs: 60,
+  });
+  if (userRl.limited) return tooManyRequests(userRl.retryAfter, cors);
 
   // 2. Find all students linked to this parent email across all AYs.
   const admissionsRows = await getAllStudentsByParentEmail(email);

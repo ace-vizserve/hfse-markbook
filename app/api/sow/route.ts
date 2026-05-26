@@ -6,13 +6,16 @@ import { logAction } from '@/lib/audit/log-action';
 import { createServiceClient } from '@/lib/supabase/service';
 import type { SowLabel, SowTopic } from '@/lib/sis/sow/queries';
 
+const MAX_SLOTS = 5;
+const MAX_TOPICS = 50;
+
 const SowLabelSchema = z.object({
-  label: z.string(),
-  page: z.string().nullable(),
+  label: z.string().max(200),
+  page: z.string().max(20).nullable(),
 });
 
 const SowTopicSchema = z.object({
-  text: z.string().min(1),
+  text: z.string().min(1).max(500),
   sort_order: z.number().int().min(0),
 });
 
@@ -20,9 +23,9 @@ const UpsertSchema = z.object({
   section_id: z.string().uuid(),
   subject_id: z.string().uuid(),
   term_id: z.string().uuid(),
-  ww_labels: z.array(SowLabelSchema),
-  pt_labels: z.array(SowLabelSchema),
-  topics: z.array(SowTopicSchema),
+  ww_labels: z.array(SowLabelSchema).max(MAX_SLOTS),
+  pt_labels: z.array(SowLabelSchema).max(MAX_SLOTS),
+  topics: z.array(SowTopicSchema).max(MAX_TOPICS),
 });
 
 // GET /api/sow?sectionId=&subjectId=&termId=
