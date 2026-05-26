@@ -440,6 +440,12 @@ async function loadMasterfileUncached(
             cells[1]?.quarterly ?? null,
             cells[2]?.quarterly ?? null,
             cells[3]?.quarterly ?? null,
+            [
+              cells[0]?.isNa ?? false,
+              cells[1]?.isNa ?? false,
+              cells[2]?.isNa ?? false,
+              cells[3]?.isNa ?? false,
+            ],
           )
         : null;
       const derivedAnnualLetter = examinable

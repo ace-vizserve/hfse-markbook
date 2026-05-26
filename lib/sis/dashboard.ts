@@ -984,12 +984,13 @@ async function loadClassAssignmentReadinessUncached(
     applicationStatus: string | null;
     applicationUpdatedDate: string | null;
     classLevel: string | null;
+    classSection: string | null;
     levelApplied: string | null;
   };
   const [enrolledRes, ssRes] = await Promise.all([
     admissions
       .from(`${prefix}_enrolment_status`)
-      .select('enroleeNumber, applicationStatus, applicationUpdatedDate, classLevel, levelApplied')
+      .select('enroleeNumber, applicationStatus, applicationUpdatedDate, classLevel, classSection, levelApplied')
       .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']),
     sectionIds.length > 0
       ? service
@@ -1007,7 +1008,13 @@ async function loadClassAssignmentReadinessUncached(
       .filter((v): v is string => v !== null),
   );
 
+  // A student is truly "without a section" only if BOTH:
+  // 1. They have no section_students row (not in assignedEnrolees via enrolee_number), AND
+  // 2. admissions has no classSection recorded for them.
+  // A student with classSection set but a NULL enrolee_number in section_students
+  // (a known seeder gap — KD #83) has already been assigned and should not appear here.
   const unassignedEnrolees = enrolledRows
+    .filter((r) => !r.classSection)
     .map((r) => r.enroleeNumber)
     .filter((v): v is string => v !== null && !assignedEnrolees.has(v));
   if (unassignedEnrolees.length === 0) return [];

@@ -306,6 +306,12 @@ export async function buildReportCard(
           byTerm[2]?.quarterly ?? null,
           byTerm[3]?.quarterly ?? null,
           byTerm[4]?.quarterly ?? null,
+          [
+            byTerm[1]?.is_na ?? false,
+            byTerm[2]?.is_na ?? false,
+            byTerm[3]?.is_na ?? false,
+            byTerm[4]?.is_na ?? false,
+          ],
         )
       : null;
     return {

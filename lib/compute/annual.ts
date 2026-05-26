@@ -2,18 +2,37 @@
 //   Overall = ROUND((T1 × 0.20) + (T2 × 0.20) + (T3 × 0.20) + (T4 × 0.40), 2)
 // Term 4 carries double weight (40%) vs T1-T3 (20% each). Total is 100%.
 //
-// Returns null if ANY term is missing — the spec treats a partial year as
-// incomplete and suppresses the overall column on the report card.
+// Late-enrollee proration: pass naFlags=[t1Na, t2Na, t3Na, t4Na]. A term that is
+// null AND flagged N/A is excluded and the remaining weights are renormalized to
+// 100% so the grade is still meaningful. A null term with no flag → incomplete → null.
+// Omitting naFlags preserves the original behaviour (any null → null).
+
+const TERM_WEIGHTS: [number, number, number, number] = [0.2, 0.2, 0.2, 0.4];
 
 export function computeAnnualGrade(
   t1: number | null,
   t2: number | null,
   t3: number | null,
   t4: number | null,
+  naFlags?: [boolean, boolean, boolean, boolean],
 ): number | null {
-  if (t1 == null || t2 == null || t3 == null || t4 == null) return null;
-  const raw = t1 * 0.2 + t2 * 0.2 + t3 * 0.2 + t4 * 0.4;
-  return Math.round(raw * 100) / 100;
+  const grades = [t1, t2, t3, t4] as const;
+  const na = naFlags ?? [false, false, false, false];
+
+  let weightSum = 0;
+  let weightedSum = 0;
+  for (let i = 0; i < 4; i++) {
+    if (grades[i] == null) {
+      if (!na[i]) return null; // genuinely missing — incomplete grade
+    } else {
+      weightSum += TERM_WEIGHTS[i];
+      weightedSum += grades[i]! * TERM_WEIGHTS[i];
+    }
+  }
+
+  if (weightSum === 0) return null; // all terms were N/A
+
+  return Math.round((weightedSum / weightSum) * 100) / 100;
 }
 
 // Descriptor for a numeric quarterly or annual grade per DepEd scale.
@@ -60,8 +79,7 @@ export function computeAttendancePercentage(
   return Math.round((totalPresent / totalSchool) * 10000) / 100;
 }
 
-// Self-test: 85/85/85/85 should floor-average to 85.00, and a 70/80/90/95
-// sample exercises the weighted double-term.
+// Self-test: canonical cases + proration.
 (function verifyAnnual() {
   const a = computeAnnualGrade(85, 85, 85, 85);
   if (a !== 85) throw new Error(`annual self-test failed: 85/85/85/85 → ${a} (expected 85)`);
@@ -70,6 +88,16 @@ export function computeAttendancePercentage(
   if (b !== 86) throw new Error(`annual self-test failed: 70/80/90/95 → ${b} (expected 86)`);
   const partial = computeAnnualGrade(85, 85, null, 90);
   if (partial !== null) throw new Error(`annual self-test: partial year should be null, got ${partial}`);
+  // Proration — T1 N/A (late enrollee joined T2):
+  // weightedSum = 80*.2 + 85*.2 + 90*.4 = 16+17+36 = 69; weightSum = 0.8; 69/0.8 = 86.25
+  const p1 = computeAnnualGrade(null, 80, 85, 90, [true, false, false, false]);
+  if (p1 !== 86.25) throw new Error(`proration self-test (T1 N/A) → ${p1} (expected 86.25)`);
+  // Proration — T1+T2 N/A: weightedSum = 80*.2 + 90*.4 = 16+36=52; weightSum=0.6; 52/0.6=86.67
+  const p2 = computeAnnualGrade(null, null, 80, 90, [true, true, false, false]);
+  if (p2 !== 86.67) throw new Error(`proration self-test (T1+T2 N/A) → ${p2} (expected 86.67)`);
+  // All N/A → null
+  const p3 = computeAnnualGrade(null, null, null, null, [true, true, true, true]);
+  if (p3 !== null) throw new Error(`proration self-test: all N/A should be null, got ${p3}`);
 
   // General average — 1dp per canonical spec.
   const ga1 = computeGeneralAverage([90, 85, 80]);
