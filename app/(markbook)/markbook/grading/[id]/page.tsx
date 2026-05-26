@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { createClient, getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
+import { loadPriorTermGrades, type PriorTermGrade } from '@/lib/markbook/grade-diff';
 import type { Role } from '@/lib/auth/roles';
 import {
   loadAssignmentsForUser,
@@ -142,7 +143,16 @@ export default async function GradingSheetPage({
       ? loadAssignmentsForUser(supabase, sessionUser.id)
       : Promise.resolve([]);
 
-  const [{ data: openRequestsRaw }, { data: entriesRaw }, rawAssignments] = await Promise.all([
+  // Prior-term grades for grade-difference analysis. Extracted early so the
+  // fetch runs in parallel with entries and change-requests.
+  const subjectEarly = first(sheet.subject as Subject | Subject[] | null);
+  const termEarly = first(sheet.term as Term | Term[] | null);
+  const priorGradesPromise: Promise<Record<string, PriorTermGrade[]>> =
+    sectionForSeed?.id && subjectEarly?.id && termEarly && termEarly.term_number > 1
+      ? loadPriorTermGrades(sectionForSeed.id, subjectEarly.id, termEarly.term_number)
+      : Promise.resolve({});
+
+  const [{ data: openRequestsRaw }, { data: entriesRaw }, rawAssignments, priorGrades] = await Promise.all([
     supabase
       .from('grade_change_requests')
       .select(
@@ -161,6 +171,7 @@ export default async function GradingSheetPage({
       )
       .eq('grading_sheet_id', id),
     assignmentsPromise,
+    priorGradesPromise,
   ]);
   type OpenRequestRow = {
     id: string;
@@ -250,6 +261,7 @@ export default async function GradingSheetPage({
     const stu = first(ss?.student ?? null);
     return {
       entry_id: e.id,
+      section_student_id: ss?.id ?? '',
       index_number: ss?.index_number ?? 0,
       student_name: stu
         ? [stu.last_name, stu.first_name, stu.middle_name].filter(Boolean).join(', ')
@@ -570,6 +582,9 @@ export default async function GradingSheetPage({
         slotLabels={sheet.slot_labels as { ww?: ({ label?: string | null; date?: string | null; page?: string | null } | null)[]; pt?: ({ label?: string | null; date?: string | null; page?: string | null } | null)[]; qa?: string | null } | null ?? undefined}
         sowLabels={sowLabels}
         letterDisplay={!isExaminable}
+        priorGrades={priorGrades}
+        currentTermNumber={term?.term_number ?? 1}
+        currentTermLabel={term?.label ?? 'Term'}
       />
 
     </PageShell>

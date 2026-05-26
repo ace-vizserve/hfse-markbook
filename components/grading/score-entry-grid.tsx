@@ -1,20 +1,20 @@
 "use client";
 
-import { CheckCircle2, Eye, Loader2 } from "lucide-react";
+import { AlertTriangle, ChevronRight, Loader2 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ScrollArea } from "../ui/scroll-area";
 import { DEFAULT_GRID_FILTERS, GridFilterToolbar, type GridFilters } from "./grid-filter-toolbar";
 import { useChangeReference, type ChangeReferenceTarget } from "./use-approval-reference";
+import { GradeDiffDialog, type AlertComparison } from "./grade-diff-dialog";
 
 export type GradeRow = {
   entry_id: string;
+  section_student_id: string;
   index_number: number;
   student_name: string;
   student_number: string;
@@ -30,6 +30,12 @@ export type GradeRow = {
   initial_grade: number | null;
   quarterly_grade: number | null;
   letter_grade: string | null;
+};
+
+type PriorTermGrade = {
+  term_number: number;
+  term_label: string;
+  quarterly_grade: number | null;
 };
 
 export type SlotMeta = {
@@ -62,6 +68,10 @@ type Props = {
   qaWeight: number;
   /** When true, renders the Quarterly column as a derived letter (non-examinable subjects). */
   letterDisplay?: boolean;
+  /** Prior-term grades keyed by section_student_id. Omit for T1 sheets. */
+  priorGrades?: Record<string, PriorTermGrade[]>;
+  currentTermNumber?: number;
+  currentTermLabel?: string;
 };
 
 function parseCell(raw: string): number | null {
@@ -88,6 +98,9 @@ export function ScoreEntryGrid({
   ptWeight,
   qaWeight,
   letterDisplay = false,
+  priorGrades,
+  currentTermNumber = 1,
+  currentTermLabel = 'Term',
 }: Props) {
   const [rows, setRows] = useState<GradeRow[]>(initialRows);
   const rowsRef = useRef(rows);
@@ -95,6 +108,11 @@ export function ScoreEntryGrid({
   const [savingId, setSavingId] = useState<string | null>(null);
   const [filters, setFilters] = useState<GridFilters>(DEFAULT_GRID_FILTERS);
   const { requireChangeReference, dialog: approvalDialog } = useChangeReference();
+  const [alertDialogState, setAlertDialogState] = useState<{
+    studentName: string;
+    currentGrade: number;
+    comparisons: AlertComparison[];
+  } | null>(null);
 
   // Slot labels — managed locally, PATCHed on blur.
   const [labels, setLabels] = useState<Required<SlotLabels>>({
@@ -214,10 +232,9 @@ export function ScoreEntryGrid({
     setRows((current) => current.map((r) => (r.entry_id === entryId ? patch(r) : r)));
   }, []);
 
-  // Total column count for empty-state colspan.
-  // # + Student | WW slots + (Total PS WS) | PT slots + (Total PS WS) | QA (Exam PS WS) | Initial | Quarterly | N/A
+  // # + Student | WW slots + (Total PS WS) | PT slots + (Total PS WS) | QA (Exam PS WS) | Initial | Quarterly | N/A | Alerts
   const totalCols =
-    2 + (wwLen + 3) + (ptLen > 0 ? ptLen + 3 : 0) + 3 + 1 + 1 + 1;
+    2 + (wwLen + 3) + (ptLen > 0 ? ptLen + 3 : 0) + 3 + 1 + 1 + 1 + 1;
 
   const wwPct = Math.round(wwWeight * 100);
   const ptPct = Math.round(ptWeight * 100);
@@ -230,106 +247,121 @@ export function ScoreEntryGrid({
       <ScoringGuide
         wwTotals={wwTotals}
         ptTotals={ptTotals}
+        qaTotal={qaTotal}
         labels={labels}
         sowLabels={sowLabels}
+        wwPct={wwPct}
+        ptPct={ptPct}
+        qaPct={qaPct}
       />
-      <GridFilterToolbar filters={filters} onChange={setFilters} total={rows.length} visible={visibleRows.length} />
+      <div className="flex items-center justify-between gap-3">
+        <GridFilterToolbar filters={filters} onChange={setFilters} total={rows.length} visible={visibleRows.length} />
+        {savingId && (
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-brand-indigo/20 bg-brand-indigo/8 px-2.5 py-1 font-mono text-[11px] font-semibold text-brand-indigo">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Saving…
+          </span>
+        )}
+      </div>
 
       <Card className="overflow-hidden p-0">
         <Table>
           <TableHeader>
             {/* Row 1 — group headers */}
             <TableRow className="bg-muted/60 hover:bg-muted/60">
-              <TableHead rowSpan={3} className="sticky left-0 z-10 bg-muted/60 align-bottom text-right text-xs">
+              <TableHead rowSpan={3} className="sticky left-0 z-10 bg-muted/60 w-8 align-bottom text-right font-mono text-[10px] text-muted-foreground/60">
                 #
               </TableHead>
-              <TableHead rowSpan={3} className="sticky left-8 z-10 bg-muted/60 align-bottom text-xs">
+              <TableHead rowSpan={3} className="sticky left-8 z-10 min-w-[160px] border-r-2 border-border/60 bg-muted/60 align-bottom text-xs text-muted-foreground">
                 Student
               </TableHead>
               {wwLen > 0 && (
                 <TableHead
                   colSpan={wwLen + 3}
-                  className="border-r border-border/40 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  className="border-r-2 border-border/60 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   Written Works ({wwPct}%)
                 </TableHead>
               )}
               {ptLen > 0 && (
                 <TableHead
                   colSpan={ptLen + 3}
-                  className="border-r border-border/40 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  className="border-r-2 border-border/60 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   Performance Tasks ({ptPct}%)
                 </TableHead>
               )}
               <TableHead
                 colSpan={3}
-                className="border-r border-border/40 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                className="border-r-2 border-border/60 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Quarterly Assessment ({qaPct}%)
               </TableHead>
-              <TableHead rowSpan={3} className="align-bottom text-right text-xs">
+              <TableHead rowSpan={3} className="border-l-2 border-border/40 align-bottom text-right text-[10px] text-muted-foreground/70">
                 Initial<br />Grade
               </TableHead>
-              <TableHead rowSpan={3} className="align-bottom text-right text-xs">
+              <TableHead rowSpan={3} className="align-bottom text-right text-xs text-muted-foreground">
                 Quarterly<br />Grade
               </TableHead>
-              <TableHead rowSpan={3} className="align-bottom text-center text-xs">
+              <TableHead rowSpan={3} className="align-bottom text-center text-xs text-muted-foreground">
                 N/A
+              </TableHead>
+              <TableHead rowSpan={3} className="align-bottom text-center text-xs text-muted-foreground">
+                Alerts
               </TableHead>
             </TableRow>
 
-            {/* Row 2 — column labels */}
+            {/* Row 2 — column codes */}
             <TableRow className="bg-muted/40 hover:bg-muted/40">
               {wwTotals.map((_, i) => (
-                <TableHead key={`ww-lbl-${i}`} className="text-center text-xs">
+                <TableHead key={`ww-lbl-${i}`} className="text-center font-mono text-xs font-semibold text-foreground">
                   W{i + 1}
                 </TableHead>
               ))}
-              <TableHead className="text-center text-[10px] text-muted-foreground">Total</TableHead>
-              <TableHead className="text-center text-[10px] text-muted-foreground">PS</TableHead>
-              <TableHead className="border-r border-border/40 text-center text-[10px] text-muted-foreground">WS</TableHead>
+              <TableHead className="text-center font-mono text-[10px] text-muted-foreground">Total</TableHead>
+              <TableHead className="text-center font-mono text-[10px] text-muted-foreground">PS</TableHead>
+              <TableHead className="border-r-2 border-border/60 text-center font-mono text-[10px] text-muted-foreground">WS</TableHead>
               {ptLen > 0 && (
                 <>
                   {ptTotals.map((_, i) => (
-                    <TableHead key={`pt-lbl-${i}`} className="text-center text-xs">
+                    <TableHead key={`pt-lbl-${i}`} className="text-center font-mono text-xs font-semibold text-foreground">
                       PT{i + 1}
                     </TableHead>
                   ))}
-                  <TableHead className="text-center text-[10px] text-muted-foreground">Total</TableHead>
-                  <TableHead className="text-center text-[10px] text-muted-foreground">PS</TableHead>
-                  <TableHead className="border-r border-border/40 text-center text-[10px] text-muted-foreground">WS</TableHead>
+                  <TableHead className="text-center font-mono text-[10px] text-muted-foreground">Total</TableHead>
+                  <TableHead className="text-center font-mono text-[10px] text-muted-foreground">PS</TableHead>
+                  <TableHead className="border-r-2 border-border/60 text-center font-mono text-[10px] text-muted-foreground">WS</TableHead>
                 </>
               )}
-              <TableHead className="text-center text-xs">Exam</TableHead>
-              <TableHead className="text-center text-[10px] text-muted-foreground">PS</TableHead>
-              <TableHead className="border-r border-border/40 text-center text-[10px] text-muted-foreground">WS</TableHead>
+              <TableHead className="text-center font-mono text-xs font-semibold text-foreground">Exam</TableHead>
+              <TableHead className="text-center font-mono text-[10px] text-muted-foreground">PS</TableHead>
+              <TableHead className="border-r-2 border-border/60 text-center font-mono text-[10px] text-muted-foreground">WS</TableHead>
             </TableRow>
 
             {/* Row 3 — max values reference row */}
-            <TableRow className="bg-muted/30 hover:bg-muted/30">
+            <TableRow className="bg-muted/20 hover:bg-muted/20">
               {wwTotals.map((max, i) => (
-                <TableHead key={`ww-max-${i}`} className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/70">
+                <TableHead key={`ww-max-${i}`} className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/50">
                   {max}
                 </TableHead>
               ))}
-              <TableHead className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/70">{wwMaxTotal}</TableHead>
-              <TableHead className="text-center font-mono text-[10px] text-muted-foreground/70">100%</TableHead>
-              <TableHead className="border-r border-border/40 text-center font-mono text-[10px] text-muted-foreground/70">{wwPct}%</TableHead>
+              <TableHead className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/50">{wwMaxTotal}</TableHead>
+              <TableHead className="text-center font-mono text-[10px] text-muted-foreground/50">100%</TableHead>
+              <TableHead className="border-r-2 border-border/60 text-center font-mono text-[10px] text-muted-foreground/50">{wwPct}%</TableHead>
               {ptLen > 0 && (
                 <>
                   {ptTotals.map((max, i) => (
-                    <TableHead key={`pt-max-${i}`} className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/70">
+                    <TableHead key={`pt-max-${i}`} className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/50">
                       {max}
                     </TableHead>
                   ))}
-                  <TableHead className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/70">{ptMaxTotal}</TableHead>
-                  <TableHead className="text-center font-mono text-[10px] text-muted-foreground/70">100%</TableHead>
-                  <TableHead className="border-r border-border/40 text-center font-mono text-[10px] text-muted-foreground/70">{ptPct}%</TableHead>
+                  <TableHead className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/50">{ptMaxTotal}</TableHead>
+                  <TableHead className="text-center font-mono text-[10px] text-muted-foreground/50">100%</TableHead>
+                  <TableHead className="border-r-2 border-border/60 text-center font-mono text-[10px] text-muted-foreground/50">{ptPct}%</TableHead>
                 </>
               )}
-              <TableHead className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/70">
+              <TableHead className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/50">
                 {qaTotal ?? "—"}
               </TableHead>
-              <TableHead className="text-center font-mono text-[10px] text-muted-foreground/70">100%</TableHead>
-              <TableHead className="border-r border-border/40 text-center font-mono text-[10px] text-muted-foreground/70">{qaPct}%</TableHead>
+              <TableHead className="text-center font-mono text-[10px] text-muted-foreground/50">100%</TableHead>
+              <TableHead className="border-r-2 border-border/60 text-center font-mono text-[10px] text-muted-foreground/50">{qaPct}%</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -342,8 +374,11 @@ export function ScoreEntryGrid({
             )}
             {visibleRows.map((r) => {
               const inputsDisabled = r.withdrawn || r.is_na || readOnly;
-              const muted = r.withdrawn || r.is_na || readOnly;
-              const rowClass = muted ? "text-muted-foreground" : "";
+              const rowClass = r.withdrawn
+                ? "opacity-50"
+                : r.is_na
+                  ? "text-muted-foreground"
+                  : "";
 
               const wwTotal = sumScores(r.ww_scores, wwLen);
               const ptTotal = sumScores(r.pt_scores, ptLen);
@@ -352,22 +387,31 @@ export function ScoreEntryGrid({
               const qaWs = r.qa_ps != null ? r.qa_ps * qaWeight : null;
 
               return (
-                <TableRow key={r.entry_id} className={rowClass}>
-                  <TableCell className="sticky left-0 z-10 bg-card text-right tabular-nums text-xs">{r.index_number}</TableCell>
-                  <TableCell className="sticky left-8 z-10 bg-card">
-                    <div className={r.withdrawn ? "whitespace-nowrap text-sm line-through" : "whitespace-nowrap text-sm"}>
+                <TableRow
+                  key={r.entry_id}
+                  className={`transition-colors duration-75 hover:bg-accent/30 ${rowClass}`}
+                >
+                  {/* # */}
+                  <TableCell className="sticky left-0 z-10 w-8 bg-card text-right font-mono tabular-nums text-[11px] text-muted-foreground/60">
+                    {r.index_number}
+                  </TableCell>
+
+                  {/* Student */}
+                  <TableCell className="sticky left-8 z-10 min-w-[160px] border-r-2 border-border/40 bg-card py-2">
+                    <div className={r.withdrawn ? "whitespace-nowrap text-sm font-medium text-muted-foreground line-through" : "whitespace-nowrap text-sm font-medium text-foreground"}>
                       {r.student_name}
                     </div>
-                    <div className="text-xs tabular-nums text-muted-foreground">{r.student_number}</div>
+                    <div className="font-mono text-[11px] tabular-nums text-muted-foreground">{r.student_number}</div>
                     {r.late_enrollee && !r.withdrawn && (
-                      <div
-                        className="mt-0.5 text-[10px] italic text-brand-amber"
+                      <span
+                        className="mt-0.5 inline-flex items-center rounded bg-brand-amber/10 px-1 py-px font-mono text-[9px] font-semibold uppercase tracking-wider text-brand-amber"
                         title="Earlier assessments stay blank and are excluded from the average — proration is automatic.">
-                        Late enrollee
-                      </div>
+                        Late
+                      </span>
                     )}
                   </TableCell>
 
+                  {/* WW inputs */}
                   {wwTotals.map((max, i) => (
                     <TableCell key={`ww-${i}`} className="px-1 py-1">
                       <ScoreInput
@@ -390,8 +434,9 @@ export function ScoreEntryGrid({
                   ))}
                   <ComputedCell value={wwTotal} dp={0} />
                   <ComputedCell value={r.ww_ps} />
-                  <ComputedCell value={wwWs} border />
+                  <ComputedCell value={wwWs} groupEnd />
 
+                  {/* PT inputs */}
                   {ptLen > 0 && (
                     <>
                       {ptTotals.map((max, i) => (
@@ -416,10 +461,11 @@ export function ScoreEntryGrid({
                       ))}
                       <ComputedCell value={ptTotal} dp={0} />
                       <ComputedCell value={r.pt_ps} />
-                      <ComputedCell value={ptWs} border />
+                      <ComputedCell value={ptWs} groupEnd />
                     </>
                   )}
 
+                  {/* QA input */}
                   <TableCell className="px-1 py-1">
                     <ScoreInput
                       value={r.qa_score}
@@ -431,16 +477,19 @@ export function ScoreEntryGrid({
                     />
                   </TableCell>
                   <ComputedCell value={r.qa_ps} />
-                  <ComputedCell value={qaWs} border />
+                  <ComputedCell value={qaWs} groupEnd />
 
-                  <TableCell className="text-right tabular-nums text-sm text-muted-foreground">
+                  {/* Initial grade — de-emphasised; the quarterly is the result the teacher cares about */}
+                  <TableCell className="border-l-2 border-border/30 px-2 text-right font-mono tabular-nums text-[11px] text-muted-foreground/60">
                     {r.initial_grade != null ? r.initial_grade.toFixed(2) : "—"}
                   </TableCell>
 
+                  {/* Quarterly grade */}
                   <TableCell className="text-right tabular-nums">
-                    <QuarterlyPill value={r.quarterly_grade} muted={muted} />
+                    <QuarterlyPill value={r.quarterly_grade} muted={r.withdrawn || r.is_na || readOnly} />
                   </TableCell>
 
+                  {/* N/A */}
                   <TableCell className="text-center">
                     <Checkbox
                       checked={r.is_na}
@@ -453,6 +502,22 @@ export function ScoreEntryGrid({
                       }}
                     />
                   </TableCell>
+
+                  {/* Alerts */}
+                  <TableCell className="text-center">
+                    <AlertCell
+                      row={r}
+                      priorTermGrades={priorGrades?.[r.section_student_id] ?? []}
+                      currentTermNumber={currentTermNumber}
+                      onOpen={(comparisons) =>
+                        setAlertDialogState({
+                          studentName: r.student_name,
+                          currentGrade: r.quarterly_grade!,
+                          comparisons,
+                        })
+                      }
+                    />
+                  </TableCell>
                 </TableRow>
               );
             })}
@@ -460,36 +525,101 @@ export function ScoreEntryGrid({
         </Table>
       </Card>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        {savingId && (
-          <span className="inline-flex items-center gap-1 text-muted-foreground">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            saving…
-          </span>
-        )}
-      </div>
-
       {approvalDialog}
+
+      {alertDialogState && (
+        <GradeDiffDialog
+          open
+          onOpenChange={(open) => { if (!open) setAlertDialogState(null); }}
+          studentName={alertDialogState.studentName}
+          currentTermLabel={currentTermLabel}
+          currentGrade={alertDialogState.currentGrade}
+          comparisons={alertDialogState.comparisons}
+        />
+      )}
     </div>
+  );
+}
+
+function computeComparisons(
+  currentGrade: number,
+  priorTermGrades: PriorTermGrade[],
+): AlertComparison[] {
+  return priorTermGrades
+    .filter((p) => p.quarterly_grade !== null)
+    .map((p) => {
+      const diff = currentGrade - p.quarterly_grade!;
+      return {
+        term_label: p.term_label,
+        term_number: p.term_number,
+        prior_grade: p.quarterly_grade!,
+        diff,
+        flagged: Math.abs(diff) >= 5,
+      };
+    });
+}
+
+function AlertCell({
+  row,
+  priorTermGrades,
+  currentTermNumber,
+  onOpen,
+}: {
+  row: GradeRow;
+  priorTermGrades: PriorTermGrade[];
+  currentTermNumber: number;
+  onOpen: (comparisons: AlertComparison[]) => void;
+}) {
+  if (
+    currentTermNumber <= 1 ||
+    row.is_na ||
+    row.withdrawn ||
+    row.quarterly_grade == null
+  ) {
+    return <span className="font-mono text-[11px] text-muted-foreground/40">—</span>;
+  }
+
+  const comparisons = computeComparisons(row.quarterly_grade, priorTermGrades);
+  const flaggedCount = comparisons.filter((c) => c.flagged).length;
+
+  if (flaggedCount === 0) {
+    return <span className="font-mono text-[11px] text-muted-foreground/40">—</span>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(comparisons)}
+      className="inline-flex items-center gap-1 rounded border border-brand-amber/40 bg-brand-amber/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-foreground transition-colors hover:bg-brand-amber/20"
+      title={`${flaggedCount} grade change${flaggedCount === 1 ? "" : "s"} ≥5 points`}
+    >
+      <AlertTriangle className="h-3 w-3 text-brand-amber" />
+      {flaggedCount}
+    </button>
   );
 }
 
 function ScoringGuide({
   wwTotals,
   ptTotals,
+  qaTotal,
   labels,
   sowLabels,
+  wwPct,
+  ptPct,
+  qaPct,
 }: {
   wwTotals: number[];
   ptTotals: number[];
+  qaTotal: number | null;
   labels: Required<SlotLabels>;
   sowLabels?: { ww: SlotMeta[]; pt: SlotMeta[] };
+  wwPct: number;
+  ptPct: number;
+  qaPct: number;
 }) {
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const hasSlots = wwTotals.length > 0 || ptTotals.length > 0;
+  const [expanded, setExpanded] = useState(false);
 
-  // Prefer the grading-sheet label (slot_labels) if already synced; fall back
-  // to the SOW label so the dialog shows activity names even before sync.
   const effectiveWw = (i: number): SlotMeta | null => {
     const sl = labels.ww[i] ?? null;
     if (sl?.label) return sl;
@@ -501,80 +631,73 @@ function ScoringGuide({
     return sowLabels?.pt[i] ?? null;
   };
 
-  return (
-    <>
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
-        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5">
-          {wwTotals.map((max, i) => (
-            <SlotChip key={`ww-${i}`} code={`W${i + 1}`} max={max} meta={effectiveWw(i)} />
-          ))}
-          {wwTotals.length > 0 && ptTotals.length > 0 && <span className="select-none text-border/60">·</span>}
-          {ptTotals.map((max, i) => (
-            <SlotChip key={`pt-${i}`} code={`PT${i + 1}`} max={max} meta={effectivePt(i)} />
-          ))}
-          {hasSlots && <span className="select-none text-border/60">·</span>}
-          <SlotChip code="QA" fixedLabel="Exam" />
-        </div>
-        {hasSlots && (
-          <button
-            type="button"
-            onClick={() => setDialogOpen(true)}
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
-            <Eye className="h-3 w-3" />
-            View activities
-          </button>
-        )}
-      </div>
+  const summaryParts = [
+    wwTotals.length > 0
+      ? `${wwTotals.length} Written Work${wwTotals.length !== 1 ? "s" : ""}`
+      : null,
+    ptTotals.length > 0
+      ? `${ptTotals.length} Performance Task${ptTotals.length !== 1 ? "s" : ""}`
+      : null,
+    "QA",
+  ].filter(Boolean);
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="flex max-h-[min(600px,80vh)] flex-col  sm:max-w-2xl!">
-          <ScrollArea className="flex flex-col overflow-hidden">
-            <DialogHeader>
-              <DialogTitle>Activity Details</DialogTitle>
-              <DialogDescription>
-                Activity metadata for each scored column.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-6 pt-6">
-              {wwTotals.length > 0 && (
-                <section className="space-y-2">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Written Work</h3>
-                  <div className="space-y-2">
-                    {wwTotals.map((max, i) => (
-                      <SlotDetailRow key={`ww-${i}`} code={`W${i + 1}`} max={max} meta={effectiveWw(i)} />
-                    ))}
-                  </div>
-                </section>
-              )}
-              {ptTotals.length > 0 && (
-                <section className="space-y-2">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Performance Task
-                  </h3>
-                  <div className="space-y-2">
-                    {ptTotals.map((max, i) => (
-                      <SlotDetailRow key={`pt-${i}`} code={`PT${i + 1}`} max={max} meta={effectivePt(i)} />
-                    ))}
-                  </div>
-                </section>
-              )}
-              <section className="space-y-2">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Quarterly Assessment
-                </h3>
-                <div className="flex items-center gap-3 rounded-md border border-border bg-muted/30 px-3 py-2">
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-brand-mint" />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-foreground">QA — Exam</div>
-                    <div className="text-xs text-muted-foreground">Label is fixed for all sheets</div>
-                  </div>
-                </div>
-              </section>
+  return (
+    <div className="overflow-hidden rounded-lg border border-border bg-gradient-to-t from-primary/5 to-card">
+      {/* Toggle row — always visible */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
+      >
+        <ChevronRight
+          className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ${expanded ? "rotate-90" : ""}`}
+        />
+        <span className="font-mono text-[11px] text-muted-foreground">
+          {summaryParts.map((part, i) => (
+            <span key={i}>
+              {i > 0 && <span className="mx-1.5 select-none opacity-40">·</span>}
+              {part}
+            </span>
+          ))}
+        </span>
+      </button>
+
+      {/* Expanded grouped list */}
+      {expanded && (
+        <div className="divide-y divide-border/40 border-t border-border/40">
+          {wwTotals.length > 0 && (
+            <div className="px-3 py-3">
+              <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Written Works ({wwPct}%)
+              </p>
+              <div className="space-y-1.5">
+                {wwTotals.map((max, i) => (
+                  <ActivityRow key={i} code={`W${i + 1}`} max={max} meta={effectiveWw(i)} />
+                ))}
+              </div>
             </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
-    </>
+          )}
+          {ptTotals.length > 0 && (
+            <div className="px-3 py-3">
+              <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Performance Tasks ({ptPct}%)
+              </p>
+              <div className="space-y-1.5">
+                {ptTotals.map((max, i) => (
+                  <ActivityRow key={i} code={`PT${i + 1}`} max={max} meta={effectivePt(i)} />
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="px-3 py-3">
+            <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Quarterly Assessment ({qaPct}%)
+            </p>
+            <ActivityRow code="QA" max={qaTotal} fixedLabel="Exam" />
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -585,80 +708,61 @@ function formatChipDate(iso: string): string {
   return d.toLocaleDateString("en-SG", { month: "short", day: "numeric" });
 }
 
-function SlotChip({
+function ActivityRow({
   code,
   max,
   meta,
   fixedLabel,
 }: {
   code: string;
-  max?: number;
+  max?: number | null;
   meta?: SlotMeta | null;
   fixedLabel?: string;
 }) {
-  const hasLabel = !!meta?.label || !!fixedLabel;
+  const label = fixedLabel ?? meta?.label;
   const hasDate = !!meta?.date;
-  const done = hasLabel && (hasDate || !!fixedLabel);
-  const partial = hasLabel && !hasDate && !fixedLabel;
+  const hasPage = !!meta?.page;
 
   return (
-    <span
-      className={`inline-flex items-baseline gap-1 rounded border px-1.5 py-0.5 font-mono text-[11px] ${
-        done
-          ? "border-border bg-muted/60 text-foreground"
-          : partial
-            ? "border-dashed border-border/50 text-muted-foreground/70"
-            : "border-dashed border-border/50 text-muted-foreground/60"
-      }`}>
-      <span className="font-semibold">{code}</span>
-      {max != null && <span className="text-[9px] opacity-50">/{max}</span>}
-      {hasLabel && (
-        <span className={`ml-0.5 font-sans font-normal italic text-muted-foreground`}>{fixedLabel ?? meta?.label}</span>
-      )}
-      {hasDate && meta?.date && (
-        <span className="ml-0.5 font-sans font-normal text-muted-foreground/70">· {formatChipDate(meta.date)}</span>
-      )}
-      {meta?.page && <span className="ml-0.5 font-sans font-normal text-muted-foreground/60">· {meta.page}</span>}
-    </span>
-  );
-}
-
-function SlotDetailRow({ code, max, meta }: { code: string; max: number; meta: SlotMeta | null }) {
-  return (
-    <div className="flex items-start gap-3 rounded-md border border-border bg-background px-3 py-2">
-      <div className="flex h-7 w-12 shrink-0 items-center justify-center rounded border border-border bg-muted/50 font-mono text-xs font-semibold text-ink">
+    <div className="flex items-center gap-2.5">
+      {/* Code badge */}
+      <span className="inline-flex w-14 shrink-0 items-baseline justify-center gap-0.5 rounded border border-border bg-muted/70 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-foreground">
         {code}
-        <span className="ml-0.5 text-[9px] font-normal text-muted-foreground">/{max}</span>
-      </div>
-      <div className="min-w-0 flex-1 space-y-0.5">
-        <div className="text-sm text-foreground">
-          {meta?.label ?? <span className="italic text-muted-foreground">No label set</span>}
-        </div>
-        <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-          {meta?.date && <span>{formatChipDate(meta.date)}</span>}
-          {meta?.page && <span>p. {meta.page}</span>}
-          {!meta?.date && !meta?.page && <span className="italic">No date or page set</span>}
-        </div>
-      </div>
+        {max != null && <span className="text-[9px] font-normal text-muted-foreground/60">/{max}</span>}
+      </span>
+
+      {/* Label */}
+      <span className={`flex-1 truncate text-sm ${label ? "text-foreground" : "italic text-muted-foreground/50"}`}>
+        {label ?? "No label set"}
+      </span>
+
+      {/* Date + page metadata */}
+      {(hasDate || hasPage) && (
+        <span className="shrink-0 font-mono text-[11px] text-muted-foreground/70">
+          {hasDate && formatChipDate(meta!.date!)}
+          {hasDate && hasPage && " · "}
+          {hasPage && `p. ${meta!.page}`}
+        </span>
+      )}
     </div>
   );
 }
 
 function QuarterlyPill({ value, muted }: { value: number | null; muted: boolean }) {
   if (value == null) {
-    return <span className="text-base font-semibold text-muted-foreground">—</span>;
+    return <span className="font-mono text-base font-semibold text-muted-foreground/50">—</span>;
   }
   if (muted) {
-    return <span className="text-base font-semibold tabular-nums text-muted-foreground">{value}</span>;
+    return <span className="font-mono text-base font-semibold tabular-nums text-muted-foreground/60">{value}</span>;
   }
   const tone =
     value < 75
       ? "border-destructive/40 bg-destructive/10 text-destructive"
       : value < 85
         ? "border-hairline bg-muted text-ink"
-        : "border-brand-mint bg-brand-mint/30 text-ink";
+        : "border-brand-mint/60 bg-brand-mint/20 text-ink";
   return (
-    <Badge variant="outline" className={`h-7 justify-end px-2 text-sm font-semibold tabular-nums ${tone}`}>
+    <Badge variant="outline" className={`h-7 justify-end px-2 font-mono text-sm font-semibold tabular-nums ${tone}`}>
       {value}
     </Badge>
   );
@@ -670,10 +774,10 @@ function sumScores(scores: (number | null)[], len: number): number | null {
   return slice.reduce<number>((acc, v) => acc + (v ?? 0), 0);
 }
 
-function ComputedCell({ value, dp = 2, border }: { value: number | null; dp?: number; border?: boolean }) {
+function ComputedCell({ value, dp = 2, groupEnd }: { value: number | null; dp?: number; groupEnd?: boolean }) {
   return (
     <TableCell
-      className={`px-2 text-right tabular-nums text-xs text-muted-foreground${border ? " border-r border-border/40" : ""}`}>
+      className={`px-2 text-right font-mono tabular-nums text-xs text-muted-foreground${groupEnd ? " border-r-2 border-border/60" : ""}`}>
       {value != null ? value.toFixed(dp) : "—"}
     </TableCell>
   );
@@ -735,7 +839,7 @@ function ScoreInput({
 
   if (plaintext) {
     return (
-      <span className="inline-block h-8 w-14 px-1.5 py-1 text-right text-sm tabular-nums text-ink">
+      <span className="inline-block h-8 w-14 px-1.5 py-1 text-right font-mono text-sm tabular-nums text-ink">
         {displayCell(value) || "—"}
       </span>
     );
@@ -763,7 +867,7 @@ function ScoreInput({
           (e.target as HTMLInputElement).blur();
         }
       }}
-      className="h-8 w-14 rounded-md border border-input bg-background px-1.5 text-right text-sm tabular-nums ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-60 aria-[invalid=true]:border-destructive aria-[invalid=true]:bg-destructive/5 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-destructive/20"
+      className="h-8 w-14 rounded-md border border-input bg-background px-1.5 text-right font-mono text-sm tabular-nums ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-60 aria-[invalid=true]:border-destructive aria-[invalid=true]:bg-destructive/5 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-destructive/20"
     />
   );
 }
