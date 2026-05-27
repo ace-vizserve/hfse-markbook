@@ -30,12 +30,16 @@ export default function DashboardError({
       <Card className="w-full max-w-lg" role="alert" aria-live="assertive">
         <CardHeader className="items-center gap-3 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-            <AlertTriangle className="h-6 w-6 text-destructive" aria-hidden="true" />
+            <AlertTriangle
+              className="h-6 w-6 text-destructive"
+              aria-hidden="true"
+            />
           </div>
           <CardTitle>Something went wrong</CardTitle>
           <CardDescription>
-            An unexpected error stopped this page from loading. This has been logged. Try again, or
-            return to the dashboard if the problem persists.
+            An unexpected error stopped this page from loading. This has been
+            logged. Try again, or return to the dashboard if the problem
+            persists.
           </CardDescription>
         </CardHeader>
         {isDev && (error.message || error.digest) && (
@@ -55,7 +59,8 @@ export default function DashboardError({
             variant="outline"
             onClick={() => {
               window.location.href = '/';
-            }}>
+            }}
+          >
             Back to dashboard
           </Button>
         </CardFooter>

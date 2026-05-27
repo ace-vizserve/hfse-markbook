@@ -39,7 +39,11 @@ type DocumentCardProps = {
   /** Student full name — used in the reject-dialog description. */
   studentName?: string;
   /** Parent / guardian emails on file — drives Notify dialog recipient list. */
-  recipients?: { motherEmail: string | null; fatherEmail: string | null; guardianEmail: string | null };
+  recipients?: {
+    motherEmail: string | null;
+    fatherEmail: string | null;
+    guardianEmail: string | null;
+  };
   /** Latest reminder timestamp (ISO). Drives the "Reminded N days ago" badge. */
   lastReminderAt?: string | null;
   /** Active promise (if any) — promised_until ≥ today. Drives the "Promised by [date]" badge. */
@@ -90,7 +94,10 @@ function StatusBadge({ status }: { status: DocumentStatus }) {
       );
     case 'missing':
       return (
-        <Badge variant="outline" className="border-dashed text-muted-foreground">
+        <Badge
+          variant="outline"
+          className="border-dashed text-muted-foreground"
+        >
           Missing
         </Badge>
       );
@@ -113,7 +120,7 @@ function daysFromExpiry(expiryDate: string | null | undefined): number | null {
 // hierarchy stays clean.
 function urgencyLine(
   kind: SlotUrgencyKind,
-  expiryDate: string | null | undefined,
+  expiryDate: string | null | undefined
 ): { text: string; tone: string } | null {
   const days = daysFromExpiry(expiryDate);
   switch (kind) {
@@ -121,18 +128,25 @@ function urgencyLine(
       if (days === null) return { text: 'Expired', tone: 'text-destructive' };
       const overdue = Math.abs(days);
       return {
-        text: overdue === 0 ? 'Expired today' : `Expired ${overdue} day${overdue === 1 ? '' : 's'} ago`,
+        text:
+          overdue === 0
+            ? 'Expired today'
+            : `Expired ${overdue} day${overdue === 1 ? '' : 's'} ago`,
         tone: 'text-destructive',
       };
     }
     case 'rejected':
       return { text: 'Rejected — needs replacement', tone: 'text-destructive' };
     case 'missing':
-      return { text: 'Missing — never uploaded', tone: 'text-muted-foreground' };
+      return {
+        text: 'Missing — never uploaded',
+        tone: 'text-muted-foreground',
+      };
     case 'to-follow':
       return { text: 'To follow — parent committed', tone: 'text-primary' };
     case 'expiring-30':
-      if (days === 0) return { text: 'Expires today', tone: 'text-brand-amber' };
+      if (days === 0)
+        return { text: 'Expires today', tone: 'text-brand-amber' };
       return { text: `Expires in ${days} days`, tone: 'text-brand-amber' };
     case 'expiring-60':
       return { text: `Expires in ${days} days`, tone: 'text-muted-foreground' };
@@ -150,7 +164,9 @@ function reminderBadgeText(iso: string | null | undefined): string | null {
   return `Reminded ${days}d ago`;
 }
 
-function promiseBadgeText(promisedUntil: string | null | undefined): string | null {
+function promiseBadgeText(
+  promisedUntil: string | null | undefined
+): string | null {
   if (!promisedUntil) return null;
   const formatted = new Date(promisedUntil).toLocaleDateString('en-SG', {
     month: 'short',
@@ -159,9 +175,17 @@ function promiseBadgeText(promisedUntil: string | null | undefined): string | nu
   return `Promised by ${formatted}`;
 }
 
-const ACTIONABLE_STATUSES: DocumentStatus[] = ['expired', 'rejected', 'missing', 'to-follow'];
+const ACTIONABLE_STATUSES: DocumentStatus[] = [
+  'expired',
+  'rejected',
+  'missing',
+  'to-follow',
+];
 
-function isExpiringSoon(status: DocumentStatus, expiryDate: string | null | undefined): boolean {
+function isExpiringSoon(
+  status: DocumentStatus,
+  expiryDate: string | null | undefined
+): boolean {
   if (status !== 'valid' || !expiryDate) return false;
   const diffDays = (new Date(expiryDate).getTime() - Date.now()) / 86_400_000;
   return diffDays >= 0 && diffDays <= 60;
@@ -201,7 +225,7 @@ export function DocumentCard({
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ status: 'Valid' }),
-        },
+        }
       );
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as { error?: string };
@@ -211,7 +235,9 @@ export function DocumentCard({
       toast.success(`${label} approved.`);
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not approve the document.');
+      toast.error(
+        e instanceof Error ? e.message : 'Could not approve the document.'
+      );
     } finally {
       setApproving(false);
     }
@@ -224,7 +250,7 @@ export function DocumentCard({
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ status: 'Rejected', rejectionReason: reason }),
-      },
+      }
     );
     if (!res.ok) {
       const err = (await res.json().catch(() => ({}))) as { error?: string };
@@ -238,15 +264,25 @@ export function DocumentCard({
   const reminderText = reminderBadgeText(lastReminderAt);
   const promiseText = promiseBadgeText(activePromise?.promisedUntil);
   const showNotify =
-    canWrite && (ACTIONABLE_STATUSES.includes(status) || isExpiringSoon(status, expiryDate));
+    canWrite &&
+    (ACTIONABLE_STATUSES.includes(status) ||
+      isExpiringSoon(status, expiryDate));
   const showPromise = canWrite && ACTIONABLE_STATUSES.includes(status);
 
-  const urgencyKind = classifyUrgency({ key: slotKey, status, expiryDate: expiryDate ?? null });
+  const urgencyKind = classifyUrgency({
+    key: slotKey,
+    status,
+    expiryDate: expiryDate ?? null,
+  });
   const urgency = urgencyLine(urgencyKind, expiryDate);
   const shellClass = shellByUrgency(urgencyKind);
   const expiryFormatted =
     expires && expiryDate
-      ? new Date(expiryDate).toLocaleDateString('en-SG', { year: 'numeric', month: 'short', day: 'numeric' })
+      ? new Date(expiryDate).toLocaleDateString('en-SG', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        })
       : null;
 
   return (
@@ -261,18 +297,27 @@ export function DocumentCard({
             {label}
           </p>
           {urgency && (
-            <p className={`font-mono text-[11px] font-semibold uppercase tracking-[0.12em] tabular-nums ${urgency.tone}`}>
+            <p
+              className={`font-mono text-[11px] font-semibold uppercase tracking-[0.12em] tabular-nums ${urgency.tone}`}
+            >
               {urgency.text}
             </p>
           )}
           {expiryFormatted && (
             <p className="font-mono text-[10px] tabular-nums text-muted-foreground">
-              {urgency ? `Expiry ${expiryFormatted}` : `Expires ${expiryFormatted}`}
+              {urgency
+                ? `Expiry ${expiryFormatted}`
+                : `Expires ${expiryFormatted}`}
             </p>
           )}
-          {expires && !expiryDate && status !== 'missing' && status !== 'na' && (
-            <p className="font-mono text-[10px] text-destructive">No expiry date set</p>
-          )}
+          {expires &&
+            !expiryDate &&
+            status !== 'missing' &&
+            status !== 'na' && (
+              <p className="font-mono text-[10px] text-destructive">
+                No expiry date set
+              </p>
+            )}
         </div>
         <StatusBadge status={status} />
       </div>
@@ -329,7 +374,11 @@ export function DocumentCard({
           />
         )}
         {showPromise && (
-          <PromiseDialog enroleeNumber={enroleeNumber} slotKey={slotKey} label={label} />
+          <PromiseDialog
+            enroleeNumber={enroleeNumber}
+            slotKey={slotKey}
+            label={label}
+          />
         )}
         {canUpload && (
           <UploadDialog
@@ -342,8 +391,18 @@ export function DocumentCard({
           />
         )}
         {url && (
-          <Button asChild variant="ghost" size="sm" className="h-8 gap-1.5 text-xs">
-            <a href={url} target="_blank" rel="noopener noreferrer" aria-label={`View ${label} file`}>
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+          >
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`View ${label} file`}
+            >
               <Download className="size-3" />
               View
             </a>

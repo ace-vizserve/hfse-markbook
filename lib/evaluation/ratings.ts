@@ -76,15 +76,10 @@ export const RATINGS: readonly RatingMeta[] = [
 ] as const;
 
 export const RATING_BY_VALUE: ReadonlyMap<RatingValue, RatingMeta> = new Map(
-  RATINGS.map((r) => [r.value, r]),
+  RATINGS.map((r) => [r.value, r])
 );
 
 // Narrow type-guard for raw values arriving from the wire.
 export function isRatingValue(n: unknown): n is RatingValue {
-  return (
-    typeof n === 'number' &&
-    Number.isInteger(n) &&
-    n >= 1 &&
-    n <= 5
-  );
+  return typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= 5;
 }

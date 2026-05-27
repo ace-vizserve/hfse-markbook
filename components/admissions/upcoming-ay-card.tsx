@@ -1,7 +1,7 @@
-import Link from "next/link";
-import { ArrowRight, Sparkles } from "lucide-react";
+import Link from 'next/link';
+import { ArrowRight, Sparkles } from 'lucide-react';
 
-import { Badge } from "@/components/ui/badge";
+import { Badge } from '@/components/ui/badge';
 import {
   Card,
   CardAction,
@@ -10,7 +10,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from '@/components/ui/card';
 
 // /admissions dashboard signal card (KD #77). Renders top-of-fold when an
 // upcoming AY has `accepting_applications=true AND is_current=false`,
@@ -25,7 +25,11 @@ export type UpcomingAyCardProps = {
   ayCode: string;
   ayLabel: string;
   applicationCount: number;
-  byStage: { submitted: number; ongoingVerification: number; processing: number };
+  byStage: {
+    submitted: number;
+    ongoingVerification: number;
+    processing: number;
+  };
 };
 
 export function UpcomingAyCard({
@@ -41,10 +45,13 @@ export function UpcomingAyCard({
           Early-bird · {ayCode}
         </CardDescription>
         <CardTitle className="font-serif text-2xl font-semibold tracking-tight text-foreground">
-          {applicationCount.toLocaleString("en-SG")} applications for {ayLabel}
+          {applicationCount.toLocaleString('en-SG')} applications for {ayLabel}
         </CardTitle>
         <CardAction>
-          <Badge variant="success" className="h-7 gap-1 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
+          <Badge
+            variant="success"
+            className="h-7 gap-1 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.14em]"
+          >
             <Sparkles className="size-3" />
             Open
           </Badge>
@@ -53,7 +60,10 @@ export function UpcomingAyCard({
       <CardContent>
         <div className="grid grid-cols-3 gap-3 text-center">
           <StageCell label="Submitted" value={byStage.submitted} />
-          <StageCell label="Ongoing Verification" value={byStage.ongoingVerification} />
+          <StageCell
+            label="Ongoing Verification"
+            value={byStage.ongoingVerification}
+          />
           <StageCell label="Processing" value={byStage.processing} />
         </div>
       </CardContent>
@@ -74,7 +84,7 @@ function StageCell({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-lg border border-border bg-background/60 p-3">
       <div className="font-serif text-2xl font-semibold tabular-nums text-foreground">
-        {value.toLocaleString("en-SG")}
+        {value.toLocaleString('en-SG')}
       </div>
       <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
         {label}

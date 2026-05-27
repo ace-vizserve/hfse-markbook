@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const {
@@ -44,13 +44,23 @@ export async function POST(request: NextRequest) {
     .select('id, code, label, level_type')
     .eq('id', level_id)
     .maybeSingle();
-  if (levelErr) return NextResponse.json({ error: levelErr.message }, { status: 500 });
-  if (!levelRow) return NextResponse.json({ error: 'level not found' }, { status: 404 });
-  const level = levelRow as { id: string; code: string; label: string; level_type: string };
+  if (levelErr)
+    return NextResponse.json({ error: levelErr.message }, { status: 500 });
+  if (!levelRow)
+    return NextResponse.json({ error: 'level not found' }, { status: 404 });
+  const level = levelRow as {
+    id: string;
+    code: string;
+    label: string;
+    level_type: string;
+  };
   if (level.level_type === 'preschool') {
     return NextResponse.json(
-      { error: 'Preschool levels do not have grading sheets and cannot have subject configs' },
-      { status: 422 },
+      {
+        error:
+          'Preschool levels do not have grading sheets and cannot have subject configs',
+      },
+      { status: 422 }
     );
   }
 
@@ -60,8 +70,10 @@ export async function POST(request: NextRequest) {
     .select('id, code, name')
     .eq('id', subject_id)
     .maybeSingle();
-  if (subjErr) return NextResponse.json({ error: subjErr.message }, { status: 500 });
-  if (!subjectRow) return NextResponse.json({ error: 'subject not found' }, { status: 404 });
+  if (subjErr)
+    return NextResponse.json({ error: subjErr.message }, { status: 500 });
+  if (!subjectRow)
+    return NextResponse.json({ error: 'subject not found' }, { status: 404 });
   const subject = subjectRow as { id: string; code: string; name: string };
 
   // 3. Uniqueness check on (subject_id, level_id).
@@ -77,7 +89,7 @@ export async function POST(request: NextRequest) {
         error: `${subject.code} is already configured at ${level.label}`,
         existingId: (existing as { id: string }).id,
       },
-      { status: 409 },
+      { status: 409 }
     );
   }
 
@@ -103,7 +115,7 @@ export async function POST(request: NextRequest) {
   if (insertErr || !inserted) {
     return NextResponse.json(
       { error: insertErr?.message ?? 'insert failed' },
-      { status: 500 },
+      { status: 500 }
     );
   }
   const newId = (inserted as { id: string }).id;

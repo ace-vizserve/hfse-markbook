@@ -21,7 +21,8 @@ export default async function RecordsCohortsMedicalPage({
 }) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
-  if (!sessionUser.role || !ALLOWED_ROLES.includes(sessionUser.role)) redirect('/');
+  if (!sessionUser.role || !ALLOWED_ROLES.includes(sessionUser.role))
+    redirect('/');
 
   const resolved = await searchParams;
   const service = createServiceClient();
@@ -39,7 +40,12 @@ export default async function RecordsCohortsMedicalPage({
       scope="enrolled"
       ayCode={ayCode}
     >
-      <CohortTable kind="medical" scope="enrolled" ayCode={ayCode} rows={rows} />
+      <CohortTable
+        kind="medical"
+        scope="enrolled"
+        ayCode={ayCode}
+        rows={rows}
+      />
     </CohortPageShell>
   );
 }

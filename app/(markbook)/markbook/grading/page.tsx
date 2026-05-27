@@ -26,9 +26,23 @@ import { PageShell } from '@/components/ui/page-shell';
 import { GradingDataTable, type GradingSheetRow } from './grading-data-table';
 import { BulkCreateSheetsButton } from '@/components/markbook/bulk-create-sheets-button';
 
-type LevelLite = { id: string; code: string; label: string; level_type: 'primary' | 'secondary' };
-type SubjectLite = { id: string; code: string; name: string; is_examinable: boolean };
-type SectionLite = { id: string; name: string; level: LevelLite | LevelLite[] | null };
+type LevelLite = {
+  id: string;
+  code: string;
+  label: string;
+  level_type: 'primary' | 'secondary';
+};
+type SubjectLite = {
+  id: string;
+  code: string;
+  name: string;
+  is_examinable: boolean;
+};
+type SectionLite = {
+  id: string;
+  name: string;
+  level: LevelLite | LevelLite[] | null;
+};
 type TermLite = { id: string; term_number: number; label: string };
 
 type SheetRow = {
@@ -41,7 +55,7 @@ type SheetRow = {
 };
 
 const first = <T,>(v: T | T[] | null): T | null =>
-  Array.isArray(v) ? v[0] ?? null : v ?? null;
+  Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
 
 // Midnight-aligned day delta between today and an ISO date.
 // Positive = iso is in the future; negative = past; zero = today.
@@ -89,7 +103,8 @@ export default async function GradingListPage({
   const claims = claimsData?.claims ?? null;
   const userId = (claims?.sub as string | undefined) ?? null;
   const role = getRoleFromClaims(claims);
-  const canCreate = role === 'registrar' || role === 'school_admin' || role === 'superadmin';
+  const canCreate =
+    role === 'registrar' || role === 'school_admin' || role === 'superadmin';
 
   // Current AY — needed before we can scope the sheets query, so awaited
   // up front rather than batched with the others.
@@ -121,7 +136,7 @@ export default async function GradingListPage({
           `id, is_locked, teacher_name,
            term:terms(id, term_number, label),
            subject:subjects(id, code, name, is_examinable),
-           section:sections!inner(id, name, academic_year_id, level:levels(id, code, label, level_type))`,
+           section:sections!inner(id, name, academic_year_id, level:levels(id, code, label, level_type))`
         )
         .eq('section.academic_year_id', currentAy.id)
     : Promise.resolve({ data: [] as Array<{ id: string }> });
@@ -147,7 +162,7 @@ export default async function GradingListPage({
     is_current: boolean;
   };
   const termLocks = ((termLocksRes.data ?? []) as TermLockRow[]).filter(
-    (t) => t.grading_lock_date,
+    (t) => t.grading_lock_date
   );
 
   const sheets = sheetsRes.data;
@@ -183,10 +198,10 @@ export default async function GradingListPage({
         .from('grade_entries')
         .select(
           `grading_sheet_id, quarterly_grade, letter_grade,
-           section_student:section_students(enrollment_status)`,
+           section_student:section_students(enrollment_status)`
         )
-        .in('grading_sheet_id', slice),
-    ),
+        .in('grading_sheet_id', slice)
+    )
   );
   for (const { data, error } of chunkResults) {
     if (error) {
@@ -223,17 +238,29 @@ export default async function GradingListPage({
     });
     const totalStudents = activeRows.length;
     const gradedCount = activeRows.filter((e) =>
-      isExaminable ? e.quarterly_grade !== null : e.letter_grade !== null,
+      isExaminable ? e.quarterly_grade !== null : e.letter_grade !== null
     ).length;
     slotsBySheet.set(s.id, { graded: gradedCount, total: totalStudents });
   }
 
-  let advisorySections: Array<{ id: string; name: string; level_label: string | null }> = [];
+  let advisorySections: Array<{
+    id: string;
+    name: string;
+    level_label: string | null;
+  }> = [];
   if (userId) {
     type AA = {
       section:
-        | { id: string; name: string; level: { label: string } | { label: string }[] | null }
-        | { id: string; name: string; level: { label: string } | { label: string }[] | null }[]
+        | {
+            id: string;
+            name: string;
+            level: { label: string } | { label: string }[] | null;
+          }
+        | {
+            id: string;
+            name: string;
+            level: { label: string } | { label: string }[] | null;
+          }[]
         | null;
     };
     const advisorAssignments = (advisorRes as { data: AA[] | null }).data;
@@ -241,12 +268,12 @@ export default async function GradingListPage({
       .map((a) => first(a.section))
       .filter(
         (
-          s,
+          s
         ): s is {
           id: string;
           name: string;
           level: { label: string } | { label: string }[] | null;
-        } => !!s,
+        } => !!s
       )
       .map((s) => {
         const lvl = first(s.level);
@@ -267,13 +294,18 @@ export default async function GradingListPage({
   // `grading_sheets.teacher_name` (legacy text field) stays as a
   // graceful fallback when no subject_teacher assignment exists.
   const visibleSectionIds = Array.from(
-    new Set(allRows.map((s) => first(s.section)?.id).filter((v): v is string => !!v)),
+    new Set(
+      allRows.map((s) => first(s.section)?.id).filter((v): v is string => !!v)
+    )
   );
   const subjectTeacherBySectionSubject = new Map<
     string,
     { userId: string; name: string }
   >(); // key = `${sectionId}|${subjectId}`
-  const formAdviserBySection = new Map<string, { userId: string; name: string }>();
+  const formAdviserBySection = new Map<
+    string,
+    { userId: string; name: string }
+  >();
   const subjectTeacherUserIds = new Set<string>();
   const formAdviserUserIds = new Set<string>();
 
@@ -307,13 +339,19 @@ export default async function GradingListPage({
         // First-write-wins for multi-teacher (section, subject) pairs —
         // comma-joining is too dense for a list cell.
         if (!subjectTeacherBySectionSubject.has(key)) {
-          subjectTeacherBySectionSubject.set(key, { userId: t.id, name: t.name });
+          subjectTeacherBySectionSubject.set(key, {
+            userId: t.id,
+            name: t.name,
+          });
           subjectTeacherUserIds.add(t.id);
         }
       } else if (a.role === 'form_adviser') {
         // form_adviser is per-section (subject_id is null on this role).
         if (!formAdviserBySection.has(a.section_id)) {
-          formAdviserBySection.set(a.section_id, { userId: t.id, name: t.name });
+          formAdviserBySection.set(a.section_id, {
+            userId: t.id,
+            name: t.name,
+          });
           formAdviserUserIds.add(t.id);
         }
       }
@@ -339,9 +377,12 @@ export default async function GradingListPage({
       bucket.total > 0 ? Math.round((bucket.graded / bucket.total) * 100) : 0;
     const subjectTeacher =
       section?.id && subject?.id
-        ? subjectTeacherBySectionSubject.get(`${section.id}|${subject.id}`) ?? null
+        ? (subjectTeacherBySectionSubject.get(`${section.id}|${subject.id}`) ??
+          null)
         : null;
-    const formAdviser = section?.id ? formAdviserBySection.get(section.id) ?? null : null;
+    const formAdviser = section?.id
+      ? (formAdviserBySection.get(section.id) ?? null)
+      : null;
     return {
       id: s.id,
       section: section?.name ?? '—',
@@ -364,7 +405,8 @@ export default async function GradingListPage({
   const totalCount = tableRows.length;
   const lockedCount = tableRows.filter((s) => s.is_locked).length;
   const openCount = totalCount - lockedCount;
-  const lockedPct = totalCount > 0 ? Math.round((lockedCount / totalCount) * 100) : 0;
+  const lockedPct =
+    totalCount > 0 ? Math.round((lockedCount / totalCount) * 100) : 0;
   const distinctLevels = new Set(tableRows.map((r) => r.level)).size;
 
   return (
@@ -385,7 +427,10 @@ export default async function GradingListPage({
         {canCreate && (
           <div className="flex flex-wrap items-center gap-2">
             {currentAy && (
-              <BulkCreateSheetsButton ayId={currentAy.id} ayCode={currentAy.ay_code} />
+              <BulkCreateSheetsButton
+                ayId={currentAy.id}
+                ayCode={currentAy.ay_code}
+              />
             )}
             <Button asChild>
               <Link href="/markbook/grading/new">
@@ -427,9 +472,7 @@ export default async function GradingListPage({
                     month: 'short',
                   })}
                 </span>
-                <span className="opacity-70">
-                  · {formatRelativeDays(days)}
-                </span>
+                <span className="opacity-70">· {formatRelativeDays(days)}</span>
                 {t.is_current && (
                   <span className="rounded-sm bg-primary/20 px-1 text-[9px] uppercase text-primary">
                     current
@@ -462,7 +505,9 @@ export default async function GradingListPage({
             description="Locked"
             value={lockedCount}
             icon={Lock}
-            footerTitle={totalCount > 0 ? `${lockedPct}% of sheets` : 'No sheets yet'}
+            footerTitle={
+              totalCount > 0 ? `${lockedPct}% of sheets` : 'No sheets yet'
+            }
             footerDetail="Post-lock edits require approval"
           />
         </div>
@@ -486,8 +531,8 @@ export default async function GradingListPage({
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Write the adviser paragraph that appears on T1&ndash;T3 report cards. Now lives in
-              the Evaluation module.
+              Write the adviser paragraph that appears on T1&ndash;T3 report
+              cards. Now lives in the Evaluation module.
             </p>
             <div className="flex flex-wrap gap-2">
               {advisorySections.map((s) => (

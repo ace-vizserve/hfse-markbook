@@ -14,7 +14,7 @@ export function computeAnnualGrade(
   t2: number | null,
   t3: number | null,
   t4: number | null,
-  naFlags?: [boolean, boolean, boolean, boolean],
+  naFlags?: [boolean, boolean, boolean, boolean]
 ): number | null {
   const grades = [t1, t2, t3, t4] as const;
   const na = naFlags ?? [false, false, false, false];
@@ -54,7 +54,7 @@ export function gradeDescriptor(grade: number | null): string {
 // the Overall Academic Award badge thresholds.
 // Returns null if the list is empty or any grade is null (incomplete year).
 export function computeGeneralAverage(
-  finalGrades: (number | null)[],
+  finalGrades: (number | null)[]
 ): number | null {
   if (finalGrades.length === 0) return null;
   if (finalGrades.some((g) => g == null)) return null;
@@ -65,7 +65,7 @@ export function computeGeneralAverage(
 // Cumulative attendance percentage across all terms.
 // Returns null if any field is null or total school days is zero.
 export function computeAttendancePercentage(
-  records: { school_days: number | null; days_present: number | null }[],
+  records: { school_days: number | null; days_present: number | null }[]
 ): number | null {
   if (records.length === 0) return null;
   let totalSchool = 0;
@@ -82,33 +82,60 @@ export function computeAttendancePercentage(
 // Self-test: canonical cases + proration.
 (function verifyAnnual() {
   const a = computeAnnualGrade(85, 85, 85, 85);
-  if (a !== 85) throw new Error(`annual self-test failed: 85/85/85/85 → ${a} (expected 85)`);
+  if (a !== 85)
+    throw new Error(
+      `annual self-test failed: 85/85/85/85 → ${a} (expected 85)`
+    );
   // 70*.2 + 80*.2 + 90*.2 + 95*.4 = 14 + 16 + 18 + 38 = 86
   const b = computeAnnualGrade(70, 80, 90, 95);
-  if (b !== 86) throw new Error(`annual self-test failed: 70/80/90/95 → ${b} (expected 86)`);
+  if (b !== 86)
+    throw new Error(
+      `annual self-test failed: 70/80/90/95 → ${b} (expected 86)`
+    );
   const partial = computeAnnualGrade(85, 85, null, 90);
-  if (partial !== null) throw new Error(`annual self-test: partial year should be null, got ${partial}`);
+  if (partial !== null)
+    throw new Error(
+      `annual self-test: partial year should be null, got ${partial}`
+    );
   // Proration — T1 N/A (late enrollee joined T2):
   // weightedSum = 80*.2 + 85*.2 + 90*.4 = 16+17+36 = 69; weightSum = 0.8; 69/0.8 = 86.25
   const p1 = computeAnnualGrade(null, 80, 85, 90, [true, false, false, false]);
-  if (p1 !== 86.25) throw new Error(`proration self-test (T1 N/A) → ${p1} (expected 86.25)`);
+  if (p1 !== 86.25)
+    throw new Error(`proration self-test (T1 N/A) → ${p1} (expected 86.25)`);
   // Proration — T1+T2 N/A: weightedSum = 80*.2 + 90*.4 = 16+36=52; weightSum=0.6; 52/0.6=86.67
   const p2 = computeAnnualGrade(null, null, 80, 90, [true, true, false, false]);
-  if (p2 !== 86.67) throw new Error(`proration self-test (T1+T2 N/A) → ${p2} (expected 86.67)`);
+  if (p2 !== 86.67)
+    throw new Error(`proration self-test (T1+T2 N/A) → ${p2} (expected 86.67)`);
   // All N/A → null
-  const p3 = computeAnnualGrade(null, null, null, null, [true, true, true, true]);
-  if (p3 !== null) throw new Error(`proration self-test: all N/A should be null, got ${p3}`);
+  const p3 = computeAnnualGrade(null, null, null, null, [
+    true,
+    true,
+    true,
+    true,
+  ]);
+  if (p3 !== null)
+    throw new Error(`proration self-test: all N/A should be null, got ${p3}`);
 
   // General average — 1dp per canonical spec.
   const ga1 = computeGeneralAverage([90, 85, 80]);
-  if (ga1 !== 85) throw new Error(`general-avg self-test failed: [90,85,80] → ${ga1} (expected 85)`);
+  if (ga1 !== 85)
+    throw new Error(
+      `general-avg self-test failed: [90,85,80] → ${ga1} (expected 85)`
+    );
   // 92.6 + 91.4 + 95.5 + 88.5 + 99.4 = 467.4 / 5 = 93.48 → 93.5 (1dp)
   const ga4 = computeGeneralAverage([92.6, 91.4, 95.5, 88.5, 99.4]);
-  if (ga4 !== 93.5) throw new Error(`general-avg 1dp self-test failed: → ${ga4} (expected 93.5)`);
+  if (ga4 !== 93.5)
+    throw new Error(
+      `general-avg 1dp self-test failed: → ${ga4} (expected 93.5)`
+    );
   const ga2 = computeGeneralAverage([90, null, 80]);
-  if (ga2 !== null) throw new Error(`general-avg self-test: partial should be null, got ${ga2}`);
+  if (ga2 !== null)
+    throw new Error(
+      `general-avg self-test: partial should be null, got ${ga2}`
+    );
   const ga3 = computeGeneralAverage([]);
-  if (ga3 !== null) throw new Error(`general-avg self-test: empty should be null, got ${ga3}`);
+  if (ga3 !== null)
+    throw new Error(`general-avg self-test: empty should be null, got ${ga3}`);
 
   // Attendance percentage
   const att1 = computeAttendancePercentage([
@@ -118,9 +145,13 @@ export function computeAttendancePercentage(
     { school_days: 50, days_present: 47 },
   ]);
   // (45+48+50+47)/(50+50+50+50) = 190/200 = 95
-  if (att1 !== 95) throw new Error(`attendance self-test failed: expected 95, got ${att1}`);
+  if (att1 !== 95)
+    throw new Error(`attendance self-test failed: expected 95, got ${att1}`);
   const att2 = computeAttendancePercentage([
     { school_days: 50, days_present: null },
   ]);
-  if (att2 !== null) throw new Error(`attendance self-test: null present should be null, got ${att2}`);
+  if (att2 !== null)
+    throw new Error(
+      `attendance self-test: null present should be null, got ${att2}`
+    );
 })();

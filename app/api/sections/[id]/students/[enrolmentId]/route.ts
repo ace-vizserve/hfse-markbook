@@ -19,13 +19,9 @@ import { invalidateAllOperationalDrills } from '@/lib/cache/invalidate-drill-tag
 // (edit those via /markbook/sync-students or /records/students/[enroleeNumber]).
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string; enrolmentId: string }> },
+  { params }: { params: Promise<{ id: string; enrolmentId: string }> }
 ) {
-  const auth = await requireRole([
-    'registrar',
-    'school_admin',
-    'superadmin',
-  ]);
+  const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const { id: sectionId, enrolmentId } = await params;
@@ -34,7 +30,7 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -45,15 +41,19 @@ export async function PATCH(
   // refresh it (and resolve the joining term).
   const { data: before, error: loadErr } = await service
     .from('section_students')
-    .select('id, section_id, bus_no, classroom_officer_role, enrollment_status, enrollment_date, withdrawal_date')
+    .select(
+      'id, section_id, bus_no, classroom_officer_role, enrollment_status, enrollment_date, withdrawal_date'
+    )
     .eq('id', enrolmentId)
     .maybeSingle();
-  if (loadErr) return NextResponse.json({ error: loadErr.message }, { status: 500 });
-  if (!before) return NextResponse.json({ error: 'enrolment not found' }, { status: 404 });
+  if (loadErr)
+    return NextResponse.json({ error: loadErr.message }, { status: 500 });
+  if (!before)
+    return NextResponse.json({ error: 'enrolment not found' }, { status: 404 });
   if (before.section_id !== sectionId) {
     return NextResponse.json(
       { error: 'enrolment does not belong to that section' },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -69,9 +69,15 @@ export async function PATCH(
   if (parsed.data.enrollment_status !== undefined) {
     patch.enrollment_status = parsed.data.enrollment_status;
     // Bookkeeping: when transitioning to/from 'withdrawn', manage withdrawal_date.
-    if (parsed.data.enrollment_status === 'withdrawn' && !before.withdrawal_date) {
+    if (
+      parsed.data.enrollment_status === 'withdrawn' &&
+      !before.withdrawal_date
+    ) {
       patch.withdrawal_date = new Date().toISOString().slice(0, 10);
-    } else if (parsed.data.enrollment_status !== 'withdrawn' && before.withdrawal_date) {
+    } else if (
+      parsed.data.enrollment_status !== 'withdrawn' &&
+      before.withdrawal_date
+    ) {
       patch.withdrawal_date = null;
     }
     // Late-enrollee transition: refresh enrollment_date to today so the
@@ -111,14 +117,17 @@ export async function PATCH(
       .select('academic_year:academic_years!inner(ay_code)')
       .eq('id', sectionId)
       .maybeSingle();
-    const ay = (secRow as { academic_year: { ay_code: string } | { ay_code: string }[] } | null)
-      ?.academic_year;
+    const ay = (
+      secRow as {
+        academic_year: { ay_code: string } | { ay_code: string }[];
+      } | null
+    )?.academic_year;
     const ayCode = Array.isArray(ay) ? ay[0]?.ay_code : ay?.ay_code;
     if (ayCode) {
       lateEnrolleeTerm = await getTermForDate(
         new Date().toISOString().slice(0, 10),
         ayCode,
-        service,
+        service
       );
     }
   }
@@ -163,7 +172,8 @@ export async function PATCH(
   // calling, so the cascade is intentional — no ambiguity vs transfer.
   // Idempotent: re-saves of an already-withdrawn row don't re-cascade
   // because the boundary check requires before !== 'withdrawn'.
-  let admissionsCascade: { enroleeNumber: string; ayCode: string } | null = null;
+  let admissionsCascade: { enroleeNumber: string; ayCode: string } | null =
+    null;
   if (
     parsed.data.enrollment_status === 'withdrawn' &&
     before.enrollment_status !== 'withdrawn'
@@ -172,21 +182,30 @@ export async function PATCH(
     const { data: ctxRow } = await service
       .from('section_students')
       .select(
-        'enrolee_number, student:students!inner(student_number), section:sections!inner(academic_year:academic_years!inner(ay_code))',
+        'enrolee_number, student:students!inner(student_number), section:sections!inner(academic_year:academic_years!inner(ay_code))'
       )
       .eq('id', enrolmentId)
       .maybeSingle();
     type CtxShape = {
       enrolee_number: string | null;
-      student: { student_number: string | null } | { student_number: string | null }[] | null;
+      student:
+        | { student_number: string | null }
+        | { student_number: string | null }[]
+        | null;
       section:
         | { academic_year: { ay_code: string } | { ay_code: string }[] | null }
-        | { academic_year: { ay_code: string } | { ay_code: string }[] | null }[]
+        | {
+            academic_year: { ay_code: string } | { ay_code: string }[] | null;
+          }[]
         | null;
     };
     const ctx = ctxRow as CtxShape | null;
     const enroleeNumber = ctx?.enrolee_number ?? null;
-    const sectionNode = ctx ? (Array.isArray(ctx.section) ? ctx.section[0] : ctx.section) : null;
+    const sectionNode = ctx
+      ? Array.isArray(ctx.section)
+        ? ctx.section[0]
+        : ctx.section
+      : null;
     const ayNode = sectionNode
       ? Array.isArray(sectionNode.academic_year)
         ? sectionNode.academic_year[0]
@@ -207,7 +226,10 @@ export async function PATCH(
         })
         .eq('enroleeNumber', enroleeNumber);
       if (admErr) {
-        console.warn('[enrolment PATCH] admissions cascade failed:', admErr.message);
+        console.warn(
+          '[enrolment PATCH] admissions cascade failed:',
+          admErr.message
+        );
       } else {
         admissionsCascade = { enroleeNumber, ayCode };
         await logAction({
@@ -232,27 +254,35 @@ export async function PATCH(
   // Re-enrolment cascade: before='withdrawn' → after NOT 'withdrawn'.
   // Reverse the admissions cascade: flip applicationStatus back to 'Enrolled'
   // and clear withdrawal_date (already cleared in patch above).
-  let reEnrolmentCascade: { enroleeNumber: string; ayCode: string } | null = null;
+  let reEnrolmentCascade: { enroleeNumber: string; ayCode: string } | null =
+    null;
   if (isReEnrolment) {
     const { data: reCtxRow } = await service
       .from('section_students')
       .select(
-        'enrolee_number, student:students!inner(student_number), section:sections!inner(academic_year:academic_years!inner(ay_code))',
+        'enrolee_number, student:students!inner(student_number), section:sections!inner(academic_year:academic_years!inner(ay_code))'
       )
       .eq('id', enrolmentId)
       .maybeSingle();
     type ReCtxShape = {
       enrolee_number: string | null;
-      student: { student_number: string | null } | { student_number: string | null }[] | null;
+      student:
+        | { student_number: string | null }
+        | { student_number: string | null }[]
+        | null;
       section:
         | { academic_year: { ay_code: string } | { ay_code: string }[] | null }
-        | { academic_year: { ay_code: string } | { ay_code: string }[] | null }[]
+        | {
+            academic_year: { ay_code: string } | { ay_code: string }[] | null;
+          }[]
         | null;
     };
     const reCtx = reCtxRow as ReCtxShape | null;
     const reEnroleeNumber = reCtx?.enrolee_number ?? null;
     const reSectionNode = reCtx
-      ? (Array.isArray(reCtx.section) ? reCtx.section[0] : reCtx.section)
+      ? Array.isArray(reCtx.section)
+        ? reCtx.section[0]
+        : reCtx.section
       : null;
     const reAyNode = reSectionNode
       ? Array.isArray(reSectionNode.academic_year)
@@ -274,9 +304,15 @@ export async function PATCH(
         })
         .eq('enroleeNumber', reEnroleeNumber);
       if (reErr) {
-        console.warn('[enrolment PATCH] re-enrolment cascade failed:', reErr.message);
+        console.warn(
+          '[enrolment PATCH] re-enrolment cascade failed:',
+          reErr.message
+        );
       } else {
-        reEnrolmentCascade = { enroleeNumber: reEnroleeNumber, ayCode: reAyCode };
+        reEnrolmentCascade = {
+          enroleeNumber: reEnroleeNumber,
+          ayCode: reAyCode,
+        };
         await logAction({
           service,
           actor: { id: auth.user.id, email: auth.user.email ?? null },
@@ -303,9 +339,14 @@ export async function PATCH(
     .select('academic_year:academic_years!inner(ay_code)')
     .eq('id', sectionId)
     .maybeSingle();
-  const ayLookupRow = (ayLookup as { academic_year: { ay_code: string } | { ay_code: string }[] } | null)
-    ?.academic_year;
-  const ayCodeForInvalidate = Array.isArray(ayLookupRow) ? ayLookupRow[0]?.ay_code : ayLookupRow?.ay_code;
+  const ayLookupRow = (
+    ayLookup as {
+      academic_year: { ay_code: string } | { ay_code: string }[];
+    } | null
+  )?.academic_year;
+  const ayCodeForInvalidate = Array.isArray(ayLookupRow)
+    ? ayLookupRow[0]?.ay_code
+    : ayLookupRow?.ay_code;
   if (ayCodeForInvalidate) {
     invalidateAllOperationalDrills(ayCodeForInvalidate);
   }
@@ -314,7 +355,12 @@ export async function PATCH(
   // to mark as late_enrollee. Only fires when a previously-withdrawn student
   // was re-enrolled as 'active' (not 'late_enrollee' — the user already made
   // the tagging choice explicitly in that case, checked via lateEnrolleeTransition).
-  type MidTermPayload = { termNumber: number; termLabel: string; sectionId: string; sectionStudentId: string };
+  type MidTermPayload = {
+    termNumber: number;
+    termLabel: string;
+    sectionId: string;
+    sectionStudentId: string;
+  };
   let midTermEnrolment: MidTermPayload | null = null;
   if (isReEnrolment && !lateEnrolleeTransition && ayCodeForInvalidate) {
     const term = await detectMidTermEnrolment(ayCodeForInvalidate, service);

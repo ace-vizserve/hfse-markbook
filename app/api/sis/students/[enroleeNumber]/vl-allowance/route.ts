@@ -19,7 +19,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 // → students.id then updates the grading-schema column.
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ enroleeNumber: string }> },
+  { params }: { params: Promise<{ enroleeNumber: string }> }
 ) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -31,7 +31,7 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const { vlAllowance } = parsed.data;
@@ -46,15 +46,20 @@ export async function PATCH(
     .select('studentNumber')
     .eq('enroleeNumber', enroleeNumber)
     .maybeSingle();
-  if (appErr) return NextResponse.json({ error: appErr.message }, { status: 500 });
-  if (!app) return NextResponse.json({ error: 'enrolee not found' }, { status: 404 });
+  if (appErr)
+    return NextResponse.json({ error: appErr.message }, { status: 500 });
+  if (!app)
+    return NextResponse.json({ error: 'enrolee not found' }, { status: 404 });
 
   type AppRow = { studentNumber: string | null };
   const studentNumber = (app as AppRow).studentNumber;
   if (!studentNumber) {
     return NextResponse.json(
-      { error: 'enrolee has no studentNumber yet — assign one before setting allowance' },
-      { status: 409 },
+      {
+        error:
+          'enrolee has no studentNumber yet — assign one before setting allowance',
+      },
+      { status: 409 }
     );
   }
 
@@ -63,15 +68,22 @@ export async function PATCH(
     .select('id, vacation_leave_allowance_per_term')
     .eq('student_number', studentNumber)
     .maybeSingle();
-  if (studentErr) return NextResponse.json({ error: studentErr.message }, { status: 500 });
+  if (studentErr)
+    return NextResponse.json({ error: studentErr.message }, { status: 500 });
   if (!studentRow) {
     return NextResponse.json(
-      { error: 'student not synced to grading schema — run /markbook/sync-students first' },
-      { status: 404 },
+      {
+        error:
+          'student not synced to grading schema — run /markbook/sync-students first',
+      },
+      { status: 404 }
     );
   }
 
-  const row = studentRow as { id: string; vacation_leave_allowance_per_term: number | null };
+  const row = studentRow as {
+    id: string;
+    vacation_leave_allowance_per_term: number | null;
+  };
   const before = row.vacation_leave_allowance_per_term;
   const studentId = row.id;
 
@@ -83,7 +95,8 @@ export async function PATCH(
     .from('students')
     .update({ vacation_leave_allowance_per_term: vlAllowance })
     .eq('id', studentId);
-  if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 });
+  if (updateErr)
+    return NextResponse.json({ error: updateErr.message }, { status: 500 });
 
   await logAction({
     service,

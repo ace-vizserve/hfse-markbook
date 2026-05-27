@@ -13,6 +13,7 @@
 ### Task 1: Extend schema + register audit action
 
 **Files:**
+
 - Modify: `lib/schemas/section.ts`
 - Modify: `lib/audit/log-action.ts`
 
@@ -33,7 +34,11 @@ import { z } from 'zod';
 export const SECTION_CLASS_TYPES = ['Global', 'Standard'] as const;
 export type SectionClassType = (typeof SECTION_CLASS_TYPES)[number];
 
-export const CURRICULUM_TRACKS = ['cambridge', 'o_level', 'singapore_inspired'] as const;
+export const CURRICULUM_TRACKS = [
+  'cambridge',
+  'o_level',
+  'singapore_inspired',
+] as const;
 export type CurriculumTrack = (typeof CURRICULUM_TRACKS)[number];
 
 export const CURRICULUM_TRACK_LABELS: Record<CurriculumTrack, string> = {
@@ -45,7 +50,11 @@ export const CURRICULUM_TRACK_LABELS: Record<CurriculumTrack, string> = {
 const uuidString = z.string().uuid('Invalid id');
 
 export const SectionCreateSchema = z.object({
-  name: z.string().trim().min(1, 'Name required').max(60, 'Keep it under 60 chars'),
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Name required')
+    .max(60, 'Keep it under 60 chars'),
   level_id: uuidString,
   class_type: z.enum(SECTION_CLASS_TYPES).nullable().optional(),
 });
@@ -57,7 +66,12 @@ export type SectionCreateInput = z.infer<typeof SectionCreateSchema>;
 // edited without cascade concerns; class_type is set at creation for now.
 // Both fields are optional — callers may send one or both.
 export const SectionUpdateSchema = z.object({
-  name: z.string().trim().min(1, 'Name required').max(60, 'Keep it under 60 chars').optional(),
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Name required')
+    .max(60, 'Keep it under 60 chars')
+    .optional(),
   curriculum_track: z.enum(CURRICULUM_TRACKS).optional(),
 });
 
@@ -67,6 +81,7 @@ export type SectionUpdateInput = z.infer<typeof SectionUpdateSchema>;
 - [ ] **Step 2: Register `section.curriculum_track.update` in `lib/audit/log-action.ts`**
 
 Find the lines:
+
 ```typescript
   | 'section.create'
   | 'section.rename'
@@ -74,6 +89,7 @@ Find the lines:
 ```
 
 Replace with:
+
 ```typescript
   | 'section.create'
   | 'section.rename'
@@ -94,6 +110,7 @@ Expected: no errors related to the new types.
 ### Task 2: Extend the PATCH API route
 
 **Files:**
+
 - Modify: `app/api/sections/[id]/route.ts`
 
 - [ ] **Step 1: Rewrite the PATCH handler**
@@ -113,7 +130,7 @@ import { SectionUpdateSchema } from '@/lib/schemas/section';
 // actions — only for fields that actually changed.
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -128,7 +145,7 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const { name, curriculum_track } = parsed.data;
@@ -152,7 +169,9 @@ export async function PATCH(
   }
 
   const nameChanged = name !== undefined && name !== before.name;
-  const trackChanged = curriculum_track !== undefined && curriculum_track !== before.curriculum_track;
+  const trackChanged =
+    curriculum_track !== undefined &&
+    curriculum_track !== before.curriculum_track;
 
   if (!nameChanged && !trackChanged) {
     return NextResponse.json({
@@ -179,15 +198,20 @@ export async function PATCH(
     // 23505 = unique_violation (academic_year_id, level_id, curriculum_track, name)
     if ((updateErr as { code?: string }).code === '23505') {
       return NextResponse.json(
-        { error: `A section named "${name}" already exists in this level and track for the current AY.` },
-        { status: 409 },
+        {
+          error: `A section named "${name}" already exists in this level and track for the current AY.`,
+        },
+        { status: 409 }
       );
     }
     return NextResponse.json({ error: updateErr.message }, { status: 500 });
   }
 
   const actor = { id: auth.user.id, email: auth.user.email ?? null };
-  const sharedCtx = { academic_year_id: before.academic_year_id, level_id: before.level_id };
+  const sharedCtx = {
+    academic_year_id: before.academic_year_id,
+    level_id: before.level_id,
+  };
 
   if (nameChanged) {
     await logAction({
@@ -207,7 +231,11 @@ export async function PATCH(
       action: 'section.curriculum_track.update',
       entityType: 'section',
       entityId: id,
-      context: { ...sharedCtx, from: before.curriculum_track, to: curriculum_track! },
+      context: {
+        ...sharedCtx,
+        from: before.curriculum_track,
+        to: curriculum_track!,
+      },
     });
   }
 
@@ -233,6 +261,7 @@ Expected: no errors.
 ### Task 3: Update the rename dialog
 
 **Files:**
+
 - Modify: `components/sis/section-rename-dialog.tsx`
 
 - [ ] **Step 1: Rewrite the component**
@@ -429,36 +458,45 @@ Expected: no errors. The `Select` import may fail if `components/ui/select.tsx` 
 ### Task 4: Update the section detail page
 
 **Files:**
+
 - Modify: `app/(sis)/sis/sections/[id]/page.tsx`
 
 - [ ] **Step 1: Add `curriculum_track` to the sections select query**
 
 Find:
+
 ```typescript
-  const { data: section } = await supabase
-    .from('sections')
-    .select('id, name, academic_year_id, level:levels(id, code, label, level_type), academic_year:academic_years(ay_code, label)')
-    .eq('id', id)
-    .single();
+const { data: section } = await supabase
+  .from('sections')
+  .select(
+    'id, name, academic_year_id, level:levels(id, code, label, level_type), academic_year:academic_years(ay_code, label)'
+  )
+  .eq('id', id)
+  .single();
 ```
 
 Replace with:
+
 ```typescript
-  const { data: section } = await supabase
-    .from('sections')
-    .select('id, name, curriculum_track, academic_year_id, level:levels(id, code, label, level_type), academic_year:academic_years(ay_code, label)')
-    .eq('id', id)
-    .single();
+const { data: section } = await supabase
+  .from('sections')
+  .select(
+    'id, name, curriculum_track, academic_year_id, level:levels(id, code, label, level_type), academic_year:academic_years(ay_code, label)'
+  )
+  .eq('id', id)
+  .single();
 ```
 
 - [ ] **Step 2: Add `CurriculumTrack` import to the page**
 
 Find the existing import from `@/components/sis/section-rename-dialog`:
+
 ```typescript
 import { SectionRenameDialog } from '@/components/sis/section-rename-dialog';
 ```
 
 Replace with:
+
 ```typescript
 import { SectionRenameDialog } from '@/components/sis/section-rename-dialog';
 import type { CurriculumTrack } from '@/lib/schemas/section';
@@ -467,11 +505,13 @@ import type { CurriculumTrack } from '@/lib/schemas/section';
 - [ ] **Step 3: Pass `currentCurriculumTrack` to `SectionRenameDialog`**
 
 Find:
+
 ```typescript
           <SectionRenameDialog sectionId={section.id} currentName={section.name} />
 ```
 
 Replace with:
+
 ```typescript
           <SectionRenameDialog
             sectionId={section.id}
@@ -493,16 +533,19 @@ Expected: no errors.
 ### Task 5: Add action to audit log allowlist + commit
 
 **Files:**
+
 - Modify: `app/(sis)/sis/audit-log/page.tsx`
 
 - [ ] **Step 1: Add `section.curriculum_track.update` to the allowlist**
 
 Find:
+
 ```typescript
   'section.create', 'section.rename', 'section.realphabetize',
 ```
 
 Replace with:
+
 ```typescript
   'section.create', 'section.rename', 'section.realphabetize', 'section.curriculum_track.update',
 ```

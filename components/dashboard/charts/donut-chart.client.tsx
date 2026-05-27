@@ -106,7 +106,9 @@ function DonutChartImpl({
             <li
               key={slice.name}
               className={`flex items-center gap-3${onSegmentClick ? ' cursor-pointer rounded-md transition-colors hover:bg-accent/40' : ''}`}
-              onClick={onSegmentClick ? () => onSegmentClick(slice.name) : undefined}
+              onClick={
+                onSegmentClick ? () => onSegmentClick(slice.name) : undefined
+              }
               role={onSegmentClick ? 'button' : undefined}
               tabIndex={onSegmentClick ? 0 : undefined}
               onKeyDown={
@@ -126,12 +128,12 @@ function DonutChartImpl({
               />
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="truncate text-[12px] text-foreground">{slice.name}</span>
+                  <span className="truncate text-[12px] text-foreground">
+                    {slice.name}
+                  </span>
                   <span className="shrink-0 font-mono text-[11px] tabular-nums text-ink-4">
                     {slice.value.toLocaleString('en-SG')}
-                    <span className="ml-1.5 text-ink-5">
-                      {pct.toFixed(0)}%
-                    </span>
+                    <span className="ml-1.5 text-ink-5">{pct.toFixed(0)}%</span>
                   </span>
                 </div>
                 <div className="mt-1 h-1 overflow-hidden rounded-full bg-muted">

@@ -8,7 +8,12 @@ import { getClientIp, rateLimit, tooManyRequests } from '@/lib/rate-limit';
 // Email+password login doesn't use this, but keep it wired up for later.
 export async function GET(request: NextRequest) {
   const ip = getClientIp(request);
-  const rl = rateLimit({ ip, scope: 'auth-callback', ipMax: 10, windowSecs: 60 });
+  const rl = rateLimit({
+    ip,
+    scope: 'auth-callback',
+    ipMax: 10,
+    windowSecs: 60,
+  });
   if (rl.limited) return tooManyRequests(rl.retryAfter);
 
   const { searchParams, origin } = new URL(request.url);
@@ -26,7 +31,10 @@ export async function GET(request: NextRequest) {
         action: 'user.login',
         entityType: 'user_account',
         entityId: data.user.id,
-        context: { provider: data.session?.user.app_metadata?.provider ?? 'magic_link', redirect_to: next },
+        context: {
+          provider: data.session?.user.app_metadata?.provider ?? 'magic_link',
+          redirect_to: next,
+        },
       });
       return NextResponse.redirect(`${origin}${next}`);
     }

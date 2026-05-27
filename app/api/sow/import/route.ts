@@ -19,16 +19,25 @@ const ImportSchema = z.object({
 // Both sections must share the same (level_id × subject). Teacher must be
 // assigned to the target section. Registrar+ may import unconditionally.
 export async function POST(request: NextRequest) {
-  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'superadmin']);
+  const auth = await requireRole([
+    'teacher',
+    'registrar',
+    'school_admin',
+    'superadmin',
+  ]);
   if ('error' in auth) return auth.error;
 
   const body = await request.json().catch(() => null);
   const parsed = ImportSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid request', issues: parsed.error.issues }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid request', issues: parsed.error.issues },
+      { status: 400 }
+    );
   }
 
-  const { target_section_id, source_section_id, subject_id, term_id } = parsed.data;
+  const { target_section_id, source_section_id, subject_id, term_id } =
+    parsed.data;
   const service = createServiceClient();
 
   // Auth gate: teacher must be the subject_teacher for the target section × subject.
@@ -41,13 +50,22 @@ export async function POST(request: NextRequest) {
       .eq('subject_id', subject_id)
       .eq('role', 'subject_teacher')
       .maybeSingle();
-    if (!assignment) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!assignment)
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   // Validate: target and source must share the same level.
   const [{ data: targetSec }, { data: sourceSec }] = await Promise.all([
-    service.from('sections').select('level_id, name').eq('id', target_section_id).maybeSingle(),
-    service.from('sections').select('level_id, name').eq('id', source_section_id).maybeSingle(),
+    service
+      .from('sections')
+      .select('level_id, name')
+      .eq('id', target_section_id)
+      .maybeSingle(),
+    service
+      .from('sections')
+      .select('level_id, name')
+      .eq('id', source_section_id)
+      .maybeSingle(),
   ]);
   if (!targetSec || !sourceSec) {
     return NextResponse.json({ error: 'Section not found' }, { status: 404 });
@@ -58,7 +76,7 @@ export async function POST(request: NextRequest) {
   ) {
     return NextResponse.json(
       { error: 'Can only import from sections at the same level.' },
-      { status: 422 },
+      { status: 422 }
     );
   }
 
@@ -74,7 +92,7 @@ export async function POST(request: NextRequest) {
   if (!sourceSow) {
     return NextResponse.json(
       { error: 'No SOW found for the source section × subject × term.' },
-      { status: 404 },
+      { status: 404 }
     );
   }
 
@@ -101,12 +119,13 @@ export async function POST(request: NextRequest) {
         copied_at: now,
         updated_by: auth.user.id,
       },
-      { onConflict: 'section_id,subject_id,term_id' },
+      { onConflict: 'section_id,subject_id,term_id' }
     )
     .select('id')
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
 
   // Stamp created_by on insert (upsert doesn't overwrite if already set).
   await service

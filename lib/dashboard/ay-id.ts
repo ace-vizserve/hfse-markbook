@@ -12,12 +12,14 @@ import { createServiceClient } from '@/lib/supabase/service';
 // Returns `null` if the AY code doesn't exist, so callers can early-out
 // with empty/zero results instead of querying with `null`.
 
-export const getAyIdByCode = cache(async (ayCode: string): Promise<string | null> => {
-  const service = createServiceClient();
-  const { data } = await service
-    .from('academic_years')
-    .select('id')
-    .eq('ay_code', ayCode)
-    .maybeSingle();
-  return (data as { id: string } | null)?.id ?? null;
-});
+export const getAyIdByCode = cache(
+  async (ayCode: string): Promise<string | null> => {
+    const service = createServiceClient();
+    const { data } = await service
+      .from('academic_years')
+      .select('id')
+      .eq('ay_code', ayCode)
+      .maybeSingle();
+    return (data as { id: string } | null)?.id ?? null;
+  }
+);

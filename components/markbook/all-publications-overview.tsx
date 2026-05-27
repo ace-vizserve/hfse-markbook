@@ -4,10 +4,7 @@ import * as React from 'react';
 import { FileText } from 'lucide-react';
 import { type ColumnDef } from '@tanstack/react-table';
 
-import {
-  Card,
-  CardContent,
-} from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/data-table';
 import {
   type FacetConfig,
@@ -48,7 +45,11 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-SG', DATE_FMT);
 }
 
-function PublicationStatusBadge({ status }: { status: PublicationOverviewRow['status'] }) {
+function PublicationStatusBadge({
+  status,
+}: {
+  status: PublicationOverviewRow['status'];
+}) {
   switch (status) {
     case 'active':
       return <StatusBadge tone="healthy">Active</StatusBadge>;
@@ -64,7 +65,9 @@ function PublicationStatusBadge({ status }: { status: PublicationOverviewRow['st
 const COLUMNS: ColumnDef<PublicationOverviewRow>[] = [
   {
     accessorKey: 'level_code',
-    header: ({ column }) => <SortableHeader column={column}>Level</SortableHeader>,
+    header: ({ column }) => (
+      <SortableHeader column={column}>Level</SortableHeader>
+    ),
     cell: ({ row }) => (
       <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
         {row.original.level_code}
@@ -79,9 +82,13 @@ const COLUMNS: ColumnDef<PublicationOverviewRow>[] = [
   },
   {
     accessorKey: 'section_name',
-    header: ({ column }) => <SortableHeader column={column}>Section</SortableHeader>,
+    header: ({ column }) => (
+      <SortableHeader column={column}>Section</SortableHeader>
+    ),
     cell: ({ row }) => (
-      <IdentifierLink href={`/markbook/report-cards?section_id=${row.original.section_id}`}>
+      <IdentifierLink
+        href={`/markbook/report-cards?section_id=${row.original.section_id}`}
+      >
         {row.original.section_name}
       </IdentifierLink>
     ),
@@ -94,7 +101,9 @@ const COLUMNS: ColumnDef<PublicationOverviewRow>[] = [
         <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           T{row.original.term_number}
         </span>
-        <span className="text-[13px] text-foreground">{row.original.term_label}</span>
+        <span className="text-[13px] text-foreground">
+          {row.original.term_label}
+        </span>
       </div>
     ),
   },
@@ -103,14 +112,17 @@ const COLUMNS: ColumnDef<PublicationOverviewRow>[] = [
     header: 'Window',
     cell: ({ row }) => (
       <span className="font-mono text-[12px] tabular-nums text-muted-foreground">
-        {formatDate(row.original.publish_from)} – {formatDate(row.original.publish_until)}
+        {formatDate(row.original.publish_from)} –{' '}
+        {formatDate(row.original.publish_until)}
       </span>
     ),
     enableSorting: false,
   },
   {
     accessorKey: 'status',
-    header: ({ column }) => <SortableHeader column={column}>Status</SortableHeader>,
+    header: ({ column }) => (
+      <SortableHeader column={column}>Status</SortableHeader>
+    ),
     cell: ({ row }) => (
       <div className="flex flex-col gap-1">
         <PublicationStatusBadge status={row.original.status} />
@@ -130,16 +142,22 @@ const COLUMNS: ColumnDef<PublicationOverviewRow>[] = [
   },
   {
     accessorKey: 'student_count',
-    header: ({ column }) => <SortableHeader column={column}>Students</SortableHeader>,
+    header: ({ column }) => (
+      <SortableHeader column={column}>Students</SortableHeader>
+    ),
     cell: ({ row }) => (
-      <span className="text-right font-mono tabular-nums">{row.original.student_count}</span>
+      <span className="text-right font-mono tabular-nums">
+        {row.original.student_count}
+      </span>
     ),
   },
   {
     accessorKey: 'published_by',
     header: 'Published by',
     cell: ({ row }) => (
-      <span className="text-xs text-muted-foreground">{row.original.published_by ?? '—'}</span>
+      <span className="text-xs text-muted-foreground">
+        {row.original.published_by ?? '—'}
+      </span>
     ),
   },
 ];
@@ -174,8 +192,8 @@ export function AllPublicationsOverview({
               No publication windows yet
             </div>
             <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
-              Pick a section above and open a publication window to make report cards visible
-              to parents. Active windows will appear here.
+              Pick a section above and open a publication window to make report
+              cards visible to parents. Active windows will appear here.
             </p>
           </div>
         </CardContent>

@@ -1,34 +1,37 @@
-import { Toaster } from "@/components/ui/sonner";
-import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Source_Serif_4 } from "next/font/google";
-import "./globals.css";
+import { Toaster } from '@/components/ui/sonner';
+import type { Metadata } from 'next';
+import { Inter, JetBrains_Mono, Source_Serif_4 } from 'next/font/google';
+import './globals.css';
 
-import { CommandPalette, CommandPaletteProvider } from "@/components/sis/command-palette";
-import { getSessionUser } from "@/lib/supabase/server";
+import {
+  CommandPalette,
+  CommandPaletteProvider,
+} from '@/components/sis/command-palette';
+import { getSessionUser } from '@/lib/supabase/server';
 
 const inter = Inter({
-  variable: "--font-sans",
-  subsets: ["latin"],
+  variable: '--font-sans',
+  subsets: ['latin'],
 });
 
 const sourceSerif = Source_Serif_4({
-  variable: "--font-serif",
-  subsets: ["latin"],
+  variable: '--font-serif',
+  subsets: ['latin'],
 });
 
 const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-mono",
-  subsets: ["latin"],
+  variable: '--font-mono',
+  subsets: ['latin'],
 });
 
 export const metadata: Metadata = {
   title: {
-    default: "HFSE SIS",
-    template: "%s · HFSE SIS",
+    default: 'HFSE SIS',
+    template: '%s · HFSE SIS',
   },
-  description: "HFSE International School student information system",
+  description: 'HFSE International School student information system',
   robots: { index: false, follow: false, nocache: true },
-  icons: { icon: "/hfse-logo-favicon.webp" },
+  icons: { icon: '/hfse-logo-favicon.webp' },
 };
 
 export default async function RootLayout({
@@ -44,7 +47,10 @@ export default async function RootLayout({
   const role = sessionUser?.role ?? null;
 
   return (
-    <html lang="en" className={`${inter.variable} ${sourceSerif.variable} ${jetbrainsMono.variable} h-full`}>
+    <html
+      lang="en"
+      className={`${inter.variable} ${sourceSerif.variable} ${jetbrainsMono.variable} h-full`}
+    >
       <body className="min-h-full bg-background text-foreground flex flex-col">
         <CommandPaletteProvider>
           {children}
@@ -56,10 +62,10 @@ export default async function RootLayout({
           richColors
           closeButton
           options={{
-            fill: "black",
+            fill: 'black',
             styles: {
-              title: "text-white!",
-              description: "text-white/75!",
+              title: 'text-white!',
+              description: 'text-white/75!',
             },
           }}
         />

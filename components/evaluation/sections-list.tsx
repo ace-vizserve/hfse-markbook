@@ -49,13 +49,23 @@ export function EvaluationSectionsList({
       : sections;
 
     if (activeLevelId) {
-      return [{ levelId: activeLevelId, levelLabel: levels.find((l) => l.id === activeLevelId)?.label ?? null, sections: source }];
+      return [
+        {
+          levelId: activeLevelId,
+          levelLabel: levels.find((l) => l.id === activeLevelId)?.label ?? null,
+          sections: source,
+        },
+      ];
     }
 
-    const map = new Map<string, { levelLabel: string | null; sections: SectionCardData[] }>();
+    const map = new Map<
+      string,
+      { levelLabel: string | null; sections: SectionCardData[] }
+    >();
     for (const s of source) {
       const key = s.levelId ?? '__none__';
-      if (!map.has(key)) map.set(key, { levelLabel: s.levelLabel, sections: [] });
+      if (!map.has(key))
+        map.set(key, { levelLabel: s.levelLabel, sections: [] });
       map.get(key)!.sections.push(s);
     }
     return Array.from(map.entries()).map(([levelId, g]) => ({ levelId, ...g }));
@@ -66,14 +76,19 @@ export function EvaluationSectionsList({
       {/* Level filter chips — only shown when there are 2+ distinct levels */}
       {levels.length > 1 && (
         <div className="flex flex-wrap gap-2">
-          <FilterChip active={activeLevelId === null} onClick={() => setActiveLevelId(null)}>
+          <FilterChip
+            active={activeLevelId === null}
+            onClick={() => setActiveLevelId(null)}
+          >
             All
           </FilterChip>
           {levels.map((l) => (
             <FilterChip
               key={l.id}
               active={activeLevelId === l.id}
-              onClick={() => setActiveLevelId(activeLevelId === l.id ? null : l.id)}
+              onClick={() =>
+                setActiveLevelId(activeLevelId === l.id ? null : l.id)
+              }
             >
               {l.code}
             </FilterChip>
@@ -93,12 +108,17 @@ export function EvaluationSectionsList({
               <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 {group.levelLabel ?? 'Unknown level'}
                 <span className="ml-2 text-muted-foreground/50">
-                  {group.sections.length} {group.sections.length === 1 ? 'section' : 'sections'}
+                  {group.sections.length}{' '}
+                  {group.sections.length === 1 ? 'section' : 'sections'}
                 </span>
               </h3>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {group.sections.map((s) => (
-                  <SectionCard key={s.id} section={s} selectedTermId={selectedTermId} />
+                  <SectionCard
+                    key={s.id}
+                    section={s}
+                    selectedTermId={selectedTermId}
+                  />
                 ))}
               </div>
             </div>
@@ -109,10 +129,17 @@ export function EvaluationSectionsList({
   );
 }
 
-function SectionCard({ section: s, selectedTermId }: { section: SectionCardData; selectedTermId: string }) {
+function SectionCard({
+  section: s,
+  selectedTermId,
+}: {
+  section: SectionCardData;
+  selectedTermId: string;
+}) {
   const complete = s.active > 0 && s.submitted === s.active;
   const started = s.submitted > 0;
-  const percent = s.active === 0 ? 0 : Math.round((s.submitted / s.active) * 100);
+  const percent =
+    s.active === 0 ? 0 : Math.round((s.submitted / s.active) * 100);
 
   return (
     <Link
@@ -124,10 +151,14 @@ function SectionCard({ section: s, selectedTermId }: { section: SectionCardData;
           <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
             {s.levelLabel ?? 'Unknown level'}
             {s.isAlsoBoth && (
-              <span className="ml-2 text-muted-foreground/60">· Adviser + Subject</span>
+              <span className="ml-2 text-muted-foreground/60">
+                · Adviser + Subject
+              </span>
             )}
             {s.isSubjectTeacherOnly && (
-              <span className="ml-2 text-brand-indigo/70">· Subject teacher</span>
+              <span className="ml-2 text-brand-indigo/70">
+                · Subject teacher
+              </span>
             )}
           </CardDescription>
           <CardTitle className="font-serif text-lg font-semibold tracking-tight text-foreground">
@@ -147,7 +178,9 @@ function SectionCard({ section: s, selectedTermId }: { section: SectionCardData;
                 <span className="font-serif text-2xl font-semibold tabular-nums text-foreground">
                   {s.submitted}
                 </span>
-                <span className="text-sm text-muted-foreground">/ {s.active} submitted</span>
+                <span className="text-sm text-muted-foreground">
+                  / {s.active} submitted
+                </span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                 <div
@@ -170,7 +203,10 @@ function SectionCard({ section: s, selectedTermId }: { section: SectionCardData;
                   In progress · {percent}%
                 </Badge>
               ) : (
-                <Badge variant="outline" className="border-border bg-muted/40 text-muted-foreground">
+                <Badge
+                  variant="outline"
+                  className="border-border bg-muted/40 text-muted-foreground"
+                >
                   Not started
                 </Badge>
               )}
@@ -205,7 +241,10 @@ function SectionCard({ section: s, selectedTermId }: { section: SectionCardData;
                   Topics set up
                 </Badge>
               ) : (
-                <Badge variant="outline" className="border-border bg-muted/40 text-muted-foreground">
+                <Badge
+                  variant="outline"
+                  className="border-border bg-muted/40 text-muted-foreground"
+                >
                   No topics yet
                 </Badge>
               )}

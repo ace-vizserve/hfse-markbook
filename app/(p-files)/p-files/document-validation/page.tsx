@@ -38,7 +38,8 @@ export default async function PFilesDocumentValidationPage() {
     return (
       <PageShell>
         <div className="rounded-xl border border-hairline bg-card p-6 text-center text-sm text-muted-foreground">
-          No active academic year is set. Ask a system administrator to set one in Settings.
+          No active academic year is set. Ask a system administrator to set one
+          in Settings.
         </div>
       </PageShell>
     );
@@ -53,8 +54,10 @@ export default async function PFilesDocumentValidationPage() {
   ]);
 
   const expiringCount = expiringRows.length;
-  const awaitingStudentCount = new Set(awaitingRows.map((r) => r.enroleeNumber)).size;
-  const expiringStudentCount = new Set(expiringRows.map((r) => r.enroleeNumber)).size;
+  const awaitingStudentCount = new Set(awaitingRows.map((r) => r.enroleeNumber))
+    .size;
+  const expiringStudentCount = new Set(expiringRows.map((r) => r.enroleeNumber))
+    .size;
 
   return (
     <PageShell>
@@ -66,8 +69,8 @@ export default async function PFilesDocumentValidationPage() {
           Document validation
         </h1>
         <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          Review documents uploaded by parents and monitor expiring travel documents for
-          enrolled students.
+          Review documents uploaded by parents and monitor expiring travel
+          documents for enrolled students.
           {!isOfficer && ' You have read-only access to this queue.'}
         </p>
       </header>
@@ -96,7 +99,8 @@ export default async function PFilesDocumentValidationPage() {
           {awaitingRows.length === 0 ? (
             <div className="rounded-xl border border-dashed border-hairline bg-card p-10 text-center">
               <p className="text-sm text-muted-foreground">
-                No documents are waiting for review. New parent uploads will appear here.
+                No documents are waiting for review. New parent uploads will
+                appear here.
               </p>
             </div>
           ) : (
@@ -110,7 +114,11 @@ export default async function PFilesDocumentValidationPage() {
                   ? ' Approve the file or reject it with a reason — the parent will be notified by email.'
                   : ''}
               </p>
-              <AwaitingQueue rows={awaitingRows} ayCode={ayCode} isOfficer={isOfficer} />
+              <AwaitingQueue
+                rows={awaitingRows}
+                ayCode={ayCode}
+                isOfficer={isOfficer}
+              />
             </div>
           )}
         </TabsContent>
@@ -119,7 +127,8 @@ export default async function PFilesDocumentValidationPage() {
           {expiringRows.length === 0 ? (
             <div className="rounded-xl border border-dashed border-hairline bg-card p-10 text-center">
               <p className="text-sm text-muted-foreground">
-                No documents expiring within 90 days. Use the filter to narrow the window.
+                No documents expiring within 90 days. Use the filter to narrow
+                the window.
               </p>
             </div>
           ) : (

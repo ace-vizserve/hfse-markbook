@@ -51,7 +51,7 @@ export function DatePicker({
           className={cn(
             'h-10 w-full justify-start gap-2 font-normal',
             !parsed && 'text-ink-5',
-            className,
+            className
           )}
         >
           <CalendarIcon className="h-4 w-4 text-ink-4" />

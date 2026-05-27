@@ -24,7 +24,13 @@ type Options = {
 // 5-minute window regardless of how many helpers are called on the same page.
 // ---------------------------------------------------------------------------
 
-type _StaffRecord = { id: string; email: string; role: string | null; name: string; disabled: boolean };
+type _StaffRecord = {
+  id: string;
+  email: string;
+  role: string | null;
+  name: string;
+  disabled: boolean;
+};
 
 function _loadAllStaff(): Promise<_StaffRecord[]> {
   return unstable_cache(
@@ -35,8 +41,15 @@ function _loadAllStaff(): Promise<_StaffRecord[]> {
         const out: _StaffRecord[] = [];
         for (const u of data?.users ?? []) {
           if (!u.email) continue;
-          const appMeta = (u.app_metadata ?? {}) as { role?: string; disabled?: boolean };
-          const userMeta = (u.user_metadata ?? {}) as { role?: string; full_name?: string; name?: string };
+          const appMeta = (u.app_metadata ?? {}) as {
+            role?: string;
+            disabled?: boolean;
+          };
+          const userMeta = (u.user_metadata ?? {}) as {
+            role?: string;
+            full_name?: string;
+            name?: string;
+          };
           const role = appMeta.role ?? userMeta.role ?? null;
           const disabled = appMeta.disabled === true;
           const name = (userMeta.full_name ?? userMeta.name ?? u.email).trim();
@@ -48,7 +61,7 @@ function _loadAllStaff(): Promise<_StaffRecord[]> {
       }
     },
     ['all-staff-list'],
-    { revalidate: 300, tags: ['teacher-emails'] },
+    { revalidate: 300, tags: ['teacher-emails'] }
   )();
 }
 
@@ -67,12 +80,19 @@ function _loadAllStaff(): Promise<_StaffRecord[]> {
  * Used by surfaces that need a "pick a teacher" combobox — e.g. the
  * teacher_name dropdown on /markbook/grading/new.
  */
-export async function getTeacherList(options: Options = {}): Promise<StaffMember[]> {
+export async function getTeacherList(
+  options: Options = {}
+): Promise<StaffMember[]> {
   const excludeDisabled = options.excludeDisabled ?? true;
   const all = await _loadAllStaff();
   return all
-    .filter(u => u.role === 'teacher' && (!excludeDisabled || !u.disabled))
-    .map(u => ({ id: u.id, email: u.email, name: u.name, disabled: u.disabled }))
+    .filter((u) => u.role === 'teacher' && (!excludeDisabled || !u.disabled))
+    .map((u) => ({
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      disabled: u.disabled,
+    }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -83,8 +103,8 @@ export async function getTeacherList(options: Options = {}): Promise<StaffMember
 export async function getApproverEmailList(): Promise<string[]> {
   const all = await _loadAllStaff();
   return all
-    .filter(u => u.role === 'school_admin' || u.role === 'superadmin')
-    .map(u => u.email);
+    .filter((u) => u.role === 'school_admin' || u.role === 'superadmin')
+    .map((u) => u.email);
 }
 
 /**
@@ -93,7 +113,7 @@ export async function getApproverEmailList(): Promise<string[]> {
  */
 export async function getRegistrarEmailList(): Promise<string[]> {
   const all = await _loadAllStaff();
-  return all.filter(u => u.role === 'registrar').map(u => u.email);
+  return all.filter((u) => u.role === 'registrar').map((u) => u.email);
 }
 
 /**
@@ -101,7 +121,9 @@ export async function getRegistrarEmailList(): Promise<string[]> {
  * pages to resolve actor emails to human names. Returns Array (not Map) to
  * survive unstable_cache JSON serialization; callers do `new Map(entries)`.
  */
-export async function getStaffDisplayEntries(): Promise<Array<[string, string]>> {
+export async function getStaffDisplayEntries(): Promise<
+  Array<[string, string]>
+> {
   const all = await _loadAllStaff();
-  return all.map(u => [u.email, u.name]);
+  return all.map((u) => [u.email, u.name]);
 }

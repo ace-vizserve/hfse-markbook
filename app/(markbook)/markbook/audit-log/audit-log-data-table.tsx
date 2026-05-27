@@ -1,23 +1,17 @@
-"use client";
+'use client';
 
-import {
-  ArrowRight,
-  CalendarIcon,
-  Download,
-  History,
-  X,
-} from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import * as React from "react";
-import type { DateRange } from "react-day-picker";
-import { type ColumnDef } from "@tanstack/react-table";
+import { ArrowRight, CalendarIcon, Download, History, X } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import * as React from 'react';
+import type { DateRange } from 'react-day-picker';
+import { type ColumnDef } from '@tanstack/react-table';
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { DataTable } from "@/components/ui/data-table";
-import { type FacetConfig } from "@/components/ui/data-table/types";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { DataTable } from '@/components/ui/data-table';
+import { type FacetConfig } from '@/components/ui/data-table/types';
 import {
   Dialog,
   DialogContent,
@@ -25,11 +19,15 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { IdentifierLink } from "@/components/ui/identifier-link";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { SortableHeader } from "@/components/ui/data-table/sortable-header";
-import { cn } from "@/lib/utils";
+} from '@/components/ui/dialog';
+import { IdentifierLink } from '@/components/ui/identifier-link';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { SortableHeader } from '@/components/ui/data-table/sortable-header';
+import { cn } from '@/lib/utils';
 
 export type MergedRow = {
   id: string;
@@ -40,7 +38,7 @@ export type MergedRow = {
   entity_id: string | null;
   context: Record<string, unknown>;
   sheet_id: string | null;
-  source: "audit_log" | "grade_audit_log";
+  source: 'audit_log' | 'grade_audit_log';
 };
 
 type PaginationInfo = {
@@ -59,12 +57,12 @@ type Props = {
 };
 
 function toIsoDay(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
+  const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 function formatDay(d: Date): string {
-  return d.toLocaleDateString("en-SG", { month: "short", day: "numeric" });
+  return d.toLocaleDateString('en-SG', { month: 'short', day: 'numeric' });
 }
 
 function startOfDay(d: Date): Date {
@@ -80,14 +78,16 @@ function endOfDay(d: Date): Date {
 }
 
 const FACETS: FacetConfig[] = [
-  { columnId: "action", label: "Action" },
-  { columnId: "actor", label: "Actor" },
+  { columnId: 'action', label: 'Action' },
+  { columnId: 'actor', label: 'Actor' },
 ];
 
 const COLUMNS: ColumnDef<MergedRow>[] = [
   {
-    accessorKey: "at",
-    header: ({ column }) => <SortableHeader column={column}>When</SortableHeader>,
+    accessorKey: 'at',
+    header: ({ column }) => (
+      <SortableHeader column={column}>When</SortableHeader>
+    ),
     cell: ({ row }) => (
       <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
         {new Date(row.original.at).toLocaleString()}
@@ -95,8 +95,10 @@ const COLUMNS: ColumnDef<MergedRow>[] = [
     ),
   },
   {
-    accessorKey: "actor",
-    header: ({ column }) => <SortableHeader column={column}>Who</SortableHeader>,
+    accessorKey: 'actor',
+    header: ({ column }) => (
+      <SortableHeader column={column}>Who</SortableHeader>
+    ),
     cell: ({ row }) => <span className="text-xs">{row.original.actor}</span>,
     filterFn: (row, id, value) => {
       if (!value || (Array.isArray(value) && value.length === 0)) return true;
@@ -106,8 +108,10 @@ const COLUMNS: ColumnDef<MergedRow>[] = [
     },
   },
   {
-    accessorKey: "action",
-    header: ({ column }) => <SortableHeader column={column}>Action</SortableHeader>,
+    accessorKey: 'action',
+    header: ({ column }) => (
+      <SortableHeader column={column}>Action</SortableHeader>
+    ),
     cell: ({ row }) => (
       <Badge variant="secondary" className="font-mono text-[10px]">
         {row.original.action}
@@ -121,8 +125,8 @@ const COLUMNS: ColumnDef<MergedRow>[] = [
     },
   },
   {
-    id: "details",
-    header: "Details",
+    id: 'details',
+    header: 'Details',
     cell: ({ row }) => (
       <div className="text-xs">
         <ActionDetails row={row.original} />
@@ -131,7 +135,7 @@ const COLUMNS: ColumnDef<MergedRow>[] = [
     enableSorting: false,
   },
   {
-    id: "open",
+    id: 'open',
     header: () => <span className="sr-only">Open sheet</span>,
     cell: ({ row }) =>
       row.original.sheet_id ? (
@@ -155,7 +159,9 @@ export function AuditLogDataTable({
   canExport = false,
   pagination,
 }: Props) {
-  const [exportRange, setExportRange] = React.useState<DateRange | undefined>(undefined);
+  const [exportRange, setExportRange] = React.useState<DateRange | undefined>(
+    undefined
+  );
   const [exportOpen, setExportOpen] = React.useState(false);
   const exportHref = React.useMemo(() => {
     if (!exportRange?.from || !exportRange.to) return null;
@@ -163,9 +169,11 @@ export function AuditLogDataTable({
   }, [exportRange]);
 
   const [sheetIdFilter, setSheetIdFilter] = React.useState<string | null>(
-    initialSheetIdFilter ?? null,
+    initialSheetIdFilter ?? null
   );
-  const [dateRange, setDateRange] = React.useState<DateRange | undefined>(undefined);
+  const [dateRange, setDateRange] = React.useState<DateRange | undefined>(
+    undefined
+  );
   const [dateRangeOpen, setDateRangeOpen] = React.useState(false);
 
   // Apply date + sheet-id pre-filters before passing to DataTable
@@ -192,13 +200,16 @@ export function AuditLogDataTable({
           <Button
             variant="outline"
             size="sm"
-            className={cn("h-8 gap-2 font-normal", !dateRange?.from && "text-muted-foreground")}
+            className={cn(
+              'h-8 gap-2 font-normal',
+              !dateRange?.from && 'text-muted-foreground'
+            )}
           >
             <CalendarIcon className="h-3.5 w-3.5" />
             {dateRange?.from ? (
               <span className="font-mono text-[11px] tabular-nums">
                 {formatDay(dateRange.from)}
-                {dateRange.to ? ` – ${formatDay(dateRange.to)}` : ""}
+                {dateRange.to ? ` – ${formatDay(dateRange.to)}` : ''}
               </span>
             ) : (
               <span className="text-sm">Any date</span>
@@ -223,7 +234,11 @@ export function AuditLogDataTable({
             >
               Clear
             </Button>
-            <Button type="button" size="sm" onClick={() => setDateRangeOpen(false)}>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setDateRangeOpen(false)}
+            >
               Done
             </Button>
           </div>
@@ -267,9 +282,12 @@ export function AuditLogDataTable({
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg!">
         <DialogHeader>
-          <DialogTitle className="font-serif tracking-tight">Export date range</DialogTitle>
+          <DialogTitle className="font-serif tracking-tight">
+            Export date range
+          </DialogTitle>
           <DialogDescription className="text-[13px] leading-relaxed">
-            All audit data within the selected date range will be exported as CSV.
+            All audit data within the selected date range will be exported as
+            CSV.
           </DialogDescription>
         </DialogHeader>
 
@@ -280,15 +298,15 @@ export function AuditLogDataTable({
                 <Button
                   variant="outline"
                   className={cn(
-                    "h-9 flex-1 justify-start gap-2 font-normal",
-                    !exportRange?.from && "text-muted-foreground",
+                    'h-9 flex-1 justify-start gap-2 font-normal',
+                    !exportRange?.from && 'text-muted-foreground'
                   )}
                 >
                   <CalendarIcon className="size-3.5" />
                   {exportRange?.from ? (
                     <span className="font-mono text-[11px] tabular-nums">
                       {formatDay(exportRange.from)}
-                      {exportRange.to ? ` – ${formatDay(exportRange.to)}` : ""}
+                      {exportRange.to ? ` – ${formatDay(exportRange.to)}` : ''}
                     </span>
                   ) : (
                     <span className="text-sm">Pick a date range</span>
@@ -360,8 +378,9 @@ export function AuditLogDataTable({
                 Large exports may take a moment
               </p>
               <p className="text-[12px] leading-relaxed text-muted-foreground">
-                The CSV includes every audit entry within the selected window. For wide ranges
-                with heavy activity, the file can be several thousand rows.
+                The CSV includes every audit entry within the selected window.
+                For wide ranges with heavy activity, the file can be several
+                thousand rows.
               </p>
             </div>
           </div>
@@ -374,10 +393,10 @@ export function AuditLogDataTable({
   const initialColumnFilters = React.useMemo(
     () =>
       initialActionFilter
-        ? [{ id: "action", value: [initialActionFilter] }]
+        ? [{ id: 'action', value: [initialActionFilter] }]
         : [],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    []
   );
 
   return (
@@ -414,10 +433,10 @@ function _AuditLogTable({
   const handlePageChange = React.useCallback(
     (newPage: number) => {
       const params = new URLSearchParams(window.location.search);
-      params.set("page", String(newPage));
+      params.set('page', String(newPage));
       router.push(`?${params.toString()}`);
     },
-    [router],
+    [router]
   );
 
   return (
@@ -426,32 +445,34 @@ function _AuditLogTable({
         data={filteredRows}
         columns={COLUMNS}
         getRowId={(row) => row.id}
-        searchKeys={["actor", "action", "entity_type"]}
+        searchKeys={['actor', 'action', 'entity_type']}
         searchPlaceholder="Search actor, action, details…"
         facets={facets}
         toolbarLeading={toolbarLeading}
         toolbarTrailing={toolbarTrailing}
-        initialSort={[{ id: "at", desc: true }]}
+        initialSort={[{ id: 'at', desc: true }]}
         pageSize={pagination ? Math.max(filteredRows.length, 1) : 25}
         url={{ enabled: true }}
         emptyState={{
-          title: "No audit entries yet.",
-          body: "Activity — sheet creation, score edits, locks, and more — will appear here.",
+          title: 'No audit entries yet.',
+          body: 'Activity — sheet creation, score edits, locks, and more — will appear here.',
         }}
         emptyFilteredState={{
-          title: "No audit entries match the current filters.",
-          body: "Try clearing the date range or filters.",
+          title: 'No audit entries match the current filters.',
+          body: 'Try clearing the date range or filters.',
         }}
       />
       {pagination && (
         <div className="flex items-center justify-between rounded-b-xl border border-t-0 border-border bg-muted/30 px-4 py-3 text-sm">
           <p className="text-muted-foreground tabular-nums">
             {pagination.total === 0
-              ? "No entries"
-              : `Showing ${((pagination.page - 1) * pagination.pageSize + 1).toLocaleString("en-SG")}–${Math.min(
+              ? 'No entries'
+              : `Showing ${((pagination.page - 1) * pagination.pageSize + 1).toLocaleString('en-SG')}–${Math.min(
                   pagination.page * pagination.pageSize,
-                  pagination.total,
-                ).toLocaleString("en-SG")} of ${pagination.total.toLocaleString("en-SG")}`}
+                  pagination.total
+                ).toLocaleString(
+                  'en-SG'
+                )} of ${pagination.total.toLocaleString('en-SG')}`}
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -464,7 +485,8 @@ function _AuditLogTable({
               ← Prev
             </Button>
             <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-              {pagination.page.toLocaleString("en-SG")} / {pagination.totalPages.toLocaleString("en-SG")}
+              {pagination.page.toLocaleString('en-SG')} /{' '}
+              {pagination.totalPages.toLocaleString('en-SG')}
             </span>
             <Button
               variant="outline"
@@ -490,13 +512,13 @@ function ActionDetails({ row }: { row: MergedRow }) {
   };
 
   switch (row.action) {
-    case "entry.update":
-    case "totals.update": {
-      const field = str("field") ?? "—";
-      const oldV = str("old") ?? "∅";
-      const newV = str("new") ?? "∅";
-      const locked = ctx["was_locked"] === true;
-      const approval = str("approval_reference");
+    case 'entry.update':
+    case 'totals.update': {
+      const field = str('field') ?? '—';
+      const oldV = str('old') ?? '∅';
+      const newV = str('new') ?? '∅';
+      const locked = ctx['was_locked'] === true;
+      const approval = str('approval_reference');
       return (
         <div className="space-y-0.5">
           <div className="inline-flex flex-wrap items-center gap-1.5 font-mono">
@@ -506,183 +528,203 @@ function ActionDetails({ row }: { row: MergedRow }) {
             <span className="font-semibold">{newV}</span>
           </div>
           <div className="text-[10px] text-muted-foreground">
-            {locked ? "post-lock" : "pre-lock"}
-            {approval ? ` · approval: ${approval}` : ""}
+            {locked ? 'post-lock' : 'pre-lock'}
+            {approval ? ` · approval: ${approval}` : ''}
           </div>
         </div>
       );
     }
-    case "sheet.create":
+    case 'sheet.create':
       return (
         <span>
-          Created grading sheet{" "}
+          Created grading sheet{' '}
           <code className="rounded bg-muted px-1 text-[10px]">
-            subject {str("subject_id")?.slice(0, 8)}…
-          </code>{" "}
-          for section{" "}
+            subject {str('subject_id')?.slice(0, 8)}…
+          </code>{' '}
+          for section{' '}
           <code className="rounded bg-muted px-1 text-[10px]">
-            {str("section_id")?.slice(0, 8)}…
+            {str('section_id')?.slice(0, 8)}…
           </code>
-          {" · seeded "}
-          <span className="tabular-nums">{String(ctx["entries_seeded"] ?? 0)}</span>
-          {" entries"}
+          {' · seeded '}
+          <span className="tabular-nums">
+            {String(ctx['entries_seeded'] ?? 0)}
+          </span>
+          {' entries'}
         </span>
       );
-    case "sheet.lock":
+    case 'sheet.lock':
       return <span>Locked grading sheet {row.sheet_id?.slice(0, 8)}…</span>;
-    case "sheet.unlock":
+    case 'sheet.unlock':
       return <span>Unlocked grading sheet {row.sheet_id?.slice(0, 8)}…</span>;
-    case "sheet.unlock_force_with_pending_crs": {
-      const pendingCount = Number(ctx["pendingCount"] ?? 0);
+    case 'sheet.unlock_force_with_pending_crs': {
+      const pendingCount = Number(ctx['pendingCount'] ?? 0);
       return (
         <span>
-          Unlocked grading sheet {row.sheet_id?.slice(0, 8)}…{" "}
+          Unlocked grading sheet {row.sheet_id?.slice(0, 8)}…{' '}
           <span className="text-destructive">
-            (forced — {pendingCount}{" "}
-            pending {pendingCount === 1 ? "request" : "requests"} bypassed)
+            (forced — {pendingCount} pending{' '}
+            {pendingCount === 1 ? 'request' : 'requests'} bypassed)
           </span>
         </span>
       );
     }
-    case "student.sync": {
-      const added = ctx["added"] ?? 0;
-      const updated = ctx["updated"] ?? 0;
-      const withdrawn = ctx["withdrawn"] ?? 0;
-      const reactivated = ctx["reactivated"] ?? 0;
-      const errs = ctx["errors"] ?? 0;
+    case 'student.sync': {
+      const added = ctx['added'] ?? 0;
+      const updated = ctx['updated'] ?? 0;
+      const withdrawn = ctx['withdrawn'] ?? 0;
+      const reactivated = ctx['reactivated'] ?? 0;
+      const errs = ctx['errors'] ?? 0;
       return (
         <span className="tabular-nums">
-          Synced admissions — added <b>{String(added)}</b>, updated <b>{String(updated)}</b>,
-          withdrew <b>{String(withdrawn)}</b>, reactivated <b>{String(reactivated)}</b>
+          Synced admissions — added <b>{String(added)}</b>, updated{' '}
+          <b>{String(updated)}</b>, withdrew <b>{String(withdrawn)}</b>,
+          reactivated <b>{String(reactivated)}</b>
           {Number(errs) > 0 && (
             <span className="text-destructive"> · {String(errs)} errors</span>
           )}
         </span>
       );
     }
-    case "student.add":
+    case 'student.add':
       return (
         <span>
-          Manually added student{" "}
-          <code className="rounded bg-muted px-1 text-[10px]">{str("student_number")}</code>
-          {" ("}
-          {str("first_name")} {str("last_name")}
-          {") as #"}
-          <span className="tabular-nums">{String(ctx["index_number"] ?? "")}</span>
+          Manually added student{' '}
+          <code className="rounded bg-muted px-1 text-[10px]">
+            {str('student_number')}
+          </code>
+          {' ('}
+          {str('first_name')} {str('last_name')}
+          {') as #'}
+          <span className="tabular-nums">
+            {String(ctx['index_number'] ?? '')}
+          </span>
         </span>
       );
-    case "assignment.create":
+    case 'assignment.create':
       return (
         <span>
-          Created <b>{str("role")}</b> assignment for teacher{" "}
+          Created <b>{str('role')}</b> assignment for teacher{' '}
           <code className="rounded bg-muted px-1 text-[10px]">
-            {str("teacher_user_id")?.slice(0, 8)}…
-          </code>{" "}
-          on section{" "}
+            {str('teacher_user_id')?.slice(0, 8)}…
+          </code>{' '}
+          on section{' '}
           <code className="rounded bg-muted px-1 text-[10px]">
-            {str("section_id")?.slice(0, 8)}…
+            {str('section_id')?.slice(0, 8)}…
           </code>
-          {ctx["subject_id"] ? (
+          {ctx['subject_id'] ? (
             <>
-              {" / subject "}
+              {' / subject '}
               <code className="rounded bg-muted px-1 text-[10px]">
-                {String(ctx["subject_id"]).slice(0, 8)}…
+                {String(ctx['subject_id']).slice(0, 8)}…
               </code>
             </>
           ) : null}
         </span>
       );
-    case "assignment.delete":
+    case 'assignment.delete':
       return (
         <span>
-          Removed <b>{str("role")}</b> assignment (teacher{" "}
+          Removed <b>{str('role')}</b> assignment (teacher{' '}
           <code className="rounded bg-muted px-1 text-[10px]">
-            {str("teacher_user_id")?.slice(0, 8)}…
+            {str('teacher_user_id')?.slice(0, 8)}…
           </code>
           )
         </span>
       );
-    case "attendance.update": {
-      const after = ctx["after"] as Record<string, unknown> | undefined;
+    case 'attendance.update': {
+      const after = ctx['after'] as Record<string, unknown> | undefined;
       return (
         <span className="tabular-nums">
-          Attendance updated for enrolment{" "}
+          Attendance updated for enrolment{' '}
           <code className="rounded bg-muted px-1 text-[10px]">
-            {str("section_student_id")?.slice(0, 8)}…
+            {str('section_student_id')?.slice(0, 8)}…
           </code>
           {after && (
             <>
-              {" · school "}
-              <b>{String(after["school_days"] ?? "—")}</b>
-              {" · present "}
-              <b>{String(after["days_present"] ?? "—")}</b>
-              {" · late "}
-              <b>{String(after["days_late"] ?? "—")}</b>
+              {' · school '}
+              <b>{String(after['school_days'] ?? '—')}</b>
+              {' · present '}
+              <b>{String(after['days_present'] ?? '—')}</b>
+              {' · late '}
+              <b>{String(after['days_late'] ?? '—')}</b>
             </>
           )}
         </span>
       );
     }
-    case "comment.update":
+    case 'comment.update':
       return (
         <span>
-          Updated adviser comment for student{" "}
+          Updated adviser comment for student{' '}
           <code className="rounded bg-muted px-1 text-[10px]">
-            {str("student_id")?.slice(0, 8)}…
+            {str('student_id')?.slice(0, 8)}…
           </code>
         </span>
       );
-    case "publication.create":
+    case 'publication.create':
       return (
         <span>
-          Published report cards for section{" "}
+          Published report cards for section{' '}
           <code className="rounded bg-muted px-1 text-[10px]">
-            {str("section_id")?.slice(0, 8)}…
+            {str('section_id')?.slice(0, 8)}…
           </code>
-          {" · term "}
+          {' · term '}
           <code className="rounded bg-muted px-1 text-[10px]">
-            {str("term_id")?.slice(0, 8)}…
+            {str('term_id')?.slice(0, 8)}…
           </code>
-          {" · window "}
+          {' · window '}
           <span className="inline-flex items-center gap-1.5 tabular-nums">
-            {str("publish_from")?.slice(0, 10)}
+            {str('publish_from')?.slice(0, 10)}
             <ArrowRight className="size-3 text-muted-foreground" />
-            {str("publish_until")?.slice(0, 10)}
+            {str('publish_until')?.slice(0, 10)}
           </span>
         </span>
       );
-    case "publication.delete":
+    case 'publication.delete':
       return (
         <span>
-          Revoked report card publication for section{" "}
+          Revoked report card publication for section{' '}
           <code className="rounded bg-muted px-1 text-[10px]">
-            {str("section_id")?.slice(0, 8)}…
+            {str('section_id')?.slice(0, 8)}…
           </code>
         </span>
       );
-    case "pfile.upload": {
-      const label = str("label") ?? str("slotKey") ?? "document";
-      const merged = ctx["merged"] === true;
-      const replaced = ctx["replaced"] === true;
-      const count = ctx["fileCount"] ? String(ctx["fileCount"]) : "1";
+    case 'pfile.upload': {
+      const label = str('label') ?? str('slotKey') ?? 'document';
+      const merged = ctx['merged'] === true;
+      const replaced = ctx['replaced'] === true;
+      const count = ctx['fileCount'] ? String(ctx['fileCount']) : '1';
       return (
         <span>
-          {replaced ? "Replaced " : "Uploaded "}
-          <b>{label}</b> for student{" "}
-          <code className="rounded bg-muted px-1 text-[10px]">{row.entity_id}</code>
+          {replaced ? 'Replaced ' : 'Uploaded '}
+          <b>{label}</b> for student{' '}
+          <code className="rounded bg-muted px-1 text-[10px]">
+            {row.entity_id}
+          </code>
           {merged && (
-            <span className="text-muted-foreground"> · merged {count} PDFs</span>
+            <span className="text-muted-foreground">
+              {' '}
+              · merged {count} PDFs
+            </span>
           )}
-          {str("expiryDate") && (
-            <span className="text-muted-foreground"> · expires {str("expiryDate")}</span>
+          {str('expiryDate') && (
+            <span className="text-muted-foreground">
+              {' '}
+              · expires {str('expiryDate')}
+            </span>
           )}
-          {str("note") && (
-            <span className="text-muted-foreground"> · note: {str("note")}</span>
+          {str('note') && (
+            <span className="text-muted-foreground">
+              {' '}
+              · note: {str('note')}
+            </span>
           )}
         </span>
       );
     }
     default:
-      return <span className="text-muted-foreground">{JSON.stringify(ctx)}</span>;
+      return (
+        <span className="text-muted-foreground">{JSON.stringify(ctx)}</span>
+      );
   }
 }

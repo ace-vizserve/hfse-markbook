@@ -32,7 +32,9 @@ export function ChangePasswordForm() {
 
   async function onSubmit(values: ChangePasswordInput) {
     const supabase = createClient();
-    const { error } = await supabase.auth.updateUser({ password: values.password });
+    const { error } = await supabase.auth.updateUser({
+      password: values.password,
+    });
     if (error) {
       toast.error(error.message);
       return;
@@ -47,7 +49,11 @@ export function ChangePasswordForm() {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-6">
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        noValidate
+        className="space-y-6"
+      >
         <FormField
           control={form.control}
           name="password"
@@ -68,7 +74,9 @@ export function ChangePasswordForm() {
                     size="icon"
                     onClick={() => setShowPassword((s) => !s)}
                     aria-pressed={showPassword}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-label={
+                      showPassword ? 'Hide password' : 'Show password'
+                    }
                     className="absolute right-1 top-1/2 size-9 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
                     {showPassword ? (
@@ -79,7 +87,9 @@ export function ChangePasswordForm() {
                   </Button>
                 </div>
               </FormControl>
-              <FormDescription>Minimum 8 characters. Toggles both fields.</FormDescription>
+              <FormDescription>
+                Minimum 8 characters. Toggles both fields.
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}

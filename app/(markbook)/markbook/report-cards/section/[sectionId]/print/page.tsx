@@ -56,13 +56,15 @@ export default async function SectionPrintPage({
     .select(
       `id, name,
        academic_year:academic_years!inner(id, label, ay_code, is_current),
-       level:levels!inner(id, code, label)`,
+       level:levels!inner(id, code, label)`
     )
     .eq('id', sectionId)
     .maybeSingle();
   if (!section) notFound();
 
-  const ay = Array.isArray(section.academic_year) ? section.academic_year[0] : section.academic_year;
+  const ay = Array.isArray(section.academic_year)
+    ? section.academic_year[0]
+    : section.academic_year;
   const level = Array.isArray(section.level) ? section.level[0] : section.level;
 
   // Parallelize: current-term lookup + roster are independent once ay.id is known.
@@ -77,7 +79,7 @@ export default async function SectionPrintPage({
       .from('section_students')
       .select(
         `id, index_number, enrollment_status,
-         student:students!inner(id, last_name, first_name, middle_name, student_number)`,
+         student:students!inner(id, last_name, first_name, middle_name, student_number)`
       )
       .eq('section_id', sectionId)
       .in('enrollment_status', ['active', 'late_enrollee'])
@@ -88,7 +90,7 @@ export default async function SectionPrintPage({
   const viewingTermNumber = (
     [1, 2, 3, 4].includes(parsedTerm)
       ? parsedTerm
-      : currentTermRow?.term_number ?? 1
+      : (currentTermRow?.term_number ?? 1)
   ) as 1 | 2 | 3 | 4;
 
   const studentIds: string[] = (enrolments ?? [])
@@ -107,7 +109,7 @@ export default async function SectionPrintPage({
       studentIds.map(async (id) => {
         const result = await buildReportCard(supabase, id);
         return result.ok ? { studentId: id, payload: result.payload } : null;
-      }),
+      })
     )
   ).filter((c): c is NonNullable<typeof c> => c !== null);
 
@@ -146,10 +148,10 @@ export default async function SectionPrintPage({
               Print {section.name} report cards.
             </h1>
             <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-              {cards.length} card{cards.length === 1 ? '' : 's'} ready to
-              print. The browser dialog opens automatically — choose{' '}
-              <strong>Save as PDF</strong> as the destination to get one
-              file for the whole section.
+              {cards.length} card{cards.length === 1 ? '' : 's'} ready to print.
+              The browser dialog opens automatically — choose{' '}
+              <strong>Save as PDF</strong> as the destination to get one file
+              for the whole section.
             </p>
           </div>
           <PrintButton />
@@ -164,7 +166,10 @@ export default async function SectionPrintPage({
         )}
         {cards.map(({ studentId, payload }) => (
           <div key={studentId} className="section-print-card">
-            <ReportCardDocument payload={payload} viewingTermNumber={viewingTermNumber} />
+            <ReportCardDocument
+              payload={payload}
+              viewingTermNumber={viewingTermNumber}
+            />
           </div>
         ))}
       </div>

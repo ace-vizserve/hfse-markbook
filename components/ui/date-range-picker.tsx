@@ -71,7 +71,9 @@ export function DateRangePicker({
   className,
 }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
-  const [pendingRange, setPendingRange] = React.useState<DayPickerRange | undefined>(undefined);
+  const [pendingRange, setPendingRange] = React.useState<
+    DayPickerRange | undefined
+  >(undefined);
 
   // Text inputs — YYYY-MM-DD strings, editable directly in the trigger.
   const [fromText, setFromText] = React.useState(value.from);
@@ -85,7 +87,7 @@ export function DateRangePicker({
 
   const windows = React.useMemo(
     () => ({ term: termWindows, ay: ayWindows }),
-    [termWindows, ayWindows],
+    [termWindows, ayWindows]
   );
 
   const activePreset = detectPreset(value, windows, undefined, presets);
@@ -138,7 +140,10 @@ export function DateRangePicker({
         if (fromDate && toDate && toDate >= fromDate) {
           const draftFrom = toISODate(fromDate);
           const draftTo = toISODate(toDate);
-          if (draftFrom !== appliedRangeRef.current.from || draftTo !== appliedRangeRef.current.to) {
+          if (
+            draftFrom !== appliedRangeRef.current.from ||
+            draftTo !== appliedRangeRef.current.to
+          ) {
             const range: DateRange = { from: draftFrom, to: draftTo };
             appliedRangeRef.current = range;
             onChange(range);
@@ -195,7 +200,10 @@ export function DateRangePicker({
       setToError('Invalid date — use YYYY-MM-DD');
       return false;
     }
-    const fromDate = pendingRange?.from ?? parseLocalDate(fromText) ?? parseLocalDate(value.from);
+    const fromDate =
+      pendingRange?.from ??
+      parseLocalDate(fromText) ??
+      parseLocalDate(value.from);
     if (fromDate && parsed < fromDate) {
       setToError('End date must be on or after the start date');
       return false;
@@ -229,7 +237,7 @@ export function DateRangePicker({
 
   function buildDisabledMatcher(
     min: string | undefined,
-    max: string | undefined,
+    max: string | undefined
   ): Matcher | undefined {
     const before = min ? parseLocalDate(min) : null;
     const after = max ? parseLocalDate(max) : null;
@@ -241,13 +249,12 @@ export function DateRangePicker({
 
   const namedPresets = presets.filter((p) => p !== 'custom');
 
-  const pendingLabel =
-    pendingRange?.from
-      ? formatRangeLabel({
-          from: toISODate(pendingRange.from),
-          to: toISODate(pendingRange.to ?? pendingRange.from),
-        })
-      : formatRangeLabel(value);
+  const pendingLabel = pendingRange?.from
+    ? formatRangeLabel({
+        from: toISODate(pendingRange.from),
+        to: toISODate(pendingRange.to ?? pendingRange.from),
+      })
+    : formatRangeLabel(value);
 
   return (
     <Popover open={open} onOpenChange={handlePopoverChange}>
@@ -260,7 +267,7 @@ export function DateRangePicker({
             'flex h-10 cursor-default items-center gap-2 rounded-md border border-input bg-background px-3',
             'ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2',
             disabled && 'pointer-events-none opacity-50',
-            className,
+            className
           )}
         >
           <CalendarIcon className="size-4 shrink-0 text-ink-4" />
@@ -271,7 +278,10 @@ export function DateRangePicker({
             placeholder="YYYY-MM-DD"
             disabled={disabled}
             aria-label="Start date"
-            onChange={(e) => { setFromText(e.target.value); setFromError(null); }}
+            onChange={(e) => {
+              setFromText(e.target.value);
+              setFromError(null);
+            }}
             onFocus={() => setOpen(true)}
             onBlur={() => validateFrom()}
             onKeyDown={(e) => {
@@ -280,10 +290,13 @@ export function DateRangePicker({
                 if (ok) handlePopoverChange(false);
               }
             }}
-            onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(true);
+            }}
             className={cn(
               'w-[6.5rem] bg-transparent font-mono text-[12px] tabular-nums focus:outline-none',
-              fromError ? 'text-destructive' : 'text-foreground',
+              fromError ? 'text-destructive' : 'text-foreground'
             )}
           />
 
@@ -295,7 +308,10 @@ export function DateRangePicker({
             placeholder="YYYY-MM-DD"
             disabled={disabled}
             aria-label="End date"
-            onChange={(e) => { setToText(e.target.value); setToError(null); }}
+            onChange={(e) => {
+              setToText(e.target.value);
+              setToError(null);
+            }}
             onFocus={() => setOpen(true)}
             onBlur={() => validateTo()}
             onKeyDown={(e) => {
@@ -304,10 +320,13 @@ export function DateRangePicker({
                 if (ok) handlePopoverChange(false);
               }
             }}
-            onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(true);
+            }}
             className={cn(
               'w-[6.5rem] bg-transparent font-mono text-[12px] tabular-nums focus:outline-none',
-              toError ? 'text-destructive' : 'text-foreground',
+              toError ? 'text-destructive' : 'text-foreground'
             )}
           />
 
@@ -356,7 +375,7 @@ export function DateRangePicker({
                     isActive
                       ? 'bg-accent text-accent-foreground'
                       : 'text-foreground hover:bg-accent/60',
-                    !enabled && 'cursor-not-allowed opacity-40',
+                    !enabled && 'cursor-not-allowed opacity-40'
                   )}
                 >
                   <span className="font-medium">{PRESET_LABEL[p]}</span>

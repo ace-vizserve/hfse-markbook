@@ -46,11 +46,17 @@ const STAGE_VARIANT: Record<string, StatusVariant> = {
   Withdrawn: 'muted',
 };
 
-export function StageStatusBadge({ status }: { status: string | null | undefined }) {
+export function StageStatusBadge({
+  status,
+}: {
+  status: string | null | undefined;
+}) {
   const v = (status ?? '').trim();
   if (!v) {
     return (
-      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">—</span>
+      <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        —
+      </span>
     );
   }
   const variant = STAGE_VARIANT[v] ?? 'muted';

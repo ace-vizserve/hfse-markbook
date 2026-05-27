@@ -17,7 +17,7 @@ import type { Role } from '@/lib/auth/roles';
 export async function getSidebarChangeRequestCount(
   service: SupabaseClient,
   role: Role,
-  userId: string,
+  userId: string
 ): Promise<number> {
   // Resolve current AY id once; if none, no CRs are in-scope for any role.
   const { data: ayData } = await service
@@ -36,7 +36,7 @@ export async function getSidebarChangeRequestCount(
     .from('grade_change_requests')
     .select(
       'id, grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))',
-      { count: 'exact', head: true },
+      { count: 'exact', head: true }
     )
     .eq('grading_sheet.section.academic_year_id', currentAyId);
 
@@ -48,7 +48,7 @@ export async function getSidebarChangeRequestCount(
     query = query
       .eq('status', 'pending')
       .or(
-        `primary_approver_id.eq.${userId},secondary_approver_id.eq.${userId},and(primary_approver_id.is.null,secondary_approver_id.is.null)`,
+        `primary_approver_id.eq.${userId},secondary_approver_id.eq.${userId},and(primary_approver_id.is.null,secondary_approver_id.is.null)`
       );
   } else {
     return 0;

@@ -9,11 +9,7 @@
     "app/**/route.ts",
     "proxy.ts"
   ],
-  "ignorePatterns": [
-    "components/ui/**",
-    "hooks/use-mobile.ts",
-    "scripts/**"
-  ],
+  "ignorePatterns": ["components/ui/**", "hooks/use-mobile.ts", "scripts/**"],
   "ignoreDependencies": [
     "shadcn",
     "@radix-ui/react-checkbox",

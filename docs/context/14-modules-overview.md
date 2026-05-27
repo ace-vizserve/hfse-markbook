@@ -74,16 +74,16 @@ Cross-module examples today:
 
 Every admissions-owned table has one **primary writer**. Other modules may have narrow write responsibilities for specific columns — those are called out explicitly. The rule: if you're adding a write to one of these tables from a new surface, either register that column as a new owned responsibility or go through the existing owner's API.
 
-| Table (or column) | Records module | P-Files | Markbook | Admissions dashboard |
-|---|---|---|---|---|
-| `ay{YY}_enrolment_applications` (demographics, parent emails) | **Write** (Profile / Family PATCH routes) | Write — passport# / pass type via upload dialog (KD #34) | Read (parent→student lookup) | Read |
-| `ay{YY}_enrolment_status` (stage pipeline) | **Write** (Stage PATCH route) | Read | Read (filter enrolled) | Read |
-| `ay{YY}_enrolment_documents.{slotKey}` (URL) | Read | **Write** (canonical file URL + archive prior to `p_file_revisions`) | — | Read (completeness) |
-| `ay{YY}_enrolment_documents.{slotKey}Status` | **Write** (Valid / Rejected) | Write on staff upload (sets `'Valid'` only, KD #37) | — | Read |
-| `ay{YY}_enrolment_documents.{slotKey}Expiry` | Read / edit | **Write** (from upload dialog metadata) | — | — |
-| `p_file_revisions` | Read (historical context) | **Write** (append on replace, KD #36) | — | — |
-| `ay{YY}_discount_codes` (catalogue) | **Write** (exclusive, catalogue CRUD + soft-delete) | — | — | — |
-| `ay{YY}_enrolment_applications.discount{1,2,3}` | Write (via Profile sheet) | — | Read | — |
+| Table (or column)                                             | Records module                                      | P-Files                                                              | Markbook                     | Admissions dashboard |
+| ------------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------- | -------------------- |
+| `ay{YY}_enrolment_applications` (demographics, parent emails) | **Write** (Profile / Family PATCH routes)           | Write — passport# / pass type via upload dialog (KD #34)             | Read (parent→student lookup) | Read                 |
+| `ay{YY}_enrolment_status` (stage pipeline)                    | **Write** (Stage PATCH route)                       | Read                                                                 | Read (filter enrolled)       | Read                 |
+| `ay{YY}_enrolment_documents.{slotKey}` (URL)                  | Read                                                | **Write** (canonical file URL + archive prior to `p_file_revisions`) | —                            | Read (completeness)  |
+| `ay{YY}_enrolment_documents.{slotKey}Status`                  | **Write** (Valid / Rejected)                        | Write on staff upload (sets `'Valid'` only, KD #37)                  | —                            | Read                 |
+| `ay{YY}_enrolment_documents.{slotKey}Expiry`                  | Read / edit                                         | **Write** (from upload dialog metadata)                              | —                            | —                    |
+| `p_file_revisions`                                            | Read (historical context)                           | **Write** (append on replace, KD #36)                                | —                            | —                    |
+| `ay{YY}_discount_codes` (catalogue)                           | **Write** (exclusive, catalogue CRUD + soft-delete) | —                                                                    | —                            | —                    |
+| `ay{YY}_enrolment_applications.discount{1,2,3}`               | Write (via Profile sheet)                           | —                                                                    | Read                         | —                    |
 
 **Per-student discount grants** are written by the external enrolment portal directly into the `discount{1,2,3}` slot columns — the Records module only manages the code catalogue and edits the slot strings on the student's application row. There is no separate per-student grant ledger.
 
@@ -91,10 +91,10 @@ Every admissions-owned table has one **primary writer**. Other modules may have 
 
 Two columns in the admissions schema are both named `applicationStatus`, in different tables, with completely different value spaces. This is the most common source of confusion when reading admissions code, so it lives here in the cross-module contract:
 
-| Table | Owner | Value space | Meaning |
-|---|---|---|---|
-| `ay{YY}_enrolment_applications.applicationStatus` | Parent portal | `Draft` (presumed) / `Registered` (observed) | Application *form* submission state — set when the parent finishes the form on `enrol.hfse.edu.sg`. |
-| `ay{YY}_enrolment_status.applicationStatus` | SIS / admissions team | `Submitted` / `Ongoing Verification` / `Processing` / `Enrolled` / `Enrolled (Conditional)` / `Cancelled` / `Withdrawn` | SIS-side workflow pipeline. Canonical list in `lib/schemas/sis.ts:STAGE_STATUS_OPTIONS.application`. |
+| Table                                             | Owner                 | Value space                                                                                                             | Meaning                                                                                              |
+| ------------------------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `ay{YY}_enrolment_applications.applicationStatus` | Parent portal         | `Draft` (presumed) / `Registered` (observed)                                                                            | Application _form_ submission state — set when the parent finishes the form on `enrol.hfse.edu.sg`.  |
+| `ay{YY}_enrolment_status.applicationStatus`       | SIS / admissions team | `Submitted` / `Ongoing Verification` / `Processing` / `Enrolled` / `Enrolled (Conditional)` / `Cancelled` / `Withdrawn` | SIS-side workflow pipeline. Canonical list in `lib/schemas/sis.ts:STAGE_STATUS_OPTIONS.application`. |
 
 **Every drill, dashboard, lifecycle widget, sync filter, and roster builder reads from the SIS-side (status) column.** Default to assuming the **status table** when code says `applicationStatus`; the apps-table column is only useful for "did the parent finish the form yet?" Full discussion: `06-admissions-integration.md` § The two `applicationStatus` columns.
 
@@ -125,19 +125,19 @@ Deep-links, SSO handoffs, and module-to-module routes currently in place:
 
 Reflects current `ROUTE_ACCESS` in `lib/auth/roles.ts`. `—` means the role cannot reach that surface. Note the `admin` vs `school_admin` split per KD #39: admins are the grade-change approval pool; school_admins handle operations.
 
-| Module / surface | teacher | parent | p-file | registrar | school_admin | admin | superadmin |
-|---|---|---|---|---|---|---|---|
-| Markbook `/grading` (own sheets) | ✓ read/write | — | — | ✓ full | ✓ full | ✓ full | ✓ full |
-| Markbook `/report-cards` | — | — | — | ✓ full | ✓ full | ✓ full | ✓ full |
-| Markbook `/admin/sections/*` | — | — | — | ✓ full | ✓ full | ✓ full | ✓ full |
-| Markbook `/admin/change-requests` (approve/reject) | — | — | — | — (view only) | — | ✓ (if designated) | — (observes) |
-| Parent `/parent/*` | — | ✓ read own | — | — | — | — | — |
-| P-Files `/p-files/*` | — | — | ✓ full | — | ✓ read | ✓ read | ✓ full |
-| Admissions dashboard `/admin/admissions` | — | — | — | ✓ read | ✓ read + export | ✓ read + export | ✓ read + export |
-| Records module `/sis/*` | — | — | — | ✓ full | ✓ full | ✓ full | ✓ full |
-| AY Setup `/sis/ay-setup` | — | — | — | — | ✓ create + switch-active | ✓ create + switch-active | ✓ full incl. delete |
-| Approver management `/sis/admin/approvers` | — | — | — | — | — | — | ✓ |
-| Module switcher visible | — | — | locked to P-Files | — | ✓ | ✓ | ✓ |
+| Module / surface                                   | teacher      | parent     | p-file            | registrar     | school_admin             | admin                    | superadmin          |
+| -------------------------------------------------- | ------------ | ---------- | ----------------- | ------------- | ------------------------ | ------------------------ | ------------------- |
+| Markbook `/grading` (own sheets)                   | ✓ read/write | —          | —                 | ✓ full        | ✓ full                   | ✓ full                   | ✓ full              |
+| Markbook `/report-cards`                           | —            | —          | —                 | ✓ full        | ✓ full                   | ✓ full                   | ✓ full              |
+| Markbook `/admin/sections/*`                       | —            | —          | —                 | ✓ full        | ✓ full                   | ✓ full                   | ✓ full              |
+| Markbook `/admin/change-requests` (approve/reject) | —            | —          | —                 | — (view only) | —                        | ✓ (if designated)        | — (observes)        |
+| Parent `/parent/*`                                 | —            | ✓ read own | —                 | —             | —                        | —                        | —                   |
+| P-Files `/p-files/*`                               | —            | —          | ✓ full            | —             | ✓ read                   | ✓ read                   | ✓ full              |
+| Admissions dashboard `/admin/admissions`           | —            | —          | —                 | ✓ read        | ✓ read + export          | ✓ read + export          | ✓ read + export     |
+| Records module `/sis/*`                            | —            | —          | —                 | ✓ full        | ✓ full                   | ✓ full                   | ✓ full              |
+| AY Setup `/sis/ay-setup`                           | —            | —          | —                 | —             | ✓ create + switch-active | ✓ create + switch-active | ✓ full incl. delete |
+| Approver management `/sis/admin/approvers`         | —            | —          | —                 | —             | —                        | —                        | ✓                   |
+| Module switcher visible                            | —            | —          | locked to P-Files | —             | ✓                        | ✓                        | ✓                   |
 
 Some further nuance: within Markbook the `teacher` role is scoped to their own `teacher_assignments` rows; within P-Files both `school_admin` and `admin` can view files + history but cannot upload or replace (only `p-file` + `superadmin` write).
 

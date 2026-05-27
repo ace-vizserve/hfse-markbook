@@ -59,7 +59,9 @@ export function ActivityByActorCard({
           {empty ? (
             <div className="flex h-[260px] flex-col items-center justify-center gap-2 text-center">
               <UserCog className="size-6 text-muted-foreground/60" />
-              <p className="text-sm font-medium text-foreground">No audit activity</p>
+              <p className="text-sm font-medium text-foreground">
+                No audit activity
+              </p>
               <p className="max-w-xs text-xs text-muted-foreground">
                 Bars appear once mutating routes start logging in this range.
               </p>
@@ -74,7 +76,7 @@ export function ActivityByActorCard({
                 // Match label back to actor — emails are unique; userId stubs
                 // are 8 chars and might collide but practically don't.
                 const actor = top.find(
-                  (r) => (r.email ?? r.userId.slice(0, 8)) === label,
+                  (r) => (r.email ?? r.userId.slice(0, 8)) === label
                 );
                 if (actor) {
                   // Pass actorEmail as segment when available — drill API

@@ -102,31 +102,31 @@ export function invalidateDrillTags(module: DrillModule, ayCode: string): void {
 
 Apply `invalidateDrillTags(<module>, ayCode)` after the DB write succeeds in every mutation route below. The `ayCode` is already resolved in each route's existing logic (most via the section/student/AY context). Cross-module mutations call the helper for each affected module.
 
-| Route file | Module(s) to invalidate |
-|---|---|
-| `app/api/grading-sheets/route.ts` (POST) | markbook |
-| `app/api/grading-sheets/[id]/route.ts` (PATCH/DELETE) | markbook |
-| `app/api/grading-sheets/[id]/lock/route.ts` (PATCH) | markbook |
-| `app/api/grading-sheets/[id]/unlock/route.ts` (PATCH) | markbook |
-| `app/api/grading-sheets/[id]/entries/[entryId]/route.ts` (PATCH) | markbook |
-| `app/api/grading-sheets/[id]/totals/route.ts` (PATCH) | markbook |
-| `app/api/change-requests/route.ts` (POST) | markbook |
-| `app/api/change-requests/[id]/route.ts` (PATCH/DELETE) | markbook |
-| `app/api/report-card-publications/route.ts` (POST) | markbook |
-| `app/api/report-card-publications/[id]/route.ts` (PATCH/DELETE) | markbook |
-| `app/api/attendance/daily/route.ts` (PATCH) | attendance |
-| `app/api/attendance/calendar/route.ts` (POST) | attendance |
-| `app/api/attendance/calendar/events/route.ts` (POST) | attendance |
-| `app/api/attendance/calendar/copy-from-prior-ay/route.ts` (POST) | attendance |
-| `app/api/evaluation/writeups/route.ts` (POST/PATCH) | evaluation |
-| `app/api/sections/[id]/students/route.ts` (POST) | markbook + attendance + evaluation + records + p-files |
-| `app/api/sections/[id]/students/[enrolmentId]/route.ts` (PATCH/DELETE) | markbook + attendance + evaluation + records + p-files |
-| `app/api/p-files/[enroleeNumber]/revisions/route.ts` (POST) | p-files |
-| `app/api/p-files/[enroleeNumber]/upload/route.ts` (POST) | p-files |
-| `app/api/p-files/[enroleeNumber]/promise/route.ts` (POST) | p-files (existing partial `revalidateTag('sis:${ayCode}')` stays; helper call is added) |
-| `app/api/p-files/[enroleeNumber]/notify/route.ts` (POST) | p-files |
-| `app/api/p-files/notify/bulk/route.ts` (POST) | p-files |
-| `app/api/sis/students/[enroleeNumber]/transfer-section/route.ts` (POST) | markbook + attendance + evaluation + records + p-files |
+| Route file                                                              | Module(s) to invalidate                                                                 |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `app/api/grading-sheets/route.ts` (POST)                                | markbook                                                                                |
+| `app/api/grading-sheets/[id]/route.ts` (PATCH/DELETE)                   | markbook                                                                                |
+| `app/api/grading-sheets/[id]/lock/route.ts` (PATCH)                     | markbook                                                                                |
+| `app/api/grading-sheets/[id]/unlock/route.ts` (PATCH)                   | markbook                                                                                |
+| `app/api/grading-sheets/[id]/entries/[entryId]/route.ts` (PATCH)        | markbook                                                                                |
+| `app/api/grading-sheets/[id]/totals/route.ts` (PATCH)                   | markbook                                                                                |
+| `app/api/change-requests/route.ts` (POST)                               | markbook                                                                                |
+| `app/api/change-requests/[id]/route.ts` (PATCH/DELETE)                  | markbook                                                                                |
+| `app/api/report-card-publications/route.ts` (POST)                      | markbook                                                                                |
+| `app/api/report-card-publications/[id]/route.ts` (PATCH/DELETE)         | markbook                                                                                |
+| `app/api/attendance/daily/route.ts` (PATCH)                             | attendance                                                                              |
+| `app/api/attendance/calendar/route.ts` (POST)                           | attendance                                                                              |
+| `app/api/attendance/calendar/events/route.ts` (POST)                    | attendance                                                                              |
+| `app/api/attendance/calendar/copy-from-prior-ay/route.ts` (POST)        | attendance                                                                              |
+| `app/api/evaluation/writeups/route.ts` (POST/PATCH)                     | evaluation                                                                              |
+| `app/api/sections/[id]/students/route.ts` (POST)                        | markbook + attendance + evaluation + records + p-files                                  |
+| `app/api/sections/[id]/students/[enrolmentId]/route.ts` (PATCH/DELETE)  | markbook + attendance + evaluation + records + p-files                                  |
+| `app/api/p-files/[enroleeNumber]/revisions/route.ts` (POST)             | p-files                                                                                 |
+| `app/api/p-files/[enroleeNumber]/upload/route.ts` (POST)                | p-files                                                                                 |
+| `app/api/p-files/[enroleeNumber]/promise/route.ts` (POST)               | p-files (existing partial `revalidateTag('sis:${ayCode}')` stays; helper call is added) |
+| `app/api/p-files/[enroleeNumber]/notify/route.ts` (POST)                | p-files                                                                                 |
+| `app/api/p-files/notify/bulk/route.ts` (POST)                           | p-files                                                                                 |
+| `app/api/sis/students/[enroleeNumber]/transfer-section/route.ts` (POST) | markbook + attendance + evaluation + records + p-files                                  |
 
 The implementation plan should re-walk `app/api/**` once during the audit pass to catch any routes the explore agent missed; the table above is the floor, not the ceiling.
 
@@ -164,7 +164,7 @@ const TrendChartImpl = dynamic(
   {
     ssr: false,
     loading: () => <ChartSkeleton kind="trend" />,
-  },
+  }
 );
 
 export function TrendChart(props: TrendChartProps) {
@@ -236,13 +236,13 @@ Phases 3, 4, 5 can run as parallel subagents after 1+2 land. The Phase C precede
 
 ## 7. Verification per phase
 
-| Phase | Manual check | Build/type check |
-|---|---|---|
-| A | Open a drill, reload tab, confirm second open shows `(memory cache)` or `(disk cache)` in devtools Network. | `npx next build` clean. |
-| B | Write a grade entry as a teacher, navigate back to `/markbook`, confirm new entry appears immediately (not after 60s). Repeat for one mutation per module. | `npx tsc --noEmit` clean. |
-| D.i | `npx next build` output: `/markbook` (and similar) main chunk shrinks; chart components appear as separate chunks. Visual: hero charts show skeleton briefly on first paint. | Build clean. |
-| D.ii | Devtools Network: RSC payload size for `/markbook` drops (drill JSX no longer ships eagerly). | TS clean. |
-| D.iii | Open a drill, confirm no scope toggle visible. Change page-level date picker, re-open same drill, confirm rows reflect new range. | TS + build clean. |
+| Phase | Manual check                                                                                                                                                                 | Build/type check          |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| A     | Open a drill, reload tab, confirm second open shows `(memory cache)` or `(disk cache)` in devtools Network.                                                                  | `npx next build` clean.   |
+| B     | Write a grade entry as a teacher, navigate back to `/markbook`, confirm new entry appears immediately (not after 60s). Repeat for one mutation per module.                   | `npx tsc --noEmit` clean. |
+| D.i   | `npx next build` output: `/markbook` (and similar) main chunk shrinks; chart components appear as separate chunks. Visual: hero charts show skeleton briefly on first paint. | Build clean.              |
+| D.ii  | Devtools Network: RSC payload size for `/markbook` drops (drill JSX no longer ships eagerly).                                                                                | TS clean.                 |
+| D.iii | Open a drill, confirm no scope toggle visible. Change page-level date picker, re-open same drill, confirm rows reflect new range.                                            | TS + build clean.         |
 
 No automated tests — project has no test framework (per dev-plan cross-cutting backlog).
 
@@ -256,12 +256,12 @@ No automated tests — project has no test framework (per dev-plan cross-cutting
 
 ## 9. Risk
 
-| Risk | Probability | Mitigation |
-|---|---|---|
-| B audit misses a mutation route | Medium | Implementation plan includes a final grep pass over `app/api/**` for `.from('<table>').insert/update/upsert/delete` matching the cached tables; subagent reports any new routes it found. |
-| D.i above-the-fold chart skeletons feel janky | Low | Skeletons match recharts dimensions exactly; first navigation caches the chunk so subsequent loads don't re-skeleton. |
-| D.iii surprises users who relied on the in-drill toggle | Low | KD #56 documents the toggle as a designed escape hatch, but the page-level `thisAY` preset (KD #79) is one-click equivalent. CLAUDE.md session-context entry will note the change. |
-| A's `Cache-Control` + B's `revalidateTag` create a double-invalidation that confuses users | Very low | Browser cache + server cache are separate layers. `revalidateTag` invalidates the server cache only. Browser cache expires by `max-age=60`. The two layers compose: server invalidation takes effect on the next browser-cache miss, max 60s lag. Same as today's contract. |
+| Risk                                                                                       | Probability | Mitigation                                                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B audit misses a mutation route                                                            | Medium      | Implementation plan includes a final grep pass over `app/api/**` for `.from('<table>').insert/update/upsert/delete` matching the cached tables; subagent reports any new routes it found.                                                                                   |
+| D.i above-the-fold chart skeletons feel janky                                              | Low         | Skeletons match recharts dimensions exactly; first navigation caches the chunk so subsequent loads don't re-skeleton.                                                                                                                                                       |
+| D.iii surprises users who relied on the in-drill toggle                                    | Low         | KD #56 documents the toggle as a designed escape hatch, but the page-level `thisAY` preset (KD #79) is one-click equivalent. CLAUDE.md session-context entry will note the change.                                                                                          |
+| A's `Cache-Control` + B's `revalidateTag` create a double-invalidation that confuses users | Very low    | Browser cache + server cache are separate layers. `revalidateTag` invalidates the server cache only. Browser cache expires by `max-age=60`. The two layers compose: server invalidation takes effect on the next browser-cache miss, max 60s lag. Same as today's contract. |
 
 ## 10. Documentation updates after implementation
 

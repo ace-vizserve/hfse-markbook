@@ -80,51 +80,51 @@ const ENROLEE_CATEGORIES = [
 
 export const ProfileUpdateSchema = z.object({
   // Names — all optional (some students have only a first/last)
-  firstName:      optionalText(120),
-  middleName:     optionalText(120),
-  lastName:       optionalText(120),
-  preferredName:  optionalText(120),
+  firstName: optionalText(120),
+  middleName: optionalText(120),
+  lastName: optionalText(120),
+  preferredName: optionalText(120),
   enroleeFullName: optionalText(240),
   // Identity
-  category:       z.enum(ENROLEE_CATEGORIES).nullable().optional(),
-  nric:           optionalText(40),
-  birthDay:       optionalDate,
-  gender:         optionalText(40),
-  nationality:    optionalText(80),
+  category: z.enum(ENROLEE_CATEGORIES).nullable().optional(),
+  nric: optionalText(40),
+  birthDay: optionalDate,
+  gender: optionalText(40),
+  nationality: optionalText(80),
   primaryLanguage: optionalText(80),
-  religion:       optionalText(80),
-  religionOther:  optionalText(120),
+  religion: optionalText(80),
+  religionOther: optionalText(120),
   // Travel docs (also editable in P-Files for non-staff workflows; SIS keeps
   // them in sync via the same column writes — Key Decision #34 still applies.)
   passportNumber: optionalText(40),
   passportExpiry: optionalDate,
-  pass:           optionalText(60),
-  passExpiry:     optionalDate,
+  pass: optionalText(60),
+  passExpiry: optionalDate,
   // Contact
-  homePhone:           optionalNumberOrText,
-  homeAddress:         optionalText(500),
-  postalCode:          optionalNumberOrText,
-  livingWithWhom:      optionalText(120),
-  contactPerson:       optionalText(120),
+  homePhone: optionalNumberOrText,
+  homeAddress: optionalText(500),
+  postalCode: optionalNumberOrText,
+  livingWithWhom: optionalText(120),
+  contactPerson: optionalText(120),
   contactPersonNumber: optionalNumberOrText,
   parentMaritalStatus: optionalText(60),
   // Application preferences
-  levelApplied:             optionalText(80),
-  preferredSchedule:        optionalText(80),
-  classType:                optionalText(80),
-  paymentOption:            optionalText(80),
-  availSchoolBus:           optionalYesNo,
-  availStudentCare:         optionalYesNo,
-  studentCareProgram:       optionalText(120),
-  availUniform:             optionalYesNo,
-  additionalLearningNeeds:  optionalText(2000),
-  otherLearningNeeds:       optionalText(2000),
-  previousSchool:           optionalText(240),
+  levelApplied: optionalText(80),
+  preferredSchedule: optionalText(80),
+  classType: optionalText(80),
+  paymentOption: optionalText(80),
+  availSchoolBus: optionalYesNo,
+  availStudentCare: optionalYesNo,
+  studentCareProgram: optionalText(120),
+  availUniform: optionalYesNo,
+  additionalLearningNeeds: optionalText(2000),
+  otherLearningNeeds: optionalText(2000),
+  previousSchool: optionalText(240),
   howDidYouKnowAboutHFSEIS: optionalText(120),
-  otherSource:              optionalText(240),
-  referrerName:             optionalText(120),
-  referrerMobile:           optionalNumberOrText,
-  contractSignatory:        optionalText(120),
+  otherSource: optionalText(240),
+  referrerName: optionalText(120),
+  referrerMobile: optionalNumberOrText,
+  contractSignatory: optionalText(120),
   // Discount slots — these are codes; the future enrolment_discounts table
   // (Phase 3) is the per-student grant ledger
   discount1: optionalText(60),
@@ -161,41 +161,41 @@ export const ProfileUpdateSchema = z.object({
   siblingSchoolCompany5: optionalText(240),
   // Medical history — bool flags + free-text details. Parent portal writes;
   // SIS Profile sheet's future Medical section will edit.
-  allergies:               optionalBool,
-  allergyDetails:          optionalText(2000),
-  asthma:                  optionalBool,
-  foodAllergies:           optionalBool,
-  foodAllergyDetails:      optionalText(2000),
-  heartConditions:         optionalBool,
-  epilepsy:                optionalBool,
-  diabetes:                optionalBool,
-  eczema:                  optionalBool,
-  otherMedicalConditions:  optionalText(2000),
-  paracetamolConsent:      optionalBool,
-  dietaryRestrictions:     optionalText(2000),
+  allergies: optionalBool,
+  allergyDetails: optionalText(2000),
+  asthma: optionalBool,
+  foodAllergies: optionalBool,
+  foodAllergyDetails: optionalText(2000),
+  heartConditions: optionalBool,
+  epilepsy: optionalBool,
+  diabetes: optionalBool,
+  eczema: optionalBool,
+  otherMedicalConditions: optionalText(2000),
+  paracetamolConsent: optionalBool,
+  dietaryRestrictions: optionalText(2000),
   // Consent flags + Pre-course / feedback workflow (parent-portal-side
   // workflow; mostly read-only from SIS perspective but included so the
   // round-trip schema covers them).
-  socialMediaConsent:      optionalBool,
-  feedbackConsent:         optionalBool,
-  preCourseAnswer:         optionalText(80),
-  preCourseDate:           optionalText(60),
+  socialMediaConsent: optionalBool,
+  feedbackConsent: optionalBool,
+  preCourseAnswer: optionalText(80),
+  preCourseDate: optionalText(60),
   preCourseAcknowledgedAt: optionalText(60),
-  feedbackRating:          z.number().int().min(1).max(5).nullable().optional(),
-  feedbackComments:        optionalText(2000),
-  feedbackSubmittedAt:     optionalText(60),
+  feedbackRating: z.number().int().min(1).max(5).nullable().optional(),
+  feedbackComments: optionalText(2000),
+  feedbackSubmittedAt: optionalText(60),
   // VizSchool / STP track — also referenced from STP Application card per
   // KD #61. stpApplicationType is a free-text field (typical value
   // 'New Student Pass Application'; renewal types may differ).
-  vizSchoolProgram:        optionalText(120),
-  stpApplicationType:      optionalText(120),
+  vizSchoolProgram: optionalText(120),
+  stpApplicationType: optionalText(120),
   // Other extras
-  enroleePhoto:            optionalText(500),
-  creatorUid:              optionalText(60),
+  enroleePhoto: optionalText(500),
+  creatorUid: optionalText(60),
   // residenceHistory is jsonb in the DB; passes through as a string. Edits
   // go through the dedicated /api/sis/students/[enroleeNumber]/residence-history
   // route (KD #61) — included here for round-trip read coverage.
-  residenceHistory:        optionalText(4000),
+  residenceHistory: optionalText(4000),
 });
 
 export type ProfileUpdateInput = z.infer<typeof ProfileUpdateSchema>;
@@ -218,76 +218,76 @@ const optionalEmail = z
 
 // Father has the largest field set (also serves mother/guardian via re-use).
 export const FatherUpdateSchema = z.object({
-  fatherFullName:           optionalText(240),
-  fatherFirstName:          optionalText(120),
-  fatherMiddleName:         optionalText(120),
-  fatherLastName:           optionalText(120),
-  fatherPreferredName:      optionalText(120),
-  fatherNric:               optionalText(40),
-  fatherBirthDay:           optionalDate,
-  fatherMobile:             optionalNumberOrText,
-  fatherEmail:              optionalEmail,
-  fatherNationality:        optionalText(80),
-  fatherReligion:           optionalText(80),
-  fatherReligionOther:      optionalText(120),
-  fatherMarital:            optionalText(60),
-  fatherCompanyName:        optionalText(240),
-  fatherPosition:           optionalText(120),
-  fatherPassport:           optionalText(40),
-  fatherPassportExpiry:     optionalDate,
-  fatherPass:               optionalText(60),
-  fatherPassExpiry:         optionalDate,
+  fatherFullName: optionalText(240),
+  fatherFirstName: optionalText(120),
+  fatherMiddleName: optionalText(120),
+  fatherLastName: optionalText(120),
+  fatherPreferredName: optionalText(120),
+  fatherNric: optionalText(40),
+  fatherBirthDay: optionalDate,
+  fatherMobile: optionalNumberOrText,
+  fatherEmail: optionalEmail,
+  fatherNationality: optionalText(80),
+  fatherReligion: optionalText(80),
+  fatherReligionOther: optionalText(120),
+  fatherMarital: optionalText(60),
+  fatherCompanyName: optionalText(240),
+  fatherPosition: optionalText(120),
+  fatherPassport: optionalText(40),
+  fatherPassportExpiry: optionalDate,
+  fatherPass: optionalText(60),
+  fatherPassExpiry: optionalDate,
   fatherWhatsappTeamsConsent: optionalBool,
 });
 
 export const MotherUpdateSchema = z.object({
-  motherFullName:           optionalText(240),
-  motherFirstName:          optionalText(120),
-  motherMiddleName:         optionalText(120),
-  motherLastName:           optionalText(120),
-  motherPreferredName:      optionalText(120),
-  motherNric:               optionalText(40),
-  motherBirthDay:           optionalDate,
-  motherMobile:             optionalNumberOrText,
-  motherEmail:              optionalEmail,
-  motherNationality:        optionalText(80),
-  motherReligion:           optionalText(80),
-  motherReligionOther:      optionalText(120),
-  motherMarital:            optionalText(60),
-  motherCompanyName:        optionalText(240),
-  motherPosition:           optionalText(120),
-  motherPassport:           optionalText(40),
-  motherPassportExpiry:     optionalDate,
-  motherPass:               optionalText(60),
-  motherPassExpiry:         optionalDate,
+  motherFullName: optionalText(240),
+  motherFirstName: optionalText(120),
+  motherMiddleName: optionalText(120),
+  motherLastName: optionalText(120),
+  motherPreferredName: optionalText(120),
+  motherNric: optionalText(40),
+  motherBirthDay: optionalDate,
+  motherMobile: optionalNumberOrText,
+  motherEmail: optionalEmail,
+  motherNationality: optionalText(80),
+  motherReligion: optionalText(80),
+  motherReligionOther: optionalText(120),
+  motherMarital: optionalText(60),
+  motherCompanyName: optionalText(240),
+  motherPosition: optionalText(120),
+  motherPassport: optionalText(40),
+  motherPassportExpiry: optionalDate,
+  motherPass: optionalText(60),
+  motherPassExpiry: optionalDate,
   motherWhatsappTeamsConsent: optionalBool,
 });
 
 export const GuardianUpdateSchema = z.object({
-  guardianFullName:           optionalText(240),
-  guardianFirstName:          optionalText(120),
-  guardianMiddleName:         optionalText(120),
-  guardianLastName:           optionalText(120),
-  guardianPreferredName:      optionalText(120),
-  guardianNric:               optionalText(40),
-  guardianBirthDay:           optionalDate,
-  guardianMobile:             optionalNumberOrText,
-  guardianEmail:              optionalEmail,
-  guardianNationality:        optionalText(80),
-  guardianReligion:           optionalText(80),
-  guardianReligionOther:      optionalText(120),
-  guardianMarital:            optionalText(60),
-  guardianCompanyName:        optionalText(240),
-  guardianPosition:           optionalText(120),
-  guardianPassport:           optionalText(40),
-  guardianPassportExpiry:     optionalDate,
-  guardianPass:               optionalText(60),
-  guardianPassExpiry:         optionalDate,
+  guardianFullName: optionalText(240),
+  guardianFirstName: optionalText(120),
+  guardianMiddleName: optionalText(120),
+  guardianLastName: optionalText(120),
+  guardianPreferredName: optionalText(120),
+  guardianNric: optionalText(40),
+  guardianBirthDay: optionalDate,
+  guardianMobile: optionalNumberOrText,
+  guardianEmail: optionalEmail,
+  guardianNationality: optionalText(80),
+  guardianReligion: optionalText(80),
+  guardianReligionOther: optionalText(120),
+  guardianMarital: optionalText(60),
+  guardianCompanyName: optionalText(240),
+  guardianPosition: optionalText(120),
+  guardianPassport: optionalText(40),
+  guardianPassportExpiry: optionalDate,
+  guardianPass: optionalText(60),
+  guardianPassExpiry: optionalDate,
   guardianWhatsappTeamsConsent: optionalBool,
 });
 
-export type FatherUpdateInput   = z.infer<typeof FatherUpdateSchema>;
-export type MotherUpdateInput   = z.infer<typeof MotherUpdateSchema>;
+export type FatherUpdateInput = z.infer<typeof FatherUpdateSchema>;
+export type MotherUpdateInput = z.infer<typeof MotherUpdateSchema>;
 export type GuardianUpdateInput = z.infer<typeof GuardianUpdateSchema>;
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -322,15 +322,23 @@ export type StageKey = (typeof STAGE_KEYS)[number];
 // EditStageDialog's "Other…" free-text escape hatch preserves the ability
 // to edit rows holding those legacy values without losing them on save.
 export const STAGE_STATUS_OPTIONS: Record<StageKey, readonly string[]> = {
-  application:  ['Submitted', 'Ongoing Verification', 'Processing', 'Enrolled', 'Enrolled (Conditional)', 'Cancelled', 'Withdrawn'],
+  application: [
+    'Submitted',
+    'Ongoing Verification',
+    'Processing',
+    'Enrolled',
+    'Enrolled (Conditional)',
+    'Cancelled',
+    'Withdrawn',
+  ],
   registration: ['Pending', 'Unpaid', 'Finished', 'Cancelled'],
-  documents:    ['Pending', 'Verified', 'Incomplete', 'Finished', 'Cancelled'],
-  assessment:   ['Pending', 'Ongoing Assessment', 'Finished', 'Cancelled'],
-  contract:     ['Generated', 'Sent', 'Signed'],
-  fees:         ['Pending', 'Invoiced', 'Re-invoiced', 'Paid', 'Cancelled'],
-  class:        ['Pending', 'Incomplete', 'Finished', 'Cancelled'],
-  supplies:     ['Pending', 'Claimed', 'Cancelled'],
-  orientation:  ['Pending', 'Finished', 'Cancelled'],
+  documents: ['Pending', 'Verified', 'Incomplete', 'Finished', 'Cancelled'],
+  assessment: ['Pending', 'Ongoing Assessment', 'Finished', 'Cancelled'],
+  contract: ['Generated', 'Sent', 'Signed'],
+  fees: ['Pending', 'Invoiced', 'Re-invoiced', 'Paid', 'Cancelled'],
+  class: ['Pending', 'Incomplete', 'Finished', 'Cancelled'],
+  supplies: ['Pending', 'Claimed', 'Cancelled'],
+  orientation: ['Pending', 'Finished', 'Cancelled'],
 } as const;
 
 // Stages that must reach a "done" status before `applicationStatus` can be
@@ -350,10 +358,10 @@ export const ENROLLED_PREREQ_STAGES = [
 // Terminal "done" value per prereq stage. Used by the Enrolled-flip gate.
 export const STAGE_TERMINAL_STATUS: Partial<Record<StageKey, string>> = {
   registration: 'Finished',
-  documents:    'Finished',
-  assessment:   'Finished',
-  contract:     'Signed',
-  fees:         'Paid',
+  documents: 'Finished',
+  assessment: 'Finished',
+  contract: 'Signed',
+  fees: 'Paid',
   // class gets 'Finished' set by the auto-assign algorithm, not a prereq.
 };
 
@@ -366,13 +374,20 @@ export type StageColumns = {
   updatedByCol: string;
   // Stage-specific columns (invoice / schedule / payment date / etc).
   // Each entry: { fieldKey, columnName, kind ('text' | 'date') }
-  extras: Array<{ fieldKey: string; columnName: string; kind: 'text' | 'date'; label: string }>;
+  extras: Array<{
+    fieldKey: string;
+    columnName: string;
+    kind: 'text' | 'date';
+    label: string;
+  }>;
 };
 
 export const STAGE_COLUMN_MAP: Record<StageKey, StageColumns> = {
   application: {
-    statusCol: 'applicationStatus', remarksCol: 'applicationRemarks',
-    updatedDateCol: 'applicationUpdatedDate', updatedByCol: 'applicationUpdatedBy',
+    statusCol: 'applicationStatus',
+    remarksCol: 'applicationRemarks',
+    updatedDateCol: 'applicationUpdatedDate',
+    updatedByCol: 'applicationUpdatedBy',
     extras: [],
   },
   // Non-camelCase oddities below are the ACTUAL production column names on
@@ -383,63 +398,149 @@ export const STAGE_COLUMN_MAP: Record<StageKey, StageColumns> = {
   //   - All stages except `application` have lowercase "by" on *UpdatedBy
   //   - `orientationUpdateby` drops BOTH the "d" and the capital "B"
   registration: {
-    statusCol: 'registrationStatus', remarksCol: 'registrationRemarks',
-    updatedDateCol: 'registrationUpdateDate', updatedByCol: 'registrationUpdatedby',
+    statusCol: 'registrationStatus',
+    remarksCol: 'registrationRemarks',
+    updatedDateCol: 'registrationUpdateDate',
+    updatedByCol: 'registrationUpdatedby',
     extras: [
-      { fieldKey: 'invoice',     columnName: 'registrationInvoice',     kind: 'text', label: 'Invoice' },
-      { fieldKey: 'paymentDate', columnName: 'registrationPaymentDate', kind: 'date', label: 'Payment date' },
+      {
+        fieldKey: 'invoice',
+        columnName: 'registrationInvoice',
+        kind: 'text',
+        label: 'Invoice',
+      },
+      {
+        fieldKey: 'paymentDate',
+        columnName: 'registrationPaymentDate',
+        kind: 'date',
+        label: 'Payment date',
+      },
     ],
   },
   documents: {
-    statusCol: 'documentStatus', remarksCol: 'documentRemarks',
-    updatedDateCol: 'documentUpdatedDate', updatedByCol: 'documentUpdatedby',
+    statusCol: 'documentStatus',
+    remarksCol: 'documentRemarks',
+    updatedDateCol: 'documentUpdatedDate',
+    updatedByCol: 'documentUpdatedby',
     extras: [],
   },
   assessment: {
-    statusCol: 'assessmentStatus', remarksCol: 'assessmentRemarks',
-    updatedDateCol: 'assessmentUpdatedDate', updatedByCol: 'assessmentUpdatedby',
+    statusCol: 'assessmentStatus',
+    remarksCol: 'assessmentRemarks',
+    updatedDateCol: 'assessmentUpdatedDate',
+    updatedByCol: 'assessmentUpdatedby',
     extras: [
-      { fieldKey: 'schedule', columnName: 'assessmentSchedule',      kind: 'date', label: 'Schedule' },
-      { fieldKey: 'math',     columnName: 'assessmentGradeMath',     kind: 'text', label: 'Math grade' },
-      { fieldKey: 'english',  columnName: 'assessmentGradeEnglish',  kind: 'text', label: 'English grade' },
-      { fieldKey: 'medical',  columnName: 'assessmentMedical',       kind: 'text', label: 'Medical' },
+      {
+        fieldKey: 'schedule',
+        columnName: 'assessmentSchedule',
+        kind: 'date',
+        label: 'Schedule',
+      },
+      {
+        fieldKey: 'math',
+        columnName: 'assessmentGradeMath',
+        kind: 'text',
+        label: 'Math grade',
+      },
+      {
+        fieldKey: 'english',
+        columnName: 'assessmentGradeEnglish',
+        kind: 'text',
+        label: 'English grade',
+      },
+      {
+        fieldKey: 'medical',
+        columnName: 'assessmentMedical',
+        kind: 'text',
+        label: 'Medical',
+      },
     ],
   },
   contract: {
-    statusCol: 'contractStatus', remarksCol: 'contractRemarks',
-    updatedDateCol: 'contractUpdatedDate', updatedByCol: 'contractUpdatedby',
+    statusCol: 'contractStatus',
+    remarksCol: 'contractRemarks',
+    updatedDateCol: 'contractUpdatedDate',
+    updatedByCol: 'contractUpdatedby',
     extras: [],
   },
   fees: {
-    statusCol: 'feeStatus', remarksCol: 'feeRemarks',
-    updatedDateCol: 'feeUpdatedDate', updatedByCol: 'feeUpdatedby',
+    statusCol: 'feeStatus',
+    remarksCol: 'feeRemarks',
+    updatedDateCol: 'feeUpdatedDate',
+    updatedByCol: 'feeUpdatedby',
     extras: [
-      { fieldKey: 'invoice',     columnName: 'feeInvoice',     kind: 'text', label: 'Invoice' },
-      { fieldKey: 'paymentDate', columnName: 'feePaymentDate', kind: 'date', label: 'Payment date' },
-      { fieldKey: 'startDate',   columnName: 'feeStartDate',   kind: 'date', label: 'Start date' },
+      {
+        fieldKey: 'invoice',
+        columnName: 'feeInvoice',
+        kind: 'text',
+        label: 'Invoice',
+      },
+      {
+        fieldKey: 'paymentDate',
+        columnName: 'feePaymentDate',
+        kind: 'date',
+        label: 'Payment date',
+      },
+      {
+        fieldKey: 'startDate',
+        columnName: 'feeStartDate',
+        kind: 'date',
+        label: 'Start date',
+      },
     ],
   },
   class: {
-    statusCol: 'classStatus', remarksCol: 'classRemarks',
-    updatedDateCol: 'classUpdatedDate', updatedByCol: 'classUpdatedby',
+    statusCol: 'classStatus',
+    remarksCol: 'classRemarks',
+    updatedDateCol: 'classUpdatedDate',
+    updatedByCol: 'classUpdatedby',
     extras: [
-      { fieldKey: 'classAY',      columnName: 'classAY',      kind: 'text', label: 'Class AY' },
-      { fieldKey: 'classLevel',   columnName: 'classLevel',   kind: 'text', label: 'Level' },
-      { fieldKey: 'classSection', columnName: 'classSection', kind: 'text', label: 'Section' },
+      {
+        fieldKey: 'classAY',
+        columnName: 'classAY',
+        kind: 'text',
+        label: 'Class AY',
+      },
+      {
+        fieldKey: 'classLevel',
+        columnName: 'classLevel',
+        kind: 'text',
+        label: 'Level',
+      },
+      {
+        fieldKey: 'classSection',
+        columnName: 'classSection',
+        kind: 'text',
+        label: 'Section',
+      },
     ],
   },
   supplies: {
-    statusCol: 'suppliesStatus', remarksCol: 'suppliesRemarks',
-    updatedDateCol: 'suppliesUpdatedDate', updatedByCol: 'suppliesUpdatedby',
+    statusCol: 'suppliesStatus',
+    remarksCol: 'suppliesRemarks',
+    updatedDateCol: 'suppliesUpdatedDate',
+    updatedByCol: 'suppliesUpdatedby',
     extras: [
-      { fieldKey: 'claimedDate', columnName: 'suppliesClaimedDate', kind: 'date', label: 'Claimed date' },
+      {
+        fieldKey: 'claimedDate',
+        columnName: 'suppliesClaimedDate',
+        kind: 'date',
+        label: 'Claimed date',
+      },
     ],
   },
   orientation: {
-    statusCol: 'orientationStatus', remarksCol: 'orientationRemarks',
-    updatedDateCol: 'orientationUpdatedDate', updatedByCol: 'orientationUpdateby',
+    statusCol: 'orientationStatus',
+    remarksCol: 'orientationRemarks',
+    updatedDateCol: 'orientationUpdatedDate',
+    updatedByCol: 'orientationUpdateby',
     extras: [
-      { fieldKey: 'scheduleDate', columnName: 'orientationScheduleDate', kind: 'date', label: 'Schedule date' },
+      {
+        fieldKey: 'scheduleDate',
+        columnName: 'orientationScheduleDate',
+        kind: 'date',
+        label: 'Schedule date',
+      },
     ],
   },
 };
@@ -499,23 +600,22 @@ export const DiscountCodeSchema = z
     endDate: optionalDate,
     details: optionalText(2000),
   })
-  .refine(
-    (v) => !v.startDate || !v.endDate || v.startDate <= v.endDate,
-    { message: 'End date must be on or after start date', path: ['endDate'] },
-  );
+  .refine((v) => !v.startDate || !v.endDate || v.startDate <= v.endDate, {
+    message: 'End date must be on or after start date',
+    path: ['endDate'],
+  });
 
 export type DiscountCodeInput = z.infer<typeof DiscountCodeSchema>;
 
 // Partial variant for PATCH — no refinement (re-validated in the route
 // against the merged before+after row).
-export const DiscountCodePatchSchema = z
-  .object({
-    discountCode: requiredText(60).optional(),
-    enroleeType: z.enum(DISCOUNT_ENROLEE_TYPES).optional(),
-    startDate: optionalDate.optional(),
-    endDate: optionalDate.optional(),
-    details: optionalText(2000).optional(),
-  });
+export const DiscountCodePatchSchema = z.object({
+  discountCode: requiredText(60).optional(),
+  enroleeType: z.enum(DISCOUNT_ENROLEE_TYPES).optional(),
+  startDate: optionalDate.optional(),
+  endDate: optionalDate.optional(),
+  details: optionalText(2000).optional(),
+});
 
 export type DiscountCodePatchInput = z.infer<typeof DiscountCodePatchSchema>;
 
@@ -584,7 +684,10 @@ export const ResidenceEntrySchema = z.object({
   purposeOfStay: z.string().max(200).optional(),
 });
 
-export const ResidenceHistorySchema = z.array(ResidenceEntrySchema).max(20).nullable();
+export const ResidenceHistorySchema = z
+  .array(ResidenceEntrySchema)
+  .max(20)
+  .nullable();
 
 export type ResidenceEntry = z.infer<typeof ResidenceEntrySchema>;
 export type ResidenceHistory = z.infer<typeof ResidenceHistorySchema>;

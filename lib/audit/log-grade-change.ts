@@ -18,8 +18,8 @@ export type AuditContext = {
   service: SupabaseClient;
   grading_sheet_id: string;
   grade_entry_id: string;
-  changed_by: string;            // email, user_id, or username
-  approval_reference: string;    // required — upstream route enforces presence
+  changed_by: string; // email, user_id, or username
+  approval_reference: string; // required — upstream route enforces presence
 };
 
 function formatValue(v: unknown): string | null {
@@ -28,7 +28,10 @@ function formatValue(v: unknown): string | null {
   return JSON.stringify(v);
 }
 
-function arraysEqual(a: (number | null)[] | undefined, b: (number | null)[] | undefined) {
+function arraysEqual(
+  a: (number | null)[] | undefined,
+  b: (number | null)[] | undefined
+) {
   if (!a || !b) return a === b;
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
@@ -43,7 +46,7 @@ function arraysEqual(a: (number | null)[] | undefined, b: (number | null)[] | un
 export function buildAuditRows(
   before: GradeFields,
   after: GradeFields,
-  ctx: Omit<AuditContext, 'service'>,
+  ctx: Omit<AuditContext, 'service'>
 ) {
   const rows: Array<{
     grading_sheet_id: string;
@@ -83,7 +86,10 @@ export function buildAuditRows(
   diffArray('ww_scores');
   diffArray('pt_scores');
 
-  if ('qa_score' in after && (before.qa_score ?? null) !== (after.qa_score ?? null)) {
+  if (
+    'qa_score' in after &&
+    (before.qa_score ?? null) !== (after.qa_score ?? null)
+  ) {
     rows.push({
       ...base,
       field_changed: 'qa_score',
@@ -91,7 +97,10 @@ export function buildAuditRows(
       new_value: formatValue(after.qa_score ?? null),
     });
   }
-  if ('letter_grade' in after && (before.letter_grade ?? null) !== (after.letter_grade ?? null)) {
+  if (
+    'letter_grade' in after &&
+    (before.letter_grade ?? null) !== (after.letter_grade ?? null)
+  ) {
     rows.push({
       ...base,
       field_changed: 'letter_grade',
@@ -113,7 +122,7 @@ export function buildAuditRows(
 
 export async function writeAuditRows(
   service: SupabaseClient,
-  rows: ReturnType<typeof buildAuditRows>,
+  rows: ReturnType<typeof buildAuditRows>
 ) {
   if (rows.length === 0) return;
   const { error } = await service.from('grade_audit_log').insert(rows);
@@ -128,7 +137,7 @@ export async function writeAuditRows(
 export function buildTotalsAuditRows(
   before: { ww_totals: number[]; pt_totals: number[]; qa_total: number | null },
   after: { ww_totals: number[]; pt_totals: number[]; qa_total: number | null },
-  ctx: Omit<AuditContext, 'service'>,
+  ctx: Omit<AuditContext, 'service'>
 ) {
   const rows: ReturnType<typeof buildAuditRows> = [];
   const base = {

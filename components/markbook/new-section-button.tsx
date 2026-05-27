@@ -113,8 +113,8 @@ export function NewSectionButton({
             )}
           </DialogTitle>
           <DialogDescription>
-            Mid-year addition for the current AY. Rollover still happens through AY Setup; this
-            is for the surprise-late-transfer case.
+            Mid-year addition for the current AY. Rollover still happens through
+            AY Setup; this is for the surprise-late-transfer case.
           </DialogDescription>
         </DialogHeader>
 
@@ -136,7 +136,9 @@ export function NewSectionButton({
                       {levels.map((l) => (
                         <SelectItem key={l.id} value={l.id}>
                           <span className="font-mono text-xs">{l.code}</span>
-                          <span className="ml-2 text-muted-foreground">{l.label}</span>
+                          <span className="ml-2 text-muted-foreground">
+                            {l.label}
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -153,10 +155,15 @@ export function NewSectionButton({
                 <FormItem>
                   <FormLabel>Section name</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. Patience" {...field} autoCapitalize="words" />
+                    <Input
+                      placeholder="e.g. Patience"
+                      {...field}
+                      autoCapitalize="words"
+                    />
                   </FormControl>
                   <FormDescription>
-                    Just the virtue / label. Level prefix is added automatically on display.
+                    Just the virtue / label. Level prefix is added automatically
+                    on display.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -173,7 +180,9 @@ export function NewSectionButton({
                     value={field.value ?? ''}
                     onValueChange={(v) =>
                       field.onChange(
-                        v === '' ? null : (v as (typeof SECTION_CLASS_TYPES)[number]),
+                        v === ''
+                          ? null
+                          : (v as (typeof SECTION_CLASS_TYPES)[number])
                       )
                     }
                   >
@@ -191,7 +200,8 @@ export function NewSectionButton({
                     </SelectContent>
                   </Select>
                   <FormDescription>
-                    Global (G) = multi-track homeroom; Standard = fixed track. Leave blank if not applicable.
+                    Global (G) = multi-track homeroom; Standard = fixed track.
+                    Leave blank if not applicable.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -199,11 +209,19 @@ export function NewSectionButton({
             />
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={busy} className="gap-1.5">
-                {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
+                {busy ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Plus className="size-3.5" />
+                )}
                 {busy ? 'Creating…' : 'Create section'}
               </Button>
             </DialogFooter>

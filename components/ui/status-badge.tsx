@@ -1,7 +1,7 @@
-import { type LucideIcon } from "lucide-react";
-import * as React from "react";
+import { type LucideIcon } from 'lucide-react';
+import * as React from 'react';
 
-import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 
 // Status pill primitive. Delegates to the shared <Badge> variants so every
 // status pill across the app reads with one visual voice — saturated brand
@@ -19,14 +19,14 @@ import { Badge, type BadgeProps } from "@/components/ui/badge";
 // so the 4 domain wrappers (Application/DiscountCode/Document/Enrollment)
 // don't need to change their call sites.
 
-export type StatusTone = "healthy" | "locked" | "info" | "muted" | "warning";
+export type StatusTone = 'healthy' | 'locked' | 'info' | 'muted' | 'warning';
 
-const TONE_VARIANT: Record<StatusTone, NonNullable<BadgeProps["variant"]>> = {
-  healthy: "success",
-  locked: "blocked",
-  info: "default",
-  warning: "warning",
-  muted: "muted",
+const TONE_VARIANT: Record<StatusTone, NonNullable<BadgeProps['variant']>> = {
+  healthy: 'success',
+  locked: 'blocked',
+  info: 'default',
+  warning: 'warning',
+  muted: 'muted',
 };
 
 type StatusBadgeProps = {
@@ -36,7 +36,12 @@ type StatusBadgeProps = {
   children: React.ReactNode;
 };
 
-export function StatusBadge({ tone, icon: Icon, className, children }: StatusBadgeProps) {
+export function StatusBadge({
+  tone,
+  icon: Icon,
+  className,
+  children,
+}: StatusBadgeProps) {
   return (
     <Badge variant={TONE_VARIANT[tone]} className={className}>
       {Icon ? <Icon aria-hidden /> : null}

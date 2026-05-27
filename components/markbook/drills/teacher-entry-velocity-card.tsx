@@ -40,14 +40,17 @@ export function TeacherEntryVelocityCard({
         category: r.teacherEmail ?? r.teacherUserId.slice(0, 8),
         current: r.entryCount,
       })),
-    [data],
+    [data]
   );
 
   const totalEntries = data.reduce((sum, r) => sum + r.entryCount, 0);
   const empty = data.length === 0;
 
   return (
-    <Sheet open={!!openTeacher} onOpenChange={(o) => !o && setOpenTeacher(null)}>
+    <Sheet
+      open={!!openTeacher}
+      onOpenChange={(o) => !o && setOpenTeacher(null)}
+    >
       <Card>
         <CardHeader>
           <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
@@ -66,9 +69,12 @@ export function TeacherEntryVelocityCard({
           {empty ? (
             <div className="flex h-[260px] flex-col items-center justify-center gap-2 text-center">
               <Users className="size-6 text-muted-foreground/60" />
-              <p className="text-sm font-medium text-foreground">No teacher attribution yet</p>
+              <p className="text-sm font-medium text-foreground">
+                No teacher attribution yet
+              </p>
               <p className="max-w-xs text-xs text-muted-foreground">
-                Entries appear once teachers are assigned to subjects via teacher_assignments.
+                Entries appear once teachers are assigned to subjects via
+                teacher_assignments.
               </p>
             </div>
           ) : (

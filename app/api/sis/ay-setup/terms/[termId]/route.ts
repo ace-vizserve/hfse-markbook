@@ -18,13 +18,9 @@ import { TermDatesSchema } from '@/lib/schemas/ay-setup';
 // one request. No-op saves emit no audit rows.
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ termId: string }> },
+  { params }: { params: Promise<{ termId: string }> }
 ) {
-  const auth = await requireRole([
-    'registrar',
-    'school_admin',
-    'superadmin',
-  ]);
+  const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const { termId } = await params;
@@ -33,7 +29,7 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const { startDate, endDate } = parsed.data;
@@ -50,7 +46,9 @@ export async function PATCH(
   // Load before state for the audit diff.
   const { data: before, error: loadErr } = await service
     .from('terms')
-    .select('id, academic_year_id, term_number, label, start_date, end_date, virtue_theme, grading_lock_date')
+    .select(
+      'id, academic_year_id, term_number, label, start_date, end_date, virtue_theme, grading_lock_date'
+    )
     .eq('id', termId)
     .maybeSingle();
   if (loadErr) {
@@ -81,7 +79,8 @@ export async function PATCH(
   const virtueChanged =
     virtueThemeUpdated && (before.virtue_theme ?? null) !== virtueTheme;
   const gradingLockChanged =
-    gradingLockUpdated && (before.grading_lock_date ?? null) !== gradingLockDate;
+    gradingLockUpdated &&
+    (before.grading_lock_date ?? null) !== gradingLockDate;
 
   if (datesChanged) {
     await logAction({

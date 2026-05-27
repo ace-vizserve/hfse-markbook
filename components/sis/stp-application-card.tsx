@@ -32,7 +32,10 @@ import type { ApplicationRow, StpApplicationStatus } from '@/lib/sis/queries';
  * collected or displayed.
  */
 
-const STATUS_BADGE: Record<StpApplicationStatus, 'warning' | 'default' | 'success' | 'blocked'> = {
+const STATUS_BADGE: Record<
+  StpApplicationStatus,
+  'warning' | 'default' | 'success' | 'blocked'
+> = {
   Pending: 'warning',
   Submitted: 'default',
   Approved: 'success',
@@ -47,9 +50,9 @@ type ResidenceEntry = {
   purposeOfStay?: string | null;
 };
 
-function parseResidenceHistory(raw: unknown):
-  | { ok: true; entries: ResidenceEntry[] }
-  | { ok: false } {
+function parseResidenceHistory(
+  raw: unknown
+): { ok: true; entries: ResidenceEntry[] } | { ok: false } {
   let value: unknown = raw;
   if (typeof raw === 'string') {
     try {
@@ -70,15 +73,18 @@ function parseResidenceHistory(raw: unknown):
 
 function formatYearRange(
   from: ResidenceEntry['fromYear'],
-  to: ResidenceEntry['toYear'],
+  to: ResidenceEntry['toYear']
 ): string {
-  const fromStr = from === null || from === undefined || from === '' ? '?' : String(from);
+  const fromStr =
+    from === null || from === undefined || from === '' ? '?' : String(from);
   const toStr = to === null || to === undefined || to === '' ? '?' : String(to);
   return `${fromStr} → ${toStr}`;
 }
 
 function isStpStatus(v: string | null): v is StpApplicationStatus {
-  return v === 'Pending' || v === 'Submitted' || v === 'Approved' || v === 'Rejected';
+  return (
+    v === 'Pending' || v === 'Submitted' || v === 'Approved' || v === 'Rejected'
+  );
 }
 
 export function StpApplicationCard({
@@ -92,7 +98,9 @@ export function StpApplicationCard({
 }) {
   if (!application.stpApplicationType) return null;
 
-  const normalizedStatus: StpApplicationStatus | null = isStpStatus(stpApplicationStatus)
+  const normalizedStatus: StpApplicationStatus | null = isStpStatus(
+    stpApplicationStatus
+  )
     ? stpApplicationStatus
     : null;
   const parsed = parseResidenceHistory(application.residenceHistory);
@@ -110,7 +118,9 @@ export function StpApplicationCard({
         <div className="mt-1 flex flex-wrap items-center gap-1.5">
           <Badge variant="default">{application.stpApplicationType}</Badge>
           {normalizedStatus && (
-            <Badge variant={STATUS_BADGE[normalizedStatus]}>{normalizedStatus}</Badge>
+            <Badge variant={STATUS_BADGE[normalizedStatus]}>
+              {normalizedStatus}
+            </Badge>
           )}
         </div>
         <CardAction>
@@ -134,8 +144,8 @@ export function StpApplicationCard({
             initialStatus={normalizedStatus}
           />
           <p className="text-[11px] text-muted-foreground">
-            Pending = parent hasn&rsquo;t filed yet · Submitted = filed with ICA · Approved = ICA
-            issued the pass · Rejected = ICA declined.
+            Pending = parent hasn&rsquo;t filed yet · Submitted = filed with ICA
+            · Approved = ICA issued the pass · Rejected = ICA declined.
           </p>
         </section>
 
@@ -212,7 +222,9 @@ function SectionHeader({
         </div>
         {rightSlot}
       </div>
-      <p className="text-xs leading-relaxed text-muted-foreground">{subtitle}</p>
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        {subtitle}
+      </p>
     </div>
   );
 }
@@ -229,7 +241,9 @@ function ResidenceRow({ entry }: { entry: ResidenceEntry }) {
             {entry.country ?? '(country?)'}
           </span>
           {entry.cityOrTown && (
-            <span className="text-xs text-muted-foreground">{entry.cityOrTown}</span>
+            <span className="text-xs text-muted-foreground">
+              {entry.cityOrTown}
+            </span>
           )}
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">

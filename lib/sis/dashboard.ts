@@ -2,8 +2,17 @@ import { unstable_cache } from 'next/cache';
 
 import { getAyIdByCode } from '@/lib/dashboard/ay-id';
 import { loadActorActivity } from '@/lib/sis/drill';
-import { DOCUMENT_SLOTS, resolveStatus, type DocumentGroup } from '@/lib/p-files/document-config';
-import { STAGE_COLUMN_MAP, STAGE_KEYS, STAGE_LABELS, type StageKey } from '@/lib/schemas/sis';
+import {
+  DOCUMENT_SLOTS,
+  resolveStatus,
+  type DocumentGroup,
+} from '@/lib/p-files/document-config';
+import {
+  STAGE_COLUMN_MAP,
+  STAGE_KEYS,
+  STAGE_LABELS,
+  type StageKey,
+} from '@/lib/schemas/sis';
 import { compareLevelLabels } from '@/lib/sis/levels';
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
 import { fetchAllPages } from '@/lib/supabase/paginate';
@@ -55,11 +64,15 @@ export type PipelineStage = {
 // "Current stage" = the rightmost stage in that order whose *UpdatedDate
 // is non-null on the student's enrolment_status row. No stages touched →
 // 'not_started'. Matches how Records staff mentally track position.
-async function loadPipelineStageBreakdownUncached(ayCode: string): Promise<PipelineStage[]> {
+async function loadPipelineStageBreakdownUncached(
+  ayCode: string
+): Promise<PipelineStage[]> {
   const prefix = prefixFor(ayCode);
   const supabase = createAdmissionsClient();
 
-  const updatedDateCols = STAGE_KEYS.map((k) => STAGE_COLUMN_MAP[k].updatedDateCol);
+  const updatedDateCols = STAGE_KEYS.map(
+    (k) => STAGE_COLUMN_MAP[k].updatedDateCol
+  );
   const selectCols = ['enroleeNumber', ...updatedDateCols].join(', ');
 
   const { data, error } = await supabase
@@ -67,7 +80,10 @@ async function loadPipelineStageBreakdownUncached(ayCode: string): Promise<Pipel
     .select(selectCols);
 
   if (error) {
-    console.error('[sis] getPipelineStageBreakdown fetch failed:', error.message);
+    console.error(
+      '[sis] getPipelineStageBreakdown fetch failed:',
+      error.message
+    );
     return emptyPipelineBuckets();
   }
 
@@ -86,17 +102,27 @@ async function loadPipelineStageBreakdownUncached(ayCode: string): Promise<Pipel
   }
 
   const out: PipelineStage[] = [
-    { key: 'not_started', label: 'Not started', count: counts.get('not_started') ?? 0 },
-    ...STAGE_KEYS.map((k) => ({ key: k, label: STAGE_LABELS[k], count: counts.get(k) ?? 0 })),
+    {
+      key: 'not_started',
+      label: 'Not started',
+      count: counts.get('not_started') ?? 0,
+    },
+    ...STAGE_KEYS.map((k) => ({
+      key: k,
+      label: STAGE_LABELS[k],
+      count: counts.get(k) ?? 0,
+    })),
   ];
   return out;
 }
 
-export function getPipelineStageBreakdown(ayCode: string): Promise<PipelineStage[]> {
+export function getPipelineStageBreakdown(
+  ayCode: string
+): Promise<PipelineStage[]> {
   return unstable_cache(
     loadPipelineStageBreakdownUncached,
     ['sis', 'pipeline-stage-breakdown', ayCode],
-    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS },
+    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS }
   )(ayCode);
 }
 
@@ -126,7 +152,9 @@ export type DocumentBacklogRow = {
 // gated by fatherEmail/guardianEmail on applications) don't inflate "Missing".
 // `na` is excluded from all counts. `expired` rolls into `missing` (Records
 // needs to re-collect it either way).
-async function loadDocumentValidationBacklogUncached(ayCode: string): Promise<DocumentBacklogRow[]> {
+async function loadDocumentValidationBacklogUncached(
+  ayCode: string
+): Promise<DocumentBacklogRow[]> {
   const prefix = prefixFor(ayCode);
   const supabase = createAdmissionsClient();
 
@@ -156,10 +184,15 @@ async function loadDocumentValidationBacklogUncached(ayCode: string): Promise<Do
     .select('enroleeNumber, applicationStatus')
     .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']);
   if (statusErr) {
-    console.error('[sis] getDocumentValidationBacklog status fetch failed:', statusErr.message);
+    console.error(
+      '[sis] getDocumentValidationBacklog status fetch failed:',
+      statusErr.message
+    );
     return emptyBacklogRows();
   }
-  const enrolledNumbers = ((statusRows ?? []) as { enroleeNumber: string | null }[])
+  const enrolledNumbers = (
+    (statusRows ?? []) as { enroleeNumber: string | null }[]
+  )
     .map((s) => s.enroleeNumber)
     .filter((v): v is string => v !== null);
   if (enrolledNumbers.length === 0) return emptyBacklogRows();
@@ -174,9 +207,11 @@ async function loadDocumentValidationBacklogUncached(ayCode: string): Promise<Do
         [
           'enroleeNumber',
           ...DOCUMENT_SLOTS.flatMap((s) =>
-            s.expires ? [s.key, `${s.key}Status`, `${s.key}Expiry`] : [s.key, `${s.key}Status`],
+            s.expires
+              ? [s.key, `${s.key}Status`, `${s.key}Expiry`]
+              : [s.key, `${s.key}Status`]
           ),
-        ].join(', '),
+        ].join(', ')
       )
       .in('enroleeNumber', enrolledNumbers),
     supabase
@@ -186,11 +221,17 @@ async function loadDocumentValidationBacklogUncached(ayCode: string): Promise<Do
   ]);
 
   if (docsRes.error) {
-    console.error('[sis] getDocumentValidationBacklog docs fetch failed:', docsRes.error.message);
+    console.error(
+      '[sis] getDocumentValidationBacklog docs fetch failed:',
+      docsRes.error.message
+    );
     return emptyBacklogRows();
   }
   if (appsRes.error) {
-    console.error('[sis] getDocumentValidationBacklog apps fetch failed:', appsRes.error.message);
+    console.error(
+      '[sis] getDocumentValidationBacklog apps fetch failed:',
+      appsRes.error.message
+    );
     return emptyBacklogRows();
   }
 
@@ -205,7 +246,9 @@ async function loadDocumentValidationBacklogUncached(ayCode: string): Promise<Do
     if (a.enroleeNumber) gates.set(a.enroleeNumber, a);
   }
 
-  const rows = (docsRes.data ?? []) as unknown as Array<Record<string, string | null>>;
+  const rows = (docsRes.data ?? []) as unknown as Array<
+    Record<string, string | null>
+  >;
   const buckets: DocumentBacklogRow[] = DOCUMENT_SLOTS.map((s) => ({
     slotKey: s.key,
     label: s.label,
@@ -226,7 +269,10 @@ async function loadDocumentValidationBacklogUncached(ayCode: string): Promise<Do
       if (slot.conditional) {
         const gateValue =
           gate?.[
-            slot.conditional as 'fatherEmail' | 'guardianEmail' | 'stpApplicationType'
+            slot.conditional as
+              | 'fatherEmail'
+              | 'guardianEmail'
+              | 'stpApplicationType'
           ] ?? null;
         if (!gateValue || gateValue.trim() === '') continue;
       }
@@ -264,11 +310,13 @@ async function loadDocumentValidationBacklogUncached(ayCode: string): Promise<Do
   return buckets;
 }
 
-export function getDocumentValidationBacklog(ayCode: string): Promise<DocumentBacklogRow[]> {
+export function getDocumentValidationBacklog(
+  ayCode: string
+): Promise<DocumentBacklogRow[]> {
   return unstable_cache(
     loadDocumentValidationBacklogUncached,
     ['sis', 'document-validation-backlog', ayCode],
-    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS },
+    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS }
   )(ayCode);
 }
 
@@ -298,7 +346,9 @@ export type LevelCount = {
 // donut shows enrolled cohort breakdown, not pre-enrolment funnel volume.
 // Prefers `classLevel` (post-enrollment assignment); falls back to
 // `levelApplied` if the registrar hasn't assigned a class yet.
-async function loadLevelDistributionUncached(ayCode: string): Promise<LevelCount[]> {
+async function loadLevelDistributionUncached(
+  ayCode: string
+): Promise<LevelCount[]> {
   const prefix = prefixFor(ayCode);
   const supabase = createAdmissionsClient();
 
@@ -307,7 +357,10 @@ async function loadLevelDistributionUncached(ayCode: string): Promise<LevelCount
     .select('enroleeNumber, classLevel, applicationStatus')
     .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']);
   if (statusErr) {
-    console.error('[sis] getLevelDistribution status fetch failed:', statusErr.message);
+    console.error(
+      '[sis] getLevelDistribution status fetch failed:',
+      statusErr.message
+    );
     return [];
   }
 
@@ -336,7 +389,10 @@ async function loadLevelDistributionUncached(ayCode: string): Promise<LevelCount
     .select('enroleeNumber, levelApplied')
     .in('enroleeNumber', enrolledNumbers);
   if (appsErr) {
-    console.error('[sis] getLevelDistribution apps fetch failed:', appsErr.message);
+    console.error(
+      '[sis] getLevelDistribution apps fetch failed:',
+      appsErr.message
+    );
     return [];
   }
 
@@ -345,7 +401,8 @@ async function loadLevelDistributionUncached(ayCode: string): Promise<LevelCount
   for (const a of (appsRows ?? []) as AppLite[]) {
     const level =
       (a.enroleeNumber && classLevelByEnrolee.get(a.enroleeNumber)) ||
-      (a.levelApplied?.trim() || 'Unknown');
+      a.levelApplied?.trim() ||
+      'Unknown';
     counts.set(level, (counts.get(level) ?? 0) + 1);
   }
 
@@ -359,7 +416,7 @@ export function getLevelDistribution(ayCode: string): Promise<LevelCount[]> {
   return unstable_cache(
     loadLevelDistributionUncached,
     ['sis', 'level-distribution', ayCode],
-    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS },
+    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS }
   )(ayCode);
 }
 
@@ -383,7 +440,7 @@ export type ExpiringDocRow = {
 async function loadExpiringDocumentsUncached(
   ayCode: string,
   windowDays: number,
-  limit: number,
+  limit: number
 ): Promise<ExpiringDocRow[]> {
   const prefix = prefixFor(ayCode);
   const supabase = createAdmissionsClient();
@@ -395,10 +452,15 @@ async function loadExpiringDocumentsUncached(
     .select('enroleeNumber, applicationStatus')
     .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']);
   if (statusErr) {
-    console.error('[sis] getExpiringDocuments status fetch failed:', statusErr.message);
+    console.error(
+      '[sis] getExpiringDocuments status fetch failed:',
+      statusErr.message
+    );
     return [];
   }
-  const enrolledNumbers = ((statusRows ?? []) as { enroleeNumber: string | null }[])
+  const enrolledNumbers = (
+    (statusRows ?? []) as { enroleeNumber: string | null }[]
+  )
     .map((s) => s.enroleeNumber)
     .filter((v): v is string => v !== null);
   if (enrolledNumbers.length === 0) return [];
@@ -423,7 +485,7 @@ async function loadExpiringDocumentsUncached(
   if (docsRes.error || appsRes.error) {
     console.error(
       '[sis] getExpiringDocuments fetch failed:',
-      docsRes.error?.message ?? appsRes.error?.message,
+      docsRes.error?.message ?? appsRes.error?.message
     );
     return [];
   }
@@ -448,7 +510,9 @@ async function loadExpiringDocumentsUncached(
   today.setHours(0, 0, 0, 0);
   const windowMs = windowDays * 24 * 60 * 60 * 1000;
 
-  const rows = (docsRes.data ?? []) as unknown as Array<Record<string, string | null>>;
+  const rows = (docsRes.data ?? []) as unknown as Array<
+    Record<string, string | null>
+  >;
   const out: ExpiringDocRow[] = [];
 
   for (const row of rows) {
@@ -483,12 +547,12 @@ async function loadExpiringDocumentsUncached(
 export function getExpiringDocuments(
   ayCode: string,
   windowDays: number = 60,
-  limit: number = 8,
+  limit: number = 8
 ): Promise<ExpiringDocRow[]> {
   return unstable_cache(
     loadExpiringDocumentsUncached,
     ['sis', 'expiring-documents', ayCode, String(windowDays), String(limit)],
-    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS },
+    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS }
   )(ayCode, windowDays, limit);
 }
 
@@ -516,13 +580,17 @@ export type RecentActivityRow = {
 // span every AY and we want freshness on this feed; uses a shorter TTL
 // keyed on limit alone, tagged so any sis.* mutation invalidates it.
 // Fully hoisted (static tags) per playbook §2.
-async function loadRecentSisActivityUncached(limit: number): Promise<RecentActivityRow[]> {
+async function loadRecentSisActivityUncached(
+  limit: number
+): Promise<RecentActivityRow[]> {
   const supabase = createAdmissionsClient();
 
   const { data, error } = await supabase
     .from('audit_log')
     .select('id, action, actor_email, entity_id, created_at, context')
-    .or('action.like.sis.%,action.like.student.%,action.like.enrolment.%,action.like.ay.%,action.like.pfile.%')
+    .or(
+      'action.like.sis.%,action.like.student.%,action.like.enrolment.%,action.like.ay.%,action.like.pfile.%'
+    )
     .order('created_at', { ascending: false })
     .limit(limit);
 
@@ -552,10 +620,12 @@ async function loadRecentSisActivityUncached(limit: number): Promise<RecentActiv
 const loadRecentSisActivity = unstable_cache(
   loadRecentSisActivityUncached,
   ['sis', 'recent-activity'],
-  { tags: ['sis'], revalidate: 120 },
+  { tags: ['sis'], revalidate: 120 }
 );
 
-export function getRecentSisActivity(limit: number = 8): Promise<RecentActivityRow[]> {
+export function getRecentSisActivity(
+  limit: number = 8
+): Promise<RecentActivityRow[]> {
   return loadRecentSisActivity(limit);
 }
 
@@ -574,7 +644,9 @@ export type RecordsRangeKpis = {
   expiringSoon: number;
 };
 
-async function loadRecordsKpisForRange(input: RangeInput): Promise<RecordsRangeKpis> {
+async function loadRecordsKpisForRange(
+  input: RangeInput
+): Promise<RecordsRangeKpis> {
   const service = createServiceClient();
   const admissions = createAdmissionsClient();
   const prefix = prefixFor(input.ayCode);
@@ -600,62 +672,80 @@ async function loadRecordsKpisForRange(input: RangeInput): Promise<RecordsRangeK
   // KD #68: late enrollees are real new enrollments tagged for term-of-entry
   // visibility — count them in both `enrollmentsInRange` (so the headline
   // KPI is honest) and `lateEnroleesInRange` (so the breakdown surfaces).
-  const [enrolRes, lateRes, withdrawRes, activeRes, docsRes] = await Promise.all([
-    service
-      .from('section_students')
-      .select('id, sections!inner(academic_year_id)', { count: 'exact', head: true })
-      .eq('sections.academic_year_id', ayId)
-      .in('enrollment_status', ['active', 'late_enrollee'])
-      .gte('enrollment_date', input.from)
-      .lte('enrollment_date', input.to),
-    service
-      .from('section_students')
-      .select('id, sections!inner(academic_year_id)', { count: 'exact', head: true })
-      .eq('sections.academic_year_id', ayId)
-      .eq('enrollment_status', 'late_enrollee')
-      .gte('enrollment_date', input.from)
-      .lte('enrollment_date', input.to),
-    service
-      .from('section_students')
-      .select('id, sections!inner(academic_year_id)', { count: 'exact', head: true })
-      .eq('sections.academic_year_id', ayId)
-      .eq('enrollment_status', 'withdrawn')
-      .gte('withdrawal_date', input.from)
-      .lte('withdrawal_date', input.to),
-    service
-      .from('section_students')
-      .select('id, sections!inner(academic_year_id)', { count: 'exact', head: true })
-      .eq('sections.academic_year_id', ayId)
-      .in('enrollment_status', ['active', 'late_enrollee']),
-    // Records is enrolled-only per KD #51 — narrow the docs scan to the
-    // enrolled set so the "Docs expiring ≤60d" KPI doesn't count slots
-    // belonging to pre-enrolment funnel applicants. Without this filter
-    // the card was showing 47 when the drill (which IS enrolled-filtered)
-    // would show 3 — classic card-vs-drill disagreement.
-    (async () => {
-      const { data: enrolledStatus } = await admissions
-        .from(`${prefix}_enrolment_status`)
-        .select('enroleeNumber, applicationStatus')
-        .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']);
-      const enrolledNumbers = ((enrolledStatus ?? []) as { enroleeNumber: string | null }[])
-        .map((s) => s.enroleeNumber)
-        .filter((v): v is string => v !== null);
-      if (enrolledNumbers.length === 0) {
-        return { data: [] as Array<Record<string, string | null>>, error: null };
-      }
-      return admissions
-        .from(`${prefix}_enrolment_documents`)
-        .select(
-          [
-            'enroleeNumber',
-            ...DOCUMENT_SLOTS.flatMap((s) =>
-              s.expires ? [`${s.key}Expiry`] : [],
-            ),
-          ].join(', '),
+  const [enrolRes, lateRes, withdrawRes, activeRes, docsRes] =
+    await Promise.all([
+      service
+        .from('section_students')
+        .select('id, sections!inner(academic_year_id)', {
+          count: 'exact',
+          head: true,
+        })
+        .eq('sections.academic_year_id', ayId)
+        .in('enrollment_status', ['active', 'late_enrollee'])
+        .gte('enrollment_date', input.from)
+        .lte('enrollment_date', input.to),
+      service
+        .from('section_students')
+        .select('id, sections!inner(academic_year_id)', {
+          count: 'exact',
+          head: true,
+        })
+        .eq('sections.academic_year_id', ayId)
+        .eq('enrollment_status', 'late_enrollee')
+        .gte('enrollment_date', input.from)
+        .lte('enrollment_date', input.to),
+      service
+        .from('section_students')
+        .select('id, sections!inner(academic_year_id)', {
+          count: 'exact',
+          head: true,
+        })
+        .eq('sections.academic_year_id', ayId)
+        .eq('enrollment_status', 'withdrawn')
+        .gte('withdrawal_date', input.from)
+        .lte('withdrawal_date', input.to),
+      service
+        .from('section_students')
+        .select('id, sections!inner(academic_year_id)', {
+          count: 'exact',
+          head: true,
+        })
+        .eq('sections.academic_year_id', ayId)
+        .in('enrollment_status', ['active', 'late_enrollee']),
+      // Records is enrolled-only per KD #51 — narrow the docs scan to the
+      // enrolled set so the "Docs expiring ≤60d" KPI doesn't count slots
+      // belonging to pre-enrolment funnel applicants. Without this filter
+      // the card was showing 47 when the drill (which IS enrolled-filtered)
+      // would show 3 — classic card-vs-drill disagreement.
+      (async () => {
+        const { data: enrolledStatus } = await admissions
+          .from(`${prefix}_enrolment_status`)
+          .select('enroleeNumber, applicationStatus')
+          .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']);
+        const enrolledNumbers = (
+          (enrolledStatus ?? []) as { enroleeNumber: string | null }[]
         )
-        .in('enroleeNumber', enrolledNumbers);
-    })(),
-  ]);
+          .map((s) => s.enroleeNumber)
+          .filter((v): v is string => v !== null);
+        if (enrolledNumbers.length === 0) {
+          return {
+            data: [] as Array<Record<string, string | null>>,
+            error: null,
+          };
+        }
+        return admissions
+          .from(`${prefix}_enrolment_documents`)
+          .select(
+            [
+              'enroleeNumber',
+              ...DOCUMENT_SLOTS.flatMap((s) =>
+                s.expires ? [`${s.key}Expiry`] : []
+              ),
+            ].join(', ')
+          )
+          .in('enroleeNumber', enrolledNumbers);
+      })(),
+    ]);
 
   type DocRow = Record<string, string | null>;
   const endDate = parseLocalDate(input.to) ?? new Date();
@@ -682,7 +772,7 @@ async function loadRecordsKpisForRange(input: RangeInput): Promise<RecordsRangeK
 }
 
 async function loadRecordsKpisRangeUncached(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<RecordsRangeKpis>> {
   const current = await loadRecordsKpisForRange(input);
   if (input.cmpFrom == null || input.cmpTo == null) {
@@ -704,25 +794,40 @@ async function loadRecordsKpisRangeUncached(
   return {
     current,
     comparison,
-    delta: computeDelta(current.enrollmentsInRange, comparison.enrollmentsInRange),
+    delta: computeDelta(
+      current.enrollmentsInRange,
+      comparison.enrollmentsInRange
+    ),
     range: { from: input.from, to: input.to },
     comparisonRange: { from: input.cmpFrom, to: input.cmpTo },
   };
 }
 
 export function getRecordsKpisRange(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<RecordsRangeKpis>> {
   return unstable_cache(
     loadRecordsKpisRangeUncached,
-    ['sis', 'records-kpis-range', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
-    { tags: tag(input.ayCode), revalidate: CACHE_TTL_SECONDS },
+    [
+      'sis',
+      'records-kpis-range',
+      input.ayCode,
+      input.from,
+      input.to,
+      input.cmpFrom ?? '',
+      input.cmpTo ?? '',
+    ],
+    { tags: tag(input.ayCode), revalidate: CACHE_TTL_SECONDS }
   )(input);
 }
 
 // Enrollment + withdrawal velocity — daily-bucketed.
 
-function bucketByDay(rows: { ts: string }[], from: string, to: string): VelocityPoint[] {
+function bucketByDay(
+  rows: { ts: string }[],
+  from: string,
+  to: string
+): VelocityPoint[] {
   const fromDate = parseLocalDate(from);
   const toDate = parseLocalDate(to);
   if (!fromDate || !toDate) return [];
@@ -730,7 +835,11 @@ function bucketByDay(rows: { ts: string }[], from: string, to: string): Velocity
   const buckets = new Array(length).fill(0) as number[];
   const labels: string[] = [];
   for (let i = 0; i < length; i += 1) {
-    const d = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate() + i);
+    const d = new Date(
+      fromDate.getFullYear(),
+      fromDate.getMonth(),
+      fromDate.getDate() + i
+    );
     labels.push(toISODate(d));
   }
   for (const row of rows) {
@@ -742,11 +851,12 @@ function bucketByDay(rows: { ts: string }[], from: string, to: string): Velocity
 }
 
 async function loadEnrollmentVelocityRangeUncached(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<VelocityPoint[]>> {
   const service = createServiceClient();
   const hasCmp = input.cmpFrom != null && input.cmpTo != null;
-  const earliest = hasCmp && input.cmpFrom! < input.from ? input.cmpFrom! : input.from;
+  const earliest =
+    hasCmp && input.cmpFrom! < input.from ? input.cmpFrom! : input.from;
   const latest = hasCmp && input.to < input.cmpTo! ? input.cmpTo! : input.to;
 
   const ayId = await getAyIdByCode(input.ayCode);
@@ -798,12 +908,20 @@ async function loadEnrollmentVelocityRangeUncached(
 }
 
 export function getEnrollmentVelocityRange(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<VelocityPoint[]>> {
   return unstable_cache(
     loadEnrollmentVelocityRangeUncached,
-    ['sis', 'enrollment-velocity', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
-    { tags: tag(input.ayCode), revalidate: CACHE_TTL_SECONDS },
+    [
+      'sis',
+      'enrollment-velocity',
+      input.ayCode,
+      input.from,
+      input.to,
+      input.cmpFrom ?? '',
+      input.cmpTo ?? '',
+    ],
+    { tags: tag(input.ayCode), revalidate: CACHE_TTL_SECONDS }
   )(input);
 }
 
@@ -812,11 +930,12 @@ export function getEnrollmentVelocityRange(
 // status, range-scoped and bucketed daily.
 
 async function loadWithdrawalVelocityRangeUncached(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<VelocityPoint[]>> {
   const service = createServiceClient();
   const hasCmp = input.cmpFrom != null && input.cmpTo != null;
-  const earliest = hasCmp && input.cmpFrom! < input.from ? input.cmpFrom! : input.from;
+  const earliest =
+    hasCmp && input.cmpFrom! < input.from ? input.cmpFrom! : input.from;
   const latest = hasCmp && input.to < input.cmpTo! ? input.cmpTo! : input.to;
 
   const ayId = await getAyIdByCode(input.ayCode);
@@ -866,12 +985,20 @@ async function loadWithdrawalVelocityRangeUncached(
 }
 
 export function getWithdrawalVelocityRange(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<VelocityPoint[]>> {
   return unstable_cache(
     loadWithdrawalVelocityRangeUncached,
-    ['sis', 'withdrawal-velocity', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
-    { tags: tag(input.ayCode), revalidate: CACHE_TTL_SECONDS },
+    [
+      'sis',
+      'withdrawal-velocity',
+      input.ayCode,
+      input.from,
+      input.to,
+      input.cmpFrom ?? '',
+      input.cmpTo ?? '',
+    ],
+    { tags: tag(input.ayCode), revalidate: CACHE_TTL_SECONDS }
   )(input);
 }
 
@@ -883,7 +1010,7 @@ export type AuditModulePoint = {
 };
 
 async function loadAuditActivityByModuleUncached(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<AuditModulePoint[]>> {
   const service = createServiceClient();
   const modules: Array<{ key: string; label: string }> = [
@@ -895,7 +1022,10 @@ async function loadAuditActivityByModuleUncached(
     { key: 'evaluation.', label: 'Evaluation' },
   ];
 
-  async function countsFor(from: string, to: string): Promise<AuditModulePoint[]> {
+  async function countsFor(
+    from: string,
+    to: string
+  ): Promise<AuditModulePoint[]> {
     // Preserve module order (indexed results), so callers can align
     // current[i] to comparison[i] deterministically.
     const results = await Promise.all(
@@ -907,7 +1037,7 @@ async function loadAuditActivityByModuleUncached(
           .gte('created_at', `${from}T00:00:00+08:00`)
           .lte('created_at', `${to}T23:59:59+08:00`);
         return { module: m.label, count: count ?? 0 };
-      }),
+      })
     );
     return results;
   }
@@ -935,12 +1065,20 @@ async function loadAuditActivityByModuleUncached(
 }
 
 export function getAuditActivityByModule(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<AuditModulePoint[]>> {
   return unstable_cache(
     loadAuditActivityByModuleUncached,
-    ['sis', 'audit-by-module', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
-    { tags: ['sis'], revalidate: 120 },
+    [
+      'sis',
+      'audit-by-module',
+      input.ayCode,
+      input.from,
+      input.to,
+      input.cmpFrom ?? '',
+      input.cmpTo ?? '',
+    ],
+    { tags: ['sis'], revalidate: 120 }
   )(input);
 }
 
@@ -959,7 +1097,7 @@ export type ClassAssignmentReadinessRow = {
 };
 
 async function loadClassAssignmentReadinessUncached(
-  ayCode: string,
+  ayCode: string
 ): Promise<ClassAssignmentReadinessRow[]> {
   const service = createServiceClient();
   const admissions = createAdmissionsClient();
@@ -976,7 +1114,9 @@ async function loadClassAssignmentReadinessUncached(
     .from('sections')
     .select('id')
     .eq('academic_year_id', ayId);
-  const sectionIds = ((sectionsData ?? []) as { id: string }[]).map((r) => r.id);
+  const sectionIds = ((sectionsData ?? []) as { id: string }[]).map(
+    (r) => r.id
+  );
 
   const prefix = prefixFor(ayCode);
   type EnrolledRow = {
@@ -990,7 +1130,9 @@ async function loadClassAssignmentReadinessUncached(
   const [enrolledRes, ssRes] = await Promise.all([
     admissions
       .from(`${prefix}_enrolment_status`)
-      .select('enroleeNumber, applicationStatus, applicationUpdatedDate, classLevel, classSection, levelApplied')
+      .select(
+        'enroleeNumber, applicationStatus, applicationUpdatedDate, classLevel, classSection, levelApplied'
+      )
       .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']),
     sectionIds.length > 0
       ? service
@@ -1005,7 +1147,7 @@ async function loadClassAssignmentReadinessUncached(
   const assignedEnrolees = new Set(
     ((ssRes.data ?? []) as { enrolee_number: string | null }[])
       .map((r) => r.enrolee_number)
-      .filter((v): v is string => v !== null),
+      .filter((v): v is string => v !== null)
   );
 
   // A student is truly "without a section" only if BOTH:
@@ -1029,7 +1171,9 @@ async function loadClassAssignmentReadinessUncached(
   };
   const { data: appsData } = await admissions
     .from(`${prefix}_enrolment_applications`)
-    .select('enroleeNumber, enroleeFullName, firstName, lastName, levelApplied, created_at')
+    .select(
+      'enroleeNumber, enroleeFullName, firstName, lastName, levelApplied, created_at'
+    )
     .in('enroleeNumber', unassignedEnrolees);
   const appsByEnrolee = new Map<string, AppRow>();
   for (const a of (appsData ?? []) as AppRow[]) {
@@ -1049,7 +1193,8 @@ async function loadClassAssignmentReadinessUncached(
       (app?.enroleeFullName ?? '').trim() ||
       `${app?.firstName ?? ''} ${app?.lastName ?? ''}`.trim() ||
       enroleeNumber;
-    const enrollmentDate = status?.applicationUpdatedDate ?? app?.created_at ?? null;
+    const enrollmentDate =
+      status?.applicationUpdatedDate ?? app?.created_at ?? null;
     const enrolledMs = enrollmentDate ? Date.parse(enrollmentDate) : NaN;
     out.push({
       enroleeNumber,
@@ -1061,25 +1206,33 @@ async function loadClassAssignmentReadinessUncached(
         : null,
     });
   }
-  out.sort((a, b) => (b.daysSinceEnrollment ?? 0) - (a.daysSinceEnrollment ?? 0));
+  out.sort(
+    (a, b) => (b.daysSinceEnrollment ?? 0) - (a.daysSinceEnrollment ?? 0)
+  );
   return out;
 }
 
 export function getClassAssignmentReadiness(
-  ayCode: string,
+  ayCode: string
 ): Promise<ClassAssignmentReadinessRow[]> {
   return unstable_cache(
     () => loadClassAssignmentReadinessUncached(ayCode),
     ['sis-dashboard', 'class-assignment-readiness', ayCode],
-    { revalidate: 60, tags: tag(ayCode) },
+    { revalidate: 60, tags: tag(ayCode) }
   )();
 }
 
-export async function getActivityByActor(
-  range?: { from: string; to: string },
-): Promise<Awaited<ReturnType<typeof loadActorActivity>>> {
+export async function getActivityByActor(range?: {
+  from: string;
+  to: string;
+}): Promise<Awaited<ReturnType<typeof loadActorActivity>>> {
   // Cache wrapper keyed by range
-  const key = ['sis-dashboard', 'activity-by-actor', range?.from ?? 'all', range?.to ?? 'all'];
+  const key = [
+    'sis-dashboard',
+    'activity-by-actor',
+    range?.from ?? 'all',
+    range?.to ?? 'all',
+  ];
   return unstable_cache(() => loadActorActivity(range), key, {
     revalidate: 60,
     tags: ['sis-dashboard', 'audit-log'],
@@ -1092,7 +1245,10 @@ export async function getActivityByActor(
 
 export type AuditDailyTrendResult = RangeResult<VelocityPoint[]>;
 
-async function loadAuditDailyForRange(from: string, to: string): Promise<VelocityPoint[]> {
+async function loadAuditDailyForRange(
+  from: string,
+  to: string
+): Promise<VelocityPoint[]> {
   const service = createServiceClient();
   const rows = await fetchAllPages<{ created_at: string }>((f, t) =>
     service
@@ -1100,15 +1256,27 @@ async function loadAuditDailyForRange(from: string, to: string): Promise<Velocit
       .select('created_at')
       .gte('created_at', `${from}T00:00:00+08:00`)
       .lte('created_at', `${to}T23:59:59+08:00`)
-      .range(f, t),
+      .range(f, t)
   );
-  return bucketByDay(rows.map((r) => ({ ts: r.created_at })), from, to);
+  return bucketByDay(
+    rows.map((r) => ({ ts: r.created_at })),
+    from,
+    to
+  );
 }
 
-async function loadAuditDailyTrendUncached(input: RangeInput): Promise<AuditDailyTrendResult> {
+async function loadAuditDailyTrendUncached(
+  input: RangeInput
+): Promise<AuditDailyTrendResult> {
   const current = await loadAuditDailyForRange(input.from, input.to);
   if (input.cmpFrom == null || input.cmpTo == null) {
-    return { current, comparison: null, delta: null, range: { from: input.from, to: input.to }, comparisonRange: null };
+    return {
+      current,
+      comparison: null,
+      delta: null,
+      range: { from: input.from, to: input.to },
+      comparisonRange: null,
+    };
   }
   const comparison = await loadAuditDailyForRange(input.cmpFrom, input.cmpTo);
   const currentTotal = current.reduce((s, p) => s + p.y, 0);
@@ -1122,11 +1290,21 @@ async function loadAuditDailyTrendUncached(input: RangeInput): Promise<AuditDail
   };
 }
 
-export function getAuditDailyTrend(input: RangeInput): Promise<AuditDailyTrendResult> {
+export function getAuditDailyTrend(
+  input: RangeInput
+): Promise<AuditDailyTrendResult> {
   return unstable_cache(
     loadAuditDailyTrendUncached,
-    ['sis', 'audit-daily-trend', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
-    { tags: ['sis'], revalidate: 120 },
+    [
+      'sis',
+      'audit-daily-trend',
+      input.ayCode,
+      input.from,
+      input.to,
+      input.cmpFrom ?? '',
+      input.cmpTo ?? '',
+    ],
+    { tags: ['sis'], revalidate: 120 }
   )(input);
 }
 
@@ -1142,7 +1320,9 @@ export type GradeChangePipeline = {
   undoneRejections: number;
 };
 
-async function loadGradeChangePipelineUncached(input: RangeInput): Promise<GradeChangePipeline> {
+async function loadGradeChangePipelineUncached(
+  input: RangeInput
+): Promise<GradeChangePipeline> {
   const service = createServiceClient();
   const fromTs = `${input.from}T00:00:00+08:00`;
   const toTs = `${input.to}T23:59:59+08:00`;
@@ -1157,22 +1337,25 @@ async function loadGradeChangePipelineUncached(input: RangeInput): Promise<Grade
     return count ?? 0;
   };
 
-  const [submitted, approved, rejected, applied, undoneRejections] = await Promise.all([
-    countFor('grade_change_requested'),
-    countFor('grade_change_approved'),
-    countFor('grade_change_rejected'),
-    countFor('grade_change_applied'),
-    countFor('grade_change_undo_rejection'),
-  ]);
+  const [submitted, approved, rejected, applied, undoneRejections] =
+    await Promise.all([
+      countFor('grade_change_requested'),
+      countFor('grade_change_approved'),
+      countFor('grade_change_rejected'),
+      countFor('grade_change_applied'),
+      countFor('grade_change_undo_rejection'),
+    ]);
 
   return { submitted, approved, rejected, applied, undoneRejections };
 }
 
-export function getGradeChangePipeline(input: RangeInput): Promise<GradeChangePipeline> {
+export function getGradeChangePipeline(
+  input: RangeInput
+): Promise<GradeChangePipeline> {
   return unstable_cache(
     loadGradeChangePipelineUncached,
     ['sis', 'grade-change-pipeline', input.ayCode, input.from, input.to],
-    { tags: ['sis'], revalidate: 120 },
+    { tags: ['sis'], revalidate: 120 }
   )(input);
 }
 
@@ -1182,7 +1365,9 @@ export function getGradeChangePipeline(input: RangeInput): Promise<GradeChangePi
 
 export type TopAuditAction = { action: string; count: number };
 
-async function loadTopAuditActionsUncached(input: RangeInput): Promise<TopAuditAction[]> {
+async function loadTopAuditActionsUncached(
+  input: RangeInput
+): Promise<TopAuditAction[]> {
   const service = createServiceClient();
   const rows = await fetchAllPages<{ action: string }>((f, t) =>
     service
@@ -1190,7 +1375,7 @@ async function loadTopAuditActionsUncached(input: RangeInput): Promise<TopAuditA
       .select('action')
       .gte('created_at', `${input.from}T00:00:00+08:00`)
       .lte('created_at', `${input.to}T23:59:59+08:00`)
-      .range(f, t),
+      .range(f, t)
   );
 
   const counts = new Map<string, number>();
@@ -1202,11 +1387,13 @@ async function loadTopAuditActionsUncached(input: RangeInput): Promise<TopAuditA
     .slice(0, 10);
 }
 
-export function getTopAuditActions(input: RangeInput): Promise<TopAuditAction[]> {
+export function getTopAuditActions(
+  input: RangeInput
+): Promise<TopAuditAction[]> {
   return unstable_cache(
     loadTopAuditActionsUncached,
     ['sis', 'top-audit-actions', input.ayCode, input.from, input.to],
-    { tags: ['sis'], revalidate: 120 },
+    { tags: ['sis'], revalidate: 120 }
   )(input);
 }
 
@@ -1220,7 +1407,9 @@ export type AuthEventCounts = {
   parentSessionsCleared: number;
 };
 
-async function loadAuthEventCountsUncached(input: RangeInput): Promise<AuthEventCounts> {
+async function loadAuthEventCountsUncached(
+  input: RangeInput
+): Promise<AuthEventCounts> {
   const service = createServiceClient();
   const fromTs = `${input.from}T00:00:00+08:00`;
   const toTs = `${input.to}T23:59:59+08:00`;
@@ -1235,20 +1424,23 @@ async function loadAuthEventCountsUncached(input: RangeInput): Promise<AuthEvent
     return count ?? 0;
   };
 
-  const [staffLogins, parentSessionsIssued, parentSessionsCleared] = await Promise.all([
-    countFor('user.login'),
-    countFor('parent.session.issued'),
-    countFor('parent.session.cleared'),
-  ]);
+  const [staffLogins, parentSessionsIssued, parentSessionsCleared] =
+    await Promise.all([
+      countFor('user.login'),
+      countFor('parent.session.issued'),
+      countFor('parent.session.cleared'),
+    ]);
 
   return { staffLogins, parentSessionsIssued, parentSessionsCleared };
 }
 
-export function getAuthEventCounts(input: RangeInput): Promise<AuthEventCounts> {
+export function getAuthEventCounts(
+  input: RangeInput
+): Promise<AuthEventCounts> {
   return unstable_cache(
     loadAuthEventCountsUncached,
     ['sis', 'auth-event-counts', input.ayCode, input.from, input.to],
-    { tags: ['sis'], revalidate: 120 },
+    { tags: ['sis'], revalidate: 120 }
   )(input);
 }
 
@@ -1280,7 +1472,9 @@ export type StructuralChangeRow = {
   context: Record<string, unknown>;
 };
 
-async function loadStructuralChangeFeedUncached(): Promise<StructuralChangeRow[]> {
+async function loadStructuralChangeFeedUncached(): Promise<
+  StructuralChangeRow[]
+> {
   const service = createServiceClient();
   const { data, error } = await service
     .from('audit_log')
@@ -1314,7 +1508,7 @@ async function loadStructuralChangeFeedUncached(): Promise<StructuralChangeRow[]
 const loadStructuralChangeFeedCached = unstable_cache(
   loadStructuralChangeFeedUncached,
   ['sis', 'structural-change-feed'],
-  { tags: ['sis'], revalidate: 120 },
+  { tags: ['sis'], revalidate: 120 }
 );
 
 export function getStructuralChangeFeed(): Promise<StructuralChangeRow[]> {
@@ -1336,42 +1530,50 @@ async function loadHubKpisUncached(ayCode: string): Promise<HubKpis> {
   const service = createServiceClient();
   const ayId = await getAyIdByCode(ayCode);
   if (ayId == null) {
-    return { enrolledStudents: 0, activeSections: 0, pendingChangeRequests: 0, openPublicationWindows: 0 };
+    return {
+      enrolledStudents: 0,
+      activeSections: 0,
+      pendingChangeRequests: 0,
+      openPublicationWindows: 0,
+    };
   }
 
   const { data: sectionsData } = await service
     .from('sections')
     .select('id')
     .eq('academic_year_id', ayId);
-  const sectionIds = ((sectionsData ?? []) as { id: string }[]).map((r) => r.id);
+  const sectionIds = ((sectionsData ?? []) as { id: string }[]).map(
+    (r) => r.id
+  );
 
   const now = new Date().toISOString();
 
-  const [enrolledRes, sectionsRes, pendingCrRes, openPubRes] = await Promise.all([
-    sectionIds.length > 0
-      ? service
-          .from('section_students')
-          .select('id', { count: 'exact', head: true })
-          .in('section_id', sectionIds)
-          .in('enrollment_status', ['active', 'late_enrollee'])
-      : Promise.resolve({ count: 0, data: null, error: null }),
-    service
-      .from('sections')
-      .select('id', { count: 'exact', head: true })
-      .eq('academic_year_id', ayId),
-    service
-      .from('grade_change_requests')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'pending'),
-    sectionIds.length > 0
-      ? service
-          .from('report_card_publications')
-          .select('id', { count: 'exact', head: true })
-          .in('section_id', sectionIds)
-          .lte('publish_from', now)
-          .gte('publish_until', now)
-      : Promise.resolve({ count: 0, data: null, error: null }),
-  ]);
+  const [enrolledRes, sectionsRes, pendingCrRes, openPubRes] =
+    await Promise.all([
+      sectionIds.length > 0
+        ? service
+            .from('section_students')
+            .select('id', { count: 'exact', head: true })
+            .in('section_id', sectionIds)
+            .in('enrollment_status', ['active', 'late_enrollee'])
+        : Promise.resolve({ count: 0, data: null, error: null }),
+      service
+        .from('sections')
+        .select('id', { count: 'exact', head: true })
+        .eq('academic_year_id', ayId),
+      service
+        .from('grade_change_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pending'),
+      sectionIds.length > 0
+        ? service
+            .from('report_card_publications')
+            .select('id', { count: 'exact', head: true })
+            .in('section_id', sectionIds)
+            .lte('publish_from', now)
+            .gte('publish_until', now)
+        : Promise.resolve({ count: 0, data: null, error: null }),
+    ]);
 
   return {
     enrolledStudents: enrolledRes.count ?? 0,
@@ -1382,11 +1584,10 @@ async function loadHubKpisUncached(ayCode: string): Promise<HubKpis> {
 }
 
 export function getHubKpis(ayCode: string): Promise<HubKpis> {
-  return unstable_cache(
-    loadHubKpisUncached,
-    ['sis', 'hub-kpis', ayCode],
-    { tags: tag(ayCode), revalidate: 120 },
-  )(ayCode);
+  return unstable_cache(loadHubKpisUncached, ['sis', 'hub-kpis', ayCode], {
+    tags: tag(ayCode),
+    revalidate: 120,
+  })(ayCode);
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -1404,7 +1605,7 @@ export type UpcomingCalendarEvent = {
 
 async function loadUpcomingCalendarEventsUncached(
   ayCode: string,
-  limit: number,
+  limit: number
 ): Promise<UpcomingCalendarEvent[]> {
   const service = createServiceClient();
   const ayId = await getAyIdByCode(ayCode);
@@ -1428,7 +1629,10 @@ async function loadUpcomingCalendarEventsUncached(
     .limit(limit);
 
   if (error) {
-    console.error('[sis] getUpcomingCalendarEvents fetch failed:', error.message);
+    console.error(
+      '[sis] getUpcomingCalendarEvents fetch failed:',
+      error.message
+    );
     return [];
   }
 
@@ -1453,12 +1657,12 @@ async function loadUpcomingCalendarEventsUncached(
 
 export function getUpcomingCalendarEvents(
   ayCode: string,
-  limit: number = 5,
+  limit: number = 5
 ): Promise<UpcomingCalendarEvent[]> {
   return unstable_cache(
     loadUpcomingCalendarEventsUncached,
     ['sis', 'upcoming-calendar-events', ayCode, String(limit)],
-    { tags: tag(ayCode), revalidate: 120 },
+    { tags: tag(ayCode), revalidate: 120 }
   )(ayCode, limit);
 }
 
@@ -1472,7 +1676,7 @@ export type SectionStaffingCoverage = {
 };
 
 async function loadSectionStaffingCoverageUncached(
-  ayCode: string,
+  ayCode: string
 ): Promise<SectionStaffingCoverage> {
   const service = createServiceClient();
   const ayId = await getAyIdByCode(ayCode);
@@ -1482,7 +1686,9 @@ async function loadSectionStaffingCoverageUncached(
     .from('sections')
     .select('id')
     .eq('academic_year_id', ayId);
-  const sectionIds = ((sectionsData ?? []) as { id: string }[]).map((r) => r.id);
+  const sectionIds = ((sectionsData ?? []) as { id: string }[]).map(
+    (r) => r.id
+  );
   const total = sectionIds.length;
   if (total === 0) return { total: 0, withAdviser: 0 };
 
@@ -1493,18 +1699,20 @@ async function loadSectionStaffingCoverageUncached(
     .eq('role', 'form_adviser');
 
   const advisedSectionIds = new Set(
-    ((assignmentsData ?? []) as { section_id: string }[]).map((r) => r.section_id),
+    ((assignmentsData ?? []) as { section_id: string }[]).map(
+      (r) => r.section_id
+    )
   );
 
   return { total, withAdviser: advisedSectionIds.size };
 }
 
 export function getSectionStaffingCoverage(
-  ayCode: string,
+  ayCode: string
 ): Promise<SectionStaffingCoverage> {
   return unstable_cache(
     loadSectionStaffingCoverageUncached,
     ['sis', 'section-staffing-coverage', ayCode],
-    { tags: tag(ayCode), revalidate: 120 },
+    { tags: tag(ayCode), revalidate: 120 }
   )(ayCode);
 }

@@ -1,6 +1,12 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, ClipboardCheck, ListChecks, Users } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ClipboardCheck,
+  ListChecks,
+  Users,
+} from 'lucide-react';
 
 import { createClient, getSessionUser } from '@/lib/supabase/server';
 import {
@@ -12,7 +18,10 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
-import { AuditLogDataTable, type MergedRow } from '@/app/(markbook)/markbook/audit-log/audit-log-data-table';
+import {
+  AuditLogDataTable,
+  type MergedRow,
+} from '@/app/(markbook)/markbook/audit-log/audit-log-data-table';
 
 // evaluation.term.open + evaluation.term.close are in the enum but never
 // emitted (window concept removed), so they're intentionally excluded.
@@ -29,7 +38,9 @@ const EVALUATION_AUDIT_ALLOWLIST = [
   'evaluation.subject_comment.save',
   'evaluation.ptc_feedback.save',
   // Scheme of Work — evaluation-affecting actions (KD #110)
-  'sow.instance.save', 'sow.instance.import_from', 'sow.topics.synced',
+  'sow.instance.save',
+  'sow.instance.import_from',
+  'sow.topics.synced',
 ] as const;
 
 export default async function EvaluationAuditLogPage({
@@ -47,7 +58,8 @@ export default async function EvaluationAuditLogPage({
     redirect('/');
   }
 
-  const canExport = sessionUser.role === 'school_admin' || sessionUser.role === 'superadmin';
+  const canExport =
+    sessionUser.role === 'school_admin' || sessionUser.role === 'superadmin';
   const params = await searchParams;
   const PAGE_SIZE = Math.min(Number(params.pageSize ?? 50), 200);
   const page = Math.max(Number(params.page ?? 1), 1);
@@ -58,35 +70,44 @@ export default async function EvaluationAuditLogPage({
 
   const { data, count, error } = await supabase
     .from('audit_log')
-    .select('id, actor_email, action, entity_type, entity_id, context, created_at', { count: 'exact' })
+    .select(
+      'id, actor_email, action, entity_type, entity_id, context, created_at',
+      { count: 'exact' }
+    )
     .in('action', EVALUATION_AUDIT_ALLOWLIST)
     .order('created_at', { ascending: false })
     .range(from, to);
 
   const totalPages = count ? Math.ceil(count / PAGE_SIZE) : 1;
 
-  const rows: MergedRow[] = ((data ?? []) as Array<{
-    id: string;
-    actor_email: string;
-    action: string;
-    entity_type: string;
-    entity_id: string | null;
-    context: Record<string, unknown>;
-    created_at: string;
-  }>).map((r): MergedRow => ({
-    id: `new-${r.id}`,
-    at: r.created_at,
-    actor: r.actor_email,
-    action: r.action,
-    entity_type: r.entity_type,
-    entity_id: r.entity_id,
-    context: r.context ?? {},
-    sheet_id: null,
-    source: 'audit_log',
-  }));
+  const rows: MergedRow[] = (
+    (data ?? []) as Array<{
+      id: string;
+      actor_email: string;
+      action: string;
+      entity_type: string;
+      entity_id: string | null;
+      context: Record<string, unknown>;
+      created_at: string;
+    }>
+  ).map(
+    (r): MergedRow => ({
+      id: `new-${r.id}`,
+      at: r.created_at,
+      actor: r.actor_email,
+      action: r.action,
+      entity_type: r.entity_type,
+      entity_id: r.entity_id,
+      context: r.context ?? {},
+      sheet_id: null,
+      source: 'audit_log',
+    })
+  );
 
   const uniqueActors = new Set(rows.map((r) => r.actor)).size;
-  const writeupSubmits = rows.filter((r) => r.action === 'evaluation.writeup.submit').length;
+  const writeupSubmits = rows.filter(
+    (r) => r.action === 'evaluation.writeup.submit'
+  ).length;
 
   return (
     <PageShell>
@@ -106,8 +127,9 @@ export default async function EvaluationAuditLogPage({
           Audit log.
         </h1>
         <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-          A history of every evaluation entry — writeups, checklist topics, per-topic ratings,
-          subject comments, and parent-teacher-conference feedback. Past entries are kept on the record.
+          A history of every evaluation entry — writeups, checklist topics,
+          per-topic ratings, subject comments, and parent-teacher-conference
+          feedback. Past entries are kept on the record.
         </p>
       </header>
 
@@ -128,14 +150,20 @@ export default async function EvaluationAuditLogPage({
             description="Unique actors"
             value={uniqueActors.toLocaleString('en-SG')}
             icon={Users}
-            footerTitle={uniqueActors === 1 ? '1 user' : `${uniqueActors} users`}
+            footerTitle={
+              uniqueActors === 1 ? '1 user' : `${uniqueActors} users`
+            }
             footerDetail="Distinct accounts on this page"
           />
           <StatCard
             description="Writeups submitted"
             value={writeupSubmits.toLocaleString('en-SG')}
             icon={ClipboardCheck}
-            footerTitle={writeupSubmits === 0 ? 'None on this page' : 'FCA comments finalised'}
+            footerTitle={
+              writeupSubmits === 0
+                ? 'None on this page'
+                : 'FCA comments finalised'
+            }
             footerDetail="Submitted writeups feed the report card"
           />
         </div>
@@ -150,7 +178,9 @@ export default async function EvaluationAuditLogPage({
             <p className="font-serif text-base font-semibold leading-tight text-foreground">
               Could not load audit entries
             </p>
-            <p className="text-sm leading-relaxed text-muted-foreground">{error.message}</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {error.message}
+            </p>
           </div>
         </div>
       )}
@@ -158,7 +188,12 @@ export default async function EvaluationAuditLogPage({
       <AuditLogDataTable
         rows={rows}
         canExport={canExport}
-        pagination={{ page, pageSize: PAGE_SIZE, totalPages, total: count ?? 0 }}
+        pagination={{
+          page,
+          pageSize: PAGE_SIZE,
+          totalPages,
+          total: count ?? 0,
+        }}
       />
     </PageShell>
   );

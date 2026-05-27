@@ -12,7 +12,10 @@ import type { FeedbackRow } from '@/lib/admissions/feedback';
 
 const RATING_CONFIG: Record<
   number,
-  { label: string; variant: 'blocked' | 'warning' | 'muted' | 'default' | 'success' }
+  {
+    label: string;
+    variant: 'blocked' | 'warning' | 'muted' | 'default' | 'success';
+  }
 > = {
   1: { label: 'Very Difficult', variant: 'blocked' },
   2: { label: 'Frustrating', variant: 'warning' },
@@ -38,10 +41,20 @@ function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-SG', { year: 'numeric', month: 'short', day: 'numeric' });
+  return d.toLocaleDateString('en-SG', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
-function TruncatedText({ value, max = 100 }: { value: string | null | undefined; max?: number }) {
+function TruncatedText({
+  value,
+  max = 100,
+}: {
+  value: string | null | undefined;
+  max?: number;
+}) {
   const s = (value ?? '').trim();
   if (!s) return <span className="text-xs text-muted-foreground">—</span>;
   const truncated = s.length > max ? `${s.slice(0, max)}…` : s;
@@ -70,7 +83,9 @@ function buildColumns(ayCode: string): ColumnDef<FeedbackRow>[] {
             </div>
             <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
               {row.original.enroleeNumber}
-              {row.original.studentNumber ? ` · ${row.original.studentNumber}` : ''}
+              {row.original.studentNumber
+                ? ` · ${row.original.studentNumber}`
+                : ''}
             </div>
           </Link>
         );
@@ -82,7 +97,9 @@ function buildColumns(ayCode: string): ColumnDef<FeedbackRow>[] {
       accessorKey: 'levelApplied',
       header: 'Level',
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{row.original.levelApplied ?? '—'}</span>
+        <span className="text-sm text-muted-foreground">
+          {row.original.levelApplied ?? '—'}
+        </span>
       ),
       enableSorting: true,
     },
@@ -106,7 +123,9 @@ function buildColumns(ayCode: string): ColumnDef<FeedbackRow>[] {
       id: 'feedbackComments',
       accessorKey: 'feedbackComments',
       header: 'Comments',
-      cell: ({ row }) => <TruncatedText value={row.original.feedbackComments} />,
+      cell: ({ row }) => (
+        <TruncatedText value={row.original.feedbackComments} />
+      ),
       enableSorting: false,
     },
     {
@@ -115,8 +134,10 @@ function buildColumns(ayCode: string): ColumnDef<FeedbackRow>[] {
         r.feedbackConsent === true ? 2 : r.feedbackConsent === false ? 0 : 1,
       header: 'May contact',
       cell: ({ row }) => {
-        if (row.original.feedbackConsent === true) return <Badge variant="success">Yes</Badge>;
-        if (row.original.feedbackConsent === false) return <Badge variant="outline">No</Badge>;
+        if (row.original.feedbackConsent === true)
+          return <Badge variant="success">Yes</Badge>;
+        if (row.original.feedbackConsent === false)
+          return <Badge variant="outline">No</Badge>;
         return <span className="text-xs text-muted-foreground">—</span>;
       },
       enableSorting: true,
@@ -155,7 +176,8 @@ const STATUS_TABS: StatusTabConfig<FeedbackRow>[] = [
   {
     value: 'low',
     label: 'Needs attention (1–2)',
-    predicate: (r) => (r.feedbackRating ?? 0) >= 1 && (r.feedbackRating ?? 0) <= 2,
+    predicate: (r) =>
+      (r.feedbackRating ?? 0) >= 1 && (r.feedbackRating ?? 0) <= 2,
   },
   {
     value: 'contact',
@@ -172,7 +194,13 @@ const FACETS = [
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function FeedbackTable({ rows, ayCode }: { rows: FeedbackRow[]; ayCode: string }) {
+export function FeedbackTable({
+  rows,
+  ayCode,
+}: {
+  rows: FeedbackRow[];
+  ayCode: string;
+}) {
   return (
     <DataTable<FeedbackRow>
       data={rows}

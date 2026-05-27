@@ -29,7 +29,13 @@ import {
 } from '@/components/ui/form';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import {
   ENROLLED_PREREQ_STAGES,
@@ -45,7 +51,12 @@ import {
 const OTHER_SENTINEL = '__other__';
 
 type ExtraValues = Record<string, string | null>;
-type MidTermPayload = { termNumber: number; termLabel: string; sectionId: string; sectionStudentId: string };
+type MidTermPayload = {
+  termNumber: number;
+  termLabel: string;
+  sectionId: string;
+  sectionStudentId: string;
+};
 
 export function EditStageDialog({
   ayCode,
@@ -74,7 +85,9 @@ export function EditStageDialog({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [pendingMidTerm, setPendingMidTerm] = useState<MidTermPayload | null>(null);
+  const [pendingMidTerm, setPendingMidTerm] = useState<MidTermPayload | null>(
+    null
+  );
   const [markAsLate, setMarkAsLate] = useState(true);
   const [applyingLate, setApplyingLate] = useState(false);
 
@@ -85,12 +98,17 @@ export function EditStageDialog({
   // free-text override when the user picks "Other". This avoids round-tripping
   // through the form's `status` field on every keystroke.
   const initialIsCanonical =
-    initialStatus !== null && (canonicalOptions as readonly string[]).includes(initialStatus);
+    initialStatus !== null &&
+    (canonicalOptions as readonly string[]).includes(initialStatus);
   const [statusChoice, setStatusChoice] = useState<string>(
-    initialStatus === null ? '' : initialIsCanonical ? initialStatus : OTHER_SENTINEL,
+    initialStatus === null
+      ? ''
+      : initialIsCanonical
+        ? initialStatus
+        : OTHER_SENTINEL
   );
   const [statusOther, setStatusOther] = useState<string>(
-    initialStatus !== null && !initialIsCanonical ? initialStatus : '',
+    initialStatus !== null && !initialIsCanonical ? initialStatus : ''
   );
 
   const form = useForm<StageUpdateInput>({
@@ -110,7 +128,9 @@ export function EditStageDialog({
     if (statusChoice === '') {
       form.setValue('status', null, { shouldDirty: true });
     } else if (statusChoice === OTHER_SENTINEL) {
-      form.setValue('status', statusOther.trim() ? statusOther : null, { shouldDirty: true });
+      form.setValue('status', statusOther.trim() ? statusOther : null, {
+        shouldDirty: true,
+      });
     } else {
       form.setValue('status', statusChoice, { shouldDirty: true });
     }
@@ -128,7 +148,8 @@ export function EditStageDialog({
   const showPrereqChecklist =
     stageKey === 'application' &&
     !!prereqStatuses &&
-    (effectiveStatus === 'Enrolled' || effectiveStatus === 'Enrolled (Conditional)');
+    (effectiveStatus === 'Enrolled' ||
+      effectiveStatus === 'Enrolled (Conditional)');
   const prereqRows = showPrereqChecklist
     ? ENROLLED_PREREQ_STAGES.map((k) => {
         const current = prereqStatuses?.[k] ?? null;
@@ -146,7 +167,7 @@ export function EditStageDialog({
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(values),
-        },
+        }
       );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -157,7 +178,11 @@ export function EditStageDialog({
         //     one-click hop to the student's P-Files profile.
         //   - application → Enrolled-prereq gate (one of the 5 prereq stages
         //     is incomplete).
-        if (res.status === 422 && Array.isArray(body.blockers) && body.blockers.length > 0) {
+        if (
+          res.status === 422 &&
+          Array.isArray(body.blockers) &&
+          body.blockers.length > 0
+        ) {
           if (stageKey === 'documents') {
             const docBlockers = body.blockers as Array<{
               slot: string;
@@ -166,11 +191,11 @@ export function EditStageDialog({
               expected: string;
             }>;
             const lines = docBlockers.map(
-              (b) => `${b.label} (${b.current ?? 'missing'})`,
+              (b) => `${b.label} (${b.current ?? 'missing'})`
             );
             toast.error(
               `Documents not ready — ${docBlockers.length} slot${docBlockers.length === 1 ? '' : 's'} pending validation`,
-              { description: lines.join(' · ') },
+              { description: lines.join(' · ') }
             );
             return;
           }
@@ -180,11 +205,12 @@ export function EditStageDialog({
             expected: string;
           }>;
           const lines = enrolBlockers.map(
-            (b) => `${b.stage}: ${b.current ?? 'not started'} → needs ${b.expected}`,
+            (b) =>
+              `${b.stage}: ${b.current ?? 'not started'} → needs ${b.expected}`
           );
           toast.error(
             `Can't enroll yet — ${enrolBlockers.length} stage${enrolBlockers.length === 1 ? '' : 's'} still open`,
-            { description: lines.join(' · ') },
+            { description: lines.join(' · ') }
           );
           return;
         }
@@ -208,7 +234,7 @@ export function EditStageDialog({
         toast.success(
           `${STAGE_LABELS[stageKey]} updated · ${withdrawalCascade.rowsAffected} section row${
             withdrawalCascade.rowsAffected === 1 ? '' : 's'
-          } flipped to withdrawn`,
+          } flipped to withdrawn`
         );
       } else if (autoSyncFailed) {
         // Either Enrolled (class auto-assigned then sync skipped) OR
@@ -225,7 +251,7 @@ export function EditStageDialog({
               autoSync?.reason ??
               autoSync?.error ??
               'Check /records/unsynced to assign a section and complete the sync.',
-          },
+          }
         );
       } else if (classAutoAssigned) {
         toast.success('Enrolled · class auto-assigned · synced to roster');
@@ -241,10 +267,13 @@ export function EditStageDialog({
         toast.success(
           changed === 0
             ? `${STAGE_LABELS[stageKey]} saved (no changes)`
-            : `${STAGE_LABELS[stageKey]} updated`,
+            : `${STAGE_LABELS[stageKey]} updated`
         );
       }
-      const midTermPayload = body.midTermEnrolment as MidTermPayload | null | undefined;
+      const midTermPayload = body.midTermEnrolment as
+        | MidTermPayload
+        | null
+        | undefined;
       if (midTermPayload?.sectionId) {
         setPendingMidTerm(midTermPayload);
         setMarkAsLate(true);
@@ -267,8 +296,16 @@ export function EditStageDialog({
         if (!next) {
           setPendingMidTerm(null);
           // Reset to initials on close.
-          setStatusChoice(initialStatus === null ? '' : initialIsCanonical ? initialStatus : OTHER_SENTINEL);
-          setStatusOther(initialStatus !== null && !initialIsCanonical ? initialStatus : '');
+          setStatusChoice(
+            initialStatus === null
+              ? ''
+              : initialIsCanonical
+                ? initialStatus
+                : OTHER_SENTINEL
+          );
+          setStatusOther(
+            initialStatus !== null && !initialIsCanonical ? initialStatus : ''
+          );
           form.reset({
             status: initialStatus,
             remarks: initialRemarks,
@@ -294,7 +331,10 @@ export function EditStageDialog({
                 Enrolling mid-year
               </DialogTitle>
               <DialogDescription>
-                Today falls in <strong>{pendingMidTerm.termLabel}</strong>. Most students who join in {pendingMidTerm.termLabel} are marked as late enrollees so the system knows to skip assessments that happened before they joined.
+                Today falls in <strong>{pendingMidTerm.termLabel}</strong>. Most
+                students who join in {pendingMidTerm.termLabel} are marked as
+                late enrollees so the system knows to skip assessments that
+                happened before they joined.
               </DialogDescription>
             </DialogHeader>
             <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm">
@@ -306,7 +346,8 @@ export function EditStageDialog({
               <span>
                 Mark this student as a <strong>late enrollee</strong>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
-                  Assessments dated before today will be marked N/A on this student&apos;s report card and grading sheets.
+                  Assessments dated before today will be marked N/A on this
+                  student&apos;s report card and grading sheets.
                 </span>
               </span>
             </label>
@@ -342,13 +383,22 @@ export function EditStageDialog({
                       {
                         method: 'PATCH',
                         headers: { 'content-type': 'application/json' },
-                        body: JSON.stringify({ enrollment_status: 'late_enrollee' }),
-                      },
+                        body: JSON.stringify({
+                          enrollment_status: 'late_enrollee',
+                        }),
+                      }
                     );
-                    if (!res.ok) throw new Error('Failed to mark as late enrollee');
-                    toast.success(`Marked as late enrollee · ${pendingMidTerm.termLabel}`);
+                    if (!res.ok)
+                      throw new Error('Failed to mark as late enrollee');
+                    toast.success(
+                      `Marked as late enrollee · ${pendingMidTerm.termLabel}`
+                    );
                   } catch (e) {
-                    toast.error(e instanceof Error ? e.message : 'Could not mark as late enrollee');
+                    toast.error(
+                      e instanceof Error
+                        ? e.message
+                        : 'Could not mark as late enrollee'
+                    );
                   } finally {
                     setApplyingLate(false);
                     setPendingMidTerm(null);
@@ -373,156 +423,182 @@ export function EditStageDialog({
               </DialogDescription>
             </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-            {showPrereqChecklist && (
-              <div className="space-y-2.5 rounded-md border border-hairline bg-muted/30 p-3">
-                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  Required steps before enrolment
-                </p>
-                <ul className="space-y-1.5">
-                  {prereqRows.map((row) => (
-                    <li key={row.key} className="flex items-center gap-2 text-xs">
-                      {row.ok ? (
-                        <CheckCircle2 className="size-3.5 shrink-0 text-brand-mint" />
-                      ) : (
-                        <AlertTriangle className="size-3.5 shrink-0 text-brand-amber" />
-                      )}
-                      <span className="font-medium text-foreground">
-                        {STAGE_LABELS[row.key]}
-                      </span>
-                      <span className="text-muted-foreground">·</span>
-                      <span
-                        className={
-                          row.ok
-                            ? 'text-muted-foreground'
-                            : 'text-foreground'
-                        }
-                      >
-                        {row.current ?? 'not started'}
-                      </span>
-                      {!row.ok && (
-                        <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                          → needs {row.expected}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-                {incompleteCount === 0 ? (
-                  <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-brand-mint">
-                    All requirements met
-                  </p>
-                ) : (
-                  <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-destructive">
-                    {incompleteCount} requirement{incompleteCount === 1 ? '' : 's'} not met yet
-                    {' · '}saving will fail
-                  </p>
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-5"
+              >
+                {showPrereqChecklist && (
+                  <div className="space-y-2.5 rounded-md border border-hairline bg-muted/30 p-3">
+                    <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      Required steps before enrolment
+                    </p>
+                    <ul className="space-y-1.5">
+                      {prereqRows.map((row) => (
+                        <li
+                          key={row.key}
+                          className="flex items-center gap-2 text-xs"
+                        >
+                          {row.ok ? (
+                            <CheckCircle2 className="size-3.5 shrink-0 text-brand-mint" />
+                          ) : (
+                            <AlertTriangle className="size-3.5 shrink-0 text-brand-amber" />
+                          )}
+                          <span className="font-medium text-foreground">
+                            {STAGE_LABELS[row.key]}
+                          </span>
+                          <span className="text-muted-foreground">·</span>
+                          <span
+                            className={
+                              row.ok
+                                ? 'text-muted-foreground'
+                                : 'text-foreground'
+                            }
+                          >
+                            {row.current ?? 'not started'}
+                          </span>
+                          {!row.ok && (
+                            <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                              → needs {row.expected}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                    {incompleteCount === 0 ? (
+                      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-brand-mint">
+                        All requirements met
+                      </p>
+                    ) : (
+                      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-destructive">
+                        {incompleteCount} requirement
+                        {incompleteCount === 1 ? '' : 's'} not met yet
+                        {' · '}saving will fail
+                      </p>
+                    )}
+                  </div>
                 )}
-              </div>
-            )}
 
-            <FormItem>
-              <FormLabel>Status</FormLabel>
-              <Select value={statusChoice} onValueChange={setStatusChoice}>
-                <SelectTrigger>
-                  <SelectValue placeholder="No status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {canonicalOptions.map((opt) => (
-                    <SelectItem key={opt} value={opt}>
-                      {opt}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value={OTHER_SENTINEL}>Other…</SelectItem>
-                </SelectContent>
-              </Select>
-              {statusChoice === OTHER_SENTINEL && (
-                <Input
-                  placeholder="Enter custom status"
-                  value={statusOther}
-                  onChange={(e) => setStatusOther(e.target.value)}
-                  className="mt-2"
-                  maxLength={120}
-                />
-              )}
-              <FormDescription>
-                Pick from the canonical list or enter a custom value if admissions still uses one not listed.
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-
-            {cols.extras.length > 0 && (
-              <div className="space-y-3 rounded-lg border border-border/60 bg-muted/30 p-3">
-                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  Stage details
-                </p>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {cols.extras.map((e) => (
-                    <FormField
-                      key={e.fieldKey}
-                      control={form.control}
-                      name={`extras.${e.fieldKey}` as const}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs">{e.label}</FormLabel>
-                          <FormControl>
-                            {e.kind === 'date' ? (
-                              <DatePicker
-                                value={(field.value as string | null) ?? ''}
-                                onChange={(next) => field.onChange(next === '' ? null : next)}
-                              />
-                            ) : (
-                              <Input
-                                type="text"
-                                value={(field.value as string | null) ?? ''}
-                                onChange={(ev) =>
-                                  field.onChange(ev.target.value === '' ? null : ev.target.value)
-                                }
-                                placeholder=""
-                              />
-                            )}
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <FormField
-              control={form.control}
-              name="remarks"
-              render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Remarks</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      value={field.value ?? ''}
-                      onChange={(e) => field.onChange(e.target.value === '' ? null : e.target.value)}
-                      rows={4}
-                      placeholder="Notes for this stage…"
-                      maxLength={4000}
+                  <FormLabel>Status</FormLabel>
+                  <Select value={statusChoice} onValueChange={setStatusChoice}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="No status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {canonicalOptions.map((opt) => (
+                        <SelectItem key={opt} value={opt}>
+                          {opt}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value={OTHER_SENTINEL}>Other…</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {statusChoice === OTHER_SENTINEL && (
+                    <Input
+                      placeholder="Enter custom status"
+                      value={statusOther}
+                      onChange={(e) => setStatusOther(e.target.value)}
+                      className="mt-2"
+                      maxLength={120}
                     />
-                  </FormControl>
+                  )}
+                  <FormDescription>
+                    Pick from the canonical list or enter a custom value if
+                    admissions still uses one not listed.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
-              )}
-            />
 
-            <DialogFooter className="gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)} disabled={busy}>
-                Cancel
-              </Button>
-              <Button type="submit" size="sm" disabled={busy}>
-                {busy && <Loader2 className="size-3.5 animate-spin" />}
-                {busy ? 'Saving…' : 'Save changes'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+                {cols.extras.length > 0 && (
+                  <div className="space-y-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+                    <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      Stage details
+                    </p>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {cols.extras.map((e) => (
+                        <FormField
+                          key={e.fieldKey}
+                          control={form.control}
+                          name={`extras.${e.fieldKey}` as const}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">
+                                {e.label}
+                              </FormLabel>
+                              <FormControl>
+                                {e.kind === 'date' ? (
+                                  <DatePicker
+                                    value={(field.value as string | null) ?? ''}
+                                    onChange={(next) =>
+                                      field.onChange(next === '' ? null : next)
+                                    }
+                                  />
+                                ) : (
+                                  <Input
+                                    type="text"
+                                    value={(field.value as string | null) ?? ''}
+                                    onChange={(ev) =>
+                                      field.onChange(
+                                        ev.target.value === ''
+                                          ? null
+                                          : ev.target.value
+                                      )
+                                    }
+                                    placeholder=""
+                                  />
+                                )}
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <FormField
+                  control={form.control}
+                  name="remarks"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Remarks</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          value={field.value ?? ''}
+                          onChange={(e) =>
+                            field.onChange(
+                              e.target.value === '' ? null : e.target.value
+                            )
+                          }
+                          rows={4}
+                          placeholder="Notes for this stage…"
+                          maxLength={4000}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <DialogFooter className="gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setOpen(false)}
+                    disabled={busy}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" size="sm" disabled={busy}>
+                    {busy && <Loader2 className="size-3.5 animate-spin" />}
+                    {busy ? 'Saving…' : 'Save changes'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
           </>
         )}
       </DialogContent>

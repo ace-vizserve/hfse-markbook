@@ -30,10 +30,15 @@ import {
 } from './report-cards-roster-table';
 import { SectionPicker } from './section-picker';
 
-type LevelLite = { id: string; code: string; label: string; level_type: 'primary' | 'secondary' };
+type LevelLite = {
+  id: string;
+  code: string;
+  label: string;
+  level_type: 'primary' | 'secondary';
+};
 
 const first = <T,>(v: T | T[] | null): T | null =>
-  Array.isArray(v) ? v[0] ?? null : v ?? null;
+  Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
 
 export default async function ReportCardsListPage({
   searchParams,
@@ -74,7 +79,8 @@ export default async function ReportCardsListPage({
     label: string;
     is_current: boolean;
   }>;
-  const currentTermId = termList.find((t) => t.is_current)?.id ?? termList[0]?.id ?? null;
+  const currentTermId =
+    termList.find((t) => t.is_current)?.id ?? termList[0]?.id ?? null;
 
   // Cross-section publications overview — fetched only when no section is
   // picked, since the section-detail flow takes over the page in that case.
@@ -114,7 +120,10 @@ export default async function ReportCardsListPage({
         enrollment_status: string;
       }>) {
         if (e.enrollment_status !== 'withdrawn') {
-          countBySection.set(e.section_id, (countBySection.get(e.section_id) ?? 0) + 1);
+          countBySection.set(
+            e.section_id,
+            (countBySection.get(e.section_id) ?? 0) + 1
+          );
         }
       }
 
@@ -129,15 +138,19 @@ export default async function ReportCardsListPage({
       // Suppress: ayId is captured for closure scoping clarity even though it
       // isn't read inside the map — the if-guard above narrows ay to non-null.
       void ayId;
-      overviewRows = ((pubsRes.data ?? []) as Array<{
-        id: string;
-        section_id: string;
-        term_id: string;
-        publish_from: string;
-        publish_until: string;
-      }>).map((p) => {
+      overviewRows = (
+        (pubsRes.data ?? []) as Array<{
+          id: string;
+          section_id: string;
+          term_id: string;
+          publish_from: string;
+          publish_until: string;
+        }>
+      ).map((p) => {
         const sec = sectionById.get(p.section_id);
-        const lvl = first(sec?.level as LevelLite | LevelLite[] | null | undefined);
+        const lvl = first(
+          sec?.level as LevelLite | LevelLite[] | null | undefined
+        );
         const term = termById.get(p.term_id);
         const from = new Date(p.publish_from).getTime();
         const until = new Date(p.publish_until).getTime();
@@ -183,7 +196,8 @@ export default async function ReportCardsListPage({
         publishedNowCurrentTerm = sectionsPublishedNow.size;
         scheduledCurrentTerm = sectionsScheduled.size;
         studentsReachedCurrentTerm = reach;
-        sectionsPendingCurrentTerm = totalSections - sectionsAnyForCurrentTerm.size;
+        sectionsPendingCurrentTerm =
+          totalSections - sectionsAnyForCurrentTerm.size;
       }
     }
   }
@@ -202,14 +216,16 @@ export default async function ReportCardsListPage({
       .eq('id', q.section_id)
       .single();
     if (sec) {
-      const lvl = first(sec.level as { label: string } | { label: string }[] | null);
+      const lvl = first(
+        sec.level as { label: string } | { label: string }[] | null
+      );
       selectedLabel = `${lvl?.label ?? ''} ${sec.name}`.trim();
     }
 
     const { data: enrolments } = await supabase
       .from('section_students')
       .select(
-        'id, index_number, enrollment_status, student:students(id, student_number, last_name, first_name, middle_name)',
+        'id, index_number, enrollment_status, student:students(id, student_number, last_name, first_name, middle_name)'
       )
       .eq('section_id', q.section_id)
       .order('index_number');
@@ -259,10 +275,10 @@ export default async function ReportCardsListPage({
       publishedCount > 0
         ? 'published'
         : scheduledCount > 0
-        ? 'scheduled'
-        : (pubs ?? []).length > 0
-        ? 'closed'
-        : 'none';
+          ? 'scheduled'
+          : (pubs ?? []).length > 0
+            ? 'closed'
+            : 'none';
 
     rosterRows = ((enrolments ?? []) as Row[]).map((e) => {
       const s = first(e.student);
@@ -273,7 +289,9 @@ export default async function ReportCardsListPage({
         student_id: s?.id ?? '',
         student_number: s?.student_number ?? '',
         name: s
-          ? [s.last_name, s.first_name, s.middle_name].filter(Boolean).join(', ')
+          ? [s.last_name, s.first_name, s.middle_name]
+              .filter(Boolean)
+              .join(', ')
           : '(missing)',
         withdrawn,
         publication_status: withdrawn ? 'none' : sectionPublicationStatus,
@@ -294,13 +312,11 @@ export default async function ReportCardsListPage({
             <h1 className="font-serif text-[38px] font-semibold leading-[1.05] tracking-tight text-foreground md:text-[44px]">
               Report cards.
             </h1>
-            {ay && (
-              <Badge variant="outline">{ay.ay_code}</Badge>
-            )}
+            {ay && <Badge variant="outline">{ay.ay_code}</Badge>}
           </div>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            Preview each student&apos;s report card before printing, and control when parents
-            can view them. Pick a section to begin.
+            Preview each student&apos;s report card before printing, and control
+            when parents can view them. Pick a section to begin.
           </p>
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
@@ -409,7 +425,9 @@ export default async function ReportCardsListPage({
                 value={scheduledCount.toLocaleString('en-SG')}
                 icon={CalendarClock}
                 footerTitle={
-                  scheduledCount === 0 ? 'None upcoming' : 'Upcoming publish windows'
+                  scheduledCount === 0
+                    ? 'None upcoming'
+                    : 'Upcoming publish windows'
                 }
                 footerDetail="Not yet visible to parents"
               />

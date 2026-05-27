@@ -1,6 +1,12 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft, ArrowUpRight, Heart, Umbrella, UserSquare2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  Heart,
+  Umbrella,
+  UserSquare2,
+} from 'lucide-react';
 
 import { CompassionateAllowanceInline } from '@/components/sis/compassionate-allowance-inline';
 import { StudentAttendanceTab } from '@/components/sis/student-attendance-tab';
@@ -16,7 +22,10 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
-import { getCompassionateUsage, getVacationLeaveUsage } from '@/lib/attendance/queries';
+import {
+  getCompassionateUsage,
+  getVacationLeaveUsage,
+} from '@/lib/attendance/queries';
 import { getSchoolConfig } from '@/lib/sis/school-config';
 import { getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -57,7 +66,9 @@ export default async function AttendanceStudentDetailPage({
 
   const { data: student } = await service
     .from('students')
-    .select('id, student_number, last_name, first_name, middle_name, urgent_compassionate_allowance, vacation_leave_allowance_per_term')
+    .select(
+      'id, student_number, last_name, first_name, middle_name, urgent_compassionate_allowance, vacation_leave_allowance_per_term'
+    )
     .eq('student_number', studentNumber)
     .maybeSingle();
   if (!student) notFound();
@@ -74,11 +85,14 @@ export default async function AttendanceStudentDetailPage({
   const schoolConfig = await getSchoolConfig();
 
   const fullName =
-    [studentRow.last_name, studentRow.first_name, studentRow.middle_name].filter(Boolean).join(', ').trim() ||
-    studentRow.student_number;
+    [studentRow.last_name, studentRow.first_name, studentRow.middle_name]
+      .filter(Boolean)
+      .join(', ')
+      .trim() || studentRow.student_number;
   const allowance = studentRow.urgent_compassionate_allowance ?? 5;
   const vlEffectiveAllowance =
-    studentRow.vacation_leave_allowance_per_term ?? schoolConfig.defaultVlAllowancePerTerm;
+    studentRow.vacation_leave_allowance_per_term ??
+    schoolConfig.defaultVlAllowancePerTerm;
 
   // Resolve current AY id (for quota usage) + the matching admissions
   // enroleeNumber (for the allowance PATCH route, which keys by
@@ -101,7 +115,9 @@ export default async function AttendanceStudentDetailPage({
       .select('enroleeNumber')
       .eq('studentNumber', studentRow.student_number)
       .maybeSingle();
-    enroleeNumber = (appRow as { enroleeNumber: string | null } | null)?.enroleeNumber ?? null;
+    enroleeNumber =
+      (appRow as { enroleeNumber: string | null } | null)?.enroleeNumber ??
+      null;
   }
 
   // Quota usage for the rich quota card. AY-wide compassionate `EX`
@@ -166,27 +182,48 @@ export default async function AttendanceStudentDetailPage({
       .in('enrollment_status', ['active', 'late_enrollee']);
     type SsRow = {
       section_id: string;
-      sections: { id: string; name: string } | Array<{ id: string; name: string }>;
+      sections:
+        | { id: string; name: string }
+        | Array<{ id: string; name: string }>;
     };
     const first = (ssRows as SsRow[] | null)?.[0];
     if (first) {
       activeSectionId = first.section_id;
-      const sec = Array.isArray(first.sections) ? first.sections[0] : first.sections;
+      const sec = Array.isArray(first.sections)
+        ? first.sections[0]
+        : first.sections;
       activeSectionName = sec?.name ?? null;
     }
   }
 
-  const quotaPct = usage.allowance > 0 ? Math.round((usage.used / usage.allowance) * 100) : 0;
+  const quotaPct =
+    usage.allowance > 0 ? Math.round((usage.used / usage.allowance) * 100) : 0;
   const tone: 'mint' | 'warn' | 'over' =
-    usage.used > usage.allowance ? 'over' : usage.remaining <= 1 ? 'warn' : 'mint';
+    usage.used > usage.allowance
+      ? 'over'
+      : usage.remaining <= 1
+        ? 'warn'
+        : 'mint';
   const tilePalette = {
-    mint: { tile: 'from-brand-mint to-brand-sky', bar: 'from-brand-mint to-brand-sky' },
-    warn: { tile: 'from-brand-amber to-brand-amber/80', bar: 'from-brand-amber to-brand-amber/80' },
-    over: { tile: 'from-destructive to-destructive/80', bar: 'from-destructive to-destructive/80' },
+    mint: {
+      tile: 'from-brand-mint to-brand-sky',
+      bar: 'from-brand-mint to-brand-sky',
+    },
+    warn: {
+      tile: 'from-brand-amber to-brand-amber/80',
+      bar: 'from-brand-amber to-brand-amber/80',
+    },
+    over: {
+      tile: 'from-destructive to-destructive/80',
+      bar: 'from-destructive to-destructive/80',
+    },
   } as const;
 
   // VL parallel: pct, tone, palette.
-  const vlPct = vlUsage.allowance > 0 ? Math.round((vlUsage.usedThisTerm / vlUsage.allowance) * 100) : 0;
+  const vlPct =
+    vlUsage.allowance > 0
+      ? Math.round((vlUsage.usedThisTerm / vlUsage.allowance) * 100)
+      : 0;
   const vlTone: 'mint' | 'warn' | 'over' =
     vlUsage.usedThisTerm > vlUsage.allowance
       ? 'over'
@@ -194,9 +231,18 @@ export default async function AttendanceStudentDetailPage({
         ? 'warn'
         : 'mint';
   const vlTilePalette = {
-    mint: { tile: 'from-brand-sky to-brand-indigo', bar: 'from-brand-sky to-brand-indigo' },
-    warn: { tile: 'from-brand-amber to-brand-amber/80', bar: 'from-brand-amber to-brand-amber/80' },
-    over: { tile: 'from-destructive to-destructive/80', bar: 'from-destructive to-destructive/80' },
+    mint: {
+      tile: 'from-brand-sky to-brand-indigo',
+      bar: 'from-brand-sky to-brand-indigo',
+    },
+    warn: {
+      tile: 'from-brand-amber to-brand-amber/80',
+      bar: 'from-brand-amber to-brand-amber/80',
+    },
+    over: {
+      tile: 'from-destructive to-destructive/80',
+      bar: 'from-destructive to-destructive/80',
+    },
   } as const;
 
   return (
@@ -219,8 +265,9 @@ export default async function AttendanceStudentDetailPage({
             {fullName}.
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            Daily ledger and compassionate-leave quota for the current academic year. Daily writes
-            still happen on the section&apos;s daily-entry surface{activeSectionId ? ' — ' : '. '}
+            Daily ledger and compassionate-leave quota for the current academic
+            year. Daily writes still happen on the section&apos;s daily-entry
+            surface{activeSectionId ? ' — ' : '. '}
             {activeSectionId ? (
               <Link
                 href={`/attendance/${activeSectionId}`}
@@ -230,7 +277,9 @@ export default async function AttendanceStudentDetailPage({
                 <ArrowUpRight className="ml-0.5 inline size-3" />
               </Link>
             ) : (
-              <span className="text-muted-foreground/80">no active section in {ayCode ?? 'this AY'}</span>
+              <span className="text-muted-foreground/80">
+                no active section in {ayCode ?? 'this AY'}
+              </span>
             )}
             . This surface is the per-student rollup + quota edit point.
           </p>
@@ -247,7 +296,9 @@ export default async function AttendanceStudentDetailPage({
             )}
           </div>
           <Button asChild variant="outline" size="sm">
-            <Link href={`/records/students/${encodeURIComponent(studentRow.student_number)}`}>
+            <Link
+              href={`/records/students/${encodeURIComponent(studentRow.student_number)}`}
+            >
               <UserSquare2 className="size-3.5" />
               Open in Records
               <ArrowUpRight className="size-3" />
@@ -269,14 +320,16 @@ export default async function AttendanceStudentDetailPage({
             <CardTitle className="flex flex-wrap items-baseline gap-3 font-serif text-[20px] font-semibold tracking-tight text-foreground">
               Quota usage
               {tone === 'over' && <Badge variant="blocked">Over quota</Badge>}
-              {tone === 'warn' && <Badge variant="warning">Approaching limit</Badge>}
+              {tone === 'warn' && (
+                <Badge variant="warning">Approaching limit</Badge>
+              )}
               {tone === 'mint' && <Badge variant="success">On track</Badge>}
             </CardTitle>
             <CardAction>
               <div
                 className={cn(
                   'flex size-10 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-brand-tile',
-                  tilePalette[tone].tile,
+                  tilePalette[tone].tile
                 )}
               >
                 <Heart className="size-5" />
@@ -297,7 +350,7 @@ export default async function AttendanceStudentDetailPage({
                 <div
                   className={cn(
                     'h-full bg-gradient-to-r transition-all',
-                    tilePalette[tone].bar,
+                    tilePalette[tone].bar
                   )}
                   style={{ width: `${Math.min(quotaPct, 100)}%` }}
                 />
@@ -321,7 +374,8 @@ export default async function AttendanceStudentDetailPage({
           </div>
           <CardContent className="border-t border-hairline bg-muted/20 px-6 py-3">
             <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              Counts EX entries marked as Compassionate, scoped to the whole academic year.
+              Counts EX entries marked as Compassionate, scoped to the whole
+              academic year.
             </p>
           </CardContent>
         </Card>
@@ -342,7 +396,7 @@ export default async function AttendanceStudentDetailPage({
               <div
                 className={cn(
                   'flex size-10 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-brand-tile',
-                  vlTilePalette[vlTone].tile,
+                  vlTilePalette[vlTone].tile
                 )}
               >
                 <Umbrella className="size-5" />
@@ -363,7 +417,7 @@ export default async function AttendanceStudentDetailPage({
                 <div
                   className={cn(
                     'h-full bg-gradient-to-r transition-all',
-                    vlTilePalette[vlTone].bar,
+                    vlTilePalette[vlTone].bar
                   )}
                   style={{ width: `${Math.min(vlPct, 100)}%` }}
                 />
@@ -388,7 +442,9 @@ export default async function AttendanceStudentDetailPage({
           </div>
           <CardContent className="border-t border-hairline bg-muted/20 px-6 py-3">
             <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-              Counts EX entries marked as Vacation leave, scoped to {currentTermLabel ?? 'this term'}. Unused days do not carry forward.
+              Counts EX entries marked as Vacation leave, scoped to{' '}
+              {currentTermLabel ?? 'this term'}. Unused days do not carry
+              forward.
             </p>
           </CardContent>
         </Card>
@@ -398,12 +454,18 @@ export default async function AttendanceStudentDetailPage({
           attendance tab component. Internally fetches via studentNumber
           (Hard Rule #4) and renders empty states for not-synced /
           not-enrolled cases on its own. */}
-      <StudentAttendanceTab studentNumber={studentRow.student_number} fullName={fullName} />
+      <StudentAttendanceTab
+        studentNumber={studentRow.student_number}
+        fullName={fullName}
+      />
 
       {/* Trust strip */}
       <p className="border-t border-hairline pt-3 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
         Daily attendance · sole writer{' '}
-        <code className="font-mono text-foreground">/attendance/[sectionId]</code> · audit prefix{' '}
+        <code className="font-mono text-foreground">
+          /attendance/[sectionId]
+        </code>{' '}
+        · audit prefix{' '}
         <code className="font-mono text-foreground">attendance.*</code>
       </p>
     </PageShell>

@@ -7,21 +7,34 @@ export type DerivedLetter = 'A' | 'B' | 'C' | 'IP';
 export type OverrideLetter = 'UG' | 'INC' | 'CO' | 'E';
 export type NonExaminableLetter = DerivedLetter | OverrideLetter | 'NA';
 
-export const OVERRIDE_LETTERS: readonly OverrideLetter[] = ['UG', 'INC', 'CO', 'E'] as const;
+export const OVERRIDE_LETTERS: readonly OverrideLetter[] = [
+  'UG',
+  'INC',
+  'CO',
+  'E',
+] as const;
 
 export const LEGEND_LEFT = [
-  { code: 'A',  desc: 'Fully demonstrated the skills required', range: '90–100' },
-  { code: 'B',  desc: 'Demonstrated some skills required',      range: '85–89' },
-  { code: 'C',  desc: 'Fairly demonstrated the skill required', range: '80–84' },
-  { code: 'IP', desc: 'Did not demonstrate the skill required', range: '79 and below' },
+  {
+    code: 'A',
+    desc: 'Fully demonstrated the skills required',
+    range: '90–100',
+  },
+  { code: 'B', desc: 'Demonstrated some skills required', range: '85–89' },
+  { code: 'C', desc: 'Fairly demonstrated the skill required', range: '80–84' },
+  {
+    code: 'IP',
+    desc: 'Did not demonstrate the skill required',
+    range: '79 and below',
+  },
 ] as const;
 
 export const LEGEND_RIGHT = [
-  { code: 'NA',  desc: 'Not Applicable' },
-  { code: 'UG',  desc: 'Ungraded' },
+  { code: 'NA', desc: 'Not Applicable' },
+  { code: 'UG', desc: 'Ungraded' },
   { code: 'INC', desc: 'Incomplete' },
-  { code: 'CO',  desc: 'Complete' },
-  { code: 'E',   desc: 'Exempted' },
+  { code: 'CO', desc: 'Complete' },
+  { code: 'E', desc: 'Exempted' },
 ] as const;
 
 export function numericToLetter(quarterly: number): DerivedLetter {
@@ -35,13 +48,17 @@ export function numericToLetter(quarterly: number): DerivedLetter {
 // formula as examinable annual grade, but N/A terms are excluded and the
 // remaining weights are re-scaled to 1.0.  Returns null when no term has data.
 export function deriveAnnualLetterForNonExam(
-  cells: Array<{ quarterly: number | null; isNa: boolean }>,
+  cells: Array<{ quarterly: number | null; isNa: boolean }>
 ): DerivedLetter | null {
-  const WEIGHTS = [0.20, 0.20, 0.20, 0.40]; // T1, T2, T3, T4
+  const WEIGHTS = [0.2, 0.2, 0.2, 0.4]; // T1, T2, T3, T4
   const available = cells
     .slice(0, 4)
     .map((c, i) => ({ q: c.quarterly, w: WEIGHTS[i], na: c.isNa }))
-    .filter((c) => !c.na && c.q != null) as { q: number; w: number; na: boolean }[];
+    .filter((c) => !c.na && c.q != null) as {
+    q: number;
+    w: number;
+    na: boolean;
+  }[];
   if (available.length === 0) return null;
   const totalWeight = available.reduce((s, c) => s + c.w, 0);
   const weightedSum = available.reduce((s, c) => s + c.q * c.w, 0);
@@ -65,18 +82,22 @@ export function resolveNonExaminableLetter({
 }
 
 // Self-test — mirrors the Hard Rule #1 pattern in lib/compute/quarterly.ts.
-;(function selfTest() {
+(function selfTest() {
   const cases: Array<[number, DerivedLetter]> = [
-    [100, 'A'], [90, 'A'],
-    [89, 'B'],  [85, 'B'],
-    [84, 'C'],  [80, 'C'],
-    [79, 'IP'], [0, 'IP'],
+    [100, 'A'],
+    [90, 'A'],
+    [89, 'B'],
+    [85, 'B'],
+    [84, 'C'],
+    [80, 'C'],
+    [79, 'IP'],
+    [0, 'IP'],
   ];
   for (const [q, expected] of cases) {
     const actual = numericToLetter(q);
     if (actual !== expected) {
       throw new Error(
-        `[letter-grade] self-test failed: numericToLetter(${q}) = "${actual}", expected "${expected}"`,
+        `[letter-grade] self-test failed: numericToLetter(${q}) = "${actual}", expected "${expected}"`
       );
     }
   }

@@ -10,7 +10,7 @@ import { requireCurrentAyCode } from '@/lib/academic-year';
 // but every post-lock edit requires an approval_reference and is audit-logged.
 export async function POST(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -31,7 +31,10 @@ export async function POST(
     .select('id, is_locked, locked_at, locked_by')
     .single();
   if (error || !data) {
-    return NextResponse.json({ error: error?.message ?? 'lock failed' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message ?? 'lock failed' },
+      { status: 500 }
+    );
   }
 
   await logAction({

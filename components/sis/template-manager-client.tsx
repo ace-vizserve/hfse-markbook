@@ -84,7 +84,10 @@ import {
   type TemplateSectionUpdateInput,
   type TemplateSubjectConfigCreateInput,
 } from '@/lib/schemas/template';
-import { SubjectCreateSchema, type SubjectCreateInput } from '@/lib/schemas/subject';
+import {
+  SubjectCreateSchema,
+  type SubjectCreateInput,
+} from '@/lib/schemas/subject';
 import {
   classifyProfile,
   PROFILE_CLASS,
@@ -122,7 +125,7 @@ export function TemplateManagerClient({
   const hasTemplate = templateSections.length > 0 || templateConfigs.length > 0;
   const sectionLevelCount = useMemo(
     () => new Set(templateSections.map((s) => s.level_id)).size,
-    [templateSections],
+    [templateSections]
   );
 
   return (
@@ -137,7 +140,10 @@ export function TemplateManagerClient({
             {hasTemplate ? 'Master class structure' : 'Set up the template'}
           </CardTitle>
           <CardAction>
-            <PropagateDialog eligibleAys={eligibleAys} disabled={!hasTemplate} />
+            <PropagateDialog
+              eligibleAys={eligibleAys}
+              disabled={!hasTemplate}
+            />
           </CardAction>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-x-6 gap-y-3 text-[13px] text-muted-foreground">
@@ -155,8 +161,8 @@ export function TemplateManagerClient({
           />
           {!hasTemplate && (
             <p className="ml-auto max-w-md text-right text-[12px] text-muted-foreground">
-              The template is empty. Add sections and edit subject weights below — they become the
-              starting point for every new AY.
+              The template is empty. Add sections and edit subject weights below
+              — they become the starting point for every new AY.
             </p>
           )}
         </CardContent>
@@ -191,7 +197,11 @@ export function TemplateManagerClient({
         </TabsContent>
 
         <TabsContent value="weights" className="space-y-5">
-          <SubjectsTab configs={templateConfigs} subjects={subjects} levels={levels} />
+          <SubjectsTab
+            configs={templateConfigs}
+            subjects={subjects}
+            levels={levels}
+          />
         </TabsContent>
       </Tabs>
     </>
@@ -248,11 +258,14 @@ function SectionsTab({
       arr.push(s);
       map.set(s.level_id, arr);
     }
-    for (const arr of map.values()) arr.sort((a, b) => a.name.localeCompare(b.name));
+    for (const arr of map.values())
+      arr.sort((a, b) => a.name.localeCompare(b.name));
     return map;
   }, [sections]);
 
-  const levelsWithSections = levels.filter((l) => sectionsByLevel.has(l.id) || true);
+  const levelsWithSections = levels.filter(
+    (l) => sectionsByLevel.has(l.id) || true
+  );
 
   return (
     <div className="space-y-4">
@@ -266,8 +279,8 @@ function SectionsTab({
               No template sections yet
             </div>
             <p className="max-w-md text-sm text-muted-foreground">
-              Add your first section below — every level you populate becomes part of the
-              starting structure for every new AY.
+              Add your first section below — every level you populate becomes
+              part of the starting structure for every new AY.
             </p>
           </CardContent>
         </Card>
@@ -347,7 +360,13 @@ function SectionPill({ section }: { section: TemplateSectionRow }) {
   );
 }
 
-function AddSectionPill({ levelId, levels }: { levelId: string; levels: LevelRow[] }) {
+function AddSectionPill({
+  levelId,
+  levels,
+}: {
+  levelId: string;
+  levels: LevelRow[];
+}) {
   return (
     <NewTemplateSectionButton levels={levels} defaultLevelId={levelId}>
       <button
@@ -419,11 +438,15 @@ function SubjectsTab({
     if (!q) return subjects;
     return subjects.filter(
       (s) =>
-        s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q),
+        s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q)
     );
   }, [subjects, query]);
 
-  function openCell(subject: SubjectRow, level: LevelRow, config: TemplateSubjectConfigRow) {
+  function openCell(
+    subject: SubjectRow,
+    level: LevelRow,
+    config: TemplateSubjectConfigRow
+  ) {
     setDraft({
       configId: config.id,
       subjectCode: subject.code,
@@ -473,9 +496,9 @@ function SubjectsTab({
           </div>
         </div>
         <div className="px-5 py-3 text-[12px] text-muted-foreground">
-          Each chip below is one (subject × level) weight profile. Click any chip to edit. The
-          color tells you at a glance which profile that pair uses — Primary 40·40·20, Secondary
-          30·50·20, anything else is Custom.
+          Each chip below is one (subject × level) weight profile. Click any
+          chip to edit. The color tells you at a glance which profile that pair
+          uses — Primary 40·40·20, Secondary 30·50·20, anything else is Custom.
         </div>
       </Card>
 
@@ -511,7 +534,11 @@ function SubjectsTab({
         />
       ))}
 
-      <TemplateSubjectConfigEditDialog draft={draft} open={open} onOpenChange={setOpen} />
+      <TemplateSubjectConfigEditDialog
+        draft={draft}
+        open={open}
+        onOpenChange={setOpen}
+      />
       <TemplateSubjectConfigCreateDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
@@ -535,7 +562,7 @@ function SubjectCard({
   onOpenCell: (
     subject: SubjectRow,
     level: LevelRow,
-    config: TemplateSubjectConfigRow,
+    config: TemplateSubjectConfigRow
   ) => void;
   onOpenCreate: (subject: SubjectRow, level: LevelRow) => void;
 }) {
@@ -565,19 +592,20 @@ function SubjectCard({
             markbook-eligible level not yet enabled for this subject. */}
         {(() => {
           const markbookLevels = levels.filter(
-            (l) => (l.level_type as string) !== 'preschool',
+            (l) => (l.level_type as string) !== 'preschool'
           );
           const visibleLevels = markbookLevels.filter((l) =>
-            configByKey.has(`${subject.id}|${l.id}`),
+            configByKey.has(`${subject.id}|${l.id}`)
           );
           const availableLevels = markbookLevels.filter(
-            (l) => !configByKey.has(`${subject.id}|${l.id}`),
+            (l) => !configByKey.has(`${subject.id}|${l.id}`)
           );
           return (
             <>
               {visibleLevels.length === 0 && availableLevels.length > 0 && (
                 <p className="px-1 py-1 text-[12px] text-muted-foreground">
-                  Not enabled at any level yet. Click <strong>+ Add level</strong> to start.
+                  Not enabled at any level yet. Click{' '}
+                  <strong>+ Add level</strong> to start.
                 </p>
               )}
               {visibleLevels.length === 0 && availableLevels.length === 0 && (
@@ -597,30 +625,30 @@ function SubjectCard({
                     type="button"
                     onClick={() => onOpenCell(subject, level, cfg)}
                     className={cn(
-                'inline-flex flex-col items-start gap-0.5 rounded-md px-3 py-1.5 transition-all',
-                'hover:-translate-y-0.5 hover:shadow-md',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-indigo/40',
-                PROFILE_CLASS[profile],
-              )}
-              title={`${subject.name} · ${level.label} — ${PROFILE_LABEL[profile]} (WW ${ww} · PT ${pt} · QA ${qa}). Click to edit.`}
-            >
-              <span
-                className={cn(
-                  'font-serif text-[12px] font-semibold leading-tight tracking-tight',
-                  PROFILE_TEXT[profile].code,
-                )}
-              >
-                {level.label}
-              </span>
-              <span
-                className={cn(
-                  'font-mono text-[10px] tabular-nums',
-                  PROFILE_TEXT[profile].ratio,
-                )}
-              >
-                {ww} · {pt} · {qa}
-              </span>
-            </button>
+                      'inline-flex flex-col items-start gap-0.5 rounded-md px-3 py-1.5 transition-all',
+                      'hover:-translate-y-0.5 hover:shadow-md',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-indigo/40',
+                      PROFILE_CLASS[profile]
+                    )}
+                    title={`${subject.name} · ${level.label} — ${PROFILE_LABEL[profile]} (WW ${ww} · PT ${pt} · QA ${qa}). Click to edit.`}
+                  >
+                    <span
+                      className={cn(
+                        'font-serif text-[12px] font-semibold leading-tight tracking-tight',
+                        PROFILE_TEXT[profile].code
+                      )}
+                    >
+                      {level.label}
+                    </span>
+                    <span
+                      className={cn(
+                        'font-mono text-[10px] tabular-nums',
+                        PROFILE_TEXT[profile].ratio
+                      )}
+                    >
+                      {ww} · {pt} · {qa}
+                    </span>
+                  </button>
                 );
               })}
               {availableLevels.length > 0 && (
@@ -631,7 +659,7 @@ function SubjectCard({
                       className={cn(
                         'inline-flex items-center gap-1.5 rounded-md border border-dashed border-border px-3 py-1.5 text-[12px] font-medium text-muted-foreground transition-all',
                         'hover:-translate-y-0.5 hover:border-brand-indigo/60 hover:bg-accent/40 hover:text-foreground hover:shadow-md',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-indigo/40',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-indigo/40'
                       )}
                       title={`Enable ${subject.name} at a new level`}
                     >
@@ -640,7 +668,9 @@ function SubjectCard({
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-56">
-                    <DropdownMenuLabel>Enable {subject.code} at…</DropdownMenuLabel>
+                    <DropdownMenuLabel>
+                      Enable {subject.code} at…
+                    </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {availableLevels.map((level) => (
                       <DropdownMenuItem
@@ -654,7 +684,9 @@ function SubjectCard({
                         >
                           {level.code}
                         </Badge>
-                        <span className="font-serif text-[13px] font-medium">{level.label}</span>
+                        <span className="font-serif text-[13px] font-medium">
+                          {level.label}
+                        </span>
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
@@ -684,11 +716,14 @@ function PropagateDialog({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
 
-  const allSelected = eligibleAys.length > 0 && selected.size === eligibleAys.length;
+  const allSelected =
+    eligibleAys.length > 0 && selected.size === eligibleAys.length;
   const someSelected = selected.size > 0 && !allSelected;
 
   function toggleAll(checked: boolean) {
-    setSelected(checked ? new Set(eligibleAys.map((a) => a.ay_code)) : new Set());
+    setSelected(
+      checked ? new Set(eligibleAys.map((a) => a.ay_code)) : new Set()
+    );
   }
   function toggleOne(ayCode: string, checked: boolean) {
     setSelected((prev) => {
@@ -732,7 +767,7 @@ function PropagateDialog({
       const fails = body.failures ?? [];
       if (fails.length > 0) {
         toast.warning(
-          `Partial: ${summary || 'no successes'} · failed: ${fails.map((f) => f.ay_code).join(', ')}`,
+          `Partial: ${summary || 'no successes'} · failed: ${fails.map((f) => f.ay_code).join(', ')}`
         );
       } else {
         toast.success(`Propagated to ${summary || 'no AYs'}`);
@@ -765,8 +800,8 @@ function PropagateDialog({
         <DialogHeader>
           <DialogTitle>Propagate template</DialogTitle>
           <DialogDescription>
-            UPSERT only — adds missing rows + updates changed values. Never deletes. Per-AY data
-            (form-class-adviser, etc.) is preserved.
+            UPSERT only — adds missing rows + updates changed values. Never
+            deletes. Per-AY data (form-class-adviser, etc.) is preserved.
           </DialogDescription>
         </DialogHeader>
 
@@ -778,7 +813,9 @@ function PropagateDialog({
           <div className="space-y-2">
             <label className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
               <Checkbox
-                checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                checked={
+                  allSelected ? true : someSelected ? 'indeterminate' : false
+                }
                 onCheckedChange={(c) => toggleAll(c === true)}
               />
               <span className="font-medium text-foreground">Select all</span>
@@ -812,7 +849,11 @@ function PropagateDialog({
         )}
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setOpen(false)}
+          >
             Cancel
           </Button>
           <Button
@@ -821,7 +862,11 @@ function PropagateDialog({
             disabled={selected.size === 0 || submitting}
             className="gap-1.5"
           >
-            {submitting ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
+            {submitting ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Send className="size-3.5" />
+            )}
             {submitting ? 'Propagating…' : `Propagate to ${selected.size}`}
           </Button>
         </DialogFooter>
@@ -895,7 +940,8 @@ function NewTemplateSectionButton({
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (!next) form.reset({ ...BLANK_SECTION, level_id: defaultLevelId ?? '' });
+        if (!next)
+          form.reset({ ...BLANK_SECTION, level_id: defaultLevelId ?? '' });
       }}
     >
       <DialogTrigger asChild>
@@ -910,8 +956,8 @@ function NewTemplateSectionButton({
         <DialogHeader>
           <DialogTitle>Add template section</DialogTitle>
           <DialogDescription>
-            Saves to the master template only. Existing AYs aren&apos;t affected until you
-            propagate.
+            Saves to the master template only. Existing AYs aren&apos;t affected
+            until you propagate.
           </DialogDescription>
         </DialogHeader>
 
@@ -933,7 +979,9 @@ function NewTemplateSectionButton({
                       {levels.map((l) => (
                         <SelectItem key={l.id} value={l.id}>
                           <span className="font-mono text-xs">{l.code}</span>
-                          <span className="ml-2 text-muted-foreground">{l.label}</span>
+                          <span className="ml-2 text-muted-foreground">
+                            {l.label}
+                          </span>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -949,10 +997,15 @@ function NewTemplateSectionButton({
                 <FormItem>
                   <FormLabel>Section name</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. Patience" {...field} autoCapitalize="words" />
+                    <Input
+                      placeholder="e.g. Patience"
+                      {...field}
+                      autoCapitalize="words"
+                    />
                   </FormControl>
                   <FormDescription>
-                    Just the virtue / label. Level prefix is added automatically on display.
+                    Just the virtue / label. Level prefix is added automatically
+                    on display.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -988,11 +1041,19 @@ function NewTemplateSectionButton({
               )}
             />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={busy} className="gap-1.5">
-                {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
+                {busy ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Plus className="size-3.5" />
+                )}
                 {busy ? 'Adding…' : 'Add to template'}
               </Button>
             </DialogFooter>
@@ -1030,14 +1091,17 @@ function EditTemplateSectionButton({
 
   async function onSubmit(values: TemplateSectionUpdateInput) {
     try {
-      const res = await fetch(`/api/sis/admin/template/sections/${section.id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          name: values.name.trim(),
-          class_type: values.class_type ?? null,
-        }),
-      });
+      const res = await fetch(
+        `/api/sis/admin/template/sections/${section.id}`,
+        {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            name: values.name.trim(),
+            class_type: values.class_type ?? null,
+          }),
+        }
+      );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error ?? 'save failed');
       toast.success(`Updated ${values.name}`);
@@ -1121,11 +1185,19 @@ function EditTemplateSectionButton({
               )}
             />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={busy} className="gap-1.5">
-                {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+                {busy ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Save className="size-3.5" />
+                )}
                 {busy ? 'Saving…' : 'Save'}
               </Button>
             </DialogFooter>
@@ -1150,9 +1222,12 @@ function DeleteTemplateSectionButton({
   async function onConfirm() {
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/sis/admin/template/sections/${section.id}`, {
-        method: 'DELETE',
-      });
+      const res = await fetch(
+        `/api/sis/admin/template/sections/${section.id}`,
+        {
+          method: 'DELETE',
+        }
+      );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error ?? 'delete failed');
       toast.success(`Removed ${section.name} from template`);
@@ -1190,13 +1265,18 @@ function DeleteTemplateSectionButton({
         <DialogHeader>
           <DialogTitle>Remove from template?</DialogTitle>
           <DialogDescription>
-            This removes <strong>{section.name}</strong> ({section.level_label}) from the master
-            template. Existing AYs keep their per-AY copy — propagation never deletes. Future
-            AYs won&apos;t include this section.
+            This removes <strong>{section.name}</strong> ({section.level_label})
+            from the master template. Existing AYs keep their per-AY copy —
+            propagation never deletes. Future AYs won&apos;t include this
+            section.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setOpen(false)}
+          >
             Cancel
           </Button>
           <Button
@@ -1206,7 +1286,11 @@ function DeleteTemplateSectionButton({
             disabled={submitting}
             className="gap-1.5"
           >
-            {submitting ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+            {submitting ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="size-3.5" />
+            )}
             {submitting ? 'Removing…' : 'Remove'}
           </Button>
         </DialogFooter>
@@ -1258,12 +1342,17 @@ function TemplateSubjectConfigEditDialog({
     if (!draft) return;
     setRemoving(true);
     try {
-      const res = await fetch(`/api/sis/admin/template/subject-configs/${draft.configId}`, {
-        method: 'DELETE',
-      });
+      const res = await fetch(
+        `/api/sis/admin/template/subject-configs/${draft.configId}`,
+        {
+          method: 'DELETE',
+        }
+      );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error((body as { error?: string }).error ?? `Remove failed (${res.status})`);
+        toast.error(
+          (body as { error?: string }).error ?? `Remove failed (${res.status})`
+        );
         return;
       }
       toast.success(`Removed ${draft.subjectName} from ${draft.levelLabel}`);
@@ -1293,20 +1382,24 @@ function TemplateSubjectConfigEditDialog({
 
   async function save() {
     if (!draft || !parsed.success) {
-      if (!parsed.success) toast.error(parsed.error.issues[0]?.message ?? 'Invalid values');
+      if (!parsed.success)
+        toast.error(parsed.error.issues[0]?.message ?? 'Invalid values');
       return;
     }
     setSaving(true);
     try {
-      const res = await fetch(`/api/sis/admin/template/subject-configs/${draft.configId}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(parsed.data),
-      });
+      const res = await fetch(
+        `/api/sis/admin/template/subject-configs/${draft.configId}`,
+        {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(parsed.data),
+        }
+      );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error ?? 'save failed');
       toast.success(
-        `${draft.subjectName} · ${draft.levelCode}: ${wwN}·${ptN}·${qaN} · QA/${Number(qaMax)}`,
+        `${draft.subjectName} · ${draft.levelCode}: ${wwN}·${ptN}·${qaN} · QA/${Number(qaMax)}`
       );
       onOpenChange(false);
       router.refresh();
@@ -1330,11 +1423,13 @@ function TemplateSubjectConfigEditDialog({
                 {draft ? `Template · ${draft.levelLabel}` : 'Subject weights'}
               </p>
               <DialogTitle className="font-serif text-xl font-semibold leading-tight tracking-tight text-foreground">
-                {draft ? `${draft.subjectName} · ${draft.levelCode}` : 'Subject weights'}
+                {draft
+                  ? `${draft.subjectName} · ${draft.levelCode}`
+                  : 'Subject weights'}
               </DialogTitle>
               <DialogDescription className="text-[13px] leading-relaxed text-muted-foreground">
-                Updates the master template only. Use Propagate to push the new weights into
-                existing AYs.
+                Updates the master template only. Use Propagate to push the new
+                weights into existing AYs.
               </DialogDescription>
             </div>
           </div>
@@ -1349,19 +1444,25 @@ function TemplateSubjectConfigEditDialog({
                     <span className="size-2 rounded-sm bg-chart-3" /> WW {wwN}
                   </span>
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="size-2 rounded-sm bg-brand-indigo" /> PT {ptN}
+                    <span className="size-2 rounded-sm bg-brand-indigo" /> PT{' '}
+                    {ptN}
                   </span>
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="size-2 rounded-sm bg-brand-amber" /> QA {qaN}
+                    <span className="size-2 rounded-sm bg-brand-amber" /> QA{' '}
+                    {qaN}
                   </span>
                 </div>
                 <span
                   className={cn(
                     'inline-flex items-center gap-1 font-semibold',
-                    sumOk ? 'text-ink' : 'text-destructive',
+                    sumOk ? 'text-ink' : 'text-destructive'
                   )}
                 >
-                  {sumOk ? <CheckCircle2 className="size-3" /> : <AlertCircle className="size-3" />}
+                  {sumOk ? (
+                    <CheckCircle2 className="size-3" />
+                  ) : (
+                    <AlertCircle className="size-3" />
+                  )}
                   <span className="tabular-nums">{sum}%</span>
                 </span>
               </div>
@@ -1369,19 +1470,25 @@ function TemplateSubjectConfigEditDialog({
                 {wwN > 0 && (
                   <div
                     className="bg-chart-3 transition-[flex-basis] duration-200"
-                    style={{ flexBasis: `${(wwN / Math.max(sum, 100)) * 100}%` }}
+                    style={{
+                      flexBasis: `${(wwN / Math.max(sum, 100)) * 100}%`,
+                    }}
                   />
                 )}
                 {ptN > 0 && (
                   <div
                     className="bg-brand-indigo transition-[flex-basis] duration-200"
-                    style={{ flexBasis: `${(ptN / Math.max(sum, 100)) * 100}%` }}
+                    style={{
+                      flexBasis: `${(ptN / Math.max(sum, 100)) * 100}%`,
+                    }}
                   />
                 )}
                 {qaN > 0 && (
                   <div
                     className="bg-brand-amber transition-[flex-basis] duration-200"
-                    style={{ flexBasis: `${(qaN / Math.max(sum, 100)) * 100}%` }}
+                    style={{
+                      flexBasis: `${(qaN / Math.max(sum, 100)) * 100}%`,
+                    }}
                   />
                 )}
               </div>
@@ -1392,12 +1499,28 @@ function TemplateSubjectConfigEditDialog({
                 Weights
               </p>
               <div className="grid grid-cols-3 gap-3">
-                <PercentField label="WW" sublabel="Written Works" value={ww} setValue={setWw} />
-                <PercentField label="PT" sublabel="Perf. Tasks" value={pt} setValue={setPt} />
-                <PercentField label="QA" sublabel="Quarterly" value={qa} setValue={setQa} />
+                <PercentField
+                  label="WW"
+                  sublabel="Written Works"
+                  value={ww}
+                  setValue={setWw}
+                />
+                <PercentField
+                  label="PT"
+                  sublabel="Perf. Tasks"
+                  value={pt}
+                  setValue={setPt}
+                />
+                <PercentField
+                  label="QA"
+                  sublabel="Quarterly"
+                  value={qa}
+                  setValue={setQa}
+                />
               </div>
               <p className="text-[11px] leading-snug text-muted-foreground">
-                Must sum to 100%. Canonical HFSE: Primary 40·40·20, Secondary 30·50·20.
+                Must sum to 100%. Canonical HFSE: Primary 40·40·20, Secondary
+                30·50·20.
               </p>
             </div>
 
@@ -1406,8 +1529,18 @@ function TemplateSubjectConfigEditDialog({
                 Max slots
               </p>
               <div className="grid grid-cols-2 gap-3">
-                <NumberField label="WW slots" value={wwSlots} setValue={setWwSlots} maxDigits={1} />
-                <NumberField label="PT slots" value={ptSlots} setValue={setPtSlots} maxDigits={1} />
+                <NumberField
+                  label="WW slots"
+                  value={wwSlots}
+                  setValue={setWwSlots}
+                  maxDigits={1}
+                />
+                <NumberField
+                  label="PT slots"
+                  value={ptSlots}
+                  setValue={setPtSlots}
+                  maxDigits={1}
+                />
               </div>
               <p className="text-[11px] leading-snug text-muted-foreground">
                 Hard cap 5 per KD #5.
@@ -1419,7 +1552,12 @@ function TemplateSubjectConfigEditDialog({
                 QA max score
               </p>
               <div className="max-w-[160px]">
-                <NumberField label="Max score" value={qaMax} setValue={setQaMax} maxDigits={3} />
+                <NumberField
+                  label="Max score"
+                  value={qaMax}
+                  setValue={setQaMax}
+                  maxDigits={3}
+                />
               </div>
             </div>
           </div>
@@ -1472,7 +1610,11 @@ function TemplateSubjectConfigEditDialog({
             </Button>
           )}
           <div className="flex items-center gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
             <Button
@@ -1481,7 +1623,11 @@ function TemplateSubjectConfigEditDialog({
               disabled={!draft || saving || removing || !parsed.success}
               className="gap-1.5"
             >
-              {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+              {saving ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Save className="size-3.5" />
+              )}
               {saving ? 'Saving…' : 'Save weights'}
             </Button>
           </div>
@@ -1514,7 +1660,9 @@ function PercentField({
           inputMode="numeric"
           pattern="[0-9]*"
           value={value}
-          onChange={(e) => setValue(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
+          onChange={(e) =>
+            setValue(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))
+          }
           className="h-10 pr-7 text-right font-mono text-[15px] font-semibold tabular-nums"
         />
         <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 font-mono text-[11px] text-muted-foreground">
@@ -1546,7 +1694,9 @@ function NumberField({
         inputMode="numeric"
         pattern="[0-9]*"
         value={value}
-        onChange={(e) => setValue(e.target.value.replace(/[^0-9]/g, '').slice(0, maxDigits))}
+        onChange={(e) =>
+          setValue(e.target.value.replace(/[^0-9]/g, '').slice(0, maxDigits))
+        }
         className="h-10 text-right font-mono text-[15px] font-semibold tabular-nums"
       />
     </div>
@@ -1573,7 +1723,8 @@ function SubjectsCatalogTab({
   // button (only visible when count > 0).
   const configCountBySubject = useMemo(() => {
     const m = new Map<string, number>();
-    for (const c of configs) m.set(c.subject_id, (m.get(c.subject_id) ?? 0) + 1);
+    for (const c of configs)
+      m.set(c.subject_id, (m.get(c.subject_id) ?? 0) + 1);
     return m;
   }, [configs]);
 
@@ -1581,13 +1732,14 @@ function SubjectsCatalogTab({
     const q = query.trim().toLowerCase();
     if (!q) return subjects;
     return subjects.filter(
-      (s) => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q),
+      (s) =>
+        s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q)
     );
   }, [subjects, query]);
 
   const sorted = useMemo(
     () => [...filtered].sort((a, b) => a.code.localeCompare(b.code)),
-    [filtered],
+    [filtered]
   );
 
   return (
@@ -1618,8 +1770,9 @@ function SubjectsCatalogTab({
           <NewSubjectButton />
         </div>
         <div className="px-5 py-3 text-[12px] text-muted-foreground">
-          The global catalogue of subjects HFSE teaches. Add a new subject here, then enable it
-          at the levels where it&apos;s taught via the <strong>Subject weights</strong> tab.
+          The global catalogue of subjects HFSE teaches. Add a new subject here,
+          then enable it at the levels where it&apos;s taught via the{' '}
+          <strong>Subject weights</strong> tab.
         </div>
       </Card>
 
@@ -1672,7 +1825,9 @@ function SubjectsCatalogTab({
                       <span className="font-serif text-[16px] font-semibold tracking-tight text-foreground">
                         {subject.name}
                       </span>
-                      {!subject.is_examinable && <Badge variant="muted">Non-exam</Badge>}
+                      {!subject.is_examinable && (
+                        <Badge variant="muted">Non-exam</Badge>
+                      )}
                     </div>
                     <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
                       Used at {usedAtCount} level{usedAtCount === 1 ? '' : 's'}
@@ -1724,7 +1879,9 @@ function NewSubjectButton() {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error((body as { error?: string }).error ?? `Save failed (${res.status})`);
+        toast.error(
+          (body as { error?: string }).error ?? `Save failed (${res.status})`
+        );
         return;
       }
       toast.success(`Added ${values.code} — ${values.name}`);
@@ -1747,9 +1904,12 @@ function NewSubjectButton() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-serif text-xl">Add subject to catalogue</DialogTitle>
+          <DialogTitle className="font-serif text-xl">
+            Add subject to catalogue
+          </DialogTitle>
           <DialogDescription>
-            New subjects flow into new AYs only after you enable them at specific levels via the
+            New subjects flow into new AYs only after you enable them at
+            specific levels via the
             <strong> Subject weights</strong> tab.
           </DialogDescription>
         </DialogHeader>
@@ -1766,13 +1926,15 @@ function NewSubjectButton() {
                       {...field}
                       autoFocus
                       placeholder="MATH, ENG, FIL…"
-                      onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                      onChange={(e) =>
+                        field.onChange(e.target.value.toUpperCase())
+                      }
                       className="font-mono uppercase"
                     />
                   </FormControl>
                   <FormDescription>
-                    Uppercase letters, digits, underscore, or hyphen. Max 32 characters. Permanent
-                    after creation.
+                    Uppercase letters, digits, underscore, or hyphen. Max 32
+                    characters. Permanent after creation.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -1808,15 +1970,20 @@ function NewSubjectButton() {
                   <div className="space-y-0.5 leading-tight">
                     <FormLabel className="font-medium">Examinable</FormLabel>
                     <FormDescription>
-                      Counted toward the term/annual academic average. Uncheck for advisory or
-                      enrichment subjects.
+                      Counted toward the term/annual academic average. Uncheck
+                      for advisory or enrichment subjects.
                     </FormDescription>
                   </div>
                 </FormItem>
               )}
             />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={submitting}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+                disabled={submitting}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={submitting}>
@@ -1855,14 +2022,18 @@ function DropFromAllLevelsButton({
     try {
       const res = await fetch(
         `/api/sis/admin/subjects/catalog/${encodeURIComponent(subjectId)}/configs`,
-        { method: 'DELETE' },
+        { method: 'DELETE' }
       );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error((body as { error?: string }).error ?? `Drop failed (${res.status})`);
+        toast.error(
+          (body as { error?: string }).error ?? `Drop failed (${res.status})`
+        );
         return;
       }
-      toast.success(`Dropped ${subjectCode} from ${configCount} level${configCount === 1 ? '' : 's'}`);
+      toast.success(
+        `Dropped ${subjectCode} from ${configCount} level${configCount === 1 ? '' : 's'}`
+      );
       setOpen(false);
       router.refresh();
     } catch (err) {
@@ -1875,7 +2046,11 @@ function DropFromAllLevelsButton({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5 text-muted-foreground hover:text-destructive">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-muted-foreground hover:text-destructive"
+        >
           <Trash2 className="size-3.5" />
           Drop from all levels
         </Button>
@@ -1887,21 +2062,32 @@ function DropFromAllLevelsButton({
             Drop {subjectCode} from all levels?
           </DialogTitle>
           <DialogDescription>
-            Removes the (subject × level) configs for <strong>{subjectName}</strong> from{' '}
-            <strong>{configCount}</strong> level{configCount === 1 ? '' : 's'} in the template.
-            The subject row stays in the catalogue.
+            Removes the (subject × level) configs for{' '}
+            <strong>{subjectName}</strong> from <strong>{configCount}</strong>{' '}
+            level{configCount === 1 ? '' : 's'} in the template. The subject row
+            stays in the catalogue.
           </DialogDescription>
         </DialogHeader>
         <p className="text-[13px] text-muted-foreground">
-          Existing AYs are unaffected — they keep their current configs until you remove the
-          subject from each AY separately. New AYs created after this point won&apos;t include
-          {' '}{subjectCode}.
+          Existing AYs are unaffected — they keep their current configs until
+          you remove the subject from each AY separately. New AYs created after
+          this point won&apos;t include {subjectCode}.
         </p>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={submitting}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={submitting}
+          >
             Cancel
           </Button>
-          <Button type="button" variant="destructive" onClick={submit} disabled={submitting}>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={submit}
+            disabled={submitting}
+          >
             {submitting && <Loader2 className="size-3.5 animate-spin" />}
             Drop from all levels
           </Button>
@@ -1997,7 +2183,9 @@ function TemplateSubjectConfigCreateDialog({
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error((body as { error?: string }).error ?? `Save failed (${res.status})`);
+        toast.error(
+          (body as { error?: string }).error ?? `Save failed (${res.status})`
+        );
         return;
       }
       toast.success(`Enabled ${subject.code} at ${level.label}`);
@@ -2018,44 +2206,96 @@ function TemplateSubjectConfigCreateDialog({
             Enable {subject?.code} at {level?.label}
           </DialogTitle>
           <DialogDescription>
-            {subject?.name} will be added to {level?.label} grading sheets generated for new AYs
-            (and any existing AY when you click <strong>Apply template</strong>).
+            {subject?.name} will be added to {level?.label} grading sheets
+            generated for new AYs (and any existing AY when you click{' '}
+            <strong>Apply template</strong>).
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-3">
-            <PercentField label="WW" sublabel="Written Works" value={ww} setValue={setWw} />
-            <PercentField label="PT" sublabel="Perf. Tasks" value={pt} setValue={setPt} />
-            <PercentField label="QA" sublabel="Quarterly" value={qa} setValue={setQa} />
+            <PercentField
+              label="WW"
+              sublabel="Written Works"
+              value={ww}
+              setValue={setWw}
+            />
+            <PercentField
+              label="PT"
+              sublabel="Perf. Tasks"
+              value={pt}
+              setValue={setPt}
+            />
+            <PercentField
+              label="QA"
+              sublabel="Quarterly"
+              value={qa}
+              setValue={setQa}
+            />
           </div>
 
           <div
             className={cn(
               'flex items-center justify-between rounded-lg border px-3 py-2 text-[13px]',
-              sumOk ? PROFILE_CLASS[profile] : 'border-destructive/40 bg-destructive/10',
+              sumOk
+                ? PROFILE_CLASS[profile]
+                : 'border-destructive/40 bg-destructive/10'
             )}
           >
-            <span className={cn('font-medium', sumOk ? PROFILE_TEXT[profile].code : 'text-destructive')}>
+            <span
+              className={cn(
+                'font-medium',
+                sumOk ? PROFILE_TEXT[profile].code : 'text-destructive'
+              )}
+            >
               {sumOk ? PROFILE_LABEL[profile] : `Sums to ${sum} — must be 100`}
             </span>
-            <span className={cn('font-mono tabular-nums', sumOk ? PROFILE_TEXT[profile].ratio : 'text-destructive')}>
+            <span
+              className={cn(
+                'font-mono tabular-nums',
+                sumOk ? PROFILE_TEXT[profile].ratio : 'text-destructive'
+              )}
+            >
               {ww || 0} · {pt || 0} · {qa || 0}
             </span>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
-            <NumberField label="WW slots" value={wwMax} setValue={setWwMax} maxDigits={1} />
-            <NumberField label="PT slots" value={ptMax} setValue={setPtMax} maxDigits={1} />
-            <NumberField label="QA max" value={qaMax} setValue={setQaMax} maxDigits={3} />
+            <NumberField
+              label="WW slots"
+              value={wwMax}
+              setValue={setWwMax}
+              maxDigits={1}
+            />
+            <NumberField
+              label="PT slots"
+              value={ptMax}
+              setValue={setPtMax}
+              maxDigits={1}
+            />
+            <NumberField
+              label="QA max"
+              value={qaMax}
+              setValue={setQaMax}
+              maxDigits={3}
+            />
           </div>
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={submitting}
+          >
             Cancel
           </Button>
-          <Button type="button" onClick={submit} disabled={!sumOk || submitting}>
+          <Button
+            type="button"
+            onClick={submit}
+            disabled={!sumOk || submitting}
+          >
             {submitting && <Loader2 className="size-3.5 animate-spin" />}
             Enable
           </Button>

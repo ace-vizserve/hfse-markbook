@@ -17,7 +17,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 // updated values automatically.
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireRole(['school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -28,23 +28,34 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
-  const { ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots, qa_max } = parsed.data;
+  const {
+    ww_weight,
+    pt_weight,
+    qa_weight,
+    ww_max_slots,
+    pt_max_slots,
+    qa_max,
+  } = parsed.data;
 
   const service = createServiceClient();
 
   const { data: before, error: loadErr } = await service
     .from('template_subject_configs')
     .select(
-      'id, subject_id, level_id, ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots, qa_max',
+      'id, subject_id, level_id, ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots, qa_max'
     )
     .eq('id', id)
     .maybeSingle();
-  if (loadErr) return NextResponse.json({ error: loadErr.message }, { status: 500 });
+  if (loadErr)
+    return NextResponse.json({ error: loadErr.message }, { status: 500 });
   if (!before) {
-    return NextResponse.json({ error: 'template config not found' }, { status: 404 });
+    return NextResponse.json(
+      { error: 'template config not found' },
+      { status: 404 }
+    );
   }
 
   const ww_dec = (ww_weight / 100).toFixed(2);
@@ -63,7 +74,8 @@ export async function PATCH(
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);
-  if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 });
+  if (updateErr)
+    return NextResponse.json({ error: updateErr.message }, { status: 500 });
 
   await logAction({
     service,
@@ -104,7 +116,7 @@ export async function PATCH(
 // only NEW AYs created after this point will skip the (subject × level).
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireRole(['school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -117,24 +129,33 @@ export async function DELETE(
   const { data: before, error: loadErr } = await service
     .from('template_subject_configs')
     .select(
-      'id, subject_id, level_id, ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots, qa_max, subject:subjects(code, name), level:levels(code, label)',
+      'id, subject_id, level_id, ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots, qa_max, subject:subjects(code, name), level:levels(code, label)'
     )
     .eq('id', id)
     .maybeSingle();
-  if (loadErr) return NextResponse.json({ error: loadErr.message }, { status: 500 });
+  if (loadErr)
+    return NextResponse.json({ error: loadErr.message }, { status: 500 });
   if (!before) {
-    return NextResponse.json({ error: 'template config not found' }, { status: 404 });
+    return NextResponse.json(
+      { error: 'template config not found' },
+      { status: 404 }
+    );
   }
 
   const { error: deleteErr } = await service
     .from('template_subject_configs')
     .delete()
     .eq('id', id);
-  if (deleteErr) return NextResponse.json({ error: deleteErr.message }, { status: 500 });
+  if (deleteErr)
+    return NextResponse.json({ error: deleteErr.message }, { status: 500 });
 
   type Joined = { code: string; name?: string; label?: string };
-  const subj = (Array.isArray(before.subject) ? before.subject[0] : before.subject) as Joined | null;
-  const lvl = (Array.isArray(before.level) ? before.level[0] : before.level) as Joined | null;
+  const subj = (
+    Array.isArray(before.subject) ? before.subject[0] : before.subject
+  ) as Joined | null;
+  const lvl = (
+    Array.isArray(before.level) ? before.level[0] : before.level
+  ) as Joined | null;
 
   await logAction({
     service,

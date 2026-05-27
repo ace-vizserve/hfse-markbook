@@ -48,8 +48,10 @@ export function RevisionsHeatmapCardImpl({
   // Lay out chronologically into a 7-row × N-column grid (rows = days of
   // week, cols = weeks). The data array's first cell determines row 0's
   // start day.
-  const grid: (RevisionsHeatmapCell | null)[][] = Array.from({ length: 7 }, () =>
-    Array.from({ length: weeks }, () => null as RevisionsHeatmapCell | null),
+  const grid: (RevisionsHeatmapCell | null)[][] = Array.from(
+    { length: 7 },
+    () =>
+      Array.from({ length: weeks }, () => null as RevisionsHeatmapCell | null)
   );
   if (data.length > 0) {
     const firstDate = new Date(data[0].date);
@@ -110,9 +112,13 @@ export function RevisionsHeatmapCardImpl({
                           'size-3.5 rounded-sm transition-transform',
                           cell.count === 0
                             ? 'bg-muted'
-                            : 'bg-gradient-to-br from-brand-indigo to-brand-navy hover:scale-125',
+                            : 'bg-gradient-to-br from-brand-indigo to-brand-navy hover:scale-125'
                         )}
-                        style={cell.count === 0 ? undefined : { opacity: 0.3 + i * 0.7 }}
+                        style={
+                          cell.count === 0
+                            ? undefined
+                            : { opacity: 0.3 + i * 0.7 }
+                        }
                         aria-label={`${cell.date}: ${cell.count} revisions`}
                       />
                     );

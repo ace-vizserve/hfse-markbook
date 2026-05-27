@@ -61,15 +61,19 @@ export function RatingSelector({ value, onSelect, disabled }: Props) {
                       'disabled:cursor-not-allowed disabled:opacity-50',
                       active
                         ? cn('border-transparent', r.swatchClassName)
-                        : 'border-border bg-transparent text-foreground hover:bg-muted/40',
+                        : 'border-border bg-transparent text-foreground hover:bg-muted/40'
                     )}
                   >
                     {r.label}
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs">
-                  <p className="font-medium text-popover-foreground">{r.label}</p>
-                  <p className="text-[10px] text-popover-foreground/80">{r.description}</p>
+                  <p className="font-medium text-popover-foreground">
+                    {r.label}
+                  </p>
+                  <p className="text-[10px] text-popover-foreground/80">
+                    {r.description}
+                  </p>
                 </TooltipContent>
               </Tooltip>
             );
@@ -82,7 +86,9 @@ export function RatingSelector({ value, onSelect, disabled }: Props) {
         <Select
           value={value == null ? CLEAR_SENTINEL : String(value)}
           disabled={disabled}
-          onValueChange={(v) => onSelect(v === CLEAR_SENTINEL ? null : Number(v))}
+          onValueChange={(v) =>
+            onSelect(v === CLEAR_SENTINEL ? null : Number(v))
+          }
         >
           <SelectTrigger className="h-9 text-xs">
             <SelectValue placeholder="Not rated" />

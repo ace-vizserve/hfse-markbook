@@ -48,7 +48,7 @@ export function ChartLegendChip({
       className={cn(
         'inline-flex items-center gap-1 rounded-md border border-transparent bg-gradient-to-b px-2 py-0.5 font-mono text-[11px] font-semibold uppercase leading-none tracking-[0.14em] text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.18),0_1px_2px_rgba(15,23,42,0.08)]',
         chipGradientByColor[color],
-        className,
+        className
       )}
     >
       <span>{label}</span>
@@ -76,7 +76,7 @@ type RechartsLegendEntry = {
 // Typed as (props: unknown) to satisfy recharts' ContentType (which uses
 // readonly LegendPayload[]) without coupling to recharts' internal types.
 export function chartLegendContent(
-  palette: Record<string, ChartLegendChipColor>,
+  palette: Record<string, ChartLegendChipColor>
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return function ChartLegendContent(props: any) {
@@ -87,7 +87,11 @@ export function chartLegendContent(
           const key = String(entry.dataKey ?? entry.value);
           const color = palette[key] ?? palette[entry.value] ?? 'chart-1';
           return (
-            <ChartLegendChip key={`${key}-${idx}`} color={color} label={entry.value} />
+            <ChartLegendChip
+              key={`${key}-${idx}`}
+              color={color}
+              label={entry.value}
+            />
           );
         })}
       </div>

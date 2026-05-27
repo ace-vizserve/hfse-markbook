@@ -22,7 +22,7 @@ import { seedTestAy } from './students';
  */
 export async function seedPriorYearTestAy(
   service: SupabaseClient,
-  priorTestAy: { id: string; ay_code: string },
+  priorTestAy: { id: string; ay_code: string }
 ): Promise<void> {
   // Students — only seed if AY9998's sections are empty.
   const { data: sectionRows } = await service

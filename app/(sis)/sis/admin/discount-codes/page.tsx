@@ -41,14 +41,17 @@ export default async function SisDiscountCodesPage({
   if (!currentAy) {
     return (
       <PageShell>
-        <div className="text-sm text-destructive">No current academic year configured.</div>
+        <div className="text-sm text-destructive">
+          No current academic year configured.
+        </div>
       </PageShell>
     );
   }
 
   const { ay: ayParam } = await searchParams;
   const ayCodes = await listAyCodes(service);
-  const selectedAy = ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
+  const selectedAy =
+    ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
   const isCurrentAy = selectedAy === currentAy.ay_code;
 
   const codes = await listDiscountCodes(selectedAy);
@@ -92,8 +95,9 @@ export default async function SisDiscountCodesPage({
             Promotion codes.
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            Time-bound enrolment discount codes for this academic year. Per-student grants
-            are written by the enrolment portal directly; this page manages the catalogue.
+            Time-bound enrolment discount codes for this academic year.
+            Per-student grants are written by the enrolment portal directly;
+            this page manages the catalogue.
           </p>
         </div>
         <div className="flex flex-col items-start gap-2 md:items-end">
@@ -205,7 +209,9 @@ function SummaryStat({
           </div>
         </CardAction>
       </CardHeader>
-      <CardFooter className="text-xs text-muted-foreground">{footnote}</CardFooter>
+      <CardFooter className="text-xs text-muted-foreground">
+        {footnote}
+      </CardFooter>
     </Card>
   );
 }

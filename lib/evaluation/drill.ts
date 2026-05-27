@@ -16,13 +16,13 @@ function tags(ayCode: string): string[] {
 // ─── Targets ────────────────────────────────────────────────────────────────
 
 export type EvaluationDrillTarget =
-  | 'submission-status'        // sections × submission %
-  | 'submitted'                 // submitted writeups
-  | 'time-to-submit'            // submitted with daysToSubmit
-  | 'late'                      // submissions >14d
-  | 'submission-velocity-day'   // writeups submitted on a specific day
-  | 'writeups-by-section'       // section × counts
-  | 'time-to-submit-bucket';    // bucket bars (0-3d/4-7d/8-14d/>14d)
+  | 'submission-status' // sections × submission %
+  | 'submitted' // submitted writeups
+  | 'time-to-submit' // submitted with daysToSubmit
+  | 'late' // submissions >14d
+  | 'submission-velocity-day' // writeups submitted on a specific day
+  | 'writeups-by-section' // section × counts
+  | 'time-to-submit-bucket'; // bucket bars (0-3d/4-7d/8-14d/>14d)
 
 // ─── Row shapes ─────────────────────────────────────────────────────────────
 
@@ -63,11 +63,16 @@ export type TimeToSubmitBucket = {
   count: number;
 };
 
-export type EvaluationDrillRow = WriteupRow | SectionWriteupRow | TimeToSubmitBucket;
+export type EvaluationDrillRow =
+  | WriteupRow
+  | SectionWriteupRow
+  | TimeToSubmitBucket;
 
 export type EvaluationDrillRowKind = 'writeup' | 'section-rollup' | 'bucket';
 
-export function rowKindForTarget(t: EvaluationDrillTarget): EvaluationDrillRowKind {
+export function rowKindForTarget(
+  t: EvaluationDrillTarget
+): EvaluationDrillRowKind {
   switch (t) {
     case 'submission-status':
     case 'submitted':
@@ -99,8 +104,19 @@ export type DrillRangeInput = {
 // ─── Loaders ────────────────────────────────────────────────────────────────
 
 type SectionLite = { id: string; name: string; level_id: string };
-type StudentSectionLite = { id: string; section_id: string; student_id: string; enrollment_status: string };
-type StudentLite = { id: string; first_name: string | null; middle_name: string | null; last_name: string | null; student_number: string };
+type StudentSectionLite = {
+  id: string;
+  section_id: string;
+  student_id: string;
+  enrollment_status: string;
+};
+type StudentLite = {
+  id: string;
+  first_name: string | null;
+  middle_name: string | null;
+  last_name: string | null;
+  student_number: string;
+};
 type TermLite = { id: string; term_number: number };
 type LevelLite = { id: string; code: string };
 
@@ -122,7 +138,11 @@ type WriteupRecord = {
 
 type EvalTermRecord = { term_id: string; opened_at: string | null };
 
-type AdviserAssignment = { teacher_user_id: string; section_id: string; role: string };
+type AdviserAssignment = {
+  teacher_user_id: string;
+  section_id: string;
+  role: string;
+};
 
 function studentName(s: StudentLite): string {
   const parts = [s.first_name, s.middle_name, s.last_name].filter(Boolean);
@@ -146,7 +166,10 @@ async function loadWriteupRowsUncached(ayCode: string): Promise<WriteupRow[]> {
       .select('id, term_number')
       .eq('academic_year_id', ayId)
       .neq('term_number', 4),
-    service.from('sections').select('id, name, level_id').eq('academic_year_id', ayId),
+    service
+      .from('sections')
+      .select('id, name, level_id')
+      .eq('academic_year_id', ayId),
     service.from('levels').select('id, code'),
     service
       .from('teacher_assignments')
@@ -165,11 +188,13 @@ async function loadWriteupRowsUncached(ayCode: string): Promise<WriteupRow[]> {
   const sectionIds = sections.map((s) => s.id);
 
   const levels = new Map<string, string>();
-  for (const l of (levelsRes.data ?? []) as LevelLite[]) levels.set(l.id, l.code);
+  for (const l of (levelsRes.data ?? []) as LevelLite[])
+    levels.set(l.id, l.code);
 
   const adviserBySection = new Map<string, string>();
   for (const a of (advisersRes.data ?? []) as AdviserAssignment[]) {
-    if (!adviserBySection.has(a.section_id)) adviserBySection.set(a.section_id, a.teacher_user_id);
+    if (!adviserBySection.has(a.section_id))
+      adviserBySection.set(a.section_id, a.teacher_user_id);
   }
 
   if (sectionIds.length === 0 || termIds.length === 0) return [];
@@ -188,7 +213,8 @@ async function loadWriteupRowsUncached(ayCode: string): Promise<WriteupRow[]> {
   const studentMap = new Map<string, StudentLite>();
   if (studentIds.length > 0) {
     const chunks: string[][] = [];
-    for (let i = 0; i < studentIds.length; i += 500) chunks.push(studentIds.slice(i, i + 500));
+    for (let i = 0; i < studentIds.length; i += 500)
+      chunks.push(studentIds.slice(i, i + 500));
     for (const chunk of chunks) {
       const { data: studs } = await service
         .from('students')
@@ -200,24 +226,31 @@ async function loadWriteupRowsUncached(ayCode: string): Promise<WriteupRow[]> {
 
   const { data: writeupsRows } = await service
     .from('evaluation_writeups')
-    .select('id, student_id, section_id, term_id, writeup, submitted, submitted_at, created_at, updated_at')
+    .select(
+      'id, student_id, section_id, term_id, writeup, submitted, submitted_at, created_at, updated_at'
+    )
     .in('term_id', termIds);
   const writeups = (writeupsRows ?? []) as WriteupRecord[];
   // Writeup uniqueness in DB is (term_id, student_id) per migration 018 —
   // key the lookup map by student id, not section_student id, so the join
   // below resolves correctly.
-  const writeupKey = (studentId: string, termId: string) => `${studentId}|${termId}`;
+  const writeupKey = (studentId: string, termId: string) =>
+    `${studentId}|${termId}`;
   const writeupByKey = new Map<string, WriteupRecord>();
-  for (const w of writeups) writeupByKey.set(writeupKey(w.student_id, w.term_id), w);
+  for (const w of writeups)
+    writeupByKey.set(writeupKey(w.student_id, w.term_id), w);
 
   const { data: evalTermRows } = await service
     .from('evaluation_terms')
     .select('term_id, opened_at')
     .in('term_id', termIds);
   const openedAtByTerm = new Map<string, string | null>();
-  for (const r of (evalTermRows ?? []) as EvalTermRecord[]) openedAtByTerm.set(r.term_id, r.opened_at);
+  for (const r of (evalTermRows ?? []) as EvalTermRecord[])
+    openedAtByTerm.set(r.term_id, r.opened_at);
 
-  const adviserUserIds = Array.from(new Set(Array.from(adviserBySection.values())));
+  const adviserUserIds = Array.from(
+    new Set(Array.from(adviserBySection.values()))
+  );
   const allEmails = new Map(await getTeacherEmailMap());
   const adviserEmailById = new Map<string, string>();
   for (const id of adviserUserIds) {
@@ -232,7 +265,9 @@ async function loadWriteupRowsUncached(ayCode: string): Promise<WriteupRow[]> {
       if (!section) continue;
       const student = studentMap.get(sectionStudent.student_id);
       if (!student) continue;
-      const w = writeupByKey.get(writeupKey(sectionStudent.student_id, term.id));
+      const w = writeupByKey.get(
+        writeupKey(sectionStudent.student_id, term.id)
+      );
       const draftLen = (w?.writeup ?? '').trim().length;
       let status: WriteupRow['status'] = 'missing';
       if (w?.submitted) status = 'submitted';
@@ -241,7 +276,9 @@ async function loadWriteupRowsUncached(ayCode: string): Promise<WriteupRow[]> {
       let daysToSubmit: number | null = null;
       if (w?.submitted_at) {
         const openedAt = openedAtByTerm.get(term.id) ?? null;
-        const start = openedAt ? Date.parse(openedAt) : Date.parse(w.created_at);
+        const start = openedAt
+          ? Date.parse(openedAt)
+          : Date.parse(w.created_at);
         const end = Date.parse(w.submitted_at);
         if (!Number.isNaN(start) && !Number.isNaN(end) && end >= start) {
           daysToSubmit = Math.round((end - start) / 86_400_000);
@@ -260,7 +297,9 @@ async function loadWriteupRowsUncached(ayCode: string): Promise<WriteupRow[]> {
         studentName: studentName(student),
         studentNumber: student.student_number,
         adviserId,
-        adviserEmail: adviserId ? adviserEmailById.get(adviserId) ?? null : null,
+        adviserEmail: adviserId
+          ? (adviserEmailById.get(adviserId) ?? null)
+          : null,
         status,
         draftCharCount: draftLen,
         submittedAt: w?.submitted_at ?? null,
@@ -275,7 +314,7 @@ function loadWriteupRows(ayCode: string): Promise<WriteupRow[]> {
   return unstable_cache(
     () => loadWriteupRowsUncached(ayCode),
     ['evaluation-drill', 'rows', ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tags(ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tags(ayCode) }
   )();
 }
 
@@ -290,11 +329,18 @@ const TIME_BUCKETS = [
 
 function rollupBuckets(rows: WriteupRow[]): TimeToSubmitBucket[] {
   const out: TimeToSubmitBucket[] = TIME_BUCKETS.map((b) => ({
-    label: b.label, loDays: b.lo, hiDays: b.hi, count: 0,
+    label: b.label,
+    loDays: b.lo,
+    hiDays: b.hi,
+    count: 0,
   }));
   for (const r of rows) {
     if (r.daysToSubmit == null) continue;
-    const idx = out.findIndex((b) => r.daysToSubmit! >= b.loDays && (b.hiDays == null || r.daysToSubmit! <= b.hiDays));
+    const idx = out.findIndex(
+      (b) =>
+        r.daysToSubmit! >= b.loDays &&
+        (b.hiDays == null || r.daysToSubmit! <= b.hiDays)
+    );
     if (idx >= 0) out[idx].count += 1;
   }
   return out;
@@ -321,7 +367,10 @@ function rollupBySection(rows: WriteupRow[]): SectionWriteupRow[] {
         sectionName: r.sectionName,
         level: r.level,
         termNumber: r.termNumber,
-        total: 0, submitted: 0, draft: 0, missing: 0,
+        total: 0,
+        submitted: 0,
+        draft: 0,
+        missing: 0,
       };
       map.set(key, acc);
     }
@@ -341,7 +390,8 @@ function rollupBySection(rows: WriteupRow[]): SectionWriteupRow[] {
       submitted: a.submitted,
       draft: a.draft,
       missing: a.missing,
-      submissionPct: a.total > 0 ? Math.round((a.submitted / a.total) * 100) : 0,
+      submissionPct:
+        a.total > 0 ? Math.round((a.submitted / a.total) * 100) : 0,
     });
   }
   out.sort((a, b) => a.submissionPct - b.submissionPct);
@@ -364,21 +414,31 @@ function applyScope(rows: WriteupRow[], input: DrillRangeInput): WriteupRow[] {
   });
 }
 
-function applyAllowedSections(rows: WriteupRow[], allowed: string[] | null | undefined): WriteupRow[] {
+function applyAllowedSections(
+  rows: WriteupRow[],
+  allowed: string[] | null | undefined
+): WriteupRow[] {
   if (!allowed) return rows;
   const set = new Set(allowed);
   return rows.filter((r) => set.has(r.sectionId));
 }
 
 export async function buildEvaluationDrillRows(
-  input: BuildDrillRowsInput,
+  input: BuildDrillRowsInput
 ): Promise<EvaluationDrillRow[]> {
   const all = await loadWriteupRows(input.ayCode);
-  const scoped = applyAllowedSections(applyScope(all, input), input.allowedSectionIds ?? null);
+  const scoped = applyAllowedSections(
+    applyScope(all, input),
+    input.allowedSectionIds ?? null
+  );
 
   const kind = rowKindForTarget(input.target);
   if (kind === 'writeup') {
-    return applyTargetFilter(scoped, input.target, input.segment ?? null) as EvaluationDrillRow[];
+    return applyTargetFilter(
+      scoped,
+      input.target,
+      input.segment ?? null
+    ) as EvaluationDrillRow[];
   }
   if (kind === 'section-rollup') {
     return rollupBySection(scoped) as EvaluationDrillRow[];
@@ -400,7 +460,7 @@ export async function buildAllRowSets(input: {
   const all = await loadWriteupRows(input.ayCode);
   const scoped = applyAllowedSections(
     applyScope(all, { ayCode: input.ayCode, from: input.from, to: input.to }),
-    input.allowedSectionIds ?? null,
+    input.allowedSectionIds ?? null
   );
   return {
     writeups: scoped,
@@ -414,7 +474,7 @@ export async function buildAllRowSets(input: {
 function applyTargetFilter(
   rows: WriteupRow[],
   target: EvaluationDrillTarget,
-  segment: string | null,
+  segment: string | null
 ): WriteupRow[] {
   switch (target) {
     case 'submission-status':
@@ -486,34 +546,78 @@ export const DRILL_COLUMN_LABELS: Record<DrillColumnKey, string> = {
   bucketCount: 'Count',
 };
 
-const WRITEUP_COLUMNS: DrillColumnKey[] = ['studentName', 'sectionName', 'level', 'termNumber', 'status', 'submittedAt', 'daysToSubmit'];
-const SECTION_COLUMNS: DrillColumnKey[] = ['sectionName', 'level', 'termNumber', 'submissionPct', 'submitted', 'draft', 'missing', 'total'];
+const WRITEUP_COLUMNS: DrillColumnKey[] = [
+  'studentName',
+  'sectionName',
+  'level',
+  'termNumber',
+  'status',
+  'submittedAt',
+  'daysToSubmit',
+];
+const SECTION_COLUMNS: DrillColumnKey[] = [
+  'sectionName',
+  'level',
+  'termNumber',
+  'submissionPct',
+  'submitted',
+  'draft',
+  'missing',
+  'total',
+];
 const BUCKET_COLUMNS: DrillColumnKey[] = ['bucketLabel', 'bucketCount'];
 
-export function allColumnsForKind(kind: EvaluationDrillRowKind): DrillColumnKey[] {
+export function allColumnsForKind(
+  kind: EvaluationDrillRowKind
+): DrillColumnKey[] {
   switch (kind) {
-    case 'writeup': return WRITEUP_COLUMNS;
-    case 'section-rollup': return SECTION_COLUMNS;
-    case 'bucket': return BUCKET_COLUMNS;
+    case 'writeup':
+      return WRITEUP_COLUMNS;
+    case 'section-rollup':
+      return SECTION_COLUMNS;
+    case 'bucket':
+      return BUCKET_COLUMNS;
   }
 }
 
-export function defaultColumnsForTarget(target: EvaluationDrillTarget): DrillColumnKey[] {
+export function defaultColumnsForTarget(
+  target: EvaluationDrillTarget
+): DrillColumnKey[] {
   return allColumnsForKind(rowKindForTarget(target));
 }
 
 export function drillHeaderForTarget(
   target: EvaluationDrillTarget,
-  segment: string | null,
+  segment: string | null
 ): { eyebrow: string; title: string } {
   switch (target) {
-    case 'submission-status': return { eyebrow: 'Drill · Submission', title: 'Writeup submission status' };
-    case 'submitted': return { eyebrow: 'Drill · Submitted', title: 'Submitted writeups' };
-    case 'time-to-submit': return { eyebrow: 'Drill · Days to submit', title: 'Time-to-submit cohort' };
-    case 'late': return { eyebrow: 'Drill · Late', title: 'Submissions over 14 days' };
-    case 'submission-velocity-day': return { eyebrow: 'Drill · Daily', title: segment ? `Submitted on ${segment}` : 'Submission velocity' };
-    case 'writeups-by-section': return { eyebrow: 'Drill · By section', title: 'Writeups by section' };
-    case 'time-to-submit-bucket': return { eyebrow: 'Drill · Bucket', title: segment ? `Bucket: ${segment}` : 'Time-to-submit buckets' };
-    default: return { eyebrow: 'Drill', title: 'Evaluation' };
+    case 'submission-status':
+      return {
+        eyebrow: 'Drill · Submission',
+        title: 'Writeup submission status',
+      };
+    case 'submitted':
+      return { eyebrow: 'Drill · Submitted', title: 'Submitted writeups' };
+    case 'time-to-submit':
+      return {
+        eyebrow: 'Drill · Days to submit',
+        title: 'Time-to-submit cohort',
+      };
+    case 'late':
+      return { eyebrow: 'Drill · Late', title: 'Submissions over 14 days' };
+    case 'submission-velocity-day':
+      return {
+        eyebrow: 'Drill · Daily',
+        title: segment ? `Submitted on ${segment}` : 'Submission velocity',
+      };
+    case 'writeups-by-section':
+      return { eyebrow: 'Drill · By section', title: 'Writeups by section' };
+    case 'time-to-submit-bucket':
+      return {
+        eyebrow: 'Drill · Bucket',
+        title: segment ? `Bucket: ${segment}` : 'Time-to-submit buckets',
+      };
+    default:
+      return { eyebrow: 'Drill', title: 'Evaluation' };
   }
 }

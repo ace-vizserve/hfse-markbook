@@ -11,9 +11,14 @@ import { syncSowLabelsToSheet } from '@/lib/markbook/sow';
 // if the sheet is locked. Auth: teacher assigned to section, or registrar+.
 export async function POST(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'superadmin']);
+  const auth = await requireRole([
+    'teacher',
+    'registrar',
+    'school_admin',
+    'superadmin',
+  ]);
   if ('error' in auth) return auth.error;
 
   const { id: sowId } = await params;
@@ -26,7 +31,8 @@ export async function POST(
     .eq('id', sowId)
     .maybeSingle();
 
-  if (!sow) return NextResponse.json({ error: 'SOW not found' }, { status: 404 });
+  if (!sow)
+    return NextResponse.json({ error: 'SOW not found' }, { status: 404 });
 
   const { section_id, subject_id, term_id } = sow as {
     section_id: string;
@@ -44,7 +50,8 @@ export async function POST(
       .eq('subject_id', subject_id)
       .eq('role', 'subject_teacher')
       .maybeSingle();
-    if (!assignment) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!assignment)
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   // Find the matching grading sheet.
@@ -57,13 +64,19 @@ export async function POST(
     .maybeSingle();
 
   if (!sheet) {
-    return NextResponse.json({ error: 'No grading sheet found for this section × subject × term.' }, { status: 404 });
+    return NextResponse.json(
+      { error: 'No grading sheet found for this section × subject × term.' },
+      { status: 404 }
+    );
   }
   if ((sheet as { is_locked: boolean }).is_locked) {
     return NextResponse.json({ error: 'sheet_locked' }, { status: 423 });
   }
 
-  const result = await syncSowLabelsToSheet(sowId, (sheet as { id: string }).id);
+  const result = await syncSowLabelsToSheet(
+    sowId,
+    (sheet as { id: string }).id
+  );
   if (result.error) {
     return NextResponse.json({ error: result.error }, { status: 500 });
   }
@@ -92,5 +105,10 @@ export async function POST(
     },
   });
 
-  return NextResponse.json({ ok: true, preserved: result.preserved, ww_written: result.wwWritten, pt_written: result.ptWritten });
+  return NextResponse.json({
+    ok: true,
+    preserved: result.preserved,
+    ww_written: result.wwWritten,
+    pt_written: result.ptWritten,
+  });
 }

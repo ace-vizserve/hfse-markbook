@@ -19,16 +19,20 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
   const [principal, setPrincipal] = useState(current.principalName);
   const [ceo, setCeo] = useState(current.ceoName);
   const [windowDays, setWindowDays] = useState(
-    String(current.defaultPublishWindowDays),
+    String(current.defaultPublishWindowDays)
   );
   const [compassionateDefault, setCompassionateDefault] = useState(
-    String(current.defaultCompassionateAllowancePerYear),
+    String(current.defaultCompassionateAllowancePerYear)
   );
   const [vlDefault, setVlDefault] = useState(
-    String(current.defaultVlAllowancePerTerm),
+    String(current.defaultVlAllowancePerTerm)
   );
-  const [bronzeMin, setBronzeMin] = useState(String(current.subjectAwardBronzeMin));
-  const [silverMin, setSilverMin] = useState(String(current.subjectAwardSilverMin));
+  const [bronzeMin, setBronzeMin] = useState(
+    String(current.subjectAwardBronzeMin)
+  );
+  const [silverMin, setSilverMin] = useState(
+    String(current.subjectAwardSilverMin)
+  );
   const [goldMin, setGoldMin] = useState(String(current.subjectAwardGoldMin));
   const [awardMax, setAwardMax] = useState(String(current.subjectAwardMax));
   // Letterhead fields (migration 054)
@@ -39,7 +43,9 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
   const [website, setWebsite] = useState(current.websiteUrl);
   const [email, setEmail] = useState(current.contactEmail);
   const [pei, setPei] = useState(current.peiRegistrationNumber);
-  const [peiStart, setPeiStart] = useState(current.peiRegistrationStartDate ?? '');
+  const [peiStart, setPeiStart] = useState(
+    current.peiRegistrationStartDate ?? ''
+  );
   const [peiEnd, setPeiEnd] = useState(current.peiRegistrationEndDate ?? '');
   const [logoUrl, setLogoUrl] = useState(current.logoUrl);
   const [saving, setSaving] = useState(false);
@@ -49,7 +55,8 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
     principal !== current.principalName ||
     ceo !== current.ceoName ||
     String(current.defaultPublishWindowDays) !== windowDays ||
-    String(current.defaultCompassionateAllowancePerYear) !== compassionateDefault ||
+    String(current.defaultCompassionateAllowancePerYear) !==
+      compassionateDefault ||
     String(current.defaultVlAllowancePerTerm) !== vlDefault ||
     String(current.subjectAwardBronzeMin) !== bronzeMin ||
     String(current.subjectAwardSilverMin) !== silverMin ||
@@ -73,7 +80,11 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
       return;
     }
     const compassionate = Number(compassionateDefault);
-    if (!Number.isInteger(compassionate) || compassionate < 0 || compassionate > 30) {
+    if (
+      !Number.isInteger(compassionate) ||
+      compassionate < 0 ||
+      compassionate > 30
+    ) {
       toast.error('Compassionate leave must be 0–30 days');
       return;
     }
@@ -87,14 +98,16 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
     const gold = Number(goldMin);
     const max = Number(awardMax);
     const validNumbers = [bronze, silver, gold, max].every(
-      (n) => Number.isFinite(n) && n >= 0 && n <= 100,
+      (n) => Number.isFinite(n) && n >= 0 && n <= 100
     );
     if (!validNumbers) {
       toast.error('Award thresholds must be between 0 and 100');
       return;
     }
     if (!(bronze < silver && silver < gold && gold <= max)) {
-      toast.error('Award thresholds must be strictly increasing — Bronze < Silver < Gold ≤ Max');
+      toast.error(
+        'Award thresholds must be strictly increasing — Bronze < Silver < Gold ≤ Max'
+      );
       return;
     }
     if (peiStart && peiEnd && peiStart > peiEnd) {
@@ -174,7 +187,8 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
                 placeholder="e.g. Dr Jane Smith"
               />
               <p className="text-[11px] text-muted-foreground">
-                Shown under the Principal signature line on final (T4) report cards.
+                Shown under the Principal signature line on final (T4) report
+                cards.
               </p>
             </div>
             <div className="space-y-1.5">
@@ -187,7 +201,8 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
                 placeholder="e.g. John Doe"
               />
               <p className="text-[11px] text-muted-foreground">
-                Shown under the Founder &amp; CEO signature line on final (T4) report cards.
+                Shown under the Founder &amp; CEO signature line on final (T4)
+                report cards.
               </p>
             </div>
           </div>
@@ -205,7 +220,8 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
               className="text-right font-mono tabular-nums"
             />
             <p className="text-[11px] text-muted-foreground">
-              Default for the publication window (1–365). Registrar can override per publish.
+              Default for the publication window (1–365). Registrar can override
+              per publish.
             </p>
           </div>
         </TabsContent>
@@ -213,8 +229,9 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
         {/* ── Letterhead ── */}
         <TabsContent value="letterhead" className="mt-6 space-y-5">
           <p className="text-[13px] text-muted-foreground">
-            These values appear on every printed report card and the parent-portal preview.
-            Changes take effect immediately on the next report-card render.
+            These values appear on every printed report card and the
+            parent-portal preview. Changes take effect immediately on the next
+            report-card render.
           </p>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5 md:col-span-2">
@@ -287,7 +304,8 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
                 placeholder="https://…  (leave blank to use the bundled HFSE wordmark)"
               />
               <p className="text-[11px] text-muted-foreground">
-                Paste a publicly accessible image URL. Leave blank to use the default HFSE wordmark.
+                Paste a publicly accessible image URL. Leave blank to use the
+                default HFSE wordmark.
               </p>
             </div>
           </div>
@@ -298,8 +316,9 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
                 PEI registration
               </p>
               <p className="text-[13px] text-muted-foreground">
-                The registration number and period shown on the bottom row of the letterhead.
-                Leave the dates blank to omit the period from the printed header.
+                The registration number and period shown on the bottom row of
+                the letterhead. Leave the dates blank to omit the period from
+                the printed header.
               </p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
@@ -353,12 +372,15 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
                 pattern="[0-9]*"
                 value={compassionateDefault}
                 onChange={(e) =>
-                  setCompassionateDefault(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))
+                  setCompassionateDefault(
+                    e.target.value.replace(/[^0-9]/g, '').slice(0, 2)
+                  )
                 }
                 className="text-right font-mono tabular-nums"
               />
               <p className="text-[11px] text-muted-foreground">
-                HFSE policy: 5 days per academic year. Used when no per-student override is set.
+                HFSE policy: 5 days per academic year. Used when no per-student
+                override is set.
               </p>
             </div>
             <div className="space-y-1.5">
@@ -370,12 +392,15 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
                 pattern="[0-9]*"
                 value={vlDefault}
                 onChange={(e) =>
-                  setVlDefault(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))
+                  setVlDefault(
+                    e.target.value.replace(/[^0-9]/g, '').slice(0, 2)
+                  )
                 }
                 className="text-right font-mono tabular-nums"
               />
               <p className="text-[11px] text-muted-foreground">
-                HFSE policy: 1 per term (4 per year total). Unused days do not carry forward.
+                HFSE policy: 1 per term (4 per year total). Unused days do not
+                carry forward.
               </p>
             </div>
           </div>
@@ -384,9 +409,10 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
         {/* ── Awards ── */}
         <TabsContent value="awards" className="mt-6 space-y-4">
           <p className="text-[13px] text-muted-foreground">
-            Score cut-offs for the Subject Award (per subject) and Overall Academic Award
-            (per student). The same ladder applies to both. Thresholds must be strictly
-            increasing: Bronze &lt; Silver &lt; Gold ≤ Max.
+            Score cut-offs for the Subject Award (per subject) and Overall
+            Academic Award (per student). The same ladder applies to both.
+            Thresholds must be strictly increasing: Bronze &lt; Silver &lt; Gold
+            ≤ Max.
           </p>
           <div className="grid gap-4 md:grid-cols-4">
             <div className="space-y-1.5">
@@ -397,7 +423,9 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
                 inputMode="decimal"
                 value={bronzeMin}
                 onChange={(e) =>
-                  setBronzeMin(e.target.value.replace(/[^0-9.]/g, '').slice(0, 5))
+                  setBronzeMin(
+                    e.target.value.replace(/[^0-9.]/g, '').slice(0, 5)
+                  )
                 }
                 className="text-right font-mono tabular-nums"
               />
@@ -413,7 +441,9 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
                 inputMode="decimal"
                 value={silverMin}
                 onChange={(e) =>
-                  setSilverMin(e.target.value.replace(/[^0-9.]/g, '').slice(0, 5))
+                  setSilverMin(
+                    e.target.value.replace(/[^0-9.]/g, '').slice(0, 5)
+                  )
                 }
                 className="text-right font-mono tabular-nums"
               />
@@ -445,7 +475,9 @@ export function SchoolConfigForm({ current }: { current: SchoolConfig }) {
                 inputMode="decimal"
                 value={awardMax}
                 onChange={(e) =>
-                  setAwardMax(e.target.value.replace(/[^0-9.]/g, '').slice(0, 5))
+                  setAwardMax(
+                    e.target.value.replace(/[^0-9.]/g, '').slice(0, 5)
+                  )
                 }
                 className="text-right font-mono tabular-nums"
               />

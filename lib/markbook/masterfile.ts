@@ -2,7 +2,10 @@ import 'server-only';
 
 import { unstable_cache } from 'next/cache';
 
-import { computeAnnualGrade, computeGeneralAverage } from '@/lib/compute/annual';
+import {
+  computeAnnualGrade,
+  computeGeneralAverage,
+} from '@/lib/compute/annual';
 import { deriveAnnualLetterForNonExam } from '@/lib/compute/letter-grade';
 import {
   DEFAULT_AWARD_THRESHOLDS,
@@ -125,7 +128,7 @@ export type MasterfileInput = {
 };
 
 export async function loadMasterfile(
-  input: MasterfileInput,
+  input: MasterfileInput
 ): Promise<MasterfilePayload | null> {
   return unstable_cache(
     () => loadMasterfileUncached(input),
@@ -138,12 +141,12 @@ export async function loadMasterfile(
     {
       revalidate: CACHE_TTL_SECONDS,
       tags: ['markbook-drill', `markbook-drill:${input.ayCode}`],
-    },
+    }
   )();
 }
 
 async function loadMasterfileUncached(
-  input: MasterfileInput,
+  input: MasterfileInput
 ): Promise<MasterfilePayload | null> {
   const service = createServiceClient();
 
@@ -157,30 +160,38 @@ async function loadMasterfileUncached(
   const ayId = (ay as { id: string }).id;
 
   // 2. Level + sections at this level.
-  const [{ data: levelRow }, { data: sectionsRaw }, { data: termsRaw }, schoolConfig] =
-    await Promise.all([
-      service
-        .from('levels')
-        .select('id, code, label')
-        .eq('id', input.levelId)
-        .maybeSingle(),
-      service
-        .from('sections')
-        .select('id, name, form_class_adviser')
-        .eq('academic_year_id', ayId)
-        .eq('level_id', input.levelId)
-        .order('name'),
-      service
-        .from('terms')
-        .select('id, term_number, label')
-        .eq('academic_year_id', ayId)
-        .order('term_number'),
-      getSchoolConfig(),
-    ]);
+  const [
+    { data: levelRow },
+    { data: sectionsRaw },
+    { data: termsRaw },
+    schoolConfig,
+  ] = await Promise.all([
+    service
+      .from('levels')
+      .select('id, code, label')
+      .eq('id', input.levelId)
+      .maybeSingle(),
+    service
+      .from('sections')
+      .select('id, name, form_class_adviser')
+      .eq('academic_year_id', ayId)
+      .eq('level_id', input.levelId)
+      .order('name'),
+    service
+      .from('terms')
+      .select('id, term_number, label')
+      .eq('academic_year_id', ayId)
+      .order('term_number'),
+    getSchoolConfig(),
+  ]);
 
   if (!levelRow) return null;
 
-  type SectionRow = { id: string; name: string; form_class_adviser: string | null };
+  type SectionRow = {
+    id: string;
+    name: string;
+    form_class_adviser: string | null;
+  };
   const sections = (sectionsRaw ?? []) as SectionRow[];
   const sectionByIid = new Map<string, SectionRow>();
   for (const s of sections) sectionByIid.set(s.id, s);
@@ -196,9 +207,10 @@ async function loadMasterfileUncached(
   };
 
   // 3. Apply optional class filter — narrow to the requested section ids.
-  const filterIds = input.sectionIds && input.sectionIds.length > 0
-    ? input.sectionIds.filter((id) => sectionByIid.has(id))
-    : sections.map((s) => s.id);
+  const filterIds =
+    input.sectionIds && input.sectionIds.length > 0
+      ? input.sectionIds.filter((id) => sectionByIid.has(id))
+      : sections.map((s) => s.id);
   const sectionIdSet = new Set(filterIds);
 
   // 4. Subject configs at this level — drives the column set.
@@ -216,12 +228,26 @@ async function loadMasterfileUncached(
   };
   const subjectsRaw = ((cfgRows ?? []) as CfgRow[])
     .map((c) => (Array.isArray(c.subject) ? c.subject[0] : c.subject))
-    .filter((s): s is { id: string; code: string; name: string; is_examinable: boolean } => !!s);
+    .filter(
+      (
+        s
+      ): s is {
+        id: string;
+        code: string;
+        name: string;
+        is_examinable: boolean;
+      } => !!s
+    );
 
   // Sort: examinable first (alphabetical within), then non-examinable
   // (alphabetical within). Matches the AY2025 workbook column layout.
   const subjects: MasterfileSubject[] = subjectsRaw
-    .map((s) => ({ id: s.id, code: s.code, name: s.name, isExaminable: s.is_examinable }))
+    .map((s) => ({
+      id: s.id,
+      code: s.code,
+      name: s.name,
+      isExaminable: s.is_examinable,
+    }))
     .sort((a, b) => {
       if (a.isExaminable !== b.isExaminable) return a.isExaminable ? -1 : 1;
       return a.name.localeCompare(b.name);
@@ -232,7 +258,11 @@ async function loadMasterfileUncached(
       ayCode: input.ayCode,
       level: levelRow as { id: string; code: string; label: string },
       subjects,
-      terms: terms.map((t) => ({ id: t.id, termNumber: t.term_number, label: t.label })),
+      terms: terms.map((t) => ({
+        id: t.id,
+        termNumber: t.term_number,
+        label: t.label,
+      })),
       sections: sections.map((s) => ({ id: s.id, name: s.name })),
       selectedSectionIds: [],
       rows: [],
@@ -246,7 +276,7 @@ async function loadMasterfileUncached(
   const { data: enrolmentsRaw } = await service
     .from('section_students')
     .select(
-      'id, section_id, enrollment_status, created_at, student:students(id, student_number, last_name, first_name, middle_name)',
+      'id, section_id, enrollment_status, created_at, student:students(id, student_number, last_name, first_name, middle_name)'
     )
     .in('section_id', filterIds)
     .order('index_number');
@@ -257,8 +287,20 @@ async function loadMasterfileUncached(
     enrollment_status: string;
     created_at: string | null;
     student:
-      | { id: string; student_number: string; last_name: string; first_name: string; middle_name: string | null }
-      | Array<{ id: string; student_number: string; last_name: string; first_name: string; middle_name: string | null }>
+      | {
+          id: string;
+          student_number: string;
+          last_name: string;
+          first_name: string;
+          middle_name: string | null;
+        }
+      | Array<{
+          id: string;
+          student_number: string;
+          last_name: string;
+          first_name: string;
+          middle_name: string | null;
+        }>
       | null;
   };
   const enrolmentList = (enrolmentsRaw ?? []) as EnrolmentRow[];
@@ -308,12 +350,20 @@ async function loadMasterfileUncached(
   const termIds = terms.map((t) => t.id);
   const subjectIds = subjects.map((s) => s.id);
 
-  if (allEnrolmentIds.length === 0 || termIds.length === 0 || subjectIds.length === 0) {
+  if (
+    allEnrolmentIds.length === 0 ||
+    termIds.length === 0 ||
+    subjectIds.length === 0
+  ) {
     return {
       ayCode: input.ayCode,
       level: levelRow as { id: string; code: string; label: string },
       subjects,
-      terms: terms.map((t) => ({ id: t.id, termNumber: t.term_number, label: t.label })),
+      terms: terms.map((t) => ({
+        id: t.id,
+        termNumber: t.term_number,
+        label: t.label,
+      })),
       sections: sections.map((s) => ({ id: s.id, name: s.name })),
       selectedSectionIds: filterIds,
       rows: [],
@@ -328,16 +378,27 @@ async function loadMasterfileUncached(
     .in('term_id', termIds)
     .in('subject_id', subjectIds);
 
-  type SheetRow = { id: string; term_id: string; subject_id: string; section_id: string };
+  type SheetRow = {
+    id: string;
+    term_id: string;
+    subject_id: string;
+    section_id: string;
+  };
   const sheets = (sheetsRaw ?? []) as SheetRow[];
 
-  const { data: entriesRaw } = sheets.length > 0
-    ? await service
-        .from('grade_entries')
-        .select('id, grading_sheet_id, section_student_id, quarterly_grade, letter_grade, is_na, annual_letter_grade')
-        .in('grading_sheet_id', sheets.map((s) => s.id))
-        .in('section_student_id', allEnrolmentIds)
-    : { data: [] };
+  const { data: entriesRaw } =
+    sheets.length > 0
+      ? await service
+          .from('grade_entries')
+          .select(
+            'id, grading_sheet_id, section_student_id, quarterly_grade, letter_grade, is_na, annual_letter_grade'
+          )
+          .in(
+            'grading_sheet_id',
+            sheets.map((s) => s.id)
+          )
+          .in('section_student_id', allEnrolmentIds)
+      : { data: [] };
 
   type EntryRow = {
     id: string;
@@ -371,7 +432,11 @@ async function loadMasterfileUncached(
   const attendanceRows = (attendanceRaw ?? []) as AttRow[];
 
   // 8. Build student rows.
-  const STATUS_RANK: Record<string, number> = { active: 0, late_enrollee: 1, withdrawn: 2 };
+  const STATUS_RANK: Record<string, number> = {
+    active: 0,
+    late_enrollee: 1,
+    withdrawn: 2,
+  };
 
   const rows: MasterfileStudentRow[] = [];
   for (const group of groupedByStudent.values()) {
@@ -407,14 +472,14 @@ async function loadMasterfileUncached(
         const candidates = entries.filter(
           (en) =>
             sheetIds.includes(en.grading_sheet_id) &&
-            studentEnrolmentIds.has(en.section_student_id),
+            studentEnrolmentIds.has(en.section_student_id)
         );
         if (candidates.length === 0) {
           return { quarterly: null, letter: null, isNa: false };
         }
         // Prefer entries with actual data over blanks.
         const filled = candidates.filter(
-          (e) => e.quarterly_grade != null || e.letter_grade != null || e.is_na,
+          (e) => e.quarterly_grade != null || e.letter_grade != null || e.is_na
         );
         const pool = filled.length > 0 ? filled : candidates;
         const best =
@@ -445,22 +510,19 @@ async function loadMasterfileUncached(
               cells[1]?.isNa ?? false,
               cells[2]?.isNa ?? false,
               cells[3]?.isNa ?? false,
-            ],
+            ]
           )
         : null;
       const derivedAnnualLetter = examinable
         ? null
         : deriveAnnualLetterForNonExam(
-            cells.map((c) => ({ quarterly: c.quarterly, isNa: c.isNa })),
+            cells.map((c) => ({ quarterly: c.quarterly, isNa: c.isNa }))
           );
 
       const eligibility: AwardEligibility = {
         enrolled: primary.enrollmentStatus !== 'withdrawn',
         hasCompleteData:
-          examinable &&
-          cells.every(
-            (c) => c.quarterly != null || c.isNa,
-          ),
+          examinable && cells.every((c) => c.quarterly != null || c.isNa),
       };
       const award: SubjectAwardLabel = examinable
         ? subjectAward(overall, thresholds, eligibility)
@@ -491,14 +553,14 @@ async function loadMasterfileUncached(
     const overallAward = overallAcademicAward(
       generalAverage,
       thresholds,
-      overallEligibility,
+      overallEligibility
     );
 
     // Attendance per term — sum across the student's enrolment rows in this AY.
     const attendanceByTerm: MasterfileAttendanceTermCell[] = terms.map((t) => {
       const rowsForTerm = attendanceRows.filter(
         (r) =>
-          r.term_id === t.id && studentEnrolmentIds.has(r.section_student_id),
+          r.term_id === t.id && studentEnrolmentIds.has(r.section_student_id)
       );
       if (rowsForTerm.length === 0) {
         return { termId: t.id, schoolDays: null, present: null, late: null };
@@ -507,7 +569,8 @@ async function loadMasterfileUncached(
       let present: number | null = null;
       let late: number | null = null;
       for (const r of rowsForTerm) {
-        if (r.school_days != null) schoolDays = (schoolDays ?? 0) + r.school_days;
+        if (r.school_days != null)
+          schoolDays = (schoolDays ?? 0) + r.school_days;
         if (r.days_present != null) present = (present ?? 0) + r.days_present;
         if (r.days_late != null) late = (late ?? 0) + r.days_late;
       }
@@ -520,7 +583,7 @@ async function loadMasterfileUncached(
         present: acc.present + (c.present ?? 0),
         late: acc.late + (c.late ?? 0),
       }),
-      { schoolDays: 0, present: 0, late: 0 },
+      { schoolDays: 0, present: 0, late: 0 }
     );
 
     rows.push({
@@ -550,7 +613,11 @@ async function loadMasterfileUncached(
     ayCode: input.ayCode,
     level: levelRow as { id: string; code: string; label: string },
     subjects,
-    terms: terms.map((t) => ({ id: t.id, termNumber: t.term_number, label: t.label })),
+    terms: terms.map((t) => ({
+      id: t.id,
+      termNumber: t.term_number,
+      label: t.label,
+    })),
     sections: sections.map((s) => ({ id: s.id, name: s.name })),
     selectedSectionIds: filterIds,
     rows,

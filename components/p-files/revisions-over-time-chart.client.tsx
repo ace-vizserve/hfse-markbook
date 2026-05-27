@@ -19,7 +19,8 @@ export function RevisionsOverTimeChartImpl({ data }: { data: RevisionWeek[] }) {
   const empty = total === 0;
   const recentWeek = data[data.length - 1];
   const priorWeek = data[data.length - 2];
-  const delta = recentWeek && priorWeek ? recentWeek.count - priorWeek.count : 0;
+  const delta =
+    recentWeek && priorWeek ? recentWeek.count - priorWeek.count : 0;
   const points = data.map((w) => ({ x: w.weekLabel, y: w.count }));
 
   return (
@@ -41,9 +42,12 @@ export function RevisionsOverTimeChartImpl({ data }: { data: RevisionWeek[] }) {
         {empty ? (
           <div className="flex h-[280px] flex-col items-center justify-center gap-2 text-center">
             <History className="size-6 text-muted-foreground/60" />
-            <p className="text-sm font-medium text-foreground">No replacements yet</p>
+            <p className="text-sm font-medium text-foreground">
+              No replacements yet
+            </p>
             <p className="max-w-xs text-xs text-muted-foreground">
-              When staff replace documents, each archive appears as a bump on this chart.
+              When staff replace documents, each archive appears as a bump on
+              this chart.
             </p>
           </div>
         ) : (
@@ -53,15 +57,25 @@ export function RevisionsOverTimeChartImpl({ data }: { data: RevisionWeek[] }) {
       {!empty && (
         <CardFooter className="border-t border-border px-6 py-3 text-xs text-muted-foreground">
           <span>
-            <span className="font-semibold tabular-nums text-foreground">{total}</span> replacements total
+            <span className="font-semibold tabular-nums text-foreground">
+              {total}
+            </span>{' '}
+            replacements total
             {recentWeek && (
               <>
                 {' · '}
-                <span className="tabular-nums text-foreground">{recentWeek.count}</span> this week
+                <span className="tabular-nums text-foreground">
+                  {recentWeek.count}
+                </span>{' '}
+                this week
                 {delta !== 0 && (
                   <>
                     {' ('}
-                    <span className={delta > 0 ? 'text-brand-amber' : 'text-muted-foreground'}>
+                    <span
+                      className={
+                        delta > 0 ? 'text-brand-amber' : 'text-muted-foreground'
+                      }
+                    >
                       {delta > 0 ? '+' : ''}
                       {delta}
                     </span>

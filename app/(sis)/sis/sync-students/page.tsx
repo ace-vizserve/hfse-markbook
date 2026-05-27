@@ -30,13 +30,16 @@ export default async function SyncStudentsPage({
   if (!currentAy) {
     return (
       <PageShell>
-        <div className="text-sm text-destructive">No current academic year configured.</div>
+        <div className="text-sm text-destructive">
+          No current academic year configured.
+        </div>
       </PageShell>
     );
   }
 
   const { ay: ayParam } = await searchParams;
-  const selectedAy = ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
+  const selectedAy =
+    ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
 
   return (
     <SyncStudentsClient

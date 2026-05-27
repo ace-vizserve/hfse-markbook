@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const { name, level_id, class_type } = parsed.data;
@@ -34,8 +34,10 @@ export async function POST(request: NextRequest) {
   if (error) {
     if ((error as { code?: string }).code === '23505') {
       return NextResponse.json(
-        { error: `A template section named "${name}" already exists for this level.` },
-        { status: 409 },
+        {
+          error: `A template section named "${name}" already exists for this level.`,
+        },
+        { status: 409 }
       );
     }
     return NextResponse.json({ error: error.message }, { status: 500 });

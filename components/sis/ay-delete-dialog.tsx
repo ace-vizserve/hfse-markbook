@@ -47,7 +47,8 @@ export function AyDeleteDialog({
   const [submitting, setSubmitting] = useState(false);
 
   const disabledByBlockers = blockers.length > 0;
-  const canSubmit = !disabledByBlockers && confirm.trim().toUpperCase() === ayCode;
+  const canSubmit =
+    !disabledByBlockers && confirm.trim().toUpperCase() === ayCode;
 
   async function handleConfirm(e: React.MouseEvent<HTMLButtonElement>) {
     e.preventDefault();
@@ -86,11 +87,15 @@ export function AyDeleteDialog({
           <AlertDialogTitle>Delete {ayCode}?</AlertDialogTitle>
           <AlertDialogDescription>
             {disabledByBlockers ? (
-              <>This academic year has data and can&apos;t be deleted. Resolve the items below first.</>
+              <>
+                This academic year has data and can&apos;t be deleted. Resolve
+                the items below first.
+              </>
             ) : (
               <>
-                This will <strong>permanently delete</strong> {ayCode} and everything set up for it
-                (terms, sections, subjects, admissions data). This cannot be undone.
+                This will <strong>permanently delete</strong> {ayCode} and
+                everything set up for it (terms, sections, subjects, admissions
+                data). This cannot be undone.
               </>
             )}
           </AlertDialogDescription>
@@ -112,8 +117,11 @@ export function AyDeleteDialog({
         {!disabledByBlockers && (
           <div className="space-y-2">
             <Label htmlFor="confirm-delete" className="text-xs font-medium">
-              Type <code className="rounded bg-muted px-1 py-0.5 text-[11px]">{ayCode}</code> to
-              confirm.
+              Type{' '}
+              <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+                {ayCode}
+              </code>{' '}
+              to confirm.
             </Label>
             <Input
               id="confirm-delete"

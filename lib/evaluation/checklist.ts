@@ -47,12 +47,14 @@ export type PtcFeedbackRow = {
 export async function listChecklistItems(
   termId: string,
   subjectId: string,
-  sectionId: string,
+  sectionId: string
 ): Promise<ChecklistItemRow[]> {
   const service = createServiceClient();
   const { data, error } = await service
     .from('evaluation_checklist_items')
-    .select('id, term_id, subject_id, section_id, sow_instance_id, item_text, sort_order')
+    .select(
+      'id, term_id, subject_id, section_id, sow_instance_id, item_text, sort_order'
+    )
     .eq('term_id', termId)
     .eq('subject_id', subjectId)
     .eq('section_id', sectionId)
@@ -70,10 +72,16 @@ export async function getSectionsTeacherCanCopyFrom(
   _userId: string,
   termId: string,
   subjectId: string,
-  currentSectionId: string,
-): Promise<Array<{ section_id: string; section_name: string; item_count: number }>> {
+  currentSectionId: string
+): Promise<
+  Array<{ section_id: string; section_name: string; item_count: number }>
+> {
   const { listImportableSowSources } = await import('@/lib/sis/sow/queries');
-  const sources = await listImportableSowSources(currentSectionId, subjectId, termId);
+  const sources = await listImportableSowSources(
+    currentSectionId,
+    subjectId,
+    termId
+  );
   return sources.map((s) => ({
     section_id: s.section_id,
     section_name: s.section_name,
@@ -86,7 +94,7 @@ export async function getSectionsTeacherCanCopyFrom(
 export async function listChecklistItemsWithCreator(
   termId: string,
   subjectId: string,
-  sectionId: string,
+  sectionId: string
 ): Promise<
   Array<
     ChecklistItemRow & {
@@ -99,7 +107,7 @@ export async function listChecklistItemsWithCreator(
   const { data } = await service
     .from('evaluation_checklist_items')
     .select(
-      'id, term_id, subject_id, section_id, sow_instance_id, item_text, sort_order, created_by, created_at',
+      'id, term_id, subject_id, section_id, sow_instance_id, item_text, sort_order, created_by, created_at'
     )
     .eq('term_id', termId)
     .eq('subject_id', subjectId)
@@ -114,13 +122,15 @@ export async function listChecklistItemsWithCreator(
   // Resolve creator display names. ≤50 items per query → at most a
   // handful of unique creators. Cheap loop is fine.
   const userIds = Array.from(
-    new Set(rows.map((r) => r.created_by).filter((id): id is string => !!id)),
+    new Set(rows.map((r) => r.created_by).filter((id): id is string => !!id))
   );
   const nameByUserId = new Map<string, string>();
   for (const userId of userIds) {
     try {
       const { data: u } = await service.auth.admin.getUserById(userId);
-      const meta = u?.user?.user_metadata as { display_name?: string } | undefined;
+      const meta = u?.user?.user_metadata as
+        | { display_name?: string }
+        | undefined;
       const name = meta?.display_name ?? u?.user?.email ?? null;
       if (name) nameByUserId.set(userId, name);
     } catch {
@@ -130,7 +140,9 @@ export async function listChecklistItemsWithCreator(
 
   return rows.map((r) => ({
     ...r,
-    creator_name: r.created_by ? nameByUserId.get(r.created_by) ?? null : null,
+    creator_name: r.created_by
+      ? (nameByUserId.get(r.created_by) ?? null)
+      : null,
   }));
 }
 
@@ -138,7 +150,7 @@ export async function listChecklistItemsWithCreator(
 // fast grid lookup.
 export async function getResponsesBySectionTerm(
   sectionId: string,
-  termId: string,
+  termId: string
 ): Promise<Map<string, ChecklistResponseRow>> {
   const service = createServiceClient();
   const { data, error } = await service
@@ -148,7 +160,10 @@ export async function getResponsesBySectionTerm(
     .eq('term_id', termId);
   const map = new Map<string, ChecklistResponseRow>();
   if (error) {
-    console.error('[evaluation] getResponsesBySectionTerm failed:', error.message);
+    console.error(
+      '[evaluation] getResponsesBySectionTerm failed:',
+      error.message
+    );
     return map;
   }
   for (const r of (data ?? []) as ChecklistResponseRow[]) {
@@ -160,7 +175,7 @@ export async function getResponsesBySectionTerm(
 export async function getSubjectCommentsBySectionTerm(
   sectionId: string,
   termId: string,
-  subjectId: string,
+  subjectId: string
 ): Promise<Map<string, SubjectCommentRow>> {
   const service = createServiceClient();
   const { data, error } = await service
@@ -171,7 +186,10 @@ export async function getSubjectCommentsBySectionTerm(
     .eq('subject_id', subjectId);
   const map = new Map<string, SubjectCommentRow>();
   if (error) {
-    console.error('[evaluation] getSubjectCommentsBySectionTerm failed:', error.message);
+    console.error(
+      '[evaluation] getSubjectCommentsBySectionTerm failed:',
+      error.message
+    );
     return map;
   }
   for (const r of (data ?? []) as SubjectCommentRow[]) {
@@ -182,7 +200,7 @@ export async function getSubjectCommentsBySectionTerm(
 
 export async function getPtcFeedbackBySectionTerm(
   sectionId: string,
-  termId: string,
+  termId: string
 ): Promise<Map<string, PtcFeedbackRow>> {
   const service = createServiceClient();
   const { data, error } = await service
@@ -192,7 +210,10 @@ export async function getPtcFeedbackBySectionTerm(
     .eq('term_id', termId);
   const map = new Map<string, PtcFeedbackRow>();
   if (error) {
-    console.error('[evaluation] getPtcFeedbackBySectionTerm failed:', error.message);
+    console.error(
+      '[evaluation] getPtcFeedbackBySectionTerm failed:',
+      error.message
+    );
     return map;
   }
   for (const r of (data ?? []) as PtcFeedbackRow[]) {
@@ -207,7 +228,7 @@ export async function getPtcFeedbackBySectionTerm(
 // they're assigned to for that section.
 export async function listTeacherSubjectsForSection(
   userId: string,
-  sectionId: string,
+  sectionId: string
 ): Promise<string[]> {
   const service = createServiceClient();
   const { data, error } = await service

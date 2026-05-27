@@ -59,7 +59,7 @@ export type AttendanceHistoryRow = {
 };
 
 export async function findStudentByNumber(
-  studentNumber: string,
+  studentNumber: string
 ): Promise<StudentHeader | null> {
   const service = createServiceClient();
   const { data, error } = await service
@@ -84,7 +84,9 @@ export async function findStudentByNumber(
   };
 }
 
-export async function getPlacementHistory(studentId: string): Promise<PlacementRow[]> {
+export async function getPlacementHistory(
+  studentId: string
+): Promise<PlacementRow[]> {
   const service = createServiceClient();
   const { data } = await service
     .from('section_students')
@@ -97,7 +99,7 @@ export async function getPlacementHistory(studentId: string): Promise<PlacementR
           level:levels(code, label),
           academic_year:academic_years(ay_code, label)
         )
-      `,
+      `
     )
     .eq('student_id', studentId);
 
@@ -109,17 +111,18 @@ export async function getPlacementHistory(studentId: string): Promise<PlacementR
     index_number: number;
     bus_no: string | null;
     classroom_officer_role: string | null;
-    section:
-      | {
-          id: string;
-          name: string;
-          level: { code: string; label: string } | { code: string; label: string }[] | null;
-          academic_year:
-            | { ay_code: string; label: string }
-            | { ay_code: string; label: string }[]
-            | null;
-        }
-      | null;
+    section: {
+      id: string;
+      name: string;
+      level:
+        | { code: string; label: string }
+        | { code: string; label: string }[]
+        | null;
+      academic_year:
+        | { ay_code: string; label: string }
+        | { ay_code: string; label: string }[]
+        | null;
+    } | null;
   };
   const rows = (data ?? []) as unknown as Row[];
 
@@ -127,7 +130,9 @@ export async function getPlacementHistory(studentId: string): Promise<PlacementR
     .map((r) => {
       const section = r.section;
       if (!section) return null;
-      const level = Array.isArray(section.level) ? section.level[0] : section.level;
+      const level = Array.isArray(section.level)
+        ? section.level[0]
+        : section.level;
       const ay = Array.isArray(section.academic_year)
         ? section.academic_year[0]
         : section.academic_year;
@@ -152,7 +157,9 @@ export async function getPlacementHistory(studentId: string): Promise<PlacementR
     .sort((a, b) => b.ayCode.localeCompare(a.ayCode));
 }
 
-export async function getAcademicHistory(studentId: string): Promise<AcademicHistoryRow[]> {
+export async function getAcademicHistory(
+  studentId: string
+): Promise<AcademicHistoryRow[]> {
   const service = createServiceClient();
   const { data } = await service
     .from('grade_entries')
@@ -166,37 +173,35 @@ export async function getAcademicHistory(studentId: string): Promise<AcademicHis
             academic_year:academic_years(ay_code, label)
           )
         )
-      `,
+      `
     )
     .eq('student_id', studentId);
 
   type Row = {
     initial_grade: number | null;
     quarterly_grade: number | null;
-    grading_sheet:
-      | {
-          subject:
-            | { code: string; name: string }
-            | { code: string; name: string }[]
-            | null;
-          term:
-            | {
-                term_number: number;
-                academic_year:
-                  | { ay_code: string; label: string }
-                  | { ay_code: string; label: string }[]
-                  | null;
-              }
-            | {
-                term_number: number;
-                academic_year:
-                  | { ay_code: string; label: string }
-                  | { ay_code: string; label: string }[]
-                  | null;
-              }[]
-            | null;
-        }
-      | null;
+    grading_sheet: {
+      subject:
+        | { code: string; name: string }
+        | { code: string; name: string }[]
+        | null;
+      term:
+        | {
+            term_number: number;
+            academic_year:
+              | { ay_code: string; label: string }
+              | { ay_code: string; label: string }[]
+              | null;
+          }
+        | {
+            term_number: number;
+            academic_year:
+              | { ay_code: string; label: string }
+              | { ay_code: string; label: string }[]
+              | null;
+          }[]
+        | null;
+    } | null;
   };
   const rows = (data ?? []) as unknown as Row[];
 
@@ -209,10 +214,14 @@ export async function getAcademicHistory(studentId: string): Promise<AcademicHis
   for (const r of rows) {
     const sheet = r.grading_sheet;
     if (!sheet) continue;
-    const subject = Array.isArray(sheet.subject) ? sheet.subject[0] : sheet.subject;
+    const subject = Array.isArray(sheet.subject)
+      ? sheet.subject[0]
+      : sheet.subject;
     const term = Array.isArray(sheet.term) ? sheet.term[0] : sheet.term;
     if (!subject || !term) continue;
-    const ay = Array.isArray(term.academic_year) ? term.academic_year[0] : term.academic_year;
+    const ay = Array.isArray(term.academic_year)
+      ? term.academic_year[0]
+      : term.academic_year;
     if (!ay) continue;
 
     if (!byAy.has(ay.ay_code)) {
@@ -236,7 +245,9 @@ export async function getAcademicHistory(studentId: string): Promise<AcademicHis
     for (const [termNumber, subjects] of ayEntry.terms) {
       terms.push({
         termNumber,
-        subjects: subjects.sort((a, b) => a.subjectName.localeCompare(b.subjectName)),
+        subjects: subjects.sort((a, b) =>
+          a.subjectName.localeCompare(b.subjectName)
+        ),
       });
     }
     terms.sort((a, b) => a.termNumber - b.termNumber);
@@ -247,7 +258,7 @@ export async function getAcademicHistory(studentId: string): Promise<AcademicHis
 }
 
 export async function getAttendanceHistory(
-  studentId: string,
+  studentId: string
 ): Promise<AttendanceHistoryRow[]> {
   const service = createServiceClient();
 
@@ -256,7 +267,9 @@ export async function getAttendanceHistory(
     .from('section_students')
     .select('id')
     .eq('student_id', studentId);
-  const sectionStudentIds = (enrolments ?? []).map((r) => (r as { id: string }).id);
+  const sectionStudentIds = (enrolments ?? []).map(
+    (r) => (r as { id: string }).id
+  );
   if (sectionStudentIds.length === 0) return [];
 
   const { data } = await service
@@ -265,7 +278,7 @@ export async function getAttendanceHistory(
       `
         school_days, days_present, days_late,
         term:terms(term_number, academic_year:academic_years(ay_code, label))
-      `,
+      `
     )
     .in('section_student_id', sectionStudentIds);
 
@@ -300,7 +313,9 @@ export async function getAttendanceHistory(
   for (const r of rows) {
     const term = Array.isArray(r.term) ? r.term[0] : r.term;
     if (!term) continue;
-    const ay = Array.isArray(term.academic_year) ? term.academic_year[0] : term.academic_year;
+    const ay = Array.isArray(term.academic_year)
+      ? term.academic_year[0]
+      : term.academic_year;
     if (!ay) continue;
 
     if (!byAy.has(ay.ay_code)) {
@@ -331,14 +346,16 @@ export async function getAttendanceHistory(
 // when found — used by the legacy `/records/students/by-enrolee/[enroleeNumber]`
 // redirect to translate old URLs to the permanent Records URL.
 export async function studentNumberFromEnroleeNumber(
-  enroleeNumber: string,
+  enroleeNumber: string
 ): Promise<{ studentNumber: string | null; ayCode: string | null }> {
   const service = createServiceClient();
   const { data: ays } = await service
     .from('academic_years')
     .select('ay_code')
     .order('ay_code', { ascending: false });
-  const ayCodes = ((ays ?? []) as Array<{ ay_code: string }>).map((r) => r.ay_code);
+  const ayCodes = ((ays ?? []) as Array<{ ay_code: string }>).map(
+    (r) => r.ay_code
+  );
 
   for (const ayCode of ayCodes) {
     const slug = `ay${ayCode.replace(/^AY/i, '').toLowerCase()}`;

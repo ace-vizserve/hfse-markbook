@@ -12,7 +12,10 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
-import { AuditLogDataTable, type MergedRow } from '@/app/(markbook)/markbook/audit-log/audit-log-data-table';
+import {
+  AuditLogDataTable,
+  type MergedRow,
+} from '@/app/(markbook)/markbook/audit-log/audit-log-data-table';
 
 export default async function SisAuditLogPage({
   searchParams,
@@ -21,13 +24,20 @@ export default async function SisAuditLogPage({
 }) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
-  if (sessionUser.role !== 'registrar' && sessionUser.role !== 'school_admin' && sessionUser.role !== 'superadmin') {
+  if (
+    sessionUser.role !== 'registrar' &&
+    sessionUser.role !== 'school_admin' &&
+    sessionUser.role !== 'superadmin'
+  ) {
     redirect('/');
   }
 
   // Registrar is the primary operator (KD #37, KD #74); school_admin + superadmin
   // are read-only oversight. All three can export a read-only log.
-  const canExport = sessionUser.role === 'registrar' || sessionUser.role === 'school_admin' || sessionUser.role === 'superadmin';
+  const canExport =
+    sessionUser.role === 'registrar' ||
+    sessionUser.role === 'school_admin' ||
+    sessionUser.role === 'superadmin';
   const params = await searchParams;
   const PAGE_SIZE = Math.min(Number(params.pageSize ?? 50), 200);
   const page = Math.max(Number(params.page ?? 1), 1);
@@ -39,37 +49,62 @@ export default async function SisAuditLogPage({
   // Explicit allowlist avoids a LIKE wildcard forcing a sequential scan.
   // Covers: sis.* student.* ay.* pfile.* enrolment.* (KD #37, #67, #77, #64, #68, #83)
   const RECORDS_AUDIT_ALLOWLIST = [
-    'sis.profile.update', 'sis.family.update', 'sis.stage.update',
-    'sis.stp.update', 'sis.discount_code.create', 'sis.discount_code.update',
-    'sis.discount_code.expire', 'sis.document.approve', 'sis.document.reject',
-    'sis.documents.auto-expire', 'sis.documents.auto-revive',
-    'sis.allowance.update', 'sis.vl_allowance.update', 'sis.student.assign_section',
-    'student.sync', 'student.add', 'student.section.transfer',
-    'student.withdrawal.cascade', 'student.reenrolment.cascade',
-    'ay.create', 'ay.switch_current', 'ay.accepting_applications.toggle',
-    'ay.delete', 'ay.term_dates.update', 'ay.term_virtue.update',
-    'ay.term_grading_lock.update', 'ay.copy_teacher_assignments',
-    'pfile.upload', 'pfile.reminder.sent', 'pfile.reminder.bulk', 'pfile.mark.promised',
+    'sis.profile.update',
+    'sis.family.update',
+    'sis.stage.update',
+    'sis.stp.update',
+    'sis.discount_code.create',
+    'sis.discount_code.update',
+    'sis.discount_code.expire',
+    'sis.document.approve',
+    'sis.document.reject',
+    'sis.documents.auto-expire',
+    'sis.documents.auto-revive',
+    'sis.allowance.update',
+    'sis.vl_allowance.update',
+    'sis.student.assign_section',
+    'student.sync',
+    'student.add',
+    'student.section.transfer',
+    'student.withdrawal.cascade',
+    'student.reenrolment.cascade',
+    'ay.create',
+    'ay.switch_current',
+    'ay.accepting_applications.toggle',
+    'ay.delete',
+    'ay.term_dates.update',
+    'ay.term_virtue.update',
+    'ay.term_grading_lock.update',
+    'ay.copy_teacher_assignments',
+    'pfile.upload',
+    'pfile.reminder.sent',
+    'pfile.reminder.bulk',
+    'pfile.mark.promised',
     'enrolment.metadata.update',
   ] as const;
   const { data, count, error } = await supabase
     .from('audit_log')
-    .select('id, actor_email, action, entity_type, entity_id, context, created_at', { count: 'exact' })
+    .select(
+      'id, actor_email, action, entity_type, entity_id, context, created_at',
+      { count: 'exact' }
+    )
     .in('action', RECORDS_AUDIT_ALLOWLIST)
     .order('created_at', { ascending: false })
     .range(from, to);
 
   const totalPages = count ? Math.ceil(count / PAGE_SIZE) : 1;
 
-  const rows: MergedRow[] = ((data ?? []) as Array<{
-    id: string;
-    actor_email: string;
-    action: string;
-    entity_type: string;
-    entity_id: string | null;
-    context: Record<string, unknown>;
-    created_at: string;
-  }>).map((r) => ({
+  const rows: MergedRow[] = (
+    (data ?? []) as Array<{
+      id: string;
+      actor_email: string;
+      action: string;
+      entity_type: string;
+      entity_id: string | null;
+      context: Record<string, unknown>;
+      created_at: string;
+    }>
+  ).map((r) => ({
     id: `new-${r.id}`,
     at: r.created_at,
     actor: r.actor_email,
@@ -101,8 +136,8 @@ export default async function SisAuditLogPage({
           Audit log.
         </h1>
         <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-          A history of student record edits, status moves, discounts granted, and document validations.
-          Past entries are kept on the record.
+          A history of student record edits, status moves, discounts granted,
+          and document validations. Past entries are kept on the record.
         </p>
       </header>
 
@@ -123,7 +158,9 @@ export default async function SisAuditLogPage({
             description="Unique actors"
             value={uniqueActors.toLocaleString('en-SG')}
             icon={Users}
-            footerTitle={uniqueActors === 1 ? '1 user' : `${uniqueActors} users`}
+            footerTitle={
+              uniqueActors === 1 ? '1 user' : `${uniqueActors} users`
+            }
             footerDetail="Distinct accounts in this window"
           />
         </div>
@@ -138,7 +175,9 @@ export default async function SisAuditLogPage({
             <p className="font-serif text-base font-semibold leading-tight text-foreground">
               Could not load audit entries
             </p>
-            <p className="text-sm leading-relaxed text-muted-foreground">{error.message}</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {error.message}
+            </p>
           </div>
         </div>
       )}
@@ -146,7 +185,12 @@ export default async function SisAuditLogPage({
       <AuditLogDataTable
         rows={rows}
         canExport={canExport}
-        pagination={{ page, pageSize: PAGE_SIZE, totalPages, total: count ?? 0 }}
+        pagination={{
+          page,
+          pageSize: PAGE_SIZE,
+          totalPages,
+          total: count ?? 0,
+        }}
       />
     </PageShell>
   );

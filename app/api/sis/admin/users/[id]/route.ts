@@ -17,7 +17,7 @@ import { UpdateUserSchema } from '@/lib/schemas/user-admin';
 // the existing FKs are `references auth.users(id)` without CASCADE.
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireRole(['superadmin']);
   if ('error' in auth) return auth.error;
@@ -26,7 +26,7 @@ export async function PATCH(
   if (id === auth.user.id) {
     return NextResponse.json(
       { error: 'You cannot edit your own account here — use /account.' },
-      { status: 403 },
+      { status: 403 }
     );
   }
 
@@ -35,23 +35,28 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const { role, disabled, displayName, email, password } = parsed.data;
 
   // Identity edits (name / email / password) are superadmin-only.
-  if ((displayName !== undefined || email !== undefined || password !== undefined) &&
-    auth.role !== 'superadmin') {
+  if (
+    (displayName !== undefined ||
+      email !== undefined ||
+      password !== undefined) &&
+    auth.role !== 'superadmin'
+  ) {
     return NextResponse.json(
       { error: 'Only superadmins can update name, email, or password.' },
-      { status: 403 },
+      { status: 403 }
     );
   }
 
   const service = createServiceClient();
 
-  const { data: beforeRes, error: beforeErr } = await service.auth.admin.getUserById(id);
+  const { data: beforeRes, error: beforeErr } =
+    await service.auth.admin.getUserById(id);
   if (beforeErr || !beforeRes?.user) {
     return NextResponse.json({ error: 'user not found' }, { status: 404 });
   }
@@ -61,10 +66,11 @@ export async function PATCH(
     (before.user_metadata as { role?: string } | null)?.role ??
     null;
   const beforeDisabled = Boolean(
-    before.banned_until && new Date(before.banned_until).getTime() > Date.now(),
+    before.banned_until && new Date(before.banned_until).getTime() > Date.now()
   );
   const beforeDisplayName =
-    (before.user_metadata as { display_name?: string } | null)?.display_name ?? null;
+    (before.user_metadata as { display_name?: string } | null)?.display_name ??
+    null;
 
   const updates: Parameters<typeof service.auth.admin.updateUserById>[1] = {};
   if (role !== undefined) {
@@ -86,7 +92,10 @@ export async function PATCH(
     updates.password = password;
   }
 
-  const { error: updateErr } = await service.auth.admin.updateUserById(id, updates);
+  const { error: updateErr } = await service.auth.admin.updateUserById(
+    id,
+    updates
+  );
   if (updateErr) {
     return NextResponse.json({ error: updateErr.message }, { status: 500 });
   }
@@ -98,7 +107,11 @@ export async function PATCH(
       action: 'user.role.update',
       entityType: 'user_account',
       entityId: id,
-      context: { email: before.email, before: { role: beforeRole }, after: { role } },
+      context: {
+        email: before.email,
+        before: { role: beforeRole },
+        after: { role },
+      },
     });
   }
 
@@ -123,7 +136,10 @@ export async function PATCH(
       context: {
         email: before.email,
         ...(displayName !== undefined
-          ? { before: { displayName: beforeDisplayName }, after: { displayName } }
+          ? {
+              before: { displayName: beforeDisplayName },
+              after: { displayName },
+            }
           : {}),
         ...(email !== undefined ? { emailChanged: true } : {}),
         ...(password !== undefined ? { passwordReset: true } : {}),

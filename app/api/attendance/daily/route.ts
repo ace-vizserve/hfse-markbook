@@ -36,7 +36,7 @@ import { requireCurrentAyCode } from '@/lib/academic-year';
 async function assertAdviserForSections(
   service: ReturnType<typeof createServiceClient>,
   userId: string,
-  sectionStudentIds: string[],
+  sectionStudentIds: string[]
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   if (sectionStudentIds.length === 0) return { ok: true };
 
@@ -48,7 +48,7 @@ async function assertAdviserForSections(
     return { ok: false, reason: `enrolment lookup failed: ${enrErr.message}` };
   }
   const sectionIds = Array.from(
-    new Set((enrolments ?? []).map((e) => e.section_id as string)),
+    new Set((enrolments ?? []).map((e) => e.section_id as string))
   );
   if (sectionIds.length === 0) {
     return { ok: false, reason: 'unknown section_student_id(s)' };
@@ -61,9 +61,14 @@ async function assertAdviserForSections(
     .eq('role', 'form_adviser')
     .in('section_id', sectionIds);
   if (taErr) {
-    return { ok: false, reason: `teacher_assignments lookup failed: ${taErr.message}` };
+    return {
+      ok: false,
+      reason: `teacher_assignments lookup failed: ${taErr.message}`,
+    };
   }
-  const covered = new Set((assignments ?? []).map((a) => a.section_id as string));
+  const covered = new Set(
+    (assignments ?? []).map((a) => a.section_id as string)
+  );
   const uncovered = sectionIds.filter((s) => !covered.has(s));
   if (uncovered.length > 0) {
     return {
@@ -95,7 +100,7 @@ export async function PATCH(request: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'invalid payload', details: parsed.error.flatten() },
-        { status: 400 },
+        { status: 400 }
       );
     }
     entries = parsed.data.entries;
@@ -104,7 +109,7 @@ export async function PATCH(request: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'invalid payload', details: parsed.error.flatten() },
-        { status: 400 },
+        { status: 400 }
       );
     }
     entries = [parsed.data];
@@ -114,7 +119,7 @@ export async function PATCH(request: NextRequest) {
   if (auth.role === 'teacher' && entries.some((e) => e.status === 'NC')) {
     return NextResponse.json(
       { error: 'teachers cannot write NC status; registrar only' },
-      { status: 403 },
+      { status: 403 }
     );
   }
 
@@ -125,7 +130,7 @@ export async function PATCH(request: NextRequest) {
     const check = await assertAdviserForSections(
       service,
       auth.user.id,
-      entries.map((e) => e.sectionStudentId),
+      entries.map((e) => e.sectionStudentId)
     );
     if (!check.ok) {
       return NextResponse.json({ error: check.reason }, { status: 403 });
@@ -145,16 +150,17 @@ export async function PATCH(request: NextRequest) {
   // can pick the right audience scope (KD #50 audience-precedence rule,
   // migration 037). Two-step fetch — flatter than a nested join, and
   // avoids the Supabase-typed array-vs-object ambiguity on `!inner` joins.
-  const studentIds = Array.from(new Set(entries.map((e) => e.sectionStudentId)));
+  const studentIds = Array.from(
+    new Set(entries.map((e) => e.sectionStudentId))
+  );
   const { data: enrolmentRows } = await service
     .from('section_students')
     .select('id, section_id')
     .in('id', studentIds);
   const sectionIdByEnrolment = new Map<string, string>(
-    ((enrolmentRows ?? []) as Array<{ id: string; section_id: string }>).map((r) => [
-      r.id,
-      r.section_id,
-    ]),
+    ((enrolmentRows ?? []) as Array<{ id: string; section_id: string }>).map(
+      (r) => [r.id, r.section_id]
+    )
   );
   const sectionIds = Array.from(new Set(sectionIdByEnrolment.values()));
   const { data: sectionRows } = sectionIds.length
@@ -174,7 +180,10 @@ export async function PATCH(request: NextRequest) {
     const lvl = Array.isArray(row.levels) ? row.levels[0] : row.levels;
     levelCodeBySection.set(row.id, lvl?.code ?? null);
   }
-  const levelTypeByEnrolment = new Map<string, 'primary' | 'secondary' | null>();
+  const levelTypeByEnrolment = new Map<
+    string,
+    'primary' | 'secondary' | null
+  >();
   for (const [enrolmentId, sectionId] of sectionIdByEnrolment) {
     const code = levelCodeBySection.get(sectionId) ?? null;
     levelTypeByEnrolment.set(enrolmentId, levelTypeForAudienceLookup(code));
@@ -191,7 +200,7 @@ export async function PATCH(request: NextRequest) {
   async function isNonSchoolDay(
     termId: string,
     date: string,
-    levelType: 'primary' | 'secondary' | null,
+    levelType: 'primary' | 'secondary' | null
   ): Promise<boolean> {
     const key = `${termId}|${date}|${levelType ?? 'all'}`;
     if (blockCache.has(key)) return blockCache.get(key)!;
@@ -216,12 +225,19 @@ export async function PATCH(request: NextRequest) {
       return isBlocked;
     }
     // Audience precedence — prefer the level-specific row over 'all'.
-    const rows = data as Array<{ day_type: DayType; audience: Audience; hbl_overlay: boolean }>;
+    const rows = data as Array<{
+      day_type: DayType;
+      audience: Audience;
+      hbl_overlay: boolean;
+    }>;
     const specific = rows.find((r) => r.audience === levelType);
     const chosen = specific ?? rows[0];
     // school_holiday+hbl_overlay=true is encodable — teachers deliver HBL
     // while the day is a school closure for students (migration 051).
-    const isBlocked = !isEncodableDayType(chosen.day_type, chosen.hbl_overlay ?? false);
+    const isBlocked = !isEncodableDayType(
+      chosen.day_type,
+      chosen.hbl_overlay ?? false
+    );
     blockCache.set(key, isBlocked);
     return isBlocked;
   }
@@ -238,7 +254,7 @@ export async function PATCH(request: NextRequest) {
           error: `${entry.date} isn't a school day (it's marked as a public holiday, school holiday, or no class). Update the school calendar if this is wrong.`,
           writtenSoFar: results.length,
         },
-        { status: 409 },
+        { status: 409 }
       );
     }
 
@@ -255,7 +271,10 @@ export async function PATCH(request: NextRequest) {
       await logAction({
         service,
         actor: { id: auth.user.id, email: auth.user.email ?? null },
-        action: entry.date < today ? 'attendance.daily.correct' : 'attendance.daily.update',
+        action:
+          entry.date < today
+            ? 'attendance.daily.correct'
+            : 'attendance.daily.update',
         entityType: 'attendance_daily',
         entityId: null,
         context: {
@@ -278,7 +297,7 @@ export async function PATCH(request: NextRequest) {
       const reason = e instanceof Error ? e.message : String(e);
       return NextResponse.json(
         { error: reason, writtenSoFar: results.length },
-        { status: 500 },
+        { status: 500 }
       );
     }
   }

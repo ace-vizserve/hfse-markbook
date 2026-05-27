@@ -28,7 +28,8 @@ export type SisAdminDrillSheetProps = {
   rangeTo?: string;
 };
 
-const BADGE_BASE = 'h-6 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]';
+const BADGE_BASE =
+  'h-6 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]';
 
 type AnyRow =
   | AuditDrillRow
@@ -40,7 +41,11 @@ function formatDate(iso: string | null): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-SG', { year: 'numeric', month: 'short', day: 'numeric' });
+  return d.toLocaleDateString('en-SG', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 function formatRelative(iso: string | null): string {
@@ -86,7 +91,9 @@ function buildAuditColumns(): ColumnDef<AuditDrillRow, unknown>[] {
       accessorKey: 'actorEmail',
       header: 'Actor',
       cell: ({ row }) => (
-        <span className="text-xs text-muted-foreground">{row.original.actorEmail ?? '—'}</span>
+        <span className="text-xs text-muted-foreground">
+          {row.original.actorEmail ?? '—'}
+        </span>
       ),
     },
     {
@@ -105,7 +112,10 @@ function buildAuditColumns(): ColumnDef<AuditDrillRow, unknown>[] {
   ];
 }
 
-function buildApproverColumns(): ColumnDef<ApproverAssignmentDrillRow, unknown>[] {
+function buildApproverColumns(): ColumnDef<
+  ApproverAssignmentDrillRow,
+  unknown
+>[] {
   return [
     {
       id: 'flow',
@@ -121,7 +131,9 @@ function buildApproverColumns(): ColumnDef<ApproverAssignmentDrillRow, unknown>[
       header: 'Approver',
       cell: ({ row }) => (
         <div className="space-y-0.5">
-          <div className="font-medium text-foreground">{row.original.email ?? row.original.userId}</div>
+          <div className="font-medium text-foreground">
+            {row.original.email ?? row.original.userId}
+          </div>
           {row.original.email && (
             <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
               {row.original.userId.slice(0, 8)}
@@ -161,7 +173,9 @@ function buildAYColumns(): ColumnDef<AcademicYearDrillRow, unknown>[] {
       header: 'AY',
       cell: ({ row }) => (
         <div className="space-y-0.5">
-          <div className="font-medium text-foreground">{row.original.ayCode}</div>
+          <div className="font-medium text-foreground">
+            {row.original.ayCode}
+          </div>
           {row.original.label && (
             <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
               {row.original.label}
@@ -180,7 +194,10 @@ function buildAYColumns(): ColumnDef<AcademicYearDrillRow, unknown>[] {
             <Sparkles className="h-3 w-3" /> Current
           </Badge>
         ) : (
-          <Badge variant="outline" className={`${BADGE_BASE} border-hairline bg-gradient-to-b from-muted to-muted/60 text-ink-3`}>
+          <Badge
+            variant="outline"
+            className={`${BADGE_BASE} border-hairline bg-gradient-to-b from-muted to-muted/60 text-ink-3`}
+          >
             Historical
           </Badge>
         ),
@@ -190,7 +207,9 @@ function buildAYColumns(): ColumnDef<AcademicYearDrillRow, unknown>[] {
       accessorKey: 'termsCount',
       header: 'Terms',
       cell: ({ row }) => (
-        <span className="font-mono tabular-nums">{row.original.termsCount}</span>
+        <span className="font-mono tabular-nums">
+          {row.original.termsCount}
+        </span>
       ),
     },
     {
@@ -198,7 +217,9 @@ function buildAYColumns(): ColumnDef<AcademicYearDrillRow, unknown>[] {
       accessorKey: 'studentsCount',
       header: 'Students',
       cell: ({ row }) => (
-        <span className="font-mono tabular-nums">{row.original.studentsCount}</span>
+        <span className="font-mono tabular-nums">
+          {row.original.studentsCount}
+        </span>
       ),
     },
   ];
@@ -212,7 +233,9 @@ function buildActorColumns(): ColumnDef<ActorActivityDrillRow, unknown>[] {
       header: 'Actor',
       cell: ({ row }) => (
         <div className="space-y-0.5">
-          <div className="font-medium text-foreground">{row.original.email ?? '—'}</div>
+          <div className="font-medium text-foreground">
+            {row.original.email ?? '—'}
+          </div>
           <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
             {row.original.userId.slice(0, 8)}
           </div>
@@ -252,7 +275,8 @@ export function SisAdminDrillSheet({
 }: SisAdminDrillSheetProps) {
   const [rows, setRows] = React.useState<AnyRow[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [effectiveTarget, setEffectiveTarget] = React.useState<SisAdminDrillTarget>(target);
+  const [effectiveTarget, setEffectiveTarget] =
+    React.useState<SisAdminDrillTarget>(target);
   const [title, setTitle] = React.useState('Loading…');
   const [eyebrow, setEyebrow] = React.useState('Drill');
   const [density, setDensity] = React.useState<DrillDownDensity>('comfortable');
@@ -269,13 +293,20 @@ export function SisAdminDrillSheet({
         if (!r.ok) throw new Error('drill_fetch_failed');
         return r.json();
       })
-      .then((data: { rows: AnyRow[]; target: SisAdminDrillTarget; title: string; eyebrow: string }) => {
-        if (cancelled) return;
-        setRows(data.rows ?? []);
-        setEffectiveTarget(data.target);
-        setTitle(data.title);
-        setEyebrow(data.eyebrow);
-      })
+      .then(
+        (data: {
+          rows: AnyRow[];
+          target: SisAdminDrillTarget;
+          title: string;
+          eyebrow: string;
+        }) => {
+          if (cancelled) return;
+          setRows(data.rows ?? []);
+          setEffectiveTarget(data.target);
+          setTitle(data.title);
+          setEyebrow(data.eyebrow);
+        }
+      )
       .catch(() => {
         if (!cancelled) toast.error('Failed to load drill data');
       })

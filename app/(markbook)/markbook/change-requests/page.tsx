@@ -14,7 +14,10 @@ import {
   CHANGE_REQUEST_STATUS_CONFIG,
   type ChangeRequestStatus,
 } from '@/lib/markbook/change-request-status';
-import { ChangeRequestsDataTable, type AdminRequestRow } from './change-requests-data-table';
+import {
+  ChangeRequestsDataTable,
+  type AdminRequestRow,
+} from './change-requests-data-table';
 
 export default async function AdminChangeRequestsPage({
   searchParams,
@@ -24,7 +27,10 @@ export default async function AdminChangeRequestsPage({
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
   const { role } = sessionUser;
-  if (!role || (role !== 'school_admin' && role !== 'superadmin' && role !== 'registrar')) {
+  if (
+    !role ||
+    (role !== 'school_admin' && role !== 'superadmin' && role !== 'registrar')
+  ) {
     redirect('/');
   }
   const canDecide = role === 'school_admin' || role === 'superadmin';
@@ -64,7 +70,7 @@ export default async function AdminChangeRequestsPage({
        primary_reviewed_by_email, secondary_reviewed_by_email,
        primary_reviewed_at,
        approved_at, rejection_undone_at,
-       grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))`,
+       grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))`
     )
     .order('requested_at', { ascending: false })
     .limit(500);
@@ -75,7 +81,7 @@ export default async function AdminChangeRequestsPage({
 
   if (role === 'school_admin') {
     query = query.or(
-      `primary_approver_id.eq.${sessionUser.id},secondary_approver_id.eq.${sessionUser.id},and(primary_approver_id.is.null,secondary_approver_id.is.null)`,
+      `primary_approver_id.eq.${sessionUser.id},secondary_approver_id.eq.${sessionUser.id},and(primary_approver_id.is.null,secondary_approver_id.is.null)`
     );
   }
 
@@ -124,7 +130,9 @@ export default async function AdminChangeRequestsPage({
             const cfg = CHANGE_REQUEST_STATUS_CONFIG[status];
             const Icon = cfg.icon;
             const label =
-              status === 'rejected' ? 'Declined' : status.charAt(0).toUpperCase() + status.slice(1);
+              status === 'rejected'
+                ? 'Declined'
+                : status.charAt(0).toUpperCase() + status.slice(1);
             return (
               <Card key={status} className="@container/card">
                 <CardHeader>
@@ -154,7 +162,9 @@ export default async function AdminChangeRequestsPage({
         initialSheetIdFilter={sheet_id}
         initialRequestId={reqParam ?? null}
         initialAction={
-          actionParam === 'approve' || actionParam === 'reject' ? actionParam : null
+          actionParam === 'approve' || actionParam === 'reject'
+            ? actionParam
+            : null
         }
       />
     </PageShell>

@@ -28,7 +28,7 @@ export type EnrollmentRow = {
 
 export type GradingSnapshot = {
   levels: LevelRow[];
-  sections: SectionRow[];   // only sections for the target academic year
+  sections: SectionRow[]; // only sections for the target academic year
   students: StudentRow[];
   enrollments: EnrollmentRow[]; // only for sections in the target academic year
 };
@@ -81,15 +81,15 @@ export type SyncPlan = {
 
 export function buildSyncPlan(
   rows: AdmissionsRow[],
-  snapshot: GradingSnapshot,
+  snapshot: GradingSnapshot
 ): SyncPlan {
-  const levelByLabel = new Map(snapshot.levels.map(l => [l.label, l]));
+  const levelByLabel = new Map(snapshot.levels.map((l) => [l.label, l]));
   const sectionByLevelAndName = new Map<string, SectionRow>();
   for (const s of snapshot.sections) {
     sectionByLevelAndName.set(`${s.level_id}::${s.name}`, s);
   }
   const studentByNumber = new Map(
-    snapshot.students.map(s => [s.student_number, s]),
+    snapshot.students.map((s) => [s.student_number, s])
   );
   const enrollmentBySectionAndStudent = new Map<string, EnrollmentRow>();
   for (const e of snapshot.enrollments) {
@@ -100,7 +100,8 @@ export function buildSyncPlan(
   const maxIndexBySection = new Map<string, number>();
   for (const e of snapshot.enrollments) {
     const prev = maxIndexBySection.get(e.section_id) ?? 0;
-    if (e.index_number > prev) maxIndexBySection.set(e.section_id, e.index_number);
+    if (e.index_number > prev)
+      maxIndexBySection.set(e.section_id, e.index_number);
   }
 
   const plan: SyncPlan = {
@@ -121,7 +122,11 @@ export function buildSyncPlan(
   };
 
   const bumpLevel = (label: string, key: 'add' | 'update' | 'withdraw') => {
-    const b = (plan.stats.by_level[label] ??= { add: 0, update: 0, withdraw: 0 });
+    const b = (plan.stats.by_level[label] ??= {
+      add: 0,
+      update: 0,
+      withdraw: 0,
+    });
     b[key]++;
   };
 
@@ -228,7 +233,7 @@ export function buildSyncPlan(
     // Reactivate if previously withdrawn and back in admissions.
     if (existing) {
       const prevEnrollment = enrollmentBySectionAndStudent.get(
-        `${section.id}::${existing.id}`,
+        `${section.id}::${existing.id}`
       );
       if (prevEnrollment) {
         if (prevEnrollment.enrollment_status === 'withdrawn') {
@@ -260,12 +265,16 @@ export function buildSyncPlan(
   });
 
   // ----- Detect withdrawals: active enrollments not seen in this sync -----
-  const studentById = new Map(snapshot.students.map(s => [s.id, s]));
-  const sectionById = new Map(snapshot.sections.map(s => [s.id, s]));
-  const levelById = new Map(snapshot.levels.map(l => [l.id, l]));
+  const studentById = new Map(snapshot.students.map((s) => [s.id, s]));
+  const sectionById = new Map(snapshot.sections.map((s) => [s.id, s]));
+  const levelById = new Map(snapshot.levels.map((l) => [l.id, l]));
 
   for (const e of snapshot.enrollments) {
-    if (e.enrollment_status !== 'active' && e.enrollment_status !== 'late_enrollee') continue;
+    if (
+      e.enrollment_status !== 'active' &&
+      e.enrollment_status !== 'late_enrollee'
+    )
+      continue;
     const student = studentById.get(e.student_id);
     if (!student) continue;
     const key = `${e.section_id}::${student.student_number}`;
@@ -302,7 +311,13 @@ export function buildSyncPlan(
 
 export type SyncOneResult = {
   ok: boolean;
-  change: 'inserted' | 'updated' | 'enrolled' | 'reactivated' | 'unchanged' | 'skipped';
+  change:
+    | 'inserted'
+    | 'updated'
+    | 'enrolled'
+    | 'reactivated'
+    | 'unchanged'
+    | 'skipped';
   reason?: string;
   error?: string;
 };
@@ -311,7 +326,7 @@ export async function syncOneStudent(
   service: SupabaseClient,
   admissions: SupabaseClient,
   enroleeNumber: string,
-  ayCode: string,
+  ayCode: string
 ): Promise<SyncOneResult> {
   try {
     const year = ayCode.replace(/^AY/i, '').toLowerCase();
@@ -327,18 +342,32 @@ export async function syncOneStudent(
         .maybeSingle(),
       admissions
         .from(statusTable)
-        .select('enroleeNumber, classLevel, classSection, classAY, applicationStatus')
+        .select(
+          'enroleeNumber, classLevel, classSection, classAY, applicationStatus'
+        )
         .eq('enroleeNumber', enroleeNumber)
         .maybeSingle(),
     ]);
     if (appRes.error) {
-      return { ok: false, change: 'skipped', error: `apps fetch: ${appRes.error.message}` };
+      return {
+        ok: false,
+        change: 'skipped',
+        error: `apps fetch: ${appRes.error.message}`,
+      };
     }
     if (statusRes.error) {
-      return { ok: false, change: 'skipped', error: `status fetch: ${statusRes.error.message}` };
+      return {
+        ok: false,
+        change: 'skipped',
+        error: `status fetch: ${statusRes.error.message}`,
+      };
     }
     if (!appRes.data || !statusRes.data) {
-      return { ok: false, change: 'skipped', reason: 'admissions rows missing' };
+      return {
+        ok: false,
+        change: 'skipped',
+        reason: 'admissions rows missing',
+      };
     }
     const app = appRes.data as {
       studentNumber: string | null;
@@ -352,12 +381,24 @@ export async function syncOneStudent(
       applicationStatus: string | null;
     };
 
-    if (!app.studentNumber) return { ok: false, change: 'skipped', reason: 'no studentNumber' };
+    if (!app.studentNumber)
+      return { ok: false, change: 'skipped', reason: 'no studentNumber' };
     if (!status.classSection || !status.classLevel) {
-      return { ok: false, change: 'skipped', reason: 'missing classLevel or classSection' };
+      return {
+        ok: false,
+        change: 'skipped',
+        reason: 'missing classLevel or classSection',
+      };
     }
-    if (status.applicationStatus === 'Cancelled' || status.applicationStatus === 'Withdrawn') {
-      return { ok: false, change: 'skipped', reason: `application is ${status.applicationStatus}` };
+    if (
+      status.applicationStatus === 'Cancelled' ||
+      status.applicationStatus === 'Withdrawn'
+    ) {
+      return {
+        ok: false,
+        change: 'skipped',
+        reason: `application is ${status.applicationStatus}`,
+      };
     }
 
     const admissionsRow: AdmissionsRow = {
@@ -383,7 +424,9 @@ export async function syncOneStudent(
         .maybeSingle(),
       service
         .from('sections')
-        .select('id, level_id, name, academic_year:academic_years!inner(ay_code)')
+        .select(
+          'id, level_id, name, academic_year:academic_years!inner(ay_code)'
+        )
         .eq('academic_year.ay_code', ayCode),
     ]);
 
@@ -398,7 +441,10 @@ export async function syncOneStudent(
       level_id: s.level_id,
       name: s.name,
     }));
-    const levels = (levelsRes.data ?? []) as Array<{ id: string; label: string }>;
+    const levels = (levelsRes.data ?? []) as Array<{
+      id: string;
+      label: string;
+    }>;
 
     const studentRow = studentRes.data as null | {
       id: string;
@@ -419,7 +465,7 @@ export async function syncOneStudent(
           .select('id, section_id, student_id, index_number, enrollment_status')
           .eq('student_id', studentRow.id)
           .in('section_id', sectionIds);
-        enrollments = ((enrRes.data ?? []) as EnrollmentRow[]);
+        enrollments = (enrRes.data ?? []) as EnrollmentRow[];
       }
     }
 
@@ -447,9 +493,14 @@ export async function syncOneStudent(
           last_name: u.last_name,
           first_name: u.first_name,
           middle_name: u.middle_name,
-        })),
+        }))
       );
-      if (error) return { ok: false, change: 'skipped', error: `student insert: ${error.message}` };
+      if (error)
+        return {
+          ok: false,
+          change: 'skipped',
+          error: `student insert: ${error.message}`,
+        };
     }
     for (const u of updates) {
       const { error } = await service
@@ -461,7 +512,12 @@ export async function syncOneStudent(
           updated_at: new Date().toISOString(),
         })
         .eq('id', u.existing_id!);
-      if (error) return { ok: false, change: 'skipped', error: `student update: ${error.message}` };
+      if (error)
+        return {
+          ok: false,
+          change: 'skipped',
+          error: `student update: ${error.message}`,
+        };
     }
 
     // Resolve student_id for fresh enrolments (newly-inserted students need
@@ -477,7 +533,12 @@ export async function syncOneStudent(
     }
 
     for (const e of plan.enrollment_inserts) {
-      if (!studentId) return { ok: false, change: 'skipped', error: 'student_id not resolved' };
+      if (!studentId)
+        return {
+          ok: false,
+          change: 'skipped',
+          error: 'student_id not resolved',
+        };
       const { error } = await service.from('section_students').insert({
         section_id: e.section_id,
         student_id: studentId,
@@ -485,7 +546,12 @@ export async function syncOneStudent(
         enrollment_status: 'active',
         enrollment_date: new Date().toISOString().slice(0, 10),
       });
-      if (error) return { ok: false, change: 'skipped', error: `enrolment insert: ${error.message}` };
+      if (error)
+        return {
+          ok: false,
+          change: 'skipped',
+          error: `enrolment insert: ${error.message}`,
+        };
     }
 
     for (const change of plan.enrollment_status_changes) {
@@ -499,7 +565,12 @@ export async function syncOneStudent(
         .from('section_students')
         .update(patch)
         .eq('id', change.enrollment_id);
-      if (error) return { ok: false, change: 'skipped', error: `status change: ${error.message}` };
+      if (error)
+        return {
+          ok: false,
+          change: 'skipped',
+          error: `status change: ${error.message}`,
+        };
     }
 
     // Summarise what happened.

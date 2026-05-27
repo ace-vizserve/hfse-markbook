@@ -13,7 +13,11 @@ import type { SidebarBadges } from '@/lib/auth/roles';
 import { getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 
-export default async function MarkbookLayout({ children }: { children: React.ReactNode }) {
+export default async function MarkbookLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
 
@@ -31,7 +35,13 @@ export default async function MarkbookLayout({ children }: { children: React.Rea
 
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
-      <ModuleSidebar module="markbook" role={role} email={email} userId={id} badges={sidebarBadges} />
+      <ModuleSidebar
+        module="markbook"
+        role={role}
+        email={email}
+        userId={id}
+        badges={sidebarBadges}
+      />
       <SidebarInset>
         <AyBanner />
         <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/85 px-4 backdrop-blur-md print:hidden">

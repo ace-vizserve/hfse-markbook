@@ -17,7 +17,8 @@ import { Sheet } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import type { SheetRow } from '@/lib/markbook/drill';
 
-const BADGE_BASE = 'h-6 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]';
+const BADGE_BASE =
+  'h-6 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]';
 
 type SectionRollup = {
   sectionName: string;
@@ -28,7 +29,18 @@ type SectionRollup = {
   pctLocked: number;
 };
 
-const CANONICAL_LEVEL_ORDER = ['P1','P2','P3','P4','P5','P6','S1','S2','S3','S4'];
+const CANONICAL_LEVEL_ORDER = [
+  'P1',
+  'P2',
+  'P3',
+  'P4',
+  'P5',
+  'P6',
+  'S1',
+  'S2',
+  'S3',
+  'S4',
+];
 function levelRank(code: string | null): number {
   if (!code) return 99;
   const i = CANONICAL_LEVEL_ORDER.indexOf(code);
@@ -56,12 +68,22 @@ export function SheetReadinessCard({
   const [openSection, setOpenSection] = React.useState<string | null>(null);
 
   const rollup = React.useMemo<SectionRollup[]>(() => {
-    type Acc = { sectionName: string; level: string | null; total: number; locked: number };
+    type Acc = {
+      sectionName: string;
+      level: string | null;
+      total: number;
+      locked: number;
+    };
     const map = new Map<string, Acc>();
     for (const s of sheets) {
       let acc = map.get(s.sectionName);
       if (!acc) {
-        acc = { sectionName: s.sectionName, level: s.level, total: 0, locked: 0 };
+        acc = {
+          sectionName: s.sectionName,
+          level: s.level,
+          total: 0,
+          locked: 0,
+        };
         map.set(s.sectionName, acc);
       }
       acc.total += 1;
@@ -80,21 +102,27 @@ export function SheetReadinessCard({
       });
     }
     // Sort: most open first, then by level for tie-breaks.
-    rows.sort((a, b) => b.open - a.open || levelRank(a.level) - levelRank(b.level));
+    rows.sort(
+      (a, b) => b.open - a.open || levelRank(a.level) - levelRank(b.level)
+    );
     return rows;
   }, [sheets]);
 
   const totalOpen = rollup.reduce((s, r) => s + r.open, 0);
   const totalLocked = rollup.reduce((s, r) => s + r.locked, 0);
   const totalTotal = totalOpen + totalLocked;
-  const overallPct = totalTotal > 0 ? Math.round((totalLocked / totalTotal) * 100) : 0;
+  const overallPct =
+    totalTotal > 0 ? Math.round((totalLocked / totalTotal) * 100) : 0;
   const empty = rollup.length === 0;
   // Sections with 0 open sheets get visually de-emphasized (they're done).
   const visibleRows = rollup.filter((r) => r.open > 0).slice(0, 12);
   const doneCount = rollup.filter((r) => r.open === 0).length;
 
   return (
-    <Sheet open={!!openSection} onOpenChange={(o) => !o && setOpenSection(null)}>
+    <Sheet
+      open={!!openSection}
+      onOpenChange={(o) => !o && setOpenSection(null)}
+    >
       <Card>
         <CardHeader>
           <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
@@ -116,11 +144,13 @@ export function SheetReadinessCard({
               <Lock className="h-3 w-3" /> {overallPct}% locked
             </Badge>
             <span className="font-mono text-[10px] uppercase tracking-[0.14em]">
-              {totalLocked.toLocaleString('en-SG')} of {totalTotal.toLocaleString('en-SG')} sheets
+              {totalLocked.toLocaleString('en-SG')} of{' '}
+              {totalTotal.toLocaleString('en-SG')} sheets
             </span>
             {doneCount > 0 && (
               <span className="ml-auto font-mono text-[10px] uppercase tracking-[0.14em]">
-                {doneCount} {doneCount === 1 ? 'section' : 'sections'} fully locked
+                {doneCount} {doneCount === 1 ? 'section' : 'sections'} fully
+                locked
               </span>
             )}
           </div>
@@ -144,7 +174,9 @@ export function SheetReadinessCard({
                   >
                     {/* Section name + level chip */}
                     <div className="w-28 shrink-0 space-y-0.5">
-                      <div className="font-medium text-foreground">{r.sectionName}</div>
+                      <div className="font-medium text-foreground">
+                        {r.sectionName}
+                      </div>
                       {r.level && (
                         <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
                           {r.level}
@@ -167,7 +199,7 @@ export function SheetReadinessCard({
                               ? 'bg-destructive/70'
                               : r.open > 0
                                 ? 'bg-chart-4'
-                                : 'bg-transparent',
+                                : 'bg-transparent'
                           )}
                           style={{ width: `${100 - r.pctLocked}%` }}
                           aria-hidden
@@ -188,8 +220,11 @@ export function SheetReadinessCard({
 
           {totalOpen > 0 && rollup.length > visibleRows.length + doneCount && (
             <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-              {rollup.length - visibleRows.length - doneCount} more {rollup.length - visibleRows.length - doneCount === 1 ? 'section' : 'sections'} below the cutoff —
-              click any row to drill.
+              {rollup.length - visibleRows.length - doneCount} more{' '}
+              {rollup.length - visibleRows.length - doneCount === 1
+                ? 'section'
+                : 'sections'}{' '}
+              below the cutoff — click any row to drill.
             </p>
           )}
         </CardContent>

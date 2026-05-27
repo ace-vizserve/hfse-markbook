@@ -10,7 +10,7 @@ const SparklineChartImpl = dynamic(
   {
     ssr: false,
     loading: () => <ChartSkeleton kind="sparkline" />,
-  },
+  }
 );
 
 export function SparklineChart({ points }: { points: SparkPoint[] }) {

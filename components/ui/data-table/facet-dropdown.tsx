@@ -12,7 +12,11 @@ import {
   CommandList,
   CommandSeparator,
 } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 
 type FacetDropdownProps = {
@@ -23,7 +27,13 @@ type FacetDropdownProps = {
   searchable?: boolean;
 };
 
-export function FacetDropdown({ label, options, selected, onChange, searchable = true }: FacetDropdownProps) {
+export function FacetDropdown({
+  label,
+  options,
+  selected,
+  onChange,
+  searchable = true,
+}: FacetDropdownProps) {
   const selectedSet = new Set(selected);
   const toggle = (value: string) => {
     const next = new Set(selectedSet);
@@ -39,7 +49,10 @@ export function FacetDropdown({ label, options, selected, onChange, searchable =
           {selected.length > 0 && (
             <>
               <span className="mx-1 h-4 w-px bg-border" aria-hidden />
-              <Badge variant="secondary" className="rounded-sm px-1 font-mono text-[10px]">
+              <Badge
+                variant="secondary"
+                className="rounded-sm px-1 font-mono text-[10px]"
+              >
                 {selected.length}
               </Badge>
             </>
@@ -56,11 +69,16 @@ export function FacetDropdown({ label, options, selected, onChange, searchable =
               {options.map((opt) => {
                 const isOn = selectedSet.has(opt.value);
                 return (
-                  <CommandItem key={opt.value} onSelect={() => toggle(opt.value)}>
+                  <CommandItem
+                    key={opt.value}
+                    onSelect={() => toggle(opt.value)}
+                  >
                     <span
                       className={cn(
                         'mr-2 flex h-4 w-4 items-center justify-center rounded-sm border',
-                        isOn ? 'bg-primary text-primary-foreground' : 'opacity-50',
+                        isOn
+                          ? 'bg-primary text-primary-foreground'
+                          : 'opacity-50'
                       )}
                     >
                       {isOn && <Check className="h-3 w-3" />}
@@ -74,7 +92,10 @@ export function FacetDropdown({ label, options, selected, onChange, searchable =
               <>
                 <CommandSeparator />
                 <CommandGroup>
-                  <CommandItem onSelect={() => onChange([])} className="justify-center text-xs">
+                  <CommandItem
+                    onSelect={() => onChange([])}
+                    className="justify-center text-xs"
+                  >
                     <X className="mr-1 h-3 w-3" /> Clear
                   </CommandItem>
                 </CommandGroup>

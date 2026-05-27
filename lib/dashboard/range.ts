@@ -57,14 +57,34 @@ export const PRESET_LABEL: Record<Preset, string> = {
 // Flexible-module default is `thisMonth` (1st of current month → today, MTD)
 // — picked first in the array so pages can use `presets[0]` as the implicit
 // default. Term-scoped default is `thisTerm` for the same reason.
-export const TERM_SCOPED_PRESETS: Preset[] = ['thisTerm', 't1', 't2', 't3', 't4', 'thisAY', 'custom'];
-export const FLEXIBLE_PRESETS: Preset[] = ['thisMonth', 'lastMonth', 'lastWeek', 'last15d', 'thisAY', 'custom'];
+export const TERM_SCOPED_PRESETS: Preset[] = [
+  'thisTerm',
+  't1',
+  't2',
+  't3',
+  't4',
+  'thisAY',
+  'custom',
+];
+export const FLEXIBLE_PRESETS: Preset[] = [
+  'thisMonth',
+  'lastMonth',
+  'lastWeek',
+  'last15d',
+  'thisAY',
+  'custom',
+];
 
 export type TermWindows = {
   thisTerm: DateRange | null;
   lastTerm: DateRange | null;
   /** Per-term-number lookup. null when that term doesn't exist or has no dates. */
-  byNumber: { 1: DateRange | null; 2: DateRange | null; 3: DateRange | null; 4: DateRange | null };
+  byNumber: {
+    1: DateRange | null;
+    2: DateRange | null;
+    3: DateRange | null;
+    4: DateRange | null;
+  };
 };
 
 export type AYWindows = {
@@ -135,8 +155,11 @@ export function daysInRange(range: DateRange): number {
   return Math.floor(ms / 86_400_000) + 1;
 }
 
-function isValidRange(range: Partial<DateRange> | null | undefined): range is DateRange {
-  if (!range || typeof range.from !== 'string' || typeof range.to !== 'string') return false;
+function isValidRange(
+  range: Partial<DateRange> | null | undefined
+): range is DateRange {
+  if (!range || typeof range.from !== 'string' || typeof range.to !== 'string')
+    return false;
   const f = parseLocalDate(range.from);
   const t = parseLocalDate(range.to);
   return !!f && !!t && f.getTime() <= t.getTime();
@@ -168,12 +191,19 @@ function autoComparison(range: DateRange): DateRange | null {
  * Feb 29 in a leap year clamps to Feb 28 when the target year isn't a leap
  * year (matches `lib/attendance/calendar.ts::shiftYearPreserveMonthDay`).
  */
-function shiftRangeByYears(range: DateRange, yearDelta: number): DateRange | null {
+function shiftRangeByYears(
+  range: DateRange,
+  yearDelta: number
+): DateRange | null {
   const from = parseLocalDate(range.from);
   const to = parseLocalDate(range.to);
   if (!from || !to) return null;
   const shift = (d: Date): Date => {
-    const next = new Date(d.getFullYear() + yearDelta, d.getMonth(), d.getDate());
+    const next = new Date(
+      d.getFullYear() + yearDelta,
+      d.getMonth(),
+      d.getDate()
+    );
     // If JS rolled Feb 29 forward to Mar 1 in a non-leap year, clamp back.
     if (d.getMonth() === 1 && d.getDate() === 29 && next.getMonth() !== 1) {
       return new Date(d.getFullYear() + yearDelta, 1, 28);
@@ -197,7 +227,7 @@ function shiftRangeByYears(range: DateRange, yearDelta: number): DateRange | nul
 export function autoComparisonAcademic(
   range: DateRange,
   windows: { term: TermWindows; ay: AYWindows },
-  today?: Date,
+  today?: Date
 ): DateRange | null {
   const preset = detectPreset(range, windows, today);
   if (preset === 'last7d' || preset === 'last30d' || preset === 'last90d') {
@@ -211,7 +241,8 @@ export function autoComparisonAcademic(
 
 export function computeDelta(current: number, comparison: number): Delta {
   const abs = current - comparison;
-  const direction: Delta['direction'] = abs > 0 ? 'up' : abs < 0 ? 'down' : 'flat';
+  const direction: Delta['direction'] =
+    abs > 0 ? 'up' : abs < 0 ? 'down' : 'flat';
   if (comparison === 0) {
     return { abs, pct: current === 0 ? 0 : null, direction };
   }
@@ -224,7 +255,7 @@ export function computeDelta(current: number, comparison: number): Delta {
  */
 export function formatDeltaLabel(
   delta: Delta,
-  opts?: { format?: 'percent' | 'absolute'; unit?: string },
+  opts?: { format?: 'percent' | 'absolute'; unit?: string }
 ): string {
   const mode = opts?.format ?? 'percent';
   const unit = opts?.unit ?? '';
@@ -264,7 +295,11 @@ function lastCalendarMonth(today = new Date()): DateRange {
   const t = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   // Last day of prior month = day 0 of current month
   const lastDayPrev = new Date(t.getFullYear(), t.getMonth(), 0);
-  const firstDayPrev = new Date(lastDayPrev.getFullYear(), lastDayPrev.getMonth(), 1);
+  const firstDayPrev = new Date(
+    lastDayPrev.getFullYear(),
+    lastDayPrev.getMonth(),
+    1
+  );
   return { from: toISODate(firstDayPrev), to: toISODate(lastDayPrev) };
 }
 
@@ -279,7 +314,7 @@ function thisCalendarMonth(today = new Date()): DateRange {
 export function resolvePreset(
   preset: Preset,
   windows: { term: TermWindows; ay: AYWindows },
-  today?: Date,
+  today?: Date
 ): DateRange | null {
   switch (preset) {
     case 't1':
@@ -332,18 +367,30 @@ export function detectPreset(
   range: DateRange,
   windows: { term: TermWindows; ay: AYWindows },
   today?: Date,
-  presets?: Preset[],
+  presets?: Preset[]
 ): Preset {
   const candidates: Preset[] = presets ?? [
-    't1', 't2', 't3', 't4',
-    'lastWeek', 'last15d', 'thisMonth', 'lastMonth',
-    'last7d', 'last30d', 'last90d',
-    'thisTerm', 'lastTerm', 'thisAY', 'lastAY',
+    't1',
+    't2',
+    't3',
+    't4',
+    'lastWeek',
+    'last15d',
+    'thisMonth',
+    'lastMonth',
+    'last7d',
+    'last30d',
+    'last90d',
+    'thisTerm',
+    'lastTerm',
+    'thisAY',
+    'lastAY',
   ];
   for (const p of candidates) {
     if (p === 'custom') continue;
     const candidate = resolvePreset(p, windows, today);
-    if (candidate && candidate.from === range.from && candidate.to === range.to) return p;
+    if (candidate && candidate.from === range.from && candidate.to === range.to)
+      return p;
   }
   return 'custom';
 }
@@ -386,7 +433,7 @@ export function resolveRange(
   windows: { term: TermWindows; ay: AYWindows },
   defaultAy: string,
   today?: Date,
-  options?: { defaultPreset?: Preset },
+  options?: { defaultPreset?: Preset }
 ): RangeInput {
   const ayCode = pickString(params.ay) || defaultAy;
 
@@ -410,7 +457,9 @@ export function resolveRange(
   // the AY2027 calendar hasn't started yet.
   const ayWindow = windows.ay.thisAY;
   const t = today ?? new Date();
-  const ayWindowIsInFuture = ayWindow ? parseLocalDate(ayWindow.from)! > t : false;
+  const ayWindowIsInFuture = ayWindow
+    ? parseLocalDate(ayWindow.from)! > t
+    : false;
   const explicitInAy =
     explicitRange && ayWindow && !ayWindowIsInFuture
       ? rangesOverlap(explicitRange, ayWindow)
@@ -443,10 +492,12 @@ export function resolveRange(
     validFallback = fallbackInAy ? fallbackFromPreset : null;
   }
 
-  const current: DateRange =
-    explicitRangeAccepted
-      ? explicitRange!
-      : validFallback ?? windows.term.thisTerm ?? windows.ay.thisAY ?? lastNDays(30, today);
+  const current: DateRange = explicitRangeAccepted
+    ? explicitRange!
+    : (validFallback ??
+      windows.term.thisTerm ??
+      windows.ay.thisAY ??
+      lastNDays(30, today));
 
   // Comparison is OPT-IN. The server only honors a comparison range when
   // the URL explicitly carries `cmpFrom` + `cmpTo`. No auto-compute,
@@ -455,10 +506,14 @@ export function resolveRange(
   //
   // Also dropped when the explicit current range was rejected (e.g., a
   // stale AY-mismatched range): the comparison is scoped to that view.
-  const rawCmpFrom = explicitRangeAccepted ? pickString(params.cmpFrom) : undefined;
+  const rawCmpFrom = explicitRangeAccepted
+    ? pickString(params.cmpFrom)
+    : undefined;
   const rawCmpTo = explicitRangeAccepted ? pickString(params.cmpTo) : undefined;
   const hasCmp =
-    !!rawCmpFrom && !!rawCmpTo && isValidRange({ from: rawCmpFrom, to: rawCmpTo });
+    !!rawCmpFrom &&
+    !!rawCmpTo &&
+    isValidRange({ from: rawCmpFrom, to: rawCmpTo });
 
   return {
     ayCode,

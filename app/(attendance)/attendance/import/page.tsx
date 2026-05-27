@@ -29,13 +29,15 @@ export default async function AttendanceImportPage() {
         .order('start_date', { ascending: true })
     : { data: [] };
 
-  const termOptions = ((terms ?? []) as Array<{
-    id: string;
-    label: string;
-    start_date: string;
-    end_date: string;
-    is_current: boolean;
-  }>).map((t) => ({
+  const termOptions = (
+    (terms ?? []) as Array<{
+      id: string;
+      label: string;
+      start_date: string;
+      end_date: string;
+      is_current: boolean;
+    }>
+  ).map((t) => ({
     value: t.id,
     label: `${t.label} (${t.start_date.slice(0, 7)} – ${t.end_date.slice(0, 7)})`,
     isCurrent: t.is_current,
@@ -59,13 +61,20 @@ export default async function AttendanceImportPage() {
           Import from Excel.
         </h1>
         <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-          Upload the term&apos;s attendance workbook — one sheet per section. Sheet names should
-          match <code className="font-mono text-[12px] text-foreground">section.name</code> (or{' '}
-          <code className="font-mono text-[12px] text-foreground">level code + name</code>). Each
-          date column (<code className="font-mono text-[12px] text-foreground">Jan 8</code>,{' '}
-          <code className="font-mono text-[12px] text-foreground">Feb 15</code>, etc.) becomes one
-          ledger row per student. The server recomputes the rollup — Excel-computed totals are
-          ignored.
+          Upload the term&apos;s attendance workbook — one sheet per section.
+          Sheet names should match{' '}
+          <code className="font-mono text-[12px] text-foreground">
+            section.name
+          </code>{' '}
+          (or{' '}
+          <code className="font-mono text-[12px] text-foreground">
+            level code + name
+          </code>
+          ). Each date column (
+          <code className="font-mono text-[12px] text-foreground">Jan 8</code>,{' '}
+          <code className="font-mono text-[12px] text-foreground">Feb 15</code>,
+          etc.) becomes one ledger row per student. The server recomputes the
+          rollup — Excel-computed totals are ignored.
         </p>
       </header>
 
@@ -84,10 +93,14 @@ export default async function AttendanceImportPage() {
         <CardContent>
           {termOptions.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
-              No terms are seeded for the current academic year. Run the AY setup wizard first.
+              No terms are seeded for the current academic year. Run the AY
+              setup wizard first.
             </div>
           ) : (
-            <ImportAttendanceForm termOptions={termOptions} ayCode={ay?.ay_code ?? ''} />
+            <ImportAttendanceForm
+              termOptions={termOptions}
+              ayCode={ay?.ay_code ?? ''}
+            />
           )}
         </CardContent>
       </Card>

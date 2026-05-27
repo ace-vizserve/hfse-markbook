@@ -38,7 +38,7 @@ export type ComputeOutput = {
 
 function componentPercentage(
   scores: (number | null)[],
-  totals: number[],
+  totals: number[]
 ): number | null {
   let sumScores = 0;
   let sumMax = 0;
@@ -54,7 +54,10 @@ function componentPercentage(
   return (sumScores / sumMax) * 100;
 }
 
-function qaPercentage(score: number | null, total: number | null): number | null {
+function qaPercentage(
+  score: number | null,
+  total: number | null
+): number | null {
   if (score == null || total == null || total === 0) return null;
   return (score / total) * 100;
 }
@@ -70,7 +73,13 @@ export function computeQuarterly(input: ComputeInput): ComputeOutput {
   const qa_ps = qaPercentage(input.qa_score, input.qa_total);
 
   if (ww_ps == null && pt_ps == null && qa_ps == null) {
-    return { ww_ps: null, pt_ps: null, qa_ps: null, initial_grade: null, quarterly_grade: null };
+    return {
+      ww_ps: null,
+      pt_ps: null,
+      qa_ps: null,
+      initial_grade: null,
+      quarterly_grade: null,
+    };
   }
 
   const initial =
@@ -104,7 +113,7 @@ export function computeQuarterly(input: ComputeInput): ComputeOutput {
   });
   if (out.quarterly_grade !== 93) {
     throw new Error(
-      `HFSE formula self-test failed: expected quarterly=93, got ${out.quarterly_grade} (initial=${out.initial_grade})`,
+      `HFSE formula self-test failed: expected quarterly=93, got ${out.quarterly_grade} (initial=${out.initial_grade})`
     );
   }
 })();

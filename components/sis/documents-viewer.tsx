@@ -155,7 +155,12 @@ const TILE_GRADIENT: Record<StatusBucket, string> = {
 // warning / blocked) so a `<Badge variant={...}>` call already produces
 // the right pill style. Missing falls back to outline so unsubmitted
 // slots don't wear an alarm-coloured pill.
-type GradientBadgeVariant = 'success' | 'warning' | 'blocked' | 'default' | 'outline';
+type GradientBadgeVariant =
+  | 'success'
+  | 'warning'
+  | 'blocked'
+  | 'default'
+  | 'outline';
 function statusBadgeVariant(bucket: StatusBucket): GradientBadgeVariant {
   if (bucket === 'valid') return 'success';
   if (bucket === 'pending') return 'warning';
@@ -198,45 +203,60 @@ function formatExpiry(expiry: string | null): string | null {
   if (!expiry) return null;
   const d = new Date(expiry);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString('en-SG', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 // ─── component ──────────────────────────────────────────────────────────────
 
-export function DocumentsViewer({ application, documents, enroleeNumber, ayCode }: Props) {
+export function DocumentsViewer({
+  application,
+  documents,
+  enroleeNumber,
+  ayCode,
+}: Props) {
   // Hide STP slots when the parent didn't opt into the STP sub-flow (KD #61).
   const stpEnabled = !!application.stpApplicationType;
   const visibleDocuments = useMemo(
-    () => (stpEnabled ? documents : documents.filter((d) => !STP_KEYS.has(d.key))),
-    [stpEnabled, documents],
+    () =>
+      stpEnabled ? documents : documents.filter((d) => !STP_KEYS.has(d.key)),
+    [stpEnabled, documents]
   );
 
   const isAdmissionsScope =
-    !!application.applicationStatus && ADMISSIONS_CHASE_STATUSES.has(application.applicationStatus);
+    !!application.applicationStatus &&
+    ADMISSIONS_CHASE_STATUSES.has(application.applicationStatus);
   const recipients = useMemo(
     () => ({
       motherEmail: application.motherEmail ?? null,
       fatherEmail: application.fatherEmail ?? null,
       guardianEmail: application.guardianEmail ?? null,
     }),
-    [application.motherEmail, application.fatherEmail, application.guardianEmail],
+    [
+      application.motherEmail,
+      application.fatherEmail,
+      application.guardianEmail,
+    ]
   );
 
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>('all');
 
   const selectedDoc = selectedKey
-    ? visibleDocuments.find((d) => d.key === selectedKey) ?? null
+    ? (visibleDocuments.find((d) => d.key === selectedKey) ?? null)
     : null;
 
   // Progress meter — required = total minus always-optional minus
   // (STP-conditional when STP isn't enabled). Matches the gate logic in
   // `app/api/sis/students/[enroleeNumber]/stage/[stageKey]/route.ts`.
   const requiredDocs = visibleDocuments.filter(
-    (d) => !OPTIONAL_KEYS.has(d.key) && (stpEnabled || !STP_KEYS.has(d.key)),
+    (d) => !OPTIONAL_KEYS.has(d.key) && (stpEnabled || !STP_KEYS.has(d.key))
   );
   const requiredValidated = requiredDocs.filter(
-    (d) => statusBucket(d.status, !!d.url) === 'valid',
+    (d) => statusBucket(d.status, !!d.url) === 'valid'
   ).length;
   const progressPct =
     requiredDocs.length === 0
@@ -245,7 +265,13 @@ export function DocumentsViewer({ application, documents, enroleeNumber, ayCode 
 
   // Filter pill counts so the toolbar surfaces what's behind each option.
   const counts = useMemo(() => {
-    const c = { all: visibleDocuments.length, pending: 0, valid: 0, rejected: 0, expiring: 0 };
+    const c = {
+      all: visibleDocuments.length,
+      pending: 0,
+      valid: 0,
+      rejected: 0,
+      expiring: 0,
+    };
     for (const d of visibleDocuments) {
       const sb = statusBucket(d.status, !!d.url);
       if (sb === 'pending') c.pending += 1;
@@ -274,18 +300,23 @@ export function DocumentsViewer({ application, documents, enroleeNumber, ayCode 
   }
 
   const nonExpiringDocs = applyFilter(
-    visibleDocuments.filter((d) => DOC_CATEGORY_KEYS.nonExpiring.has(d.key)),
+    visibleDocuments.filter((d) => DOC_CATEGORY_KEYS.nonExpiring.has(d.key))
   );
   const expiringDocs = applyFilter(
-    visibleDocuments.filter((d) => DOC_CATEGORY_KEYS.expiring.has(d.key)),
+    visibleDocuments.filter((d) => DOC_CATEGORY_KEYS.expiring.has(d.key))
   );
   const parentGuardianDocs = applyFilter(
-    visibleDocuments.filter((d) => DOC_CATEGORY_KEYS.parentGuardian.has(d.key)),
+    visibleDocuments.filter((d) => DOC_CATEGORY_KEYS.parentGuardian.has(d.key))
   );
-  const stpDocs = applyFilter(visibleDocuments.filter((d) => STP_KEYS.has(d.key)));
+  const stpDocs = applyFilter(
+    visibleDocuments.filter((d) => STP_KEYS.has(d.key))
+  );
 
   const totalAfterFilter =
-    nonExpiringDocs.length + expiringDocs.length + parentGuardianDocs.length + stpDocs.length;
+    nonExpiringDocs.length +
+    expiringDocs.length +
+    parentGuardianDocs.length +
+    stpDocs.length;
 
   const hasSelection = !!selectedDoc;
 
@@ -309,7 +340,7 @@ export function DocumentsViewer({ application, documents, enroleeNumber, ayCode 
           // dialog, which is what already happens for narrow widths).
           hasSelection
             ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]'
-            : 'grid-cols-1',
+            : 'grid-cols-1'
         )}
       >
         <SlotList
@@ -376,7 +407,9 @@ function Toolbar({
             <span
               className={cn(
                 'font-mono text-[10px] font-semibold uppercase tracking-[0.14em]',
-                progressPct === 100 ? 'text-brand-mint' : 'text-muted-foreground',
+                progressPct === 100
+                  ? 'text-brand-mint'
+                  : 'text-muted-foreground'
               )}
             >
               {progressPct}%
@@ -388,7 +421,7 @@ function Toolbar({
                 'h-full transition-all',
                 progressPct === 100
                   ? 'bg-gradient-to-r from-brand-mint to-brand-mint/70'
-                  : 'bg-gradient-to-r from-brand-indigo to-brand-indigo/70',
+                  : 'bg-gradient-to-r from-brand-indigo to-brand-indigo/70'
               )}
               style={{ width: `${progressPct}%` }}
             />
@@ -466,8 +499,8 @@ function SlotList({
           </div>
           {filter !== 'all' && (
             <p className="text-xs text-muted-foreground">
-              {totalBeforeFilter} document{totalBeforeFilter === 1 ? '' : 's'} hidden by the active
-              filter.
+              {totalBeforeFilter} document{totalBeforeFilter === 1 ? '' : 's'}{' '}
+              hidden by the active filter.
             </p>
           )}
         </CardContent>
@@ -605,7 +638,7 @@ function SlotRow({
   // in the SIS (sidebar, hero stats, dialog headers).
   const tileClass = cn(
     'flex size-9 shrink-0 items-center justify-center rounded-xl text-white shadow-brand-tile transition-colors',
-    TILE_GRADIENT[sb],
+    TILE_GRADIENT[sb]
   );
 
   const formattedExpiry = formatExpiry(doc.expiry);
@@ -620,7 +653,7 @@ function SlotRow({
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-indigo/40',
           isActive
             ? 'border-l-2 border-l-brand-indigo border-y-hairline border-r-hairline bg-brand-indigo/5 shadow-xs'
-            : 'border-hairline bg-card hover:-translate-y-0.5 hover:border-brand-indigo/30 hover:shadow-sm',
+            : 'border-hairline bg-card hover:-translate-y-0.5 hover:border-brand-indigo/30 hover:shadow-sm'
         )}
       >
         <div className={tileClass}>
@@ -658,9 +691,12 @@ function ExpiryChip({
 }) {
   const tone = cn(
     'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.12em]',
-    bucket === 'expired' && 'border-destructive/40 bg-gradient-to-b from-destructive/15 to-destructive/5 text-destructive',
-    bucket === 'expiring' && 'border-brand-amber/40 bg-gradient-to-b from-brand-amber/20 to-brand-amber/5 text-foreground',
-    bucket === 'fresh' && 'border-hairline bg-gradient-to-b from-muted to-muted/60 text-muted-foreground',
+    bucket === 'expired' &&
+      'border-destructive/40 bg-gradient-to-b from-destructive/15 to-destructive/5 text-destructive',
+    bucket === 'expiring' &&
+      'border-brand-amber/40 bg-gradient-to-b from-brand-amber/20 to-brand-amber/5 text-foreground',
+    bucket === 'fresh' &&
+      'border-hairline bg-gradient-to-b from-muted to-muted/60 text-muted-foreground'
   );
   return (
     <span className={tone}>
@@ -685,7 +721,11 @@ function PreviewPane({
   ayCode: string;
   onClose: () => void;
   isAdmissionsScope: boolean;
-  recipients: { motherEmail: string | null; fatherEmail: string | null; guardianEmail: string | null };
+  recipients: {
+    motherEmail: string | null;
+    fatherEmail: string | null;
+    guardianEmail: string | null;
+  };
 }) {
   const kind = fileKind(doc.url);
   const filename = fileNameFromUrl(doc.url);
@@ -694,7 +734,8 @@ function PreviewPane({
   // and the slot is in a chaseable state. Hidden for enrolled rows — those
   // are P-Files territory and surface their own renewal actions on the
   // /p-files/[enroleeNumber] detail page.
-  const showAdmissionsChase = isAdmissionsScope && isAdmissionsChaseable(doc.status);
+  const showAdmissionsChase =
+    isAdmissionsScope && isAdmissionsChaseable(doc.status);
 
   return (
     <div className="hidden lg:block">
@@ -706,7 +747,11 @@ function PreviewPane({
           <CardTitle className="flex items-baseline gap-2 font-serif text-[16px] font-semibold tracking-tight text-foreground">
             {doc.label}
             {doc.status ? (
-              <Badge variant={statusBadgeVariant(statusBucket(doc.status, !!doc.url))}>
+              <Badge
+                variant={statusBadgeVariant(
+                  statusBucket(doc.status, !!doc.url)
+                )}
+              >
                 {doc.status}
               </Badge>
             ) : (
@@ -714,7 +759,10 @@ function PreviewPane({
             )}
           </CardTitle>
           {filename && (
-            <p className="truncate font-mono text-[11px] text-muted-foreground" title={filename}>
+            <p
+              className="truncate font-mono text-[11px] text-muted-foreground"
+              title={filename}
+            >
               {filename}
             </p>
           )}
@@ -755,7 +803,11 @@ function PreviewPane({
                   recipients={recipients}
                   module="admissions"
                   trigger={
-                    <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5 text-xs"
+                    >
                       <Mail className="size-3" />
                       Notify parent
                     </Button>
@@ -767,7 +819,11 @@ function PreviewPane({
                   label={doc.label}
                   module="admissions"
                   trigger={
-                    <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5 text-xs"
+                    >
                       <CalendarClock className="size-3" />
                       Mark as promised
                     </Button>
@@ -793,7 +849,13 @@ function PreviewPane({
   );
 }
 
-function PreviewBody({ url, kind }: { url: string | null; kind: FileKind | null }) {
+function PreviewBody({
+  url,
+  kind,
+}: {
+  url: string | null;
+  kind: FileKind | null;
+}) {
   const wrapperClass = 'aspect-[4/5] max-h-[calc(100vh-14rem)] w-full';
 
   if (!url || !kind) {
@@ -801,16 +863,18 @@ function PreviewBody({ url, kind }: { url: string | null; kind: FileKind | null 
       <div
         className={cn(
           wrapperClass,
-          'flex flex-col items-center justify-center gap-2 px-6 text-center',
+          'flex flex-col items-center justify-center gap-2 px-6 text-center'
         )}
       >
         <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
           <Inbox className="size-5" />
         </div>
-        <p className="font-serif text-sm font-semibold text-foreground">No file uploaded yet</p>
+        <p className="font-serif text-sm font-semibold text-foreground">
+          No file uploaded yet
+        </p>
         <p className="max-w-xs text-xs text-muted-foreground">
-          The parent hasn&apos;t uploaded this document. There&apos;s nothing to validate until it
-          arrives.
+          The parent hasn&apos;t uploaded this document. There&apos;s nothing to
+          validate until it arrives.
         </p>
       </div>
     );
@@ -843,7 +907,7 @@ function PreviewBody({ url, kind }: { url: string | null; kind: FileKind | null 
     <div
       className={cn(
         wrapperClass,
-        'flex flex-col items-center justify-center gap-3 px-6 text-center',
+        'flex flex-col items-center justify-center gap-3 px-6 text-center'
       )}
     >
       <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
@@ -853,8 +917,8 @@ function PreviewBody({ url, kind }: { url: string | null; kind: FileKind | null 
         Inline preview not supported
       </p>
       <p className="max-w-xs text-xs text-muted-foreground">
-        This file type can&apos;t be rendered in-page. Use the &ldquo;Open original&rdquo; link
-        below to view it in a new tab.
+        This file type can&apos;t be rendered in-page. Use the &ldquo;Open
+        original&rdquo; link below to view it in a new tab.
       </p>
     </div>
   );

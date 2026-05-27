@@ -30,7 +30,7 @@ export type RevisionSnapshot = {
 // SIS officer flow and tags the row as `source = 'pfile-upload'`.
 export async function createRevision(
   service: SupabaseClient,
-  snap: RevisionSnapshot,
+  snap: RevisionSnapshot
 ): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const { data, error } = await service
     .from('p_file_revisions')

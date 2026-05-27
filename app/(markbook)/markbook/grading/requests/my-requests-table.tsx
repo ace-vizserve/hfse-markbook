@@ -8,7 +8,11 @@ import { type ColumnDef } from '@tanstack/react-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
-import { type FacetConfig, type StatusTabConfig, type CsvConfig } from '@/components/ui/data-table/types';
+import {
+  type FacetConfig,
+  type StatusTabConfig,
+  type CsvConfig,
+} from '@/components/ui/data-table/types';
 import { SortableHeader } from '@/components/ui/data-table/sortable-header';
 import {
   CHANGE_REQUEST_STATUS_CONFIG,
@@ -69,7 +73,9 @@ function statusLabel(s: ChangeRequestStatus): string {
 const COLUMNS: ColumnDef<MyRequestRow>[] = [
   {
     accessorKey: 'requested_at',
-    header: ({ column }) => <SortableHeader column={column}>Filed</SortableHeader>,
+    header: ({ column }) => (
+      <SortableHeader column={column}>Filed</SortableHeader>
+    ),
     cell: ({ row }) => (
       <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
         {new Date(row.original.requested_at).toLocaleString('en-SG', {
@@ -153,9 +159,7 @@ const COLUMNS: ColumnDef<MyRequestRow>[] = [
           // does the actual apply (Hard Rule #5 + #6); teacher's CTA is
           // labelled "View" to reflect their read-only role.
           <Button asChild size="sm" className="h-8">
-            <Link
-              href={`/markbook/grading/${row.original.grading_sheet_id}`}
-            >
+            <Link href={`/markbook/grading/${row.original.grading_sheet_id}`}>
               View approved sheet
             </Link>
           </Button>
@@ -213,7 +217,14 @@ const STATUS_TABS: StatusTabConfig<MyRequestRow>[] = [
 const CSV_CONFIG: CsvConfig<MyRequestRow> = {
   filename: 'my-change-requests.csv',
   columns: [
-    { header: 'Filed', accessor: (r) => new Date(r.requested_at).toLocaleString('en-SG', { dateStyle: 'medium', timeStyle: 'short' }) },
+    {
+      header: 'Filed',
+      accessor: (r) =>
+        new Date(r.requested_at).toLocaleString('en-SG', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }),
+    },
     { header: 'Field', accessor: (r) => r.field_label },
     { header: 'From', accessor: (r) => r.current_value ?? '(blank)' },
     { header: 'To', accessor: (r) => r.proposed_value },
@@ -241,24 +252,31 @@ function ReviewerLine({ row }: { row: MyRequestRow }) {
   return (
     <div className="mt-0.5 text-[11px] text-muted-foreground">
       Reviewed by{' '}
-      <span className="font-medium text-foreground">{primary ?? secondary}</span>
+      <span className="font-medium text-foreground">
+        {primary ?? secondary}
+      </span>
     </div>
   );
 }
 
 export function MyRequestsTable({ data }: { data: MyRequestRow[] }) {
-  const facets = useMemo<FacetConfig[]>(() => [
-    {
-      columnId: 'status',
-      label: 'Status',
-      valueOptions: STATUS_OPTIONS,
-    },
-    {
-      columnId: 'field_changed',
-      label: 'Field changed',
-      valueOptions: Array.from(new Set(data.map((r) => r.field_changed))).sort(),
-    },
-  ], [data]);
+  const facets = useMemo<FacetConfig[]>(
+    () => [
+      {
+        columnId: 'status',
+        label: 'Status',
+        valueOptions: STATUS_OPTIONS,
+      },
+      {
+        columnId: 'field_changed',
+        label: 'Field changed',
+        valueOptions: Array.from(
+          new Set(data.map((r) => r.field_changed))
+        ).sort(),
+      },
+    ],
+    [data]
+  );
 
   return (
     <DataTable<MyRequestRow>

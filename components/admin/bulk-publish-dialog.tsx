@@ -50,11 +50,14 @@ export function BulkPublishDialog({
   const [termId, setTermId] = useState(defaultTermId ?? terms[0]?.id ?? '');
   const [from, setFrom] = useState('');
   const [until, setUntil] = useState('');
-  const [selection, setSelection] = useState<Record<string, boolean>>(
-    () => Object.fromEntries(sections.map((s) => [s.id, true])),
+  const [selection, setSelection] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(sections.map((s) => [s.id, true]))
   );
   const [submitting, setSubmitting] = useState(false);
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [progress, setProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
 
   const sortedSections = useMemo(
     () =>
@@ -62,7 +65,7 @@ export function BulkPublishDialog({
         const byLevel = a.level_label.localeCompare(b.level_label);
         return byLevel === 0 ? a.name.localeCompare(b.name) : byLevel;
       }),
-    [sections],
+    [sections]
   );
   const selectedCount = Object.values(selection).filter(Boolean).length;
 
@@ -111,7 +114,11 @@ export function BulkPublishDialog({
             });
             const body = await res.json().catch(() => ({}));
             if (!res.ok) {
-              return { sectionId, ok: false as const, message: body?.error ?? `HTTP ${res.status}` };
+              return {
+                sectionId,
+                ok: false as const,
+                message: body?.error ?? `HTTP ${res.status}`,
+              };
             }
             return { sectionId, ok: true as const };
           } catch (e) {
@@ -121,7 +128,7 @@ export function BulkPublishDialog({
               message: e instanceof Error ? e.message : 'error',
             };
           }
-        }),
+        })
       );
 
       // Report chunk results in deterministic order so the first-failure
@@ -138,7 +145,7 @@ export function BulkPublishDialog({
 
     if (firstError) {
       toast.error(
-        `Failed on ${sectionLabel(sortedSections, firstError.sectionId)}: ${firstError.message}. Stopped after ${successes} of ${ids.length}.`,
+        `Failed on ${sectionLabel(sortedSections, firstError.sectionId)}: ${firstError.message}. Stopped after ${successes} of ${ids.length}.`
       );
     }
 
@@ -146,7 +153,7 @@ export function BulkPublishDialog({
     setProgress(null);
     if (successes === ids.length) {
       toast.success(
-        `Published ${successes} section${successes === 1 ? '' : 's'} for ${termLabel(terms, termId)}.`,
+        `Published ${successes} section${successes === 1 ? '' : 's'} for ${termLabel(terms, termId)}.`
       );
       setOpen(false);
       router.refresh();
@@ -167,16 +174,21 @@ export function BulkPublishDialog({
         <DialogHeader>
           <DialogTitle>Bulk publish report cards</DialogTitle>
           <DialogDescription>
-            Applies one publish window to every selected section for the chosen term. Existing
-            windows for the same section + term are replaced. Parents are emailed only the
-            first time their child&apos;s report card is published for the term.
+            Applies one publish window to every selected section for the chosen
+            term. Existing windows for the same section + term are replaced.
+            Parents are emailed only the first time their child&apos;s report
+            card is published for the term.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="grid gap-2">
             <Label htmlFor="bulk-term">Term</Label>
-            <Select value={termId} onValueChange={setTermId} disabled={submitting}>
+            <Select
+              value={termId}
+              onValueChange={setTermId}
+              disabled={submitting}
+            >
               <SelectTrigger id="bulk-term" className="h-10">
                 <SelectValue placeholder="Pick a term" />
               </SelectTrigger>
@@ -263,10 +275,19 @@ export function BulkPublishDialog({
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={submitting}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={submitting}
+          >
             Cancel
           </Button>
-          <Button type="button" onClick={submit} disabled={submitting || selectedCount === 0}>
+          <Button
+            type="button"
+            onClick={submit}
+            disabled={submitting || selectedCount === 0}
+          >
             {submitting ? (
               <>
                 <Loader2 className="size-3.5 animate-spin" />

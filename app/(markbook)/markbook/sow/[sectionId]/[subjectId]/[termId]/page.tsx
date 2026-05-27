@@ -2,7 +2,10 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, ScrollText } from 'lucide-react';
 import Link from 'next/link';
 
-import { getSowInstance, listImportableSowSources } from '@/lib/sis/sow/queries';
+import {
+  getSowInstance,
+  listImportableSowSources,
+} from '@/lib/sis/sow/queries';
 import { getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { SowEditorClient } from '@/components/markbook/sow-editor-client';
@@ -15,7 +18,11 @@ export default async function SowEditorPage({
 }) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
-  if (!['teacher', 'registrar', 'school_admin', 'superadmin'].includes(sessionUser.role ?? '')) {
+  if (
+    !['teacher', 'registrar', 'school_admin', 'superadmin'].includes(
+      sessionUser.role ?? ''
+    )
+  ) {
     redirect('/markbook');
   }
 
@@ -36,19 +43,37 @@ export default async function SowEditorPage({
   }
 
   // Metadata lookups (section, subject, term) + SOW instance + grading sheet status
-  const [sectionResult, subjectResult, termResult, instance, importableSources] =
-    await Promise.all([
-      service.from('sections').select('name, level_id, academic_year_id').eq('id', sectionId).maybeSingle(),
-      service.from('subjects').select('code, name').eq('id', subjectId).maybeSingle(),
-      service.from('terms').select('label').eq('id', termId).maybeSingle(),
-      getSowInstance(sectionId, subjectId, termId),
-      listImportableSowSources(sectionId, subjectId, termId),
-    ]);
+  const [
+    sectionResult,
+    subjectResult,
+    termResult,
+    instance,
+    importableSources,
+  ] = await Promise.all([
+    service
+      .from('sections')
+      .select('name, level_id, academic_year_id')
+      .eq('id', sectionId)
+      .maybeSingle(),
+    service
+      .from('subjects')
+      .select('code, name')
+      .eq('id', subjectId)
+      .maybeSingle(),
+    service.from('terms').select('label').eq('id', termId).maybeSingle(),
+    getSowInstance(sectionId, subjectId, termId),
+    listImportableSowSources(sectionId, subjectId, termId),
+  ]);
 
-  const sectionRow = sectionResult.data as { name: string; level_id: string; academic_year_id: string } | null;
+  const sectionRow = sectionResult.data as {
+    name: string;
+    level_id: string;
+    academic_year_id: string;
+  } | null;
   const sectionName = sectionRow?.name ?? sectionId;
-  const subject = (subjectResult.data as { code: string; name: string } | null);
-  const termLabel = (termResult.data as { label: string } | null)?.label ?? termId;
+  const subject = subjectResult.data as { code: string; name: string } | null;
+  const termLabel =
+    (termResult.data as { label: string } | null)?.label ?? termId;
 
   // Fetch subject config to get the correct max slot counts for this (level × subject × AY).
   // Falls back to KD #5 max (5) if no config found.
@@ -63,8 +88,10 @@ export default async function SowEditorPage({
       .eq('academic_year_id', sectionRow.academic_year_id)
       .maybeSingle();
     if (config) {
-      maxWwSlots = (config as { ww_max_slots: number; pt_max_slots: number }).ww_max_slots;
-      maxPtSlots = (config as { ww_max_slots: number; pt_max_slots: number }).pt_max_slots;
+      maxWwSlots = (config as { ww_max_slots: number; pt_max_slots: number })
+        .ww_max_slots;
+      maxPtSlots = (config as { ww_max_slots: number; pt_max_slots: number })
+        .pt_max_slots;
     }
   }
 
@@ -80,7 +107,8 @@ export default async function SowEditorPage({
     .maybeSingle();
 
   const hasGradingSheet = !!sheet;
-  const isSheetLocked = (sheet as { is_locked: boolean } | null)?.is_locked ?? false;
+  const isSheetLocked =
+    (sheet as { is_locked: boolean } | null)?.is_locked ?? false;
 
   // Copied-from section name (for provenance banner)
   let copiedFromSectionName: string | null = null;
@@ -90,7 +118,8 @@ export default async function SowEditorPage({
       .select('name')
       .eq('id', instance.copied_from_section_id)
       .maybeSingle();
-    copiedFromSectionName = (copiedSec as { name: string } | null)?.name ?? null;
+    copiedFromSectionName =
+      (copiedSec as { name: string } | null)?.name ?? null;
   }
 
   return (

@@ -11,10 +11,7 @@ const optionalShortText = (max: number) =>
 // section enrolment per KD #51 + KD #67. This schema only validates the
 // section-row metadata that lives on `section_students`.
 export const ManualAddStudentSchema = z.object({
-  student_number: z
-    .string()
-    .trim()
-    .min(1, 'Student number is required'),
+  student_number: z.string().trim().min(1, 'Student number is required'),
   late_enrollee: z.boolean(),
   bus_no: optionalShortText(40),
   classroom_officer_role: optionalShortText(80),

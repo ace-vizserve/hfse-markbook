@@ -12,7 +12,12 @@ import {
 import { getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 
-const ALLOWED_ROLES: Role[] = ['admissions', 'registrar', 'school_admin', 'superadmin'];
+const ALLOWED_ROLES: Role[] = [
+  'admissions',
+  'registrar',
+  'school_admin',
+  'superadmin',
+];
 
 export default async function AdmissionsCohortsPreCoursePage({
   searchParams,
@@ -21,7 +26,8 @@ export default async function AdmissionsCohortsPreCoursePage({
 }) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
-  if (!sessionUser.role || !ALLOWED_ROLES.includes(sessionUser.role)) redirect('/');
+  if (!sessionUser.role || !ALLOWED_ROLES.includes(sessionUser.role))
+    redirect('/');
 
   const resolved = await searchParams;
   const service = createServiceClient();
@@ -39,7 +45,12 @@ export default async function AdmissionsCohortsPreCoursePage({
       scope="funnel"
       ayCode={ayCode}
     >
-      <CohortTable kind="pre-course" scope="funnel" ayCode={ayCode} rows={rows} />
+      <CohortTable
+        kind="pre-course"
+        scope="funnel"
+        ayCode={ayCode}
+        rows={rows}
+      />
     </CohortPageShell>
   );
 }

@@ -16,13 +16,13 @@ Ms. Chandana confirmed that SOW is always prepared before the start of the acade
 
 ## Design Decisions
 
-| Decision | Choice | Rationale |
-|---|---|---|
-| Gate style | Skip scopes without SOW at bulk-create | Don't create sheets that can't be used |
-| Unlock trigger | SOW apply auto-triggers sheet creation | Collapses apply + generate into one admin action |
-| Evaluation Checklists | Subject visible in picker; locked empty state when no SOW | Teachers see what's coming, not surprised by disappearing subjects |
-| Existing sheets | Gate on new creation only; test env reset handles migration | Non-disruptive for production |
-| Implementation | New selective RPC + modified SOW apply route | Surgical, no delete side effects, clean by construction |
+| Decision              | Choice                                                      | Rationale                                                          |
+| --------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------ |
+| Gate style            | Skip scopes without SOW at bulk-create                      | Don't create sheets that can't be used                             |
+| Unlock trigger        | SOW apply auto-triggers sheet creation                      | Collapses apply + generate into one admin action                   |
+| Evaluation Checklists | Subject visible in picker; locked empty state when no SOW   | Teachers see what's coming, not surprised by disappearing subjects |
+| Existing sheets       | Gate on new creation only; test env reset handles migration | Non-disruptive for production                                      |
+| Implementation        | New selective RPC + modified SOW apply route                | Surgical, no delete side effects, clean by construction            |
 
 ---
 
@@ -97,14 +97,15 @@ If `sow_scopes_blocked > 0`, `BulkCreateSheetsButton` and `GenerateSheetsDialog`
 ### Impact detection
 
 New helper `detectSowChangeImpact(scope)` returns:
+
 - `hasGradingScores: boolean` — any `ww_scores` or `pt_scores` element non-null across sheets in the scope
 - `hasEvaluationResponses: boolean` — any `evaluation_checklist_responses.rating` non-null for items in this scope
 
 ### Grading sheet slot sync — two paths
 
-| State | Action |
-|---|---|
-| `!hasGradingScores` (clean) | Full replacement — existing `sync_grading_sheets_from_sow` behavior |
+| State                           | Action                                                                                                                                                                                                                    |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `!hasGradingScores` (clean)     | Full replacement — existing `sync_grading_sheets_from_sow` behavior                                                                                                                                                       |
 | `hasGradingScores` (has scores) | **Merge:** iterate slots by position index. Scored positions → update label only, preserve scores. Unscored positions → replace from new SOW. New SOW slots beyond existing count → append (up to max 5). Never renumber. |
 
 New helper: `mergeGradingSheetSlots(service, sheetId, newWw, newPt)` in `lib/sis/sow/mutations.ts`
@@ -113,9 +114,9 @@ New helper: `mergeGradingSheetSlots(service, sheetId, newWw, newPt)` in `lib/sis
 
 ### Evaluation topic sync — two paths
 
-| State | Action |
-|---|---|
-| `!hasEvaluationResponses` (clean) | Full replacement — delete all items for scope, re-insert from new SOW |
+| State                                    | Action                                                                                                                 |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `!hasEvaluationResponses` (clean)        | Full replacement — delete all items for scope, re-insert from new SOW                                                  |
 | `hasEvaluationResponses` (has responses) | **Merge:** items with ≥1 non-null rating → keep. Items with no ratings → delete. New topics from updated SOW → insert. |
 
 New helper: `mergeEvaluationTopics(service, scope, newTopics)` in `lib/sis/sow/mutations.ts`
@@ -137,8 +138,8 @@ New helper: `mergeEvaluationTopics(service, scope, newTopics)` in `lib/sis/sow/m
 
 ### UX signal
 
-- `mode: 'partial-rebaseline'` → amber `toast.warning`: *"Some slots/topics were preserved because scores already exist. Review the grading sheet to confirm."*
-- The "SOW v{N}" attribution chip on grading sheets shows **amber variant** when `sow_class_instances.has_partial_rebaseline = true`, with tooltip: *"SOW updated mid-year. Some slots or topics were preserved because scores already existed."*
+- `mode: 'partial-rebaseline'` → amber `toast.warning`: _"Some slots/topics were preserved because scores already exist. Review the grading sheet to confirm."_
+- The "SOW v{N}" attribution chip on grading sheets shows **amber variant** when `sow_class_instances.has_partial_rebaseline = true`, with tooltip: _"SOW updated mid-year. Some slots or topics were preserved because scores already existed."_
 - Chip reverts to default tint on a subsequent clean apply.
 
 ### Net result for admins
@@ -181,7 +182,7 @@ cta link: /sis/admin/sow
 
 ### Grading-sheets step dependency copy
 
-When the "sow" step is incomplete, the "grading-sheets" step description reads: *"Approve SOW first — grading sheets will be generated automatically on apply."*
+When the "sow" step is incomplete, the "grading-sheets" step description reads: _"Approve SOW first — grading sheets will be generated automatically on apply."_
 
 ### Type changes
 
@@ -199,17 +200,17 @@ No DB changes. `sowExistsForSection` already runs on the page.
 
 ### Three states for Checklists tab subject view
 
-| Condition | Display |
-|---|---|
-| `sowCheck.exists && items.length > 0` | Normal checklist view (unchanged) |
+| Condition                               | Display                                                               |
+| --------------------------------------- | --------------------------------------------------------------------- |
+| `sowCheck.exists && items.length > 0`   | Normal checklist view (unchanged)                                     |
 | `sowCheck.exists && items.length === 0` | Existing empty state: "No topics defined in the SOW for this subject" |
-| `!sowCheck.exists` | New locked empty state (below) |
+| `!sowCheck.exists`                      | New locked empty state (below)                                        |
 
 ### Locked empty state component
 
 - `Lock` icon in an amber gradient tile (§9.3 warning recipe)
-- Serif title: *"SOW not yet approved"*
-- Body: *"Topics for [Subject Name] · [Term Label] will appear here once the administrator publishes and applies the Scheme of Work."*
+- Serif title: _"SOW not yet approved"_
+- Body: _"Topics for [Subject Name] · [Term Label] will appear here once the administrator publishes and applies the Scheme of Work."_
 - No action button for teachers; registrar+ sees `ArrowUpRight` link to `/sis/admin/sow`
 
 ### Write-ups tab
@@ -224,16 +225,16 @@ Subjects without SOW remain visible in the picker (teachers see what's coming). 
 
 ## Files Touched
 
-| File | Change |
-|---|---|
-| `supabase/migrations/059_*.sql` | New `create_grading_sheets_for_scopes` RPC + `sow_class_instances.has_partial_rebaseline` column |
-| `app/api/grading-sheets/bulk-create/route.ts` | Restructure to pre-check SOW, call selective RPC, report blocked scopes |
-| `app/api/sis/admin/sow/apply/route.ts` | Auto-trigger sheet creation + impact detection + merge strategy |
-| `lib/sis/sow/queries.ts` | Add `detectSowChangeImpact`, `hasGradingScores`, `hasEvaluationResponses` |
-| `lib/sis/sow/mutations.ts` | Update `applyInstanceToSection` to accept `impactMode`; add `mergeGradingSheetSlots`, `mergeEvaluationTopics` |
-| `lib/sis/readiness.ts` | Add `"sow"` step + `loadSowReadiness` |
-| `components/sis/ay-readiness-pill.tsx` | Add `"sow"` step icon + dependency copy on grading-sheets step |
-| `app/(evaluation)/evaluation/sections/[sectionId]/page.tsx` | Add locked empty state when `!sowCheck.exists` |
-| `components/markbook/bulk-create-sheets-button.tsx` | Handle `sow_scopes_blocked` in toast |
-| `components/sis/generate-sheets-dialog.tsx` | Handle `sow_scopes_blocked` in toast |
-| `components/markbook/score-entry-grid.tsx` (or chip component) | Amber SOW chip variant when `has_partial_rebaseline` |
+| File                                                           | Change                                                                                                        |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `supabase/migrations/059_*.sql`                                | New `create_grading_sheets_for_scopes` RPC + `sow_class_instances.has_partial_rebaseline` column              |
+| `app/api/grading-sheets/bulk-create/route.ts`                  | Restructure to pre-check SOW, call selective RPC, report blocked scopes                                       |
+| `app/api/sis/admin/sow/apply/route.ts`                         | Auto-trigger sheet creation + impact detection + merge strategy                                               |
+| `lib/sis/sow/queries.ts`                                       | Add `detectSowChangeImpact`, `hasGradingScores`, `hasEvaluationResponses`                                     |
+| `lib/sis/sow/mutations.ts`                                     | Update `applyInstanceToSection` to accept `impactMode`; add `mergeGradingSheetSlots`, `mergeEvaluationTopics` |
+| `lib/sis/readiness.ts`                                         | Add `"sow"` step + `loadSowReadiness`                                                                         |
+| `components/sis/ay-readiness-pill.tsx`                         | Add `"sow"` step icon + dependency copy on grading-sheets step                                                |
+| `app/(evaluation)/evaluation/sections/[sectionId]/page.tsx`    | Add locked empty state when `!sowCheck.exists`                                                                |
+| `components/markbook/bulk-create-sheets-button.tsx`            | Handle `sow_scopes_blocked` in toast                                                                          |
+| `components/sis/generate-sheets-dialog.tsx`                    | Handle `sow_scopes_blocked` in toast                                                                          |
+| `components/markbook/score-entry-grid.tsx` (or chip component) | Amber SOW chip variant when `has_partial_rebaseline`                                                          |

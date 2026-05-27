@@ -64,7 +64,7 @@ function extFromPath(path: string): string {
 // as 'Valid' for staff uploads.
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ enroleeNumber: string }> },
+  { params }: { params: Promise<{ enroleeNumber: string }> }
 ) {
   const auth = await requireRole(['p-file', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -76,27 +76,36 @@ export async function POST(
     return NextResponse.json({ error: 'invalid form data' }, { status: 400 });
   }
 
-  const files = formData.getAll('file').filter((f): f is File => f instanceof File);
+  const files = formData
+    .getAll('file')
+    .filter((f): f is File => f instanceof File);
   const slotKey = formData.get('slotKey') as string | null;
   const expiryDate = formData.get('expiryDate') as string | null;
   const passportNumber = formData.get('passportNumber') as string | null;
   const passType = formData.get('passType') as string | null;
   const noteRaw = formData.get('note');
-  const note = typeof noteRaw === 'string' && noteRaw.trim() ? noteRaw.trim() : null;
+  const note =
+    typeof noteRaw === 'string' && noteRaw.trim() ? noteRaw.trim() : null;
 
   if (files.length === 0 || !slotKey) {
-    return NextResponse.json({ error: 'file and slotKey are required' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'file and slotKey are required' },
+      { status: 400 }
+    );
   }
 
   const slot = DOCUMENT_SLOTS.find((s) => s.key === slotKey);
   if (!slot) {
-    return NextResponse.json({ error: `invalid slotKey: ${slotKey}` }, { status: 400 });
+    return NextResponse.json(
+      { error: `invalid slotKey: ${slotKey}` },
+      { status: 400 }
+    );
   }
 
   if (slot.expires && !expiryDate) {
     return NextResponse.json(
       { error: 'expiryDate is required for expiring documents' },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -104,13 +113,13 @@ export async function POST(
   if (slot.meta?.kind === 'passport' && !passportNumber) {
     return NextResponse.json(
       { error: 'passportNumber is required for passport documents' },
-      { status: 400 },
+      { status: 400 }
     );
   }
   if (slot.meta?.kind === 'pass' && !passType) {
     return NextResponse.json(
       { error: 'passType is required for pass documents' },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -120,7 +129,7 @@ export async function POST(
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         { error: `File "${file.name}" exceeds 10 MB limit` },
-        { status: 400 },
+        { status: 400 }
       );
     }
     totalSize += file.size;
@@ -128,7 +137,7 @@ export async function POST(
   if (totalSize > MAX_TOTAL_SIZE) {
     return NextResponse.json(
       { error: 'Total file size exceeds 30 MB limit' },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -137,20 +146,20 @@ export async function POST(
     if (files.length > 1) {
       return NextResponse.json(
         { error: 'ID Picture only accepts a single image file' },
-        { status: 400 },
+        { status: 400 }
       );
     }
     if (!isImage(files[0])) {
       return NextResponse.json(
         { error: 'ID Picture must be an image file (JPG, PNG, GIF, or WEBP)' },
-        { status: 400 },
+        { status: 400 }
       );
     }
   } else {
     if (files.length === 1 && !isPdf(files[0])) {
       return NextResponse.json(
         { error: `"${slot.label}" must be a PDF file` },
-        { status: 400 },
+        { status: 400 }
       );
     }
     // Multi-file: all must be PDFs for merging
@@ -158,8 +167,11 @@ export async function POST(
       const nonPdf = files.find((f) => !isPdf(f));
       if (nonPdf) {
         return NextResponse.json(
-          { error: 'When uploading multiple files, all must be PDFs for merging' },
-          { status: 400 },
+          {
+            error:
+              'When uploading multiple files, all must be PDFs for merging',
+          },
+          { status: 400 }
         );
       }
     }
@@ -181,7 +193,7 @@ export async function POST(
         error:
           'P-Files uploads are only available for enrolled students. Pre-enrolment document handling lives in the Admissions module.',
       },
-      { status: 422 },
+      { status: 422 }
     );
   }
 
@@ -199,13 +211,18 @@ export async function POST(
     .maybeSingle();
 
   const currentRow = (currentDoc ?? {}) as Record<string, unknown>;
-  const currentUrl = typeof currentRow[slotKey] === 'string' ? (currentRow[slotKey] as string) : null;
-  const currentStatus = typeof currentRow[`${slotKey}Status`] === 'string'
-    ? (currentRow[`${slotKey}Status`] as string)
-    : null;
-  const currentExpiry = slot.expires && typeof currentRow[`${slotKey}Expiry`] === 'string'
-    ? (currentRow[`${slotKey}Expiry`] as string)
-    : null;
+  const currentUrl =
+    typeof currentRow[slotKey] === 'string'
+      ? (currentRow[slotKey] as string)
+      : null;
+  const currentStatus =
+    typeof currentRow[`${slotKey}Status`] === 'string'
+      ? (currentRow[`${slotKey}Status`] as string)
+      : null;
+  const currentExpiry =
+    slot.expires && typeof currentRow[`${slotKey}Expiry`] === 'string'
+      ? (currentRow[`${slotKey}Expiry`] as string)
+      : null;
 
   // Snapshot passport / pass metadata if we'll be archiving
   let currentPassportNumber: string | null = null;
@@ -243,13 +260,16 @@ export async function POST(
         const buffer = Buffer.from(await file.arrayBuffer());
         await merger.add(buffer);
       }
-      uploadBuffer = await merger.saveAsBuffer() as Buffer;
+      uploadBuffer = (await merger.saveAsBuffer()) as Buffer;
       contentType = 'application/pdf';
       ext = 'pdf';
     } catch {
       return NextResponse.json(
-        { error: 'Failed to merge PDFs. Please check that all files are valid PDF documents.' },
-        { status: 400 },
+        {
+          error:
+            'Failed to merge PDFs. Please check that all files are valid PDF documents.',
+        },
+        { status: 400 }
       );
     }
   }
@@ -275,7 +295,7 @@ export async function POST(
         // archiving rather than blocking the replacement.
         console.error(
           `[p-files] archive move failed for ${enroleeNumber}/${slotKey}:`,
-          moveError.message,
+          moveError.message
         );
       } else {
         const { data: archiveUrlData } = service.storage
@@ -307,7 +327,7 @@ export async function POST(
         if (!revResult.ok) {
           console.error(
             `[p-files] createRevision failed for ${enroleeNumber}/${slotKey}:`,
-            revResult.error,
+            revResult.error
           );
         }
         didReplace = true;
@@ -323,12 +343,14 @@ export async function POST(
   if (uploadError) {
     return NextResponse.json(
       { error: `storage upload failed: ${uploadError.message}` },
-      { status: 500 },
+      { status: 500 }
     );
   }
 
   // Get public URL
-  const { data: urlData } = service.storage.from(BUCKET).getPublicUrl(canonicalPath);
+  const { data: urlData } = service.storage
+    .from(BUCKET)
+    .getPublicUrl(canonicalPath);
   const publicUrl = urlData.publicUrl;
 
   // --- Table 1: enrolment_documents (file URL + status + expiry) ---
@@ -348,7 +370,7 @@ export async function POST(
   if (docError) {
     return NextResponse.json(
       { error: `db update failed: ${docError.message}` },
-      { status: 500 },
+      { status: 500 }
     );
   }
 
@@ -370,13 +392,17 @@ export async function POST(
 
     if (appError) {
       // Best-effort: file is uploaded, warn but don't fail
-      console.error(`[p-files] enrolment_applications update failed for ${enroleeNumber}:`, appError.message);
+      console.error(
+        `[p-files] enrolment_applications update failed for ${enroleeNumber}:`,
+        appError.message
+      );
       invalidateDrillTags('p-files', ayCode);
       return NextResponse.json({
         ok: true,
         url: publicUrl,
         replaced: didReplace,
-        warning: 'Document uploaded but application metadata update failed. Please update manually.',
+        warning:
+          'Document uploaded but application metadata update failed. Please update manually.',
       });
     }
   }

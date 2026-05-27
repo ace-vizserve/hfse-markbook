@@ -13,7 +13,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 // distinctly from arbitrary edits in the audit log.
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -27,7 +27,10 @@ export async function PATCH(
   const url = new URL(request.url);
   const ayCode = (url.searchParams.get('ay') ?? '').trim();
   if (!/^AY\d{4}$/i.test(ayCode)) {
-    return NextResponse.json({ error: 'Invalid or missing ay query param' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid or missing ay query param' },
+      { status: 400 }
+    );
   }
   const op = (url.searchParams.get('op') ?? '').trim();
 
@@ -36,7 +39,7 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const update = parsed.data;
@@ -51,31 +54,48 @@ export async function PATCH(
 
   // Pre-fetch — both for diff and to merge-validate the startDate/endDate
   // ordering across the non-updated half of the pair.
-  const selectCols = Array.from(new Set([...cols, 'startDate', 'endDate'])).join(', ');
+  const selectCols = Array.from(
+    new Set([...cols, 'startDate', 'endDate'])
+  ).join(', ');
   const { data: before, error: beforeErr } = await supabase
     .from(table)
     .select(selectCols)
     .eq('id', id)
     .maybeSingle();
   if (beforeErr) {
-    console.error('[sis discount-codes PATCH] pre-fetch failed:', beforeErr.message);
+    console.error(
+      '[sis discount-codes PATCH] pre-fetch failed:',
+      beforeErr.message
+    );
     return NextResponse.json({ error: 'Lookup failed' }, { status: 500 });
   }
   if (!before) {
-    return NextResponse.json({ error: 'Discount code not found in this AY' }, { status: 404 });
+    return NextResponse.json(
+      { error: 'Discount code not found in this AY' },
+      { status: 404 }
+    );
   }
   const beforeRow = before as unknown as Record<string, unknown>;
 
   // Merge-validate start/end ordering (partial schema skips the .refine).
-  const mergedStart = (update.startDate ?? beforeRow.startDate) as string | null | undefined;
-  const mergedEnd = (update.endDate ?? beforeRow.endDate) as string | null | undefined;
+  const mergedStart = (update.startDate ?? beforeRow.startDate) as
+    | string
+    | null
+    | undefined;
+  const mergedEnd = (update.endDate ?? beforeRow.endDate) as
+    | string
+    | null
+    | undefined;
   if (mergedStart && mergedEnd && mergedStart > mergedEnd) {
     return NextResponse.json(
       {
         error: 'Invalid payload',
-        details: { fieldErrors: { endDate: ['End date must be on or after start date'] }, formErrors: [] },
+        details: {
+          fieldErrors: { endDate: ['End date must be on or after start date'] },
+          formErrors: [],
+        },
       },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -99,7 +119,8 @@ export async function PATCH(
   await logAction({
     service: supabase,
     actor: { id: auth.user.id, email: auth.user.email ?? null },
-    action: op === 'expire' ? 'sis.discount_code.expire' : 'sis.discount_code.update',
+    action:
+      op === 'expire' ? 'sis.discount_code.expire' : 'sis.discount_code.update',
     entityType: 'discount_code',
     entityId: String(id),
     context: { ay_code: ayCode, changes },

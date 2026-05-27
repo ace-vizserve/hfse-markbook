@@ -1,6 +1,6 @@
 # AY Setup Wizard (AY Rollover)
 
-> **Status:** ✅ **Shipped 2026-04-20 (MVP).** Wizard live at `/sis/ay-setup`. Creates `academic_years` row + 4 terms + copied sections + copied subject_configs + 4 AY-prefixed admissions tables (`ay{YY}_enrolment_*` + `ay{YY}_discount_codes`) atomically via the `create_academic_year` Postgres function. Switch-active + superadmin-gated delete ship alongside. **Role split:** create + switch-active = admin + superadmin; delete = superadmin only. The switcher is **DB-driven** (reads `academic_years` at render time), so creating an AY makes it visible everywhere immediately — no code deploy step.
+> **Status:** ✅ **Shipped 2026-04-20 (MVP).** Wizard live at `/sis/ay-setup`. Creates `academic_years` row + 4 terms + copied sections + copied subject*configs + 4 AY-prefixed admissions tables (`ay{YY}\_enrolment*\*`+`ay{YY}\_discount_codes`) atomically via the `create_academic_year`Postgres function. Switch-active + superadmin-gated delete ship alongside. **Role split:** create + switch-active = admin + superadmin; delete = superadmin only. The switcher is **DB-driven** (reads`academic_years` at render time), so creating an AY makes it visible everywhere immediately — no code deploy step.
 
 ## Why this doc exists
 
@@ -21,19 +21,19 @@ The switcher and URL-param validation read `academic_years` at render time (via 
 
 The compound operation:
 
-| Entity | Rows / tables to create | Source today | Wizard scope |
-|---|---|---|---|
-| `academic_years` | 1 row (code + label + `is_current=false`) | Manual SQL / seed.sql | **wizard creates** |
-| `terms` | 4 rows (T1 / T2 / T3 / T4, `academic_year_id` → new AY, dates TBD) | seed.sql | **wizard creates** |
-| `sections` | ~18 rows for HFSE (one per level × section name, e.g. P1 Patience, P1 Courageous, …) | seed.sql | **wizard creates** (copy-forward) |
-| `subject_configs` | ~60–100 rows (one per subject × level × AY, weights like 40/40/20 Primary or 30/50/20 Secondary) | seed.sql | **wizard creates** (copy-forward) |
-| `subjects` | usually unchanged; occasionally a new subject is added (e.g. Economics in Sec 3) | manual | **wizard creates** if step 3 adds any |
-| `ay{YY}_enrolment_applications` DDL | 1 table | parent-portal migrations (frozen in `10-parent-portal.md` §Reference DDL) | **wizard creates** (parameterised DDL template, see §"Admissions DDL") |
-| `ay{YY}_enrolment_status` DDL | 1 table | parent-portal migrations | **wizard creates** |
-| `ay{YY}_enrolment_documents` DDL | 1 table | parent-portal migrations | **wizard creates** |
-| `ay{YY}_discount_codes` DDL | 1 table | parent-portal migrations | **wizard creates** |
-| `levels` | AY-invariant (P1–P6, S1–S4) | seed.sql once | not touched |
-| ~~`SUPPORTED_AYS` constant~~ | ~~prepend new code~~ | ~~`lib/academic-year.ts`~~ | **removed 2026-04-20** — the switcher reads `academic_years` at render time via `listAyCodes()`; there's no longer a compile-time list to keep in sync |
+| Entity                              | Rows / tables to create                                                                          | Source today                                                              | Wizard scope                                                                                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `academic_years`                    | 1 row (code + label + `is_current=false`)                                                        | Manual SQL / seed.sql                                                     | **wizard creates**                                                                                                                                     |
+| `terms`                             | 4 rows (T1 / T2 / T3 / T4, `academic_year_id` → new AY, dates TBD)                               | seed.sql                                                                  | **wizard creates**                                                                                                                                     |
+| `sections`                          | ~18 rows for HFSE (one per level × section name, e.g. P1 Patience, P1 Courageous, …)             | seed.sql                                                                  | **wizard creates** (copy-forward)                                                                                                                      |
+| `subject_configs`                   | ~60–100 rows (one per subject × level × AY, weights like 40/40/20 Primary or 30/50/20 Secondary) | seed.sql                                                                  | **wizard creates** (copy-forward)                                                                                                                      |
+| `subjects`                          | usually unchanged; occasionally a new subject is added (e.g. Economics in Sec 3)                 | manual                                                                    | **wizard creates** if step 3 adds any                                                                                                                  |
+| `ay{YY}_enrolment_applications` DDL | 1 table                                                                                          | parent-portal migrations (frozen in `10-parent-portal.md` §Reference DDL) | **wizard creates** (parameterised DDL template, see §"Admissions DDL")                                                                                 |
+| `ay{YY}_enrolment_status` DDL       | 1 table                                                                                          | parent-portal migrations                                                  | **wizard creates**                                                                                                                                     |
+| `ay{YY}_enrolment_documents` DDL    | 1 table                                                                                          | parent-portal migrations                                                  | **wizard creates**                                                                                                                                     |
+| `ay{YY}_discount_codes` DDL         | 1 table                                                                                          | parent-portal migrations                                                  | **wizard creates**                                                                                                                                     |
+| `levels`                            | AY-invariant (P1–P6, S1–S4)                                                                      | seed.sql once                                                             | not touched                                                                                                                                            |
+| ~~`SUPPORTED_AYS` constant~~        | ~~prepend new code~~                                                                             | ~~`lib/academic-year.ts`~~                                                | **removed 2026-04-20** — the switcher reads `academic_years` at render time via `listAyCodes()`; there's no longer a compile-time list to keep in sync |
 
 The wizard owns **every DDL and every row** needed for the new AY to function inside the SIS. With the 2026-04-20 shift to a DB-driven switcher, the wizard is now fully autonomous — no code deploy follow-up is required. The AY appears in the switcher on the next page render.
 
@@ -74,6 +74,7 @@ Since the parent portal also writes to these tables (KD #12 parent-portal integr
 Multi-step form at `/sis/ay-setup` (superadmin-only; `ROUTE_ACCESS` gate + layout check), modelled on the `edit-stage-dialog.tsx` + `new-sheet` form patterns already in use.
 
 ### Step 1 — AY identity
+
 - `ay_code` (required, format `AY\d{4}`, uniqueness checked against `academic_years`). **HFSE convention:** the four digits are the calendar year. AY2026 = January–November 2026 (single calendar year, not a 2025–2026 split).
 - `label` (auto-suggested from code, e.g. `AY2027` → `Academic Year 2027`; editable)
 - `is_current` stays `false` at creation (separate step to switch the active AY — see §Safety rails)
@@ -82,22 +83,26 @@ Multi-step form at `/sis/ay-setup` (superadmin-only; `ROUTE_ACCESS` gate + layou
 Uniqueness is validated both client-side (the API `POST` pre-check returns `{ ok: true, alreadyExisted: true }` without mutating) and server-side (the `academic_years.ay_code` unique constraint is the safety net against races).
 
 ### Step 2 — Copy-forward sections + subject_configs
+
 - Dropdown: "Copy sections + subject weights from" → defaults to the most recent AY (by `ay_code` desc).
 - Preview grid: shows the sections that will be cloned (level × section name), and subject_configs (subject × level × weights).
 - Admin can toggle individual rows off (e.g. "don't copy Sec 3 Economics this year").
 - Rationale: sections rarely change year-to-year; subject weights almost never. Copy-forward is 95% correct; edit is the 5% exception.
 
 ### Step 3 — Curriculum edit (optional)
+
 - Add new subjects (inserts into `subjects` if new; creates `subject_configs` for applicable levels × the new AY).
 - Remove subjects from specific levels for the new AY (no insert into `subject_configs` for that combination).
 - Adjust weights on any subject_config row.
 - Default: skip this step (copy-forward is good enough).
 
 ### Step 4 — Terms
+
 - Auto-create 4 terms (T1–T4) for the new AY. Term labels fixed ("Term 1 – Quarter 1", etc.).
 - Term dates (start / end) optional but recommended — these drive the publish window defaults later.
 
 ### Step 5 — Review + commit
+
 - Single summary screen: "You're about to insert: 1 AY row, 4 terms, 18 sections, 82 subject_configs, 2 new subjects; create 4 admissions tables (`ay27_enrolment_applications`, `_status`, `_documents`, `ay27_discount_codes`)."
 - Commit button runs the full compound operation in a single transaction:
   1. `CREATE TABLE IF NOT EXISTS` for all 4 admissions tables using the template in `lib/sis/ay-setup/admissions-ddl.ts`.
@@ -109,9 +114,11 @@ Uniqueness is validated both client-side (the API `POST` pre-check returns `{ ok
   - 🔶 **When ready:** flip `is_current` via the "Switch active AY" action on `/sis/ay-setup`.
 
 ### Switch-active-AY flow (separate action, admin + superadmin)
+
 A small button on the AY Setup landing page: "Switch active AY from AY2026 → AY2027." Runs `UPDATE academic_years SET is_current = (ay_code = 'AY2027')`, audited, requires typing the target code as confirmation (destructive-confirm pattern).
 
 ### Delete-AY flow (separate action, superadmin only)
+
 A "Delete" button on each AY's row in the AY Setup landing list. Renders **only for superadmin** and is **disabled** under any of these conditions (with tooltip explaining why):
 
 - The AY is `is_current=true`.
@@ -122,12 +129,13 @@ If the AY is truly empty, clicking Delete opens an `AlertDialog`:
 > **Delete AY2027?** This will drop 4 admissions tables (`ay27_enrolment_applications`, `_status`, `_documents`, `ay27_discount_codes`) and remove the AY + terms + sections + subject_configs rows. This cannot be undone. Type **AY2027** to confirm.
 
 On confirm, the backend runs in a single transaction:
+
 1. Pre-flight emptiness check (repeats the server-side gate — never trust client).
 2. `DROP TABLE IF EXISTS ay{YY}_enrolment_applications, _status, _documents, ay{YY}_discount_codes` via the same `security definer` helper used for creation.
 3. `DELETE FROM subject_configs / sections / terms / academic_years` for the AY.
 4. Audit row, action `ay.delete`, context: `{aySlug, droppedTables: [...], deletedRowCounts: {...}}`.
 
-Delete is intentionally narrow — it's the *inverse of creation for mis-created AYs*, not a way to retire historical years. Archival of old AYs with real data is a separate future feature if HFSE ever asks for it.
+Delete is intentionally narrow — it's the _inverse of creation for mis-created AYs_, not a way to retire historical years. Archival of old AYs with real data is a separate future feature if HFSE ever asks for it.
 
 ## Safety rails
 
@@ -142,22 +150,23 @@ Delete is intentionally narrow — it's the *inverse of creation for mis-created
 
 ## Scope boundaries
 
-| In scope (v1) | Out of scope (v1) |
-|---|---|
-| Create `academic_years` + `terms` + `sections` + `subject_configs` rows | Runtime-writable column additions to admissions tables (dev still owns schema bumps) |
+| In scope (v1)                                                                                                  | Out of scope (v1)                                                                                                  |
+| -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Create `academic_years` + `terms` + `sections` + `subject_configs` rows                                        | Runtime-writable column additions to admissions tables (dev still owns schema bumps)                               |
 | Create the 4 admissions DDL tables (`ay{YY}_enrolment_*` + `ay{YY}_discount_codes`) via parameterised template | Schema-drift detection — if parent portal updates the DDL and forgets to update our template, we don't auto-detect |
-| Copy-forward from previous AY with per-row opt-out | Retroactive DDL migrations on already-created AYs |
-| Add / remove subjects + adjust weights inline | Bulk-edit weights across AYs after creation |
-| Switch-active-AY action (admin + superadmin, confirmation required) | Auto-rolling over mid-year based on a date trigger |
-| **Delete-AY action (superadmin-only, guarded to empty AYs)** | **Archive / retire an AY that has historical data** (revisit if HFSE asks) |
-| Audit-logged create + switch + delete | Add-column / schema-modification UI (skipped per 2026-04-20 decision) |
-| Per-row failure visibility in the transaction | Partial commits |
+| Copy-forward from previous AY with per-row opt-out                                                             | Retroactive DDL migrations on already-created AYs                                                                  |
+| Add / remove subjects + adjust weights inline                                                                  | Bulk-edit weights across AYs after creation                                                                        |
+| Switch-active-AY action (admin + superadmin, confirmation required)                                            | Auto-rolling over mid-year based on a date trigger                                                                 |
+| **Delete-AY action (superadmin-only, guarded to empty AYs)**                                                   | **Archive / retire an AY that has historical data** (revisit if HFSE asks)                                         |
+| Audit-logged create + switch + delete                                                                          | Add-column / schema-modification UI (skipped per 2026-04-20 decision)                                              |
+| Per-row failure visibility in the transaction                                                                  | Partial commits                                                                                                    |
 
 ## Data model
 
 **No new SIS-owned tables.** The wizard's operation is:
 
 **DDL (4 new tables per AY)** — idempotent `CREATE TABLE IF NOT EXISTS`:
+
 - `ay{YY}_enrolment_applications`
 - `ay{YY}_enrolment_status`
 - `ay{YY}_enrolment_documents`
@@ -169,6 +178,7 @@ Template lives in `lib/sis/ay-setup/admissions-ddl.ts` (new file), generated fro
 - `public.drop_ay_admissions_tables(ay_slug text)` — `DROP TABLE IF EXISTS` for all 4 tables (used by delete-AY). Function body includes a pre-flight check that every target table has zero rows before issuing the drops, so even a stray client call can't accidentally destroy data.
 
 **DML (rows on existing SIS tables)** — all in one transaction:
+
 - `academic_years` — one INSERT
 - `terms` — four INSERTs
 - `sections` — N INSERTs (HFSE: ~18, copy-forward from prior AY)
@@ -192,12 +202,12 @@ Cache invalidation: `revalidateTag('sis:${newAyCode}', 'max')` after creation or
 
 Per-action, not per-surface:
 
-| Action | Roles allowed | Rationale |
-|---|---|---|
-| View AY list | `registrar`, `admin`, `superadmin` | Read-only visibility into what exists. |
-| Create AY (wizard) | `admin`, `superadmin` | Aligned with KD #32: admin is "full operator." Reversible via delete. |
-| Switch active AY | `admin`, `superadmin` | Same bracket as create — it's reversible (switch back) and audited. |
-| Delete AY | `superadmin` only | Destructive + irreversible. Matches KD #2's destructive-ops carve-out. |
+| Action             | Roles allowed                      | Rationale                                                              |
+| ------------------ | ---------------------------------- | ---------------------------------------------------------------------- |
+| View AY list       | `registrar`, `admin`, `superadmin` | Read-only visibility into what exists.                                 |
+| Create AY (wizard) | `admin`, `superadmin`              | Aligned with KD #32: admin is "full operator." Reversible via delete.  |
+| Switch active AY   | `admin`, `superadmin`              | Same bracket as create — it's reversible (switch back) and audited.    |
+| Delete AY          | `superadmin` only                  | Destructive + irreversible. Matches KD #2's destructive-ops carve-out. |
 
 Registrar sees the AY list but none of the mutation buttons. Teachers, parents, p-file officers never reach this surface.
 

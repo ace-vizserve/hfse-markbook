@@ -44,7 +44,9 @@ export function ChecklistSubjectPicker({
           {subjects.map((s) => (
             <SelectItem key={s.id} value={s.id}>
               {s.name}
-              <span className="ml-2 font-mono text-[10px] text-muted-foreground">{s.code}</span>
+              <span className="ml-2 font-mono text-[10px] text-muted-foreground">
+                {s.code}
+              </span>
             </SelectItem>
           ))}
         </SelectContent>

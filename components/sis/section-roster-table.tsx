@@ -1,19 +1,19 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import { ArrowRightLeft, Pencil, Users } from "lucide-react";
-import type { ColumnDef } from "@tanstack/react-table";
-import Link from "next/link";
+import * as React from 'react';
+import { ArrowRightLeft, Pencil, Users } from 'lucide-react';
+import type { ColumnDef } from '@tanstack/react-table';
+import Link from 'next/link';
 
-import { DataTable } from "@/components/ui/data-table";
-import { EnrollmentStatusBadge } from "@/components/ui/enrollment-status-badge";
-import { Button } from "@/components/ui/button";
+import { DataTable } from '@/components/ui/data-table';
+import { EnrollmentStatusBadge } from '@/components/ui/enrollment-status-badge';
+import { Button } from '@/components/ui/button';
 
-import { EnrolmentEditSheet } from "@/components/sis/enrolment-edit-sheet";
+import { EnrolmentEditSheet } from '@/components/sis/enrolment-edit-sheet';
 import {
   SectionTransferDialog,
   type SiblingSection,
-} from "@/components/sis/section-transfer-dialog";
+} from '@/components/sis/section-transfer-dialog';
 
 export type SectionRosterRow = {
   enrolmentId: string;
@@ -21,7 +21,7 @@ export type SectionRosterRow = {
   studentName: string;
   studentNumber: string;
   enroleeNumber: string | null; // null when admissions row missing — Move disabled
-  enrollmentStatus: "active" | "late_enrollee" | "withdrawn";
+  enrollmentStatus: 'active' | 'late_enrollee' | 'withdrawn';
   busNo?: string | null;
   classroomOfficerRole?: string | null;
   // Optional date fields — promoted to hidden-by-default columns (KD #68 pattern).
@@ -38,7 +38,11 @@ function formatDate(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const d = new Date(iso.replace(/-/g, '/'));
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("en-SG", { day: "2-digit", month: "short", year: "numeric" });
+  return d.toLocaleDateString('en-SG', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 export function SectionRosterTable({
@@ -57,9 +61,9 @@ export function SectionRosterTable({
   const columns: ColumnDef<SectionRosterRow>[] = React.useMemo(
     () => [
       {
-        id: "indexNumber",
-        accessorKey: "indexNumber",
-        header: "#",
+        id: 'indexNumber',
+        accessorKey: 'indexNumber',
+        header: '#',
         cell: ({ row }) => (
           <span className="font-mono text-xs tabular-nums text-muted-foreground">
             {row.original.indexNumber}
@@ -69,16 +73,18 @@ export function SectionRosterTable({
         enableHiding: false,
       },
       {
-        id: "studentName",
-        accessorKey: "studentName",
-        header: "Student",
+        id: 'studentName',
+        accessorKey: 'studentName',
+        header: 'Student',
         cell: ({ row }) => {
           const r = row.original;
           // Link to records detail page via studentNumber (KD #81).
           const nameEl = (
             <div className="flex flex-col">
-              {r.enrollmentStatus === "withdrawn" ? (
-                <span className="font-medium line-through text-muted-foreground">{r.studentName}</span>
+              {r.enrollmentStatus === 'withdrawn' ? (
+                <span className="font-medium line-through text-muted-foreground">
+                  {r.studentName}
+                </span>
               ) : (
                 <Link
                   href={`/records/students/${encodeURIComponent(r.studentNumber)}`}
@@ -87,7 +93,9 @@ export function SectionRosterTable({
                   {r.studentName}
                 </Link>
               )}
-              <span className="font-mono text-[10px] text-muted-foreground">{r.studentNumber}</span>
+              <span className="font-mono text-[10px] text-muted-foreground">
+                {r.studentNumber}
+              </span>
             </div>
           );
           return nameEl;
@@ -95,12 +103,15 @@ export function SectionRosterTable({
         enableHiding: false,
       },
       {
-        id: "enrollmentStatus",
-        accessorKey: "enrollmentStatus",
-        header: "Status",
-        cell: ({ row }) => <EnrollmentStatusBadge status={row.original.enrollmentStatus} />,
+        id: 'enrollmentStatus',
+        accessorKey: 'enrollmentStatus',
+        header: 'Status',
+        cell: ({ row }) => (
+          <EnrollmentStatusBadge status={row.original.enrollmentStatus} />
+        ),
         filterFn: (row, _id, value) => {
-          if (!value || (Array.isArray(value) && value.length === 0)) return true;
+          if (!value || (Array.isArray(value) && value.length === 0))
+            return true;
           return Array.isArray(value)
             ? value.includes(row.original.enrollmentStatus)
             : row.original.enrollmentStatus === value;
@@ -108,13 +119,15 @@ export function SectionRosterTable({
       },
       {
         // enrollment_date: hidden-by-default, promoted per spec
-        id: "enrollment_date",
-        accessorKey: "enrollment_date",
-        header: "Date enrolled",
+        id: 'enrollment_date',
+        accessorKey: 'enrollment_date',
+        header: 'Date enrolled',
         cell: ({ row }) => {
           const d = formatDate(row.original.enrollment_date);
           return d ? (
-            <span className="font-mono text-[11px] tabular-nums text-foreground">{d}</span>
+            <span className="font-mono text-[11px] tabular-nums text-foreground">
+              {d}
+            </span>
           ) : (
             <span className="text-muted-foreground">—</span>
           );
@@ -123,13 +136,15 @@ export function SectionRosterTable({
       },
       {
         // withdrawal_date: hidden-by-default, promoted per spec
-        id: "withdrawal_date",
-        accessorKey: "withdrawal_date",
-        header: "Withdrawn on",
+        id: 'withdrawal_date',
+        accessorKey: 'withdrawal_date',
+        header: 'Withdrawn on',
         cell: ({ row }) => {
           const d = formatDate(row.original.withdrawal_date);
           return d ? (
-            <span className="font-mono text-[11px] tabular-nums text-foreground">{d}</span>
+            <span className="font-mono text-[11px] tabular-nums text-foreground">
+              {d}
+            </span>
           ) : (
             <span className="text-muted-foreground">—</span>
           );
@@ -139,20 +154,22 @@ export function SectionRosterTable({
       {
         // termJoined: hidden-by-default (KD #68 pattern — requires server-side
         // lib/sis/terms.ts::getTermForDate; page passes it once wired)
-        id: "termJoined",
-        accessorKey: "termJoined",
-        header: "Term joined",
+        id: 'termJoined',
+        accessorKey: 'termJoined',
+        header: 'Term joined',
         cell: ({ row }) =>
           row.original.termJoined ? (
-            <span className="text-sm text-foreground">{row.original.termJoined}</span>
+            <span className="text-sm text-foreground">
+              {row.original.termJoined}
+            </span>
           ) : (
             <span className="text-muted-foreground">—</span>
           ),
         enableSorting: true,
       },
       {
-        id: "action",
-        header: "",
+        id: 'action',
+        header: '',
         cell: ({ row }) => {
           const r = row.original;
           return (
@@ -168,12 +185,17 @@ export function SectionRosterTable({
                   enrollment_status: r.enrollmentStatus,
                 }}
               >
-                <Button variant="ghost" size="sm" className="h-7 px-2" title="Edit enrolment details">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2"
+                  title="Edit enrolment details"
+                >
                   <Pencil className="size-3" />
                   <span className="sr-only">Edit enrolment</span>
                 </Button>
               </EnrolmentEditSheet>
-              {r.enrollmentStatus !== "withdrawn" && r.enroleeNumber && (
+              {r.enrollmentStatus !== 'withdrawn' && r.enroleeNumber && (
                 <SectionTransferDialog
                   enroleeNumber={r.enroleeNumber}
                   studentName={r.studentName}
@@ -181,7 +203,11 @@ export function SectionRosterTable({
                   ayCode={ayCode}
                   siblings={siblings}
                   trigger={
-                    <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 gap-1 px-2 text-xs"
+                    >
                       <ArrowRightLeft className="size-3" />
                       Move
                     </Button>
@@ -195,29 +221,30 @@ export function SectionRosterTable({
         enableHiding: false,
       },
     ],
-    [ayCode, sectionId, sectionName, siblings],
+    [ayCode, sectionId, sectionName, siblings]
   );
 
   const statusTabs = [
     {
-      value: "active",
-      label: "Active",
+      value: 'active',
+      label: 'Active',
       isDefault: true,
-      predicate: (r: SectionRosterRow) => r.enrollmentStatus === "active",
+      predicate: (r: SectionRosterRow) => r.enrollmentStatus === 'active',
     },
     {
-      value: "late_enrollee",
-      label: "Late",
-      predicate: (r: SectionRosterRow) => r.enrollmentStatus === "late_enrollee",
+      value: 'late_enrollee',
+      label: 'Late',
+      predicate: (r: SectionRosterRow) =>
+        r.enrollmentStatus === 'late_enrollee',
     },
     {
-      value: "withdrawn",
-      label: "Withdrawn",
-      predicate: (r: SectionRosterRow) => r.enrollmentStatus === "withdrawn",
+      value: 'withdrawn',
+      label: 'Withdrawn',
+      predicate: (r: SectionRosterRow) => r.enrollmentStatus === 'withdrawn',
     },
     {
-      value: "all",
-      label: "All",
+      value: 'all',
+      label: 'All',
       predicate: () => true,
     },
   ];
@@ -227,10 +254,10 @@ export function SectionRosterTable({
       data={rows}
       columns={columns}
       getRowId={(row) => row.enrolmentId}
-      searchKeys={["studentName", "studentNumber"]}
+      searchKeys={['studentName', 'studentNumber']}
       searchPlaceholder="Search student…"
       statusTabs={statusTabs}
-      initialSort={[{ id: "indexNumber", desc: false }]}
+      initialSort={[{ id: 'indexNumber', desc: false }]}
       initialColumnVisibility={{
         enrollment_date: false,
         withdrawal_date: false,
@@ -239,11 +266,11 @@ export function SectionRosterTable({
       hidePagination={true}
       emptyState={{
         icon: Users,
-        title: "No students in this section.",
+        title: 'No students in this section.',
       }}
       emptyFilteredState={{
-        title: "No students match.",
-        body: "Try a different tab or clear the search.",
+        title: 'No students match.',
+        body: 'Try a different tab or clear the search.',
       }}
     />
   );

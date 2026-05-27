@@ -103,7 +103,9 @@ export function ChangeRequestDecisionButtons({
       }
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? 'failed');
-      toast.success(action === 'approve' ? 'Request approved' : 'Request declined');
+      toast.success(
+        action === 'approve' ? 'Request approved' : 'Request declined'
+      );
       setOpen(false);
       router.refresh();
     } catch (e) {
@@ -121,7 +123,8 @@ export function ChangeRequestDecisionButtons({
           size="sm"
           variant="outline"
           className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
-          onClick={() => openDialog('reject')}>
+          onClick={() => openDialog('reject')}
+        >
           <X className="size-3" />
           Decline
         </Button>
@@ -129,7 +132,8 @@ export function ChangeRequestDecisionButtons({
           type="button"
           size="sm"
           className="h-7 px-2 text-xs"
-          onClick={() => openDialog('approve')}>
+          onClick={() => openDialog('approve')}
+        >
           <Check className="size-3" />
           Approve
         </Button>
@@ -139,7 +143,9 @@ export function ChangeRequestDecisionButtons({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {action === 'approve' ? 'Approve this request?' : 'Decline this request?'}
+              {action === 'approve'
+                ? 'Approve this request?'
+                : 'Decline this request?'}
             </DialogTitle>
             <DialogDescription>
               {action === 'approve'
@@ -175,7 +181,12 @@ export function ChangeRequestDecisionButtons({
               ref={confirmRef}
               onClick={() => void submit()}
               disabled={busy || rejectNeedsNote}
-              className={action === 'reject' ? 'bg-destructive text-white hover:bg-destructive/90' : ''}>
+              className={
+                action === 'reject'
+                  ? 'bg-destructive text-white hover:bg-destructive/90'
+                  : ''
+              }
+            >
               {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {action === 'approve' ? 'Approve' : 'Decline'}
             </Button>

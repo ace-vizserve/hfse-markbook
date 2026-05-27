@@ -22,7 +22,12 @@ export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
 // 'vacation' consumes `vacation_leave_allowance_per_term` (1-per-term
 // quota by default). Both defaults live on `school_config` and may be
 // overridden per student. See KD #94.
-const EX_REASON_VALUES = ['mc', 'compassionate', 'school_activity', 'vacation'] as const;
+const EX_REASON_VALUES = [
+  'mc',
+  'compassionate',
+  'school_activity',
+  'vacation',
+] as const;
 export type ExReason = (typeof EX_REASON_VALUES)[number];
 
 export const EX_REASON_LABELS: Record<ExReason, string> = {
@@ -72,7 +77,10 @@ export const DAY_TYPE_VALUES = [
 ] as const;
 export type DayType = (typeof DAY_TYPE_VALUES)[number];
 
-export function isEncodableDayType(t: DayType | null | undefined, hblOverlay?: boolean): boolean {
+export function isEncodableDayType(
+  t: DayType | null | undefined,
+  hblOverlay?: boolean
+): boolean {
   if (t === 'school_day' || t === 'hbl') return true;
   // school_holiday with hbl_overlay=true is encodable — teachers deliver
   // home-based learning while the day is officially a school holiday for
@@ -149,12 +157,14 @@ export const SchoolCalendarUpsertSchema = z.object({
         .refine((v) => v.dayType !== undefined || v.isHoliday !== undefined, {
           message: 'Provide dayType (preferred) or isHoliday (legacy)',
           path: ['dayType'],
-        }),
+        })
     )
     .min(1)
     .max(200),
 });
-export type SchoolCalendarUpsertInput = z.infer<typeof SchoolCalendarUpsertSchema>;
+export type SchoolCalendarUpsertInput = z.infer<
+  typeof SchoolCalendarUpsertSchema
+>;
 
 /** Resolves the `day_type` value to persist from either a new-shape or
  *  legacy-shape upsert entry. */
@@ -180,7 +190,9 @@ export const CalendarEventCreateSchema = z
     message: 'endDate must be on or after startDate',
     path: ['endDate'],
   });
-export type CalendarEventCreateInput = z.infer<typeof CalendarEventCreateSchema>;
+export type CalendarEventCreateInput = z.infer<
+  typeof CalendarEventCreateSchema
+>;
 
 // PATCH /api/attendance/calendar/events — partial update for an existing
 // row. Used by the "Confirm dates" affordance (flips tentative=false) and
@@ -200,9 +212,11 @@ export const CalendarEventUpdateSchema = z
       v.startDate === undefined ||
       v.endDate === undefined ||
       v.endDate >= v.startDate,
-    { message: 'endDate must be on or after startDate', path: ['endDate'] },
+    { message: 'endDate must be on or after startDate', path: ['endDate'] }
   );
-export type CalendarEventUpdateInput = z.infer<typeof CalendarEventUpdateSchema>;
+export type CalendarEventUpdateInput = z.infer<
+  typeof CalendarEventUpdateSchema
+>;
 
 // POST /api/attendance/calendar/copy-from-prior-ay
 // Bulk copy of school_calendar overrides + calendar_events from a prior
@@ -220,7 +234,7 @@ export const CopyFromPriorAyPayloadSchema = z.object({
         dayType: z.enum(DAY_TYPE_VALUES),
         audience: z.enum(AUDIENCE_VALUES),
         label: z.string().trim().max(200).optional().nullable(),
-      }),
+      })
     )
     .max(500)
     .optional()
@@ -238,7 +252,7 @@ export const CopyFromPriorAyPayloadSchema = z.object({
         .refine((v) => v.endDate >= v.startDate, {
           message: 'endDate must be on or after startDate',
           path: ['endDate'],
-        }),
+        })
     )
     .max(500)
     .optional()
@@ -247,7 +261,9 @@ export const CopyFromPriorAyPayloadSchema = z.object({
   // registrar reviews each before locking.
   markTentative: z.boolean().optional().default(true),
 });
-export type CopyFromPriorAyPayload = z.infer<typeof CopyFromPriorAyPayloadSchema>;
+export type CopyFromPriorAyPayload = z.infer<
+  typeof CopyFromPriorAyPayloadSchema
+>;
 
 // ─────────────────────────────────────────────────────────────────────────
 // Bulk daily write (grid paste or multi-cell save)

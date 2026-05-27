@@ -12,12 +12,20 @@ import { getCurrentAcademicYear } from '@/lib/academic-year';
 import type { SidebarBadges } from '@/lib/auth/roles';
 import { countUnsyncedEnrolledStudents } from '@/lib/sis/unsynced-students';
 
-export default async function RecordsLayout({ children }: { children: React.ReactNode }) {
+export default async function RecordsLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
 
   const { id, email, role } = sessionUser;
-  if (role !== 'registrar' && role !== 'school_admin' && role !== 'superadmin') {
+  if (
+    role !== 'registrar' &&
+    role !== 'school_admin' &&
+    role !== 'superadmin'
+  ) {
     if (role === 'p-file') redirect('/p-files');
     if (!role) redirect('/parent');
     redirect('/');

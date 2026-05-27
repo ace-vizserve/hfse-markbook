@@ -8,9 +8,24 @@ import { PromiseDialog } from '@/components/p-files/promise-dialog';
 import { UploadDialog } from '@/components/p-files/upload-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { DOCUMENT_SLOTS, type DocumentStatus, type SlotMeta } from '@/lib/p-files/document-config';
-import { classifyUrgency, urgencyDescriptor, type SlotUrgencyKind } from '@/lib/p-files/urgency';
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  DOCUMENT_SLOTS,
+  type DocumentStatus,
+  type SlotMeta,
+} from '@/lib/p-files/document-config';
+import {
+  classifyUrgency,
+  urgencyDescriptor,
+  type SlotUrgencyKind,
+} from '@/lib/p-files/urgency';
 
 export type ActionQueueRow = {
   slotKey: string;
@@ -62,7 +77,9 @@ export function ActionQueueCard({
           <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
             Action queue
           </CardDescription>
-          <CardTitle className="font-serif text-xl">Nothing needs attention.</CardTitle>
+          <CardTitle className="font-serif text-xl">
+            Nothing needs attention.
+          </CardTitle>
           <CardAction>
             <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-mint to-brand-mint-deep text-ink shadow-brand-tile-mint">
               <CalendarClock className="size-4" />
@@ -71,8 +88,8 @@ export function ActionQueueCard({
         </CardHeader>
         <CardContent>
           <p className="text-[13px] leading-relaxed text-muted-foreground">
-            All documents are valid and outside the 60-day expiry window. Nothing to remind, nothing
-            to chase.
+            All documents are valid and outside the 60-day expiry window.
+            Nothing to remind, nothing to chase.
           </p>
         </CardContent>
       </Card>
@@ -86,7 +103,8 @@ export function ActionQueueCard({
           Action queue
         </CardDescription>
         <CardTitle className="font-serif text-xl">
-          {totalActionable} document{totalActionable === 1 ? '' : 's'} need{totalActionable === 1 ? 's' : ''} attention
+          {totalActionable} document{totalActionable === 1 ? '' : 's'} need
+          {totalActionable === 1 ? 's' : ''} attention
         </CardTitle>
         <CardAction>
           <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
@@ -106,7 +124,10 @@ export function ActionQueueCard({
           const config = DOCUMENT_SLOTS.find((s) => s.key === row.slotKey);
           const isReplacement = row.status !== 'missing' && row.status !== 'na';
           return (
-            <li key={row.slotKey} className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:gap-4">
+            <li
+              key={row.slotKey}
+              className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:gap-4"
+            >
               <div className="flex min-w-0 flex-1 items-start gap-3">
                 <span
                   aria-hidden
@@ -116,7 +137,9 @@ export function ActionQueueCard({
                   <p className="truncate font-serif text-[15px] font-semibold tracking-tight text-foreground">
                     {row.slotLabel}
                   </p>
-                  <p className={`font-mono text-[11px] tabular-nums ${tone.label}`}>
+                  <p
+                    className={`font-mono text-[11px] tabular-nums ${tone.label}`}
+                  >
                     {urgencyDescriptor({
                       key: row.slotKey,
                       status: row.status,
@@ -134,19 +157,29 @@ export function ActionQueueCard({
                     recipients={recipients}
                     lastReminderAt={row.lastReminderAt}
                     trigger={
-                      <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 text-xs"
+                      >
                         <Mail className="size-3" />
                         Notify
                       </Button>
                     }
                   />
-                  {(row.status === 'expired' || row.status === 'rejected' || row.status === 'missing') && (
+                  {(row.status === 'expired' ||
+                    row.status === 'rejected' ||
+                    row.status === 'missing') && (
                     <PromiseDialog
                       enroleeNumber={enroleeNumber}
                       slotKey={row.slotKey}
                       label={row.slotLabel}
                       trigger={
-                        <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1.5 text-xs"
+                        >
                           <CalendarClock className="size-3" />
                           Promise
                         </Button>
@@ -161,7 +194,11 @@ export function ActionQueueCard({
                     meta={config?.meta ?? row.meta}
                     isReplacement={isReplacement}
                     trigger={
-                      <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1.5 text-xs"
+                      >
                         <Upload className="size-3" />
                         Upload
                       </Button>

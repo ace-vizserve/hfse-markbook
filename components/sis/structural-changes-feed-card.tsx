@@ -39,7 +39,11 @@ function formatTimestamp(iso: string): string {
   }
 }
 
-export function StructuralChangesFeedCard({ rows }: { rows: StructuralChangeRow[] }) {
+export function StructuralChangesFeedCard({
+  rows,
+}: {
+  rows: StructuralChangeRow[];
+}) {
   return (
     <Card>
       <CardHeader>

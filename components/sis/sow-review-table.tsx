@@ -32,8 +32,18 @@ function rowStatus(row: SowReviewRow): SowStatus {
   return 'partial';
 }
 
-type AyOption = { id: string; ay_code: string; label: string; is_current: boolean };
-type TermOption = { id: string; academic_year_id: string; label: string; term_number: number };
+type AyOption = {
+  id: string;
+  ay_code: string;
+  label: string;
+  is_current: boolean;
+};
+type TermOption = {
+  id: string;
+  academic_year_id: string;
+  label: string;
+  term_number: number;
+};
 type SubjectOption = { id: string; code: string; name: string };
 
 type Props = {
@@ -71,7 +81,7 @@ export function SowReviewTable({
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/sis/admin/sow?termId=${encodeURIComponent(tId)}&subjectId=${encodeURIComponent(sId)}&ayCode=${encodeURIComponent(ayC)}`,
+        `/api/sis/admin/sow?termId=${encodeURIComponent(tId)}&subjectId=${encodeURIComponent(sId)}&ayCode=${encodeURIComponent(ayC)}`
       );
       if (res.ok) {
         setRows(await res.json());
@@ -85,7 +95,9 @@ export function SowReviewTable({
     setAyCode(val);
     setRows(null);
     startTransition(() => {
-      router.push(`/sis/admin/sow?ayCode=${val}&termId=${termId}&subjectId=${subjectId}`);
+      router.push(
+        `/sis/admin/sow?ayCode=${val}&termId=${termId}&subjectId=${subjectId}`
+      );
     });
   }
 
@@ -119,10 +131,20 @@ export function SowReviewTable({
 
   // Derive level + section options from loaded data (preserves P1→S4 order from API)
   const levelOptions = rows
-    ? [...new Map(rows.map((r) => [r.level_code, { code: r.level_code, label: r.level_label }])).values()]
+    ? [
+        ...new Map(
+          rows.map((r) => [
+            r.level_code,
+            { code: r.level_code, label: r.level_label },
+          ])
+        ).values(),
+      ]
     : [];
   const sectionOptions = rows
-    ? (levelFilter === 'all' ? rows : rows.filter((r) => r.level_code === levelFilter)).map((r) => ({
+    ? (levelFilter === 'all'
+        ? rows
+        : rows.filter((r) => r.level_code === levelFilter)
+      ).map((r) => ({
         id: r.section_id,
         name: r.section_name,
       }))
@@ -130,7 +152,8 @@ export function SowReviewTable({
 
   const filtered = (rows ?? []).filter((row) => {
     if (levelFilter !== 'all' && row.level_code !== levelFilter) return false;
-    if (sectionFilter !== 'all' && row.section_id !== sectionFilter) return false;
+    if (sectionFilter !== 'all' && row.section_id !== sectionFilter)
+      return false;
     if (statusFilter !== 'all' && rowStatus(row) !== statusFilter) return false;
     return true;
   });
@@ -143,7 +166,11 @@ export function SowReviewTable({
 
         {/* Scope selectors */}
         <div className="flex flex-wrap gap-3 pt-2">
-          <Select value={ayCode} onValueChange={handleAyChange} disabled={isPending}>
+          <Select
+            value={ayCode}
+            onValueChange={handleAyChange}
+            disabled={isPending}
+          >
             <SelectTrigger className="w-36">
               <SelectValue placeholder="AY" />
             </SelectTrigger>
@@ -155,7 +182,11 @@ export function SowReviewTable({
               ))}
             </SelectContent>
           </Select>
-          <Select value={termId} onValueChange={handleTermChange} disabled={!terms.length}>
+          <Select
+            value={termId}
+            onValueChange={handleTermChange}
+            disabled={!terms.length}
+          >
             <SelectTrigger className="w-36">
               <SelectValue placeholder="Term" />
             </SelectTrigger>
@@ -167,7 +198,11 @@ export function SowReviewTable({
               ))}
             </SelectContent>
           </Select>
-          <Select value={subjectId} onValueChange={handleSubjectChange} disabled={!subjects.length}>
+          <Select
+            value={subjectId}
+            onValueChange={handleSubjectChange}
+            disabled={!subjects.length}
+          >
             <SelectTrigger className="w-52">
               <SelectValue placeholder="Subject" />
             </SelectTrigger>
@@ -186,7 +221,10 @@ export function SowReviewTable({
           <div className="flex flex-wrap items-center gap-3 border-t pt-3">
             <Select
               value={levelFilter}
-              onValueChange={(v) => { setLevelFilter(v); setSectionFilter('all'); }}
+              onValueChange={(v) => {
+                setLevelFilter(v);
+                setSectionFilter('all');
+              }}
             >
               <SelectTrigger className="w-36 h-8 text-sm">
                 <SelectValue placeholder="All levels" />
@@ -194,7 +232,9 @@ export function SowReviewTable({
               <SelectContent>
                 <SelectItem value="all">All levels</SelectItem>
                 {levelOptions.map((l) => (
-                  <SelectItem key={l.code} value={l.code}>{l.code}</SelectItem>
+                  <SelectItem key={l.code} value={l.code}>
+                    {l.code}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -206,12 +246,17 @@ export function SowReviewTable({
               <SelectContent>
                 <SelectItem value="all">All sections</SelectItem>
                 {sectionOptions.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
 
-            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as SowStatus)}>
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => setStatusFilter(v as SowStatus)}
+            >
               <SelectTrigger className="w-36 h-8 text-sm">
                 <SelectValue />
               </SelectTrigger>
@@ -272,7 +317,9 @@ export function SowReviewTable({
                   </TableRow>
                   {levelRows.map((row) => (
                     <TableRow key={row.section_id}>
-                      <TableCell className="font-medium">{row.section_name}</TableCell>
+                      <TableCell className="font-medium">
+                        {row.section_name}
+                      </TableCell>
                       <TableCell>
                         <SowStatusBadge status={rowStatus(row)} />
                       </TableCell>
@@ -280,17 +327,27 @@ export function SowReviewTable({
                         {row.advisor_name ?? '—'}
                       </TableCell>
                       <TableCell className="max-w-[200px] align-top">
-                        <LabelChips labels={row.ww_labels.map((l) => l.label)} />
+                        <LabelChips
+                          labels={row.ww_labels.map((l) => l.label)}
+                        />
                       </TableCell>
                       <TableCell className="max-w-[200px] align-top">
-                        <LabelChips labels={row.pt_labels.map((l) => l.label)} />
+                        <LabelChips
+                          labels={row.pt_labels.map((l) => l.label)}
+                        />
                       </TableCell>
                       <TableCell className="max-w-[220px] align-top">
                         <LabelChips labels={row.topic_texts} />
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {row.copied_from_section_name ? (
-                          <span title={row.copied_at ? `Copied ${formatDate(row.copied_at)}` : undefined}>
+                          <span
+                            title={
+                              row.copied_at
+                                ? `Copied ${formatDate(row.copied_at)}`
+                                : undefined
+                            }
+                          >
                             {row.copied_from_section_name}
                           </span>
                         ) : (
@@ -298,7 +355,9 @@ export function SowReviewTable({
                         )}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {row.last_edited_at ? formatDate(row.last_edited_at) : '—'}
+                        {row.last_edited_at
+                          ? formatDate(row.last_edited_at)
+                          : '—'}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -333,11 +392,16 @@ function SowStatusBadge({ status }: { status: SowStatus }) {
 }
 
 function LabelChips({ labels }: { labels: string[] }) {
-  if (!labels.length) return <span className="text-xs text-muted-foreground">—</span>;
+  if (!labels.length)
+    return <span className="text-xs text-muted-foreground">—</span>;
   return (
     <div className="flex flex-wrap gap-1">
       {labels.map((l, i) => (
-        <Badge key={i} variant="outline" className="whitespace-normal break-words text-[10px] leading-tight h-auto py-0.5">
+        <Badge
+          key={i}
+          variant="outline"
+          className="whitespace-normal break-words text-[10px] leading-tight h-auto py-0.5"
+        >
           {l}
         </Badge>
       ))}
@@ -357,7 +421,11 @@ function groupByLevel(rows: SowReviewRow[]) {
 
 function formatDate(iso: string): string {
   try {
-    return new Date(iso).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' });
+    return new Date(iso).toLocaleDateString('en-SG', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
   } catch {
     return iso;
   }

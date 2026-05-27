@@ -37,12 +37,18 @@ export function AttendanceBySectionCard({
 }) {
   const [openSection, setOpenSection] = React.useState<string | null>(null);
   const empty = data.length === 0;
-  const chartData = data.map((r) => ({ category: r.sectionName, current: r.attendancePct }));
+  const chartData = data.map((r) => ({
+    category: r.sectionName,
+    current: r.attendancePct,
+  }));
 
   // Find the section row by name to thread the segment through cleanly.
   // Section name is unique within an AY so this is deterministic.
   return (
-    <Sheet open={!!openSection} onOpenChange={(o) => !o && setOpenSection(null)}>
+    <Sheet
+      open={!!openSection}
+      onOpenChange={(o) => !o && setOpenSection(null)}
+    >
       <Card>
         <CardHeader>
           <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
@@ -61,9 +67,12 @@ export function AttendanceBySectionCard({
           {empty ? (
             <div className="flex h-[260px] flex-col items-center justify-center gap-2 text-center">
               <LineChart className="size-6 text-muted-foreground/60" />
-              <p className="text-sm font-medium text-foreground">No section data</p>
+              <p className="text-sm font-medium text-foreground">
+                No section data
+              </p>
               <p className="max-w-xs text-xs text-muted-foreground">
-                Bars appear once attendance is encoded for sections in this range.
+                Bars appear once attendance is encoded for sections in this
+                range.
               </p>
             </div>
           ) : (

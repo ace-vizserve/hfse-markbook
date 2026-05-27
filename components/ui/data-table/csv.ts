@@ -1,14 +1,24 @@
-type CsvColumn<TRow> = { header: string; accessor: (row: TRow) => string | number | null };
+type CsvColumn<TRow> = {
+  header: string;
+  accessor: (row: TRow) => string | number | null;
+};
 
-export function exportCsv<TRow>(rows: TRow[], columns: Array<CsvColumn<TRow>>, filename: string) {
+export function exportCsv<TRow>(
+  rows: TRow[],
+  columns: Array<CsvColumn<TRow>>,
+  filename: string
+) {
   const escape = (cell: string | number | null) => {
     if (cell === null || cell === undefined) return '';
     const s = String(cell);
-    if (s.includes('"') || s.includes(',') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`;
+    if (s.includes('"') || s.includes(',') || s.includes('\n'))
+      return `"${s.replace(/"/g, '""')}"`;
     return s;
   };
   const header = columns.map((c) => escape(c.header)).join(',');
-  const body = rows.map((r) => columns.map((c) => escape(c.accessor(r))).join(',')).join('\n');
+  const body = rows
+    .map((r) => columns.map((c) => escape(c.accessor(r))).join(','))
+    .join('\n');
   const csv = '﻿' + header + '\n' + body;
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);

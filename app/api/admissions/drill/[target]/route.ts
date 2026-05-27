@@ -48,7 +48,7 @@ const DOC_TARGETS: ReadonlySet<DrillTarget> = new Set<DrillTarget>([
 
 export async function GET(
   req: Request,
-  ctx: { params: Promise<{ target: string }> },
+  ctx: { params: Promise<{ target: string }> }
 ) {
   const guard = await requireRole([...ALLOWED_ROLES]);
   if ('error' in guard) return guard.error;
@@ -79,7 +79,7 @@ export async function GET(
   // Only enrich with doc data when the target actually surfaces it.
   const all = await buildDrillRows(
     { ayCode, from, to },
-    { withDocs: DOC_TARGETS.has(target), target },
+    { withDocs: DOC_TARGETS.has(target), target }
   );
   const rows = applyTargetFilter(all, target, segment);
 
@@ -99,20 +99,22 @@ export async function GET(
   });
   res.headers.set(
     'Cache-Control',
-    'private, max-age=60, stale-while-revalidate=300',
+    'private, max-age=60, stale-while-revalidate=300'
   );
   return res;
 }
 
 function pickColumns(
   target: DrillTarget,
-  columnsParam: string | null,
+  columnsParam: string | null
 ): DrillColumnKey[] {
   if (!columnsParam) return defaultColumnsForTarget(target);
   const requested = columnsParam
     .split(',')
     .map((c) => c.trim())
-    .filter((c): c is DrillColumnKey => (ALL_DRILL_COLUMNS as string[]).includes(c));
+    .filter((c): c is DrillColumnKey =>
+      (ALL_DRILL_COLUMNS as string[]).includes(c)
+    );
   return requested.length > 0 ? requested : defaultColumnsForTarget(target);
 }
 
@@ -121,7 +123,7 @@ function csvResponse(
   target: DrillTarget,
   segment: string | null,
   ayCode: string,
-  columnsParam: string | null,
+  columnsParam: string | null
 ): Response {
   const columns = pickColumns(target, columnsParam);
   const headers = columns.map((c) => DRILL_COLUMN_LABELS[c]);
@@ -159,7 +161,7 @@ function csvResponse(
         default:
           return '';
       }
-    }),
+    })
   );
   const csv = buildCsv(headers, body);
   const segmentSlug = segment ? `-${slug(segment)}` : '';

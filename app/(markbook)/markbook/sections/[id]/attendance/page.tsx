@@ -1,6 +1,12 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, ArrowUpRight, CalendarCheck, CalendarDays, Percent } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  CalendarCheck,
+  CalendarDays,
+  Percent,
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,7 +26,12 @@ import {
 } from '@/components/markbook/attendance-readonly-table';
 
 type LevelLite = { code: string; label: string };
-type TermLite = { id: string; label: string; term_number: number; is_current: boolean };
+type TermLite = {
+  id: string;
+  label: string;
+  term_number: number;
+  is_current: boolean;
+};
 
 export default async function SectionAttendancePage({
   params,
@@ -39,9 +50,9 @@ export default async function SectionAttendancePage({
     .eq('id', id)
     .single();
   if (!section) notFound();
-  const level = (Array.isArray(section.level) ? section.level[0] : section.level) as
-    | LevelLite
-    | null;
+  const level = (
+    Array.isArray(section.level) ? section.level[0] : section.level
+  ) as LevelLite | null;
 
   const { data: terms } = await supabase
     .from('terms')
@@ -56,7 +67,7 @@ export default async function SectionAttendancePage({
   const { data: enrolments } = await supabase
     .from('section_students')
     .select(
-      'id, index_number, enrollment_status, student:students(student_number, last_name, first_name, middle_name)',
+      'id, index_number, enrollment_status, student:students(student_number, last_name, first_name, middle_name)'
     )
     .eq('section_id', id)
     .order('index_number');
@@ -67,7 +78,7 @@ export default async function SectionAttendancePage({
       ? await supabase
           .from('attendance_records')
           .select(
-            'section_student_id, school_days, days_present, days_late, days_excused, days_absent, attendance_pct',
+            'section_student_id, school_days, days_present, days_late, days_excused, days_absent, attendance_pct'
           )
           .eq('term_id', selectedTermId)
           .in('section_student_id', enrolmentIds)
@@ -82,7 +93,7 @@ export default async function SectionAttendancePage({
     attendance_pct: number | null;
   };
   const byEnrolment = new Map(
-    ((records ?? []) as RollupLite[]).map((r) => [r.section_student_id, r]),
+    ((records ?? []) as RollupLite[]).map((r) => [r.section_student_id, r])
   );
 
   const rows: ReadOnlyRow[] = (enrolments ?? []).map((e) => {
@@ -101,23 +112,30 @@ export default async function SectionAttendancePage({
       daysLate: rec?.days_late ?? null,
       daysExcused: rec?.days_excused ?? null,
       daysAbsent: rec?.days_absent ?? null,
-      attendancePct: rec?.attendance_pct != null ? Number(rec.attendance_pct) : null,
+      attendancePct:
+        rec?.attendance_pct != null ? Number(rec.attendance_pct) : null,
     };
   });
 
   // Aggregate stats for the current term (active students only).
   const active = rows.filter((r) => !r.withdrawn);
   const marked = active.filter((r) => r.schoolDays != null);
-  const schoolDays = marked.reduce((m, r) => Math.max(m, r.schoolDays ?? 0), 0) || null;
+  const schoolDays =
+    marked.reduce((m, r) => Math.max(m, r.schoolDays ?? 0), 0) || null;
   const pctValues = marked
     .map((r) => r.attendancePct)
     .filter((n): n is number => n != null);
   const avgRate =
     pctValues.length > 0
-      ? Math.round((pctValues.reduce((s, n) => s + n, 0) / pctValues.length) * 100) / 100
+      ? Math.round(
+          (pctValues.reduce((s, n) => s + n, 0) / pctValues.length) * 100
+        ) / 100
       : null;
   const perfect = marked.filter(
-    (r) => (r.daysAbsent ?? 0) === 0 && (r.daysLate ?? 0) === 0 && (r.schoolDays ?? 0) > 0,
+    (r) =>
+      (r.daysAbsent ?? 0) === 0 &&
+      (r.daysLate ?? 0) === 0 &&
+      (r.schoolDays ?? 0) > 0
   ).length;
 
   return (
@@ -148,8 +166,8 @@ export default async function SectionAttendancePage({
             </Badge>
           </div>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            Read-only rollup of daily attendance. Mark, correct, or import in the Attendance
-            module — edits flow back here automatically.
+            Read-only rollup of daily attendance. Mark, correct, or import in
+            the Attendance module — edits flow back here automatically.
           </p>
         </div>
         <Button asChild variant="default" size="sm" className="gap-1.5">
@@ -166,7 +184,9 @@ export default async function SectionAttendancePage({
           <TabsList>
             {termList.map((t) => (
               <TabsTrigger key={t.id} value={t.id} asChild>
-                <Link href={`/markbook/sections/${id}/attendance?term_id=${t.id}`}>
+                <Link
+                  href={`/markbook/sections/${id}/attendance?term_id=${t.id}`}
+                >
                   {t.label}
                   {t.is_current && (
                     <span className="ml-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
@@ -185,10 +205,14 @@ export default async function SectionAttendancePage({
         <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-3">
           <StatCard
             description={`${selectedTerm?.label ?? 'Term'} · School days`}
-            value={schoolDays == null ? '—' : schoolDays.toLocaleString('en-SG')}
+            value={
+              schoolDays == null ? '—' : schoolDays.toLocaleString('en-SG')
+            }
             icon={CalendarDays}
             footerTitle={
-              schoolDays == null ? 'Not marked yet' : `${marked.length} of ${active.length} marked`
+              schoolDays == null
+                ? 'Not marked yet'
+                : `${marked.length} of ${active.length} marked`
             }
             footerDetail="Max across students (NC days excluded)"
           />

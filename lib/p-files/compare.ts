@@ -1,13 +1,17 @@
 import 'server-only';
 
-import { buildCompareCells, type CompareInput, type CompareResult } from '@/lib/dashboard/compare';
+import {
+  buildCompareCells,
+  type CompareInput,
+  type CompareResult,
+} from '@/lib/dashboard/compare';
 
 import { getPFilesKpisRange, type PFilesRangeKpis } from './dashboard';
 
 export type PFilesCompareKpis = PFilesRangeKpis;
 
 export async function getPFilesCompareKpis(
-  input: CompareInput,
+  input: CompareInput
 ): Promise<CompareResult<PFilesCompareKpis>> {
   const cells = await buildCompareCells(input);
   if (cells.length === 0) return { cells: [] };
@@ -20,8 +24,8 @@ export async function getPFilesCompareKpis(
         to: cell.range.to,
         cmpFrom: null,
         cmpTo: null,
-      }),
-    ),
+      })
+    )
   );
 
   return {

@@ -49,10 +49,12 @@ type ApplicationLite = {
 export async function pickSectionForApplicant(
   service: SupabaseClient,
   ayCode: string,
-  application: ApplicationLite,
+  application: ApplicationLite
 ): Promise<ClassAssignment | ClassAssignmentError> {
   if (!application.levelApplied) {
-    return { error: 'Application has no levelApplied value — cannot assign class' };
+    return {
+      error: 'Application has no levelApplied value — cannot assign class',
+    };
   }
 
   // 1. Resolve AY + level.
@@ -111,7 +113,10 @@ export async function pickSectionForApplicant(
   }
   const activeCountBySection = new Map<string, number>();
   for (const row of (enrolmentRows ?? []) as Array<{ section_id: string }>) {
-    activeCountBySection.set(row.section_id, (activeCountBySection.get(row.section_id) ?? 0) + 1);
+    activeCountBySection.set(
+      row.section_id,
+      (activeCountBySection.get(row.section_id) ?? 0) + 1
+    );
   }
 
   // 3. Capacity filter.
@@ -119,7 +124,9 @@ export async function pickSectionForApplicant(
     .map((s) => ({ ...s, activeCount: activeCountBySection.get(s.id) ?? 0 }))
     .filter((s) => s.activeCount < MAX_ACTIVE_PER_SECTION);
   if (candidates.length === 0) {
-    return { error: `All sections at ${level.label} are at capacity (${MAX_ACTIVE_PER_SECTION} active)` };
+    return {
+      error: `All sections at ${level.label} are at capacity (${MAX_ACTIVE_PER_SECTION} active)`,
+    };
   }
 
   // 4. Score.
@@ -131,7 +138,9 @@ export async function pickSectionForApplicant(
   // 5. Sort + pick.
   scored.sort(
     (a, b) =>
-      b.score - a.score || a.activeCount - b.activeCount || a.name.localeCompare(b.name),
+      b.score - a.score ||
+      a.activeCount - b.activeCount ||
+      a.name.localeCompare(b.name)
   );
   const winner = scored[0];
 
@@ -148,7 +157,7 @@ export async function pickSectionForApplicant(
 
 function scoreSection(
   section: { name: string; class_type: string | null },
-  app: ApplicationLite,
+  app: ApplicationLite
 ): number {
   let score = 0;
 
@@ -167,7 +176,8 @@ function scoreSection(
   // preferredSchedule fuzzy match on section name or class_type.
   const pref = app.preferredSchedule?.trim().toLowerCase() ?? '';
   if (pref) {
-    const haystack = `${section.name} ${section.class_type ?? ''}`.toLowerCase();
+    const haystack =
+      `${section.name} ${section.class_type ?? ''}`.toLowerCase();
     if (haystack.includes(pref)) score += 5;
   }
 

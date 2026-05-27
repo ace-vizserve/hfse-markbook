@@ -25,20 +25,26 @@ const TransferBodySchema = z.object({
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ enroleeNumber: string }> },
+  { params }: { params: Promise<{ enroleeNumber: string }> }
 ) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const { enroleeNumber } = await params;
   if (!enroleeNumber.trim()) {
-    return NextResponse.json({ error: 'Missing enroleeNumber' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Missing enroleeNumber' },
+      { status: 400 }
+    );
   }
 
   const url = new URL(request.url);
   const ayCode = (url.searchParams.get('ay') ?? '').trim();
   if (!/^AY\d{4}$/i.test(ayCode)) {
-    return NextResponse.json({ error: 'Invalid or missing ay query param' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid or missing ay query param' },
+      { status: 400 }
+    );
   }
 
   const body = await request.json().catch(() => null);
@@ -46,7 +52,7 @@ export async function POST(
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -59,7 +65,10 @@ export async function POST(
   });
 
   if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.status }
+    );
   }
 
   await logAction({

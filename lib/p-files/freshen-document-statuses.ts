@@ -55,7 +55,9 @@ function prefixFor(ayCode: string): string {
 
 type Direction = 'expire' | 'revive';
 
-async function freshenAyDocumentsUncached(ayCode: string): Promise<FreshenResult> {
+async function freshenAyDocumentsUncached(
+  ayCode: string
+): Promise<FreshenResult> {
   const result: FreshenResult = {
     flippedCount: 0,
     flippedBySlot: {},
@@ -100,9 +102,13 @@ async function freshenAyDocumentsUncached(ayCode: string): Promise<FreshenResult
         if (error) {
           console.warn(
             `[p-files/freshen-documents] ${direction} failed for ${slotKey} in ${ayCode}:`,
-            error.message,
+            error.message
           );
-          return { slotKey, direction, rows: [] as Array<{ enroleeNumber: string | null }> };
+          return {
+            slotKey,
+            direction,
+            rows: [] as Array<{ enroleeNumber: string | null }>,
+          };
         }
 
         return {
@@ -110,7 +116,7 @@ async function freshenAyDocumentsUncached(ayCode: string): Promise<FreshenResult
           direction,
           rows: (data ?? []) as Array<{ enroleeNumber: string | null }>,
         };
-      }),
+      })
     );
 
     for (const { slotKey, direction, rows } of taskResults) {
@@ -118,18 +124,20 @@ async function freshenAyDocumentsUncached(ayCode: string): Promise<FreshenResult
       if (direction === 'expire') {
         result.flippedCount += rows.length;
         result.flippedBySlot[slotKey] = rows.length;
-        for (const row of rows) if (row.enroleeNumber) expiredSeen.add(row.enroleeNumber);
+        for (const row of rows)
+          if (row.enroleeNumber) expiredSeen.add(row.enroleeNumber);
       } else {
         result.revivedCount += rows.length;
         result.revivedBySlot[slotKey] = rows.length;
-        for (const row of rows) if (row.enroleeNumber) revivedSeen.add(row.enroleeNumber);
+        for (const row of rows)
+          if (row.enroleeNumber) revivedSeen.add(row.enroleeNumber);
       }
     }
   } catch (e) {
     // Catch-all: never break a page render because freshen failed.
     console.warn(
       `[p-files/freshen-documents] unexpected failure for ${ayCode}:`,
-      e instanceof Error ? e.message : String(e),
+      e instanceof Error ? e.message : String(e)
     );
     return result;
   }
@@ -159,7 +167,7 @@ async function freshenAyDocumentsUncached(ayCode: string): Promise<FreshenResult
     } catch (e) {
       console.warn(
         `[p-files/freshen-documents] audit log failed for ${ayCode}:`,
-        e instanceof Error ? e.message : String(e),
+        e instanceof Error ? e.message : String(e)
       );
     }
   }
@@ -183,7 +191,7 @@ async function freshenAyDocumentsUncached(ayCode: string): Promise<FreshenResult
     } catch (e) {
       console.warn(
         `[p-files/freshen-documents] revive audit log failed for ${ayCode}:`,
-        e instanceof Error ? e.message : String(e),
+        e instanceof Error ? e.message : String(e)
       );
     }
   }
@@ -198,6 +206,6 @@ export function freshenAyDocuments(ayCode: string): Promise<FreshenResult> {
     {
       revalidate: CACHE_TTL_SECONDS,
       tags: ['sis', `sis:${ayCode}`, `p-files-freshen:${ayCode}`],
-    },
+    }
   )();
 }

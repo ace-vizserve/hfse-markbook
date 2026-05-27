@@ -175,7 +175,10 @@ export function ManualAddStudent({
       });
       return;
     }
-    form.setValue('student_number', m.studentNumber, { shouldDirty: true, shouldValidate: true });
+    form.setValue('student_number', m.studentNumber, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
     setPickedMatch(m);
     setSearchQuery('');
     setSearchResults([]);
@@ -183,7 +186,10 @@ export function ManualAddStudent({
 
   function clearPick() {
     setPickedMatch(null);
-    form.setValue('student_number', '', { shouldDirty: false, shouldValidate: false });
+    form.setValue('student_number', '', {
+      shouldDirty: false,
+      shouldValidate: false,
+    });
   }
 
   function showFailureToast(failure: FailureBody) {
@@ -209,7 +215,7 @@ export function ManualAddStudent({
             onClick: () => {
               if (failure.enroleeNumber && failure.ayCode) {
                 router.push(
-                  `/admissions/applications/${encodeURIComponent(failure.enroleeNumber)}?ay=${encodeURIComponent(failure.ayCode)}`,
+                  `/admissions/applications/${encodeURIComponent(failure.enroleeNumber)}?ay=${encodeURIComponent(failure.ayCode)}`
                 );
               }
             },
@@ -225,7 +231,7 @@ export function ManualAddStudent({
             onClick: () => {
               if (failure.enroleeNumber && failure.ayCode) {
                 router.push(
-                  `/admissions/applications/${encodeURIComponent(failure.enroleeNumber)}?ay=${encodeURIComponent(failure.ayCode)}&tab=enrollment`,
+                  `/admissions/applications/${encodeURIComponent(failure.enroleeNumber)}?ay=${encodeURIComponent(failure.ayCode)}&tab=enrollment`
                 );
               }
             },
@@ -281,7 +287,8 @@ export function ManualAddStudent({
         return;
       }
       const insertedFullName =
-        (body as { fullName?: string }).fullName?.trim() || pickedMatch.fullName;
+        (body as { fullName?: string }).fullName?.trim() ||
+        pickedMatch.fullName;
       const idx = (body as { index_number?: number }).index_number ?? '';
       toast.success(`Added ${insertedFullName} as #${idx}`);
       setOpen(false);
@@ -323,11 +330,14 @@ export function ManualAddStudent({
               Add a student from admissions
             </SheetTitle>
             <SheetDescription className="text-sm text-muted-foreground">
-              Identity must come from an existing admissions record — there is no
-              free-text fallback. The applicant must be{' '}
-              <strong>Enrolled</strong> at this section&apos;s level. Picks the next
-              available index{' '}
-              <span className="font-mono tabular-nums text-foreground">#{nextIndex}</span>.
+              Identity must come from an existing admissions record — there is
+              no free-text fallback. The applicant must be{' '}
+              <strong>Enrolled</strong> at this section&apos;s level. Picks the
+              next available index{' '}
+              <span className="font-mono tabular-nums text-foreground">
+                #{nextIndex}
+              </span>
+              .
             </SheetDescription>
           </SheetHeader>
 
@@ -365,7 +375,11 @@ export function ManualAddStudent({
                             className="absolute right-2 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                             aria-label="Clear search"
                           >
-                            {searching ? <Loader2 className="size-3 animate-spin" /> : <X className="size-3" />}
+                            {searching ? (
+                              <Loader2 className="size-3 animate-spin" />
+                            ) : (
+                              <X className="size-3" />
+                            )}
                           </button>
                         )}
                       </div>
@@ -388,7 +402,9 @@ export function ManualAddStudent({
                                     {m.studentNumber ? (
                                       <span>· #{m.studentNumber}</span>
                                     ) : (
-                                      <span className="text-brand-amber">· no student number</span>
+                                      <span className="text-brand-amber">
+                                        · no student number
+                                      </span>
                                     )}
                                     {m.level && <span>· {m.level}</span>}
                                     {m.status && <span>· {m.status}</span>}
@@ -399,14 +415,18 @@ export function ManualAddStudent({
                           </div>
                         </ScrollArea>
                       )}
-                      {!searching && searchQuery.trim().length >= 2 && searchResults.length === 0 && (
-                        <div className="px-2 py-1 text-[11px] text-muted-foreground">
-                          No matches. Make sure the applicant exists in admissions.
-                        </div>
-                      )}
+                      {!searching &&
+                        searchQuery.trim().length >= 2 &&
+                        searchResults.length === 0 && (
+                          <div className="px-2 py-1 text-[11px] text-muted-foreground">
+                            No matches. Make sure the applicant exists in
+                            admissions.
+                          </div>
+                        )}
                       {searchQuery.trim().length < 2 && (
                         <p className="px-1 pt-1 text-[11px] text-muted-foreground">
-                          Type at least 2 characters of a name or student number.
+                          Type at least 2 characters of a name or student
+                          number.
                         </p>
                       )}
                     </>
@@ -421,8 +441,12 @@ export function ManualAddStudent({
                           </p>
                           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                             <span>{pickedMatch.ayCode}</span>
-                            {pickedMatch.studentNumber && <span>· #{pickedMatch.studentNumber}</span>}
-                            {pickedMatch.level && <span>· {pickedMatch.level}</span>}
+                            {pickedMatch.studentNumber && (
+                              <span>· #{pickedMatch.studentNumber}</span>
+                            )}
+                            {pickedMatch.level && (
+                              <span>· {pickedMatch.level}</span>
+                            )}
                           </div>
                           {pickedMatch.status && (
                             <Badge
@@ -463,7 +487,9 @@ export function ManualAddStudent({
                           maxLength={40}
                         />
                       </FormControl>
-                      <FormDescription>Optional. Shown on the attendance sheet.</FormDescription>
+                      <FormDescription>
+                        Optional. Shown on the attendance sheet.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

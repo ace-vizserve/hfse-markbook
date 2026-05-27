@@ -66,7 +66,7 @@ export function DiscountCodeRowActions({ ayCode, code }: Props) {
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ endDate: todayISO() }),
-        },
+        }
       );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? 'Failed to expire code');
@@ -90,7 +90,12 @@ export function DiscountCodeRowActions({ ayCode, code }: Props) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <EditDiscountCodeDialog ayCode={ayCode} mode="edit" id={code.id} initial={initial}>
+          <EditDiscountCodeDialog
+            ayCode={ayCode}
+            mode="edit"
+            id={code.id}
+            initial={initial}
+          >
             <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
               <Pencil className="size-3.5" />
               Edit
@@ -121,8 +126,9 @@ export function DiscountCodeRowActions({ ayCode, code }: Props) {
               <div className="space-y-1.5 text-left">
                 <AlertDialogTitle>Expire this discount code?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Sets the end date to today. The code stops appearing in active offers immediately.
-                  Expiring keeps the code in your records — to bring it back, edit the end date to a future day.
+                  Sets the end date to today. The code stops appearing in active
+                  offers immediately. Expiring keeps the code in your records —
+                  to bring it back, edit the end date to a future day.
                 </AlertDialogDescription>
               </div>
             </div>

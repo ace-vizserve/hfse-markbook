@@ -19,7 +19,7 @@ import { requireCurrentAyCode } from '@/lib/academic-year';
 // override is traceable.
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -40,11 +40,16 @@ export async function POST(
     .maybeSingle();
   type TermMeta = { grading_lock_date: string | null; label: string } | null;
   const termMeta = sheetTermRow
-    ? (Array.isArray(sheetTermRow.term) ? sheetTermRow.term[0] : sheetTermRow.term) as TermMeta
+    ? ((Array.isArray(sheetTermRow.term)
+        ? sheetTermRow.term[0]
+        : sheetTermRow.term) as TermMeta)
     : null;
-  const todaySgt = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Singapore' });
+  const todaySgt = new Date().toLocaleDateString('en-CA', {
+    timeZone: 'Asia/Singapore',
+  });
   const deadlinePassed =
-    termMeta?.grading_lock_date != null && termMeta.grading_lock_date < todaySgt;
+    termMeta?.grading_lock_date != null &&
+    termMeta.grading_lock_date < todaySgt;
 
   if (deadlinePassed && !force) {
     return NextResponse.json(
@@ -54,7 +59,7 @@ export async function POST(
         lockDate: termMeta?.grading_lock_date,
         message: `The grading deadline for ${termMeta?.label ?? 'this term'} has passed (${termMeta?.grading_lock_date}). Use ?force=true to override.`,
       },
-      { status: 409 },
+      { status: 409 }
     );
   }
 
@@ -79,7 +84,7 @@ export async function POST(
             ? 'This sheet has 1 pending change request. Resolve it before unlocking, or force the unlock.'
             : `This sheet has ${pending} pending change requests. Resolve them before unlocking, or force the unlock.`,
       },
-      { status: 409 },
+      { status: 409 }
     );
   }
 
@@ -95,7 +100,10 @@ export async function POST(
     .select('id, is_locked, locked_at, locked_by')
     .single();
   if (error || !data) {
-    return NextResponse.json({ error: error?.message ?? 'unlock failed' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message ?? 'unlock failed' },
+      { status: 500 }
+    );
   }
 
   const unlockAction =

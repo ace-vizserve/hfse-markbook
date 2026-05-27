@@ -54,7 +54,10 @@ export function DailyAttendanceDrillCard({
   // TrendChart doesn't natively click-on-segment. Real per-day click is wired
   // through the Tooltip-backing area, but as a pragmatic shortcut we surface a
   // dropdown of recent days.
-  const recentDays = React.useMemo(() => current.slice(-14).reverse(), [current]);
+  const recentDays = React.useMemo(
+    () => current.slice(-14).reverse(),
+    [current]
+  );
 
   return (
     <Sheet open={!!segment} onOpenChange={(o) => !o && setSegment(null)}>
@@ -63,7 +66,9 @@ export function DailyAttendanceDrillCard({
           <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
             Daily attendance
           </CardDescription>
-          <CardTitle className="font-serif text-xl">% attended per day</CardTitle>
+          <CardTitle className="font-serif text-xl">
+            % attended per day
+          </CardTitle>
           <CardAction>
             <details className="group">
               <summary className="cursor-pointer list-none">
@@ -73,24 +78,35 @@ export function DailyAttendanceDrillCard({
               </summary>
               <div className="absolute z-10 mt-1 w-[180px] rounded-md border border-border bg-popover p-1 shadow-lg">
                 {recentDays.length === 0 ? (
-                  <p className="px-2 py-1.5 text-xs text-muted-foreground">No days in range.</p>
-                ) : recentDays.map((d) => (
-                  <button
-                    key={d.x}
-                    type="button"
-                    onClick={() => setSegment(d.x)}
-                    className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-accent"
-                  >
-                    <span className="tabular-nums">{d.x}</span>
-                    <span className="font-mono tabular-nums text-muted-foreground">{Math.round(d.y)}%</span>
-                  </button>
-                ))}
+                  <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                    No days in range.
+                  </p>
+                ) : (
+                  recentDays.map((d) => (
+                    <button
+                      key={d.x}
+                      type="button"
+                      onClick={() => setSegment(d.x)}
+                      className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-accent"
+                    >
+                      <span className="tabular-nums">{d.x}</span>
+                      <span className="font-mono tabular-nums text-muted-foreground">
+                        {Math.round(d.y)}%
+                      </span>
+                    </button>
+                  ))
+                )}
               </div>
             </details>
           </CardAction>
         </CardHeader>
         <CardContent>
-          <TrendChart label="Attendance %" current={current} comparison={comparison} yFormat="percent" />
+          <TrendChart
+            label="Attendance %"
+            current={current}
+            comparison={comparison}
+            yFormat="percent"
+          />
         </CardContent>
       </Card>
       {segment && (
@@ -124,7 +140,9 @@ export function ExReasonDrillCard({
           <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
             Excused reason mix
           </CardDescription>
-          <CardTitle className="font-serif text-xl">Why absences are excused</CardTitle>
+          <CardTitle className="font-serif text-xl">
+            Why absences are excused
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {data.length > 0 ? (
@@ -172,7 +190,9 @@ export function DayTypeDrillCard({
           <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
             Day-type distribution
           </CardDescription>
-          <CardTitle className="font-serif text-xl">Calendar make-up of range</CardTitle>
+          <CardTitle className="font-serif text-xl">
+            Calendar make-up of range
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {data.length > 0 ? (
@@ -183,7 +203,9 @@ export function DayTypeDrillCard({
               onSegmentClick={setSegment}
             />
           ) : (
-            <div className="flex h-40 items-center justify-center text-xs text-ink-4">No calendar data in range.</div>
+            <div className="flex h-40 items-center justify-center text-xs text-ink-4">
+              No calendar data in range.
+            </div>
           )}
         </CardContent>
       </Card>
@@ -220,14 +242,18 @@ export function TopAbsentDrillCard({
   const activeData = React.useMemo(
     () =>
       [...data].sort(
-        (a, b) => a.absences - b.absences || b.attendancePct - a.attendancePct,
+        (a, b) => a.absences - b.absences || b.attendancePct - a.attendancePct
       ),
-    [data],
+    [data]
   );
-  const tableRows = tab === 'absent' ? data.slice(0, 10) : activeData.slice(0, 10);
-  const drillTarget: AttendanceDrillTarget = tab === 'absent' ? 'top-absent' : 'top-active';
+  const tableRows =
+    tab === 'absent' ? data.slice(0, 10) : activeData.slice(0, 10);
+  const drillTarget: AttendanceDrillTarget =
+    tab === 'absent' ? 'top-absent' : 'top-active';
   const emptyMessage =
-    tab === 'absent' ? 'No absences in range.' : 'No attendance encoded in range.';
+    tab === 'absent'
+      ? 'No absences in range.'
+      : 'No attendance encoded in range.';
   const csvHref = `/api/attendance/drill/${drillTarget}?ay=${ayCode}&from=${rangeFrom ?? ''}&to=${rangeTo ?? ''}&format=csv`;
   const rightColLabel = tab === 'absent' ? 'Lates' : 'Attendance %';
   return (
@@ -254,7 +280,9 @@ export function TopAbsentDrillCard({
               <a href="/attendance/sections">Mark today's attendance</a>
             </Button>
             <Button asChild variant="outline" size="sm">
-              <a href={csvHref} download>Export CSV</a>
+              <a href={csvHref} download>
+                Export CSV
+              </a>
             </Button>
             <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
               Open drill
@@ -278,10 +306,17 @@ export function TopAbsentDrillCard({
               </thead>
               <tbody>
                 {tableRows.map((r) => (
-                  <tr key={r.studentSectionId} className="border-b border-border/60">
-                    <td className="py-2 font-medium text-foreground">{r.studentName}</td>
+                  <tr
+                    key={r.studentSectionId}
+                    className="border-b border-border/60"
+                  >
+                    <td className="py-2 font-medium text-foreground">
+                      {r.studentName}
+                    </td>
                     <td className="py-2 text-ink-4">{r.sectionName}</td>
-                    <td className="py-2 text-right font-mono tabular-nums">{r.absences}</td>
+                    <td className="py-2 text-right font-mono tabular-nums">
+                      {r.absences}
+                    </td>
                     <td className="py-2 text-right font-mono tabular-nums text-ink-4">
                       {tab === 'absent' ? r.lates : `${r.attendancePct}%`}
                     </td>

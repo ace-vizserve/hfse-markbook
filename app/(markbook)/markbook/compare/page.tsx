@@ -2,12 +2,18 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
-import { CompareGrid, type CompareGridMetric } from '@/components/dashboard/compare-grid';
+import {
+  CompareGrid,
+  type CompareGridMetric,
+} from '@/components/dashboard/compare-grid';
 import { CompareToolbar } from '@/components/dashboard/compare-toolbar';
 import { PageShell } from '@/components/ui/page-shell';
 import { listAyCodes } from '@/lib/academic-year';
 import { parseCompareParams } from '@/lib/dashboard/compare';
-import { getMarkbookCompareKpis, type MarkbookCompareKpis } from '@/lib/markbook/compare';
+import {
+  getMarkbookCompareKpis,
+  type MarkbookCompareKpis,
+} from '@/lib/markbook/compare';
 import { createClient, getSessionUser } from '@/lib/supabase/server';
 
 const ALLOWED_ROLES = new Set(['registrar', 'school_admin', 'superadmin']);
@@ -85,8 +91,9 @@ export default async function MarkbookComparePage({
           Term-on-term, year-on-year.
         </h1>
         <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-          Pick the academic years and terms you want to line up, side by side. Numbers are
-          equivalent slices — T1 of one AY against T1 of another — so you can spot real movement.
+          Pick the academic years and terms you want to line up, side by side.
+          Numbers are equivalent slices — T1 of one AY against T1 of another —
+          so you can spot real movement.
         </p>
       </header>
 

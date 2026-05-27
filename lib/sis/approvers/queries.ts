@@ -27,7 +27,9 @@ const getAllUsers = cache(async () => {
  * Users currently assigned as approvers for the given flow, joined with
  * their auth.users row for display. Service-role only.
  */
-export async function listApproversForFlow(flow: ApproverFlow): Promise<ApproverUser[]> {
+export async function listApproversForFlow(
+  flow: ApproverFlow
+): Promise<ApproverUser[]> {
   const service = createServiceClient();
 
   const { data: rows, error } = await service
@@ -54,11 +56,12 @@ export async function listApproversForFlow(flow: ApproverFlow): Promise<Approver
       const u = userById.get(a.user_id);
       if (!u) return null;
       const role =
-        ((u.app_metadata as { role?: string } | null)?.role ??
-          (u.user_metadata as { role?: string } | null)?.role ??
-          null);
+        (u.app_metadata as { role?: string } | null)?.role ??
+        (u.user_metadata as { role?: string } | null)?.role ??
+        null;
       const display_name =
-        (u.user_metadata as { display_name?: string } | null)?.display_name ?? null;
+        (u.user_metadata as { display_name?: string } | null)?.display_name ??
+        null;
       return {
         assignment_id: a.id,
         user_id: a.user_id,
@@ -77,7 +80,10 @@ export async function listApproversForFlow(flow: ApproverFlow): Promise<Approver
  * non-assigned school_admins (and registrar) don't see a callout for work
  * they can't act on. Superadmins are checked separately at the call site.
  */
-export async function isUserAssignedApprover(userId: string, flow: ApproverFlow): Promise<boolean> {
+export async function isUserAssignedApprover(
+  userId: string,
+  flow: ApproverFlow
+): Promise<boolean> {
   const service = createServiceClient();
   const { data, error } = await service
     .from('approver_assignments')
@@ -100,7 +106,9 @@ export type AllApproversByFlow = Record<ApproverFlow, ApproverUser[]>;
  */
 export async function listAllApproverAssignments(): Promise<AllApproversByFlow> {
   const entries = await Promise.all(
-    APPROVER_FLOWS.map(async (flow) => [flow, await listApproversForFlow(flow)] as const),
+    APPROVER_FLOWS.map(
+      async (flow) => [flow, await listApproversForFlow(flow)] as const
+    )
   );
   return Object.fromEntries(entries) as AllApproversByFlow;
 }
@@ -114,7 +122,7 @@ export async function listAllApproverAssignments(): Promise<AllApproversByFlow> 
  * approver" dropdown on /sis/admin/approvers.
  */
 export async function listEligibleApproverCandidates(
-  flow: ApproverFlow,
+  flow: ApproverFlow
 ): Promise<Array<{ user_id: string; email: string; role: string }>> {
   const service = createServiceClient();
 
@@ -122,9 +130,9 @@ export async function listEligibleApproverCandidates(
   const candidates = users
     .map((u) => {
       const role =
-        ((u.app_metadata as { role?: string } | null)?.role ??
-          (u.user_metadata as { role?: string } | null)?.role ??
-          null);
+        (u.app_metadata as { role?: string } | null)?.role ??
+        (u.user_metadata as { role?: string } | null)?.role ??
+        null;
       return { user_id: u.id, email: u.email ?? '', role };
     })
     .filter((u) => u.role === 'school_admin')
@@ -136,10 +144,14 @@ export async function listEligibleApproverCandidates(
     .eq('flow', flow);
 
   const taken = new Set(
-    ((existing ?? []) as { user_id: string }[]).map((r) => r.user_id),
+    ((existing ?? []) as { user_id: string }[]).map((r) => r.user_id)
   );
 
   return candidates
     .filter((c) => !taken.has(c.user_id))
-    .map((c) => ({ user_id: c.user_id, email: c.email, role: c.role as string }));
+    .map((c) => ({
+      user_id: c.user_id,
+      email: c.email,
+      role: c.role as string,
+    }));
 }

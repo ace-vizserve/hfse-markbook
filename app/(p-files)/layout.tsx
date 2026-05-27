@@ -12,24 +12,39 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 
-export default async function PFilesLayout({ children }: { children: React.ReactNode }) {
+export default async function PFilesLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
 
   const { id, email, role } = sessionUser;
-  if (role !== 'p-file' && role !== 'school_admin' && role !== 'superadmin') redirect('/');
+  if (role !== 'p-file' && role !== 'school_admin' && role !== 'superadmin')
+    redirect('/');
 
   const cookieStore = await cookies();
   const defaultOpen = cookieStore.get('sidebar:state')?.value !== 'false';
 
   const currentAy = await getCurrentAcademicYear();
   const badges: SidebarBadges = currentAy
-    ? { pfileAwaitingVerification: await countAwaitingVerification(currentAy.ay_code) }
+    ? {
+        pfileAwaitingVerification: await countAwaitingVerification(
+          currentAy.ay_code
+        ),
+      }
     : {};
 
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
-      <ModuleSidebar module="p-files" role={role} email={email} userId={id} badges={badges} />
+      <ModuleSidebar
+        module="p-files"
+        role={role}
+        email={email}
+        userId={id}
+        badges={badges}
+      />
       <SidebarInset>
         <AyBanner />
         <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/85 px-4 backdrop-blur-md">

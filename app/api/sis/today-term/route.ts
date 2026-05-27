@@ -16,7 +16,8 @@ export async function GET(req: NextRequest) {
   if (auth instanceof NextResponse) return auth;
 
   const ayCode = req.nextUrl.searchParams.get('ay');
-  if (!ayCode) return NextResponse.json({ error: 'ay required' }, { status: 400 });
+  if (!ayCode)
+    return NextResponse.json({ error: 'ay required' }, { status: 400 });
 
   const midTerm = await detectMidTermEnrolment(ayCode);
   return NextResponse.json({ midTerm });

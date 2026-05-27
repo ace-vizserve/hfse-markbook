@@ -22,7 +22,7 @@ export async function PATCH(request: Request) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -35,10 +35,14 @@ export async function PATCH(request: Request) {
     .eq('ay_code', ayCode)
     .maybeSingle();
   if (!target) {
-    return NextResponse.json({ error: `AY ${ayCode} not found` }, { status: 404 });
+    return NextResponse.json(
+      { error: `AY ${ayCode} not found` },
+      { status: 404 }
+    );
   }
 
-  const before = (target as { accepting_applications: boolean }).accepting_applications;
+  const before = (target as { accepting_applications: boolean })
+    .accepting_applications;
   if (before === accepting) {
     return NextResponse.json({ ok: true, unchanged: true, accepting });
   }
@@ -48,7 +52,10 @@ export async function PATCH(request: Request) {
     .update({ accepting_applications: accepting })
     .eq('ay_code', ayCode);
   if (updErr) {
-    console.error('[ay-setup accepting-applications] update failed:', updErr.message);
+    console.error(
+      '[ay-setup accepting-applications] update failed:',
+      updErr.message
+    );
     return NextResponse.json({ error: updErr.message }, { status: 500 });
   }
 

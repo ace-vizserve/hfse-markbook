@@ -21,7 +21,7 @@ const alertVariants = cva(
     defaultVariants: {
       variant: 'default',
     },
-  },
+  }
 );
 
 const Alert = React.forwardRef<
@@ -38,19 +38,20 @@ const Alert = React.forwardRef<
 ));
 Alert.displayName = 'Alert';
 
-const AlertTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
-  ({ className, ...props }, ref) => (
-    <h5
-      ref={ref}
-      data-slot="alert-title"
-      className={cn(
-        'col-start-2 line-clamp-1 min-h-4 font-serif text-[15px] font-semibold tracking-tight',
-        className,
-      )}
-      {...props}
-    />
-  ),
-);
+const AlertTitle = React.forwardRef<
+  HTMLHeadingElement,
+  React.HTMLAttributes<HTMLHeadingElement>
+>(({ className, ...props }, ref) => (
+  <h5
+    ref={ref}
+    data-slot="alert-title"
+    className={cn(
+      'col-start-2 line-clamp-1 min-h-4 font-serif text-[15px] font-semibold tracking-tight',
+      className
+    )}
+    {...props}
+  />
+));
 AlertTitle.displayName = 'AlertTitle';
 
 const AlertDescription = React.forwardRef<
@@ -62,7 +63,7 @@ const AlertDescription = React.forwardRef<
     data-slot="alert-description"
     className={cn(
       'col-start-2 grid justify-items-start gap-1 text-sm leading-relaxed text-muted-foreground [&_p]:leading-relaxed',
-      className,
+      className
     )}
     {...props}
   />
@@ -74,16 +75,19 @@ const alertIconVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-gradient-to-br from-brand-indigo to-brand-navy shadow-brand-tile',
-        destructive: 'bg-destructive text-destructive-foreground shadow-brand-tile-destructive',
-        success: 'bg-gradient-to-br from-brand-mint to-brand-sky text-ink shadow-brand-tile-mint',
+        default:
+          'bg-gradient-to-br from-brand-indigo to-brand-navy shadow-brand-tile',
+        destructive:
+          'bg-destructive text-destructive-foreground shadow-brand-tile-destructive',
+        success:
+          'bg-gradient-to-br from-brand-mint to-brand-sky text-ink shadow-brand-tile-mint',
         warning: 'bg-brand-amber text-ink shadow-brand-tile-amber',
       },
     },
     defaultVariants: {
       variant: 'default',
     },
-  },
+  }
 );
 
 const AlertIcon = React.forwardRef<

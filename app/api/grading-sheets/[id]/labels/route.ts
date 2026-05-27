@@ -12,9 +12,14 @@ const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 // Teachers may only label their own sheet; registrar+ may label any sheet.
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'superadmin']);
+  const auth = await requireRole([
+    'teacher',
+    'registrar',
+    'school_admin',
+    'superadmin',
+  ]);
   if ('error' in auth) return auth.error;
 
   const { id } = await params;
@@ -28,7 +33,10 @@ export async function PATCH(
     return NextResponse.json({ error: 'invalid body' }, { status: 400 });
   }
 
-  const isManager = auth.role === 'registrar' || auth.role === 'school_admin' || auth.role === 'superadmin';
+  const isManager =
+    auth.role === 'registrar' ||
+    auth.role === 'school_admin' ||
+    auth.role === 'superadmin';
 
   const service = createServiceClient();
 
@@ -45,8 +53,12 @@ export async function PATCH(
     }
     type IdRow = { id: string } | { id: string }[] | null;
     const sheet = sheetRaw as unknown as { section: IdRow; subject: IdRow };
-    const sectionRaw = Array.isArray(sheet.section) ? sheet.section[0] : sheet.section;
-    const subjectRaw = Array.isArray(sheet.subject) ? sheet.subject[0] : sheet.subject;
+    const sectionRaw = Array.isArray(sheet.section)
+      ? sheet.section[0]
+      : sheet.section;
+    const subjectRaw = Array.isArray(sheet.subject)
+      ? sheet.subject[0]
+      : sheet.subject;
     const sectionId = sectionRaw?.id;
     const subjectId = subjectRaw?.id;
     if (!sectionId || !subjectId) {
@@ -61,7 +73,10 @@ export async function PATCH(
       .eq('role', 'subject_teacher')
       .maybeSingle();
     if (!assignment) {
-      return NextResponse.json({ error: 'not assigned to this sheet' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'not assigned to this sheet' },
+        { status: 403 }
+      );
     }
   }
 
@@ -105,7 +120,10 @@ export async function PATCH(
     return NextResponse.json({ error: 'sheet not found' }, { status: 404 });
   }
 
-  const merged = { ...(existing.slot_labels as Record<string, unknown> ?? {}), ...newLabels };
+  const merged = {
+    ...((existing.slot_labels as Record<string, unknown>) ?? {}),
+    ...newLabels,
+  };
 
   const { error } = await service
     .from('grading_sheets')

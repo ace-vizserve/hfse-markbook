@@ -3,7 +3,13 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, ArrowUpRight, Loader2, Lock, LockOpen } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  Loader2,
+  Lock,
+  LockOpen,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -30,8 +36,13 @@ export function LockToggle({
   const [confirmOpen, setConfirmOpen] = useState(false);
   // Surfaced after the server returns 409 because pending CRs exist; the
   // dialog this state opens is the explicit break-glass override path.
-  const [pendingBlock, setPendingBlock] = useState<{ pendingCount: number } | null>(null);
-  const [deadlineBlock, setDeadlineBlock] = useState<{ termLabel: string; lockDate: string } | null>(null);
+  const [pendingBlock, setPendingBlock] = useState<{
+    pendingCount: number;
+  } | null>(null);
+  const [deadlineBlock, setDeadlineBlock] = useState<{
+    termLabel: string;
+    lockDate: string;
+  } | null>(null);
 
   const action: 'lock' | 'unlock' = isLocked ? 'unlock' : 'lock';
 
@@ -44,7 +55,10 @@ export function LockToggle({
       });
       const body = await res.json();
       if (res.status === 409 && body?.error === 'grading_lock_date_passed') {
-        setDeadlineBlock({ termLabel: body.termLabel ?? 'this term', lockDate: body.lockDate ?? '' });
+        setDeadlineBlock({
+          termLabel: body.termLabel ?? 'this term',
+          lockDate: body.lockDate ?? '',
+        });
         return;
       }
       if (res.status === 409 && body?.error === 'pending_change_requests') {
@@ -57,7 +71,7 @@ export function LockToggle({
           ? 'Sheet locked'
           : opts.force
             ? 'Sheet unlocked (pending requests bypassed)'
-            : 'Sheet unlocked',
+            : 'Sheet unlocked'
       );
       router.refresh();
     } catch (e) {
@@ -101,7 +115,9 @@ export function LockToggle({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className={
-                isLocked ? 'bg-destructive text-white hover:bg-destructive/90' : undefined
+                isLocked
+                  ? 'bg-destructive text-white hover:bg-destructive/90'
+                  : undefined
               }
               onClick={async () => {
                 setConfirmOpen(false);
@@ -132,22 +148,28 @@ export function LockToggle({
                 <AlertDialogDescription className="space-y-2">
                   <span className="block">
                     The grading deadline for{' '}
-                    <span className="font-medium text-foreground">{deadlineBlock?.termLabel}</span>{' '}
+                    <span className="font-medium text-foreground">
+                      {deadlineBlock?.termLabel}
+                    </span>{' '}
                     was{' '}
                     <span className="font-medium text-foreground">
                       {deadlineBlock?.lockDate
-                        ? new Date(deadlineBlock.lockDate).toLocaleDateString('en-SG', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                          })
+                        ? new Date(deadlineBlock.lockDate).toLocaleDateString(
+                            'en-SG',
+                            {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                            }
+                          )
                         : '—'}
                     </span>
                     . Sheets are locked for report card publishing.
                   </span>
                   <span className="block">
-                    Forcing an unlock will be recorded in the audit log. Only do this if the
-                    registrar has explicitly approved a late correction.
+                    Forcing an unlock will be recorded in the audit log. Only do
+                    this if the registrar has explicitly approved a late
+                    correction.
                   </span>
                 </AlertDialogDescription>
               </div>
@@ -183,7 +205,9 @@ export function LockToggle({
                 <AlertTriangle className="size-4" />
               </div>
               <div className="space-y-2">
-                <AlertDialogTitle>Pending change requests block this unlock</AlertDialogTitle>
+                <AlertDialogTitle>
+                  Pending change requests block this unlock
+                </AlertDialogTitle>
                 <AlertDialogDescription className="space-y-2">
                   <span className="block">
                     This sheet has{' '}
@@ -193,13 +217,13 @@ export function LockToggle({
                         ? 'pending change request'
                         : 'pending change requests'}
                     </span>
-                    . Resolve them first so teachers&apos; requests aren&apos;t orphaned by the
-                    unlock.
+                    . Resolve them first so teachers&apos; requests aren&apos;t
+                    orphaned by the unlock.
                   </span>
                   <span className="block">
-                    Approve / decline each one on the change requests queue, or use the
-                    force option to unlock without resolving — the override is recorded in
-                    the audit log.
+                    Approve / decline each one on the change requests queue, or
+                    use the force option to unlock without resolving — the
+                    override is recorded in the audit log.
                   </span>
                 </AlertDialogDescription>
               </div>

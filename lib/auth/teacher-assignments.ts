@@ -14,7 +14,7 @@ export type AssignmentRow = {
 
 export async function loadAssignmentsForUser(
   supabase: SupabaseClient,
-  userId: string,
+  userId: string
 ): Promise<AssignmentRow[]> {
   const { data, error } = await supabase
     .from('teacher_assignments')
@@ -28,19 +28,25 @@ export async function loadAssignmentsForUser(
 export function isSubjectTeacher(
   assignments: AssignmentRow[],
   sectionId: string,
-  subjectId: string,
+  subjectId: string
 ): boolean {
   return assignments.some(
-    a => a.role === 'subject_teacher' && a.section_id === sectionId && a.subject_id === subjectId,
+    (a) =>
+      a.role === 'subject_teacher' &&
+      a.section_id === sectionId &&
+      a.subject_id === subjectId
   );
 }
 
 // Pairs of (section_id, subject_id) the user is allowed to see as a subject
 // teacher. Used to filter the grading sheet list for non-manager roles.
 export function subjectTeacherPairs(
-  assignments: AssignmentRow[],
+  assignments: AssignmentRow[]
 ): Array<{ section_id: string; subject_id: string }> {
   return assignments
-    .filter(a => a.role === 'subject_teacher' && a.subject_id != null)
-    .map(a => ({ section_id: a.section_id, subject_id: a.subject_id as string }));
+    .filter((a) => a.role === 'subject_teacher' && a.subject_id != null)
+    .map((a) => ({
+      section_id: a.section_id,
+      subject_id: a.subject_id as string,
+    }));
 }

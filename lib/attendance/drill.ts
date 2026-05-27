@@ -17,18 +17,18 @@ function tags(ayCode: string): string[] {
 // ─── Targets ────────────────────────────────────────────────────────────────
 
 export type AttendanceDrillTarget =
-  | 'attendance-summary'    // attendance %
-  | 'lates'                  // late entries
-  | 'excused'                // excused entries
-  | 'absent'                 // absent entries
-  | 'daily-attendance-day'   // entries on a specific day
-  | 'ex-reason'              // entries with that EX reason
-  | 'day-type'               // calendar days of that type
-  | 'top-absent'             // student × absences in range
-  | 'top-active'             // student × attendance % (highest attenders)
-  | 'attendance-by-section'  // section × attendance %
-  | 'compassionate-quota'    // student × quota usage (AY-wide)
-  | 'vacation-leave-quota';  // student × vacation-leave quota (per term, KD #94)
+  | 'attendance-summary' // attendance %
+  | 'lates' // late entries
+  | 'excused' // excused entries
+  | 'absent' // absent entries
+  | 'daily-attendance-day' // entries on a specific day
+  | 'ex-reason' // entries with that EX reason
+  | 'day-type' // calendar days of that type
+  | 'top-absent' // student × absences in range
+  | 'top-active' // student × attendance % (highest attenders)
+  | 'attendance-by-section' // section × attendance %
+  | 'compassionate-quota' // student × quota usage (AY-wide)
+  | 'vacation-leave-quota'; // student × vacation-leave quota (per term, KD #94)
 
 export type AttendanceDrillRowKind =
   | 'entry'
@@ -38,7 +38,9 @@ export type AttendanceDrillRowKind =
   | 'vacation-leave'
   | 'calendar-day';
 
-export function rowKindForTarget(t: AttendanceDrillTarget): AttendanceDrillRowKind {
+export function rowKindForTarget(
+  t: AttendanceDrillTarget
+): AttendanceDrillRowKind {
   switch (t) {
     case 'attendance-summary':
     case 'lates':
@@ -142,7 +144,12 @@ export type CalendarDayRow = {
   date: string;
   termId: string;
   termNumber: number;
-  dayType: 'school_day' | 'public_holiday' | 'school_holiday' | 'hbl' | 'no_class';
+  dayType:
+    | 'school_day'
+    | 'public_holiday'
+    | 'school_holiday'
+    | 'hbl'
+    | 'no_class';
   label: string | null;
 };
 
@@ -216,7 +223,8 @@ async function resolveAyContext(ayCode: string) {
   const sectionIds = sections.map((s) => s.id);
 
   const levels = new Map<string, string>();
-  for (const l of (levelsRes.data ?? []) as LevelLite[]) levels.set(l.id, l.code);
+  for (const l of (levelsRes.data ?? []) as LevelLite[])
+    levels.set(l.id, l.code);
 
   let sectionStudents: StudentSectionLite[] = [];
   const studentMap = new Map<string, StudentLite>();
@@ -229,10 +237,12 @@ async function resolveAyContext(ayCode: string) {
         .from('section_students')
         .select('id, section_id, student_id, enrollment_status')
         .in('section_id', sectionIds)
-        .range(from, to),
+        .range(from, to)
     );
     sectionStudents = ssRows;
-    const studentIds = Array.from(new Set(sectionStudents.map((s) => s.student_id)));
+    const studentIds = Array.from(
+      new Set(sectionStudents.map((s) => s.student_id))
+    );
     if (studentIds.length > 0) {
       // chunk to avoid URL length limits
       const chunks: string[][] = [];
@@ -242,7 +252,9 @@ async function resolveAyContext(ayCode: string) {
       for (const chunk of chunks) {
         const { data: studs } = await service
           .from('students')
-          .select('id, first_name, middle_name, last_name, student_number, urgent_compassionate_allowance, vacation_leave_allowance_per_term')
+          .select(
+            'id, first_name, middle_name, last_name, student_number, urgent_compassionate_allowance, vacation_leave_allowance_per_term'
+          )
           .in('id', chunk);
         for (const s of (studs ?? []) as StudentLite[]) studentMap.set(s.id, s);
       }
@@ -274,7 +286,9 @@ function studentName(s: StudentLite): string {
 // claimed. Cached 60s via unstable_cache, so consecutive renders are
 // instant. Refactor to DB-side aggregation only if HFSE crosses ~1000
 // students per AY (currently ~3-4× headroom).
-async function loadEntryRowsUncached(ayCode: string): Promise<AttendanceEntryRow[]> {
+async function loadEntryRowsUncached(
+  ayCode: string
+): Promise<AttendanceEntryRow[]> {
   const service = createServiceClient();
   const ctx = await resolveAyContext(ayCode);
   if (!ctx.ayId) return [];
@@ -311,9 +325,9 @@ async function loadEntryRowsUncached(ayCode: string): Promise<AttendanceEntryRow
             .from('attendance_daily')
             .select('id, date, term_id, section_student_id, status, ex_reason')
             .in('section_student_id', ssIds.slice(i * CHUNK, (i + 1) * CHUNK))
-            .range(from, to),
-        ),
-      ),
+            .range(from, to)
+        )
+      )
     )
   ).flat();
 
@@ -358,7 +372,9 @@ function loadEntryRows(ayCode: string): Promise<AttendanceEntryRow[]> {
   return loadEntryRowsUncached(ayCode);
 }
 
-async function loadCalendarRowsUncached(ayCode: string): Promise<CalendarDayRow[]> {
+async function loadCalendarRowsUncached(
+  ayCode: string
+): Promise<CalendarDayRow[]> {
   const service = createServiceClient();
   const ctx = await resolveAyContext(ayCode);
   if (!ctx.ayId || ctx.terms.length === 0) return [];
@@ -400,7 +416,7 @@ function loadCalendarRows(ayCode: string): Promise<CalendarDayRow[]> {
   return unstable_cache(
     () => loadCalendarRowsUncached(ayCode),
     ['attendance-drill', 'calendar', ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tags(ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tags(ayCode) }
   )();
 }
 
@@ -461,14 +477,18 @@ function rollupTopAbsent(entries: AttendanceEntryRow[]): TopAbsentDrillRow[] {
       excused: a.excused,
       encodedDays: a.encoded,
       attendancePct:
-        a.encoded > 0 ? Math.round(((a.present + a.late + a.excused) / a.encoded) * 100) : 0,
+        a.encoded > 0
+          ? Math.round(((a.present + a.late + a.excused) / a.encoded) * 100)
+          : 0,
     });
   }
   rows.sort((a, b) => b.absences - a.absences || b.lates - a.lates);
   return rows;
 }
 
-function rollupBySection(entries: AttendanceEntryRow[]): SectionAttendanceRow[] {
+function rollupBySection(
+  entries: AttendanceEntryRow[]
+): SectionAttendanceRow[] {
   type Acc = {
     sectionId: string;
     sectionName: string;
@@ -514,7 +534,9 @@ function rollupBySection(entries: AttendanceEntryRow[]): SectionAttendanceRow[] 
       excusedCount: a.excused,
       absentCount: a.absent,
       attendancePct:
-        a.encoded > 0 ? Math.round(((a.present + a.late + a.excused) / a.encoded) * 100) : 0,
+        a.encoded > 0
+          ? Math.round(((a.present + a.late + a.excused) / a.encoded) * 100)
+          : 0,
     });
   }
   rows.sort((a, b) => a.attendancePct - b.attendancePct);
@@ -523,7 +545,7 @@ function rollupBySection(entries: AttendanceEntryRow[]): SectionAttendanceRow[] 
 
 async function rollupCompassionate(
   ayCode: string,
-  preloadedEntries?: AttendanceEntryRow[],
+  preloadedEntries?: AttendanceEntryRow[]
 ): Promise<CompassionateUsageRow[]> {
   const ctx = await resolveAyContext(ayCode);
   if (!ctx.ayId || ctx.sectionStudents.length === 0) return [];
@@ -583,7 +605,7 @@ async function rollupVacationLeave(
   ayCode: string,
   termId: string | null,
   defaultAllowance: number,
-  preloadedEntries?: AttendanceEntryRow[],
+  preloadedEntries?: AttendanceEntryRow[]
 ): Promise<VacationLeaveUsageRow[]> {
   if (!termId) return [];
   const ctx = await resolveAyContext(ayCode);
@@ -611,7 +633,8 @@ async function rollupVacationLeave(
     const section = sectionById.get(ss.section_id);
     if (!section) continue;
     const used = usage.get(ss.id) ?? 0;
-    const allowance = student.vacation_leave_allowance_per_term ?? defaultAllowance;
+    const allowance =
+      student.vacation_leave_allowance_per_term ?? defaultAllowance;
     rows.push({
       studentSectionId: ss.id,
       studentName: studentName(student),
@@ -629,7 +652,8 @@ async function rollupVacationLeave(
   }
   rows.sort(
     (a, b) =>
-      b.usedThisTerm - a.usedThisTerm || a.remainingThisTerm - b.remainingThisTerm,
+      b.usedThisTerm - a.usedThisTerm ||
+      a.remainingThisTerm - b.remainingThisTerm
   );
   return rows;
 }
@@ -649,30 +673,38 @@ export type BuildDrillRowsInput = DrillRangeInput & {
 
 function applyScopeFilter<T extends { attendanceDate?: string; date?: string }>(
   rows: T[],
-  input: DrillRangeInput,
+  input: DrillRangeInput
 ): T[] {
   return applyDateRangeFilter(
     rows,
     input,
     (r) => r.attendanceDate ?? r.date ?? null,
-    { caller: 'attendance/drill' },
+    { caller: 'attendance/drill' }
   );
 }
 
 export async function buildAttendanceDrillRows(
-  input: BuildDrillRowsInput,
+  input: BuildDrillRowsInput
 ): Promise<AttendanceDrillRow[]> {
   const kind = rowKindForTarget(input.target);
 
   if (kind === 'entry') {
     let rows = await loadEntryRows(input.ayCode);
     rows = applyScopeFilter(rows, input);
-    return applyTargetFilter(rows, input.target, input.segment ?? null) as AttendanceDrillRow[];
+    return applyTargetFilter(
+      rows,
+      input.target,
+      input.segment ?? null
+    ) as AttendanceDrillRow[];
   }
   if (kind === 'calendar-day') {
     let rows = await loadCalendarRows(input.ayCode);
     rows = applyScopeFilter(rows, input);
-    return applyTargetFilter(rows, input.target, input.segment ?? null) as AttendanceDrillRow[];
+    return applyTargetFilter(
+      rows,
+      input.target,
+      input.segment ?? null
+    ) as AttendanceDrillRow[];
   }
   if (kind === 'top-absent') {
     let entries = await loadEntryRows(input.ayCode);
@@ -688,7 +720,7 @@ export async function buildAttendanceDrillRows(
     return (await rollupVacationLeave(
       input.ayCode,
       input.termId ?? null,
-      input.defaultVlAllowance ?? 1,
+      input.defaultVlAllowance ?? 1
     )) as AttendanceDrillRow[];
   }
   // compassionate
@@ -729,7 +761,7 @@ async function buildAllRowSetsUncached(input: {
       input.ayCode,
       input.vacationTermId ?? null,
       input.defaultVlAllowance ?? 1,
-      entriesAll,
+      entriesAll
     ),
   ]);
   const entries = applyScopeFilter(entriesAll, input);
@@ -766,7 +798,7 @@ export function buildAllRowSets(input: {
       input.vacationTermId ?? '',
       String(input.defaultVlAllowance ?? 1),
     ],
-    { revalidate: CACHE_TTL_SECONDS, tags: tags(input.ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tags(input.ayCode) }
   )();
 }
 
@@ -775,22 +807,35 @@ export function buildAllRowSets(input: {
 function applyTargetFilter(
   rows: AttendanceDrillRow[],
   target: AttendanceDrillTarget,
-  segment: string | null,
+  segment: string | null
 ): AttendanceDrillRow[] {
   switch (target) {
     case 'attendance-summary':
-      return (rows as AttendanceEntryRow[]).filter((r) => r.status !== 'NC') as AttendanceDrillRow[];
+      return (rows as AttendanceEntryRow[]).filter(
+        (r) => r.status !== 'NC'
+      ) as AttendanceDrillRow[];
     case 'lates':
-      return (rows as AttendanceEntryRow[]).filter((r) => r.status === 'L') as AttendanceDrillRow[];
+      return (rows as AttendanceEntryRow[]).filter(
+        (r) => r.status === 'L'
+      ) as AttendanceDrillRow[];
     case 'excused':
-      return (rows as AttendanceEntryRow[]).filter((r) => r.status === 'EX') as AttendanceDrillRow[];
+      return (rows as AttendanceEntryRow[]).filter(
+        (r) => r.status === 'EX'
+      ) as AttendanceDrillRow[];
     case 'absent':
-      return (rows as AttendanceEntryRow[]).filter((r) => r.status === 'A') as AttendanceDrillRow[];
+      return (rows as AttendanceEntryRow[]).filter(
+        (r) => r.status === 'A'
+      ) as AttendanceDrillRow[];
     case 'daily-attendance-day':
       if (!segment) return rows;
-      return (rows as AttendanceEntryRow[]).filter((r) => r.attendanceDate.slice(0, 10) === segment) as AttendanceDrillRow[];
+      return (rows as AttendanceEntryRow[]).filter(
+        (r) => r.attendanceDate.slice(0, 10) === segment
+      ) as AttendanceDrillRow[];
     case 'ex-reason': {
-      if (!segment) return (rows as AttendanceEntryRow[]).filter((r) => r.status === 'EX') as AttendanceDrillRow[];
+      if (!segment)
+        return (rows as AttendanceEntryRow[]).filter(
+          (r) => r.status === 'EX'
+        ) as AttendanceDrillRow[];
       // Donut sends the LABEL form ('MC' / 'Compassionate' /
       // 'School activity' / 'Other') from `lib/attendance/dashboard.ts`'s
       // `LABEL` map. Reverse-lookup to the raw `ex_reason` enum so the
@@ -804,12 +849,12 @@ function applyTargetFilter(
       };
       if (segment === 'Other' || segment.toLowerCase() === 'other') {
         return (rows as AttendanceEntryRow[]).filter(
-          (r) => r.status === 'EX' && r.exReason == null,
+          (r) => r.status === 'EX' && r.exReason == null
         ) as AttendanceDrillRow[];
       }
       const target = labelToEnum[segment] ?? segment.toLowerCase();
       return (rows as AttendanceEntryRow[]).filter(
-        (r) => r.status === 'EX' && r.exReason === target,
+        (r) => r.status === 'EX' && r.exReason === target
       ) as AttendanceDrillRow[];
     }
     case 'day-type': {
@@ -819,13 +864,15 @@ function applyTargetFilter(
       // (e.g. 'school_day'). Reverse-lookup so segment clicks match.
       const labelToEnum: Record<string, string> = {
         'School day': 'school_day',
-        'HBL': 'hbl',
+        HBL: 'hbl',
         'Public holiday': 'public_holiday',
         'School holiday': 'school_holiday',
         'No class': 'no_class',
       };
       const target = labelToEnum[segment] ?? segment;
-      return (rows as CalendarDayRow[]).filter((r) => r.dayType === target) as AttendanceDrillRow[];
+      return (rows as CalendarDayRow[]).filter(
+        (r) => r.dayType === target
+      ) as AttendanceDrillRow[];
     }
     case 'top-absent':
       return rows;
@@ -834,7 +881,7 @@ function applyTargetFilter(
       // ascending by absences (then desc by attendancePct) so the front
       // of the list is the perfect-attender / honor-roll cohort.
       const sorted = [...(rows as TopAbsentDrillRow[])].sort(
-        (a, b) => a.absences - b.absences || b.attendancePct - a.attendancePct,
+        (a, b) => a.absences - b.absences || b.attendancePct - a.attendancePct
       );
       return sorted as AttendanceDrillRow[];
     }
@@ -900,25 +947,74 @@ export const DRILL_COLUMN_LABELS: Record<DrillColumnKey, string> = {
   isOverTermQuota: 'Over term quota?',
 };
 
-const ENTRY_COLUMNS: DrillColumnKey[] = ['attendanceDate', 'studentName', 'sectionName', 'level', 'status', 'exReason'];
-const TOP_ABSENT_COLUMNS: DrillColumnKey[] = ['studentName', 'sectionName', 'level', 'absences', 'lates', 'excused', 'attendancePct'];
-const SECTION_COLUMNS: DrillColumnKey[] = ['sectionName', 'level', 'attendancePct', 'absences', 'lates', 'encodedDays'];
-const COMPASSIONATE_COLUMNS: DrillColumnKey[] = ['studentName', 'sectionName', 'level', 'allowance', 'used', 'remaining', 'isOverQuota'];
-const VACATION_LEAVE_COLUMNS: DrillColumnKey[] = ['studentName', 'sectionName', 'level', 'termNumber', 'allowance', 'usedThisTerm', 'remainingThisTerm', 'isOverTermQuota'];
+const ENTRY_COLUMNS: DrillColumnKey[] = [
+  'attendanceDate',
+  'studentName',
+  'sectionName',
+  'level',
+  'status',
+  'exReason',
+];
+const TOP_ABSENT_COLUMNS: DrillColumnKey[] = [
+  'studentName',
+  'sectionName',
+  'level',
+  'absences',
+  'lates',
+  'excused',
+  'attendancePct',
+];
+const SECTION_COLUMNS: DrillColumnKey[] = [
+  'sectionName',
+  'level',
+  'attendancePct',
+  'absences',
+  'lates',
+  'encodedDays',
+];
+const COMPASSIONATE_COLUMNS: DrillColumnKey[] = [
+  'studentName',
+  'sectionName',
+  'level',
+  'allowance',
+  'used',
+  'remaining',
+  'isOverQuota',
+];
+const VACATION_LEAVE_COLUMNS: DrillColumnKey[] = [
+  'studentName',
+  'sectionName',
+  'level',
+  'termNumber',
+  'allowance',
+  'usedThisTerm',
+  'remainingThisTerm',
+  'isOverTermQuota',
+];
 const CALENDAR_COLUMNS: DrillColumnKey[] = ['date', 'dayType', 'label'];
 
-export function allColumnsForKind(kind: AttendanceDrillRowKind): DrillColumnKey[] {
+export function allColumnsForKind(
+  kind: AttendanceDrillRowKind
+): DrillColumnKey[] {
   switch (kind) {
-    case 'entry': return ENTRY_COLUMNS;
-    case 'top-absent': return TOP_ABSENT_COLUMNS;
-    case 'section-rollup': return SECTION_COLUMNS;
-    case 'compassionate': return COMPASSIONATE_COLUMNS;
-    case 'vacation-leave': return VACATION_LEAVE_COLUMNS;
-    case 'calendar-day': return CALENDAR_COLUMNS;
+    case 'entry':
+      return ENTRY_COLUMNS;
+    case 'top-absent':
+      return TOP_ABSENT_COLUMNS;
+    case 'section-rollup':
+      return SECTION_COLUMNS;
+    case 'compassionate':
+      return COMPASSIONATE_COLUMNS;
+    case 'vacation-leave':
+      return VACATION_LEAVE_COLUMNS;
+    case 'calendar-day':
+      return CALENDAR_COLUMNS;
   }
 }
 
-export function defaultColumnsForTarget(target: AttendanceDrillTarget): DrillColumnKey[] {
+export function defaultColumnsForTarget(
+  target: AttendanceDrillTarget
+): DrillColumnKey[] {
   // Late and Absent rows can never carry an `ex_reason` — the schema only
   // allows that column for `status='EX'`. Strip it from the defaults so the
   // drill doesn't render an always-blank Reason column. The Columns
@@ -931,21 +1027,73 @@ export function defaultColumnsForTarget(target: AttendanceDrillTarget): DrillCol
 
 export function drillHeaderForTarget(
   target: AttendanceDrillTarget,
-  segment: string | null,
+  segment: string | null
 ): { eyebrow: string; title: string } {
   switch (target) {
-    case 'attendance-summary': return { eyebrow: 'Attendance', title: 'All daily attendance marks for this date range' };
-    case 'lates': return { eyebrow: 'Attendance', title: 'Students who arrived late on each date' };
-    case 'excused': return { eyebrow: 'Attendance', title: 'Excused absences (with reason category)' };
-    case 'absent': return { eyebrow: 'Attendance', title: 'Students absent on each date' };
-    case 'daily-attendance-day': return { eyebrow: 'Attendance', title: segment ? `Attendance on ${segment}` : 'Daily attendance' };
-    case 'ex-reason': return { eyebrow: 'Attendance', title: segment ? `Excused absences — reason: ${segment}` : 'Excused absences by reason' };
-    case 'day-type': return { eyebrow: 'School calendar', title: segment ? `Calendar days — type: ${segment}` : 'School calendar by day type' };
-    case 'top-absent': return { eyebrow: 'Needs attention', title: 'Students with the most absences' };
-    case 'top-active': return { eyebrow: 'Needs attention', title: 'Students with the best attendance' };
-    case 'attendance-by-section': return { eyebrow: 'Attendance', title: 'Attendance percentage by section' };
-    case 'compassionate-quota': return { eyebrow: 'Attendance', title: 'Compassionate-leave quota usage by student' };
-    case 'vacation-leave-quota': return { eyebrow: 'Attendance', title: segment ? `Vacation-leave quota — ${segment}` : 'Vacation-leave quota usage by student this term' };
-    default: return { eyebrow: 'Drill', title: 'Attendance' };
+    case 'attendance-summary':
+      return {
+        eyebrow: 'Attendance',
+        title: 'All daily attendance marks for this date range',
+      };
+    case 'lates':
+      return {
+        eyebrow: 'Attendance',
+        title: 'Students who arrived late on each date',
+      };
+    case 'excused':
+      return {
+        eyebrow: 'Attendance',
+        title: 'Excused absences (with reason category)',
+      };
+    case 'absent':
+      return { eyebrow: 'Attendance', title: 'Students absent on each date' };
+    case 'daily-attendance-day':
+      return {
+        eyebrow: 'Attendance',
+        title: segment ? `Attendance on ${segment}` : 'Daily attendance',
+      };
+    case 'ex-reason':
+      return {
+        eyebrow: 'Attendance',
+        title: segment
+          ? `Excused absences — reason: ${segment}`
+          : 'Excused absences by reason',
+      };
+    case 'day-type':
+      return {
+        eyebrow: 'School calendar',
+        title: segment
+          ? `Calendar days — type: ${segment}`
+          : 'School calendar by day type',
+      };
+    case 'top-absent':
+      return {
+        eyebrow: 'Needs attention',
+        title: 'Students with the most absences',
+      };
+    case 'top-active':
+      return {
+        eyebrow: 'Needs attention',
+        title: 'Students with the best attendance',
+      };
+    case 'attendance-by-section':
+      return {
+        eyebrow: 'Attendance',
+        title: 'Attendance percentage by section',
+      };
+    case 'compassionate-quota':
+      return {
+        eyebrow: 'Attendance',
+        title: 'Compassionate-leave quota usage by student',
+      };
+    case 'vacation-leave-quota':
+      return {
+        eyebrow: 'Attendance',
+        title: segment
+          ? `Vacation-leave quota — ${segment}`
+          : 'Vacation-leave quota usage by student this term',
+      };
+    default:
+      return { eyebrow: 'Drill', title: 'Attendance' };
   }
 }

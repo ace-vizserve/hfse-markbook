@@ -37,7 +37,12 @@ import {
 } from '@/components/ui/select';
 
 type Teacher = { id: string; email: string | null; display_name: string };
-type Subject = { id: string; code: string; name: string; is_examinable: boolean };
+type Subject = {
+  id: string;
+  code: string;
+  name: string;
+  is_examinable: boolean;
+};
 
 // Small inline tag for the examinable / non-examinable axis (KD #95). Numeric
 // subjects use the WW+PT+QA pipeline; letter subjects skip the formula and
@@ -45,11 +50,17 @@ type Subject = { id: string; code: string; name: string; is_examinable: boolean 
 // glance which track a subject is on before assigning a teacher to it.
 function ExaminableBadge({ isExaminable }: { isExaminable: boolean }) {
   return isExaminable ? (
-    <Badge variant="secondary" className="font-mono text-[10px] uppercase tracking-wider">
+    <Badge
+      variant="secondary"
+      className="font-mono text-[10px] uppercase tracking-wider"
+    >
       Exam
     </Badge>
   ) : (
-    <Badge variant="warning" className="font-mono text-[10px] uppercase tracking-wider">
+    <Badge
+      variant="warning"
+      className="font-mono text-[10px] uppercase tracking-wider"
+    >
       Non-exam
     </Badge>
   );
@@ -79,10 +90,13 @@ export function TeacherAssignmentsPanel({
 }) {
   const router = useRouter();
   const [teachers, setTeachers] = useState<Teacher[]>(initialTeachers);
-  const [assignments, setAssignments] = useState<Assignment[]>(initialAssignments);
+  const [assignments, setAssignments] =
+    useState<Assignment[]>(initialAssignments);
   const [loading, setLoading] = useState(false);
 
-  const [role, setRole] = useState<'form_adviser' | 'subject_teacher'>('subject_teacher');
+  const [role, setRole] = useState<'form_adviser' | 'subject_teacher'>(
+    'subject_teacher'
+  );
   const [teacherId, setTeacherId] = useState('');
   const [subjectId, setSubjectId] = useState('');
   const [busy, setBusy] = useState(false);
@@ -98,11 +112,14 @@ export function TeacherAssignmentsPanel({
       const tBody = await tRes.json();
       const aBody = await aRes.json();
       if (!tRes.ok) throw new Error(tBody.error ?? 'failed to load teachers');
-      if (!aRes.ok) throw new Error(aBody.error ?? 'failed to load assignments');
+      if (!aRes.ok)
+        throw new Error(aBody.error ?? 'failed to load assignments');
       setTeachers(tBody.teachers ?? []);
       setAssignments(aBody.assignments ?? []);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to load teacher assignments');
+      toast.error(
+        e instanceof Error ? e.message : 'Failed to load teacher assignments'
+      );
     } finally {
       setLoading(false);
     }
@@ -146,23 +163,30 @@ export function TeacherAssignmentsPanel({
   async function removeAssignment(id: string) {
     setBusy(true);
     try {
-      const res = await fetch(`/api/teacher-assignments/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/teacher-assignments/${id}`, {
+        method: 'DELETE',
+      });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? 'failed');
       toast.success('Assignment removed');
       await load();
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to remove assignment');
+      toast.error(
+        e instanceof Error ? e.message : 'Failed to remove assignment'
+      );
     } finally {
       setBusy(false);
     }
   }
 
-  const teachersById = useMemo(() => new Map(teachers.map((t) => [t.id, t])), [teachers]);
+  const teachersById = useMemo(
+    () => new Map(teachers.map((t) => [t.id, t])),
+    [teachers]
+  );
   const subjectsById = useMemo(
     () => new Map(levelSubjects.map((s) => [s.id, s])),
-    [levelSubjects],
+    [levelSubjects]
   );
 
   const formAdviser = assignments.find((a) => a.role === 'form_adviser');
@@ -201,7 +225,8 @@ export function TeacherAssignmentsPanel({
             <div className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-4 py-3">
               <div>
                 <div className="font-medium text-foreground">
-                  {teachersById.get(formAdviser.teacher_user_id)?.display_name ?? '(unknown user)'}
+                  {teachersById.get(formAdviser.teacher_user_id)
+                    ?.display_name ?? '(unknown user)'}
                 </div>
                 <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
                   {teachersById.get(formAdviser.teacher_user_id)?.email ??
@@ -253,7 +278,8 @@ export function TeacherAssignmentsPanel({
             </div>
           ) : subjectTeachers.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-5 text-center text-xs text-muted-foreground">
-              No subject teachers assigned yet. Use the form below to assign one.
+              No subject teachers assigned yet. Use the form below to assign
+              one.
             </div>
           ) : (
             <ul className="space-y-2">
@@ -267,13 +293,18 @@ export function TeacherAssignmentsPanel({
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="font-mono text-[10px]">
+                        <Badge
+                          variant="outline"
+                          className="font-mono text-[10px]"
+                        >
                           {s?.code ?? '—'}
                         </Badge>
                         <span className="font-medium text-foreground">
                           {s?.name ?? '(unknown subject)'}
                         </span>
-                        {s && <ExaminableBadge isExaminable={s.is_examinable} />}
+                        {s && (
+                          <ExaminableBadge isExaminable={s.is_examinable} />
+                        )}
                       </div>
                       <div className="mt-0.5 text-xs text-muted-foreground">
                         {t?.display_name ?? '(unknown user)'}
@@ -318,14 +349,20 @@ export function TeacherAssignmentsPanel({
               <FieldLabel htmlFor="ta-role">Role</FieldLabel>
               <Select
                 value={role}
-                onValueChange={(v) => setRole(v as 'form_adviser' | 'subject_teacher')}
+                onValueChange={(v) =>
+                  setRole(v as 'form_adviser' | 'subject_teacher')
+                }
               >
                 <SelectTrigger id="ta-role">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="subject_teacher">Subject teacher</SelectItem>
-                  <SelectItem value="form_adviser">Form class adviser</SelectItem>
+                  <SelectItem value="subject_teacher">
+                    Subject teacher
+                  </SelectItem>
+                  <SelectItem value="form_adviser">
+                    Form class adviser
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </Field>
@@ -339,7 +376,9 @@ export function TeacherAssignmentsPanel({
                   {teachers.map((t) => (
                     <SelectItem key={t.id} value={t.id}>
                       {t.display_name}
-                      {t.email && t.email !== t.display_name ? ` (${t.email})` : ''}
+                      {t.email && t.email !== t.display_name
+                        ? ` (${t.email})`
+                        : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -374,19 +413,26 @@ export function TeacherAssignmentsPanel({
           {teachers.length === 0 && !loading && (
             <Alert className="mt-4">
               <AlertDescription>
-                No teacher users found. Create users in the Supabase dashboard and set{' '}
-                <code className="rounded bg-muted px-1 py-0.5 text-xs">app_metadata.role</code>{' '}
-                to <code className="rounded bg-muted px-1 py-0.5 text-xs">&quot;teacher&quot;</code>
+                No teacher users found. Create users in the Supabase dashboard
+                and set{' '}
+                <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                  app_metadata.role
+                </code>{' '}
+                to{' '}
+                <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                  &quot;teacher&quot;
+                </code>
                 .
               </AlertDescription>
             </Alert>
           )}
-
         </CardContent>
         <CardFooter className="justify-end border-t border-border pt-6">
           <Button
             onClick={createAssignment}
-            disabled={busy || !teacherId || (role === 'subject_teacher' && !subjectId)}
+            disabled={
+              busy || !teacherId || (role === 'subject_teacher' && !subjectId)
+            }
             size="sm"
           >
             {busy ? (
@@ -409,7 +455,8 @@ export function TeacherAssignmentsPanel({
           <AlertDialogHeader>
             <AlertDialogTitle>Remove this assignment?</AlertDialogTitle>
             <AlertDialogDescription>
-              The teacher will immediately lose access to this section. You can re-assign them later.
+              The teacher will immediately lose access to this section. You can
+              re-assign them later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

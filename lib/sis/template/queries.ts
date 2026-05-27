@@ -37,7 +37,9 @@ export async function listTemplateSections(): Promise<TemplateSectionRow[]> {
   const service = createServiceClient();
   const { data, error } = await service
     .from('template_sections')
-    .select('id, level_id, name, class_type, level:levels(code, label, level_type)')
+    .select(
+      'id, level_id, name, class_type, level:levels(code, label, level_type)'
+    )
     .order('name');
   if (error) {
     console.error('[template] listTemplateSections failed:', error.message);
@@ -67,15 +69,20 @@ export async function listTemplateSections(): Promise<TemplateSectionRow[]> {
   });
 }
 
-export async function listTemplateSubjectConfigs(): Promise<TemplateSubjectConfigRow[]> {
+export async function listTemplateSubjectConfigs(): Promise<
+  TemplateSubjectConfigRow[]
+> {
   const service = createServiceClient();
   const { data, error } = await service
     .from('template_subject_configs')
     .select(
-      'id, subject_id, level_id, ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots, qa_max',
+      'id, subject_id, level_id, ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots, qa_max'
     );
   if (error) {
-    console.error('[template] listTemplateSubjectConfigs failed:', error.message);
+    console.error(
+      '[template] listTemplateSubjectConfigs failed:',
+      error.message
+    );
     return [];
   }
   return ((data ?? []) as TemplateSubjectConfigRow[]).map((r) => ({
@@ -100,5 +107,5 @@ export async function listEligibleAysForApply(): Promise<EligibleAyRow[]> {
     console.error('[template] listEligibleAysForApply failed:', error.message);
     return [];
   }
-  return ((data ?? []) as EligibleAyRow[]);
+  return (data ?? []) as EligibleAyRow[];
 }

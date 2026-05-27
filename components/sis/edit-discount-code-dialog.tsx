@@ -27,7 +27,13 @@ import {
 } from '@/components/ui/form';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import {
   DISCOUNT_ENROLEE_TYPES,
@@ -65,7 +71,14 @@ const BLANK: DiscountCodeInput = {
   details: null,
 };
 
-export function EditDiscountCodeDialog({ ayCode, mode, ayCodes, id, initial, children }: Props) {
+export function EditDiscountCodeDialog({
+  ayCode,
+  mode,
+  ayCodes,
+  id,
+  initial,
+  children,
+}: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   // Create mode lets the registrar pick which AY this code lands in. Edit
@@ -101,7 +114,7 @@ export function EditDiscountCodeDialog({ ayCode, mode, ayCodes, id, initial, chi
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? 'Failed to save');
       toast.success(
-        isEdit ? 'Discount code updated' : `Discount code created in ${writeAy}`,
+        isEdit ? 'Discount code updated' : `Discount code created in ${writeAy}`
       );
       setOpen(false);
       router.refresh();
@@ -149,7 +162,8 @@ export function EditDiscountCodeDialog({ ayCode, mode, ayCodes, id, initial, chi
               <div className="space-y-2">
                 <label
                   htmlFor="discount-code-ay-picker"
-                  className="text-sm font-medium leading-none text-foreground">
+                  className="text-sm font-medium leading-none text-foreground"
+                >
                   Apply to AY
                 </label>
                 <Select value={targetAy} onValueChange={(v) => setTargetAy(v)}>
@@ -195,7 +209,9 @@ export function EditDiscountCodeDialog({ ayCode, mode, ayCodes, id, initial, chi
                   <FormLabel>Eligibility</FormLabel>
                   <Select
                     value={field.value}
-                    onValueChange={(v) => field.onChange(v as DiscountEnroleeType)}
+                    onValueChange={(v) =>
+                      field.onChange(v as DiscountEnroleeType)
+                    }
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -261,7 +277,11 @@ export function EditDiscountCodeDialog({ ayCode, mode, ayCodes, id, initial, chi
                   <FormControl>
                     <Textarea
                       value={field.value ?? ''}
-                      onChange={(e) => field.onChange(e.target.value === '' ? null : e.target.value)}
+                      onChange={(e) =>
+                        field.onChange(
+                          e.target.value === '' ? null : e.target.value
+                        )
+                      }
                       rows={3}
                       placeholder="Internal notes on who this code is for, how much it's worth, etc."
                       maxLength={2000}
@@ -273,12 +293,22 @@ export function EditDiscountCodeDialog({ ayCode, mode, ayCodes, id, initial, chi
             />
 
             <DialogFooter className="gap-2">
-              <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={busy}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setOpen(false)}
+                disabled={busy}
+              >
                 Cancel
               </Button>
               <Button type="submit" size="sm" disabled={busy}>
                 {busy && <Loader2 className="size-3.5 animate-spin" />}
-                {busy ? 'Saving…' : mode === 'create' ? 'Create code' : 'Save changes'}
+                {busy
+                  ? 'Saving…'
+                  : mode === 'create'
+                    ? 'Create code'
+                    : 'Save changes'}
               </Button>
             </DialogFooter>
           </form>

@@ -26,7 +26,9 @@ const IMAGE_URL =
 const SEEDER_ACTOR = 'seeder@demo.com';
 
 function isoDateOffset(days: number): string {
-  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
 }
 
 function prefixFor(ayCode: string): string {
@@ -139,7 +141,12 @@ type Persona = {
   otherSource?: string | null;
   // STP (KD #61)
   stpApplicationType?: string | null;
-  stpApplicationStatus?: 'Pending' | 'Submitted' | 'Approved' | 'Rejected' | null;
+  stpApplicationStatus?:
+    | 'Pending'
+    | 'Submitted'
+    | 'Approved'
+    | 'Rejected'
+    | null;
   residenceHistory?: unknown[] | null;
   // Consents
   socialMediaConsent: boolean;
@@ -180,10 +187,9 @@ type Persona = {
 // ─── 20 personas ─────────────────────────────────────────────────────────────
 
 const PRE_COURSE_ANSWER =
-  'I have read and understood the school\'s pre-course materials and agree to support my child\'s learning journey at HFSE International School.';
+  "I have read and understood the school's pre-course materials and agree to support my child's learning journey at HFSE International School.";
 
 const PERSONAS: Persona[] = [
-
   // ── SUBMITTED (7) ──────────────────────────────────────────────────────────
 
   // 1 — Anya Krishnaswamy · YS-L · SG citizen (Indian descent) · New · Hindu
@@ -444,8 +450,18 @@ const PERSONAS: Persona[] = [
     stpApplicationType: 'New Student Pass Application',
     stpApplicationStatus: 'Pending',
     residenceHistory: [
-      { country: 'Malaysia', fromYear: 2019, toYear: 2022, address: 'Kuala Lumpur, Malaysia' },
-      { country: 'Singapore', fromYear: 2022, toYear: 'Present', address: 'Bedok, Singapore' },
+      {
+        country: 'Malaysia',
+        fromYear: 2019,
+        toYear: 2022,
+        address: 'Kuala Lumpur, Malaysia',
+      },
+      {
+        country: 'Singapore',
+        fromYear: 2022,
+        toYear: 'Present',
+        address: 'Bedok, Singapore',
+      },
     ],
     socialMediaConsent: true,
     motherWhatsappTeamsConsent: true,
@@ -635,7 +651,8 @@ const PERSONAS: Persona[] = [
     epilepsy: false,
     diabetes: false,
     eczema: false,
-    otherMedicalConditions: 'Uses Ventolin inhaler. School has been notified and inhaler is kept in school bag at all times.',
+    otherMedicalConditions:
+      'Uses Ventolin inhaler. School has been notified and inhaler is kept in school bag at all times.',
     availSchoolBus: 'Yes',
     availUniform: 'Yes',
     availStudentCare: 'No',
@@ -645,8 +662,18 @@ const PERSONAS: Persona[] = [
     stpApplicationType: 'New Student Pass Application',
     stpApplicationStatus: 'Submitted',
     residenceHistory: [
-      { country: 'India', fromYear: 2017, toYear: 2019, address: 'Mumbai, Maharashtra, India' },
-      { country: 'Singapore', fromYear: 2019, toYear: 'Present', address: 'Bishan, Singapore' },
+      {
+        country: 'India',
+        fromYear: 2017,
+        toYear: 2019,
+        address: 'Mumbai, Maharashtra, India',
+      },
+      {
+        country: 'Singapore',
+        fromYear: 2019,
+        toYear: 'Present',
+        address: 'Bishan, Singapore',
+      },
     ],
     socialMediaConsent: true,
     motherWhatsappTeamsConsent: true,
@@ -751,7 +778,8 @@ const PERSONAS: Persona[] = [
     epilepsy: false,
     diabetes: false,
     eczema: false,
-    otherMedicalConditions: 'Mild asthma, managed with daily Pulmicort inhaler. Has reliever inhaler in bag.',
+    otherMedicalConditions:
+      'Mild asthma, managed with daily Pulmicort inhaler. Has reliever inhaler in bag.',
     availSchoolBus: 'No',
     availUniform: 'Yes',
     availStudentCare: 'No',
@@ -926,7 +954,8 @@ const PERSONAS: Persona[] = [
     epilepsy: false,
     diabetes: false,
     eczema: true,
-    otherMedicalConditions: 'Mild eczema on arms. Uses moisturiser daily. No medication required during school hours.',
+    otherMedicalConditions:
+      'Mild eczema on arms. Uses moisturiser daily. No medication required during school hours.',
     availSchoolBus: 'No',
     availUniform: 'Yes',
     availStudentCare: 'No',
@@ -1029,8 +1058,18 @@ const PERSONAS: Persona[] = [
     stpApplicationType: 'New Student Pass Application',
     stpApplicationStatus: 'Approved',
     residenceHistory: [
-      { country: 'India', fromYear: 2013, toYear: 2021, address: 'New Delhi, India' },
-      { country: 'Singapore', fromYear: 2021, toYear: 'Present', address: 'Grange Road, Singapore' },
+      {
+        country: 'India',
+        fromYear: 2013,
+        toYear: 2021,
+        address: 'New Delhi, India',
+      },
+      {
+        country: 'Singapore',
+        fromYear: 2021,
+        toYear: 'Present',
+        address: 'Grange Road, Singapore',
+      },
     ],
     paymentOption: 'Option 1',
     contractSignatory: 'Father',
@@ -1224,7 +1263,8 @@ const PERSONAS: Persona[] = [
     epilepsy: false,
     diabetes: true,
     eczema: false,
-    otherMedicalConditions: 'Type 1 Diabetes. Uses insulin pump. School has been briefed and glucagon kit is kept with the form teacher. Parent to be contacted immediately for readings below 4.0 mmol/L.',
+    otherMedicalConditions:
+      'Type 1 Diabetes. Uses insulin pump. School has been briefed and glucagon kit is kept with the form teacher. Parent to be contacted immediately for readings below 4.0 mmol/L.',
     availSchoolBus: 'No',
     availUniform: 'Yes',
     availStudentCare: 'No',
@@ -1318,7 +1358,8 @@ const PERSONAS: Persona[] = [
     epilepsy: false,
     diabetes: false,
     eczema: false,
-    otherMedicalConditions: 'Repaired VSD (Ventricular Septal Defect) — cleared for full physical activity by cardiologist as of January 2025. Annual follow-up with KKH Cardiology.',
+    otherMedicalConditions:
+      'Repaired VSD (Ventricular Septal Defect) — cleared for full physical activity by cardiologist as of January 2025. Annual follow-up with KKH Cardiology.',
     availSchoolBus: 'No',
     availUniform: 'Yes',
     availStudentCare: 'No',
@@ -1413,7 +1454,8 @@ const PERSONAS: Persona[] = [
     allergies: false,
     asthma: false,
     foodAllergies: true,
-    foodAllergyDetails: 'Severe seafood allergy, particularly shellfish. Carries EpiPen at all times. Do NOT serve any dishes containing crab, prawn, lobster, or shellfish.',
+    foodAllergyDetails:
+      'Severe seafood allergy, particularly shellfish. Carries EpiPen at all times. Do NOT serve any dishes containing crab, prawn, lobster, or shellfish.',
     heartConditions: false,
     epilepsy: false,
     diabetes: false,
@@ -1526,8 +1568,18 @@ const PERSONAS: Persona[] = [
     stpApplicationType: 'New Student Pass Application',
     stpApplicationStatus: 'Rejected',
     residenceHistory: [
-      { country: 'India', fromYear: 2011, toYear: 2020, address: 'Chennai, Tamil Nadu, India' },
-      { country: 'Singapore', fromYear: 2020, toYear: 'Present', address: 'Nassim Road, Singapore' },
+      {
+        country: 'India',
+        fromYear: 2011,
+        toYear: 2020,
+        address: 'Chennai, Tamil Nadu, India',
+      },
+      {
+        country: 'Singapore',
+        fromYear: 2020,
+        toYear: 'Present',
+        address: 'Nassim Road, Singapore',
+      },
     ],
     paymentOption: 'Option 1',
     contractSignatory: 'Father',
@@ -1957,7 +2009,8 @@ const PERSONAS: Persona[] = [
     fatherWhatsappTeamsConsent: true,
     preCourseAnswer: PRE_COURSE_ANSWER,
     applicationStatus: 'Cancelled',
-    applicationRemarks: 'Family relocated to overseas posting prior to start of academic year. Parent requested withdrawal on 2026-04-21.',
+    applicationRemarks:
+      'Family relocated to overseas posting prior to start of academic year. Parent requested withdrawal on 2026-04-21.',
     enrolmentDateOffset: -50,
     applicationUpdateDateOffset: -25,
     registrationStatus: 'Finished',
@@ -2054,7 +2107,8 @@ const PERSONAS: Persona[] = [
     fatherWhatsappTeamsConsent: true,
     preCourseAnswer: PRE_COURSE_ANSWER,
     applicationStatus: 'Withdrawn',
-    applicationRemarks: 'Student has decided to continue at current school and will not be transferring to HFSE for AY2027.',
+    applicationRemarks:
+      'Student has decided to continue at current school and will not be transferring to HFSE for AY2027.',
     enrolmentDateOffset: -75,
     applicationUpdateDateOffset: -45,
     registrationStatus: 'Finished',
@@ -2153,7 +2207,8 @@ const PERSONAS: Persona[] = [
     fatherWhatsappTeamsConsent: true,
     preCourseAnswer: PRE_COURSE_ANSWER,
     applicationStatus: 'Withdrawn',
-    applicationRemarks: 'Family unable to proceed with enrolment due to financial constraints. Registration fee refund requested.',
+    applicationRemarks:
+      'Family unable to proceed with enrolment due to financial constraints. Registration fee refund requested.',
     enrolmentDateOffset: -90,
     applicationUpdateDateOffset: -60,
     registrationStatus: 'Finished',
@@ -2192,7 +2247,7 @@ export type AdmissionsMinimalResult = {
 
 export async function seedAdmissionsMinimal(
   service: SupabaseClient,
-  testAy: { id: string; ay_code: string },
+  testAy: { id: string; ay_code: string }
 ): Promise<AdmissionsMinimalResult> {
   const prefix = prefixFor(testAy.ay_code);
   const appsTable = `${prefix}_enrolment_applications`;
@@ -2204,13 +2259,19 @@ export async function seedAdmissionsMinimal(
   });
   if (rpcErr) {
     throw new Error(
-      `[admissions-minimal] create_ay_admissions_tables('${prefix}') failed: ${rpcErr.message}`,
+      `[admissions-minimal] create_ay_admissions_tables('${prefix}') failed: ${rpcErr.message}`
     );
   }
 
-  const { data: existingAppRows } = await service.from(appsTable).select('enroleeNumber');
-  const { data: existingStatusRows } = await service.from(statusTable).select('enroleeNumber');
-  const { data: existingDocsRows } = await service.from(docsTable).select('enroleeNumber');
+  const { data: existingAppRows } = await service
+    .from(appsTable)
+    .select('enroleeNumber');
+  const { data: existingStatusRows } = await service
+    .from(statusTable)
+    .select('enroleeNumber');
+  const { data: existingDocsRows } = await service
+    .from(docsTable)
+    .select('enroleeNumber');
 
   const existingNums = new Set<string>([
     ...((existingAppRows ?? []) as Array<{ enroleeNumber: string | null }>)
@@ -2223,11 +2284,15 @@ export async function seedAdmissionsMinimal(
   const existingDocsNums = new Set<string>(
     ((existingDocsRows ?? []) as Array<{ enroleeNumber: string | null }>)
       .map((r) => r.enroleeNumber)
-      .filter((n): n is string => !!n),
+      .filter((n): n is string => !!n)
   );
 
-  const newPersonas = PERSONAS.filter((p) => !existingNums.has(p.enroleeNumber));
-  const newDocsPersonas = PERSONAS.filter((p) => !existingDocsNums.has(p.enroleeNumber));
+  const newPersonas = PERSONAS.filter(
+    (p) => !existingNums.has(p.enroleeNumber)
+  );
+  const newDocsPersonas = PERSONAS.filter(
+    (p) => !existingDocsNums.has(p.enroleeNumber)
+  );
 
   let appsInserted = 0;
   let statusInserted = 0;
@@ -2237,15 +2302,23 @@ export async function seedAdmissionsMinimal(
     const appsRows = newPersonas.map(buildAppsRow);
     const { error: appsErr } = await service.from(appsTable).insert(appsRows);
     if (appsErr) {
-      console.error(`[admissions-minimal] ${appsTable} insert failed:`, appsErr.message);
+      console.error(
+        `[admissions-minimal] ${appsTable} insert failed:`,
+        appsErr.message
+      );
     } else {
       appsInserted = appsRows.length;
     }
 
     const statusRows = newPersonas.map(buildStatusRow);
-    const { error: statusErr } = await service.from(statusTable).insert(statusRows);
+    const { error: statusErr } = await service
+      .from(statusTable)
+      .insert(statusRows);
     if (statusErr) {
-      console.error(`[admissions-minimal] ${statusTable} insert failed:`, statusErr.message);
+      console.error(
+        `[admissions-minimal] ${statusTable} insert failed:`,
+        statusErr.message
+      );
     } else {
       statusInserted = statusRows.length;
     }
@@ -2255,7 +2328,10 @@ export async function seedAdmissionsMinimal(
     const docsRows = newDocsPersonas.map(buildDocsRow);
     const { error: docsErr } = await service.from(docsTable).insert(docsRows);
     if (docsErr) {
-      console.error(`[admissions-minimal] ${docsTable} insert failed:`, docsErr.message);
+      console.error(
+        `[admissions-minimal] ${docsTable} insert failed:`,
+        docsErr.message
+      );
     } else {
       docsInserted = docsRows.length;
     }
@@ -2394,7 +2470,9 @@ function buildAppsRow(p: Persona): Record<string, unknown> {
     // STP (KD #61)
     stpApplicationType: p.stpApplicationType ?? null,
     stpApplicationStatus: p.stpApplicationStatus ?? null,
-    residenceHistory: p.residenceHistory ? JSON.stringify(p.residenceHistory) : null,
+    residenceHistory: p.residenceHistory
+      ? JSON.stringify(p.residenceHistory)
+      : null,
     // Parent-portal-side status — always 'Registered' for a completed form (KD #59)
     applicationStatus: 'Registered',
     paymentOption: p.paymentOption,
@@ -2439,13 +2517,17 @@ function buildStatusRow(p: Persona): Record<string, unknown> {
     // Documents
     documentStatus: p.documentStatus ?? null,
     documentUpdatedDate:
-      p.documentUpdateDateOffset != null ? isoDateOffset(p.documentUpdateDateOffset) : null,
+      p.documentUpdateDateOffset != null
+        ? isoDateOffset(p.documentUpdateDateOffset)
+        : null,
     documentUpdatedby: p.documentStatus ? SEEDER_ACTOR : null,
     documentRemarks: null,
     // Assessment
     assessmentStatus: p.assessmentStatus ?? null,
     assessmentUpdatedDate:
-      p.assessmentUpdateDateOffset != null ? isoDateOffset(p.assessmentUpdateDateOffset) : null,
+      p.assessmentUpdateDateOffset != null
+        ? isoDateOffset(p.assessmentUpdateDateOffset)
+        : null,
     assessmentUpdatedby: p.assessmentStatus ? SEEDER_ACTOR : null,
     assessmentGradeMath: p.assessmentGradeMath ?? null,
     assessmentGradeEnglish: p.assessmentGradeEnglish ?? null,
@@ -2458,18 +2540,24 @@ function buildStatusRow(p: Persona): Record<string, unknown> {
     // Contract
     contractStatus: p.contractStatus ?? null,
     contractUpdatedDate:
-      p.contractUpdateDateOffset != null ? isoDateOffset(p.contractUpdateDateOffset) : null,
+      p.contractUpdateDateOffset != null
+        ? isoDateOffset(p.contractUpdateDateOffset)
+        : null,
     contractUpdatedby: p.contractStatus ? SEEDER_ACTOR : null,
     contractRemarks: null,
     // Fee
     feeStatus: p.feeStatus ?? null,
     feeUpdatedDate:
-      p.feeUpdateDateOffset != null ? isoDateOffset(p.feeUpdateDateOffset) : null,
+      p.feeUpdateDateOffset != null
+        ? isoDateOffset(p.feeUpdateDateOffset)
+        : null,
     feeUpdatedby: p.feeStatus ? SEEDER_ACTOR : null,
     feeRemarks: null,
     feeInvoice: p.feeInvoiceRef ?? null,
     feePaymentDate:
-      p.feePaymentDateOffset != null ? isoDateOffset(p.feePaymentDateOffset) : null,
+      p.feePaymentDateOffset != null
+        ? isoDateOffset(p.feePaymentDateOffset)
+        : null,
     feeStartDate: null,
     // Class — always null (no Enrolled personas; user drives this manually)
     classStatus: null,
@@ -2494,7 +2582,15 @@ function buildDocsRow(p: Persona): Record<string, unknown> {
   const docs: Record<string, DocFill> = { ...p.docs };
 
   // Student document slots — always required (KD #60).
-  for (const slot of ['idPicture', 'birthCert', 'educCert', 'medical', 'form12', 'passport', 'pass']) {
+  for (const slot of [
+    'idPicture',
+    'birthCert',
+    'educCert',
+    'medical',
+    'form12',
+    'passport',
+    'pass',
+  ]) {
     if (!docs[slot]) docs[slot] = TO_FOLLOW;
   }
 
@@ -2521,7 +2617,8 @@ function buildDocsRow(p: Persona): Record<string, unknown> {
     enroleeNumber: p.enroleeNumber,
     studentNumber: p.studentNumber,
     idPictureUploadedDate:
-      docs['idPicture']?.status === 'Uploaded' || docs['idPicture']?.status === 'Valid'
+      docs['idPicture']?.status === 'Uploaded' ||
+      docs['idPicture']?.status === 'Valid'
         ? isoDateOffset(p.enrolmentDateOffset)
         : null,
     uploadFormDocument: null,
@@ -2535,4 +2632,3 @@ function buildDocsRow(p: Persona): Record<string, unknown> {
   }
   return row;
 }
-

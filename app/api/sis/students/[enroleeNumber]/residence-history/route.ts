@@ -19,7 +19,7 @@ import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 // writes here too on initial registration. KD #37 audit pattern.
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ enroleeNumber: string }> },
+  { params }: { params: Promise<{ enroleeNumber: string }> }
 ) {
   // Per KD #74: admissions is the operational writer; school_admin is read-only oversight.
   const auth = await requireRole(['admissions', 'registrar', 'superadmin']);
@@ -27,24 +27,39 @@ export async function PATCH(
 
   const { enroleeNumber } = await params;
   if (!enroleeNumber.trim()) {
-    return NextResponse.json({ error: 'Missing enroleeNumber' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Missing enroleeNumber' },
+      { status: 400 }
+    );
   }
 
   const url = new URL(request.url);
   const ayCode = (url.searchParams.get('ay') ?? '').trim();
   if (!/^AY\d{4}$/i.test(ayCode)) {
-    return NextResponse.json({ error: 'Invalid or missing ay query param' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid or missing ay query param' },
+      { status: 400 }
+    );
   }
 
   const rawBody = await request.json().catch(() => null);
-  if (!rawBody || typeof rawBody !== 'object' || !('residenceHistory' in rawBody)) {
-    return NextResponse.json({ error: 'Missing residenceHistory in body' }, { status: 400 });
+  if (
+    !rawBody ||
+    typeof rawBody !== 'object' ||
+    !('residenceHistory' in rawBody)
+  ) {
+    return NextResponse.json(
+      { error: 'Missing residenceHistory in body' },
+      { status: 400 }
+    );
   }
-  const parsed = ResidenceHistorySchema.safeParse((rawBody as Record<string, unknown>).residenceHistory);
+  const parsed = ResidenceHistorySchema.safeParse(
+    (rawBody as Record<string, unknown>).residenceHistory
+  );
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Invalid residenceHistory', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const next = parsed.data;
@@ -59,13 +74,19 @@ export async function PATCH(
     .eq('enroleeNumber', enroleeNumber)
     .maybeSingle();
   if (beforeErr) {
-    console.error('[sis residence-history PATCH] pre-fetch failed:', beforeErr.message);
-    return NextResponse.json({ error: 'Application lookup failed' }, { status: 500 });
+    console.error(
+      '[sis residence-history PATCH] pre-fetch failed:',
+      beforeErr.message
+    );
+    return NextResponse.json(
+      { error: 'Application lookup failed' },
+      { status: 500 }
+    );
   }
   if (!before) {
     return NextResponse.json(
       { error: 'No application row for this enrolee in this AY' },
-      { status: 404 },
+      { status: 404 }
     );
   }
 
@@ -74,7 +95,10 @@ export async function PATCH(
     .update({ residenceHistory: next })
     .eq('enroleeNumber', enroleeNumber);
   if (upErr) {
-    console.error('[sis residence-history PATCH] update failed:', upErr.message);
+    console.error(
+      '[sis residence-history PATCH] update failed:',
+      upErr.message
+    );
     return NextResponse.json({ error: upErr.message }, { status: 500 });
   }
 
@@ -89,7 +113,8 @@ export async function PATCH(
       changes: [
         {
           field: 'residenceHistory',
-          from: (before as { residenceHistory?: unknown }).residenceHistory ?? null,
+          from:
+            (before as { residenceHistory?: unknown }).residenceHistory ?? null,
           to: next,
         },
       ],

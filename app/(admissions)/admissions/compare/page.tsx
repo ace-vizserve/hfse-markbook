@@ -2,15 +2,26 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
-import { CompareGrid, type CompareGridMetric } from '@/components/dashboard/compare-grid';
+import {
+  CompareGrid,
+  type CompareGridMetric,
+} from '@/components/dashboard/compare-grid';
 import { CompareToolbar } from '@/components/dashboard/compare-toolbar';
 import { PageShell } from '@/components/ui/page-shell';
 import { listAyCodes } from '@/lib/academic-year';
-import { getAdmissionsCompareKpis, type AdmissionsCompareKpis } from '@/lib/admissions/compare';
+import {
+  getAdmissionsCompareKpis,
+  type AdmissionsCompareKpis,
+} from '@/lib/admissions/compare';
 import { parseCompareParams } from '@/lib/dashboard/compare';
 import { createClient, getSessionUser } from '@/lib/supabase/server';
 
-const ALLOWED_ROLES = new Set(['admissions', 'registrar', 'school_admin', 'superadmin']);
+const ALLOWED_ROLES = new Set([
+  'admissions',
+  'registrar',
+  'school_admin',
+  'superadmin',
+]);
 
 export default async function AdmissionsComparePage({
   searchParams,
@@ -59,7 +70,12 @@ export default async function AdmissionsComparePage({
       getValue: (d) => d.avgDaysToEnroll,
       lowerIsBetter: true,
     },
-    { key: 'sampleSize', label: 'Sample size', format: 'number', getValue: (d) => d.sampleSize },
+    {
+      key: 'sampleSize',
+      label: 'Sample size',
+      format: 'number',
+      getValue: (d) => d.sampleSize,
+    },
   ];
 
   return (
@@ -80,8 +96,8 @@ export default async function AdmissionsComparePage({
           Month-on-month, year-on-year.
         </h1>
         <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-          Pick the academic years and months you want to line up, side by side. Same calendar
-          month across years gives an honest seasonal comparison.
+          Pick the academic years and months you want to line up, side by side.
+          Same calendar month across years gives an honest seasonal comparison.
         </p>
       </header>
 
@@ -100,7 +116,8 @@ export default async function AdmissionsComparePage({
         />
       ) : (
         <div className="rounded-xl border border-dashed border-border bg-muted/20 p-12 text-center text-sm text-muted-foreground">
-          No data found for this selection. Verify the AYs and months are seeded.
+          No data found for this selection. Verify the AYs and months are
+          seeded.
         </div>
       )}
     </PageShell>

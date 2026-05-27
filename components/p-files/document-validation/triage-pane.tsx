@@ -77,7 +77,8 @@ export function TriagePane({
           All documents reviewed
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Nothing left in the queue. Switch back to the table view to look for new arrivals.
+          Nothing left in the queue. Switch back to the table view to look for
+          new arrivals.
         </p>
         <Button onClick={onExit} className="mt-4">
           Back to table view
@@ -93,7 +94,8 @@ export function TriagePane({
           End of queue
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          You&apos;ve reached the end of the validation queue. Exit to the table view to review skipped items or refresh for new arrivals.
+          You&apos;ve reached the end of the validation queue. Exit to the table
+          view to review skipped items or refresh for new arrivals.
         </p>
         <div className="mt-4 flex gap-2">
           <Button variant="outline" onClick={() => setIndex(0)}>
@@ -184,7 +186,10 @@ export function TriagePane({
 
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary">{current.slotLabel}</Badge>
-            <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-wider">
+            <Badge
+              variant="outline"
+              className="font-mono text-[10px] uppercase tracking-wider"
+            >
               {current.owner}
             </Badge>
           </div>
@@ -225,10 +230,13 @@ export function TriagePane({
                 <div className="flex items-center justify-between text-[11px]">
                   <span
                     className={cn(
-                      canConfirmReject ? 'text-brand-mint' : 'text-muted-foreground',
+                      canConfirmReject
+                        ? 'text-brand-mint'
+                        : 'text-muted-foreground'
                     )}
                   >
-                    {rejectReason.trim().length} / {REJECT_MIN_CHARS} min characters
+                    {rejectReason.trim().length} / {REJECT_MIN_CHARS} min
+                    characters
                   </span>
                 </div>
                 <div className="flex gap-2">

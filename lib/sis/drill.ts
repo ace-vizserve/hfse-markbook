@@ -123,14 +123,20 @@ function studentName(s: StudentLite): string {
   return name || s.student_number || s.id;
 }
 
-function deriveStage(applicationStatus: string | null, enrollmentStatus: string): string {
-  if (enrollmentStatus === 'active' || enrollmentStatus === 'late_enrollee') return 'Enrolled';
+function deriveStage(
+  applicationStatus: string | null,
+  enrollmentStatus: string
+): string {
+  if (enrollmentStatus === 'active' || enrollmentStatus === 'late_enrollee')
+    return 'Enrolled';
   if (enrollmentStatus === 'withdrawn') return 'Withdrawn';
   if (enrollmentStatus === 'graduated') return 'Graduated';
   return (applicationStatus ?? '').trim() || 'Not started';
 }
 
-async function loadRecordsRowsUncached(ayCode: string): Promise<RecordsDrillRow[]> {
+async function loadRecordsRowsUncached(
+  ayCode: string
+): Promise<RecordsDrillRow[]> {
   const service = createServiceClient();
   const admissions = createAdmissionsClient();
 
@@ -154,18 +160,25 @@ async function loadRecordsRowsUncached(ayCode: string): Promise<RecordsDrillRow[
     .from('sections')
     .select('id')
     .eq('academic_year_id', ayId);
-  const sectionIdsForFilter = (sectionsForFilterRes.data ?? []).map((r) => r.id as string);
+  const sectionIdsForFilter = (sectionsForFilterRes.data ?? []).map(
+    (r) => r.id as string
+  );
 
   const [sectionsRes, levelsRes, ssRows] = await Promise.all([
-    service.from('sections').select('id, name, level_id').eq('academic_year_id', ayId),
+    service
+      .from('sections')
+      .select('id, name, level_id')
+      .eq('academic_year_id', ayId),
     service.from('levels').select('id, code'),
     sectionIdsForFilter.length > 0
       ? fetchAllPages<SectionStudentLite>((from, to) =>
           service
             .from('section_students')
-            .select('id, section_id, student_id, enrollment_status, enrollment_date, withdrawal_date, enrolee_number')
+            .select(
+              'id, section_id, student_id, enrollment_status, enrollment_date, withdrawal_date, enrolee_number'
+            )
             .in('section_id', sectionIdsForFilter)
-            .range(from, to),
+            .range(from, to)
         )
       : Promise.resolve([] as SectionStudentLite[]),
   ]);
@@ -175,7 +188,8 @@ async function loadRecordsRowsUncached(ayCode: string): Promise<RecordsDrillRow[
   for (const s of sections) sectionById.set(s.id, s);
 
   const levels = new Map<string, string>();
-  for (const l of (levelsRes.data ?? []) as LevelLite[]) levels.set(l.id, l.code);
+  for (const l of (levelsRes.data ?? []) as LevelLite[])
+    levels.set(l.id, l.code);
 
   const ss = ssRows as SectionStudentLite[];
   const studentIds = Array.from(new Set(ss.map((s) => s.student_id)));
@@ -183,7 +197,8 @@ async function loadRecordsRowsUncached(ayCode: string): Promise<RecordsDrillRow[
   const studentMap = new Map<string, StudentLite>();
   if (studentIds.length > 0) {
     const chunks: string[][] = [];
-    for (let i = 0; i < studentIds.length; i += 500) chunks.push(studentIds.slice(i, i + 500));
+    for (let i = 0; i < studentIds.length; i += 500)
+      chunks.push(studentIds.slice(i, i + 500));
     for (const chunk of chunks) {
       const { data } = await service
         .from('students')
@@ -234,11 +249,15 @@ async function loadRecordsRowsUncached(ayCode: string): Promise<RecordsDrillRow[
     const [appsRes, statusRes] = await Promise.all([
       admissions
         .from(appsTable)
-        .select('enroleeNumber, studentNumber, enroleeFullName, firstName, lastName, levelApplied, created_at')
+        .select(
+          'enroleeNumber, studentNumber, enroleeFullName, firstName, lastName, levelApplied, created_at'
+        )
         .in('enroleeNumber', enroleeNumbers),
       admissions
         .from(statusTable)
-        .select('enroleeNumber, applicationStatus, applicationUpdatedDate, classLevel, levelApplied')
+        .select(
+          'enroleeNumber, applicationStatus, applicationUpdatedDate, classLevel, levelApplied'
+        )
         .in('enroleeNumber', enroleeNumbers),
     ]);
     for (const a of (appsRes.data ?? []) as ApplicationLite[]) {
@@ -262,7 +281,9 @@ async function loadRecordsRowsUncached(ayCode: string): Promise<RecordsDrillRow[
       enroleeByStudentNumber.get(student.student_number) ??
       '';
     const app = enroleeNumber ? appByEnrolee.get(enroleeNumber) : undefined;
-    const status = enroleeNumber ? statusByEnrolee.get(enroleeNumber) : undefined;
+    const status = enroleeNumber
+      ? statusByEnrolee.get(enroleeNumber)
+      : undefined;
 
     const applicationStatus = (status?.applicationStatus ?? '').trim();
     if (SOFT_CLOSED_APPLICATION_STATUSES.has(applicationStatus)) continue;
@@ -311,7 +332,10 @@ async function loadRecordsRowsUncached(ayCode: string): Promise<RecordsDrillRow[
 }
 
 // Doc enrichment — opt-in per spec §6 (only certain targets surface doc fields).
-async function enrichWithDocs(rows: RecordsDrillRow[], ayCode: string): Promise<RecordsDrillRow[]> {
+async function enrichWithDocs(
+  rows: RecordsDrillRow[],
+  ayCode: string
+): Promise<RecordsDrillRow[]> {
   if (rows.length === 0) return rows;
   const prefix = prefixFor(ayCode);
   const docsTable = `${prefix}_enrolment_documents`;
@@ -324,7 +348,7 @@ async function enrichWithDocs(rows: RecordsDrillRow[], ayCode: string): Promise<
   // filter (`r.expiringDocsCount > 0`) returns 0 rows even when the card
   // count is non-zero.
   const expiryColumns = DOCUMENT_SLOTS.filter((s) => s.expiryCol).map(
-    (s) => s.expiryCol!,
+    (s) => s.expiryCol!
   );
   const selectColumns = [
     'enroleeNumber',
@@ -357,7 +381,11 @@ async function enrichWithDocs(rows: RecordsDrillRow[], ayCode: string): Promise<
     let documentsComplete = 0;
     for (const col of CORE_DOC_STATUS_COLUMNS) {
       const v = d[col];
-      if (v && String(v).trim() !== '' && String(v).toLowerCase() !== 'missing') {
+      if (
+        v &&
+        String(v).trim() !== '' &&
+        String(v).toLowerCase() !== 'missing'
+      ) {
         documentsComplete += 1;
       }
     }
@@ -390,7 +418,7 @@ async function enrichWithDocs(rows: RecordsDrillRow[], ayCode: string): Promise<
 // loadClassAssignmentReadinessUncached so the drill count matches the
 // dashboard card count (M13).
 async function loadUnsyncedReadinessDrillRowsUncached(
-  ayCode: string,
+  ayCode: string
 ): Promise<RecordsDrillRow[]> {
   const prefix = prefixFor(ayCode);
   const service = createServiceClient();
@@ -408,16 +436,22 @@ async function loadUnsyncedReadinessDrillRowsUncached(
     .from('sections')
     .select('id')
     .eq('academic_year_id', ayId);
-  const sectionIds = ((sectionsData ?? []) as { id: string }[]).map((r) => r.id);
+  const sectionIds = ((sectionsData ?? []) as { id: string }[]).map(
+    (r) => r.id
+  );
 
   const [statusRes, appsRes, ssRes] = await Promise.all([
     admissions
       .from(`${prefix}_enrolment_status`)
-      .select('enroleeNumber, applicationStatus, applicationUpdatedDate, classLevel')
+      .select(
+        'enroleeNumber, applicationStatus, applicationUpdatedDate, classLevel'
+      )
       .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']),
     admissions
       .from(`${prefix}_enrolment_applications`)
-      .select('enroleeNumber, studentNumber, enroleeFullName, firstName, lastName, levelApplied, created_at'),
+      .select(
+        'enroleeNumber, studentNumber, enroleeFullName, firstName, lastName, levelApplied, created_at'
+      ),
     sectionIds.length > 0
       ? service
           .from('section_students')
@@ -450,7 +484,7 @@ async function loadUnsyncedReadinessDrillRowsUncached(
   const assignedEnrolees = new Set(
     ((ssRes.data ?? []) as { enrolee_number: string | null }[])
       .map((r) => r.enrolee_number)
-      .filter((v): v is string => v !== null),
+      .filter((v): v is string => v !== null)
   );
 
   const appsByEnrolee = new Map<string, AppsRow>();
@@ -468,8 +502,10 @@ async function loadUnsyncedReadinessDrillRowsUncached(
 
     const app = appsByEnrolee.get(status.enroleeNumber);
     const nameParts = [app?.firstName, app?.lastName].filter(Boolean);
-    const fullName = (app?.enroleeFullName ?? nameParts.join(' ')) || status.enroleeNumber;
-    const level = (status.classLevel ?? app?.levelApplied ?? '').trim() || 'Unknown';
+    const fullName =
+      (app?.enroleeFullName ?? nameParts.join(' ')) || status.enroleeNumber;
+    const level =
+      (status.classLevel ?? app?.levelApplied ?? '').trim() || 'Unknown';
     const applicationStatus = (status.applicationStatus ?? '').trim();
     const updated = status.applicationUpdatedDate ?? app?.created_at ?? null;
     const updatedMs = updated ? Date.parse(updated) : NaN;
@@ -501,12 +537,12 @@ async function loadUnsyncedReadinessDrillRowsUncached(
 }
 
 export async function buildUnsyncedReadinessDrillRows(
-  ayCode: string,
+  ayCode: string
 ): Promise<RecordsDrillRow[]> {
   return unstable_cache(
     () => loadUnsyncedReadinessDrillRowsUncached(ayCode),
     ['records-unsynced-readiness-drill', ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tags(ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tags(ayCode) }
   )();
 }
 
@@ -514,13 +550,13 @@ export async function buildUnsyncedReadinessDrillRows(
 
 export async function buildRecordsDrillRows(
   input: DrillRangeInput,
-  options?: { withDocs?: boolean },
+  options?: { withDocs?: boolean }
 ): Promise<RecordsDrillRow[]> {
   // AY-scoped cache; scope/range filtering applied post-cache (per KD #56).
   const cached = await unstable_cache(
     () => loadRecordsRowsUncached(input.ayCode),
     ['records-drill', 'rows', input.ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tags(input.ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tags(input.ayCode) }
   )();
   return options?.withDocs ? enrichWithDocs(cached, input.ayCode) : cached;
 }
@@ -531,13 +567,14 @@ export function applyTargetFilter(
   rows: RecordsDrillRow[],
   target: RecordsDrillTarget,
   segment: string | null,
-  range?: { from: string; to: string },
+  range?: { from: string; to: string }
 ): RecordsDrillRow[] {
   switch (target) {
     case 'enrollments-range': {
       // KD #82 scope-anchor: enrolment-velocity chart anchors on
       // section_students.enrollment_date; drill must match (M12).
-      if (!range) return rows.filter((r) => ENROLLED_STATUSES.has(r.enrollmentStatus));
+      if (!range)
+        return rows.filter((r) => ENROLLED_STATUSES.has(r.enrollmentStatus));
       return rows.filter((r) => {
         if (!ENROLLED_STATUSES.has(r.enrollmentStatus)) return false;
         if (!r.enrollmentDate) return false;
@@ -573,7 +610,7 @@ export function applyTargetFilter(
     }
     case 'class-assignment-readiness':
       return rows.filter(
-        (r) => ENROLLED_STATUSES.has(r.enrollmentStatus) && r.sectionId === null,
+        (r) => ENROLLED_STATUSES.has(r.enrollmentStatus) && r.sectionId === null
       );
     default: {
       const _exhaustive: never = target;
@@ -628,20 +665,58 @@ export const DRILL_COLUMN_LABELS: Record<DrillColumnKey, string> = {
   documentsComplete: 'Documents',
 };
 
-export function defaultColumnsForTarget(target: RecordsDrillTarget): DrillColumnKey[] {
+export function defaultColumnsForTarget(
+  target: RecordsDrillTarget
+): DrillColumnKey[] {
   switch (target) {
     case 'enrollments-range':
-      return ['fullName', 'level', 'sectionName', 'enrollmentDate', 'enrollmentStatus'];
+      return [
+        'fullName',
+        'level',
+        'sectionName',
+        'enrollmentDate',
+        'enrollmentStatus',
+      ];
     case 'withdrawals-range':
-      return ['fullName', 'level', 'sectionName', 'withdrawalDate', 'daysSinceUpdate'];
+      return [
+        'fullName',
+        'level',
+        'sectionName',
+        'withdrawalDate',
+        'daysSinceUpdate',
+      ];
     case 'active-enrolled':
-      return ['fullName', 'level', 'sectionName', 'enrollmentDate', 'documentsComplete'];
+      return [
+        'fullName',
+        'level',
+        'sectionName',
+        'enrollmentDate',
+        'documentsComplete',
+      ];
     case 'expiring-docs':
-      return ['fullName', 'level', 'sectionName', 'documentsComplete', 'daysSinceUpdate'];
+      return [
+        'fullName',
+        'level',
+        'sectionName',
+        'documentsComplete',
+        'daysSinceUpdate',
+      ];
     case 'students-by-pipeline-stage':
-      return ['fullName', 'level', 'pipelineStage', 'enrollmentStatus', 'daysSinceUpdate'];
+      return [
+        'fullName',
+        'level',
+        'pipelineStage',
+        'enrollmentStatus',
+        'daysSinceUpdate',
+      ];
     case 'students-by-level':
-      return ['fullName', 'level', 'sectionName', 'enrollmentStatus', 'enrollmentDate'];
+      return [
+        'fullName',
+        'level',
+        'sectionName',
+        'enrollmentStatus',
+        'enrollmentDate',
+      ];
     case 'backlog-by-document':
       return ['fullName', 'level', 'documentsComplete', 'daysSinceUpdate'];
     case 'class-assignment-readiness':
@@ -651,21 +726,37 @@ export function defaultColumnsForTarget(target: RecordsDrillTarget): DrillColumn
 
 export function drillHeaderForTarget(
   target: RecordsDrillTarget,
-  segment: string | null,
+  segment: string | null
 ): { eyebrow: string; title: string } {
   switch (target) {
-    case 'enrollments-range': return { eyebrow: 'Drill · Enrollments', title: 'Enrolled in range' };
-    case 'withdrawals-range': return { eyebrow: 'Drill · Withdrawals', title: 'Withdrawn in range' };
-    case 'active-enrolled': return { eyebrow: 'Drill · Active', title: 'Currently enrolled' };
-    case 'expiring-docs': return { eyebrow: 'Drill · Expiring', title: 'Documents expiring soon' };
+    case 'enrollments-range':
+      return { eyebrow: 'Drill · Enrollments', title: 'Enrolled in range' };
+    case 'withdrawals-range':
+      return { eyebrow: 'Drill · Withdrawals', title: 'Withdrawn in range' };
+    case 'active-enrolled':
+      return { eyebrow: 'Drill · Active', title: 'Currently enrolled' };
+    case 'expiring-docs':
+      return { eyebrow: 'Drill · Expiring', title: 'Documents expiring soon' };
     case 'students-by-pipeline-stage':
-      return { eyebrow: 'Drill · Stage', title: segment ? `Stage: ${segment}` : 'By pipeline stage' };
+      return {
+        eyebrow: 'Drill · Stage',
+        title: segment ? `Stage: ${segment}` : 'By pipeline stage',
+      };
     case 'students-by-level':
-      return { eyebrow: 'Drill · Level', title: segment ? `Level: ${segment}` : 'By level' };
+      return {
+        eyebrow: 'Drill · Level',
+        title: segment ? `Level: ${segment}` : 'By level',
+      };
     case 'backlog-by-document':
-      return { eyebrow: 'Drill · Document backlog', title: segment ? `Backlog: ${segment}` : 'Document backlog' };
+      return {
+        eyebrow: 'Drill · Document backlog',
+        title: segment ? `Backlog: ${segment}` : 'Document backlog',
+      };
     case 'class-assignment-readiness':
-      return { eyebrow: 'Drill · Class assignment', title: 'Active without section' };
+      return {
+        eyebrow: 'Drill · Class assignment',
+        title: 'Active without section',
+      };
   }
 }
 
@@ -723,17 +814,21 @@ const MODULE_ACTION_PREFIXES: Record<string, string> = {
 
 export async function loadAuditEventsUncached(
   modulePrefix: string,
-  range?: { from: string; to: string },
+  range?: { from: string; to: string }
 ): Promise<AuditDrillRow[]> {
   const service = createServiceClient();
   let q = service
     .from('audit_log')
-    .select('id, action, actor_email, entity_type, entity_id, context, created_at')
+    .select(
+      'id, action, actor_email, entity_type, entity_id, context, created_at'
+    )
     .like('action', `${modulePrefix}%`)
     .order('created_at', { ascending: false })
     .limit(2000);
   if (range?.from && range?.to) {
-    q = q.gte('created_at', range.from).lte('created_at', `${range.to}T23:59:59.999Z`);
+    q = q
+      .gte('created_at', range.from)
+      .lte('created_at', `${range.to}T23:59:59.999Z`);
   }
   const { data } = await q;
   type AuditRow = {
@@ -756,7 +851,9 @@ export async function loadAuditEventsUncached(
   }));
 }
 
-export async function loadApproverAssignments(): Promise<ApproverAssignmentDrillRow[]> {
+export async function loadApproverAssignments(): Promise<
+  ApproverAssignmentDrillRow[]
+> {
   const service = createServiceClient();
   const { data } = await service
     .from('approver_assignments')
@@ -773,7 +870,9 @@ export async function loadApproverAssignments(): Promise<ApproverAssignmentDrill
   // Resolve emails via auth admin
   const emailMap = new Map<string, string>();
   try {
-    const { data: userList } = await service.auth.admin.listUsers({ perPage: 1000 });
+    const { data: userList } = await service.auth.admin.listUsers({
+      perPage: 1000,
+    });
     if (userList?.users) {
       for (const u of userList.users) if (u.email) emailMap.set(u.id, u.email);
     }
@@ -796,7 +895,12 @@ export async function loadAcademicYearsList(): Promise<AcademicYearDrillRow[]> {
     .from('academic_years')
     .select('id, ay_code, label, is_current')
     .order('ay_code', { ascending: false });
-  type Row = { id: string; ay_code: string; label: string | null; is_current: boolean };
+  type Row = {
+    id: string;
+    ay_code: string;
+    label: string | null;
+    is_current: boolean;
+  };
   const ays = (data ?? []) as Row[];
   if (ays.length === 0) return [];
 
@@ -818,7 +922,10 @@ export async function loadAcademicYearsList(): Promise<AcademicYearDrillRow[]> {
       .select('id, academic_year_id')
       .in('academic_year_id', ayIds)
       .then(async ({ data: sections }) => {
-        const sectionRows = (sections ?? []) as { id: string; academic_year_id: string }[];
+        const sectionRows = (sections ?? []) as {
+          id: string;
+          academic_year_id: string;
+        }[];
         if (sectionRows.length === 0) return new Map<string, number>();
         const sectionIds = sectionRows.map((s) => s.id);
         const { data: ssRows } = await service
@@ -847,9 +954,10 @@ export async function loadAcademicYearsList(): Promise<AcademicYearDrillRow[]> {
   }));
 }
 
-export async function loadActorActivity(
-  range?: { from: string; to: string },
-): Promise<ActorActivityDrillRow[]> {
+export async function loadActorActivity(range?: {
+  from: string;
+  to: string;
+}): Promise<ActorActivityDrillRow[]> {
   const service = createServiceClient();
   let q = service
     .from('audit_log')
@@ -857,7 +965,9 @@ export async function loadActorActivity(
     .order('created_at', { ascending: false })
     .limit(5000);
   if (range?.from && range?.to) {
-    q = q.gte('created_at', range.from).lte('created_at', `${range.to}T23:59:59.999Z`);
+    q = q
+      .gte('created_at', range.from)
+      .lte('created_at', `${range.to}T23:59:59.999Z`);
   }
   const { data } = await q;
   type Row = {
@@ -865,7 +975,10 @@ export async function loadActorActivity(
     actor_email: string | null;
     created_at: string;
   };
-  const map = new Map<string, { email: string | null; count: number; lastAt: string }>();
+  const map = new Map<
+    string,
+    { email: string | null; count: number; lastAt: string }
+  >();
   for (const r of (data ?? []) as Row[]) {
     const userId = r.actor_id ?? '__anon';
     const acc = map.get(userId);
@@ -878,7 +991,12 @@ export async function loadActorActivity(
   }
   const out: ActorActivityDrillRow[] = [];
   for (const [userId, acc] of map.entries()) {
-    out.push({ userId, email: acc.email, count: acc.count, lastEventAt: acc.lastAt });
+    out.push({
+      userId,
+      email: acc.email,
+      count: acc.count,
+      lastEventAt: acc.lastAt,
+    });
   }
   out.sort((a, b) => b.count - a.count);
   return out;
@@ -971,7 +1089,7 @@ type LifecycleDocRow = Record<string, string | null> & {
 };
 
 async function loadLifecycleSnapshotUncached(
-  ayCode: string,
+  ayCode: string
 ): Promise<LifecycleSnapshot> {
   const prefix = prefixFor(ayCode);
   const admissions = createAdmissionsClient();
@@ -1004,10 +1122,14 @@ async function loadLifecycleSnapshotUncached(
     admissions
       .from(`${prefix}_enrolment_applications`)
       .select(
-        'enroleeNumber, studentNumber, enroleeFullName, firstName, lastName, levelApplied',
+        'enroleeNumber, studentNumber, enroleeFullName, firstName, lastName, levelApplied'
       ),
-    admissions.from(`${prefix}_enrolment_status`).select(uniqStatusColumns.join(', ')),
-    admissions.from(`${prefix}_enrolment_documents`).select(docColumns.join(', ')),
+    admissions
+      .from(`${prefix}_enrolment_status`)
+      .select(uniqStatusColumns.join(', ')),
+    admissions
+      .from(`${prefix}_enrolment_documents`)
+      .select(docColumns.join(', ')),
   ]);
 
   const apps = new Map<string, LifecycleAppLite>();
@@ -1028,7 +1150,9 @@ async function loadLifecycleSnapshotUncached(
   return { apps, status, docs };
 }
 
-async function getLifecycleSnapshot(ayCode: string): Promise<LifecycleSnapshot> {
+async function getLifecycleSnapshot(
+  ayCode: string
+): Promise<LifecycleSnapshot> {
   // Map values can't round-trip through JSON; the Sprint 23 lesson taught us
   // `unstable_cache` calls JSON.stringify under the hood. So we cache the raw
   // arrays then rebuild Maps inside the wrapper. Same idea as
@@ -1048,7 +1172,10 @@ async function getLifecycleSnapshot(ayCode: string): Promise<LifecycleSnapshot> 
       };
     },
     ['sis', 'lifecycle-drill', 'snapshot', ayCode],
-    { tags: [...tags(ayCode), 'sis', `sis:${ayCode}`], revalidate: CACHE_TTL_SECONDS },
+    {
+      tags: [...tags(ayCode), 'sis', `sis:${ayCode}`],
+      revalidate: CACHE_TTL_SECONDS,
+    }
   )();
 
   const apps = new Map<string, LifecycleAppLite>();
@@ -1062,9 +1189,10 @@ async function getLifecycleSnapshot(ayCode: string): Promise<LifecycleSnapshot> 
 
 function nameOf(app: LifecycleAppLite | undefined): string | null {
   if (!app) return null;
-  if (app.enroleeFullName && app.enroleeFullName.trim()) return app.enroleeFullName.trim();
+  if (app.enroleeFullName && app.enroleeFullName.trim())
+    return app.enroleeFullName.trim();
   const parts = [app.firstName, app.lastName].filter(
-    (p): p is string => !!p && p.trim().length > 0,
+    (p): p is string => !!p && p.trim().length > 0
   );
   return parts.length > 0 ? parts.join(' ') : null;
 }
@@ -1079,7 +1207,7 @@ function daysSince(iso: string | null | undefined): number | null {
 function baseRow(
   enroleeNumber: string,
   app: LifecycleAppLite | undefined,
-  status: LifecycleStatusRow,
+  status: LifecycleStatusRow
 ): LifecycleDrillRow {
   const updated = status.applicationUpdatedDate ?? null;
   return {
@@ -1093,11 +1221,15 @@ function baseRow(
   };
 }
 
-const ACTIVE_FUNNEL = new Set(['Submitted', 'Ongoing Verification', 'Processing']);
+const ACTIVE_FUNNEL = new Set([
+  'Submitted',
+  'Ongoing Verification',
+  'Processing',
+]);
 
 export async function buildLifecycleDrillRows(
   ayCode: string,
-  target: LifecycleDrillTarget,
+  target: LifecycleDrillTarget
 ): Promise<LifecycleDrillRow[]> {
   const snap = await getLifecycleSnapshot(ayCode);
   const out: LifecycleDrillRow[] = [];
@@ -1200,7 +1332,10 @@ export async function buildLifecycleDrillRows(
         break;
       }
       case 'awaiting-assessment-schedule': {
-        if (status.assessmentStatus === 'Pending' && !status.assessmentSchedule) {
+        if (
+          status.assessmentStatus === 'Pending' &&
+          !status.assessmentSchedule
+        ) {
           out.push({
             ...baseRow(enroleeNumber, app, status),
             assessmentStatus: status.assessmentStatus ?? null,
@@ -1210,7 +1345,10 @@ export async function buildLifecycleDrillRows(
         break;
       }
       case 'awaiting-contract-signature': {
-        if (status.contractStatus === 'Generated' || status.contractStatus === 'Sent') {
+        if (
+          status.contractStatus === 'Generated' ||
+          status.contractStatus === 'Sent'
+        ) {
           out.push({
             ...baseRow(enroleeNumber, app, status),
             contractStatus: status.contractStatus ?? null,
@@ -1221,7 +1359,8 @@ export async function buildLifecycleDrillRows(
       case 'missing-class-assignment': {
         const cls = (status.classSection ?? '').trim();
         if (
-          (appStatus === 'Enrolled' || appStatus === 'Enrolled (Conditional)') &&
+          (appStatus === 'Enrolled' ||
+            appStatus === 'Enrolled (Conditional)') &&
           cls.length === 0
         ) {
           out.push({
@@ -1256,7 +1395,9 @@ export async function buildLifecycleDrillRows(
       }
       default: {
         const _exhaustive: never = target;
-        throw new Error(`unreachable lifecycle drill target: ${String(_exhaustive)}`);
+        throw new Error(
+          `unreachable lifecycle drill target: ${String(_exhaustive)}`
+        );
       }
     }
   }
@@ -1319,7 +1460,10 @@ export const ALL_LIFECYCLE_DRILL_COLUMNS: LifecycleDrillColumnKey[] = [
   'classSection',
 ];
 
-export const LIFECYCLE_DRILL_COLUMN_LABELS: Record<LifecycleDrillColumnKey, string> = {
+export const LIFECYCLE_DRILL_COLUMN_LABELS: Record<
+  LifecycleDrillColumnKey,
+  string
+> = {
   enroleeFullName: 'Student',
   enroleeNumber: 'Applicant Number',
   studentNumber: 'Student ID',
@@ -1344,7 +1488,7 @@ export const LIFECYCLE_DRILL_COLUMN_LABELS: Record<LifecycleDrillColumnKey, stri
 };
 
 export function defaultColumnsForLifecycleTarget(
-  target: LifecycleDrillTarget,
+  target: LifecycleDrillTarget
 ): LifecycleDrillColumnKey[] {
   switch (target) {
     case 'awaiting-fee-payment':
@@ -1434,26 +1578,45 @@ export function defaultColumnsForLifecycleTarget(
   }
 }
 
-export function lifecycleDrillHeaderForTarget(
-  target: LifecycleDrillTarget,
-): { eyebrow: string; title: string } {
+export function lifecycleDrillHeaderForTarget(target: LifecycleDrillTarget): {
+  eyebrow: string;
+  title: string;
+} {
   switch (target) {
     case 'awaiting-fee-payment':
       return { eyebrow: 'Drill · Lifecycle', title: 'Awaiting fee payment' };
     case 'awaiting-document-revalidation':
-      return { eyebrow: 'Drill · Lifecycle', title: 'Awaiting document revalidation' };
+      return {
+        eyebrow: 'Drill · Lifecycle',
+        title: 'Awaiting document revalidation',
+      };
     case 'awaiting-document-validation':
-      return { eyebrow: 'Drill · Lifecycle', title: 'Awaiting document validation' };
+      return {
+        eyebrow: 'Drill · Lifecycle',
+        title: 'Awaiting document validation',
+      };
     case 'awaiting-promised-documents':
-      return { eyebrow: 'Drill · Lifecycle', title: 'Awaiting promised documents' };
+      return {
+        eyebrow: 'Drill · Lifecycle',
+        title: 'Awaiting promised documents',
+      };
     case 'awaiting-expiring-documents':
       return { eyebrow: 'Drill · Lifecycle', title: 'Expiring within 30 days' };
     case 'awaiting-assessment-schedule':
-      return { eyebrow: 'Drill · Lifecycle', title: 'Awaiting assessment schedule' };
+      return {
+        eyebrow: 'Drill · Lifecycle',
+        title: 'Awaiting assessment schedule',
+      };
     case 'awaiting-contract-signature':
-      return { eyebrow: 'Drill · Lifecycle', title: 'Awaiting contract signature' };
+      return {
+        eyebrow: 'Drill · Lifecycle',
+        title: 'Awaiting contract signature',
+      };
     case 'missing-class-assignment':
-      return { eyebrow: 'Drill · Lifecycle', title: 'Missing class assignment' };
+      return {
+        eyebrow: 'Drill · Lifecycle',
+        title: 'Missing class assignment',
+      };
     case 'ungated-to-enroll':
       return { eyebrow: 'Drill · Lifecycle', title: 'Ungated to enroll' };
     case 'new-applications':

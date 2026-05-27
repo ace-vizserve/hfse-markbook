@@ -15,7 +15,7 @@ import { invalidateAllOperationalDrills } from '@/lib/cache/invalidate-drill-tag
 // but the resulting indexes match the prior state).
 export async function POST(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -30,7 +30,9 @@ export async function POST(
   // Resolve section + AY for the audit context + drill cache invalidation.
   const { data: section, error: sectionErr } = await service
     .from('sections')
-    .select('id, name, academic_year_id, academic_year:academic_years!inner(ay_code)')
+    .select(
+      'id, name, academic_year_id, academic_year:academic_years!inner(ay_code)'
+    )
     .eq('id', id)
     .maybeSingle();
   if (sectionErr) {
@@ -39,24 +41,32 @@ export async function POST(
   if (!section) {
     return NextResponse.json({ error: 'section not found' }, { status: 404 });
   }
-  const ayCode = (section.academic_year as { ay_code: string } | { ay_code: string }[] | null);
-  const ayCodeStr = Array.isArray(ayCode) ? ayCode[0]?.ay_code : ayCode?.ay_code;
+  const ayCode = section.academic_year as
+    | { ay_code: string }
+    | { ay_code: string }[]
+    | null;
+  const ayCodeStr = Array.isArray(ayCode)
+    ? ayCode[0]?.ay_code
+    : ayCode?.ay_code;
 
   // Run the RPC. Returns { rows_renumbered, before, after }.
   const { data: result, error: rpcErr } = await service.rpc(
     'realphabetize_section_index_numbers',
-    { p_section_id: id },
+    { p_section_id: id }
   );
   if (rpcErr) {
     return NextResponse.json({ error: rpcErr.message }, { status: 500 });
   }
 
-  const { rows_renumbered, before, after } =
-    (result ?? { rows_renumbered: 0, before: [], after: [] }) as {
-      rows_renumbered: number;
-      before: unknown[];
-      after: unknown[];
-    };
+  const { rows_renumbered, before, after } = (result ?? {
+    rows_renumbered: 0,
+    before: [],
+    after: [],
+  }) as {
+    rows_renumbered: number;
+    before: unknown[];
+    after: unknown[];
+  };
 
   await logAction({
     service,

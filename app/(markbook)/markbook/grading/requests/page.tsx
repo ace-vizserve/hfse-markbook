@@ -1,11 +1,16 @@
-import { redirect } from "next/navigation";
+import { redirect } from 'next/navigation';
 
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PageShell } from "@/components/ui/page-shell";
-import { type ChangeRequestStatus } from "@/lib/markbook/change-request-status";
-import { getSessionUser } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/service";
-import { MyRequestsTable, type MyRequestRow } from "./my-requests-table";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { PageShell } from '@/components/ui/page-shell';
+import { type ChangeRequestStatus } from '@/lib/markbook/change-request-status';
+import { getSessionUser } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
+import { MyRequestsTable, type MyRequestRow } from './my-requests-table';
 
 type RequestRow = {
   id: string;
@@ -31,16 +36,16 @@ type RequestRow = {
 
 function fieldLabel(field: string, slot: number | null): string {
   switch (field) {
-    case "ww_scores":
-      return slot != null ? `W${slot + 1}` : "WW";
-    case "pt_scores":
-      return slot != null ? `PT${slot + 1}` : "PT";
-    case "qa_score":
-      return "QA";
-    case "letter_grade":
-      return "Letter";
-    case "is_na":
-      return "N/A";
+    case 'ww_scores':
+      return slot != null ? `W${slot + 1}` : 'WW';
+    case 'pt_scores':
+      return slot != null ? `PT${slot + 1}` : 'PT';
+    case 'qa_score':
+      return 'QA';
+    case 'letter_grade':
+      return 'Letter';
+    case 'is_na':
+      return 'N/A';
     default:
       return field;
   }
@@ -48,9 +53,9 @@ function fieldLabel(field: string, slot: number | null): string {
 
 export default async function MyRequestsPage() {
   const sessionUser = await getSessionUser();
-  if (!sessionUser) redirect("/login");
+  if (!sessionUser) redirect('/login');
   const { role, id: userId } = sessionUser;
-  if (!role) redirect("/parent");
+  if (!role) redirect('/parent');
 
   // Teachers see only their own; anyone else can still view this page as a
   // history of their own-filed requests (admin usually files none).
@@ -59,14 +64,14 @@ export default async function MyRequestsPage() {
   const service = createServiceClient();
 
   const { data: ayData } = await service
-    .from("academic_years")
-    .select("id")
-    .eq("is_current", true)
+    .from('academic_years')
+    .select('id')
+    .eq('is_current', true)
     .maybeSingle();
   const currentAyId = (ayData as { id: string } | null)?.id ?? null;
 
   let listQuery = service
-    .from("grade_change_requests")
+    .from('grade_change_requests')
     .select(
       `id, grading_sheet_id, grade_entry_id, field_changed, slot_index,
        current_value, proposed_value, reason_category, justification,
@@ -74,13 +79,16 @@ export default async function MyRequestsPage() {
        applied_at,
        approved_at, rejection_undone_at,
        primary_reviewed_by_email, secondary_reviewed_by_email,
-       grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))`,
+       grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))`
     )
-    .eq("requested_by", userId)
-    .order("requested_at", { ascending: false });
+    .eq('requested_by', userId)
+    .order('requested_at', { ascending: false });
 
   if (currentAyId) {
-    listQuery = listQuery.eq("grading_sheet.section.academic_year_id", currentAyId);
+    listQuery = listQuery.eq(
+      'grading_sheet.section.academic_year_id',
+      currentAyId
+    );
   }
 
   const { data: rawRows } = await listQuery;
@@ -116,7 +124,13 @@ export default async function MyRequestsPage() {
       acc[r.status] = (acc[r.status] ?? 0) + 1;
       return acc;
     },
-    { pending: 0, approved: 0, rejected: 0, applied: 0, cancelled: 0 } as Record<RequestRow["status"], number>,
+    {
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+      applied: 0,
+      cancelled: 0,
+    } as Record<RequestRow['status'], number>
   );
 
   return (
@@ -129,8 +143,8 @@ export default async function MyRequestsPage() {
           My requests
         </h1>
         <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-          Track the change requests you have filed on locked grading sheets. Approved requests are applied by the
-          registrar.
+          Track the change requests you have filed on locked grading sheets.
+          Approved requests are applied by the registrar.
         </p>
       </header>
 

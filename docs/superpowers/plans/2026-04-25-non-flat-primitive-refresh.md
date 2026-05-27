@@ -19,6 +19,7 @@
 Adds three new tile-glow tokens and nudges `shadow-input` from drop → inset. All existing call sites auto-inherit.
 
 **Files:**
+
 - Modify: `app/globals.css` (raw `--av-*` block, both `:root` and `.dark`; `@theme inline` block)
 
 - [ ] **Step 1: Modify `--av-shadow-input` in both `:root` and `.dark`**
@@ -94,6 +95,7 @@ git commit -m "feat(design-system): shadow-input → inset; add mint/destructive
 Updates the focus ring strength to match spec and picks up the inset `shadow-input` for free. Backward-compatible.
 
 **Files:**
+
 - Modify: `components/ui/input.tsx`
 - Modify: `components/ui/textarea.tsx`
 
@@ -107,10 +109,13 @@ Open `components/ui/input.tsx`. Replace the current focus block (the line starti
 ```
 
 And update the invalid-focus line from:
+
 ```
 'aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:ring-destructive/15',
 ```
+
 to:
+
 ```
 'aria-[invalid=true]:border-destructive/60 aria-[invalid=true]:focus-visible:ring-2 aria-[invalid=true]:focus-visible:ring-destructive/30',
 ```
@@ -130,6 +135,7 @@ npx next build
 Expected: clean build.
 
 Manual smoke: open `/account` (has form Inputs) and `/grading/new` or any sheet with Textareas. Tab through a form. Confirm:
+
 - At rest: subtle inset shadow visible at top edge (from Task 1's token change)
 - On focus: `ring-2` indigo bloom + thicker brand border
 - On invalid (if you can trigger it): `ring-2` destructive bloom
@@ -148,6 +154,7 @@ git commit -m "feat(ui): crafted focus ring on Input + Textarea (ring-2 + shadow
 Adds hover state, focus ring parity with Input, chevron rotation on open.
 
 **Files:**
+
 - Modify: `components/ui/select.tsx`
 
 - [ ] **Step 1: Read current `SelectTrigger` styles**
@@ -200,6 +207,7 @@ npx next build
 Expected: clean build.
 
 Manual smoke: open any page with a `<Select>` (e.g. `/grading/new` section picker, `/sis/admin/settings`). Verify:
+
 - Rest: subtle inset + hairline
 - Hover: `bg-muted/40` + slightly darker border
 - Click open: indigo ring held while open; chevron rotates 180°; dropdown has visible inset ring and lift
@@ -219,6 +227,7 @@ git commit -m "feat(ui): crafted Select trigger (hover tint, open-state ring, ch
 Rest: inset. Checked: brand gradient + tile glow. Indeterminate added as a free upgrade.
 
 **Files:**
+
 - Modify: `components/ui/checkbox.tsx`
 
 - [ ] **Step 1: Read current Checkbox component**
@@ -257,7 +266,7 @@ Replace with (import `Minus` from `lucide-react` alongside `Check`):
 ```tsx
 <CheckboxPrimitive.Indicator
   className={cn('flex items-center justify-center text-current')}
-  {...props.children ? {} : {}}
+  {...(props.children ? {} : {})}
 >
   {/* Radix exposes data-state via the parent Root; we branch on it here.
       Indeterminate is triggered by <Checkbox checked="indeterminate" />. */}
@@ -286,6 +295,7 @@ npx next build
 Expected: clean build.
 
 Manual smoke: find a page with a Checkbox (e.g. DropdownMenuCheckboxItem on `/grading` column toggles, or any form with a boolean). Verify:
+
 - Unchecked: inset-shadowed square
 - Checked: brand gradient fill + tile glow + white check
 - Focus: indigo ring
@@ -306,6 +316,7 @@ git commit -m "feat(ui): crafted Checkbox (inset rest, gradient checked, indeter
 Alert absorbs the §9.4 status-panel pattern. Adds `success` + `warning` variants. Introduces an `AlertIcon` slot so the gradient icon tile is opt-in; existing inline-SVG call sites continue to work.
 
 **Files:**
+
 - Modify: `components/ui/alert.tsx`
 
 - [ ] **Step 1: Rewrite `alertVariants` with 4 variants + ring pattern**
@@ -331,7 +342,7 @@ const alertVariants = cva(
     defaultVariants: {
       variant: 'default',
     },
-  },
+  }
 );
 ```
 
@@ -347,16 +358,19 @@ const alertIconVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-gradient-to-br from-brand-indigo to-brand-navy shadow-brand-tile',
-        destructive: 'bg-destructive text-destructive-foreground shadow-brand-tile-destructive',
-        success: 'bg-gradient-to-br from-brand-mint to-brand-sky text-ink shadow-brand-tile-mint',
+        default:
+          'bg-gradient-to-br from-brand-indigo to-brand-navy shadow-brand-tile',
+        destructive:
+          'bg-destructive text-destructive-foreground shadow-brand-tile-destructive',
+        success:
+          'bg-gradient-to-br from-brand-mint to-brand-sky text-ink shadow-brand-tile-mint',
         warning: 'bg-brand-amber text-ink shadow-brand-tile-amber',
       },
     },
     defaultVariants: {
       variant: 'default',
     },
-  },
+  }
 );
 
 const AlertIcon = React.forwardRef<
@@ -394,6 +408,7 @@ npx next build
 Expected: clean build.
 
 Manual smoke: find a page rendering `<Alert>` (e.g. `/grading/[id]` has change-request alerts; `/report-cards/publish` has pre-publish warnings). Verify:
+
 - Default variant: indigo-soft wash + inset ring
 - Destructive variant: destructive/5 wash + ring
 - Existing inline-SVG usages still render correctly (column width unchanged when no AlertIcon)
@@ -412,6 +427,7 @@ git commit -m "feat(ui): Alert gets 4 variants + AlertIcon slot (absorbs §9.4 s
 Inset ring + `shadow-lg` on popover-class surfaces. Tooltip keeps dark treatment but gains lift.
 
 **Files:**
+
 - Modify: `components/ui/dropdown-menu.tsx`
 - Modify: `components/ui/popover.tsx`
 - Modify: `components/ui/tooltip.tsx`
@@ -451,6 +467,7 @@ npx next build
 Expected: clean build.
 
 Manual smoke:
+
 - Open `/grading` and click any column-toggle DropdownMenu: verify it lifts off the canvas with inset ring visible
 - Hover any Tooltip (e.g. help icons on `/grading/[id]` grid header): verify darker shadow
 - Open a Popover (e.g. date-picker on `/admin/change-requests` filter): same lift + ring
@@ -469,6 +486,7 @@ git commit -m "feat(ui): DropdownMenu/Popover inset ring + shadow-lg; Tooltip sh
 Surgical: add `ring-1 ring-inset ring-hairline` to the body containers. `shadow-xl` stays.
 
 **Files:**
+
 - Modify: `components/ui/dialog.tsx`
 - Modify: `components/ui/sheet.tsx`
 - Modify: `components/ui/alert-dialog.tsx` (if it has its own Content; may re-export Dialog's)
@@ -494,6 +512,7 @@ npx next build
 Expected: clean build.
 
 Manual smoke:
+
 - Open a Dialog (e.g. export-CSV dialog on `/admin/audit-log`)
 - Open a Sheet (e.g. any "Add student" on `/admin/sections/[id]`)
 - Open an AlertDialog (e.g. destructive-confirm — `Delete`)
@@ -514,6 +533,7 @@ git commit -m "feat(ui): Dialog/Sheet/AlertDialog gain inset ring highlight"
 Tinted backgrounds per toast type, inset ring, `shadow-lg`.
 
 **Files:**
+
 - Modify: `components/ui/sonner.tsx`
 
 - [ ] **Step 1: Read current Toaster configuration**
@@ -557,6 +577,7 @@ npx next build
 Expected: clean build.
 
 Manual smoke: trigger a toast. Easiest path — on `/grading/[id]`, save a score then lock the sheet (triggers a success toast). Or trigger an error via a validation failure (e.g. try to save a score > max). Verify:
+
 - Success toast: mint wash + ring + lift
 - Error toast: destructive wash + ring + lift
 - Default/info: neutral wash + ring
@@ -575,6 +596,7 @@ git commit -m "feat(ui): Sonner toast gains tinted variants (success/error/warni
 New shared component. Non-flat chip with a 3px gradient stripe, hairline + `shadow-xs`. Ships alone so it can be imported by Task 10+11 migrations.
 
 **Files:**
+
 - Create: `components/dashboard/chart-legend-chip.tsx`
 
 - [ ] **Step 1: Create the file with the typed API**
@@ -625,14 +647,14 @@ export function ChartLegendChip({
     <span
       className={cn(
         'inline-flex items-center gap-2 rounded-md border border-hairline bg-background px-2 py-1 text-xs text-foreground shadow-xs',
-        className,
+        className
       )}
     >
       <span
         aria-hidden
         className={cn(
           'h-4 w-[3px] rounded-sm bg-gradient-to-b',
-          stripeGradientByColor[color],
+          stripeGradientByColor[color]
         )}
       />
       <span>{label}</span>
@@ -662,7 +684,7 @@ type RechartsLegendProps = {
 };
 
 export function chartLegendContent(
-  palette: Record<string, ChartLegendChipColor>,
+  palette: Record<string, ChartLegendChipColor>
 ) {
   return function ChartLegendContent(props: RechartsLegendProps) {
     const payload = props.payload ?? [];
@@ -672,7 +694,11 @@ export function chartLegendContent(
           const key = String(entry.dataKey ?? entry.value);
           const color = palette[key] ?? palette[entry.value] ?? 'chart-1';
           return (
-            <ChartLegendChip key={`${key}-${idx}`} color={color} label={entry.value} />
+            <ChartLegendChip
+              key={`${key}-${idx}`}
+              color={color}
+              label={entry.value}
+            />
           );
         })}
       </div>
@@ -703,6 +729,7 @@ git commit -m "feat(dashboard): ChartLegendChip + chartLegendContent (non-flat c
 8 files. Each swaps recharts `<Legend wrapperStyle={...}>` for `<Legend content={chartLegendContent({...})}>`. Commit per-file so regressions are easy to bisect.
 
 **Files:**
+
 - Modify: `components/admissions/assessment-outcomes-chart.tsx`
 - Modify: `components/dashboard/charts/comparison-bar-chart.tsx`
 - Modify: `components/dashboard/charts/trend-chart.tsx`
@@ -819,6 +846,7 @@ git commit -m "feat(p-files): page-level legend → ChartLegendChip"
 Three files: `wide-grid.tsx` (day-type `LegendDot`), `calendar-admin-client.tsx` (legend section), `outdated-applications-table.tsx` (`LegendItem` staleness tiers).
 
 **Files:**
+
 - Modify: `components/attendance/wide-grid.tsx`
 - Modify: `components/attendance/calendar-admin-client.tsx`
 - Modify: `components/admissions/outdated-applications-table.tsx`
@@ -903,6 +931,7 @@ git commit -m "feat(admissions): outdated-applications staleness legend → Char
 Visual verification across the breadth of affected surfaces, plus a final clean build.
 
 **Files:**
+
 - No code changes (verification-only)
 
 - [ ] **Step 1: Clean build across the tree**

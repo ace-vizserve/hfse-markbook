@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   if (!termId || !subjectId || !ayCode) {
     return NextResponse.json(
       { error: 'termId, subjectId, and ayCode are required' },
-      { status: 400 },
+      { status: 400 }
     );
   }
 

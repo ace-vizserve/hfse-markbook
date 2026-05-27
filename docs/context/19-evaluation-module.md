@@ -29,6 +29,7 @@ T4 is explicitly out of scope — the final report card has no comments section.
 ## Data model
 
 **Ships in migration 018:**
+
 - `terms.virtue_theme text` — per-term free-text label.
 - `evaluation_terms(term_id unique, is_open, opened_at, opened_by)` — per-term open/close state. Surfaced via RPC / future UI; MVP doesn't gate on `is_open` (only `virtue_theme`).
 - `evaluation_writeups(term_id, student_id, section_id, writeup, submitted, submitted_at, created_by)` unique `(term_id, student_id)` — the writeup paragraph.
@@ -42,14 +43,14 @@ RLS on all three new tables: reads via `current_user_role() is not null`; all wr
 
 ## Access
 
-| Role | What they can do |
-|---|---|
-| `teacher` (with `form_adviser` assignment) | Read + write writeups for their assigned sections only. Write-ups disabled when `virtue_theme` is NULL. |
-| `teacher` (subject_teacher only) | No access to the module in MVP. (Follow-up sprint: access to the per-subject checklist + comment UI for their assigned subject × section.) |
-| `registrar` | Read + write all sections. Sets virtue theme in SIS Admin. |
-| `school_admin` / `admin` / `superadmin` | Read + write all sections. |
-| `p-file` | No access (module switcher locked to P-Files). |
-| parent | No access. |
+| Role                                       | What they can do                                                                                                                           |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `teacher` (with `form_adviser` assignment) | Read + write writeups for their assigned sections only. Write-ups disabled when `virtue_theme` is NULL.                                    |
+| `teacher` (subject_teacher only)           | No access to the module in MVP. (Follow-up sprint: access to the per-subject checklist + comment UI for their assigned subject × section.) |
+| `registrar`                                | Read + write all sections. Sets virtue theme in SIS Admin.                                                                                 |
+| `school_admin` / `admin` / `superadmin`    | Read + write all sections.                                                                                                                 |
+| `p-file`                                   | No access (module switcher locked to P-Files).                                                                                             |
+| parent                                     | No access.                                                                                                                                 |
 
 The per-section gate for teachers is enforced both in the page RSC (`listFormAdviserSectionIds`) and again in the API route.
 

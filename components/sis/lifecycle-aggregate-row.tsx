@@ -59,7 +59,7 @@ export function LifecycleAggregateRow({
       <div
         className={cn(
           'flex size-10 shrink-0 items-center justify-center rounded-xl [&>svg]:size-[18px]',
-          LIFECYCLE_SEVERITY_TILE[bucket.severity],
+          LIFECYCLE_SEVERITY_TILE[bucket.severity]
         )}
       >
         <Icon strokeWidth={2.25} />
@@ -75,7 +75,11 @@ export function LifecycleAggregateRow({
             />
           )}
         </p>
-        {body && <p className="text-[13px] leading-relaxed text-muted-foreground">{body}</p>}
+        {body && (
+          <p className="text-[13px] leading-relaxed text-muted-foreground">
+            {body}
+          </p>
+        )}
         {!hideCount && (
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70">
             {countLabel}
@@ -107,9 +111,16 @@ export function LifecycleAggregateRow({
           {inner}
         </li>
       </SheetTrigger>
-      <SheetContent side="right" className="w-full max-w-4xl overflow-y-auto p-0 sm:max-w-4xl">
+      <SheetContent
+        side="right"
+        className="w-full max-w-4xl overflow-y-auto p-0 sm:max-w-4xl"
+      >
         <LifecycleDrillSheet
-          target={bucket.drillTarget as Parameters<typeof LifecycleDrillSheet>[0]['target']}
+          target={
+            bucket.drillTarget as Parameters<
+              typeof LifecycleDrillSheet
+            >[0]['target']
+          }
           ayCode={ayCode}
         />
       </SheetContent>

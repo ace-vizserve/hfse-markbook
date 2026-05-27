@@ -37,28 +37,37 @@ const MAX_ACTIVE_PER_SECTION = 50;
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ enroleeNumber: string }> },
+  { params }: { params: Promise<{ enroleeNumber: string }> }
 ) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const { enroleeNumber } = await params;
   if (!enroleeNumber.trim()) {
-    return NextResponse.json({ error: 'Missing enroleeNumber' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Missing enroleeNumber' },
+      { status: 400 }
+    );
   }
 
   const url = new URL(request.url);
   const ayCode = (url.searchParams.get('ay') ?? '').trim();
   if (!/^AY\d{4}$/i.test(ayCode)) {
-    return NextResponse.json({ error: 'Invalid or missing ay query param' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid or missing ay query param' },
+      { status: 400 }
+    );
   }
 
   const body = await request.json().catch(() => null);
   const parsed = AssignSectionBodySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Pick a section before assigning.', details: parsed.error.flatten() },
-      { status: 400 },
+      {
+        error: 'Pick a section before assigning.',
+        details: parsed.error.flatten(),
+      },
+      { status: 400 }
     );
   }
   const { sectionId } = parsed.data;
@@ -77,7 +86,9 @@ export async function POST(
       .maybeSingle(),
     admissions
       .from(`${prefix}_enrolment_status`)
-      .select('enroleeNumber, classLevel, classSection, classStatus, classUpdatedDate, classUpdatedBy, applicationStatus')
+      .select(
+        'enroleeNumber, classLevel, classSection, classStatus, classUpdatedDate, classUpdatedBy, applicationStatus'
+      )
       .eq('enroleeNumber', enroleeNumber)
       .maybeSingle(),
   ]);
@@ -85,19 +96,21 @@ export async function POST(
   if (appsRes.error) {
     return NextResponse.json(
       { error: `Couldn't load the applicant: ${appsRes.error.message}` },
-      { status: 500 },
+      { status: 500 }
     );
   }
   if (statusRes.error) {
     return NextResponse.json(
-      { error: `Couldn't load the application status: ${statusRes.error.message}` },
-      { status: 500 },
+      {
+        error: `Couldn't load the application status: ${statusRes.error.message}`,
+      },
+      { status: 500 }
     );
   }
   if (!appsRes.data || !statusRes.data) {
     return NextResponse.json(
       { error: 'Applicant not found in this academic year.' },
-      { status: 404 },
+      { status: 404 }
     );
   }
 
@@ -124,7 +137,7 @@ export async function POST(
         error:
           'This applicant has no student number yet. Run a student sync first so the grading roster can pick them up.',
       },
-      { status: 422 },
+      { status: 422 }
     );
   }
 
@@ -135,19 +148,20 @@ export async function POST(
         {
           error: `This applicant is ${status} — they can't be assigned to a class section.`,
         },
-        { status: 422 },
+        { status: 422 }
       );
     }
     return NextResponse.json(
       {
         error: `Only Enrolled applicants can be assigned to a class section (this one is ${status || 'unset'}).`,
       },
-      { status: 422 },
+      { status: 422 }
     );
   }
 
   const existingSection =
-    typeof statusRow.classSection === 'string' && statusRow.classSection.trim().length > 0
+    typeof statusRow.classSection === 'string' &&
+    statusRow.classSection.trim().length > 0
       ? statusRow.classSection.trim()
       : null;
 
@@ -172,7 +186,7 @@ export async function POST(
       {
         error: `This student is already in ${existingSection}. To move them, use Move student instead.`,
       },
-      { status: 422 },
+      { status: 422 }
     );
   }
   // resyncOnly = student already has the right admissions-side values but
@@ -184,14 +198,14 @@ export async function POST(
   const { data: sectionRow, error: sectionErr } = await service
     .from('sections')
     .select(
-      'id, name, level_id, academic_year_id, levels!inner(label), academic_years!inner(ay_code)',
+      'id, name, level_id, academic_year_id, levels!inner(label), academic_years!inner(ay_code)'
     )
     .eq('id', sectionId)
     .maybeSingle();
   if (sectionErr) {
     return NextResponse.json(
       { error: `Section lookup failed: ${sectionErr.message}` },
-      { status: 500 },
+      { status: 500 }
     );
   }
   if (!sectionRow) {
@@ -211,7 +225,7 @@ export async function POST(
   if (targetAyCode !== ayCode) {
     return NextResponse.json(
       { error: 'That section belongs to a different academic year.' },
-      { status: 422 },
+      { status: 422 }
     );
   }
   const targetLevelLabel = Array.isArray(section.levels)
@@ -219,8 +233,11 @@ export async function POST(
     : section.levels?.label;
   if (!targetLevelLabel) {
     return NextResponse.json(
-      { error: 'That section has no level label — please pick a different section.' },
-      { status: 500 },
+      {
+        error:
+          'That section has no level label — please pick a different section.',
+      },
+      { status: 500 }
     );
   }
 
@@ -233,7 +250,7 @@ export async function POST(
   if (capErr) {
     return NextResponse.json(
       { error: `Capacity check failed: ${capErr.message}` },
-      { status: 500 },
+      { status: 500 }
     );
   }
   if ((activeCount ?? 0) >= MAX_ACTIVE_PER_SECTION) {
@@ -241,7 +258,7 @@ export async function POST(
       {
         error: `${section.name} is already at ${MAX_ACTIVE_PER_SECTION} students. Pick a different section.`,
       },
-      { status: 422 },
+      { status: 422 }
     );
   }
 
@@ -265,13 +282,18 @@ export async function POST(
     if (assignErr) {
       return NextResponse.json(
         { error: `Couldn't save the class assignment: ${assignErr.message}` },
-        { status: 500 },
+        { status: 500 }
       );
     }
   }
 
   // ── 5. Step B — sync to grading schema ───────────────────────────────
-  const syncResult = await syncOneStudent(service, admissions, enroleeNumber, ayCode);
+  const syncResult = await syncOneStudent(
+    service,
+    admissions,
+    enroleeNumber,
+    ayCode
+  );
   if (!syncResult.ok) {
     // Roll back the admissions UPDATE so a retry sees a clean state —
     // but only if we actually ran the Step A UPDATE. In the resync-only
@@ -294,7 +316,7 @@ export async function POST(
         rollbackFailed = true;
         console.warn(
           '[assign-section] sync failed AND rollback failed:',
-          rollbackErr.message,
+          rollbackErr.message
         );
       }
     }
@@ -308,7 +330,7 @@ export async function POST(
       {
         error: `Couldn't sync the student into the grading roster: ${baseReason}.${tail}`,
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 

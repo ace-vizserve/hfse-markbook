@@ -21,7 +21,7 @@ export type DemoExtrasResult = {
 
 export async function seedDemoExtras(
   service: SupabaseClient,
-  testAy: { id: string; ay_code: string },
+  testAy: { id: string; ay_code: string }
 ): Promise<DemoExtrasResult> {
   const result: DemoExtrasResult = {
     calendar_events_extra: 0,
@@ -41,7 +41,7 @@ export async function seedDemoExtras(
 
 async function seedPublicationsExpanded(
   service: SupabaseClient,
-  testAy: { id: string; ay_code: string },
+  testAy: { id: string; ay_code: string }
 ): Promise<number> {
   const { data: termRows } = await service
     .from('terms')
@@ -64,7 +64,11 @@ async function seedPublicationsExpanded(
   // Pick 3 varied sections (early / middle / late in the alphabetic order)
   // so we cover different levels.
   const pickIdx = (n: number, idx: number) => Math.floor((idx * n) / 3);
-  const picks = [pickIdx(sections.length, 0), pickIdx(sections.length, 1), pickIdx(sections.length, 2)]
+  const picks = [
+    pickIdx(sections.length, 0),
+    pickIdx(sections.length, 1),
+    pickIdx(sections.length, 2),
+  ]
     .map((i) => sections[i])
     .filter(Boolean);
 
@@ -114,7 +118,7 @@ async function seedPublicationsExpanded(
 
 async function seedParentAccounts(
   service: SupabaseClient,
-  testAy: { id: string; ay_code: string },
+  testAy: { id: string; ay_code: string }
 ): Promise<number> {
   const prefix = prefixFor(testAy.ay_code);
   const appsTable = `${prefix}_enrolment_applications`;
@@ -139,9 +143,18 @@ async function seedParentAccounts(
     .from(statusTable)
     .select('enroleeNumber, applicationStatus');
   const enrolledSet = new Set(
-    ((statusData ?? []) as Array<{ enroleeNumber: string; applicationStatus: string | null }>)
-      .filter((s) => s.applicationStatus === 'Enrolled' || s.applicationStatus === 'Enrolled (Conditional)')
-      .map((s) => s.enroleeNumber),
+    (
+      (statusData ?? []) as Array<{
+        enroleeNumber: string;
+        applicationStatus: string | null;
+      }>
+    )
+      .filter(
+        (s) =>
+          s.applicationStatus === 'Enrolled' ||
+          s.applicationStatus === 'Enrolled (Conditional)'
+      )
+      .map((s) => s.enroleeNumber)
   );
 
   const enrolledApps = apps.filter((a) => enrolledSet.has(a.enroleeNumber));
@@ -157,7 +170,9 @@ async function seedParentAccounts(
   if (targets.length === 0) return 0;
 
   // Pre-fetch existing users so we don't try to recreate.
-  const { data: existingUsers } = await service.auth.admin.listUsers({ perPage: 1000 });
+  const { data: existingUsers } = await service.auth.admin.listUsers({
+    perPage: 1000,
+  });
   const existingByEmail = new Map<string, string>();
   for (const u of existingUsers?.users ?? []) {
     if (u.email) existingByEmail.set(u.email.toLowerCase(), u.id);
@@ -174,7 +189,10 @@ async function seedParentAccounts(
       user_metadata: { seeded_for_enrolee: t.enroleeNumber },
     });
     if (error) {
-      console.error(`[demo-extras] parent account create failed for ${t.email}:`, error.message);
+      console.error(
+        `[demo-extras] parent account create failed for ${t.email}:`,
+        error.message
+      );
       continue;
     }
     created += 1;
@@ -188,7 +206,7 @@ async function seedParentAccounts(
 
 async function seedPFileLifecycle(
   service: SupabaseClient,
-  testAy: { id: string; ay_code: string },
+  testAy: { id: string; ay_code: string }
 ): Promise<{ outreach: number; expiryUpdates: number }> {
   const prefix = prefixFor(testAy.ay_code);
   const docsTable = `${prefix}_enrolment_documents`;
@@ -204,11 +222,17 @@ async function seedPFileLifecycle(
   const { data: statusData } = await service
     .from(statusTable)
     .select('enroleeNumber, applicationStatus');
-  const enrolled = ((statusData ?? []) as Array<{
-    enroleeNumber: string;
-    applicationStatus: string | null;
-  }>)
-    .filter((s) => s.applicationStatus === 'Enrolled' || s.applicationStatus === 'Enrolled (Conditional)')
+  const enrolled = (
+    (statusData ?? []) as Array<{
+      enroleeNumber: string;
+      applicationStatus: string | null;
+    }>
+  )
+    .filter(
+      (s) =>
+        s.applicationStatus === 'Enrolled' ||
+        s.applicationStatus === 'Enrolled (Conditional)'
+    )
     .map((s) => s.enroleeNumber);
 
   const rand = mulberry32(hashString(`${testAy.ay_code}:pfile-extras`));
@@ -233,18 +257,33 @@ async function seedPFileLifecycle(
       .toISOString()
       .slice(0, 10);
 
-  const bumps: Array<{ enroleeNumber: string; patch: Record<string, unknown> }> = [];
+  const bumps: Array<{
+    enroleeNumber: string;
+    patch: Record<string, unknown>;
+  }> = [];
   for (const e of SIXTY_DAY_PASSPORT) {
-    bumps.push({ enroleeNumber: e, patch: { passportExpiry: isoDate(31 + Math.floor(rand() * 30)) } });
+    bumps.push({
+      enroleeNumber: e,
+      patch: { passportExpiry: isoDate(31 + Math.floor(rand() * 30)) },
+    });
   }
   for (const e of NINETY_DAY_PASSPORT) {
-    bumps.push({ enroleeNumber: e, patch: { passportExpiry: isoDate(61 + Math.floor(rand() * 30)) } });
+    bumps.push({
+      enroleeNumber: e,
+      patch: { passportExpiry: isoDate(61 + Math.floor(rand() * 30)) },
+    });
   }
   for (const e of SIXTY_DAY_PASS) {
-    bumps.push({ enroleeNumber: e, patch: { passExpiry: isoDate(31 + Math.floor(rand() * 30)) } });
+    bumps.push({
+      enroleeNumber: e,
+      patch: { passExpiry: isoDate(31 + Math.floor(rand() * 30)) },
+    });
   }
   for (const e of NINETY_DAY_PASS) {
-    bumps.push({ enroleeNumber: e, patch: { passExpiry: isoDate(61 + Math.floor(rand() * 30)) } });
+    bumps.push({
+      enroleeNumber: e,
+      patch: { passExpiry: isoDate(61 + Math.floor(rand() * 30)) },
+    });
   }
   for (const e of MOTHER_PASSPORT_60) {
     bumps.push({
@@ -267,7 +306,7 @@ async function seedPFileLifecycle(
     if (error) {
       console.warn(
         `[demo-extras] expiry update failed for ${b.enroleeNumber}:`,
-        error.message,
+        error.message
       );
       continue;
     }
@@ -284,7 +323,13 @@ async function seedPFileLifecycle(
 
     // 5 reminder rows — registrar nudged the parent in the past 14 days.
     const reminderTargets = enrolled.slice(0, 5);
-    const reminderSlots = ['passport', 'motherPassport', 'pass', 'fatherPass', 'passport'];
+    const reminderSlots = [
+      'passport',
+      'motherPassport',
+      'pass',
+      'fatherPass',
+      'passport',
+    ];
     for (let i = 0; i < reminderTargets.length; i++) {
       const e = reminderTargets[i];
       outreachRows.push({
@@ -320,9 +365,14 @@ async function seedPFileLifecycle(
     }
 
     if (outreachRows.length > 0) {
-      const { error } = await service.from('p_file_outreach').insert(outreachRows);
+      const { error } = await service
+        .from('p_file_outreach')
+        .insert(outreachRows);
       if (error) {
-        console.error('[demo-extras] p_file_outreach insert failed:', error.message);
+        console.error(
+          '[demo-extras] p_file_outreach insert failed:',
+          error.message
+        );
       } else {
         outreachInserted = outreachRows.length;
       }
@@ -338,7 +388,7 @@ async function seedPFileLifecycle(
 
 async function seedEvaluationLifecycle(
   service: SupabaseClient,
-  testAy: { id: string; ay_code: string },
+  testAy: { id: string; ay_code: string }
 ): Promise<{ terms: number; writeupsT2: number; ptc: number }> {
   const { data: termRows } = await service
     .from('terms')
@@ -358,7 +408,10 @@ async function seedEvaluationLifecycle(
   const { count: existingTerms } = await service
     .from('evaluation_terms')
     .select('id', { count: 'exact', head: true })
-    .in('term_id', terms.map((t) => t.id));
+    .in(
+      'term_id',
+      terms.map((t) => t.id)
+    );
 
   if ((existingTerms ?? 0) === 0) {
     const evalTermRows: Array<Record<string, unknown>> = [
@@ -375,9 +428,14 @@ async function seedEvaluationLifecycle(
         opened_at: new Date(Date.now() - 14 * dayMs).toISOString(),
       });
     }
-    const { error } = await service.from('evaluation_terms').insert(evalTermRows);
+    const { error } = await service
+      .from('evaluation_terms')
+      .insert(evalTermRows);
     if (error) {
-      console.error('[demo-extras] evaluation_terms insert failed:', error.message);
+      console.error(
+        '[demo-extras] evaluation_terms insert failed:',
+        error.message
+      );
     } else {
       termsInserted = evalTermRows.length;
     }
@@ -396,7 +454,9 @@ async function seedEvaluationLifecycle(
         .from('sections')
         .select('id')
         .eq('academic_year_id', testAy.id);
-      const sectionIds = ((sections ?? []) as Array<{ id: string }>).map((r) => r.id);
+      const sectionIds = ((sections ?? []) as Array<{ id: string }>).map(
+        (r) => r.id
+      );
 
       const T2_TEMPLATES = [
         'Continues to grow in confidence this term. Hope as a virtue is showing through their willingness to keep trying when problems get hard.',
@@ -412,9 +472,12 @@ async function seedEvaluationLifecycle(
           .select('student_id')
           .eq('section_id', sectionId)
           .limit(10);
-        const students = ((enrolments ?? []) as Array<{ student_id: string }>);
+        const students = (enrolments ?? []) as Array<{ student_id: string }>;
         // ~30% of the section gets a partial writeup.
-        const targetCount = Math.min(students.length, Math.max(1, Math.floor(students.length * 0.3)));
+        const targetCount = Math.min(
+          students.length,
+          Math.max(1, Math.floor(students.length * 0.3))
+        );
         for (let i = 0; i < targetCount; i++) {
           const tmpl = T2_TEMPLATES[Math.floor(rand() * T2_TEMPLATES.length)];
           writeupRows.push({
@@ -430,9 +493,14 @@ async function seedEvaluationLifecycle(
       }
 
       if (writeupRows.length > 0) {
-        const { error } = await service.from('evaluation_writeups').insert(writeupRows);
+        const { error } = await service
+          .from('evaluation_writeups')
+          .insert(writeupRows);
         if (error) {
-          console.error('[demo-extras] T2 writeups insert failed:', error.message);
+          console.error(
+            '[demo-extras] T2 writeups insert failed:',
+            error.message
+          );
         } else {
           writeupsT2 = writeupRows.length;
         }
@@ -452,7 +520,9 @@ async function seedEvaluationLifecycle(
       .from('sections')
       .select('id')
       .eq('academic_year_id', testAy.id);
-    const sectionIds = ((sections ?? []) as Array<{ id: string }>).map((r) => r.id);
+    const sectionIds = ((sections ?? []) as Array<{ id: string }>).map(
+      (r) => r.id
+    );
 
     const PTC_NOTES = [
       'Parent shared that homework time at home has been productive. Asked for more reading recommendations for the holidays.',
@@ -470,9 +540,12 @@ async function seedEvaluationLifecycle(
         .select('student_id')
         .eq('section_id', sectionId)
         .limit(5);
-      const students = ((enrolments ?? []) as Array<{ student_id: string }>);
+      const students = (enrolments ?? []) as Array<{ student_id: string }>;
       // ~half the section has a PTC note recorded.
-      const targetCount = Math.min(students.length, Math.max(1, Math.floor(students.length * 0.5)));
+      const targetCount = Math.min(
+        students.length,
+        Math.max(1, Math.floor(students.length * 0.5))
+      );
       for (let i = 0; i < targetCount; i++) {
         ptcRows.push({
           term_id: t1.id,
@@ -484,9 +557,14 @@ async function seedEvaluationLifecycle(
     }
 
     if (ptcRows.length > 0) {
-      const { error } = await service.from('evaluation_ptc_feedback').insert(ptcRows);
+      const { error } = await service
+        .from('evaluation_ptc_feedback')
+        .insert(ptcRows);
       if (error) {
-        console.error('[demo-extras] ptc feedback insert failed:', error.message);
+        console.error(
+          '[demo-extras] ptc feedback insert failed:',
+          error.message
+        );
       } else {
         ptcInserted = ptcRows.length;
       }
@@ -502,7 +580,7 @@ async function seedEvaluationLifecycle(
 
 async function seedCalendarEnhancements(
   service: SupabaseClient,
-  testAy: { id: string; ay_code: string },
+  testAy: { id: string; ay_code: string }
 ): Promise<{ events: number; audienceOverrides: number }> {
   const { data: termRows } = await service
     .from('terms')
@@ -624,13 +702,16 @@ async function seedCalendarEnhancements(
           category: 'term_break',
           audience: 'all',
           tentative: false,
-        },
+        }
       );
     }
 
     const { error } = await service.from('calendar_events').insert(eventRows);
     if (error) {
-      console.error('[demo-extras] calendar_events insert failed:', error.message);
+      console.error(
+        '[demo-extras] calendar_events insert failed:',
+        error.message
+      );
     } else {
       eventsInserted = eventRows.length;
     }
@@ -675,7 +756,7 @@ async function seedCalendarEnhancements(
     if (error) {
       console.warn(
         `[demo-extras] audience override insert failed (${r.audience} ${r.date}):`,
-        error.message,
+        error.message
       );
       continue;
     }
@@ -706,7 +787,7 @@ async function seedCalendarEnhancements(
 
 async function seedEnrollmentStatusMix(
   service: SupabaseClient,
-  testAy: { id: string; ay_code: string },
+  testAy: { id: string; ay_code: string }
 ): Promise<{ late: number; withdrawn: number }> {
   // Find sections in this AY, ordered for determinism.
   const { data: sections } = await service
@@ -736,7 +817,10 @@ async function seedEnrollmentStatusMix(
     .eq('enrollment_status', 'active')
     .order('index_number', { ascending: false })
     .limit(5);
-  const candidates = (rows ?? []) as Array<{ id: string; index_number: number }>;
+  const candidates = (rows ?? []) as Array<{
+    id: string;
+    index_number: number;
+  }>;
   if (candidates.length < 5) return { late: 0, withdrawn: 0 };
 
   // Term dates so the flip dates land plausibly in T2.
@@ -748,8 +832,7 @@ async function seedEnrollmentStatusMix(
   const t2 = (termRows ?? []).find((t) => t.term_number === 2) as
     | { start_date: string }
     | undefined;
-  const lateEnrolDate =
-    t2?.start_date ?? new Date().toISOString().slice(0, 10);
+  const lateEnrolDate = t2?.start_date ?? new Date().toISOString().slice(0, 10);
   const withdrawDate = lateEnrolDate; // Same window — both happen in early T2.
 
   const lateRows = candidates.slice(0, 3);
@@ -759,7 +842,10 @@ async function seedEnrollmentStatusMix(
   for (const r of lateRows) {
     const { error } = await service
       .from('section_students')
-      .update({ enrollment_status: 'late_enrollee', enrollment_date: lateEnrolDate })
+      .update({
+        enrollment_status: 'late_enrollee',
+        enrollment_date: lateEnrolDate,
+      })
       .eq('id', r.id);
     if (!error) lateInserted += 1;
   }
@@ -803,7 +889,12 @@ async function seedEnrollmentStatusMix(
 // if any are present.
 // ─────────────────────────────────────────────────────────────────────────
 
-const CR_FIELDS = ['ww_scores', 'pt_scores', 'qa_score', 'letter_grade'] as const;
+const CR_FIELDS = [
+  'ww_scores',
+  'pt_scores',
+  'qa_score',
+  'letter_grade',
+] as const;
 const CR_REASONS = [
   'regrading',
   'data_entry_error',
@@ -834,7 +925,7 @@ const SENTINEL_REVIEWER_EMAIL = 'registrar.seed@hfse.test';
 
 async function pickSeedActor(
   service: SupabaseClient,
-  roleNeeded: 'teacher' | 'school_admin',
+  roleNeeded: 'teacher' | 'school_admin'
 ): Promise<{ id: string; email: string }> {
   // auth.admin.listUsers is the only way to filter by app_metadata.role
   // server-side. Caps at 200 users — fine for HFSE's scale.
@@ -853,7 +944,7 @@ async function pickSeedActor(
 
 async function seedChangeRequests(
   service: SupabaseClient,
-  testAy: { id: string; ay_code: string },
+  testAy: { id: string; ay_code: string }
 ): Promise<number> {
   // Find locked T1 grading sheets in this AY (T1 is the closed term per
   // seedGradeEntries — exactly the surface where post-lock change requests
@@ -865,7 +956,10 @@ async function seedChangeRequests(
     .eq('term.term_number', 1)
     .not('locked_at', 'is', null)
     .limit(20);
-  const lockedSheets = (sheets ?? []) as Array<{ id: string; locked_at: string }>;
+  const lockedSheets = (sheets ?? []) as Array<{
+    id: string;
+    locked_at: string;
+  }>;
   if (lockedSheets.length === 0) return 0;
 
   // Skip-guard: any CRs against these sheets already?
@@ -880,7 +974,9 @@ async function seedChangeRequests(
   // headroom for shuffle + skip on shape mismatch.
   const { data: entries } = await service
     .from('grade_entries')
-    .select('id, grading_sheet_id, ww_scores, pt_scores, qa_score, letter_grade')
+    .select(
+      'id, grading_sheet_id, ww_scores, pt_scores, qa_score, letter_grade'
+    )
     .in('grading_sheet_id', sheetIds)
     .limit(30);
   const candidateEntries = (entries ?? []) as Array<{
@@ -909,14 +1005,16 @@ async function seedChangeRequests(
     .select('user_id')
     .eq('flow', 'markbook.change_request')
     .order('created_at');
-  const existingApproverIds = ((assignmentsRaw ?? []) as Array<{ user_id: string }>).map(
-    (a) => a.user_id,
-  );
+  const existingApproverIds = (
+    (assignmentsRaw ?? []) as Array<{ user_id: string }>
+  ).map((a) => a.user_id);
 
   if (existingApproverIds.length < 2) {
     // Pull any school_admin/superadmin users not already assigned and
     // top up to 2. Service role bypasses RLS write-deny on this table.
-    const { data: usersData } = await service.auth.admin.listUsers({ perPage: 200 });
+    const { data: usersData } = await service.auth.admin.listUsers({
+      perPage: 200,
+    });
     const eligible = (usersData?.users ?? [])
       .filter((u) => {
         const meta = (u.app_metadata as Record<string, unknown> | null) ?? {};
@@ -932,11 +1030,13 @@ async function seedChangeRequests(
         flow: 'markbook.change_request',
         user_id: userId,
       }));
-      const { error } = await service.from('approver_assignments').insert(inserts);
+      const { error } = await service
+        .from('approver_assignments')
+        .insert(inserts);
       if (error) {
         console.warn(
           '[demo-extras] approver_assignments bootstrap failed:',
-          error.message,
+          error.message
         );
       } else {
         existingApproverIds.push(...toAdd);
@@ -948,10 +1048,19 @@ async function seedChangeRequests(
   const secondaryApproverId = existingApproverIds[1] ?? null;
 
   // Status mix — totals 12, lights up every tab.
-  const statusMix: Array<'pending' | 'approved' | 'applied' | 'rejected' | 'cancelled'> = [
-    'pending', 'pending', 'pending', 'pending',
-    'approved', 'approved', 'approved',
-    'applied', 'applied', 'applied',
+  const statusMix: Array<
+    'pending' | 'approved' | 'applied' | 'rejected' | 'cancelled'
+  > = [
+    'pending',
+    'pending',
+    'pending',
+    'pending',
+    'approved',
+    'approved',
+    'approved',
+    'applied',
+    'applied',
+    'applied',
     'rejected',
     'cancelled',
   ];
@@ -990,11 +1099,15 @@ async function seedChangeRequests(
     // cancelled = oldest. Spread across 14 days for the date-range filter
     // in the change-requests page to have something to bite.
     const ageDays =
-      status === 'pending' ? i % 4
-      : status === 'approved' ? 5 + (i % 3)
-      : status === 'applied' ? 9 + (i % 3)
-      : status === 'rejected' ? 7
-      : 12;
+      status === 'pending'
+        ? i % 4
+        : status === 'approved'
+          ? 5 + (i % 3)
+          : status === 'applied'
+            ? 9 + (i % 3)
+            : status === 'rejected'
+              ? 7
+              : 12;
     const requestedAt = new Date(now - ageDays * day).toISOString();
     const reviewedAt =
       status === 'approved' || status === 'applied' || status === 'rejected'
@@ -1062,7 +1175,7 @@ async function seedChangeRequests(
 
 async function seedVacationLeaveEntries(
   service: SupabaseClient,
-  testAy: { id: string; ay_code: string },
+  testAy: { id: string; ay_code: string }
 ): Promise<number> {
   // Target the term that the attendance dashboard's VacationLeaveQuotaCard
   // actually reads — `is_current` term, falling back to T1. Earlier this
@@ -1106,7 +1219,7 @@ async function seedVacationLeaveEntries(
     .order('name')
     .limit(3);
   const targetSectionIds = ((sectionRows ?? []) as Array<{ id: string }>).map(
-    (s) => s.id,
+    (s) => s.id
   );
   if (targetSectionIds.length === 0) return 0;
 
@@ -1183,7 +1296,7 @@ type EvalTopicSeedResult = {
 
 async function seedEvaluationTopics(
   service: SupabaseClient,
-  testAy: { id: string; ay_code: string },
+  testAy: { id: string; ay_code: string }
 ): Promise<EvalTopicSeedResult> {
   const empty: EvalTopicSeedResult = {
     topics: 0,
@@ -1198,7 +1311,10 @@ async function seedEvaluationTopics(
     .select('id, term_number')
     .eq('academic_year_id', testAy.id)
     .order('term_number');
-  const ayTermIds = (termIds ?? []) as Array<{ id: string; term_number: number }>;
+  const ayTermIds = (termIds ?? []) as Array<{
+    id: string;
+    term_number: number;
+  }>;
   if (ayTermIds.length === 0) return empty;
   const t1 = ayTermIds.find((t) => t.term_number === 1);
   if (!t1) return empty;
@@ -1208,12 +1324,18 @@ async function seedEvaluationTopics(
   const { count: existing } = await service
     .from('evaluation_checklist_items')
     .select('id', { count: 'exact', head: true })
-    .in('term_id', ayTermIds.map((t) => t.id));
+    .in(
+      'term_id',
+      ayTermIds.map((t) => t.id)
+    );
   if ((existing ?? 0) > 0) {
     const { data: existingItems } = await service
       .from('evaluation_checklist_items')
       .select('id, term_id, subject_id, section_id')
-      .in('term_id', ayTermIds.map((t) => t.id))
+      .in(
+        'term_id',
+        ayTermIds.map((t) => t.id)
+      )
       .order('sort_order')
       .limit(6);
     const items = (existingItems ?? []) as Array<{
@@ -1270,7 +1392,8 @@ async function seedEvaluationTopics(
     .eq('role', 'subject_teacher')
     .maybeSingle();
   const createdBy =
-    (assignmentRow as { teacher_user_id: string } | null)?.teacher_user_id ?? null;
+    (assignmentRow as { teacher_user_id: string } | null)?.teacher_user_id ??
+    null;
 
   const rows = EVAL_TOPIC_TEMPLATES.map((item_text, idx) => ({
     term_id: t1.id,
@@ -1286,7 +1409,10 @@ async function seedEvaluationTopics(
     .insert(rows)
     .select('id');
   if (error) {
-    console.warn('[demo-extras] evaluation topics insert failed:', error.message);
+    console.warn(
+      '[demo-extras] evaluation topics insert failed:',
+      error.message
+    );
     return empty;
   }
   const insertedRows = (inserted ?? []) as Array<{ id: string }>;
@@ -1315,7 +1441,7 @@ async function seedEvaluationTopics(
 async function seedEvaluationRatings(
   service: SupabaseClient,
   testAy: { id: string; ay_code: string },
-  context: EvalTopicSeedResult,
+  context: EvalTopicSeedResult
 ): Promise<number> {
   if (!context.termId || !context.sectionId || context.topicIds.length === 0) {
     return 0;
@@ -1334,7 +1460,7 @@ async function seedEvaluationRatings(
     .eq('enrollment_status', 'active')
     .order('index_number');
   const studentIds = ((studentsRaw ?? []) as Array<{ student_id: string }>).map(
-    (s) => s.student_id,
+    (s) => s.student_id
   );
   if (studentIds.length === 0) return 0;
 
@@ -1371,7 +1497,10 @@ async function seedEvaluationRatings(
       count: 'exact',
     });
   if (error) {
-    console.warn('[demo-extras] evaluation ratings insert failed:', error.message);
+    console.warn(
+      '[demo-extras] evaluation ratings insert failed:',
+      error.message
+    );
     return 0;
   }
   return count ?? rows.length;

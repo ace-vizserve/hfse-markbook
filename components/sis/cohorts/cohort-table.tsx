@@ -8,8 +8,14 @@ import { type ColumnDef } from '@tanstack/react-table';
 import { ApplicationStatusBadge } from '@/components/ui/application-status-badge';
 import { Badge } from '@/components/ui/badge';
 import { DataTable } from '@/components/ui/data-table';
-import { ChartLegendChip, type ChartLegendChipColor } from '@/components/dashboard/chart-legend-chip';
-import { BulkNotifyDialog, type BulkNotifyItem } from '@/components/p-files/bulk-notify-dialog';
+import {
+  ChartLegendChip,
+  type ChartLegendChipColor,
+} from '@/components/dashboard/chart-legend-chip';
+import {
+  BulkNotifyDialog,
+  type BulkNotifyItem,
+} from '@/components/p-files/bulk-notify-dialog';
 import type {
   CohortStudentRow,
   CohortScope,
@@ -24,7 +30,12 @@ export type { CohortStudentRow as StpCohortRow };
 
 // ─── Public API ─────────────────────────────────────────────────────────────
 
-export type CohortKind = 'stp' | 'promised' | 'pass-expiry' | 'medical' | 'pre-course';
+export type CohortKind =
+  | 'stp'
+  | 'promised'
+  | 'pass-expiry'
+  | 'medical'
+  | 'pre-course';
 export type { CohortScope };
 
 // All kinds use CohortStudentRow — the shared loader shape.
@@ -49,12 +60,20 @@ function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-SG', { year: 'numeric', month: 'short', day: 'numeric' });
+  return d.toLocaleDateString('en-SG', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 // ─── STP detail href resolver ─────────────────────────────────────────────────
 
-function stpDetailHref(row: CohortStudentRow, scope: CohortScope, ayCode: string): string {
+function stpDetailHref(
+  row: CohortStudentRow,
+  scope: CohortScope,
+  ayCode: string
+): string {
   if (scope === 'enrolled' && row.studentNumber) {
     return `/records/students/${encodeURIComponent(row.studentNumber)}`;
   }
@@ -68,7 +87,10 @@ function stpDetailHref(row: CohortStudentRow, scope: CohortScope, ayCode: string
 
 // ─── STP column builder ───────────────────────────────────────────────────────
 
-function buildStpColumns(scope: CohortScope, ayCode: string): ColumnDef<CohortStudentRow>[] {
+function buildStpColumns(
+  scope: CohortScope,
+  ayCode: string
+): ColumnDef<CohortStudentRow>[] {
   return [
     {
       id: 'student',
@@ -84,7 +106,9 @@ function buildStpColumns(scope: CohortScope, ayCode: string): ColumnDef<CohortSt
           </div>
           <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
             {row.original.enroleeNumber}
-            {row.original.studentNumber ? ` · ${row.original.studentNumber}` : ''}
+            {row.original.studentNumber
+              ? ` · ${row.original.studentNumber}`
+              : ''}
           </div>
         </Link>
       ),
@@ -95,7 +119,9 @@ function buildStpColumns(scope: CohortScope, ayCode: string): ColumnDef<CohortSt
       accessorKey: 'levelApplied',
       header: 'Level',
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{row.original.levelApplied ?? '—'}</span>
+        <span className="text-sm text-muted-foreground">
+          {row.original.levelApplied ?? '—'}
+        </span>
       ),
       enableSorting: true,
     },
@@ -104,7 +130,9 @@ function buildStpColumns(scope: CohortScope, ayCode: string): ColumnDef<CohortSt
       accessorKey: 'stpApplicationType',
       header: 'STP type',
       cell: ({ row }) => (
-        <span className="text-sm text-foreground">{row.original.stpApplicationType ?? '—'}</span>
+        <span className="text-sm text-foreground">
+          {row.original.stpApplicationType ?? '—'}
+        </span>
       ),
       enableSorting: true,
     },
@@ -221,7 +249,9 @@ function PromisedSlotChips({ slots }: { slots: PromisedSlot[] | undefined }) {
     <div className="flex flex-wrap gap-1">
       {slots.map((s) => {
         const dateLabel =
-          s.promisedUntil === null ? 'date not captured' : formatDate(s.promisedUntil);
+          s.promisedUntil === null
+            ? 'date not captured'
+            : formatDate(s.promisedUntil);
         return (
           <ChartLegendChip
             key={s.key}
@@ -235,8 +265,10 @@ function PromisedSlotChips({ slots }: { slots: PromisedSlot[] | undefined }) {
 }
 
 function PromisedDaysPill({ days }: { days: number | null | undefined }) {
-  if (days === null || days === undefined) return <Badge variant="muted">—</Badge>;
-  if (days < 0) return <Badge variant="blocked">{Math.abs(days)}d past-due</Badge>;
+  if (days === null || days === undefined)
+    return <Badge variant="muted">—</Badge>;
+  if (days < 0)
+    return <Badge variant="blocked">{Math.abs(days)}d past-due</Badge>;
   if (days === 0) return <Badge variant="blocked">Due today</Badge>;
   if (days <= 7) return <Badge variant="warning">{days}d</Badge>;
   if (days <= 30) return <Badge variant="default">{days}d</Badge>;
@@ -261,7 +293,9 @@ function buildPromisedColumns(ayCode: string): ColumnDef<CohortStudentRow>[] {
           </div>
           <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
             {row.original.enroleeNumber}
-            {row.original.studentNumber ? ` · ${row.original.studentNumber}` : ''}
+            {row.original.studentNumber
+              ? ` · ${row.original.studentNumber}`
+              : ''}
           </div>
         </Link>
       ),
@@ -272,7 +306,9 @@ function buildPromisedColumns(ayCode: string): ColumnDef<CohortStudentRow>[] {
       accessorKey: 'levelApplied',
       header: 'Level',
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{row.original.levelApplied ?? '—'}</span>
+        <span className="text-sm text-muted-foreground">
+          {row.original.levelApplied ?? '—'}
+        </span>
       ),
       enableSorting: true,
     },
@@ -300,7 +336,9 @@ function buildPromisedColumns(ayCode: string): ColumnDef<CohortStudentRow>[] {
       id: 'promisedSlots',
       accessorFn: (r) => r.toFollowSlots?.length ?? 0,
       header: 'Promised slots',
-      cell: ({ row }) => <PromisedSlotChips slots={row.original.toFollowSlots} />,
+      cell: ({ row }) => (
+        <PromisedSlotChips slots={row.original.toFollowSlots} />
+      ),
       enableSorting: false,
     },
     {
@@ -317,11 +355,14 @@ function buildPromisedColumns(ayCode: string): ColumnDef<CohortStudentRow>[] {
     {
       id: 'daysUntil',
       accessorFn: (r) =>
-        r.daysUntilEarliestPromise === null || r.daysUntilEarliestPromise === undefined
+        r.daysUntilEarliestPromise === null ||
+        r.daysUntilEarliestPromise === undefined
           ? Number.POSITIVE_INFINITY
           : r.daysUntilEarliestPromise,
       header: 'Days until',
-      cell: ({ row }) => <PromisedDaysPill days={row.original.daysUntilEarliestPromise} />,
+      cell: ({ row }) => (
+        <PromisedDaysPill days={row.original.daysUntilEarliestPromise} />
+      ),
       enableSorting: true,
     },
   ];
@@ -333,7 +374,9 @@ const PROMISED_STATUS_TABS: StatusTabConfig<CohortStudentRow>[] = [
   {
     value: 'past-due',
     label: 'Past-due',
-    predicate: (r) => (r.daysUntilEarliestPromise ?? null) !== null && (r.daysUntilEarliestPromise as number) < 0,
+    predicate: (r) =>
+      (r.daysUntilEarliestPromise ?? null) !== null &&
+      (r.daysUntilEarliestPromise as number) < 0,
   },
   {
     value: 'today',
@@ -343,18 +386,27 @@ const PROMISED_STATUS_TABS: StatusTabConfig<CohortStudentRow>[] = [
   {
     value: 'd7',
     label: 'Within 7 days',
-    predicate: (r) => r.daysUntilEarliestPromise !== null && r.daysUntilEarliestPromise !== undefined && r.daysUntilEarliestPromise <= 7,
+    predicate: (r) =>
+      r.daysUntilEarliestPromise !== null &&
+      r.daysUntilEarliestPromise !== undefined &&
+      r.daysUntilEarliestPromise <= 7,
     isDefault: true,
   },
   {
     value: 'd14',
     label: 'Within 14 days',
-    predicate: (r) => r.daysUntilEarliestPromise !== null && r.daysUntilEarliestPromise !== undefined && r.daysUntilEarliestPromise <= 14,
+    predicate: (r) =>
+      r.daysUntilEarliestPromise !== null &&
+      r.daysUntilEarliestPromise !== undefined &&
+      r.daysUntilEarliestPromise <= 14,
   },
   {
     value: 'd30',
     label: 'Within 30 days',
-    predicate: (r) => r.daysUntilEarliestPromise !== null && r.daysUntilEarliestPromise !== undefined && r.daysUntilEarliestPromise <= 30,
+    predicate: (r) =>
+      r.daysUntilEarliestPromise !== null &&
+      r.daysUntilEarliestPromise !== undefined &&
+      r.daysUntilEarliestPromise <= 30,
   },
   {
     value: 'all',
@@ -375,7 +427,11 @@ const PROMISED_EMPTY_STATE = {
 
 // ─── Pass-expiry detail href ──────────────────────────────────────────────────
 
-function passExpiryDetailHref(row: CohortStudentRow, scope: CohortScope, ayCode: string): string {
+function passExpiryDetailHref(
+  row: CohortStudentRow,
+  scope: CohortScope,
+  ayCode: string
+): string {
   if (scope === 'enrolled' && row.studentNumber) {
     return `/records/students/${encodeURIComponent(row.studentNumber)}`;
   }
@@ -386,8 +442,10 @@ function passExpiryDetailHref(row: CohortStudentRow, scope: CohortScope, ayCode:
 // ─── Pass-expiry helpers ──────────────────────────────────────────────────────
 
 function PassExpiryDaysPill({ days }: { days: number | null | undefined }) {
-  if (days === null || days === undefined) return <Badge variant="outline">—</Badge>;
-  if (days < 0) return <Badge variant="blocked">{Math.abs(days)}d expired</Badge>;
+  if (days === null || days === undefined)
+    return <Badge variant="outline">—</Badge>;
+  if (days < 0)
+    return <Badge variant="blocked">{Math.abs(days)}d expired</Badge>;
   if (days <= 7) return <Badge variant="blocked">{days}d</Badge>;
   if (days <= 30) return <Badge variant="warning">{days}d</Badge>;
   if (days <= 90) return <Badge variant="success">{days}d</Badge>;
@@ -411,7 +469,11 @@ function ParentExpiryChips({ list }: { list: ParentPassExpiry[] | undefined }) {
   );
 }
 
-function StudentKindChip({ kind }: { kind: 'passport' | 'pass' | null | undefined }) {
+function StudentKindChip({
+  kind,
+}: {
+  kind: 'passport' | 'pass' | null | undefined;
+}) {
   if (!kind) return <span className="text-xs text-muted-foreground">—</span>;
   return (
     <ChartLegendChip
@@ -423,7 +485,10 @@ function StudentKindChip({ kind }: { kind: 'passport' | 'pass' | null | undefine
 
 // ─── Pass-expiry column builder ───────────────────────────────────────────────
 
-function buildPassExpiryColumns(scope: CohortScope, ayCode: string): ColumnDef<CohortStudentRow>[] {
+function buildPassExpiryColumns(
+  scope: CohortScope,
+  ayCode: string
+): ColumnDef<CohortStudentRow>[] {
   return [
     {
       id: 'student',
@@ -439,7 +504,9 @@ function buildPassExpiryColumns(scope: CohortScope, ayCode: string): ColumnDef<C
           </div>
           <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
             {row.original.enroleeNumber}
-            {row.original.studentNumber ? ` · ${row.original.studentNumber}` : ''}
+            {row.original.studentNumber
+              ? ` · ${row.original.studentNumber}`
+              : ''}
           </div>
         </Link>
       ),
@@ -450,7 +517,9 @@ function buildPassExpiryColumns(scope: CohortScope, ayCode: string): ColumnDef<C
       accessorKey: 'levelApplied',
       header: 'Level',
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{row.original.levelApplied ?? '—'}</span>
+        <span className="text-sm text-muted-foreground">
+          {row.original.levelApplied ?? '—'}
+        </span>
       ),
       enableSorting: true,
     },
@@ -458,7 +527,9 @@ function buildPassExpiryColumns(scope: CohortScope, ayCode: string): ColumnDef<C
       id: 'earliestKind',
       accessorFn: (r) => r.studentPassExpiryKind ?? '',
       header: 'Earliest kind',
-      cell: ({ row }) => <StudentKindChip kind={row.original.studentPassExpiryKind} />,
+      cell: ({ row }) => (
+        <StudentKindChip kind={row.original.studentPassExpiryKind} />
+      ),
       enableSorting: true,
     },
     {
@@ -476,14 +547,18 @@ function buildPassExpiryColumns(scope: CohortScope, ayCode: string): ColumnDef<C
       id: 'daysUntil',
       accessorFn: (r) => r.daysUntilEarliestExpiry ?? Number.POSITIVE_INFINITY,
       header: 'Days until',
-      cell: ({ row }) => <PassExpiryDaysPill days={row.original.daysUntilEarliestExpiry} />,
+      cell: ({ row }) => (
+        <PassExpiryDaysPill days={row.original.daysUntilEarliestExpiry} />
+      ),
       enableSorting: true,
     },
     {
       id: 'parentExpiries',
       accessorFn: (r) => r.parentPassExpiries?.length ?? 0,
       header: 'Parent expiries',
-      cell: ({ row }) => <ParentExpiryChips list={row.original.parentPassExpiries} />,
+      cell: ({ row }) => (
+        <ParentExpiryChips list={row.original.parentPassExpiries} />
+      ),
       enableSorting: true,
     },
     {
@@ -504,23 +579,34 @@ const PASS_EXPIRY_STATUS_TABS: StatusTabConfig<CohortStudentRow>[] = [
   {
     value: 'expired',
     label: 'Already expired',
-    predicate: (r) => (r.daysUntilEarliestExpiry ?? null) !== null && (r.daysUntilEarliestExpiry as number) < 0,
+    predicate: (r) =>
+      (r.daysUntilEarliestExpiry ?? null) !== null &&
+      (r.daysUntilEarliestExpiry as number) < 0,
   },
   {
     value: 'd30',
     label: 'Within 30 days',
-    predicate: (r) => r.daysUntilEarliestExpiry !== null && r.daysUntilEarliestExpiry !== undefined && r.daysUntilEarliestExpiry <= 30,
+    predicate: (r) =>
+      r.daysUntilEarliestExpiry !== null &&
+      r.daysUntilEarliestExpiry !== undefined &&
+      r.daysUntilEarliestExpiry <= 30,
     isDefault: true,
   },
   {
     value: 'd60',
     label: 'Within 60 days',
-    predicate: (r) => r.daysUntilEarliestExpiry !== null && r.daysUntilEarliestExpiry !== undefined && r.daysUntilEarliestExpiry <= 60,
+    predicate: (r) =>
+      r.daysUntilEarliestExpiry !== null &&
+      r.daysUntilEarliestExpiry !== undefined &&
+      r.daysUntilEarliestExpiry <= 60,
   },
   {
     value: 'd90',
     label: 'Within 90 days',
-    predicate: (r) => r.daysUntilEarliestExpiry !== null && r.daysUntilEarliestExpiry !== undefined && r.daysUntilEarliestExpiry <= 90,
+    predicate: (r) =>
+      r.daysUntilEarliestExpiry !== null &&
+      r.daysUntilEarliestExpiry !== undefined &&
+      r.daysUntilEarliestExpiry <= 90,
   },
   {
     value: 'all',
@@ -541,7 +627,11 @@ const PASS_EXPIRY_EMPTY_STATE = {
 
 // ─── Medical detail href ──────────────────────────────────────────────────────
 
-function medicalDetailHref(row: CohortStudentRow, scope: CohortScope, ayCode: string): string {
+function medicalDetailHref(
+  row: CohortStudentRow,
+  scope: CohortScope,
+  ayCode: string
+): string {
   if (scope === 'enrolled' && row.studentNumber) {
     return `/records/students/${encodeURIComponent(row.studentNumber)}`;
   }
@@ -570,13 +660,23 @@ function FlagChips({ flags }: { flags: string[] | undefined }) {
   return (
     <div className="flex flex-wrap gap-1">
       {flags.map((f) => (
-        <ChartLegendChip key={f} color="very-stale" label={FLAG_LABEL[f] ?? f} />
+        <ChartLegendChip
+          key={f}
+          color="very-stale"
+          label={FLAG_LABEL[f] ?? f}
+        />
       ))}
     </div>
   );
 }
 
-function TruncatedText({ value, max = 80 }: { value: string | null | undefined; max?: number }) {
+function TruncatedText({
+  value,
+  max = 80,
+}: {
+  value: string | null | undefined;
+  max?: number;
+}) {
   const s = (value ?? '').trim();
   if (!s) return <span className="text-xs text-muted-foreground">—</span>;
   const truncated = s.length > max ? `${s.slice(0, max)}…` : s;
@@ -589,7 +689,10 @@ function TruncatedText({ value, max = 80 }: { value: string | null | undefined; 
 
 // ─── Medical column builder ───────────────────────────────────────────────────
 
-function buildMedicalColumns(scope: CohortScope, ayCode: string): ColumnDef<CohortStudentRow>[] {
+function buildMedicalColumns(
+  scope: CohortScope,
+  ayCode: string
+): ColumnDef<CohortStudentRow>[] {
   return [
     {
       id: 'student',
@@ -605,7 +708,9 @@ function buildMedicalColumns(scope: CohortScope, ayCode: string): ColumnDef<Coho
           </div>
           <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
             {row.original.enroleeNumber}
-            {row.original.studentNumber ? ` · ${row.original.studentNumber}` : ''}
+            {row.original.studentNumber
+              ? ` · ${row.original.studentNumber}`
+              : ''}
           </div>
         </Link>
       ),
@@ -616,7 +721,9 @@ function buildMedicalColumns(scope: CohortScope, ayCode: string): ColumnDef<Coho
       accessorKey: 'levelApplied',
       header: 'Level',
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{row.original.levelApplied ?? '—'}</span>
+        <span className="text-sm text-muted-foreground">
+          {row.original.levelApplied ?? '—'}
+        </span>
       ),
       enableSorting: true,
     },
@@ -638,27 +745,37 @@ function buildMedicalColumns(scope: CohortScope, ayCode: string): ColumnDef<Coho
       id: 'foodAllergyDetails',
       accessorKey: 'foodAllergyDetails',
       header: 'Food allergies',
-      cell: ({ row }) => <TruncatedText value={row.original.foodAllergyDetails} />,
+      cell: ({ row }) => (
+        <TruncatedText value={row.original.foodAllergyDetails} />
+      ),
       enableSorting: false,
     },
     {
       id: 'otherMedicalConditions',
       accessorKey: 'otherMedicalConditions',
       header: 'Other conditions',
-      cell: ({ row }) => <TruncatedText value={row.original.otherMedicalConditions} />,
+      cell: ({ row }) => (
+        <TruncatedText value={row.original.otherMedicalConditions} />
+      ),
       enableSorting: false,
     },
     {
       id: 'dietaryRestrictions',
       accessorKey: 'dietaryRestrictions',
       header: 'Dietary',
-      cell: ({ row }) => <TruncatedText value={row.original.dietaryRestrictions} />,
+      cell: ({ row }) => (
+        <TruncatedText value={row.original.dietaryRestrictions} />
+      ),
       enableSorting: false,
     },
     {
       id: 'paracetamolConsent',
       accessorFn: (r) =>
-        r.paracetamolConsent === true ? 2 : r.paracetamolConsent === false ? 0 : 1,
+        r.paracetamolConsent === true
+          ? 2
+          : r.paracetamolConsent === false
+            ? 0
+            : 1,
       header: 'Paracetamol',
       cell: ({ row }) => {
         if (row.original.paracetamolConsent === true)
@@ -674,7 +791,9 @@ function buildMedicalColumns(scope: CohortScope, ayCode: string): ColumnDef<Coho
       accessorKey: 'applicationStatus',
       header: 'App status',
       cell: ({ row }) => (
-        <ApplicationStatusBadge status={row.original.applicationStatus ?? null} />
+        <ApplicationStatusBadge
+          status={row.original.applicationStatus ?? null}
+        />
       ),
       enableSorting: true,
     },
@@ -738,13 +857,21 @@ function preCourseDetailHref(enroleeNumber: string, ayCode: string): string {
 
 // ─── Pre-course status badge ──────────────────────────────────────────────────
 
-function PreCourseStatusBadge({ status }: { status: 'complete' | 'not-yet' | 'pending' | undefined }) {
+function PreCourseStatusBadge({
+  status,
+}: {
+  status: 'complete' | 'not-yet' | 'pending' | undefined;
+}) {
   if (status === 'complete') return <Badge variant="success">Completed</Badge>;
   if (status === 'not-yet') return <Badge variant="blocked">Not yet</Badge>;
   return <Badge variant="muted">Pending</Badge>;
 }
 
-function PreCourseAnswerBadge({ answer }: { answer: 'Yes' | 'No' | null | undefined }) {
+function PreCourseAnswerBadge({
+  answer,
+}: {
+  answer: 'Yes' | 'No' | null | undefined;
+}) {
   if (answer === 'Yes') return <Badge variant="success">Yes — completed</Badge>;
   if (answer === 'No') return <Badge variant="warning">No — not yet</Badge>;
   return <span className="text-xs text-muted-foreground">—</span>;
@@ -768,7 +895,9 @@ function buildPreCourseColumns(ayCode: string): ColumnDef<CohortStudentRow>[] {
           </div>
           <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
             {row.original.enroleeNumber}
-            {row.original.studentNumber ? ` · ${row.original.studentNumber}` : ''}
+            {row.original.studentNumber
+              ? ` · ${row.original.studentNumber}`
+              : ''}
           </div>
         </Link>
       ),
@@ -779,7 +908,9 @@ function buildPreCourseColumns(ayCode: string): ColumnDef<CohortStudentRow>[] {
       accessorKey: 'levelApplied',
       header: 'Level',
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{row.original.levelApplied ?? '—'}</span>
+        <span className="text-sm text-muted-foreground">
+          {row.original.levelApplied ?? '—'}
+        </span>
       ),
       enableSorting: true,
     },
@@ -795,9 +926,15 @@ function buildPreCourseColumns(ayCode: string): ColumnDef<CohortStudentRow>[] {
     {
       id: 'preCourseStatus',
       accessorFn: (r) =>
-        r.preCourseStatus === 'complete' ? 2 : r.preCourseStatus === 'not-yet' ? 0 : 1,
+        r.preCourseStatus === 'complete'
+          ? 2
+          : r.preCourseStatus === 'not-yet'
+            ? 0
+            : 1,
       header: 'Status',
-      cell: ({ row }) => <PreCourseStatusBadge status={row.original.preCourseStatus} />,
+      cell: ({ row }) => (
+        <PreCourseStatusBadge status={row.original.preCourseStatus} />
+      ),
       enableSorting: true,
     },
     {
@@ -815,7 +952,9 @@ function buildPreCourseColumns(ayCode: string): ColumnDef<CohortStudentRow>[] {
       id: 'preCourseAnswer',
       accessorFn: (r) => r.preCourseAnswer ?? '',
       header: "Parent's answer",
-      cell: ({ row }) => <PreCourseAnswerBadge answer={row.original.preCourseAnswer} />,
+      cell: ({ row }) => (
+        <PreCourseAnswerBadge answer={row.original.preCourseAnswer} />
+      ),
       enableSorting: true,
     },
     {

@@ -42,7 +42,7 @@ const TEACHER_VELOCITY_FORBIDDEN_FOR = new Set(['teacher']);
 
 export async function GET(
   req: Request,
-  ctx: { params: Promise<{ target: string }> },
+  ctx: { params: Promise<{ target: string }> }
 ) {
   const guard = await requireRole([...ALLOWED_ROLES]);
   if ('error' in guard) return guard.error;
@@ -54,7 +54,10 @@ export async function GET(
   const target = rawTarget as MarkbookDrillTarget;
 
   // Teacher velocity is registrar+ only.
-  if (target === 'teacher-entry-velocity' && TEACHER_VELOCITY_FORBIDDEN_FOR.has(guard.role)) {
+  if (
+    target === 'teacher-entry-velocity' &&
+    TEACHER_VELOCITY_FORBIDDEN_FOR.has(guard.role)
+  ) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
 
@@ -82,7 +85,9 @@ export async function GET(
       .from('teacher_assignments')
       .select('section_id')
       .eq('teacher_user_id', guard.user.id);
-    allowedSectionIds = ((assignments ?? []) as { section_id: string }[]).map((a) => a.section_id);
+    allowedSectionIds = ((assignments ?? []) as { section_id: string }[]).map(
+      (a) => a.section_id
+    );
   }
 
   const rows = await buildMarkbookDrillRows({
@@ -111,14 +116,14 @@ export async function GET(
   });
   res.headers.set(
     'Cache-Control',
-    'private, max-age=60, stale-while-revalidate=300',
+    'private, max-age=60, stale-while-revalidate=300'
   );
   return res;
 }
 
 function pickColumns(
   target: MarkbookDrillTarget,
-  columnsParam: string | null,
+  columnsParam: string | null
 ): DrillColumnKey[] {
   if (!columnsParam) return defaultColumnsForTarget(target);
   const requested = columnsParam
@@ -133,7 +138,7 @@ function csvResponse(
   target: MarkbookDrillTarget,
   segment: string | null,
   ayCode: string,
-  columnsParam: string | null,
+  columnsParam: string | null
 ): Response {
   const columns = pickColumns(target, columnsParam);
   const headers = columns.map((c) => DRILL_COLUMN_LABELS[c] ?? c);
@@ -151,57 +156,98 @@ function csvResponse(
   });
 }
 
-function csvCell(row: MarkbookDrillRow, key: DrillColumnKey, kind: 'entry' | 'sheet' | 'change-request'): string | number {
+function csvCell(
+  row: MarkbookDrillRow,
+  key: DrillColumnKey,
+  kind: 'entry' | 'sheet' | 'change-request'
+): string | number {
   if (kind === 'entry') {
     const r = row as GradeEntryRow;
     switch (key) {
-      case 'studentName': return r.studentName;
-      case 'studentNumber': return r.studentNumber;
-      case 'level': return r.level ?? '';
-      case 'sectionName': return r.sectionName;
-      case 'subjectCode': return r.subjectCode;
-      case 'termNumber': return `T${r.termNumber}`;
-      case 'rawScore': return r.rawScore ?? '';
-      case 'computedGrade': return r.computedGrade ?? '';
-      case 'gradeBucket': return r.gradeBucket ?? '';
-      case 'isLocked': return r.isLocked ? 'Yes' : 'No';
-      case 'enteredAt': return r.enteredAt.slice(0, 10);
-      case 'enteredBy': return r.enteredBy ?? '';
-      default: return '';
+      case 'studentName':
+        return r.studentName;
+      case 'studentNumber':
+        return r.studentNumber;
+      case 'level':
+        return r.level ?? '';
+      case 'sectionName':
+        return r.sectionName;
+      case 'subjectCode':
+        return r.subjectCode;
+      case 'termNumber':
+        return `T${r.termNumber}`;
+      case 'rawScore':
+        return r.rawScore ?? '';
+      case 'computedGrade':
+        return r.computedGrade ?? '';
+      case 'gradeBucket':
+        return r.gradeBucket ?? '';
+      case 'isLocked':
+        return r.isLocked ? 'Yes' : 'No';
+      case 'enteredAt':
+        return r.enteredAt.slice(0, 10);
+      case 'enteredBy':
+        return r.enteredBy ?? '';
+      default:
+        return '';
     }
   }
   if (kind === 'sheet') {
     const r = row as SheetRow;
     switch (key) {
-      case 'sectionName': return r.sectionName;
-      case 'level': return r.level ?? '';
-      case 'subjectCode': return r.subjectCode;
-      case 'termNumber': return `T${r.termNumber}`;
-      case 'sheetSubjectTerm': return `${r.subjectCode} · T${r.termNumber}`;
-      case 'isLocked': return r.isLocked ? 'Locked' : 'Open';
-      case 'lockedAt': return r.lockedAt?.slice(0, 10) ?? '';
-      case 'publishedAt': return r.publishedAt?.slice(0, 10) ?? '';
-      case 'completeness': return `${r.entriesPresent}/${r.entriesExpected} (${r.completenessPct}%)`;
-      case 'teacherName': return r.teacherName ?? '';
-      default: return '';
+      case 'sectionName':
+        return r.sectionName;
+      case 'level':
+        return r.level ?? '';
+      case 'subjectCode':
+        return r.subjectCode;
+      case 'termNumber':
+        return `T${r.termNumber}`;
+      case 'sheetSubjectTerm':
+        return `${r.subjectCode} · T${r.termNumber}`;
+      case 'isLocked':
+        return r.isLocked ? 'Locked' : 'Open';
+      case 'lockedAt':
+        return r.lockedAt?.slice(0, 10) ?? '';
+      case 'publishedAt':
+        return r.publishedAt?.slice(0, 10) ?? '';
+      case 'completeness':
+        return `${r.entriesPresent}/${r.entriesExpected} (${r.completenessPct}%)`;
+      case 'teacherName':
+        return r.teacherName ?? '';
+      default:
+        return '';
     }
   }
   // change-request
   const r = row as ChangeRequestRow;
   switch (key) {
-    case 'sectionName': return r.sectionName;
-    case 'subjectCode': return r.subjectCode;
-    case 'termNumber': return `T${r.termNumber}`;
-    case 'status': return r.status;
-    case 'fieldChanged': return r.fieldChanged;
-    case 'reasonCategory': return r.reasonCategory;
-    case 'requestedBy': return r.requestedBy;
-    case 'requestedAt': return r.requestedAt.slice(0, 10);
-    case 'resolvedAt': return r.resolvedAt?.slice(0, 10) ?? '';
-    default: return '';
+    case 'sectionName':
+      return r.sectionName;
+    case 'subjectCode':
+      return r.subjectCode;
+    case 'termNumber':
+      return `T${r.termNumber}`;
+    case 'status':
+      return r.status;
+    case 'fieldChanged':
+      return r.fieldChanged;
+    case 'reasonCategory':
+      return r.reasonCategory;
+    case 'requestedBy':
+      return r.requestedBy;
+    case 'requestedAt':
+      return r.requestedAt.slice(0, 10);
+    case 'resolvedAt':
+      return r.resolvedAt?.slice(0, 10) ?? '';
+    default:
+      return '';
   }
 }
 
 function slug(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }

@@ -6,7 +6,7 @@ export type PriorTermGrade = {
   quarterly_grade: number | null;
 };
 
-const firstOf = <T,>(v: T | T[] | null): T | null =>
+const firstOf = <T>(v: T | T[] | null): T | null =>
   Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
 
 /**
@@ -17,7 +17,7 @@ const firstOf = <T,>(v: T | T[] | null): T | null =>
 export async function loadPriorTermGrades(
   sectionId: string,
   subjectId: string,
-  currentTermNumber: number,
+  currentTermNumber: number
 ): Promise<Record<string, PriorTermGrade[]>> {
   const service = createServiceClient();
 
@@ -39,7 +39,7 @@ export async function loadPriorTermGrades(
     .map((s) => ({ id: s.id, term: firstOf(s.term) }))
     .filter(
       (s): s is { id: string; term: { term_number: number; label: string } } =>
-        !!s.term && s.term.term_number < currentTermNumber,
+        !!s.term && s.term.term_number < currentTermNumber
     );
 
   if (priorSheets.length === 0) return {};

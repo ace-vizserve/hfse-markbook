@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     .from('grade_audit_log')
     .select(
       `id, field_changed, old_value, new_value, approval_reference, changed_by, changed_at,
-       grading_sheet_id, grade_entry_id`,
+       grading_sheet_id, grade_entry_id`
     )
     .order('changed_at', { ascending: false })
     .limit(500);
@@ -24,9 +24,14 @@ export async function GET(request: NextRequest) {
   if (entryId) q = q.eq('grade_entry_id', entryId);
 
   const { data, error } = await q;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(
     { rows: data ?? [] },
-    { headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=120' } },
+    {
+      headers: {
+        'Cache-Control': 'private, max-age=30, stale-while-revalidate=120',
+      },
+    }
   );
 }

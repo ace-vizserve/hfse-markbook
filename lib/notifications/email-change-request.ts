@@ -1,4 +1,4 @@
-import "server-only";
+import 'server-only';
 
 import { Resend } from 'resend';
 
@@ -33,7 +33,10 @@ type RequestSummary = {
   sheet_label?: string | null;
 };
 
-function changeRequestUrl(requestId: string, action?: 'approve' | 'reject'): string {
+function changeRequestUrl(
+  requestId: string,
+  action?: 'approve' | 'reject'
+): string {
   const origin = env.NEXT_PUBLIC_SIS_URL || '';
   const path = `/markbook/change-requests?req=${encodeURIComponent(requestId)}`;
   const suffix = action ? `&action=${action}` : '';
@@ -43,7 +46,9 @@ function changeRequestUrl(requestId: string, action?: 'approve' | 'reject'): str
 function getTransport(): { resend: Resend; from: string } | null {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    console.warn('[notify] skipping change-request email: RESEND_API_KEY unset');
+    console.warn(
+      '[notify] skipping change-request email: RESEND_API_KEY unset'
+    );
     return null;
   }
   const from =
@@ -56,14 +61,20 @@ async function sendAll(
   from: string,
   recipients: string[],
   subject: string,
-  html: string,
+  html: string
 ): Promise<{ sent: number; failed: number }> {
   let sent = 0;
   let failed = 0;
-  const devTo = process.env.NODE_ENV !== 'production' ? 'ace.vizserve@gmail.com' : null;
+  const devTo =
+    process.env.NODE_ENV !== 'production' ? 'ace.vizserve@gmail.com' : null;
   for (const to of recipients) {
     try {
-      const res = await resend.emails.send({ from, to: devTo ?? to, subject, html });
+      const res = await resend.emails.send({
+        from,
+        to: devTo ?? to,
+        subject,
+        html,
+      });
       if (res.error) {
         failed += 1;
         console.error('[notify] resend error for', to, res.error);
@@ -96,7 +107,7 @@ function summaryTable(req: RequestSummary): string {
         <tr>
           <td style="padding: 6px 12px 6px 0; color: #64748B; width: 140px; vertical-align: top;">${label}</td>
           <td style="padding: 6px 0; color: #1d1c1d;">${escapeHtml(value)}</td>
-        </tr>`,
+        </tr>`
         )
         .join('')}
     </table>
@@ -108,7 +119,7 @@ function summaryTable(req: RequestSummary): string {
 // Has 2 primary buttons (Approve navy, Reject red) + 1 secondary text link.
 export async function notifyRequestFiled(
   req: RequestSummary,
-  approverEmails: string[],
+  approverEmails: string[]
 ): Promise<{ sent: number; failed: number }> {
   const t = getTransport();
   if (!t || approverEmails.length === 0) return { sent: 0, failed: 0 };
@@ -128,8 +139,16 @@ export async function notifyRequestFiled(
     headline: 'New grade change request',
     bodyHtml,
     ctas: [
-      { label: 'Approve', href: changeRequestUrl(req.id, 'approve'), variant: 'primary' },
-      { label: 'Reject', href: changeRequestUrl(req.id, 'reject'), variant: 'destructive' },
+      {
+        label: 'Approve',
+        href: changeRequestUrl(req.id, 'approve'),
+        variant: 'primary',
+      },
+      {
+        label: 'Reject',
+        href: changeRequestUrl(req.id, 'reject'),
+        variant: 'destructive',
+      },
       {
         label: 'To review the request, click here',
         href: changeRequestUrl(req.id),
@@ -146,12 +165,14 @@ export async function notifyRequestFiled(
 export async function notifyRequestApproved(
   req: RequestSummary,
   teacherEmail: string,
-  applierEmails: string[],
+  applierEmails: string[]
 ): Promise<{ sent: number; failed: number }> {
   const t = getTransport();
   if (!t) return { sent: 0, failed: 0 };
 
-  const recipients = Array.from(new Set([teacherEmail, ...applierEmails])).filter(Boolean);
+  const recipients = Array.from(
+    new Set([teacherEmail, ...applierEmails])
+  ).filter(Boolean);
   if (recipients.length === 0) return { sent: 0, failed: 0 };
 
   const subject = `Grade change approved — ${req.student_label ?? 'student'}`;
@@ -180,7 +201,7 @@ export async function notifyRequestApproved(
 // Recipients: the teacher who filed it.
 export async function notifyRequestRejected(
   req: RequestSummary,
-  teacherEmail: string,
+  teacherEmail: string
 ): Promise<{ sent: number; failed: number }> {
   const t = getTransport();
   if (!t || !teacherEmail) return { sent: 0, failed: 0 };
@@ -262,7 +283,7 @@ function staleRowsTable(rows: ApprovedStaleSummary[]): string {
 // before this fan-out so concurrent inbox loads don't double-send.
 export async function notifyApprovedNotApplied(
   rows: ApprovedStaleSummary[],
-  registrarEmails: string[],
+  registrarEmails: string[]
 ): Promise<{ sent: number; failed: number }> {
   const t = getTransport();
   if (!t || rows.length === 0 || registrarEmails.length === 0) {
@@ -304,12 +325,14 @@ export async function notifyApprovedNotApplied(
 export async function notifyRequestApplied(
   req: RequestSummary,
   teacherEmail: string,
-  approverEmails: string[],
+  approverEmails: string[]
 ): Promise<{ sent: number; failed: number }> {
   const t = getTransport();
   if (!t) return { sent: 0, failed: 0 };
 
-  const recipients = Array.from(new Set([teacherEmail, ...approverEmails])).filter(Boolean);
+  const recipients = Array.from(
+    new Set([teacherEmail, ...approverEmails])
+  ).filter(Boolean);
   if (recipients.length === 0) return { sent: 0, failed: 0 };
 
   const subject = `Grade change applied — ${req.student_label ?? 'student'}`;

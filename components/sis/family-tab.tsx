@@ -88,10 +88,17 @@ export function FamilyTab({ app, ayCode, enroleeNumber }: Props) {
         { label: 'Company', value: app.fatherCompanyName },
         { label: 'Position', value: app.fatherPosition },
         { label: 'Passport', value: app.fatherPassport },
-        { label: 'Passport expiry', value: app.fatherPassportExpiry, asDate: true },
+        {
+          label: 'Passport expiry',
+          value: app.fatherPassportExpiry,
+          asDate: true,
+        },
         { label: 'Pass type', value: app.fatherPass },
         { label: 'Pass expiry', value: app.fatherPassExpiry, asDate: true },
-        { label: 'WhatsApp / Teams consent', value: app.fatherWhatsappTeamsConsent },
+        {
+          label: 'WhatsApp / Teams consent',
+          value: app.fatherWhatsappTeamsConsent,
+        },
       ],
     },
     {
@@ -131,10 +138,17 @@ export function FamilyTab({ app, ayCode, enroleeNumber }: Props) {
         { label: 'Company', value: app.motherCompanyName },
         { label: 'Position', value: app.motherPosition },
         { label: 'Passport', value: app.motherPassport },
-        { label: 'Passport expiry', value: app.motherPassportExpiry, asDate: true },
+        {
+          label: 'Passport expiry',
+          value: app.motherPassportExpiry,
+          asDate: true,
+        },
         { label: 'Pass type', value: app.motherPass },
         { label: 'Pass expiry', value: app.motherPassExpiry, asDate: true },
-        { label: 'WhatsApp / Teams consent', value: app.motherWhatsappTeamsConsent },
+        {
+          label: 'WhatsApp / Teams consent',
+          value: app.motherWhatsappTeamsConsent,
+        },
       ],
     },
     {
@@ -164,10 +178,17 @@ export function FamilyTab({ app, ayCode, enroleeNumber }: Props) {
         { label: 'Email', value: app.guardianEmail, wide: true },
         { label: 'Nationality', value: app.guardianNationality },
         { label: 'Passport', value: app.guardianPassport },
-        { label: 'Passport expiry', value: app.guardianPassportExpiry, asDate: true },
+        {
+          label: 'Passport expiry',
+          value: app.guardianPassportExpiry,
+          asDate: true,
+        },
         { label: 'Pass type', value: app.guardianPass },
         { label: 'Pass expiry', value: app.guardianPassExpiry, asDate: true },
-        { label: 'WhatsApp / Teams consent', value: app.guardianWhatsappTeamsConsent },
+        {
+          label: 'WhatsApp / Teams consent',
+          value: app.guardianWhatsappTeamsConsent,
+        },
       ],
     },
   ];
@@ -254,10 +275,15 @@ function FamilyContactsRow({ slot }: { slot: SlotConfig }) {
         className={cn(
           'group flex items-center gap-3 px-5 py-3 transition-colors',
           'hover:bg-muted/40',
-          'focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-indigo/40',
+          'focus-visible:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-indigo/40'
         )}
       >
-        <AvatarTile slot={slot} initials={initials} size="strip" empty={empty} />
+        <AvatarTile
+          slot={slot}
+          initials={initials}
+          size="strip"
+          empty={empty}
+        />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
             <span className="font-serif text-[14px] font-semibold tracking-tight text-foreground">
@@ -300,7 +326,7 @@ function AvatarTile({
       <div
         className={cn(
           sizeClass,
-          'flex shrink-0 items-center justify-center rounded-xl border border-dashed border-border bg-muted/40 text-muted-foreground',
+          'flex shrink-0 items-center justify-center rounded-xl border border-dashed border-border bg-muted/40 text-muted-foreground'
         )}
       >
         <Plus className="size-4" />
@@ -319,10 +345,12 @@ function AvatarTile({
       className={cn(
         sizeClass,
         'flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-brand-tile',
-        gradient,
+        gradient
       )}
     >
-      <span className={cn('font-mono font-semibold tabular-nums', textSize)}>{initials}</span>
+      <span className={cn('font-mono font-semibold tabular-nums', textSize)}>
+        {initials}
+      </span>
     </div>
   );
 }
@@ -343,8 +371,15 @@ function ParentCard({
   const total = slot.fields.length;
   const initials = deriveInitials(slot);
 
-  const displayName = slot.fullName?.trim() || (empty ? `Add ${slot.label.toLowerCase()} details` : `(${slot.label} — name not set)`);
-  const mobile = slot.mobile != null && String(slot.mobile).trim() !== '' ? String(slot.mobile) : null;
+  const displayName =
+    slot.fullName?.trim() ||
+    (empty
+      ? `Add ${slot.label.toLowerCase()} details`
+      : `(${slot.label} — name not set)`);
+  const mobile =
+    slot.mobile != null && String(slot.mobile).trim() !== ''
+      ? String(slot.mobile)
+      : null;
   const email = slot.email && slot.email.trim() !== '' ? slot.email : null;
 
   return (
@@ -354,7 +389,12 @@ function ParentCard({
     >
       <CardHeader className="border-b border-border px-5 py-4">
         <div className="flex items-start gap-3">
-          <AvatarTile slot={slot} initials={initials} size="card" empty={empty} />
+          <AvatarTile
+            slot={slot}
+            initials={initials}
+            size="card"
+            empty={empty}
+          />
           <div className="min-w-0 flex-1 space-y-1">
             <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
               {slot.label}
@@ -363,7 +403,7 @@ function ParentCard({
             <CardTitle
               className={cn(
                 'font-serif text-[18px] font-semibold leading-tight tracking-tight',
-                empty ? 'text-muted-foreground' : 'text-foreground',
+                empty ? 'text-muted-foreground' : 'text-foreground'
               )}
             >
               {displayName}
@@ -373,8 +413,12 @@ function ParentCard({
                 <Badge variant={filled === total ? 'success' : 'muted'}>
                   {filled} / {total}
                 </Badge>
-                {slot.whatsappConsent === true && <Badge variant="success">WhatsApp ✓</Badge>}
-                {slot.whatsappConsent === false && <Badge variant="secondary">WhatsApp ✕</Badge>}
+                {slot.whatsappConsent === true && (
+                  <Badge variant="success">WhatsApp ✓</Badge>
+                )}
+                {slot.whatsappConsent === false && (
+                  <Badge variant="secondary">WhatsApp ✕</Badge>
+                )}
                 {email && <Badge variant="default">Linked</Badge>}
               </div>
             )}
@@ -405,13 +449,18 @@ function ParentCard({
               {mobile && (
                 <div className="inline-flex items-center gap-1.5">
                   <Phone className="size-3.5 text-muted-foreground" />
-                  <span className="font-mono text-[12px] tabular-nums text-foreground">{mobile}</span>
+                  <span className="font-mono text-[12px] tabular-nums text-foreground">
+                    {mobile}
+                  </span>
                 </div>
               )}
               {email && (
                 <div className="inline-flex min-w-0 items-center gap-1.5">
                   <Mail className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="truncate text-[12px] text-foreground" title={email}>
+                  <span
+                    className="truncate text-[12px] text-foreground"
+                    title={email}
+                  >
                     {email}
                   </span>
                 </div>

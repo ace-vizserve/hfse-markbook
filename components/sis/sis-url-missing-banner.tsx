@@ -1,6 +1,11 @@
 import { AlertTriangle } from 'lucide-react';
 
-import { Alert, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert';
+import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
+  AlertTitle,
+} from '@/components/ui/alert';
 
 // Server-side, conditionally renders. Read process.env directly — this
 // is a server component, the var is available at SSR. Keeping the read

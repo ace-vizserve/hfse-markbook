@@ -39,9 +39,12 @@ export function AuditDailyTrendCard({
         {empty ? (
           <div className="flex h-[220px] flex-col items-center justify-center gap-2 text-center">
             <TrendingUp className="size-6 text-muted-foreground/60" />
-            <p className="text-sm font-medium text-foreground">No activity in this range</p>
+            <p className="text-sm font-medium text-foreground">
+              No activity in this range
+            </p>
             <p className="max-w-xs text-xs text-muted-foreground">
-              The trend line appears once audit events are logged in the selected period.
+              The trend line appears once audit events are logged in the
+              selected period.
             </p>
           </div>
         ) : (

@@ -10,7 +10,7 @@ The codebase has matured through Sprints 22–25 (drill-down framework, perf har
 **Current security posture (surveyed 2026-04-26):**
 
 - 66 API routes; 63 of them call `requireRole` / `getSessionUser` — auth coverage is ~95% complete (3 routes don't — verify intentional).
-- 121 service-role uses across those routes (~2 per route) — **RLS is not the load-bearing wall**. Migration `025_ay_tables_rls.sql` literally says: *"in practice the SIS uses service-role everywhere so it didn't matter."*
+- 121 service-role uses across those routes (~2 per route) — **RLS is not the load-bearing wall**. Migration `025_ay_tables_rls.sql` literally says: _"in practice the SIS uses service-role everywhere so it didn't matter."_
 - Only 3 RLS migrations ever shipped (`004_tighten_rls`, `005_rls_teacher_scoping`, `025_ay_tables_rls`) — RLS is defense-in-depth, not the primary gate.
 - **Auth model:** route-level role gates (`requireRole`) + `audit_log` (Hard Rule #6) are the load-bearing security walls.
 
@@ -22,11 +22,11 @@ If the threat model changes (multi-tenant productization, FERPA-equivalent compl
 
 ## Three sprint framings considered
 
-| Sprint shape | Effort | Coverage | Verdict |
-|---|---|---|---|
-| **A. Quick wins triage** | 2-3 days | `npm audit`; verify the 3 unauth'd routes; grep for `SUPABASE_SERVICE_KEY` client leaks; cookie SameSite/Secure flags; env-var review | Too shallow for student PII + grades; will need to be redone every 6-12 months |
-| **B. Targeted hardening pass** ✅ Recommended | 1-2 weeks | A + per-route authz audit + drill API row-scoping audit + CSV export role gates + audit-log coverage check | Fixes the real exposure surface for the current trajectory |
-| **C. Comprehensive security sprint** | 3-4 weeks | B + full RLS rebuild (cookie-scoped client + RLS becomes primary gate; service-role only at trust boundaries) + Storage bucket policies + parent SSO token hardening + rate limiting + OWASP Top 10 pass | Trades one bug class for another (forgotten `requireRole` → wrong RLS policy); RLS bugs fail silently as "no rows" instead of 403s, harder to debug. Worth it only if multi-tenant or under regulatory scrutiny. |
+| Sprint shape                                  | Effort    | Coverage                                                                                                                                                                                                 | Verdict                                                                                                                                                                                                          |
+| --------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A. Quick wins triage**                      | 2-3 days  | `npm audit`; verify the 3 unauth'd routes; grep for `SUPABASE_SERVICE_KEY` client leaks; cookie SameSite/Secure flags; env-var review                                                                    | Too shallow for student PII + grades; will need to be redone every 6-12 months                                                                                                                                   |
+| **B. Targeted hardening pass** ✅ Recommended | 1-2 weeks | A + per-route authz audit + drill API row-scoping audit + CSV export role gates + audit-log coverage check                                                                                               | Fixes the real exposure surface for the current trajectory                                                                                                                                                       |
+| **C. Comprehensive security sprint**          | 3-4 weeks | B + full RLS rebuild (cookie-scoped client + RLS becomes primary gate; service-role only at trust boundaries) + Storage bucket policies + parent SSO token hardening + rate limiting + OWASP Top 10 pass | Trades one bug class for another (forgotten `requireRole` → wrong RLS policy); RLS bugs fail silently as "no rows" instead of 403s, harder to debug. Worth it only if multi-tenant or under regulatory scrutiny. |
 
 **Decision: B + a small mechanical follow-up to make the gate impossible to forget.**
 
@@ -47,15 +47,17 @@ The architectural choice (service-role + route gates) was made deliberately and 
 ### Bite 2 — Per-route authz correctness audit (3-4 days)
 
 Walk every API route and verify:
-1. `requireRole(...)` allows only roles that *should* mutate that resource — not just "is logged in"
+
+1. `requireRole(...)` allows only roles that _should_ mutate that resource — not just "is logged in"
 2. The `requireRole` allowlist matches what's documented in `lib/auth/roles.ts::ROUTE_ACCESS` for the same path prefix
-3. For routes that operate on a resource (`/api/grading-sheets/[id]/...`), the role check is followed by a *resource ownership check* where applicable (e.g. teacher can only mutate sheets for their assigned section + subject pairs)
+3. For routes that operate on a resource (`/api/grading-sheets/[id]/...`), the role check is followed by a _resource ownership check_ where applicable (e.g. teacher can only mutate sheets for their assigned section + subject pairs)
 
 Report drift in a checklist; fix in commits batched by module.
 
 ### Bite 3 — Drill API row-scoping audit (2 days)
 
 Drill APIs are the highest-risk read surface — they expose underlying rows en masse. Verify:
+
 - Teacher drill APIs (Markbook, Evaluation) filter to assigned sections only — no cross-teacher leak
 - Admin drill APIs respect AY scope — no cross-AY leak (e.g. an admin querying AY2025 drill data while AY2026 is current)
 - CSV exports use the same row scope as JSON drill responses (no "JSON filtered, CSV unfiltered" gap)
@@ -64,6 +66,7 @@ Drill APIs are the highest-risk read surface — they expose underlying rows en 
 ### Bite 4 — Audit-log coverage check (1 day)
 
 Hard Rule #6 says "Grade entries and audit logs are append-only." Verify:
+
 - Every mutating API route writes to `audit_log` (or its specialized `grade_audit_log` for grade changes)
 - The `actor_id` field is correctly populated from the authenticated session (not `null`, not a service-role placeholder)
 - Soft-deletes (status flips, e.g. `'withdrawn'`) write audit rows, not just the row mutation
@@ -71,6 +74,7 @@ Hard Rule #6 says "Grade entries and audit logs are append-only." Verify:
 ### Bite 5 — Storage bucket policy verification (½ day)
 
 P-Files uploads write to the `parent-portal` Supabase Storage bucket. Verify:
+
 - Bucket is private (no public read)
 - Read access is gated via signed URLs only, generated server-side after `requireRole` check
 - No client-side direct upload paths bypass the route-level role gate
@@ -78,6 +82,7 @@ P-Files uploads write to the `parent-portal` Supabase Storage bucket. Verify:
 ### Bite 6 — ESLint custom rule: every API route must gate (1 day)
 
 Add a custom ESLint rule (or simpler: a `npm run lint:authz` grep script in `package.json`) that:
+
 - Walks every `app/api/**/route.ts`
 - Fails CI if the file doesn't import either `requireRole` from `@/lib/auth/require-role` or `getSessionUser` from `@/lib/supabase/server`
 - Allowlist file at `.eslintrc-authz-allowlist.txt` for the 3 known-public routes (with reasons)

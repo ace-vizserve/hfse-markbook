@@ -1,6 +1,10 @@
 import { unstable_cache } from 'next/cache';
 import { createServiceClient } from '@/lib/supabase/service';
-import { DOCUMENT_SLOTS, resolveStatus, type DocumentStatus } from './document-config';
+import {
+  DOCUMENT_SLOTS,
+  resolveStatus,
+  type DocumentStatus,
+} from './document-config';
 
 const CACHE_TTL_SECONDS = 600;
 
@@ -24,7 +28,12 @@ export type StudentCompleteness = {
   expired: number;
   missing: number;
   uploaded: number;
-  slots: { key: string; label: string; status: DocumentStatus; expiryDate: string | null }[];
+  slots: {
+    key: string;
+    label: string;
+    status: DocumentStatus;
+    expiryDate: string | null;
+  }[];
 };
 
 export type DashboardSummary = {
@@ -51,7 +60,7 @@ export type DashboardSummary = {
  */
 export async function isStudentEnrolled(
   ayCode: string,
-  enroleeNumber: string,
+  enroleeNumber: string
 ): Promise<boolean> {
   const service = createServiceClient();
   const prefix = prefixFor(ayCode);
@@ -79,12 +88,16 @@ async function loadRawDataUncached(ayCode: string) {
 
   // Fetch all three tables in parallel
   const [appsRes, statusRes, docsRes] = await Promise.all([
-    service.from(`${prefix}_enrolment_applications`).select(
-      '"enroleeNumber", "studentNumber", "firstName", "lastName", "fatherEmail", "guardianEmail"',
-    ),
-    service.from(`${prefix}_enrolment_status`).select(
-      '"enroleeNumber", "applicationStatus", "classLevel", "classSection"',
-    ),
+    service
+      .from(`${prefix}_enrolment_applications`)
+      .select(
+        '"enroleeNumber", "studentNumber", "firstName", "lastName", "fatherEmail", "guardianEmail"'
+      ),
+    service
+      .from(`${prefix}_enrolment_status`)
+      .select(
+        '"enroleeNumber", "applicationStatus", "classLevel", "classSection"'
+      ),
     service.from(`${prefix}_enrolment_documents`).select(
       // Dashboard only needs status + expiry columns for completeness computation.
       // Full URLs are fetched separately on the detail page via getStudentDocumentDetail.
@@ -96,7 +109,7 @@ async function loadRawDataUncached(ayCode: string) {
         return cols;
       })
         .filter((c, i, a) => a.indexOf(c) === i) // dedupe enroleeNumber
-        .join(', '),
+        .join(', ')
     ),
   ]);
 
@@ -111,7 +124,7 @@ function loadRawData(ayCode: string) {
   return unstable_cache(
     () => loadRawDataUncached(ayCode),
     ['p-files-raw', ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tag(ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tag(ayCode) }
   )();
 }
 
@@ -125,7 +138,7 @@ function str(row: Record<string, unknown>, key: string): string | null {
 function computeForStudent(
   app: RawAppRow,
   statusRow: RawStatusRow | undefined,
-  docRow: RawDocRow | undefined,
+  docRow: RawDocRow | undefined
 ): StudentCompleteness {
   const enroleeNumber = str(app, 'enroleeNumber') ?? '';
   const studentNumber = str(app, 'studentNumber');
@@ -144,7 +157,8 @@ function computeForStudent(
   const slots = applicableSlots.map((slot) => {
     const url = docRow ? str(docRow, slot.key) : null;
     const rawStatus = docRow ? str(docRow, `${slot.key}Status`) : null;
-    const expiryDate = slot.expires && docRow ? str(docRow, `${slot.key}Expiry`) : null;
+    const expiryDate =
+      slot.expires && docRow ? str(docRow, `${slot.key}Expiry`) : null;
     const status = resolveStatus(url, rawStatus, expiryDate, slot.expires);
     return { key: slot.key, label: slot.label, status, expiryDate };
   });
@@ -179,11 +193,9 @@ export async function getDocumentDashboardData(ayCode: string): Promise<{
   const { apps, statuses, docs } = await loadRawData(ayCode);
 
   const statusByEnrolee = new Map(
-    statuses.map((s) => [str(s, 'enroleeNumber'), s]),
+    statuses.map((s) => [str(s, 'enroleeNumber'), s])
   );
-  const docsByEnrolee = new Map(
-    docs.map((d) => [str(d, 'enroleeNumber'), d]),
-  );
+  const docsByEnrolee = new Map(docs.map((d) => [str(d, 'enroleeNumber'), d]));
 
   // Filter to enrolled students only (KD #91 — status-only gate; classSection IS NOT
   // NULL was relaxed so legacy/imported Enrolled rows without a section still appear).
@@ -201,7 +213,7 @@ export async function getDocumentDashboardData(ayCode: string): Promise<{
   });
 
   // Sort by completeness ascending (least complete first)
-  students.sort((a, b) => (a.complete / a.total) - (b.complete / b.total));
+  students.sort((a, b) => a.complete / a.total - b.complete / b.total);
 
   // Renewal-lens count for SummaryCards (B6): students with at least one
   // Valid expiring slot whose expiry falls within the next 90 days. P-Files
@@ -213,7 +225,7 @@ export async function getDocumentDashboardData(ayCode: string): Promise<{
       if (slot.status !== 'valid' || !slot.expiryDate) return false;
       const t = new Date(slot.expiryDate).getTime();
       return t >= todayMs && t <= ninetyMs;
-    }),
+    })
   ).length;
 
   const summary: DashboardSummary = {
@@ -232,11 +244,18 @@ export type StudentDocumentDetail = StudentCompleteness & {
    *  + "Promised by [date]" badges on DocumentCards. */
   outreach: Record<
     string,
-    { lastReminderAt: string | null; activePromise: { promisedUntil: string; note: string | null } | null }
+    {
+      lastReminderAt: string | null;
+      activePromise: { promisedUntil: string; note: string | null } | null;
+    }
   >;
   /** Recipient discovery for notify dialog preview — registrar sees who'll
    *  be emailed before clicking Send. */
-  recipients: { motherEmail: string | null; fatherEmail: string | null; guardianEmail: string | null };
+  recipients: {
+    motherEmail: string | null;
+    fatherEmail: string | null;
+    guardianEmail: string | null;
+  };
   /** Parent / guardian display names — surfaced on the family-contact panel. */
   family: {
     motherName: string | null;
@@ -258,7 +277,10 @@ export type StudentDocumentDetail = StudentCompleteness & {
   }>;
 };
 
-export type DocumentRevisionSource = 'pfile-upload' | 'parent-portal' | 'sis-direct';
+export type DocumentRevisionSource =
+  | 'pfile-upload'
+  | 'parent-portal'
+  | 'sis-direct';
 
 export type DocumentRevision = {
   id: string;
@@ -287,13 +309,13 @@ export type DocumentRevision = {
 export async function getDocumentRevisions(
   ayCode: string,
   enroleeNumber: string,
-  slotKey: string,
+  slotKey: string
 ): Promise<DocumentRevision[]> {
   const service = createServiceClient();
   const { data, error } = await service
     .from('p_file_revisions')
     .select(
-      'id, archived_url, previous_url, source, status_snapshot, expiry_snapshot, passport_number_snapshot, pass_type_snapshot, note, replaced_by_email, replaced_at',
+      'id, archived_url, previous_url, source, status_snapshot, expiry_snapshot, passport_number_snapshot, pass_type_snapshot, note, replaced_by_email, replaced_at'
     )
     .eq('ay_code', ayCode)
     .eq('enrolee_number', enroleeNumber)
@@ -306,10 +328,12 @@ export async function getDocumentRevisions(
     id: r.id as string,
     archivedUrl: (r.archived_url ?? null) as string | null,
     previousUrl: (r.previous_url ?? null) as string | null,
-    source: ((r.source as DocumentRevisionSource | null) ?? 'pfile-upload'),
+    source: (r.source as DocumentRevisionSource | null) ?? 'pfile-upload',
     statusSnapshot: (r.status_snapshot ?? null) as string | null,
     expirySnapshot: (r.expiry_snapshot ?? null) as string | null,
-    passportNumberSnapshot: (r.passport_number_snapshot ?? null) as string | null,
+    passportNumberSnapshot: (r.passport_number_snapshot ?? null) as
+      | string
+      | null,
     passTypeSnapshot: (r.pass_type_snapshot ?? null) as string | null,
     note: (r.note ?? null) as string | null,
     replacedByEmail: (r.replaced_by_email ?? null) as string | null,
@@ -319,7 +343,7 @@ export async function getDocumentRevisions(
 
 export async function getStudentDocumentDetail(
   ayCode: string,
-  enroleeNumber: string,
+  enroleeNumber: string
 ): Promise<StudentDocumentDetail | null> {
   const service = createServiceClient();
   const prefix = prefixFor(ayCode);
@@ -328,13 +352,15 @@ export async function getStudentDocumentDetail(
     service
       .from(`${prefix}_enrolment_applications`)
       .select(
-        '"enroleeNumber", "studentNumber", "firstName", "lastName", "motherEmail", "fatherEmail", "guardianEmail", "motherFirstName", "motherLastName", "fatherFirstName", "fatherLastName", "guardianFirstName", "guardianLastName", "stpApplicationType"',
+        '"enroleeNumber", "studentNumber", "firstName", "lastName", "motherEmail", "fatherEmail", "guardianEmail", "motherFirstName", "motherLastName", "fatherFirstName", "fatherLastName", "guardianFirstName", "guardianLastName", "stpApplicationType"'
       )
       .eq('enroleeNumber', enroleeNumber)
       .maybeSingle(),
     service
       .from(`${prefix}_enrolment_status`)
-      .select('"enroleeNumber", "applicationStatus", "classLevel", "classSection"')
+      .select(
+        '"enroleeNumber", "applicationStatus", "classLevel", "classSection"'
+      )
       .eq('enroleeNumber', enroleeNumber)
       .maybeSingle(),
     service
@@ -344,7 +370,9 @@ export async function getStudentDocumentDetail(
       .maybeSingle(),
     service
       .from('p_file_outreach')
-      .select('slot_key, kind, promised_until, note, recipient_email, created_at')
+      .select(
+        'slot_key, kind, promised_until, note, recipient_email, created_at'
+      )
       .eq('ay_code', ayCode)
       .eq('enrolee_number', enroleeNumber)
       .order('created_at', { ascending: false }),
@@ -356,7 +384,7 @@ export async function getStudentDocumentDetail(
   const completeness = computeForStudent(
     appRes.data as RawAppRow,
     (statusRes.data ?? undefined) as RawStatusRow | undefined,
-    docRow.enroleeNumber ? docRow : undefined,
+    docRow.enroleeNumber ? docRow : undefined
   );
 
   // Reduce outreach rows (newest-first) into a per-slot summary. Only
@@ -364,11 +392,16 @@ export async function getStudentDocumentDetail(
   // whose `promised_until >= today` counts as 'active'.
   const todayIso = new Date().toISOString().slice(0, 10);
   const outreach: StudentDocumentDetail['outreach'] = {};
-  for (const raw of (outreachRes.data ?? []) as Array<Record<string, unknown>>) {
+  for (const raw of (outreachRes.data ?? []) as Array<
+    Record<string, unknown>
+  >) {
     const slotKey = (raw.slot_key as string | null) ?? null;
     const kind = (raw.kind as string | null) ?? null;
     if (!slotKey || (kind !== 'reminder' && kind !== 'promise')) continue;
-    const summary = (outreach[slotKey] ??= { lastReminderAt: null, activePromise: null });
+    const summary = (outreach[slotKey] ??= {
+      lastReminderAt: null,
+      activePromise: null,
+    });
     if (kind === 'reminder' && summary.lastReminderAt === null) {
       summary.lastReminderAt = (raw.created_at as string) ?? null;
     } else if (kind === 'promise' && summary.activePromise === null) {
@@ -399,15 +432,21 @@ export async function getStudentDocumentDetail(
   const family = {
     motherName: composeName(appRow.motherFirstName, appRow.motherLastName),
     fatherName: composeName(appRow.fatherFirstName, appRow.fatherLastName),
-    guardianName: composeName(appRow.guardianFirstName, appRow.guardianLastName),
+    guardianName: composeName(
+      appRow.guardianFirstName,
+      appRow.guardianLastName
+    ),
   };
 
-  const stpApplicationType = (appRow.stpApplicationType as string | null) ?? null;
+  const stpApplicationType =
+    (appRow.stpApplicationType as string | null) ?? null;
 
   // Latest 12 outreach events for the activity strip. The earlier reduce
   // over `outreachRes.data` keeps just the per-slot summary; here we
   // surface the raw events too (capped) for the timeline view.
-  const recentEvents = ((outreachRes.data ?? []) as Array<Record<string, unknown>>)
+  const recentEvents = (
+    (outreachRes.data ?? []) as Array<Record<string, unknown>>
+  )
     .filter((r) => {
       const k = r.kind;
       return k === 'reminder' || k === 'promise';

@@ -16,10 +16,10 @@ import type { AttendanceStatus, ExReason } from '@/lib/schemas/attendance';
 export type DailyWriteInput = {
   sectionStudentId: string;
   termId: string;
-  date: string;              // yyyy-MM-dd
+  date: string; // yyyy-MM-dd
   status: AttendanceStatus;
   exReason?: ExReason | null;
-  periodId?: string | null;  // Phase 1: always null / omitted
+  periodId?: string | null; // Phase 1: always null / omitted
   recordedBy: string | null;
 };
 
@@ -41,7 +41,7 @@ export type RollupAfterWrite = {
 // write re-converges, so at worst the rollup is stale by one write.
 export async function writeDailyEntry(
   service: SupabaseClient,
-  input: DailyWriteInput,
+  input: DailyWriteInput
 ): Promise<RollupAfterWrite> {
   const { error: insertErr } = await service.from('attendance_daily').insert({
     section_student_id: input.sectionStudentId,
@@ -62,7 +62,7 @@ export async function writeDailyEntry(
 // batch, then recomputes rollup once per unique (term, section_student).
 export async function writeDailyBulk(
   service: SupabaseClient,
-  inputs: DailyWriteInput[],
+  inputs: DailyWriteInput[]
 ): Promise<{ inserted: number; rollupsRecomputed: number }> {
   if (inputs.length === 0) return { inserted: 0, rollupsRecomputed: 0 };
 
@@ -76,9 +76,13 @@ export async function writeDailyBulk(
     recorded_by: i.recordedBy,
   }));
 
-  const { error: insertErr } = await service.from('attendance_daily').insert(rows);
+  const { error: insertErr } = await service
+    .from('attendance_daily')
+    .insert(rows);
   if (insertErr) {
-    throw new Error(`attendance_daily bulk insert failed: ${insertErr.message}`);
+    throw new Error(
+      `attendance_daily bulk insert failed: ${insertErr.message}`
+    );
   }
 
   // Unique (term, student) pairs to recompute.
@@ -103,7 +107,7 @@ export async function writeDailyBulk(
 async function recomputeRollup(
   service: SupabaseClient,
   termId: string,
-  sectionStudentId: string,
+  sectionStudentId: string
 ): Promise<RollupAfterWrite> {
   const { data, error } = await service.rpc('recompute_attendance_rollup', {
     p_term_id: termId,

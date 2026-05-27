@@ -4,7 +4,10 @@ import * as React from 'react';
 import { type ColumnDef } from '@tanstack/react-table';
 
 import { DataTable } from '@/components/ui/data-table';
-import { type FacetConfig, type StatusTabConfig } from '@/components/ui/data-table/types';
+import {
+  type FacetConfig,
+  type StatusTabConfig,
+} from '@/components/ui/data-table/types';
 import { EnrollmentStatusBadge } from '@/components/ui/enrollment-status-badge';
 import { IdentifierLink } from '@/components/ui/identifier-link';
 import { SortableHeader } from '@/components/ui/data-table/sortable-header';
@@ -58,16 +61,23 @@ const COLUMNS: ColumnDef<AugmentedRow>[] = [
   },
   {
     accessorKey: 'studentName',
-    header: ({ column }) => <SortableHeader column={column}>Student</SortableHeader>,
+    header: ({ column }) => (
+      <SortableHeader column={column}>Student</SortableHeader>
+    ),
     cell: ({ row }) => {
-      const { studentName, studentNumber, withdrawn, lateEnrollee } = row.original;
+      const { studentName, studentNumber, withdrawn, lateEnrollee } =
+        row.original;
       return (
         <div>
           <div
-            className={withdrawn ? 'line-through text-muted-foreground' : undefined}
+            className={
+              withdrawn ? 'line-through text-muted-foreground' : undefined
+            }
           >
             {withdrawn ? (
-              <span className="font-medium text-muted-foreground">{studentName}</span>
+              <span className="font-medium text-muted-foreground">
+                {studentName}
+              </span>
             ) : (
               <IdentifierLink href={`/attendance/students/${studentNumber}`}>
                 {studentName}
@@ -108,7 +118,8 @@ const COLUMNS: ColumnDef<AugmentedRow>[] = [
         </span>
       );
     },
-    sortingFn: (a, b) => (a.original.schoolDays ?? -1) - (b.original.schoolDays ?? -1),
+    sortingFn: (a, b) =>
+      (a.original.schoolDays ?? -1) - (b.original.schoolDays ?? -1),
   },
   {
     accessorKey: 'daysPresent',
@@ -212,7 +223,7 @@ export function AttendanceReadOnlyTable({ rows }: { rows: ReadOnlyRow[] }) {
         ...r,
         _status: r.withdrawn ? 'withdrawn' : r.lateEnrollee ? 'late' : 'active',
       })),
-    [rows],
+    [rows]
   );
 
   return (

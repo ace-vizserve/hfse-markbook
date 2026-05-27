@@ -50,7 +50,7 @@ type Audience = 'all' | 'primary' | 'secondary';
  */
 export async function getPtcEventsForAy(
   ayCode: string,
-  options: { audience?: Audience } = {},
+  options: { audience?: Audience } = {}
 ): Promise<PtcEvent[]> {
   const service = createServiceClient();
 
@@ -81,7 +81,7 @@ export async function getPtcEventsForAy(
   const terms = (termRows ?? []) as TermRow[];
   const termIdsForAy = new Set(terms.map((t) => t.id));
   const writeupTerms = terms.filter(
-    (t) => WRITEUP_TERM_NUMBERS.has(t.term_number) && t.end_date != null,
+    (t) => WRITEUP_TERM_NUMBERS.has(t.term_number) && t.end_date != null
   );
 
   const { data: eventRows, error: eventsErr } = await service
@@ -103,7 +103,7 @@ export async function getPtcEventsForAy(
     tentative: boolean;
   };
   const allEvents = ((eventRows ?? []) as EventRow[]).filter((e) =>
-    termIdsForAy.has(e.term_id),
+    termIdsForAy.has(e.term_id)
   );
 
   const audienceFilter = options.audience;
@@ -115,7 +115,7 @@ export async function getPtcEventsForAy(
           // Treat a same-named audience as the inverse passthrough: a
           // primary-only event is irrelevant to secondary callers and vice
           // versa. 'all' always passes.
-          (audienceFilter === e.audience),
+          audienceFilter === e.audience
       )
     : allEvents;
 
@@ -139,7 +139,7 @@ export async function getPtcEventsForAy(
  */
 export function findPtcForWriteupTerm(
   writeupTermId: string,
-  ptcEvents: PtcEvent[],
+  ptcEvents: PtcEvent[]
 ): PtcEvent | null {
   const candidates = ptcEvents
     .filter((e) => e.discussedTermId === writeupTermId)
@@ -153,7 +153,7 @@ export function findPtcForWriteupTerm(
  */
 export function buildPtcDeadlineMap(
   writeupTerms: WriteupTermLite[],
-  ptcEvents: PtcEvent[],
+  ptcEvents: PtcEvent[]
 ): Map<string, PtcEvent | null> {
   const map = new Map<string, PtcEvent | null>();
   for (const t of writeupTerms) {
@@ -166,7 +166,10 @@ export function buildPtcDeadlineMap(
  * Days from today (Singapore local) to the PTC start date. Negative when
  * past. Used to drive amber-vs-destructive warning tone on the UI.
  */
-export function daysUntilPtc(ptcStartDate: string, today: string = sgToday()): number {
+export function daysUntilPtc(
+  ptcStartDate: string,
+  today: string = sgToday()
+): number {
   const a = Date.parse(`${today}T00:00:00+08:00`);
   const b = Date.parse(`${ptcStartDate}T00:00:00+08:00`);
   if (Number.isNaN(a) || Number.isNaN(b)) return Infinity;
@@ -181,7 +184,7 @@ export function sgToday(): string {
 
 function resolveDiscussedTermId(
   ptcStartDate: string,
-  writeupTerms: Array<{ id: string; end_date: string | null }>,
+  writeupTerms: Array<{ id: string; end_date: string | null }>
 ): string | null {
   const candidates = writeupTerms
     .filter((t): t is { id: string; end_date: string } => t.end_date != null)
@@ -195,11 +198,17 @@ function resolveDiscussedTermId(
  * `done` means the deadline obligation is met (writeup submitted) and so
  * the row shouldn't warn even if PTC is imminent.
  */
-export type PtcWarningTone = 'past' | 'far' | 'near' | 'urgent' | 'overdue' | 'good';
+export type PtcWarningTone =
+  | 'past'
+  | 'far'
+  | 'near'
+  | 'urgent'
+  | 'overdue'
+  | 'good';
 
 export function ptcWarningTone(
   daysUntil: number,
-  isObligationMet: boolean,
+  isObligationMet: boolean
 ): PtcWarningTone {
   if (isObligationMet) return 'good';
   if (daysUntil < 0) return 'overdue';

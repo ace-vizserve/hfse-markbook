@@ -8,7 +8,9 @@ export async function proxy(request: NextRequest) {
   const { response, claims } = await updateSession(request);
   const { pathname } = request.nextUrl;
 
-  const isPublic = PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'));
+  const isPublic = PUBLIC_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(p + '/')
+  );
 
   if (!claims && !isPublic) {
     const url = request.nextUrl.clone();

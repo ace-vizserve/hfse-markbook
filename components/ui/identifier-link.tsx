@@ -8,14 +8,19 @@ type IdentifierLinkProps = {
   prefetch?: boolean;
 };
 
-export function IdentifierLink({ href, children, className, prefetch }: IdentifierLinkProps) {
+export function IdentifierLink({
+  href,
+  children,
+  className,
+  prefetch,
+}: IdentifierLinkProps) {
   return (
     <Link
       href={href}
       prefetch={prefetch}
       className={cn(
         'font-medium text-foreground transition-colors hover:text-primary hover:underline underline-offset-4',
-        className,
+        className
       )}
     >
       {children}

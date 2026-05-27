@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const { code, name, is_examinable } = parsed.data;
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
         error: `Subject with code ${code} already exists`,
         existingId: (existing as { id: string }).id,
       },
-      { status: 409 },
+      { status: 409 }
     );
   }
 
@@ -57,10 +57,15 @@ export async function POST(request: NextRequest) {
   if (insertErr || !inserted) {
     return NextResponse.json(
       { error: insertErr?.message ?? 'insert failed' },
-      { status: 500 },
+      { status: 500 }
     );
   }
-  const row = inserted as { id: string; code: string; name: string; is_examinable: boolean };
+  const row = inserted as {
+    id: string;
+    code: string;
+    name: string;
+    is_examinable: boolean;
+  };
 
   await logAction({
     service,

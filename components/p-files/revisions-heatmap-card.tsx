@@ -8,9 +8,9 @@ import type { RevisionsHeatmapCell } from '@/lib/p-files/dashboard';
 const RevisionsHeatmapCardImpl = dynamic(
   () =>
     import('./revisions-heatmap-card.client').then(
-      (m) => m.RevisionsHeatmapCardImpl,
+      (m) => m.RevisionsHeatmapCardImpl
     ),
-  { ssr: false, loading: () => <ChartSkeleton kind="comparison-bar" /> },
+  { ssr: false, loading: () => <ChartSkeleton kind="comparison-bar" /> }
 );
 
 export function RevisionsHeatmapCard({

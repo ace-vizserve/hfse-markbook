@@ -1,17 +1,21 @@
-import "server-only";
+import 'server-only';
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { DOCUMENT_SLOTS } from "@/lib/p-files/document-config";
+import { DOCUMENT_SLOTS } from '@/lib/p-files/document-config';
 import {
   type SlotStatusKind,
   type RecipientEnvelope,
   type ReminderKind,
   resolveRecipients,
   sendReminder,
-} from "@/lib/notifications/email-pfile-reminder";
-import { getActiveCooldown } from "@/lib/p-files/outreach";
-import { prefixFor, ENROLLED_STATUSES, ADMISSIONS_FUNNEL_STATUSES } from "@/lib/p-files/_shared";
+} from '@/lib/notifications/email-pfile-reminder';
+import { getActiveCooldown } from '@/lib/p-files/outreach';
+import {
+  prefixFor,
+  ENROLLED_STATUSES,
+  ADMISSIONS_FUNNEL_STATUSES,
+} from '@/lib/p-files/_shared';
 
 // Shared orchestration used by both the single-slot notify route and the
 // bulk fan-out wrapper. Per call: looks up the student + slot context,
@@ -26,21 +30,23 @@ const EXPIRING_SOON_DAYS = 60;
 
 // Local sets for fast .has() lookups — built from the imported shared arrays.
 const ENROLLED_STATUSES_SET = new Set<string>(ENROLLED_STATUSES);
-const ADMISSIONS_FUNNEL_STATUSES_SET = new Set<string>(ADMISSIONS_FUNNEL_STATUSES);
+const ADMISSIONS_FUNNEL_STATUSES_SET = new Set<string>(
+  ADMISSIONS_FUNNEL_STATUSES
+);
 
 export type NotifyOutcome =
   | { ok: true; recipients: number; sent: number; failed: number }
   | {
       ok: false;
       reason:
-        | "unknown_slot"
-        | "no_application_row"
-        | "no_status_row"
-        | "not_enrolled"
-        | "no_recipients"
-        | "no_actionable_status"
-        | "cooldown"
-        | "send_failed";
+        | 'unknown_slot'
+        | 'no_application_row'
+        | 'no_status_row'
+        | 'not_enrolled'
+        | 'no_recipients'
+        | 'no_actionable_status'
+        | 'cooldown'
+        | 'send_failed';
       cooldownLastSentAt?: string;
       recipients?: number;
     };
@@ -55,27 +61,27 @@ export type NotifyContext = {
 };
 
 function fullName(app: Record<string, unknown>): string {
-  const last = (app.lastName as string | null) ?? "";
-  const first = (app.firstName as string | null) ?? "";
-  const middle = (app.middleName as string | null) ?? "";
-  const composed = `${first}${middle ? ` ${middle}` : ""} ${last}`.trim();
-  return composed || ((app.enroleeFullName as string | null) ?? "Student");
+  const last = (app.lastName as string | null) ?? '';
+  const first = (app.firstName as string | null) ?? '';
+  const middle = (app.middleName as string | null) ?? '';
+  const composed = `${first}${middle ? ` ${middle}` : ''} ${last}`.trim();
+  return composed || ((app.enroleeFullName as string | null) ?? 'Student');
 }
 
 function classifyStatus(
   status: string | null,
   url: string | null,
-  expiry: string | null,
+  expiry: string | null
 ): SlotStatusKind | null {
-  const s = (status ?? "").trim().toLowerCase();
-  if (s === "rejected") return "rejected";
-  if (s === "expired") return "expired";
-  if (s === "to follow") return "toFollow";
-  if (!url && !status) return "missing";
+  const s = (status ?? '').trim().toLowerCase();
+  if (s === 'rejected') return 'rejected';
+  if (s === 'expired') return 'expired';
+  if (s === 'to follow') return 'toFollow';
+  if (!url && !status) return 'missing';
   // Only flag expiringSoon when slot is currently 'Valid' and within window.
-  if (s === "valid" && expiry) {
+  if (s === 'valid' && expiry) {
     const diff = (new Date(expiry).getTime() - Date.now()) / 86_400_000;
-    if (diff <= EXPIRING_SOON_DAYS && diff > -0.5) return "expiringSoon";
+    if (diff <= EXPIRING_SOON_DAYS && diff > -0.5) return 'expiringSoon';
   }
   return null;
 }
@@ -83,10 +89,10 @@ function classifyStatus(
 export async function runNotify(
   service: SupabaseClient,
   actor: { id: string; email: string | null },
-  ctx: NotifyContext,
+  ctx: NotifyContext
 ): Promise<NotifyOutcome> {
   const slot = DOCUMENT_SLOTS.find((s) => s.key === ctx.slotKey);
-  if (!slot) return { ok: false, reason: "unknown_slot" };
+  if (!slot) return { ok: false, reason: 'unknown_slot' };
 
   const prefix = prefixFor(ctx.ayCode);
 
@@ -94,61 +100,74 @@ export async function runNotify(
     service
       .from(`${prefix}_enrolment_applications`)
       .select(
-        '"enroleeNumber","firstName","middleName","lastName","enroleeFullName","motherEmail","fatherEmail","guardianEmail"',
+        '"enroleeNumber","firstName","middleName","lastName","enroleeFullName","motherEmail","fatherEmail","guardianEmail"'
       )
-      .eq("enroleeNumber", ctx.enroleeNumber)
+      .eq('enroleeNumber', ctx.enroleeNumber)
       .maybeSingle(),
     service
       .from(`${prefix}_enrolment_status`)
       .select('"applicationStatus","classLevel","classSection"')
-      .eq("enroleeNumber", ctx.enroleeNumber)
+      .eq('enroleeNumber', ctx.enroleeNumber)
       .maybeSingle(),
     service
       .from(`${prefix}_enrolment_documents`)
-      .select(`"${ctx.slotKey}","${ctx.slotKey}Status"${slot.expires ? `,"${ctx.slotKey}Expiry"` : ""}`)
-      .eq("enroleeNumber", ctx.enroleeNumber)
+      .select(
+        `"${ctx.slotKey}","${ctx.slotKey}Status"${slot.expires ? `,"${ctx.slotKey}Expiry"` : ''}`
+      )
+      .eq('enroleeNumber', ctx.enroleeNumber)
       .maybeSingle(),
   ]);
 
-  if (!appRes.data) return { ok: false, reason: "no_application_row" };
-  if (!statusRes.data) return { ok: false, reason: "no_status_row" };
+  if (!appRes.data) return { ok: false, reason: 'no_application_row' };
+  if (!statusRes.data) return { ok: false, reason: 'no_status_row' };
 
   const app = appRes.data as unknown as Record<string, unknown>;
   const statusRow = statusRes.data as unknown as Record<string, unknown>;
   const docsRow = (docsRes.data ?? {}) as unknown as Record<string, unknown>;
 
-  const applicationStatus = (statusRow.applicationStatus as string | null) ?? null;
+  const applicationStatus =
+    (statusRow.applicationStatus as string | null) ?? null;
   // Per-kind scope gate. P-Files (default 'renewal') chases enrolled
   // students only (KD #31). Admissions ('initial-chase') chases the
   // active pre-enrolment funnel (Submitted / Ongoing Verification /
   // Processing). The 'not_enrolled' reason name is preserved for
   // back-compat with existing P-Files callers; admissions surfaces map
   // it to a generic "not in chaseable scope" message.
-  const kind: ReminderKind = ctx.kind ?? "renewal";
-  const allowedStatuses = kind === "initial-chase" ? ADMISSIONS_FUNNEL_STATUSES_SET : ENROLLED_STATUSES_SET;
+  const kind: ReminderKind = ctx.kind ?? 'renewal';
+  const allowedStatuses =
+    kind === 'initial-chase'
+      ? ADMISSIONS_FUNNEL_STATUSES_SET
+      : ENROLLED_STATUSES_SET;
   if (!applicationStatus || !allowedStatuses.has(applicationStatus)) {
-    return { ok: false, reason: "not_enrolled" };
+    return { ok: false, reason: 'not_enrolled' };
   }
 
   const slotUrl = (docsRow[ctx.slotKey] as string | null) ?? null;
   const slotStatus = (docsRow[`${ctx.slotKey}Status`] as string | null) ?? null;
-  const slotExpiry = slot.expires ? ((docsRow[`${ctx.slotKey}Expiry`] as string | null) ?? null) : null;
+  const slotExpiry = slot.expires
+    ? ((docsRow[`${ctx.slotKey}Expiry`] as string | null) ?? null)
+    : null;
 
   const statusKind = classifyStatus(slotStatus, slotUrl, slotExpiry);
-  if (!statusKind) return { ok: false, reason: "no_actionable_status" };
+  if (!statusKind) return { ok: false, reason: 'no_actionable_status' };
 
   const envelope: RecipientEnvelope = resolveRecipients(ctx.slotKey, {
     motherEmail: (app.motherEmail as string | null) ?? null,
     fatherEmail: (app.fatherEmail as string | null) ?? null,
     guardianEmail: (app.guardianEmail as string | null) ?? null,
   });
-  if (envelope.kind === "none") return { ok: false, reason: "no_recipients" };
+  if (envelope.kind === 'none') return { ok: false, reason: 'no_recipients' };
 
-  const cooldown = await getActiveCooldown(ctx.ayCode, ctx.enroleeNumber, ctx.slotKey, service);
+  const cooldown = await getActiveCooldown(
+    ctx.ayCode,
+    ctx.enroleeNumber,
+    ctx.slotKey,
+    service
+  );
   if (cooldown) {
     return {
       ok: false,
-      reason: "cooldown",
+      reason: 'cooldown',
       cooldownLastSentAt: cooldown.lastSentAt,
       recipients: 1,
     };
@@ -163,25 +182,25 @@ export async function runNotify(
       slotLabel: slot.label,
       statusKind,
       expiryDateIso: slotExpiry,
-      kind: ctx.kind ?? "renewal",
+      kind: ctx.kind ?? 'renewal',
       enroleeNumber: ctx.enroleeNumber,
       ayCode: ctx.ayCode,
     },
-    envelope,
+    envelope
   );
 
   if (result.sent === 0) {
-    return { ok: false, reason: "send_failed", recipients: 1 };
+    return { ok: false, reason: 'send_failed', recipients: 1 };
   }
 
   // Insert one p_file_outreach row per send (one envelope = one send).
   if (result.sent > 0) {
-    const { error } = await service.from("p_file_outreach").insert({
+    const { error } = await service.from('p_file_outreach').insert({
       ay_code: ctx.ayCode,
       enrolee_number: ctx.enroleeNumber,
       slot_key: ctx.slotKey,
-      kind: "reminder" as const,
-      channel: "email",
+      kind: 'reminder' as const,
+      channel: 'email',
       recipient_email: envelope.to,
       created_by_user_id: actor.id,
       created_by_email: actor.email,
@@ -189,7 +208,7 @@ export async function runNotify(
     if (error) {
       // Email already went out — log and proceed. The audit row at the
       // route layer captures the send so we don't lose visibility.
-      console.error("[p-files notify] outreach insert failed:", error.message);
+      console.error('[p-files notify] outreach insert failed:', error.message);
     }
   }
 

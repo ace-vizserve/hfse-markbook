@@ -1,5 +1,11 @@
 import Link from 'next/link';
-import { AlertTriangle, ArrowLeft, FileCheck, ListChecks, Users } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  FileCheck,
+  ListChecks,
+  Users,
+} from 'lucide-react';
 import { createClient, getSessionUser } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import {
@@ -11,7 +17,10 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
-import { AuditLogDataTable, type MergedRow } from '@/app/(markbook)/markbook/audit-log/audit-log-data-table';
+import {
+  AuditLogDataTable,
+  type MergedRow,
+} from '@/app/(markbook)/markbook/audit-log/audit-log-data-table';
 
 export default async function PFilesAuditLogPage({
   searchParams,
@@ -20,9 +29,15 @@ export default async function PFilesAuditLogPage({
 }) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
-  if (sessionUser.role !== 'p-file' && sessionUser.role !== 'school_admin' && sessionUser.role !== 'superadmin') redirect('/');
+  if (
+    sessionUser.role !== 'p-file' &&
+    sessionUser.role !== 'school_admin' &&
+    sessionUser.role !== 'superadmin'
+  )
+    redirect('/');
 
-  const canExport = sessionUser.role === 'school_admin' || sessionUser.role === 'superadmin';
+  const canExport =
+    sessionUser.role === 'school_admin' || sessionUser.role === 'superadmin';
   const params = await searchParams;
   const PAGE_SIZE = Math.min(Number(params.pageSize ?? 50), 200);
   const page = Math.max(Number(params.page ?? 1), 1);
@@ -44,22 +59,27 @@ export default async function PFilesAuditLogPage({
 
   const { data, count, error } = await supabase
     .from('audit_log')
-    .select('id, actor_email, action, entity_type, entity_id, context, created_at', { count: 'exact' })
+    .select(
+      'id, actor_email, action, entity_type, entity_id, context, created_at',
+      { count: 'exact' }
+    )
     .in('action', PFILES_AUDIT_ALLOWLIST)
     .order('created_at', { ascending: false })
     .range(from, to);
 
   const totalPages = count ? Math.ceil(count / PAGE_SIZE) : 1;
 
-  const rows: MergedRow[] = ((data ?? []) as Array<{
-    id: string;
-    actor_email: string;
-    action: string;
-    entity_type: string;
-    entity_id: string | null;
-    context: Record<string, unknown>;
-    created_at: string;
-  }>).map((r) => ({
+  const rows: MergedRow[] = (
+    (data ?? []) as Array<{
+      id: string;
+      actor_email: string;
+      action: string;
+      entity_type: string;
+      entity_id: string | null;
+      context: Record<string, unknown>;
+      created_at: string;
+    }>
+  ).map((r) => ({
     id: `new-${r.id}`,
     at: r.created_at,
     actor: r.actor_email,
@@ -76,7 +96,7 @@ export default async function PFilesAuditLogPage({
     (r) =>
       r.action === 'pfile.upload' ||
       r.action === 'sis.document.approve' ||
-      r.action === 'sis.document.reject',
+      r.action === 'sis.document.reject'
   ).length;
 
   return (
@@ -97,7 +117,8 @@ export default async function PFilesAuditLogPage({
           Audit log.
         </h1>
         <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-          A history of every document upload and replacement. Past entries are kept on the record.
+          A history of every document upload and replacement. Past entries are
+          kept on the record.
         </p>
       </header>
 
@@ -119,7 +140,9 @@ export default async function PFilesAuditLogPage({
             description="Unique actors"
             value={uniqueActors.toLocaleString('en-SG')}
             icon={Users}
-            footerTitle={uniqueActors === 1 ? '1 user' : `${uniqueActors} users`}
+            footerTitle={
+              uniqueActors === 1 ? '1 user' : `${uniqueActors} users`
+            }
             footerDetail="Distinct accounts in this window"
           />
           <StatCard
@@ -141,7 +164,9 @@ export default async function PFilesAuditLogPage({
             <p className="font-serif text-base font-semibold leading-tight text-foreground">
               Could not load audit entries
             </p>
-            <p className="text-sm leading-relaxed text-muted-foreground">{error.message}</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {error.message}
+            </p>
           </div>
         </div>
       )}
@@ -149,7 +174,12 @@ export default async function PFilesAuditLogPage({
       <AuditLogDataTable
         rows={rows}
         canExport={canExport}
-        pagination={{ page, pageSize: PAGE_SIZE, totalPages, total: count ?? 0 }}
+        pagination={{
+          page,
+          pageSize: PAGE_SIZE,
+          totalPages,
+          total: count ?? 0,
+        }}
       />
     </PageShell>
   );

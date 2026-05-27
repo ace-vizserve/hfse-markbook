@@ -31,7 +31,10 @@ import {
 // values requires every required slot to be 'Valid' in the per-AY
 // documents table. Validation lives in P-Files (KD #31), so we read the
 // authoritative source there before letting admissions flip the stage.
-const DOCUMENT_VERIFIED_STATUSES: ReadonlySet<string> = new Set(['Verified', 'Finished']);
+const DOCUMENT_VERIFIED_STATUSES: ReadonlySet<string> = new Set([
+  'Verified',
+  'Finished',
+]);
 
 // PATCH /api/sis/students/[enroleeNumber]/stage/[stageKey]?ay=AY2026
 //
@@ -42,7 +45,7 @@ const DOCUMENT_VERIFIED_STATUSES: ReadonlySet<string> = new Set(['Verified', 'Fi
 // enrolee, 500 on DB error. Audit log entry written on success.
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ enroleeNumber: string; stageKey: string }> },
+  { params }: { params: Promise<{ enroleeNumber: string; stageKey: string }> }
 ) {
   // Per KD #74: admissions IS the operational role for /admissions/* writes.
   // school_admin is read-only oversight and must not silently overwrite stage data.
@@ -51,17 +54,26 @@ export async function PATCH(
 
   const { enroleeNumber, stageKey: rawStage } = await params;
   if (!enroleeNumber.trim()) {
-    return NextResponse.json({ error: 'Missing enroleeNumber' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Missing enroleeNumber' },
+      { status: 400 }
+    );
   }
   if (!(STAGE_KEYS as readonly string[]).includes(rawStage)) {
-    return NextResponse.json({ error: `Unknown stage: ${rawStage}` }, { status: 400 });
+    return NextResponse.json(
+      { error: `Unknown stage: ${rawStage}` },
+      { status: 400 }
+    );
   }
   const stageKey = rawStage as StageKey;
 
   const url = new URL(request.url);
   const ayCode = (url.searchParams.get('ay') ?? '').trim();
   if (!/^AY\d{4}$/i.test(ayCode)) {
-    return NextResponse.json({ error: 'Invalid or missing ay query param' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid or missing ay query param' },
+      { status: 400 }
+    );
   }
 
   const body = await request.json().catch(() => null);
@@ -69,7 +81,7 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const { status, remarks, extras } = parsed.data;
@@ -82,7 +94,7 @@ export async function PATCH(
       if (!allowedExtras.has(key)) {
         return NextResponse.json(
           { error: `Stage "${stageKey}" does not accept extra field "${key}"` },
-          { status: 400 },
+          { status: 400 }
         );
       }
     }
@@ -91,7 +103,10 @@ export async function PATCH(
       if (e.kind !== 'date') continue;
       const v = extras[e.fieldKey];
       if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) {
-        return NextResponse.json({ error: `${e.label} must be YYYY-MM-DD` }, { status: 400 });
+        return NextResponse.json(
+          { error: `${e.label} must be YYYY-MM-DD` },
+          { status: 400 }
+        );
       }
     }
   }
@@ -113,10 +128,16 @@ export async function PATCH(
     .maybeSingle();
   if (beforeErr) {
     console.error('[sis stage PATCH] pre-fetch failed:', beforeErr.message);
-    return NextResponse.json({ error: 'Status lookup failed' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Status lookup failed' },
+      { status: 500 }
+    );
   }
   if (!before) {
-    return NextResponse.json({ error: 'No status row for this enrolee in this AY' }, { status: 404 });
+    return NextResponse.json(
+      { error: 'No status row for this enrolee in this AY' },
+      { status: 404 }
+    );
   }
 
   // 1.5) Terminal-status reversal guard (M7 / KD #59).
@@ -135,7 +156,7 @@ export async function PATCH(
         {
           error: `Cannot change from "${currentStatus}" to "${status}" — this application was marked as terminal. Contact the system administrator to reset the application status if re-enrollment is needed.`,
         },
-        { status: 422 },
+        { status: 422 }
       );
     }
   }
@@ -166,26 +187,24 @@ export async function PATCH(
   if (stageKey === 'class' && extras?.classSection !== undefined) {
     const beforeRow = before as unknown as Record<string, unknown>;
     const currentSection = (beforeRow.classSection as string | null) ?? null;
-    const requestedSection = extras.classSection === '' ? null : extras.classSection;
-    if (
-      currentSection !== requestedSection &&
-      requestedSection !== null
-    ) {
+    const requestedSection =
+      extras.classSection === '' ? null : extras.classSection;
+    if (currentSection !== requestedSection && requestedSection !== null) {
       // Read applicationStatus to know if this is a post-Enrolled change.
       const { data: appStatusRow } = await supabase
         .from(statusTable)
         .select('applicationStatus')
         .eq('enroleeNumber', enroleeNumber)
         .maybeSingle();
-      const appStatus = (appStatusRow as { applicationStatus: string | null } | null)
-        ?.applicationStatus;
+      const appStatus = (
+        appStatusRow as { applicationStatus: string | null } | null
+      )?.applicationStatus;
       if (appStatus === 'Enrolled' || appStatus === 'Enrolled (Conditional)') {
         return NextResponse.json(
           {
-            error:
-              `Use POST /api/sis/students/${enroleeNumber}/transfer-section to move enrolled students between sections — this keeps section_students in sync atomically.`,
+            error: `Use POST /api/sis/students/${enroleeNumber}/transfer-section to move enrolled students between sections — this keeps section_students in sync atomically.`,
           },
-          { status: 422 },
+          { status: 422 }
         );
       }
     }
@@ -209,7 +228,11 @@ export async function PATCH(
   // Mother slots are always required — mother is the anchor parent.
   // Block the stage flip with 422 + a slot-level breakdown so the UI can
   // surface what's still pending.
-  if (stageKey === 'documents' && status && DOCUMENT_VERIFIED_STATUSES.has(status)) {
+  if (
+    stageKey === 'documents' &&
+    status &&
+    DOCUMENT_VERIFIED_STATUSES.has(status)
+  ) {
     const docsTable = `${prefix}_enrolment_documents`;
     const appsTable = `${prefix}_enrolment_applications`;
     const slotStatusCols = DOCUMENT_SLOTS.map((s) => s.statusCol);
@@ -228,14 +251,29 @@ export async function PATCH(
         .maybeSingle(),
     ]);
     if (docsRes.error) {
-      console.error('[sis stage PATCH] documents row fetch failed:', docsRes.error.message);
-      return NextResponse.json({ error: 'Documents lookup failed' }, { status: 500 });
+      console.error(
+        '[sis stage PATCH] documents row fetch failed:',
+        docsRes.error.message
+      );
+      return NextResponse.json(
+        { error: 'Documents lookup failed' },
+        { status: 500 }
+      );
     }
     if (appRes.error) {
-      console.error('[sis stage PATCH] application row fetch failed:', appRes.error.message);
-      return NextResponse.json({ error: 'Application lookup failed' }, { status: 500 });
+      console.error(
+        '[sis stage PATCH] application row fetch failed:',
+        appRes.error.message
+      );
+      return NextResponse.json(
+        { error: 'Application lookup failed' },
+        { status: 500 }
+      );
     }
-    const docsRow = (docsRes.data ?? null) as Record<string, string | null> | null;
+    const docsRow = (docsRes.data ?? null) as Record<
+      string,
+      string | null
+    > | null;
     const appsRow = (appRes.data ?? null) as {
       stpApplicationType: string | null;
       fatherEmail: string | null;
@@ -278,7 +316,7 @@ export async function PATCH(
           error: `Cannot set documents to ${status} — ${blockers.length} required slot(s) not yet validated.`,
           blockers,
         },
-        { status: 422 },
+        { status: 422 }
       );
     }
   }
@@ -294,7 +332,7 @@ export async function PATCH(
   if (stageKey === 'application' && status === 'Enrolled') {
     // Re-fetch the status row with every prereq column for the gate check.
     const prereqSelect = ENROLLED_PREREQ_STAGES.map(
-      (k) => STAGE_COLUMN_MAP[k].statusCol,
+      (k) => STAGE_COLUMN_MAP[k].statusCol
     ).join(', ');
     const { data: prereqRow, error: prereqErr } = await supabase
       .from(statusTable)
@@ -302,11 +340,21 @@ export async function PATCH(
       .eq('enroleeNumber', enroleeNumber)
       .maybeSingle();
     if (prereqErr || !prereqRow) {
-      console.error('[sis stage PATCH] prereq fetch failed:', prereqErr?.message);
-      return NextResponse.json({ error: 'Prereq lookup failed' }, { status: 500 });
+      console.error(
+        '[sis stage PATCH] prereq fetch failed:',
+        prereqErr?.message
+      );
+      return NextResponse.json(
+        { error: 'Prereq lookup failed' },
+        { status: 500 }
+      );
     }
     const prereqCurrent = prereqRow as unknown as Record<string, string | null>;
-    const blockers: Array<{ stage: string; current: string | null; expected: string }> = [];
+    const blockers: Array<{
+      stage: string;
+      current: string | null;
+      expected: string;
+    }> = [];
     for (const stage of ENROLLED_PREREQ_STAGES) {
       const col = STAGE_COLUMN_MAP[stage].statusCol;
       const expected = STAGE_TERMINAL_STATUS[stage]!;
@@ -325,7 +373,7 @@ export async function PATCH(
           error: 'Prerequisite stages incomplete',
           blockers,
         },
-        { status: 422 },
+        { status: 422 }
       );
     }
 
@@ -345,10 +393,13 @@ export async function PATCH(
       .eq('enroleeNumber', enroleeNumber)
       .maybeSingle();
     if (appErr || !appRow) {
-      console.error('[sis stage PATCH] application row fetch failed:', appErr?.message);
+      console.error(
+        '[sis stage PATCH] application row fetch failed:',
+        appErr?.message
+      );
       return NextResponse.json(
         { error: 'Cannot enroll: application row missing' },
-        { status: 422 },
+        { status: 422 }
       );
     }
     const appLite = appRow as unknown as {
@@ -363,14 +414,14 @@ export async function PATCH(
           error:
             'Cannot enroll: this applicant has no Student Number on file. Student numbers are normally generated at parent-portal submission alongside the enrolee number — contact admissions support to assign one before enrolling.',
         },
-        { status: 422 },
+        { status: 422 }
       );
     }
     const pick = await pickSectionForApplicant(supabase, ayCode, appLite);
     if ('error' in pick) {
       return NextResponse.json(
         { error: `Cannot enroll: ${pick.error}` },
-        { status: 422 },
+        { status: 422 }
       );
     }
     // Merge class-assignment columns into the same update so the Enrolled
@@ -442,7 +493,8 @@ export async function PATCH(
   // of path. When sync fails we surface autoSyncFailed in the response so
   // the dialog can warn — silent failure on (a)/(b) was the gap that left
   // enrolled students missing from Records' placement section.
-  let autoSync: { change: string; reason?: string; error?: string } | null = null;
+  let autoSync: { change: string; reason?: string; error?: string } | null =
+    null;
   let autoSyncFailed = false;
   const shouldSync =
     classAutoAssigned ||
@@ -461,11 +513,18 @@ export async function PATCH(
       classStatus?: string | null;
     };
     const hasClassPlacement =
-      !!check.classLevel && !!check.classSection && check.classStatus === 'Finished';
+      !!check.classLevel &&
+      !!check.classSection &&
+      check.classStatus === 'Finished';
 
     if (hasClassPlacement) {
       const admissions = createAdmissionsClient();
-      const result = await syncOneStudent(supabase, admissions, enroleeNumber, ayCode);
+      const result = await syncOneStudent(
+        supabase,
+        admissions,
+        enroleeNumber,
+        ayCode
+      );
       autoSync = {
         change: result.change,
         ...(result.reason ? { reason: result.reason } : {}),
@@ -503,7 +562,10 @@ export async function PATCH(
             result.reason === 'no studentNumber');
         if (!isConditionalNoSection) {
           autoSyncFailed = true;
-          console.warn('[stage PATCH] auto-sync failed:', result.reason ?? result.error);
+          console.warn(
+            '[stage PATCH] auto-sync failed:',
+            result.reason ?? result.error
+          );
         }
       }
     }
@@ -517,7 +579,12 @@ export async function PATCH(
   // three change values that indicate a real insertion or reactivation.
   // Then detect whether today is T2/T3/T4; if so, return the term info so
   // the dialog can surface the "Mark as late enrollee?" second-step prompt.
-  type MidTermPayload = { termNumber: number; termLabel: string; sectionId: string; sectionStudentId: string };
+  type MidTermPayload = {
+    termNumber: number;
+    termLabel: string;
+    sectionId: string;
+    sectionStudentId: string;
+  };
   let midTermEnrolment: MidTermPayload | null = null;
   if (
     shouldSync &&
@@ -532,7 +599,11 @@ export async function PATCH(
       .eq('enrolee_number', enroleeNumber)
       .neq('enrollment_status', 'withdrawn')
       .maybeSingle();
-    const ssRow = ss as { id: string; section_id: string; enrollment_date: string | null } | null;
+    const ssRow = ss as {
+      id: string;
+      section_id: string;
+      enrollment_date: string | null;
+    } | null;
     if (ssRow?.id && ssRow?.section_id) {
       const today = new Date().toISOString().slice(0, 10);
       if (ssRow.enrollment_date !== today) {
@@ -541,12 +612,19 @@ export async function PATCH(
           .update({ enrollment_date: today })
           .eq('id', ssRow.id);
         if (dateErr) {
-          console.warn('[stage PATCH] enrollment_date stamp failed:', dateErr.message);
+          console.warn(
+            '[stage PATCH] enrollment_date stamp failed:',
+            dateErr.message
+          );
         }
       }
       const term = await detectMidTermEnrolment(ayCode, supabase);
       if (term) {
-        midTermEnrolment = { ...term, sectionId: ssRow.section_id, sectionStudentId: ssRow.id };
+        midTermEnrolment = {
+          ...term,
+          sectionId: ssRow.section_id,
+          sectionStudentId: ssRow.id,
+        };
       }
     }
   }
@@ -576,7 +654,9 @@ export async function PATCH(
       .select('studentNumber')
       .eq('enroleeNumber', enroleeNumber)
       .maybeSingle();
-    const studentNumber = (appsRow as { studentNumber: string | null } | null)?.studentNumber ?? null;
+    const studentNumber =
+      (appsRow as { studentNumber: string | null } | null)?.studentNumber ??
+      null;
 
     if (studentNumber) {
       const { data: studentRow } = await supabase
@@ -607,21 +687,30 @@ export async function PATCH(
           // is silently ignored and returns rows from all AYs.
           const { data: activeRows } = await supabase
             .from('section_students')
-            .select('id, section_id, enrollment_status, section:sections!inner(id, name, academic_year_id)')
+            .select(
+              'id, section_id, enrollment_status, section:sections!inner(id, name, academic_year_id)'
+            )
             .eq('student_id', studentId)
             .in('enrollment_status', ['active', 'late_enrollee'])
             .eq('sections.academic_year_id', ayId);
 
-          const rows = ((activeRows ?? []) as Array<{
-            id: string;
-            section_id: string;
-            enrollment_status: string;
-            section: { id: string; name: string; academic_year_id: string } | { id: string; name: string; academic_year_id: string }[] | null;
-          }>).map((r) => ({
+          const rows = (
+            (activeRows ?? []) as Array<{
+              id: string;
+              section_id: string;
+              enrollment_status: string;
+              section:
+                | { id: string; name: string; academic_year_id: string }
+                | { id: string; name: string; academic_year_id: string }[]
+                | null;
+            }>
+          ).map((r) => ({
             id: r.id,
             section_id: r.section_id,
             previous_status: r.enrollment_status,
-            section_name: (Array.isArray(r.section) ? r.section[0] : r.section)?.name ?? null,
+            section_name:
+              (Array.isArray(r.section) ? r.section[0] : r.section)?.name ??
+              null,
           }));
 
           if (rows.length > 0) {
@@ -629,12 +718,21 @@ export async function PATCH(
             const ids = rows.map((r) => r.id);
             const { error: cascadeErr } = await supabase
               .from('section_students')
-              .update({ enrollment_status: 'withdrawn', withdrawal_date: todayDate })
+              .update({
+                enrollment_status: 'withdrawn',
+                withdrawal_date: todayDate,
+              })
               .in('id', ids);
             if (cascadeErr) {
-              console.warn('[stage PATCH] withdrawal cascade update failed:', cascadeErr.message);
+              console.warn(
+                '[stage PATCH] withdrawal cascade update failed:',
+                cascadeErr.message
+              );
             } else {
-              withdrawalCascade = { rowsAffected: rows.length, sectionStudentIds: ids };
+              withdrawalCascade = {
+                rowsAffected: rows.length,
+                sectionStudentIds: ids,
+              };
               await logAction({
                 service: supabase,
                 actor: { id: auth.user.id, email: auth.user.email ?? null },

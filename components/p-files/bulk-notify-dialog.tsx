@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { Loader2, Send, Users } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { toast } from "sonner";
+import { Loader2, Send, Users } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { toast } from 'sonner';
 
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 
 export type BulkNotifyItem = {
   enroleeNumber: string;
@@ -50,17 +50,20 @@ export function BulkNotifyDialog({
     if (items.length === 0) return;
     setBusy(true);
     try {
-      const res = await fetch("/api/p-files/notify/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('/api/p-files/notify/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: items.map((i) => ({ enroleeNumber: i.enroleeNumber, slotKey: i.slotKey })),
+          items: items.map((i) => ({
+            enroleeNumber: i.enroleeNumber,
+            slotKey: i.slotKey,
+          })),
           module,
         }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(body.error ?? "Bulk reminder failed");
+        toast.error(body.error ?? 'Bulk reminder failed');
         return;
       }
       const skipped =
@@ -68,15 +71,15 @@ export function BulkNotifyDialog({
         (body.skippedNoRecipients ?? 0) +
         (body.skippedNotEnrolled ?? 0) +
         (body.skippedNotActionable ?? 0);
-      const summary = `${body.sent} email${body.sent === 1 ? "" : "s"} sent across ${body.requested} item${body.requested === 1 ? "" : "s"}${
-        skipped > 0 ? ` · ${skipped} skipped` : ""
+      const summary = `${body.sent} email${body.sent === 1 ? '' : 's'} sent across ${body.requested} item${body.requested === 1 ? '' : 's'}${
+        skipped > 0 ? ` · ${skipped} skipped` : ''
       }`;
       toast.success(summary);
       onSuccess?.();
       onOpenChange(false);
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Bulk reminder failed");
+      toast.error(e instanceof Error ? e.message : 'Bulk reminder failed');
     } finally {
       setBusy(false);
     }
@@ -86,16 +89,21 @@ export function BulkNotifyDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg!">
         <DialogHeader>
-          <DialogTitle className="font-serif tracking-tight">Send bulk reminders</DialogTitle>
+          <DialogTitle className="font-serif tracking-tight">
+            Send bulk reminders
+          </DialogTitle>
           <DialogDescription className="text-[13px] leading-relaxed">
-            Email the parent / guardian for each selected slot. Items already reminded within 24
-            hours, students without parent emails, and pre-enrolment rows are silently skipped.
+            Email the parent / guardian for each selected slot. Items already
+            reminded within 24 hours, students without parent emails, and
+            pre-enrolment rows are silently skipped.
           </DialogDescription>
         </DialogHeader>
 
         <div className="max-h-[40vh] overflow-y-auto rounded-lg border border-border/60 bg-background">
           {items.length === 0 ? (
-            <p className="p-4 text-center text-sm text-muted-foreground">No items selected.</p>
+            <p className="p-4 text-center text-sm text-muted-foreground">
+              No items selected.
+            </p>
           ) : (
             <ul className="divide-y divide-border/50">
               {items.map((item) => (
@@ -122,16 +130,24 @@ export function BulkNotifyDialog({
 
         <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
           <Users className="mr-1 inline size-3" />
-          {items.length} item{items.length === 1 ? "" : "s"} queued
+          {items.length} item{items.length === 1 ? '' : 's'} queued
         </p>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={busy}
+          >
             Cancel
           </Button>
           <Button onClick={handleSend} disabled={busy || items.length === 0}>
-            {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-            Send {items.length} reminder{items.length === 1 ? "" : "s"}
+            {busy ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Send className="size-4" />
+            )}
+            Send {items.length} reminder{items.length === 1 ? '' : 's'}
           </Button>
         </DialogFooter>
       </DialogContent>

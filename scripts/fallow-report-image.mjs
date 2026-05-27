@@ -1,36 +1,38 @@
 #!/usr/bin/env node
-import { Resvg } from "@resvg/resvg-js";
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import satori from "satori";
-import { html } from "satori-html";
+import { Resvg } from '@resvg/resvg-js';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import satori from 'satori';
+import { html } from 'satori-html';
 
 const WIDTH = 1920;
 const HEIGHT = 1080;
 
-const FONT_REGULAR = process.env.FALLOW_FONT_REGULAR ?? "C:\\Windows\\Fonts\\segoeui.ttf";
-const FONT_BOLD = process.env.FALLOW_FONT_BOLD ?? "C:\\Windows\\Fonts\\segoeuib.ttf";
+const FONT_REGULAR =
+  process.env.FALLOW_FONT_REGULAR ?? 'C:\\Windows\\Fonts\\segoeui.ttf';
+const FONT_BOLD =
+  process.env.FALLOW_FONT_BOLD ?? 'C:\\Windows\\Fonts\\segoeuib.ttf';
 
 const COLORS = {
-  bg: "#0B1220",
-  panel: "#111A2E",
-  panelAlt: "#0F1729",
-  border: "#1F2A44",
-  text: "#E5ECF7",
-  muted: "#8A99B8",
-  accent: "#7AA2F7",
-  ok: "#4ADE80",
-  watch: "#F5B544",
-  critical: "#F87171",
+  bg: '#0B1220',
+  panel: '#111A2E',
+  panelAlt: '#0F1729',
+  border: '#1F2A44',
+  text: '#E5ECF7',
+  muted: '#8A99B8',
+  accent: '#7AA2F7',
+  ok: '#4ADE80',
+  watch: '#F5B544',
+  critical: '#F87171',
 };
 
 function parseArgs(argv) {
   const out = {};
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === "--out" && argv[i + 1]) {
+    if (argv[i] === '--out' && argv[i + 1]) {
       out.out = argv[++i];
-    } else if (argv[i] === "--input" && argv[i + 1]) {
+    } else if (argv[i] === '--input' && argv[i + 1]) {
       out.input = argv[++i];
     }
   }
@@ -39,10 +41,10 @@ function parseArgs(argv) {
 
 function loadFallowJson(inputPath) {
   if (inputPath && existsSync(inputPath)) {
-    return JSON.parse(readFileSync(inputPath, "utf8"));
+    return JSON.parse(readFileSync(inputPath, 'utf8'));
   }
-  const stdout = execFileSync("npx", ["fallow", "--format", "json"], {
-    encoding: "utf8",
+  const stdout = execFileSync('npx', ['fallow', '--format', 'json'], {
+    encoding: 'utf8',
     maxBuffer: 32 * 1024 * 1024,
     shell: true,
   });
@@ -50,30 +52,34 @@ function loadFallowJson(inputPath) {
 }
 
 function statusFor(metric, value) {
-  if (metric === "mi") {
-    if (value >= 85) return "OK";
-    if (value >= 65) return "Watch";
-    return "Critical";
+  if (metric === 'mi') {
+    if (value >= 85) return 'OK';
+    if (value >= 65) return 'Watch';
+    return 'Critical';
   }
-  if (metric === "deadPct" || metric === "dupPct") {
-    if (value < 1) return "OK";
-    if (value < 5) return "Watch";
-    return "Critical";
+  if (metric === 'deadPct' || metric === 'dupPct') {
+    if (value < 1) return 'OK';
+    if (value < 5) return 'Watch';
+    return 'Critical';
   }
-  if (metric === "complexPct") {
-    if (value < 5) return "OK";
-    if (value < 10) return "Watch";
-    return "Critical";
+  if (metric === 'complexPct') {
+    if (value < 5) return 'OK';
+    if (value < 10) return 'Watch';
+    return 'Critical';
   }
-  return "OK";
+  return 'OK';
 }
 
 function statusColor(status) {
-  return status === "OK" ? COLORS.ok : status === "Watch" ? COLORS.watch : COLORS.critical;
+  return status === 'OK'
+    ? COLORS.ok
+    : status === 'Watch'
+      ? COLORS.watch
+      : COLORS.critical;
 }
 
 function decodePath(p) {
-  return p.replace(/%5B/g, "[").replace(/%5D/g, "]").replace(/\\/g, "/");
+  return p.replace(/%5B/g, '[').replace(/%5D/g, ']').replace(/\\/g, '/');
 }
 
 function buildHtml(data) {
@@ -113,30 +119,41 @@ function buildHtml(data) {
 
   const topActions = [];
   if (deadFiles + deadExports > 0) {
-    topActions.push({ tag: "Quick", text: `Remove ${deadFiles + deadExports} dead-code item(s)` });
+    topActions.push({
+      tag: 'Quick',
+      text: `Remove ${deadFiles + deadExports} dead-code item(s)`,
+    });
   }
   for (const t of targets.slice(0, 3)) {
     topActions.push({
-      tag: t.effort === "low" ? "Quick" : t.effort === "medium" ? "Med" : "Heavy",
+      tag:
+        t.effort === 'low' ? 'Quick' : t.effort === 'medium' ? 'Med' : 'Heavy',
       text: `${decodePath(t.path)} — ${t.recommendation}`,
     });
   }
   for (const f of topHotspots.slice(0, 4)) {
     if (topActions.length >= 6) break;
     topActions.push({
-      tag: f.loc < 60 ? "Quick" : f.loc < 200 ? "Med" : "Heavy",
+      tag: f.loc < 60 ? 'Quick' : f.loc < 200 ? 'Med' : 'Heavy',
       text: `${f.name} (${f.file}:${f.line}) — CRAP ${f.crap}`,
     });
   }
 
-  const miStatus = statusFor("mi", mi);
-  const deadStatus = statusFor("deadPct", Math.max(deadFilePct, deadExportPct));
-  const dupStatus = statusFor("dupPct", dupPct);
-  const cmplxStatus = statusFor("complexPct", fnPct);
+  const miStatus = statusFor('mi', mi);
+  const deadStatus = statusFor('deadPct', Math.max(deadFilePct, deadExportPct));
+  const dupStatus = statusFor('dupPct', dupPct);
+  const cmplxStatus = statusFor('complexPct', fnPct);
 
-  const tagColor = (tag) => (tag === "Quick" ? COLORS.ok : tag === "Med" ? COLORS.watch : COLORS.critical);
+  const tagColor = (tag) =>
+    tag === 'Quick'
+      ? COLORS.ok
+      : tag === 'Med'
+        ? COLORS.watch
+        : COLORS.critical;
 
-  const generatedAt = new Date().toLocaleString("en-SG", { timeZone: "Asia/Singapore" });
+  const generatedAt = new Date().toLocaleString('en-SG', {
+    timeZone: 'Asia/Singapore',
+  });
 
   const metricCard = (label, value, sub, status) => `
     <div style="display:flex;flex-direction:column;flex:1;background:${COLORS.panel};border:1px solid ${COLORS.border};border-radius:18px;padding:24px 28px;gap:6px;">
@@ -150,8 +167,8 @@ function buildHtml(data) {
   `;
 
   const hotspotRow = (h, idx) => `
-    <div style="display:flex;align-items:center;padding:14px 18px;background:${idx % 2 === 0 ? COLORS.panelAlt : "transparent"};border-radius:10px;gap:18px;">
-      <div style="display:flex;width:84px;font-size:24px;font-weight:700;color:${h.sev === "CRITICAL" ? COLORS.critical : COLORS.watch};">${h.crap}</div>
+    <div style="display:flex;align-items:center;padding:14px 18px;background:${idx % 2 === 0 ? COLORS.panelAlt : 'transparent'};border-radius:10px;gap:18px;">
+      <div style="display:flex;width:84px;font-size:24px;font-weight:700;color:${h.sev === 'CRITICAL' ? COLORS.critical : COLORS.watch};">${h.crap}</div>
       <div style="display:flex;flex-direction:column;flex:1;gap:2px;">
         <div style="display:flex;font-size:20px;font-weight:700;color:${COLORS.text};">${h.name}</div>
         <div style="display:flex;font-size:15px;color:${COLORS.muted};">${h.file}:${h.line}</div>
@@ -185,11 +202,11 @@ function buildHtml(data) {
   <div style="display:flex;height:4px;background:${accentBar};border-radius:3px;"></div>
 
   <div style="display:flex;gap:20px;">
-    ${metricCard("Maintainability", mi.toFixed(1), "MI score (0–100)", miStatus)}
-    ${metricCard("Dead Code", `${deadFilePct.toFixed(1)}%`, `${deadFiles} files · ${deadExports} exports`, deadStatus)}
-    ${metricCard("Duplication", `${dupPct.toFixed(1)}%`, `${dupLines} lines · ${dupGroups} groups`, dupStatus)}
-    ${metricCard("Complexity", `${fnPct.toFixed(1)}%`, `${fnOver} of ${fnTotal} functions over threshold`, cmplxStatus)}
-    ${metricCard("Hotspots", String(hotspotsCount), `churn × complexity (${vs.hotspot_count} strict)`, hotspotsCount > 5 ? "Watch" : "OK")}
+    ${metricCard('Maintainability', mi.toFixed(1), 'MI score (0–100)', miStatus)}
+    ${metricCard('Dead Code', `${deadFilePct.toFixed(1)}%`, `${deadFiles} files · ${deadExports} exports`, deadStatus)}
+    ${metricCard('Duplication', `${dupPct.toFixed(1)}%`, `${dupLines} lines · ${dupGroups} groups`, dupStatus)}
+    ${metricCard('Complexity', `${fnPct.toFixed(1)}%`, `${fnOver} of ${fnTotal} functions over threshold`, cmplxStatus)}
+    ${metricCard('Hotspots', String(hotspotsCount), `churn × complexity (${vs.hotspot_count} strict)`, hotspotsCount > 5 ? 'Watch' : 'OK')}
   </div>
 
   <div style="display:flex;flex:1;gap:24px;">
@@ -199,7 +216,7 @@ function buildHtml(data) {
         <div style="display:flex;font-size:14px;color:${COLORS.muted};">ranked by CRAP</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;">
-        ${topHotspots.map(hotspotRow).join("")}
+        ${topHotspots.map(hotspotRow).join('')}
       </div>
     </div>
 
@@ -207,7 +224,7 @@ function buildHtml(data) {
       <div style="display:flex;font-size:22px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${COLORS.text};">Action Plan</div>
       <div style="display:flex;font-size:14px;color:${COLORS.muted};margin-bottom:6px;">prioritized by ROI</div>
       <div style="display:flex;flex-direction:column;">
-        ${topActions.slice(0, 6).map(actionRow).join("")}
+        ${topActions.slice(0, 6).map(actionRow).join('')}
       </div>
     </div>
   </div>
@@ -233,14 +250,14 @@ async function main() {
     width: WIDTH,
     height: HEIGHT,
     fonts: [
-      { name: "Segoe UI", data: fontRegular, weight: 400, style: "normal" },
-      { name: "Segoe UI", data: fontBold, weight: 700, style: "normal" },
+      { name: 'Segoe UI', data: fontRegular, weight: 400, style: 'normal' },
+      { name: 'Segoe UI', data: fontBold, weight: 700, style: 'normal' },
     ],
   });
 
   const png = new Resvg(svg, {
-    background: "#0B1220",
-    fitTo: { mode: "width", value: WIDTH },
+    background: '#0B1220',
+    fitTo: { mode: 'width', value: WIDTH },
   })
     .render()
     .asPng();
@@ -252,8 +269,12 @@ async function main() {
 }
 
 function defaultOutPath() {
-  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/T/, "-").replace(/\..+$/, "");
-  return join("reports", "fallow", `fallow-report-${stamp}.png`);
+  const stamp = new Date()
+    .toISOString()
+    .replace(/[-:]/g, '')
+    .replace(/T/, '-')
+    .replace(/\..+$/, '');
+  return join('reports', 'fallow', `fallow-report-${stamp}.png`);
 }
 
 main().catch((err) => {

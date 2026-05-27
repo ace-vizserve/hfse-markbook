@@ -1,4 +1,4 @@
-import "server-only";
+import 'server-only';
 
 // HFSE corporate-branded email frame. Used by every transactional email
 // template in lib/notifications/. Mirrors the parent-portal account-
@@ -11,16 +11,16 @@ import "server-only";
 // Don't refactor toward semantic HTML / Tailwind / CSS-in-JS here.
 
 const LOGO_URL =
-  "https://vnhklhppftebbcuupfjw.supabase.co/storage/v1/object/public/parent-portal//hfse-logo.png";
+  'https://vnhklhppftebbcuupfjw.supabase.co/storage/v1/object/public/parent-portal//hfse-logo.png';
 
 const FONT_STACK =
   "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif";
 
-const COLOR_INK = "#1d1c1d";
-const COLOR_PRIMARY = "#004aad";
-const COLOR_DESTRUCTIVE = "#dc2626";
-const COLOR_FOOTER = "#6b6b6b";
-const COLOR_HAIRLINE = "#eaeaea";
+const COLOR_INK = '#1d1c1d';
+const COLOR_PRIMARY = '#004aad';
+const COLOR_DESTRUCTIVE = '#dc2626';
+const COLOR_FOOTER = '#6b6b6b';
+const COLOR_HAIRLINE = '#eaeaea';
 
 export type EmailCta = {
   label: string;
@@ -28,7 +28,7 @@ export type EmailCta = {
   /** Defaults to `'primary'` when omitted. `'primary'` and `'destructive'`
    *  render as buttons (side-by-side when more than one); `'secondary-text'`
    *  renders as a centered text link below the button row. */
-  variant?: "primary" | "destructive" | "secondary-text";
+  variant?: 'primary' | 'destructive' | 'secondary-text';
 };
 
 export type EmailFrameInput = {
@@ -47,11 +47,11 @@ export type EmailFrameInput = {
 
 export function escapeHtml(s: string): string {
   return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // Encode the two characters that matter inside an HTML attribute value.
@@ -59,11 +59,11 @@ export function escapeHtml(s: string): string {
 // strict parser misparses query-string ampersands without it. We also
 // encode `"` so a stray quote in the URL can't close the attribute.
 function safeHref(url: string): string {
-  return url.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+  return url.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 }
 
 function renderButton(cta: EmailCta): string {
-  const bg = cta.variant === "destructive" ? COLOR_DESTRUCTIVE : COLOR_PRIMARY;
+  const bg = cta.variant === 'destructive' ? COLOR_DESTRUCTIVE : COLOR_PRIMARY;
   return `
     <a href="${safeHref(cta.href)}" style="background:${bg};color:white;padding:14px 24px;border-radius:6px;text-decoration:none;font-size:16px;font-weight:600;display:inline-block;">
       ${escapeHtml(cta.label)}
@@ -72,12 +72,12 @@ function renderButton(cta: EmailCta): string {
 }
 
 function renderCtas(ctas: EmailCta[]): string {
-  if (ctas.length === 0) return "";
+  if (ctas.length === 0) return '';
 
-  const buttons = ctas.filter((c) => c.variant !== "secondary-text");
-  const textLinks = ctas.filter((c) => c.variant === "secondary-text");
+  const buttons = ctas.filter((c) => c.variant !== 'secondary-text');
+  const textLinks = ctas.filter((c) => c.variant === 'secondary-text');
 
-  let buttonRow = "";
+  let buttonRow = '';
   if (buttons.length === 1) {
     buttonRow = `
       <table align="center" width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:24px;">
@@ -93,9 +93,10 @@ function renderCtas(ctas: EmailCta[]): string {
         <tr>
           ${buttons
             .map(
-              (b) => `<td align="center" style="padding:0 6px;">${renderButton(b)}</td>`,
+              (b) =>
+                `<td align="center" style="padding:0 6px;">${renderButton(b)}</td>`
             )
-            .join("")}
+            .join('')}
         </tr>
       </table>
     `;
@@ -109,16 +110,16 @@ function renderCtas(ctas: EmailCta[]): string {
             ${escapeHtml(t.label)}
           </a>
         </p>
-      `,
+      `
     )
-    .join("");
+    .join('');
 
   return buttonRow + textLinkRow;
 }
 
 export function renderEmailFrame(input: EmailFrameInput): string {
   const ctasHtml = renderCtas(input.ctas ?? []);
-  const reviewHtml = input.reviewLinkHtml ?? "";
+  const reviewHtml = input.reviewLinkHtml ?? '';
   const year = new Date().getFullYear();
 
   return `<html dir="ltr" lang="en">

@@ -16,26 +16,26 @@ import {
   Tag,
   UserCog,
   Users,
-} from "lucide-react";
-import Link from "next/link";
-import { redirect } from "next/navigation";
+} from 'lucide-react';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
-import { ComparisonToolbar } from "@/components/dashboard/comparison-toolbar";
-import { DashboardHero } from "@/components/dashboard/dashboard-hero";
-import { InsightsPanel } from "@/components/dashboard/insights-panel";
-import { MetricCard } from "@/components/dashboard/metric-card";
-import { ActivityByActorCard } from "@/components/sis/activity-by-actor-card";
-import { AuditAuthEventsCard } from "@/components/sis/audit-auth-events-card";
-import { AuditDailyTrendCard } from "@/components/sis/audit-daily-trend-card";
-import { AuditTopActionsCard } from "@/components/sis/audit-top-actions-card";
-import { AuditByModuleDrillCard } from "@/components/sis/drills/audit-by-module-drill-card";
-import { GradeChangePipelineCard } from "@/components/sis/grade-change-pipeline-card";
-import { HubClassAssignmentCallout } from "@/components/sis/hub-class-assignment-callout";
-import { HubSectionStaffingCard } from "@/components/sis/hub-section-staffing-card";
-import { HubUpcomingEventsCard } from "@/components/sis/hub-upcoming-events-card";
-import { LifecycleAggregateCard } from "@/components/sis/lifecycle-aggregate-card";
-import { StructuralChangesFeedCard } from "@/components/sis/structural-changes-feed-card";
-import { SystemHealthStrip } from "@/components/sis/system-health-strip";
+import { ComparisonToolbar } from '@/components/dashboard/comparison-toolbar';
+import { DashboardHero } from '@/components/dashboard/dashboard-hero';
+import { InsightsPanel } from '@/components/dashboard/insights-panel';
+import { MetricCard } from '@/components/dashboard/metric-card';
+import { ActivityByActorCard } from '@/components/sis/activity-by-actor-card';
+import { AuditAuthEventsCard } from '@/components/sis/audit-auth-events-card';
+import { AuditDailyTrendCard } from '@/components/sis/audit-daily-trend-card';
+import { AuditTopActionsCard } from '@/components/sis/audit-top-actions-card';
+import { AuditByModuleDrillCard } from '@/components/sis/drills/audit-by-module-drill-card';
+import { GradeChangePipelineCard } from '@/components/sis/grade-change-pipeline-card';
+import { HubClassAssignmentCallout } from '@/components/sis/hub-class-assignment-callout';
+import { HubSectionStaffingCard } from '@/components/sis/hub-section-staffing-card';
+import { HubUpcomingEventsCard } from '@/components/sis/hub-upcoming-events-card';
+import { LifecycleAggregateCard } from '@/components/sis/lifecycle-aggregate-card';
+import { StructuralChangesFeedCard } from '@/components/sis/structural-changes-feed-card';
+import { SystemHealthStrip } from '@/components/sis/system-health-strip';
 import {
   Card,
   CardAction,
@@ -44,14 +44,18 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { PageShell } from "@/components/ui/page-shell";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getCurrentAcademicYear, listAyCodes } from "@/lib/academic-year";
-import type { Role } from "@/lib/auth/roles";
-import { sisInsights } from "@/lib/dashboard/insights";
-import { formatRangeLabel, resolveRange, type DashboardSearchParams } from "@/lib/dashboard/range";
-import { getDashboardWindows } from "@/lib/dashboard/windows";
+} from '@/components/ui/card';
+import { PageShell } from '@/components/ui/page-shell';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { getCurrentAcademicYear, listAyCodes } from '@/lib/academic-year';
+import type { Role } from '@/lib/auth/roles';
+import { sisInsights } from '@/lib/dashboard/insights';
+import {
+  formatRangeLabel,
+  resolveRange,
+  type DashboardSearchParams,
+} from '@/lib/dashboard/range';
+import { getDashboardWindows } from '@/lib/dashboard/windows';
 import {
   getActivityByActor,
   getAuditActivityByModule,
@@ -64,11 +68,11 @@ import {
   getStructuralChangeFeed,
   getTopAuditActions,
   getUpcomingCalendarEvents,
-} from "@/lib/sis/dashboard";
-import { getSystemHealth } from "@/lib/sis/health";
-import { getLifecycleAggregate } from "@/lib/sis/process";
-import { getSessionUser } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/service";
+} from '@/lib/sis/dashboard';
+import { getSystemHealth } from '@/lib/sis/health';
+import { getLifecycleAggregate } from '@/lib/sis/process';
+import { getSessionUser } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 
 type SisAdminHubSearchParams = DashboardSearchParams & { view?: string };
 
@@ -78,64 +82,108 @@ export default async function SisAdminHub({
   searchParams: Promise<SisAdminHubSearchParams>;
 }) {
   const sessionUser = await getSessionUser();
-  if (!sessionUser) redirect("/login");
+  if (!sessionUser) redirect('/login');
   const role = sessionUser.role;
-  if (role !== "school_admin" && role !== "superadmin") {
-    redirect("/");
+  if (role !== 'school_admin' && role !== 'superadmin') {
+    redirect('/');
   }
 
   const resolvedSearch = await searchParams;
-  const view = (resolvedSearch.view === "audit" ? "audit" : "hub") as "hub" | "audit";
+  const view = (resolvedSearch.view === 'audit' ? 'audit' : 'hub') as
+    | 'hub'
+    | 'audit';
   const service = createServiceClient();
   const currentAy = await getCurrentAcademicYear(service);
-  const ayCode = currentAy?.ay_code ?? "";
+  const ayCode = currentAy?.ay_code ?? '';
 
   // System-health strip is superadmin-only (approver counts are sensitive to
   // their operational awareness). school_admin/admin see the hub without it.
   const [health, windows, ayCodes, lifecycleBuckets] = await Promise.all([
-    role === "superadmin" ? getSystemHealth() : Promise.resolve(null),
+    role === 'superadmin' ? getSystemHealth() : Promise.resolve(null),
     ayCode
       ? getDashboardWindows(ayCode)
-      : Promise.resolve({ term: { thisTerm: null, lastTerm: null, byNumber: { 1: null, 2: null, 3: null, 4: null } }, ay: { thisAY: null, lastAY: null }, activeTermFallback: false }),
+      : Promise.resolve({
+          term: {
+            thisTerm: null,
+            lastTerm: null,
+            byNumber: { 1: null, 2: null, 3: null, 4: null },
+          },
+          ay: { thisAY: null, lastAY: null },
+          activeTermFallback: false,
+        }),
     listAyCodes(service),
     ayCode ? getLifecycleAggregate(ayCode) : Promise.resolve([]),
   ]);
-  const rangeInput = ayCode ? resolveRange(resolvedSearch, windows, ayCode) : null;
+  const rangeInput = ayCode
+    ? resolveRange(resolvedSearch, windows, ayCode)
+    : null;
 
   // Hub-specific fetches — only fire on the hub view to avoid wasted DB work
   // when the user is on the audit tab. Each call is individually guarded so a
   // single failure can't tank the whole page.
   const [hubKpis, unassignedStudents, upcomingEvents, staffingCoverage] =
-    view === "hub" && ayCode
+    view === 'hub' && ayCode
       ? await Promise.all([
           getHubKpis(ayCode).catch(() => null),
-          getClassAssignmentReadiness(ayCode).catch(() => [] as Awaited<ReturnType<typeof getClassAssignmentReadiness>>),
-          getUpcomingCalendarEvents(ayCode).catch(() => [] as Awaited<ReturnType<typeof getUpcomingCalendarEvents>>),
+          getClassAssignmentReadiness(ayCode).catch(
+            () => [] as Awaited<ReturnType<typeof getClassAssignmentReadiness>>
+          ),
+          getUpcomingCalendarEvents(ayCode).catch(
+            () => [] as Awaited<ReturnType<typeof getUpcomingCalendarEvents>>
+          ),
           getSectionStaffingCoverage(ayCode).catch(() => null),
         ])
-      : [null, [] as Awaited<ReturnType<typeof getClassAssignmentReadiness>>, [] as Awaited<ReturnType<typeof getUpcomingCalendarEvents>>, null];
+      : [
+          null,
+          [] as Awaited<ReturnType<typeof getClassAssignmentReadiness>>,
+          [] as Awaited<ReturnType<typeof getUpcomingCalendarEvents>>,
+          null,
+        ];
 
   // Audit-activity fetches only fire on the audit view — saves DB work on hub
   // loads. Audit-activity query can be slow on large audit_log tables; guard
   // so a transient DB error never tanks the admin hub.
-  const [auditResult, actorActivity, auditDailyTrend, gradeChangePipeline, topAuditActions, authEventCounts, structuralChangeFeed] =
-    view === "audit" && rangeInput
+  const [
+    auditResult,
+    actorActivity,
+    auditDailyTrend,
+    gradeChangePipeline,
+    topAuditActions,
+    authEventCounts,
+    structuralChangeFeed,
+  ] =
+    view === 'audit' && rangeInput
       ? await Promise.all([
           getAuditActivityByModule(rangeInput).catch((err) => {
-            console.error("[sis] getAuditActivityByModule failed:", err);
+            console.error('[sis] getAuditActivityByModule failed:', err);
             return null;
           }),
-          getActivityByActor({ from: rangeInput.from, to: rangeInput.to }).catch((err) => {
-            console.error("[sis] getActivityByActor failed:", err);
+          getActivityByActor({
+            from: rangeInput.from,
+            to: rangeInput.to,
+          }).catch((err) => {
+            console.error('[sis] getActivityByActor failed:', err);
             return [];
           }),
           getAuditDailyTrend(rangeInput).catch(() => null),
           getGradeChangePipeline(rangeInput).catch(() => null),
-          getTopAuditActions(rangeInput).catch(() => [] as { action: string; count: number }[]),
+          getTopAuditActions(rangeInput).catch(
+            () => [] as { action: string; count: number }[]
+          ),
           getAuthEventCounts(rangeInput).catch(() => null),
-          getStructuralChangeFeed().catch(() => [] as Awaited<ReturnType<typeof getStructuralChangeFeed>>),
+          getStructuralChangeFeed().catch(
+            () => [] as Awaited<ReturnType<typeof getStructuralChangeFeed>>
+          ),
         ])
-      : [null, [], null, null, [] as { action: string; count: number }[], null, [] as Awaited<ReturnType<typeof getStructuralChangeFeed>>];
+      : [
+          null,
+          [],
+          null,
+          null,
+          [] as { action: string; count: number }[],
+          null,
+          [] as Awaited<ReturnType<typeof getStructuralChangeFeed>>,
+        ];
   const comparisonLabel = auditResult?.comparisonRange
     ? `vs ${formatRangeLabel(auditResult.comparisonRange)}`
     : undefined;
@@ -143,13 +191,17 @@ export default async function SisAdminHub({
   // Precompute derived values so JSX stays pure (no in-place .sort() mutating
   // the same array multiple times — that was misaligning the comparison chart
   // and triggering React 19's profiler "negative timestamp" warning).
-  const currentTotal = auditResult?.current.reduce((s, p) => s + p.count, 0) ?? 0;
+  const currentTotal =
+    auditResult?.current.reduce((s, p) => s + p.count, 0) ?? 0;
   const comparisonTotal =
     auditResult?.comparison?.reduce((s, p) => s + p.count, 0) ?? 0;
-  const activeModules = auditResult?.current.filter((p) => p.count > 0).length ?? 0;
+  const activeModules =
+    auditResult?.current.filter((p) => p.count > 0).length ?? 0;
   const trackedModules = auditResult?.current.length ?? 0;
-  const ranked = auditResult ? [...auditResult.current].sort((a, b) => b.count - a.count) : [];
-  const topModule = ranked[0]?.module ?? "—";
+  const ranked = auditResult
+    ? [...auditResult.current].sort((a, b) => b.count - a.count)
+    : [];
+  const topModule = ranked[0]?.module ?? '—';
   const topModuleCount = ranked[0]?.count ?? 0;
   const chartData = auditResult
     ? auditResult.current.map((row, i) => ({
@@ -164,7 +216,9 @@ export default async function SisAdminHub({
   const insights = auditResult
     ? sisInsights({
         auditEventsCurrent: currentTotal,
-        auditEventsComparison: auditResult.comparison ? comparisonTotal : undefined,
+        auditEventsComparison: auditResult.comparison
+          ? comparisonTotal
+          : undefined,
         auditDelta: auditResult.delta ?? undefined,
         topModule: ranked[0],
         activeModules,
@@ -185,25 +239,25 @@ export default async function SisAdminHub({
           this hero copy makes the tier explicit at a glance. */}
       <DashboardHero
         eyebrow={
-          role === "superadmin"
-            ? "SIS · Admin hub"
-            : role === "school_admin"
-              ? "SIS · Academic admin"
-              : "SIS · School administration"
+          role === 'superadmin'
+            ? 'SIS · Admin hub'
+            : role === 'school_admin'
+              ? 'SIS · Academic admin'
+              : 'SIS · School administration'
         }
         title={
-          role === "superadmin"
-            ? "System administration"
-            : role === "school_admin"
-              ? "Academic administration"
-              : "School administration"
+          role === 'superadmin'
+            ? 'System administration'
+            : role === 'school_admin'
+              ? 'Academic administration'
+              : 'School administration'
         }
         description={
-          role === "superadmin"
-            ? "Structural + system-level controls. Day-to-day operational work lives in Records; this page is for AY rollovers, approver management, and cross-module setup."
-            : role === "school_admin"
-              ? "Day-to-day academic administration. AY setup + calendar + sections + discount codes; system-level controls are reserved for superadmin."
-              : "Day-to-day school administration. AY setup + calendar + sections + discount codes; system-level controls are reserved for superadmin."
+          role === 'superadmin'
+            ? 'Structural + system-level controls. Day-to-day operational work lives in Records; this page is for AY rollovers, approver management, and cross-module setup.'
+            : role === 'school_admin'
+              ? 'Day-to-day academic administration. AY setup + calendar + sections + discount codes; system-level controls are reserved for superadmin.'
+              : 'Day-to-day school administration. AY setup + calendar + sections + discount codes; system-level controls are reserved for superadmin.'
         }
         badges={ayCode ? [{ label: ayCode }] : []}
       />
@@ -221,7 +275,7 @@ export default async function SisAdminHub({
         </TabsList>
       </Tabs>
 
-      {view === "hub" ? (
+      {view === 'hub' ? (
         <>
           {/* At-a-glance KPI strip — enrolled headcount, sections, pending
               change requests, and currently-open report card windows. */}
@@ -243,22 +297,35 @@ export default async function SisAdminHub({
                 label="Pending change requests"
                 value={hubKpis.pendingChangeRequests}
                 icon={GitBranch}
-                intent={hubKpis.pendingChangeRequests > 0 ? "warning" : "default"}
-                subtext={hubKpis.pendingChangeRequests > 0 ? "Awaiting approval" : "All clear"}
+                intent={
+                  hubKpis.pendingChangeRequests > 0 ? 'warning' : 'default'
+                }
+                subtext={
+                  hubKpis.pendingChangeRequests > 0
+                    ? 'Awaiting approval'
+                    : 'All clear'
+                }
               />
               <MetricCard
                 label="Open report card windows"
                 value={hubKpis.openPublicationWindows}
                 icon={BookOpen}
-                intent={hubKpis.openPublicationWindows > 0 ? "good" : "default"}
-                subtext={hubKpis.openPublicationWindows > 0 ? "Parents can view now" : "None active"}
+                intent={hubKpis.openPublicationWindows > 0 ? 'good' : 'default'}
+                subtext={
+                  hubKpis.openPublicationWindows > 0
+                    ? 'Parents can view now'
+                    : 'None active'
+                }
               />
             </section>
           )}
 
           {/* Enrolled-but-unplaced students callout — actionable amber alert. */}
           {unassignedStudents.length > 0 && (
-            <HubClassAssignmentCallout count={unassignedStudents.length} ayLabel={currentAy?.label} />
+            <HubClassAssignmentCallout
+              count={unassignedStudents.length}
+              ayLabel={currentAy?.label}
+            />
           )}
 
           {/* Year Setup — the 4-step sequence for a new academic year. */}
@@ -276,7 +343,7 @@ export default async function SisAdminHub({
                 description="Create a new academic year, switch the active AY, or retire an empty one. Sets up everything the new year needs — terms, sections, subjects, admissions data."
                 cta="Open AY Setup"
                 role={role}
-                allowedRoles={["school_admin", "superadmin"]}
+                allowedRoles={['school_admin', 'superadmin']}
               />
               <AdminCard
                 step={2}
@@ -287,7 +354,7 @@ export default async function SisAdminHub({
                 description="Define school days, holidays, and important dates per term. Every weekday is a school day by default; mark holidays and HBL overlays here. Attendance and the parent portal consume this."
                 cta="Open school calendar"
                 role={role}
-                allowedRoles={["school_admin", "superadmin"]}
+                allowedRoles={['school_admin', 'superadmin']}
               />
               <AdminCard
                 step={3}
@@ -298,7 +365,7 @@ export default async function SisAdminHub({
                 description="Create sections from the master template and assign form advisers and subject teachers. Sections gate grading sheet creation in Markbook."
                 cta="Manage sections"
                 role={role}
-                allowedRoles={["school_admin", "superadmin"]}
+                allowedRoles={['school_admin', 'superadmin']}
               />
               <AdminCard
                 step={4}
@@ -309,7 +376,7 @@ export default async function SisAdminHub({
                 description="Bulk-create grading sheets per section from Markbook → Sections. Complete once sections are set up."
                 cta="Open Markbook sections"
                 role={role}
-                allowedRoles={["registrar", "school_admin", "superadmin"]}
+                allowedRoles={['registrar', 'school_admin', 'superadmin']}
               />
             </div>
           </section>
@@ -331,7 +398,7 @@ export default async function SisAdminHub({
                 description="Spot-check teacher-authored Scheme of Work entries across sections. Teachers author and maintain their own SOW at Markbook → Scheme of Work."
                 cta="Review SOW"
                 role={role}
-                allowedRoles={["school_admin", "superadmin"]}
+                allowedRoles={['school_admin', 'superadmin']}
               />
               <AdminCard
                 href="/sis/admin/discount-codes"
@@ -341,7 +408,7 @@ export default async function SisAdminHub({
                 description="Time-bound enrolment discount codes for the current academic year. Per-student grants are written by the enrolment portal directly; this is the catalogue that the portal reads."
                 cta="Manage codes"
                 role={role}
-                allowedRoles={["school_admin", "superadmin"]}
+                allowedRoles={['school_admin', 'superadmin']}
               />
               <AdminCard
                 href="/sis/sync-students"
@@ -351,7 +418,7 @@ export default async function SisAdminHub({
                 description="Preview then commit a bulk sync of students, enrolments, withdrawals, and reactivations from the admissions database. Individual students sync automatically on stage→Assigned; this tool handles the catch-up pass."
                 cta="Open sync tool"
                 role={role}
-                allowedRoles={["registrar", "school_admin", "superadmin"]}
+                allowedRoles={['registrar', 'school_admin', 'superadmin']}
               />
             </div>
           </section>
@@ -367,14 +434,17 @@ export default async function SisAdminHub({
               <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Lifecycle
               </h2>
-              <LifecycleAggregateCard buckets={lifecycleBuckets} ayCode={ayCode} />
+              <LifecycleAggregateCard
+                buckets={lifecycleBuckets}
+                ayCode={ayCode}
+              />
             </section>
           )}
 
           {/* Access + System — superadmin-only. school_admin/admin previously
               saw these as greyed-out cards which is noise; hiding the
               section header entirely cleans up their hub. */}
-          {role === "superadmin" && (
+          {role === 'superadmin' && (
             <section className="space-y-3">
               <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Access
@@ -388,7 +458,7 @@ export default async function SisAdminHub({
                   description="Manage who approves grade-change requests. Teachers pick primary + secondary from this list at submission; only those two see the request."
                   cta="Manage approvers"
                   role={role}
-                  allowedRoles={["superadmin"]}
+                  allowedRoles={['superadmin']}
                 />
                 <AdminCard
                   href="/sis/admin/school-config"
@@ -398,7 +468,7 @@ export default async function SisAdminHub({
                   description="Principal + Founder/CEO signature names, PEI registration number, default publication window. Singleton — renders on every report card."
                   cta="Edit settings"
                   role={role}
-                  allowedRoles={["superadmin"]}
+                  allowedRoles={['superadmin']}
                 />
                 <AdminCard
                   href="/sis/admin/users"
@@ -408,7 +478,7 @@ export default async function SisAdminHub({
                   description="Invite staff, change roles, enable/disable accounts. Parent accounts are created by the enrolment portal and aren't shown here."
                   cta="Manage users"
                   role={role}
-                  allowedRoles={["superadmin"]}
+                  allowedRoles={['superadmin']}
                 />
                 <AdminCard
                   href="/sis/admin/settings"
@@ -418,7 +488,7 @@ export default async function SisAdminHub({
                   description="System-level toggles including the Production / Test environment switcher. Switching to Test auto-provisions a disposable academic year and seeds fake students for UAT."
                   cta="Open settings"
                   role={role}
-                  allowedRoles={["superadmin"]}
+                  allowedRoles={['superadmin']}
                 />
               </div>
             </section>
@@ -438,7 +508,7 @@ export default async function SisAdminHub({
                 description="The consolidated Records dashboard — student profiles, family, stage pipeline, documents, and admissions analytics (conversion funnel, time-to-enroll, outdated applications, assessment outcomes, referral sources) in one surface."
                 cta="Open Records"
                 role={role}
-                allowedRoles={["school_admin", "superadmin"]}
+                allowedRoles={['school_admin', 'superadmin']}
               />
             </div>
           </section>
@@ -529,14 +599,17 @@ export default async function SisAdminHub({
               </section>
 
               <section className="grid gap-4 lg:grid-cols-2">
-                {authEventCounts && <AuditAuthEventsCard counts={authEventCounts} />}
+                {authEventCounts && (
+                  <AuditAuthEventsCard counts={authEventCounts} />
+                )}
                 <StructuralChangesFeedCard rows={structuralChangeFeed} />
               </section>
             </>
           ) : (
             <Card>
               <CardContent className="py-12 text-center text-sm text-muted-foreground">
-                Audit data unavailable for this range. Try a different range or revisit later.
+                Audit data unavailable for this range. Try a different range or
+                revisit later.
               </CardContent>
             </Card>
           )}
@@ -546,9 +619,9 @@ export default async function SisAdminHub({
       {/* Trust strip */}
       <div className="mt-2 flex items-center gap-2 border-t border-border pt-5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
         <Activity className="size-3" strokeWidth={2.25} />
-        <span>{ayCode || "—"}</span>
+        <span>{ayCode || '—'}</span>
         <span className="text-border">·</span>
-        <span>{currentTotal.toLocaleString("en-SG")} activity events</span>
+        <span>{currentTotal.toLocaleString('en-SG')} activity events</span>
         <span className="text-border">·</span>
         <span>Refreshes every 2 minutes</span>
       </div>
@@ -582,19 +655,22 @@ function AdminCard({
     <Card
       className={`@container/card h-full transition-all ${
         enabled
-          ? "hover:-translate-y-0.5 hover:border-brand-indigo/40 hover:shadow-md"
-          : "cursor-not-allowed opacity-60"
-      }`}>
+          ? 'hover:-translate-y-0.5 hover:border-brand-indigo/40 hover:shadow-md'
+          : 'cursor-not-allowed opacity-60'
+      }`}
+    >
       <CardHeader>
         {step != null && (
           <p className="font-mono text-[11px] font-semibold text-muted-foreground/40">
-            {String(step).padStart(2, "0")}
+            {String(step).padStart(2, '0')}
           </p>
         )}
         <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
           {eyebrow}
         </CardDescription>
-        <CardTitle className="font-serif text-xl font-semibold tracking-tight text-foreground">{title}</CardTitle>
+        <CardTitle className="font-serif text-xl font-semibold tracking-tight text-foreground">
+          {title}
+        </CardTitle>
         <CardAction>
           <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
             <Icon className="size-4" />
@@ -602,11 +678,13 @@ function AdminCard({
         </CardAction>
       </CardHeader>
       <CardContent>
-        <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {description}
+        </p>
       </CardContent>
       <CardFooter>
         <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
-          {enabled ? cta : "Requires higher role"}
+          {enabled ? cta : 'Requires higher role'}
           {enabled && <ArrowUpRight className="size-3.5" />}
         </span>
       </CardFooter>

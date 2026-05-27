@@ -37,7 +37,10 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
-import { ProfileUpdateSchema, type ProfileUpdateInput } from '@/lib/schemas/sis';
+import {
+  ProfileUpdateSchema,
+  type ProfileUpdateInput,
+} from '@/lib/schemas/sis';
 
 type FieldKind = 'text' | 'textarea' | 'date' | 'tribool';
 
@@ -55,19 +58,19 @@ const SECTIONS: SectionConfig[] = [
   {
     title: 'Identity',
     fields: [
-      { name: 'firstName',       label: 'First name' },
-      { name: 'middleName',      label: 'Middle name' },
-      { name: 'lastName',        label: 'Last name' },
-      { name: 'preferredName',   label: 'Preferred name' },
+      { name: 'firstName', label: 'First name' },
+      { name: 'middleName', label: 'Middle name' },
+      { name: 'lastName', label: 'Last name' },
+      { name: 'preferredName', label: 'Preferred name' },
       { name: 'enroleeFullName', label: 'Full name (override)', wide: true },
-      { name: 'category',        label: 'Category' },
-      { name: 'nric',            label: 'NRIC / FIN' },
-      { name: 'birthDay',        label: 'Date of birth', kind: 'date' },
-      { name: 'gender',          label: 'Gender' },
-      { name: 'nationality',     label: 'Nationality' },
+      { name: 'category', label: 'Category' },
+      { name: 'nric', label: 'NRIC / FIN' },
+      { name: 'birthDay', label: 'Date of birth', kind: 'date' },
+      { name: 'gender', label: 'Gender' },
+      { name: 'nationality', label: 'Nationality' },
       { name: 'primaryLanguage', label: 'Primary language' },
-      { name: 'religion',        label: 'Religion' },
-      { name: 'religionOther',   label: 'Religion (other)' },
+      { name: 'religion', label: 'Religion' },
+      { name: 'religionOther', label: 'Religion (other)' },
     ],
   },
   {
@@ -75,18 +78,23 @@ const SECTIONS: SectionConfig[] = [
     fields: [
       { name: 'passportNumber', label: 'Passport number' },
       { name: 'passportExpiry', label: 'Passport expiry', kind: 'date' },
-      { name: 'pass',           label: 'Pass type' },
-      { name: 'passExpiry',     label: 'Pass expiry', kind: 'date' },
+      { name: 'pass', label: 'Pass type' },
+      { name: 'passExpiry', label: 'Pass expiry', kind: 'date' },
     ],
   },
   {
     title: 'Contact',
     fields: [
-      { name: 'homePhone',           label: 'Home phone' },
-      { name: 'homeAddress',         label: 'Home address', kind: 'textarea', wide: true },
-      { name: 'postalCode',          label: 'Postal code' },
-      { name: 'livingWithWhom',      label: 'Living with' },
-      { name: 'contactPerson',       label: 'Contact person' },
+      { name: 'homePhone', label: 'Home phone' },
+      {
+        name: 'homeAddress',
+        label: 'Home address',
+        kind: 'textarea',
+        wide: true,
+      },
+      { name: 'postalCode', label: 'Postal code' },
+      { name: 'livingWithWhom', label: 'Living with' },
+      { name: 'contactPerson', label: 'Contact person' },
       { name: 'contactPersonNumber', label: 'Contact number' },
       { name: 'parentMaritalStatus', label: 'Parent marital status' },
     ],
@@ -94,22 +102,32 @@ const SECTIONS: SectionConfig[] = [
   {
     title: 'Application preferences',
     fields: [
-      { name: 'levelApplied',             label: 'Level applied' },
-      { name: 'preferredSchedule',        label: 'Preferred schedule' },
-      { name: 'classType',                label: 'Class type' },
-      { name: 'paymentOption',            label: 'Payment option' },
-      { name: 'availSchoolBus',           label: 'School bus', kind: 'tribool' },
-      { name: 'availStudentCare',         label: 'Student care', kind: 'tribool' },
-      { name: 'studentCareProgram',       label: 'Student care program' },
-      { name: 'availUniform',             label: 'Uniform', kind: 'tribool' },
-      { name: 'additionalLearningNeeds',  label: 'Additional learning needs', kind: 'textarea', wide: true },
-      { name: 'otherLearningNeeds',       label: 'Other learning needs', kind: 'textarea', wide: true },
-      { name: 'previousSchool',           label: 'Previous school' },
+      { name: 'levelApplied', label: 'Level applied' },
+      { name: 'preferredSchedule', label: 'Preferred schedule' },
+      { name: 'classType', label: 'Class type' },
+      { name: 'paymentOption', label: 'Payment option' },
+      { name: 'availSchoolBus', label: 'School bus', kind: 'tribool' },
+      { name: 'availStudentCare', label: 'Student care', kind: 'tribool' },
+      { name: 'studentCareProgram', label: 'Student care program' },
+      { name: 'availUniform', label: 'Uniform', kind: 'tribool' },
+      {
+        name: 'additionalLearningNeeds',
+        label: 'Additional learning needs',
+        kind: 'textarea',
+        wide: true,
+      },
+      {
+        name: 'otherLearningNeeds',
+        label: 'Other learning needs',
+        kind: 'textarea',
+        wide: true,
+      },
+      { name: 'previousSchool', label: 'Previous school' },
       { name: 'howDidYouKnowAboutHFSEIS', label: 'Referral source' },
-      { name: 'otherSource',              label: 'Other source' },
-      { name: 'referrerName',             label: 'Referrer name' },
-      { name: 'referrerMobile',           label: 'Referrer mobile' },
-      { name: 'contractSignatory',        label: 'Contract signatory' },
+      { name: 'otherSource', label: 'Other source' },
+      { name: 'referrerName', label: 'Referrer name' },
+      { name: 'referrerMobile', label: 'Referrer mobile' },
+      { name: 'contractSignatory', label: 'Contract signatory' },
     ],
   },
   {
@@ -148,13 +166,15 @@ export function EditProfileSheet({
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(values),
-        },
+        }
       );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? 'Failed to save');
       const changed = body.changed as number | undefined;
       toast.success(
-        changed === 0 ? 'Profile saved (no changes)' : `Profile updated (${changed} field${changed === 1 ? '' : 's'})`,
+        changed === 0
+          ? 'Profile saved (no changes)'
+          : `Profile updated (${changed} field${changed === 1 ? '' : 's'})`
       );
       setOpen(false);
       router.refresh();
@@ -187,8 +207,10 @@ export function EditProfileSheet({
             </SheetTitle>
             <SheetDescription className="text-sm text-muted-foreground">
               Updates demographic and preference fields on{' '}
-              <span className="font-mono text-foreground">{ayCode.toLowerCase()}_enrolment_applications</span>.
-              Stable IDs (enrolee number, student number) are not editable.
+              <span className="font-mono text-foreground">
+                {ayCode.toLowerCase()}_enrolment_applications
+              </span>
+              . Stable IDs (enrolee number, student number) are not editable.
             </SheetDescription>
           </SheetHeader>
 
@@ -211,7 +233,12 @@ export function EditProfileSheet({
 
               <SheetFooter className="flex-row justify-end gap-2 border-t border-border p-6 sm:justify-end">
                 <SheetClose asChild>
-                  <Button type="button" variant="outline" size="sm" disabled={busy}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                  >
                     Cancel
                   </Button>
                 </SheetClose>
@@ -230,7 +257,9 @@ export function EditProfileSheet({
 
 // Build a defaults object matching every field on the schema. Anything missing
 // from the input maps to null so RHF doesn't see "uncontrolled" warnings.
-function buildDefaults(initial: Partial<ProfileUpdateInput>): ProfileUpdateInput {
+function buildDefaults(
+  initial: Partial<ProfileUpdateInput>
+): ProfileUpdateInput {
   const out: Record<string, unknown> = {};
   for (const section of SECTIONS) {
     for (const f of section.fields) {
@@ -267,7 +296,9 @@ function SchemaField({
               <Select
                 value={value}
                 onValueChange={(next) =>
-                  field.onChange(next === 'yes' ? true : next === 'no' ? false : null)
+                  field.onChange(
+                    next === 'yes' ? true : next === 'no' ? false : null
+                  )
                 }
               >
                 <SelectTrigger className="h-9">
@@ -291,7 +322,11 @@ function SchemaField({
                 <Textarea
                   rows={3}
                   value={(field.value as string | null) ?? ''}
-                  onChange={(e) => field.onChange(e.target.value === '' ? null : e.target.value)}
+                  onChange={(e) =>
+                    field.onChange(
+                      e.target.value === '' ? null : e.target.value
+                    )
+                  }
                   placeholder={cfg.placeholder ?? ''}
                 />
               </FormControl>
@@ -320,7 +355,9 @@ function SchemaField({
               <Input
                 type="text"
                 value={(field.value as string | null) ?? ''}
-                onChange={(e) => field.onChange(e.target.value === '' ? null : e.target.value)}
+                onChange={(e) =>
+                  field.onChange(e.target.value === '' ? null : e.target.value)
+                }
                 placeholder={cfg.placeholder ?? ''}
               />
             </FormControl>

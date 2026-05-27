@@ -1,13 +1,17 @@
 import 'server-only';
 
-import { buildCompareCells, type CompareInput, type CompareResult } from '@/lib/dashboard/compare';
+import {
+  buildCompareCells,
+  type CompareInput,
+  type CompareResult,
+} from '@/lib/dashboard/compare';
 
 import { getRecordsKpisRange, type RecordsRangeKpis } from './dashboard';
 
 export type RecordsCompareKpis = RecordsRangeKpis;
 
 export async function getRecordsCompareKpis(
-  input: CompareInput,
+  input: CompareInput
 ): Promise<CompareResult<RecordsCompareKpis>> {
   const cells = await buildCompareCells(input);
   if (cells.length === 0) return { cells: [] };
@@ -20,8 +24,8 @@ export async function getRecordsCompareKpis(
         to: cell.range.to,
         cmpFrom: null,
         cmpTo: null,
-      }),
-    ),
+      })
+    )
   );
 
   return {

@@ -15,7 +15,11 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Sheet } from '@/components/ui/sheet';
-import type { SectionWriteupRow, TimeToSubmitBucket, WriteupRow } from '@/lib/evaluation/drill';
+import type {
+  SectionWriteupRow,
+  TimeToSubmitBucket,
+  WriteupRow,
+} from '@/lib/evaluation/drill';
 
 type CommonProps = {
   ayCode: string;
@@ -39,7 +43,14 @@ export function SubmissionVelocityDrillCard({
   initialWriteups,
 }: CommonProps & { current: DailyPoint[]; comparison: DailyPoint[] | null }) {
   const [segment, setSegment] = React.useState<string | null>(null);
-  const recentDays = React.useMemo(() => current.slice(-14).filter((d) => d.y > 0).reverse(), [current]);
+  const recentDays = React.useMemo(
+    () =>
+      current
+        .slice(-14)
+        .filter((d) => d.y > 0)
+        .reverse(),
+    [current]
+  );
   return (
     <Sheet open={!!segment} onOpenChange={(o) => !o && setSegment(null)}>
       <Card>
@@ -47,7 +58,9 @@ export function SubmissionVelocityDrillCard({
           <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
             Submission velocity
           </CardDescription>
-          <CardTitle className="font-serif text-xl">Write-ups submitted per day</CardTitle>
+          <CardTitle className="font-serif text-xl">
+            Write-ups submitted per day
+          </CardTitle>
           <CardAction>
             <details className="group relative">
               <summary className="cursor-pointer list-none">
@@ -57,24 +70,34 @@ export function SubmissionVelocityDrillCard({
               </summary>
               <div className="absolute right-0 z-10 mt-1 w-[200px] rounded-md border border-border bg-popover p-1 shadow-lg">
                 {recentDays.length === 0 ? (
-                  <p className="px-2 py-1.5 text-xs text-muted-foreground">No submissions in range.</p>
-                ) : recentDays.map((d) => (
-                  <button
-                    key={d.x}
-                    type="button"
-                    onClick={() => setSegment(d.x)}
-                    className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-accent"
-                  >
-                    <span className="tabular-nums">{d.x}</span>
-                    <span className="font-mono tabular-nums text-muted-foreground">{Math.round(d.y)}</span>
-                  </button>
-                ))}
+                  <p className="px-2 py-1.5 text-xs text-muted-foreground">
+                    No submissions in range.
+                  </p>
+                ) : (
+                  recentDays.map((d) => (
+                    <button
+                      key={d.x}
+                      type="button"
+                      onClick={() => setSegment(d.x)}
+                      className="flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-accent"
+                    >
+                      <span className="tabular-nums">{d.x}</span>
+                      <span className="font-mono tabular-nums text-muted-foreground">
+                        {Math.round(d.y)}
+                      </span>
+                    </button>
+                  ))
+                )}
               </div>
             </details>
           </CardAction>
         </CardHeader>
         <CardContent>
-          <TrendChart label="Submissions" current={current} comparison={comparison} />
+          <TrendChart
+            label="Submissions"
+            current={current}
+            comparison={comparison}
+          />
         </CardContent>
       </Card>
       {segment && (
@@ -103,7 +126,10 @@ export function WriteupsBySectionCard({
 }: CommonProps & { data: SectionWriteupRow[] }) {
   const [open, setOpen] = React.useState(false);
   const empty = data.length === 0;
-  const chartData = data.map((r) => ({ category: r.sectionName, current: r.submissionPct }));
+  const chartData = data.map((r) => ({
+    category: r.sectionName,
+    current: r.submissionPct,
+  }));
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <Card>
@@ -111,7 +137,9 @@ export function WriteupsBySectionCard({
           <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
             Writeups by section
           </CardDescription>
-          <CardTitle className="font-serif text-xl">Submission % by section</CardTitle>
+          <CardTitle className="font-serif text-xl">
+            Submission % by section
+          </CardTitle>
           <CardAction>
             <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
               <BarChart3 className="size-4" />
@@ -122,7 +150,9 @@ export function WriteupsBySectionCard({
           {empty ? (
             <div className="flex h-[260px] flex-col items-center justify-center gap-2 text-center">
               <BarChart3 className="size-6 text-muted-foreground/60" />
-              <p className="text-sm font-medium text-foreground">No sections with writeups yet</p>
+              <p className="text-sm font-medium text-foreground">
+                No sections with writeups yet
+              </p>
             </div>
           ) : (
             <ComparisonBarChart
@@ -168,7 +198,9 @@ export function TimeToSubmitHistogramCard({
           <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
             Time to submit
           </CardDescription>
-          <CardTitle className="font-serif text-xl">Days from open to submission</CardTitle>
+          <CardTitle className="font-serif text-xl">
+            Days from open to submission
+          </CardTitle>
           <CardAction>
             <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
               <ClockIcon className="size-4" />
@@ -179,7 +211,9 @@ export function TimeToSubmitHistogramCard({
           {empty ? (
             <div className="flex h-[220px] flex-col items-center justify-center gap-2 text-center">
               <ClockIcon className="size-6 text-muted-foreground/60" />
-              <p className="text-sm font-medium text-foreground">No submitted writeups yet</p>
+              <p className="text-sm font-medium text-foreground">
+                No submitted writeups yet
+              </p>
             </div>
           ) : (
             <ComparisonBarChart

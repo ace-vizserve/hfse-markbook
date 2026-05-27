@@ -40,27 +40,33 @@ export const ToggleAcceptingApplicationsSchema = z.object({
   accepting: z.boolean(),
 });
 
-export type ToggleAcceptingApplicationsInput = z.infer<typeof ToggleAcceptingApplicationsSchema>;
+export type ToggleAcceptingApplicationsInput = z.infer<
+  typeof ToggleAcceptingApplicationsSchema
+>;
 
 // PATCH /api/sis/ay-setup — switch active AY
-export const SwitchActiveAySchema = z.object({
-  target_ay_code: AyCode,
-  confirm_code: AyCode,
-}).refine((v) => v.target_ay_code === v.confirm_code, {
-  message: 'Confirm code must match target AY code',
-  path: ['confirm_code'],
-});
+export const SwitchActiveAySchema = z
+  .object({
+    target_ay_code: AyCode,
+    confirm_code: AyCode,
+  })
+  .refine((v) => v.target_ay_code === v.confirm_code, {
+    message: 'Confirm code must match target AY code',
+    path: ['confirm_code'],
+  });
 
 export type SwitchActiveAyInput = z.infer<typeof SwitchActiveAySchema>;
 
 // DELETE /api/sis/ay-setup — delete AY
-export const DeleteAySchema = z.object({
-  ay_code: AyCode,
-  confirm_code: AyCode,
-}).refine((v) => v.ay_code === v.confirm_code, {
-  message: 'Confirm code must match AY code',
-  path: ['confirm_code'],
-});
+export const DeleteAySchema = z
+  .object({
+    ay_code: AyCode,
+    confirm_code: AyCode,
+  })
+  .refine((v) => v.ay_code === v.confirm_code, {
+    message: 'Confirm code must match AY code',
+    path: ['confirm_code'],
+  });
 
 export type DeleteAyInput = z.infer<typeof DeleteAySchema>;
 

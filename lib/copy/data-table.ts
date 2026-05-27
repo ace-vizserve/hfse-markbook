@@ -24,7 +24,8 @@ export const TABLE_COPY = {
   markedAsWithdrawn: 'Marked as withdrawn',
 
   // Discount codes
-  discountCodesFooter: (label: string) => `These codes apply to the ${label} enrolment portal.`,
+  discountCodesFooter: (label: string) =>
+    `These codes apply to the ${label} enrolment portal.`,
 
   // AY setup
   createGradingSheets: 'Create grading sheets for this AY',

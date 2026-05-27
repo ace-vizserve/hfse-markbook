@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import Link from "next/link";
+import Link from 'next/link';
 
 // Attendance wide grid. Rows = students (~30), columns = term school-days
 // (~47). Cell count at HFSE scale: ~1,410 per render.
@@ -23,25 +23,51 @@ import Link from "next/link";
 // Chromebooks. At that point look at column virtualization (react-window)
 // or a paginated-by-week view.
 
-import { Bus, CalendarDays, CheckCircle2, Loader2, Star, Users } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
+import {
+  Bus,
+  CalendarDays,
+  CheckCircle2,
+  Loader2,
+  Star,
+  Users,
+} from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 // Local-tz ISO for today. Inline helper — the file doesn't pull from
 // lib/attendance/calendar.ts to stay a pure client leaf.
 function todayLocalIso(): string {
   const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
+  const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-import { ChartLegendChip, type ChartLegendChipColor } from "@/components/dashboard/chart-legend-chip";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { CalendarEventRow, SchoolCalendarRow } from "@/lib/attendance/calendar";
-import type { DailyEntryRow } from "@/lib/attendance/queries";
+import {
+  ChartLegendChip,
+  type ChartLegendChipColor,
+} from '@/components/dashboard/chart-legend-chip';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import type {
+  CalendarEventRow,
+  SchoolCalendarRow,
+} from '@/lib/attendance/calendar';
+import type { DailyEntryRow } from '@/lib/attendance/queries';
 import {
   ATTENDANCE_STATUS_LABELS,
   DAY_TYPE_LABELS,
@@ -50,7 +76,7 @@ import {
   type AttendanceStatus,
   type DayType,
   type ExReason,
-} from "@/lib/schemas/attendance";
+} from '@/lib/schemas/attendance';
 
 // Status → ChartLegendChip color. The CELL renders the same gradient
 // (via statusChipGradient below) and the LEGEND renders ChartLegendChip
@@ -58,11 +84,11 @@ import {
 // patterns doc. EX shares one color regardless of subtype — the LETTER
 // (EM/EC/ES) disambiguates, not the colour.
 const STATUS_CHIP_COLOR: Record<AttendanceStatus, ChartLegendChipColor> = {
-  P: "fresh",
-  L: "stale",
-  EX: "primary",
-  A: "very-stale",
-  NC: "neutral",
+  P: 'fresh',
+  L: 'stale',
+  EX: 'primary',
+  A: 'very-stale',
+  NC: 'neutral',
 };
 
 // Day-type → ChartLegendChip color. Mirrors the calendar admin's
@@ -70,11 +96,11 @@ const STATUS_CHIP_COLOR: Record<AttendanceStatus, ChartLegendChipColor> = {
 // calendar's day-type chip read as the same affordance across surfaces.
 // 'school_day' uses 'fresh' to match the calendar.
 const DAY_TYPE_CHIP_COLOR: Record<DayType, ChartLegendChipColor> = {
-  school_day: "fresh",
-  public_holiday: "very-stale",
-  school_holiday: "stale",
-  hbl: "primary",
-  no_class: "neutral",
+  school_day: 'fresh',
+  public_holiday: 'very-stale',
+  school_holiday: 'stale',
+  hbl: 'primary',
+  no_class: 'neutral',
 };
 
 // Short labels for column-header chips (1-3 chars to fit the dense
@@ -82,10 +108,10 @@ const DAY_TYPE_CHIP_COLOR: Record<DayType, ChartLegendChipColor> = {
 // state and a chip on every column would be visual noise.
 const DAY_TYPE_HEADER_CHIP_LABEL: Record<DayType, string | null> = {
   school_day: null,
-  public_holiday: "PH",
-  school_holiday: "SH",
-  hbl: "HBL",
-  no_class: "NC",
+  public_holiday: 'PH',
+  school_holiday: 'SH',
+  hbl: 'HBL',
+  no_class: 'NC',
 };
 
 // Status → cell gradient classes. Uses the SAME gradient palette as
@@ -93,25 +119,27 @@ const DAY_TYPE_HEADER_CHIP_LABEL: Record<DayType, string | null> = {
 // legend chip render as the same affordance. White text on gradient
 // matches ChartLegendChip's text-white default.
 const STATUS_CHIP_GRADIENT: Record<AttendanceStatus, string> = {
-  P: "from-chart-5 to-chart-3 text-white",
-  L: "from-brand-amber to-brand-amber/80 text-white",
-  EX: "from-brand-indigo to-brand-navy text-white",
-  A: "from-destructive to-destructive/80 text-white",
-  NC: "from-ink-4 to-ink-3 text-white",
+  P: 'from-chart-5 to-chart-3 text-white',
+  L: 'from-brand-amber to-brand-amber/80 text-white',
+  EX: 'from-brand-indigo to-brand-navy text-white',
+  A: 'from-destructive to-destructive/80 text-white',
+  NC: 'from-ink-4 to-ink-3 text-white',
 };
 
 function statusChipGradient(status: AttendanceStatus | null): string {
-  return status ? "bg-gradient-to-b " + STATUS_CHIP_GRADIENT[status] : "text-foreground";
+  return status
+    ? 'bg-gradient-to-b ' + STATUS_CHIP_GRADIENT[status]
+    : 'text-foreground';
 }
 
 // Faint per-day-type cell tint, kept under the gradient pill so non-
 // school-day columns read as a vertical band even when no status is set.
 const DAY_TYPE_CELL_BG: Record<DayType, string> = {
-  school_day: "",
-  public_holiday: "bg-gradient-to-b from-destructive/8 to-destructive/0",
-  school_holiday: "bg-gradient-to-b from-brand-amber/8 to-brand-amber/0",
-  hbl: "bg-gradient-to-b from-primary/8 to-primary/0",
-  no_class: "bg-gradient-to-b from-muted/30 to-muted/10",
+  school_day: '',
+  public_holiday: 'bg-gradient-to-b from-destructive/8 to-destructive/0',
+  school_holiday: 'bg-gradient-to-b from-brand-amber/8 to-brand-amber/0',
+  hbl: 'bg-gradient-to-b from-primary/8 to-primary/0',
+  no_class: 'bg-gradient-to-b from-muted/30 to-muted/10',
 };
 
 export type WideGridEnrolment = {
@@ -133,35 +161,49 @@ export type WideGridEnrolment = {
 
 // Dropdown option value shape: "P" | "L" | "EX:mc" | "EX:compassionate" |
 // "EX:school_activity" | "EX:vacation" | "A" | "NC" | "" (unmarked)
-type OptionValue = "" | "P" | "L" | "EX:mc" | "EX:vacation" | "EX:compassionate" | "EX:school_activity" | "A" | "NC";
+type OptionValue =
+  | ''
+  | 'P'
+  | 'L'
+  | 'EX:mc'
+  | 'EX:vacation'
+  | 'EX:compassionate'
+  | 'EX:school_activity'
+  | 'A'
+  | 'NC';
 
 const TEACHER_OPTIONS: Array<{ value: OptionValue; label: string }> = [
-  { value: "", label: "—" },
-  { value: "P", label: "P · Present" },
-  { value: "L", label: "L · Late" },
-  { value: "EX:mc", label: "EX · MC" },
-  { value: "EX:vacation", label: "EX · Vacation leave" },
-  { value: "EX:compassionate", label: "EX · Compassionate" },
-  { value: "EX:school_activity", label: "EX · School activity" },
-  { value: "A", label: "A · Absent" },
+  { value: '', label: '—' },
+  { value: 'P', label: 'P · Present' },
+  { value: 'L', label: 'L · Late' },
+  { value: 'EX:mc', label: 'EX · MC' },
+  { value: 'EX:vacation', label: 'EX · Vacation leave' },
+  { value: 'EX:compassionate', label: 'EX · Compassionate' },
+  { value: 'EX:school_activity', label: 'EX · School activity' },
+  { value: 'A', label: 'A · Absent' },
 ];
 
 const REGISTRAR_OPTIONS: Array<{ value: OptionValue; label: string }> = [
   ...TEACHER_OPTIONS,
-  { value: "NC", label: "NC · No class" },
+  { value: 'NC', label: 'NC · No class' },
 ];
 
-function decodeOption(value: OptionValue): { status: AttendanceStatus; exReason: ExReason | null } | null {
+function decodeOption(
+  value: OptionValue
+): { status: AttendanceStatus; exReason: ExReason | null } | null {
   if (!value) return null;
-  if (value.startsWith("EX:")) {
-    return { status: "EX", exReason: value.slice(3) as ExReason };
+  if (value.startsWith('EX:')) {
+    return { status: 'EX', exReason: value.slice(3) as ExReason };
   }
   return { status: value as AttendanceStatus, exReason: null };
 }
 
-function encodeOption(status: AttendanceStatus | null, exReason: ExReason | null): OptionValue {
-  if (status == null) return "";
-  if (status === "EX") return `EX:${exReason ?? "mc"}` as OptionValue;
+function encodeOption(
+  status: AttendanceStatus | null,
+  exReason: ExReason | null
+): OptionValue {
+  if (status == null) return '';
+  if (status === 'EX') return `EX:${exReason ?? 'mc'}` as OptionValue;
   return status;
 }
 
@@ -211,41 +253,59 @@ export function AttendanceWideGrid({
     return m;
   }, [initialDaily]);
 
-  const [cells, setCells] = useState<Map<GridKey, CellState>>(() => new Map(seed));
+  const [cells, setCells] = useState<Map<GridKey, CellState>>(
+    () => new Map(seed)
+  );
 
   function updateCell(k: GridKey, patch: Partial<CellState>) {
     setCells((current) => {
       const next = new Map(current);
-      const prev = next.get(k) ?? { status: null, exReason: null, saving: false, savedAt: null };
+      const prev = next.get(k) ?? {
+        status: null,
+        exReason: null,
+        saving: false,
+        savedAt: null,
+      };
       next.set(k, { ...prev, ...patch });
       return next;
     });
   }
 
-  async function writeCell(enrolmentId: string, date: string, status: AttendanceStatus, exReason: ExReason | null) {
+  async function writeCell(
+    enrolmentId: string,
+    date: string,
+    status: AttendanceStatus,
+    exReason: ExReason | null
+  ) {
     void sectionId; // reserved: future bulk endpoint may use it
     const k = keyFor(enrolmentId, date);
-    const prev = cells.get(k) ?? { status: null, exReason: null, saving: false, savedAt: null };
+    const prev = cells.get(k) ?? {
+      status: null,
+      exReason: null,
+      saving: false,
+      savedAt: null,
+    };
 
     // KD #94 — soft warning when a vacation-leave entry would push the
     // student over their per-term quota (HFSE policy: 1 per term). The
     // write proceeds either way — registrar can grant an exception, this
     // is just a heads-up. Count cells in the current grid (all in this
     // term) excluding the cell we're about to flip.
-    if (status === "EX" && exReason === "vacation") {
-      const wasAlreadyVacation = prev.status === "EX" && prev.exReason === "vacation";
+    if (status === 'EX' && exReason === 'vacation') {
+      const wasAlreadyVacation =
+        prev.status === 'EX' && prev.exReason === 'vacation';
       if (!wasAlreadyVacation) {
         const enr = enrolments.find((e) => e.enrolmentId === enrolmentId);
         if (enr) {
           let vlInTerm = 0;
           for (const [key, c] of cells.entries()) {
             if (!key.startsWith(`${enrolmentId}|`)) continue;
-            if (c.status === "EX" && c.exReason === "vacation") vlInTerm += 1;
+            if (c.status === 'EX' && c.exReason === 'vacation') vlInTerm += 1;
           }
           const nextCount = vlInTerm + 1;
           if (nextCount > enr.vlAllowance) {
             toast.warning(
-              `${enr.studentName} has used ${vlInTerm} of ${enr.vlAllowance} vacation leaves this term. Saving anyway — check with the registrar if this needs an exception.`,
+              `${enr.studentName} has used ${vlInTerm} of ${enr.vlAllowance} vacation leaves this term. Saving anyway — check with the registrar if this needs an exception.`
             );
           }
         }
@@ -254,9 +314,9 @@ export function AttendanceWideGrid({
 
     updateCell(k, { status, exReason, saving: true });
     try {
-      const res = await fetch("/api/attendance/daily", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
+      const res = await fetch('/api/attendance/daily', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           sectionStudentId: enrolmentId,
           termId,
@@ -266,7 +326,7 @@ export function AttendanceWideGrid({
         }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body?.error ?? "save failed");
+      if (!res.ok) throw new Error(body?.error ?? 'save failed');
       updateCell(k, { saving: false, savedAt: Date.now() });
       setTimeout(() => {
         setCells((current) => {
@@ -278,8 +338,14 @@ export function AttendanceWideGrid({
         });
       }, 1500);
     } catch (e) {
-      updateCell(k, { status: prev.status, exReason: prev.exReason, saving: false });
-      toast.error(`Could not save: ${e instanceof Error ? e.message : "error"}`);
+      updateCell(k, {
+        status: prev.status,
+        exReason: prev.exReason,
+        saving: false,
+      });
+      toast.error(
+        `Could not save: ${e instanceof Error ? e.message : 'error'}`
+      );
     }
   }
 
@@ -291,9 +357,9 @@ export function AttendanceWideGrid({
   const todayHeaderRef = useRef<HTMLTableCellElement | null>(null);
   useEffect(() => {
     todayHeaderRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-      inline: "center",
+      behavior: 'smooth',
+      block: 'nearest',
+      inline: 'center',
     });
   }, []);
 
@@ -302,8 +368,9 @@ export function AttendanceWideGrid({
   // the first column already has the roster pane's right border as its
   // visual boundary.
   const columns = useMemo(() => {
-    const evBy = (iso: string) => events.filter((e) => iso >= e.startDate && iso <= e.endDate);
-    let prevMonth = "";
+    const evBy = (iso: string) =>
+      events.filter((e) => iso >= e.startDate && iso <= e.endDate);
+    let prevMonth = '';
     return calendar.map((c, idx) => {
       const monthKey = c.date.slice(0, 7);
       const isMonthStart = monthKey !== prevMonth;
@@ -321,16 +388,23 @@ export function AttendanceWideGrid({
 
   // Group by month for banner rows.
   const monthGroups = useMemo(() => {
-    const groups: Array<{ month: string; label: string; dates: typeof columns }> = [];
+    const groups: Array<{
+      month: string;
+      label: string;
+      dates: typeof columns;
+    }> = [];
     for (const col of columns) {
       const key = col.iso.slice(0, 7);
       let g = groups[groups.length - 1];
       if (!g || g.month !== key) {
-        const [y, m] = key.split("-");
+        const [y, m] = key.split('-');
         const d = new Date(Number(y), Number(m) - 1, 1);
         g = {
           month: key,
-          label: d.toLocaleDateString("en-SG", { month: "short", year: "numeric" }),
+          label: d.toLocaleDateString('en-SG', {
+            month: 'short',
+            year: 'numeric',
+          }),
           dates: [],
         };
         groups.push(g);
@@ -351,8 +425,9 @@ export function AttendanceWideGrid({
           </div>
           <CardTitle className="font-serif">No calendar configured</CardTitle>
           <CardDescription className="mx-auto max-w-md">
-            Attendance can&apos;t be recorded until your school admin configures the school calendar for this term. Seed the
-            weekdays to start encoding.
+            Attendance can&apos;t be recorded until your school admin configures
+            the school calendar for this term. Seed the weekdays to start
+            encoding.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center">
@@ -376,7 +451,9 @@ export function AttendanceWideGrid({
             <div className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
               <Users className="size-5" aria-hidden />
             </div>
-            <p className="text-sm text-muted-foreground">No students enrolled in this section yet.</p>
+            <p className="text-sm text-muted-foreground">
+              No students enrolled in this section yet.
+            </p>
           </div>
         ) : (
           // Two-pane flex layout — roster on the left (fixed width, no
@@ -389,20 +466,30 @@ export function AttendanceWideGrid({
           <div className="flex">
             {/* ─── Roster pane — fixed width, no horizontal scroll ─── */}
             <div className="shrink-0 border-r border-border">
-              <Table noWrapper className="border-separate border-spacing-0 text-[11px]">
+              <Table
+                noWrapper
+                className="border-separate border-spacing-0 text-[11px]"
+              >
                 <colgroup>
                   <col style={{ width: 40 }} />
                   <col style={{ width: 180 }} />
                 </colgroup>
                 <TableHeader>
-                  <TableRow style={{ height: ROW_HEIGHT.monthBanner }} className="hover:bg-transparent">
+                  <TableRow
+                    style={{ height: ROW_HEIGHT.monthBanner }}
+                    className="hover:bg-transparent"
+                  >
                     <TableHead
                       colSpan={2}
-                      className="h-auto border-b border-border bg-muted/60 px-2 py-1.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      className="h-auto border-b border-border bg-muted/60 px-2 py-1.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+                    >
                       Roster
                     </TableHead>
                   </TableRow>
-                  <TableRow style={{ height: ROW_HEIGHT.dateRow }} className="hover:bg-transparent">
+                  <TableRow
+                    style={{ height: ROW_HEIGHT.dateRow }}
+                    className="hover:bg-transparent"
+                  >
                     <TableHead className="h-auto border-b border-r border-border bg-muted/60 px-1 py-1 text-right font-mono text-[10px] font-semibold text-muted-foreground">
                       #
                     </TableHead>
@@ -418,18 +505,21 @@ export function AttendanceWideGrid({
                       style={{ height: ROW_HEIGHT.body }}
                       className={
                         e.withdrawn
-                          ? "bg-muted/10 text-muted-foreground hover:bg-muted/10"
-                          : "odd:bg-muted/[0.04] hover:bg-muted/20"
-                      }>
+                          ? 'bg-muted/10 text-muted-foreground hover:bg-muted/10'
+                          : 'odd:bg-muted/[0.04] hover:bg-muted/20'
+                      }
+                    >
                       <TableCell className="overflow-hidden border-r border-border px-1 py-1 text-right font-mono tabular-nums text-muted-foreground">
                         {e.indexNumber}
                       </TableCell>
                       <TableCell className="overflow-hidden px-2 py-1">
                         <div
                           className={
-                            "truncate text-[12px] font-medium " + (e.withdrawn ? "line-through" : "text-foreground")
+                            'truncate text-[12px] font-medium ' +
+                            (e.withdrawn ? 'line-through' : 'text-foreground')
                           }
-                          title={e.studentName}>
+                          title={e.studentName}
+                        >
                           {e.studentName}
                         </div>
                         <div className="flex items-center gap-1.5 truncate font-mono text-[10px] text-muted-foreground">
@@ -438,7 +528,8 @@ export function AttendanceWideGrid({
                             <Badge
                               variant="secondary"
                               className="gap-0.5 border-0 px-1.5 py-0 text-[10px] font-normal shadow-none"
-                              title="Bus number">
+                              title="Bus number"
+                            >
                               <Bus aria-hidden /> {e.busNo}
                             </Badge>
                           )}
@@ -446,7 +537,8 @@ export function AttendanceWideGrid({
                             <Badge
                               variant="secondary"
                               className="gap-0.5 border-0 px-1.5 py-0 text-[10px] font-normal shadow-none"
-                              title="Classroom officer">
+                              title="Classroom officer"
+                            >
                               <Star aria-hidden /> {e.classroomOfficerRole}
                             </Badge>
                           )}
@@ -460,7 +552,10 @@ export function AttendanceWideGrid({
 
             {/* ─── Calendar pane — scrolls horizontally ─── */}
             <div className="flex-1 overflow-x-auto">
-              <Table noWrapper className="border-separate border-spacing-0 table-fixed text-[11px]">
+              <Table
+                noWrapper
+                className="border-separate border-spacing-0 table-fixed text-[11px]"
+              >
                 <colgroup>
                   {columns.map((c) => (
                     <col key={c.iso} style={{ width: 36 }} />
@@ -468,42 +563,61 @@ export function AttendanceWideGrid({
                   <col style={{ width: 40 }} />
                 </colgroup>
                 <TableHeader>
-                  <TableRow style={{ height: ROW_HEIGHT.monthBanner }} className="hover:bg-transparent">
+                  <TableRow
+                    style={{ height: ROW_HEIGHT.monthBanner }}
+                    className="hover:bg-transparent"
+                  >
                     {monthGroups.map((g) => (
                       <TableHead
                         key={g.month}
                         colSpan={g.dates.length}
-                        className="h-auto border-b border-r border-border bg-muted/60 px-2 py-1.5 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                        className="h-auto border-b border-r border-border bg-muted/60 px-2 py-1.5 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+                      >
                         {g.label}
                       </TableHead>
                     ))}
                     <TableHead className="h-auto border-b border-border bg-muted/60 p-0" />
                   </TableRow>
-                  <TableRow style={{ height: ROW_HEIGHT.dateRow }} className="hover:bg-transparent">
+                  <TableRow
+                    style={{ height: ROW_HEIGHT.dateRow }}
+                    className="hover:bg-transparent"
+                  >
                     {columns.map((c) => {
                       const weekday = new Date(
                         Number(c.iso.slice(0, 4)),
                         Number(c.iso.slice(5, 7)) - 1,
-                        Number(c.iso.slice(8, 10)),
-                      ).toLocaleDateString("en-SG", { weekday: "short" });
-                      const eventLabel = c.events.map((e) => e.label).join(" · ");
+                        Number(c.iso.slice(8, 10))
+                      ).toLocaleDateString('en-SG', { weekday: 'short' });
+                      const eventLabel = c.events
+                        .map((e) => e.label)
+                        .join(' · ');
                       const dayTypeTitle = `${DAY_TYPE_LABELS[c.dayType]}${
-                        c.label ? ` · ${c.label}` : ""
-                      }${eventLabel ? ` · ${eventLabel}` : ""}`;
+                        c.label ? ` · ${c.label}` : ''
+                      }${eventLabel ? ` · ${eventLabel}` : ''}`;
                       const isToday = c.iso === todayIso;
-                      const headerChipLabel = DAY_TYPE_HEADER_CHIP_LABEL[c.dayType];
+                      const headerChipLabel =
+                        DAY_TYPE_HEADER_CHIP_LABEL[c.dayType];
                       return (
                         <TableHead
                           key={c.iso}
                           ref={isToday ? todayHeaderRef : undefined}
-                          title={isToday ? `Today · ${dayTypeTitle}` : dayTypeTitle}
+                          title={
+                            isToday ? `Today · ${dayTypeTitle}` : dayTypeTitle
+                          }
                           className={
-                            "h-auto overflow-hidden border-b border-border bg-muted/40 px-1 py-1 text-center font-mono text-[10px] font-semibold text-foreground " +
-                            (c.drawMonthBoundary ? " border-l-2 border-l-border" : "") +
-                            (isToday ? " relative ring-2 ring-inset ring-brand-indigo" : "")
-                          }>
+                            'h-auto overflow-hidden border-b border-border bg-muted/40 px-1 py-1 text-center font-mono text-[10px] font-semibold text-foreground ' +
+                            (c.drawMonthBoundary
+                              ? ' border-l-2 border-l-border'
+                              : '') +
+                            (isToday
+                              ? ' relative ring-2 ring-inset ring-brand-indigo'
+                              : '')
+                          }
+                        >
                           <div className="leading-tight">{c.iso.slice(-2)}</div>
-                          <div className="text-[9px] font-normal opacity-70">{weekday.slice(0, 3)}</div>
+                          <div className="text-[9px] font-normal opacity-70">
+                            {weekday.slice(0, 3)}
+                          </div>
                           {/* Day-type pill — same ChartLegendChip rendered in
                               the legend below, so the column header and the
                               legend chip read as the same affordance per §10. */}
@@ -517,7 +631,9 @@ export function AttendanceWideGrid({
                             </div>
                           )}
                           {c.events.length > 0 && (
-                            <div className="mt-0.5 truncate text-[9px] font-normal text-primary">★</div>
+                            <div className="mt-0.5 truncate text-[9px] font-normal text-primary">
+                              ★
+                            </div>
                           )}
                         </TableHead>
                       );
@@ -532,9 +648,10 @@ export function AttendanceWideGrid({
                       style={{ height: ROW_HEIGHT.body }}
                       className={
                         e.withdrawn
-                          ? "bg-muted/10 text-muted-foreground hover:bg-muted/10"
-                          : "odd:bg-muted/[0.04] hover:bg-muted/20"
-                      }>
+                          ? 'bg-muted/10 text-muted-foreground hover:bg-muted/10'
+                          : 'odd:bg-muted/[0.04] hover:bg-muted/20'
+                      }
+                    >
                       {columns.map((c) => {
                         const cell = cells.get(keyFor(e.enrolmentId, c.iso));
                         const status = cell?.status ?? null;
@@ -546,42 +663,64 @@ export function AttendanceWideGrid({
                           <TableCell
                             key={c.iso}
                             className={
-                              "overflow-hidden p-0 text-center align-middle " +
+                              'overflow-hidden p-0 text-center align-middle ' +
                               DAY_TYPE_CELL_BG[c.dayType] +
-                              (c.drawMonthBoundary ? " border-l-2 border-l-border" : "")
-                            }>
+                              (c.drawMonthBoundary
+                                ? ' border-l-2 border-l-border'
+                                : '')
+                            }
+                          >
                             {!c.encodable ? (
                               <span
                                 className="block px-1 py-1 text-[10px] text-muted-foreground"
-                                title={`${DAY_TYPE_LABELS[c.dayType]}${c.label ? ` · ${c.label}` : ""}`}>
+                                title={`${DAY_TYPE_LABELS[c.dayType]}${c.label ? ` · ${c.label}` : ''}`}
+                              >
                                 —
                               </span>
                             ) : (
-                              <div className={"relative " + statusChipGradient(status)}>
+                              <div
+                                className={
+                                  'relative ' + statusChipGradient(status)
+                                }
+                              >
                                 <select
                                   value={currentValue}
                                   disabled={disabled}
                                   onChange={(ev) => {
-                                    const decoded = decodeOption(ev.target.value as OptionValue);
+                                    const decoded = decodeOption(
+                                      ev.target.value as OptionValue
+                                    );
                                     if (!decoded) return;
-                                    void writeCell(e.enrolmentId, c.iso, decoded.status, decoded.exReason);
+                                    void writeCell(
+                                      e.enrolmentId,
+                                      c.iso,
+                                      decoded.status,
+                                      decoded.exReason
+                                    );
                                   }}
                                   className={
-                                    "w-full appearance-none bg-transparent px-1 py-1 text-center font-mono text-[11px] font-semibold uppercase tracking-[0.06em] focus:outline-none focus:ring-1 focus:ring-primary " +
-                                    (status ? "text-white" : "text-foreground")
+                                    'w-full appearance-none bg-transparent px-1 py-1 text-center font-mono text-[11px] font-semibold uppercase tracking-[0.06em] focus:outline-none focus:ring-1 focus:ring-primary ' +
+                                    (status ? 'text-white' : 'text-foreground')
                                   }
                                   title={
                                     status
                                       ? `${ATTENDANCE_STATUS_LABELS[status]}${
-                                          status === "EX" && exReason ? ` · ${EX_REASON_LABELS[exReason]}` : ""
+                                          status === 'EX' && exReason
+                                            ? ` · ${EX_REASON_LABELS[exReason]}`
+                                            : ''
                                         }`
-                                      : "Unmarked"
-                                  }>
+                                      : 'Unmarked'
+                                  }
+                                >
                                   {options.map((o) => (
-                                    <option key={o.value} value={o.value} className={"text-foreground"}>
-                                      {o.value === ""
-                                        ? "—"
-                                        : o.value.startsWith("EX:")
+                                    <option
+                                      key={o.value}
+                                      value={o.value}
+                                      className={'text-foreground'}
+                                    >
+                                      {o.value === ''
+                                        ? '—'
+                                        : o.value.startsWith('EX:')
                                           ? `E${o.value.slice(3, 4).toUpperCase()}`
                                           : o.value}
                                     </option>
@@ -622,12 +761,30 @@ export function AttendanceWideGrid({
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-foreground">
           <StatusLegendChip status="P" letter="P" description="Present" />
           <StatusLegendChip status="L" letter="L" description="Late" />
-          <StatusLegendChip status="EX" letter="EM" description="Excused · MC" />
-          <StatusLegendChip status="EX" letter="EV" description="Excused · Vacation leave" />
-          <StatusLegendChip status="EX" letter="EC" description="Excused · Compassionate" />
-          <StatusLegendChip status="EX" letter="ES" description="Excused · School activity" />
+          <StatusLegendChip
+            status="EX"
+            letter="EM"
+            description="Excused · MC"
+          />
+          <StatusLegendChip
+            status="EX"
+            letter="EV"
+            description="Excused · Vacation leave"
+          />
+          <StatusLegendChip
+            status="EX"
+            letter="EC"
+            description="Excused · Compassionate"
+          />
+          <StatusLegendChip
+            status="EX"
+            letter="ES"
+            description="Excused · School activity"
+          />
           <StatusLegendChip status="A" letter="A" description="Absent" />
-          {canWriteNc && <StatusLegendChip status="NC" letter="NC" description="No class" />}
+          {canWriteNc && (
+            <StatusLegendChip status="NC" letter="NC" description="No class" />
+          )}
         </div>
         <p className="mt-3 mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-indigo-deep">
           Calendar · column header
@@ -638,13 +795,35 @@ export function AttendanceWideGrid({
             on its column headers, so the legend chip just signals "this is
             what a teaching day looks like elsewhere in the SIS". */}
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-foreground">
-          <DayTypeLegendChip dayType="school_day" letter="·" description="School day (default)" />
-          <DayTypeLegendChip dayType="public_holiday" letter="PH" description="Public holiday" />
-          <DayTypeLegendChip dayType="school_holiday" letter="SH" description="School holiday" />
-          <DayTypeLegendChip dayType="hbl" letter="HBL" description="HBL · Attendance recorded" />
-          <DayTypeLegendChip dayType="no_class" letter="NC" description="No class" />
+          <DayTypeLegendChip
+            dayType="school_day"
+            letter="·"
+            description="School day (default)"
+          />
+          <DayTypeLegendChip
+            dayType="public_holiday"
+            letter="PH"
+            description="Public holiday"
+          />
+          <DayTypeLegendChip
+            dayType="school_holiday"
+            letter="SH"
+            description="School holiday"
+          />
+          <DayTypeLegendChip
+            dayType="hbl"
+            letter="HBL"
+            description="HBL · Attendance recorded"
+          />
+          <DayTypeLegendChip
+            dayType="no_class"
+            letter="NC"
+            description="No class"
+          />
         </div>
-        <p className="mt-3 text-[10px] text-muted-foreground">★ marks dates with a calendar event.</p>
+        <p className="mt-3 text-[10px] text-muted-foreground">
+          ★ marks dates with a calendar event.
+        </p>
       </Card>
     </div>
   );
@@ -666,7 +845,9 @@ function StatusLegendChip({
   return (
     <span className="inline-flex items-center gap-2">
       <ChartLegendChip color={STATUS_CHIP_COLOR[status]} label={letter} />
-      <span className="text-[12px] font-medium text-foreground">{description}</span>
+      <span className="text-[12px] font-medium text-foreground">
+        {description}
+      </span>
     </span>
   );
 }
@@ -686,7 +867,9 @@ function DayTypeLegendChip({
   return (
     <span className="inline-flex items-center gap-2">
       <ChartLegendChip color={DAY_TYPE_CHIP_COLOR[dayType]} label={letter} />
-      <span className="text-[12px] font-medium text-foreground">{description}</span>
+      <span className="text-[12px] font-medium text-foreground">
+        {description}
+      </span>
     </span>
   );
 }

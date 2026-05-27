@@ -26,6 +26,7 @@ Three email modules ship today (`email-parents-publication.ts`, `email-pfile-rem
 - Sender address (`RESEND_FROM_EMAIL`) changes — DMARC/SPF tied to current value; leave as-is.
 
 A new env var IS introduced for the absolute URL the change-request CTAs link to. See "New env var" below.
+
 - Plain-text email fallback. Not produced by current code; not adding.
 
 ## Decisions made during brainstorming
@@ -165,9 +166,11 @@ P-file reminder email (renewal)
 ## Files
 
 **New:**
+
 - `lib/notifications/email-frame.ts` — shared HFSE-corporate-branded frame primitive.
 
 **Modified:**
+
 - `lib/notifications/email-parents-publication.ts` — drop inline shell, call `renderEmailFrame`. Update CTA copy.
 - `lib/notifications/email-pfile-reminder.ts` — drop inline shell, call `renderEmailFrame`. Extend `ReminderContext` with `enroleeNumber` + `ayCode`. Build deep-link URL.
 - `lib/notifications/email-change-request.ts` — drop `baseFrame`, call `renderEmailFrame` from each `notifyRequest*`. Add CTAs per matrix above.
@@ -178,6 +181,7 @@ P-file reminder email (renewal)
 - `app/(markbook)/markbook/change-requests/change-requests-data-table.tsx` — read `req` + `action` URL params on mount, find the matching row, set its `controlledOpen` prop, scroll the row into view, clear the URL params via `router.replace` after the component reports consumed.
 
 **No changes:**
+
 - `proxy.ts` — existing session check already handles the `?next=` redirect for unauthed deep-links.
 - `lib/audit/log-action.ts`, `app/api/change-requests/*` — change-request mutation surface unchanged.
 - `RESEND_FROM_EMAIL` env var.

@@ -21,25 +21,25 @@ Positioning: cross-cutting design concern, similar in spirit to `11-performance-
 
 ## The end-to-end lifecycle (today's reality)
 
-| # | Stage | Surface today | Module |
-|---|---|---|---|
-| 0 | **Inquiry** | Tracked outside the SIS (admissions' own workflow) | — (Records Phase 4 SharePoint sync was dropped 2026-04-24) |
-| 1 | **Application** | `enrol.hfse.edu.sg` form → `ay{YY}_enrolment_applications` row | Parent portal → Admissions |
-| 2 | **Registration** | Records Stage tab → `registrationStatus` | Records |
-| 3 | **Documents** | Parent upload on enrolment portal + P-Files staff upload + Records validation (`{slotKey}Status = Valid / Rejected`) | P-Files + Records |
-| 4 | **Assessment** | Records Stage tab → `assessmentStatus` + math/english grades + medical | Records |
-| 5 | **Contract** | Records Stage tab → `contractStatus` | Records |
-| 6 | **Fees** | Records Stage tab → `feeStatus` + invoice + payment date + start date | Records |
-| 7 | **Class assignment** | Records Stage tab → `classStatus` + `classAY` + `classLevel` + `classSection` | Records |
-| 8 | **Supplies** | Records Stage tab → `suppliesStatus` + claimed date | Records |
-| 9 | **Orientation** | Records Stage tab → `orientationStatus` + schedule date | Records |
-| 10 | **Markbook sync** | Registrar clicks `/admin/sync-students` → populates `students` + `section_students` | Markbook |
-| 11 | **Grading** | Teacher enters scores per term; registrar locks sheets | Markbook |
-| 12 | **Attendance** | Term-summary entry today; planned daily in Attendance module | Markbook → Attendance |
-| 13 | **Report card publication** | Registrar sets `publish_from` / `publish_until`, parents emailed via Resend | Markbook |
-| 14 | **Parent view** | SSO handoff from parent portal → `/parent/report-cards/[studentId]` | Markbook (parent surface) |
-| 15 | **Re-enrolment** | Next AY cycle — new application row, same `studentNumber` (Hard Rule #4) | Records |
-| 15b | **Withdrawal** | Records Stage tab → `applicationStatus='Withdrawn'`; Markbook sync flips `section_students.enrollment_status='withdrawn'` | Records + Markbook |
+| #   | Stage                       | Surface today                                                                                                             | Module                                                     |
+| --- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| 0   | **Inquiry**                 | Tracked outside the SIS (admissions' own workflow)                                                                        | — (Records Phase 4 SharePoint sync was dropped 2026-04-24) |
+| 1   | **Application**             | `enrol.hfse.edu.sg` form → `ay{YY}_enrolment_applications` row                                                            | Parent portal → Admissions                                 |
+| 2   | **Registration**            | Records Stage tab → `registrationStatus`                                                                                  | Records                                                    |
+| 3   | **Documents**               | Parent upload on enrolment portal + P-Files staff upload + Records validation (`{slotKey}Status = Valid / Rejected`)      | P-Files + Records                                          |
+| 4   | **Assessment**              | Records Stage tab → `assessmentStatus` + math/english grades + medical                                                    | Records                                                    |
+| 5   | **Contract**                | Records Stage tab → `contractStatus`                                                                                      | Records                                                    |
+| 6   | **Fees**                    | Records Stage tab → `feeStatus` + invoice + payment date + start date                                                     | Records                                                    |
+| 7   | **Class assignment**        | Records Stage tab → `classStatus` + `classAY` + `classLevel` + `classSection`                                             | Records                                                    |
+| 8   | **Supplies**                | Records Stage tab → `suppliesStatus` + claimed date                                                                       | Records                                                    |
+| 9   | **Orientation**             | Records Stage tab → `orientationStatus` + schedule date                                                                   | Records                                                    |
+| 10  | **Markbook sync**           | Registrar clicks `/admin/sync-students` → populates `students` + `section_students`                                       | Markbook                                                   |
+| 11  | **Grading**                 | Teacher enters scores per term; registrar locks sheets                                                                    | Markbook                                                   |
+| 12  | **Attendance**              | Term-summary entry today; planned daily in Attendance module                                                              | Markbook → Attendance                                      |
+| 13  | **Report card publication** | Registrar sets `publish_from` / `publish_until`, parents emailed via Resend                                               | Markbook                                                   |
+| 14  | **Parent view**             | SSO handoff from parent portal → `/parent/report-cards/[studentId]`                                                       | Markbook (parent surface)                                  |
+| 15  | **Re-enrolment**            | Next AY cycle — new application row, same `studentNumber` (Hard Rule #4)                                                  | Records                                                    |
+| 15b | **Withdrawal**              | Records Stage tab → `applicationStatus='Withdrawn'`; Markbook sync flips `section_students.enrollment_status='withdrawn'` | Records + Markbook                                         |
 
 **Join-key spine:** `studentNumber` (stable cross-AY) threads through every row. `enroleeNumber` joins within a single AY's admissions tables. See `14-modules-overview.md` §"Shared student identity."
 
@@ -107,18 +107,19 @@ An append-only `lifecycle_events` table (one row per `student × ay × stage × 
 
 ## Scope boundaries
 
-| In scope (v1) | Out of scope (v1, revisit later) |
-|---|---|
-| Lifecycle view (read-only, derived from existing tables) | New `lifecycle_events` append-only table |
-| Dashboard aggregate widget on `/sis` | Per-student lifecycle PDF export |
-| Soft gates (advisory checklist) on Stage edit | Hard gates (route returns 400 if prerequisites unmet) |
-| Auto-completion on `documents` stage (all slots Valid) | Auto-completion chain triggering downstream stages |
+| In scope (v1)                                            | Out of scope (v1, revisit later)                       |
+| -------------------------------------------------------- | ------------------------------------------------------ |
+| Lifecycle view (read-only, derived from existing tables) | New `lifecycle_events` append-only table               |
+| Dashboard aggregate widget on `/sis`                     | Per-student lifecycle PDF export                       |
+| Soft gates (advisory checklist) on Stage edit            | Hard gates (route returns 400 if prerequisites unmet)  |
+| Auto-completion on `documents` stage (all slots Valid)   | Auto-completion chain triggering downstream stages     |
 | Auto-completion on `fees` stage (payment date populated) | Auto-trigger Markbook sync when `classStatus=Finished` |
-| Audit action `sis.stage.auto_complete` | Webhook / Edge Function / DB trigger infra |
+| Audit action `sis.stage.auto_complete`                   | Webhook / Edge Function / DB trigger infra             |
 
 ## Data model
 
 **No new tables for v1.** Everything derives from:
+
 - `ay{YY}_enrolment_status` (primary stage pipeline)
 - `ay{YY}_enrolment_documents.{slotKey}Status` (documents stage detail)
 - `students`, `section_students` (enrolment handoff signal)
@@ -126,6 +127,7 @@ An append-only `lifecycle_events` table (one row per `student × ay × stage × 
 - `audit_log` (forensics, existing)
 
 `lib/sis/process.ts` (new file) holds:
+
 - `STAGE_PREREQUISITES: Record<StageKey, PrerequisiteRule[]>` — checklist data
 - `AUTO_COMPLETE_RULES: Record<StageKey, AutoCompleteRule>` — which stages auto-flip
 - `getStudentLifecycle(enroleeNumber)` — composite read

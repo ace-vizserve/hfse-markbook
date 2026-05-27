@@ -24,12 +24,12 @@ export type SubjectConfigRow = {
   academic_year_id: string;
   subject_id: string;
   level_id: string;
-  ww_weight: number;  // stored as 0.00–1.00 in DB; UI converts
+  ww_weight: number; // stored as 0.00–1.00 in DB; UI converts
   pt_weight: number;
   qa_weight: number;
   ww_max_slots: number;
   pt_max_slots: number;
-  qa_max: number;  // max possible QA score, default 30 (Hard Rule #1 canonical)
+  qa_max: number; // max possible QA score, default 30 (Hard Rule #1 canonical)
 };
 
 export async function listSubjects(): Promise<SubjectRow[]> {
@@ -59,13 +59,13 @@ export async function listLevels(): Promise<LevelRow[]> {
 }
 
 export async function listSubjectConfigsForAy(
-  academicYearId: string,
+  academicYearId: string
 ): Promise<SubjectConfigRow[]> {
   const service = createServiceClient();
   const { data, error } = await service
     .from('subject_configs')
     .select(
-      'id, academic_year_id, subject_id, level_id, ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots, qa_max',
+      'id, academic_year_id, subject_id, level_id, ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots, qa_max'
     )
     .eq('academic_year_id', academicYearId);
   if (error) {

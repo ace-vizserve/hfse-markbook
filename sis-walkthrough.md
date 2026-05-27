@@ -10,13 +10,13 @@ This guide walks you through what the system is, why it replaces the old way of 
 
 The HFSE SIS is one application with five connected modules:
 
-| Module | What it handles | Who uses it most |
-| --- | --- | --- |
-| **Records** | Applicant pipeline, student profiles, family info, enrolment stages, discount codes | School admin, registrar |
-| **P-Files** | Every official document per student (passports, contracts, medical, etc.) | P-Files officers |
-| **Markbook** | Grading sheets, grade changes, report cards | Teachers, registrar, academic admin |
-| **Attendance** | Daily attendance, school calendar, holidays, compassionate-leave tracking | Teachers, registrar |
-| **SIS Admin** | Academic-year setup, approver routing, subject weights, system health | Superadmin |
+| Module         | What it handles                                                                     | Who uses it most                    |
+| -------------- | ----------------------------------------------------------------------------------- | ----------------------------------- |
+| **Records**    | Applicant pipeline, student profiles, family info, enrolment stages, discount codes | School admin, registrar             |
+| **P-Files**    | Every official document per student (passports, contracts, medical, etc.)           | P-Files officers                    |
+| **Markbook**   | Grading sheets, grade changes, report cards                                         | Teachers, registrar, academic admin |
+| **Attendance** | Daily attendance, school calendar, holidays, compassionate-leave tracking           | Teachers, registrar                 |
+| **SIS Admin**  | Academic-year setup, approver routing, subject weights, system health               | Superadmin                          |
 
 They are not separate apps. They are windows into the **same student record**. When you look at a student in Records, view their documents in P-Files, grade them in Markbook, and mark them present in Attendance, you are looking at one person with one permanent ID.
 
@@ -28,56 +28,56 @@ For years, HFSE ran on Google Sheets, Google Drive folders, Directus, and email 
 
 ### Enrolment & Records
 
-| Before | After |
-| --- | --- |
+| Before                                                      | After                                                     |
+| ----------------------------------------------------------- | --------------------------------------------------------- |
 | Applicant data scattered across Directus, Sheets, and email | One searchable list at `/records` with cross-year history |
-| Duplicate student entries across academic years | Permanent `studentNumber` that never resets |
-| No visibility on who's at which enrolment stage | 8-stage pipeline with counts and drill-down per applicant |
-| Family details retyped every year | Edit once — profile, family, and stage carry forward |
+| Duplicate student entries across academic years             | Permanent `studentNumber` that never resets               |
+| No visibility on who's at which enrolment stage             | 8-stage pipeline with counts and drill-down per applicant |
+| Family details retyped every year                           | Edit once — profile, family, and stage carry forward      |
 
 ### Documents (P-Files)
 
-| Before | After |
-| --- | --- |
-| Loose PDFs in Drive folders per student | Structured document slots per student with status badges |
-| Overwriting a file meant losing the old version | Every replacement auto-archives the previous version |
-| Multiple-page PDFs emailed and manually combined | Multi-PDF upload auto-merges into one file |
+| Before                                                 | After                                                               |
+| ------------------------------------------------------ | ------------------------------------------------------------------- |
+| Loose PDFs in Drive folders per student                | Structured document slots per student with status badges            |
+| Overwriting a file meant losing the old version        | Every replacement auto-archives the previous version                |
+| Multiple-page PDFs emailed and manually combined       | Multi-PDF upload auto-merges into one file                          |
 | No way to know which documents are missing or expiring | Dashboard shows "top missing" and "expiring in 30 days" at a glance |
 
 ### Grading (Markbook)
 
-| Before | After |
-| --- | --- |
-| Google Sheets formulas broke when teachers pasted scores | All computation is server-side; teachers only enter raw scores |
-| Blank cells silently counted as zero, dropping averages | Blank is preserved as "did not take"; zero is "took it, scored zero" |
-| Manual VLOOKUP across files to build report cards | Report card assembles itself from locked grades + attendance + comments |
+| Before                                                      | After                                                                       |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Google Sheets formulas broke when teachers pasted scores    | All computation is server-side; teachers only enter raw scores              |
+| Blank cells silently counted as zero, dropping averages     | Blank is preserved as "did not take"; zero is "took it, scored zero"        |
+| Manual VLOOKUP across files to build report cards           | Report card assembles itself from locked grades + attendance + comments     |
 | Grade changes handled by informal email with no paper trail | Structured change-request workflow with approver routing and full audit log |
-| New term meant copy-pasting a fresh workbook | New sheets auto-generate per subject × section × term |
+| New term meant copy-pasting a fresh workbook                | New sheets auto-generate per subject × section × term                       |
 
 ### Attendance
 
-| Before | After |
-| --- | --- |
-| Attendance tracked in a separate Excel per class per term | One Excel-style grid in the browser, auto-saves per cell |
-| Holidays and school days decided sheet by sheet | Central school calendar — set once, respected by every class |
-| Compassionate-leave allowance tracked on paper | Automatic quota chip per student, counts only compassionate leave |
-| Report card attendance % hand-calculated | Rolls up automatically into the published report card |
+| Before                                                    | After                                                             |
+| --------------------------------------------------------- | ----------------------------------------------------------------- |
+| Attendance tracked in a separate Excel per class per term | One Excel-style grid in the browser, auto-saves per cell          |
+| Holidays and school days decided sheet by sheet           | Central school calendar — set once, respected by every class      |
+| Compassionate-leave allowance tracked on paper            | Automatic quota chip per student, counts only compassionate leave |
+| Report card attendance % hand-calculated                  | Rolls up automatically into the published report card             |
 
 ### Reporting & Parent Access
 
-| Before | After |
-| --- | --- |
+| Before                                        | After                                                                    |
+| --------------------------------------------- | ------------------------------------------------------------------------ |
 | Physical report cards printed and distributed | Parents receive an email link; one click opens their child's report card |
-| Parents phoned the office to ask about status | Live publication windows control exactly when parents can view |
-| No record of which parent saw what, when | Every parent view and document access is logged |
+| Parents phoned the office to ask about status | Live publication windows control exactly when parents can view           |
+| No record of which parent saw what, when      | Every parent view and document access is logged                          |
 
 ### System-Wide
 
-| Before | After |
-| --- | --- |
-| No audit trail — "who changed this grade?" was unanswerable | Every mutation logs actor, action, entity, and context |
+| Before                                                      | After                                                                             |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| No audit trail — "who changed this grade?" was unanswerable | Every mutation logs actor, action, entity, and context                            |
 | Rolling over a new academic year took weeks of manual setup | Superadmin runs one wizard — terms, sections, subjects, teachers all copy forward |
-| Each role needed to know which file lived where | Role-aware dashboards show only what that person needs |
+| Each role needed to know which file lived where             | Role-aware dashboards show only what that person needs                            |
 
 ---
 
@@ -85,15 +85,15 @@ For years, HFSE ran on Google Sheets, Google Drive folders, Directus, and email 
 
 Each role sees a tailored version of the system. Nobody sees more than they need, and nobody has to click through screens that aren't theirs.
 
-| Role | Who | What they can do |
-| --- | --- | --- |
-| **Parent** | Enrolled student's parent or guardian | View published report cards, upload documents for their child |
-| **Teacher** | Subject teachers and form advisers | Enter raw scores, mark attendance, write report-card comments for assigned sections |
-| **P-Files Officer** | Document management staff | Upload, replace, validate, and archive student documents |
-| **Registrar** | Joann Clemente | Lock/unlock grading sheets, publish report cards, manage roster, apply approved grade changes |
-| **School Admin** | Office staff | Manage enrolment, validate documents in Records, run exports, oversee fees |
-| **Academic Admin** | Ms. Chandana, Ms. Tin | Approve or reject grade-change requests, oversee grading integrity |
-| **Superadmin** | Amier, CEO | Academic-year rollover, approver assignments, subject weights, destructive operations |
+| Role                | Who                                   | What they can do                                                                              |
+| ------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------- |
+| **Parent**          | Enrolled student's parent or guardian | View published report cards, upload documents for their child                                 |
+| **Teacher**         | Subject teachers and form advisers    | Enter raw scores, mark attendance, write report-card comments for assigned sections           |
+| **P-Files Officer** | Document management staff             | Upload, replace, validate, and archive student documents                                      |
+| **Registrar**       | Joann Clemente                        | Lock/unlock grading sheets, publish report cards, manage roster, apply approved grade changes |
+| **School Admin**    | Office staff                          | Manage enrolment, validate documents in Records, run exports, oversee fees                    |
+| **Academic Admin**  | Ms. Chandana, Ms. Tin                 | Approve or reject grade-change requests, oversee grading integrity                            |
+| **Superadmin**      | Amier, CEO                            | Academic-year rollover, approver assignments, subject weights, destructive operations         |
 
 If you can't see something, it's almost always because your role doesn't need it — not because something is broken.
 
@@ -107,7 +107,7 @@ This is the life of a student inside the SIS, from first application to year-end
 
 A parent applies at `enrol.hfse.edu.sg`. On submission the student is issued a **permanent `studentNumber`** that will follow them for their entire time at HFSE, even across academic years.
 
-*You don't do anything in the SIS for this step — the parent portal handles it. The applicant shows up automatically in Records.*
+_You don't do anything in the SIS for this step — the parent portal handles it. The applicant shows up automatically in Records._
 
 ### Step 2 — Records Processing
 
@@ -196,6 +196,7 @@ Open **Markbook → Report Cards**. For each section:
 4. Click **Publish**. Parents automatically receive an email with a magic link.
 
 Templates differ by term:
+
 - **Q1–Q3:** Interim template — three terms side by side, no final grade column.
 - **Q4:** Final template — all four terms, Final Grade column, general average, cumulative attendance.
 
@@ -231,6 +232,7 @@ When the school year ends, the superadmin runs the AY rollover wizard at `/sis/a
 4. If you need to correct a locked grade, click **Request Edit** on the sheet — fill in the new score, reason, and pick two approvers.
 
 **What you will not see:**
+
 - Other teachers' sheets
 - Admin panels
 - Report-card publication controls
@@ -295,6 +297,7 @@ You are **not** in the grade-change approval pool. Your job is structural oversi
 ### Records Module (`/records`)
 
 **Dashboard** — the operational admissions surface. You'll see:
+
 - Pipeline stage counts (Registration through Orientation)
 - Document backlog
 - Level distribution
@@ -306,6 +309,7 @@ You are **not** in the grade-change approval pool. Your job is structural oversi
 **Students list** (`/records/students`) — searchable, filterable table of every student across every AY. Search works on name, `studentNumber`, and `enroleeNumber`.
 
 **Student detail** — five tabs:
+
 - **Profile** — personal info, edit inline
 - **Family** — parents, guardians, contact
 - **Stages** — move the student through the 8-stage pipeline
@@ -317,6 +321,7 @@ You are **not** in the grade-change approval pool. Your job is structural oversi
 ### Markbook Module (`/markbook`)
 
 **Dashboard** — grading-specific only:
+
 - Grade distribution
 - Sheet lock progress
 - Change-request summary
@@ -378,6 +383,7 @@ Every student has a **permanent `studentNumber`** assigned at their very first a
 ### Blank Is Not Zero
 
 One of the most important distinctions in grading:
+
 - **Blank (`null`)** — "did not take the assessment." Excluded from averages entirely.
 - **Zero (`0`)** — "took it, scored zero." Fully counted.
 
@@ -392,6 +398,7 @@ If anyone asks "who changed this?", the answer is always retrievable.
 ### Role-Aware Dashboards
 
 Each module's landing page shows **only the data that module owns**:
+
 - Markbook dashboard = grading data only
 - P-Files dashboard = document data only
 - Records dashboard = admissions + documents + stages
@@ -411,15 +418,15 @@ Every user manages their own password at **Profile → Account → Change Passwo
 
 ## 8. A Typical Day at HFSE
 
-| Time | Who | What they do |
-| --- | --- | --- |
-| Morning | Teachers | Mark attendance in `/attendance/[section]` (2 min per class) |
-| Throughout the day | Teachers | Enter raw scores in Markbook grading grids as assessments get returned |
-| Late morning | P-Files staff | Process new parent document uploads; validate or reject |
-| Midday | School admin | Move applicants through the stage pipeline in Records |
-| Afternoon | Academic admin | Review pending grade-change requests |
-| End of day | Registrar | Lock any sheets past deadline; apply approved corrections |
-| As needed | Parents | Open their emailed report-card link; upload requested documents |
+| Time               | Who            | What they do                                                           |
+| ------------------ | -------------- | ---------------------------------------------------------------------- |
+| Morning            | Teachers       | Mark attendance in `/attendance/[section]` (2 min per class)           |
+| Throughout the day | Teachers       | Enter raw scores in Markbook grading grids as assessments get returned |
+| Late morning       | P-Files staff  | Process new parent document uploads; validate or reject                |
+| Midday             | School admin   | Move applicants through the stage pipeline in Records                  |
+| Afternoon          | Academic admin | Review pending grade-change requests                                   |
+| End of day         | Registrar      | Lock any sheets past deadline; apply approved corrections              |
+| As needed          | Parents        | Open their emailed report-card link; upload requested documents        |
 
 No module depends on another's daily rhythm. Everyone works in parallel, and the system keeps the shared student record consistent behind the scenes.
 
@@ -461,24 +468,24 @@ Nothing dramatic. Superadmin runs `/sis/ay-setup` → creates AY2027, copies sec
 
 ## 10. Glossary
 
-| Term | Meaning |
-| --- | --- |
-| **AY** | Academic Year — single calendar year, January through November (e.g., AY2026 = Jan–Nov 2026) |
-| **`studentNumber`** | Permanent student ID, persists across all academic years |
-| **`enroleeNumber`** | Per-AY working ID, resets each year — do not use for cross-year linking |
-| **WW / PT / QA** | Written Work / Performance Task / Quarterly Assessment — the three grading components |
-| **PS** | Percentage Score |
-| **Initial Grade** | Weighted sum of PS across WW/PT/QA before transmutation |
-| **Quarterly Grade** | Final term grade after DepEd transmutation |
-| **Form Adviser** | Homeroom teacher for a section; writes general comments on report cards |
-| **Subject Teacher** | Teacher assigned to a specific subject × section |
-| **Grading Sheet** | One sheet = one subject × one section × one term |
-| **Lock** | Registrar action that makes a sheet read-only — prevents further teacher edits |
-| **Change Request** | Structured workflow for correcting a locked grade |
-| **Publication Window** | `publish_from` to `publish_until` range controlling parent visibility of a report card |
-| **Compassionate Leave** | Leave reason that counts against a student's yearly quota (default 5 days) |
-| **School Calendar** | Central registry of school days, holidays, and events — set once, respected everywhere |
-| **Audit Log** | Append-only record of every system mutation with actor, action, and context |
+| Term                    | Meaning                                                                                      |
+| ----------------------- | -------------------------------------------------------------------------------------------- |
+| **AY**                  | Academic Year — single calendar year, January through November (e.g., AY2026 = Jan–Nov 2026) |
+| **`studentNumber`**     | Permanent student ID, persists across all academic years                                     |
+| **`enroleeNumber`**     | Per-AY working ID, resets each year — do not use for cross-year linking                      |
+| **WW / PT / QA**        | Written Work / Performance Task / Quarterly Assessment — the three grading components        |
+| **PS**                  | Percentage Score                                                                             |
+| **Initial Grade**       | Weighted sum of PS across WW/PT/QA before transmutation                                      |
+| **Quarterly Grade**     | Final term grade after DepEd transmutation                                                   |
+| **Form Adviser**        | Homeroom teacher for a section; writes general comments on report cards                      |
+| **Subject Teacher**     | Teacher assigned to a specific subject × section                                             |
+| **Grading Sheet**       | One sheet = one subject × one section × one term                                             |
+| **Lock**                | Registrar action that makes a sheet read-only — prevents further teacher edits               |
+| **Change Request**      | Structured workflow for correcting a locked grade                                            |
+| **Publication Window**  | `publish_from` to `publish_until` range controlling parent visibility of a report card       |
+| **Compassionate Leave** | Leave reason that counts against a student's yearly quota (default 5 days)                   |
+| **School Calendar**     | Central registry of school days, holidays, and events — set once, respected everywhere       |
+| **Audit Log**           | Append-only record of every system mutation with actor, action, and context                  |
 
 ---
 

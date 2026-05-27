@@ -44,7 +44,12 @@ export function MyRequestsCancelButton({ requestId }: { requestId: string }) {
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs"
+        >
           Cancel
         </Button>
       </AlertDialogTrigger>
@@ -61,7 +66,8 @@ export function MyRequestsCancelButton({ requestId }: { requestId: string }) {
           <AlertDialogAction
             onClick={() => void cancel()}
             disabled={busy}
-            className="bg-destructive text-white hover:bg-destructive/90">
+            className="bg-destructive text-white hover:bg-destructive/90"
+          >
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Cancel request
           </AlertDialogAction>

@@ -33,8 +33,18 @@ export function AssessmentOutcomesChart({
   onSegmentClick,
 }: AssessmentOutcomesChartProps) {
   const rows = [
-    { subject: 'Math', Pass: data.mathPass, Fail: data.mathFail, Unknown: data.mathUnknown },
-    { subject: 'English', Pass: data.engPass, Fail: data.engFail, Unknown: data.engUnknown },
+    {
+      subject: 'Math',
+      Pass: data.mathPass,
+      Fail: data.mathFail,
+      Unknown: data.mathUnknown,
+    },
+    {
+      subject: 'English',
+      Pass: data.engPass,
+      Fail: data.engFail,
+      Unknown: data.engUnknown,
+    },
   ];
   const empty = rows.every((r) => r.Pass + r.Fail + r.Unknown === 0);
 
@@ -57,17 +67,36 @@ export function AssessmentOutcomesChart({
         {empty ? (
           <div className="flex h-[220px] flex-col items-center justify-center gap-2 text-center">
             <ClipboardCheck className="size-6 text-muted-foreground/60" />
-            <p className="text-sm font-medium text-foreground">No assessment data</p>
+            <p className="text-sm font-medium text-foreground">
+              No assessment data
+            </p>
             <p className="max-w-xs text-xs text-muted-foreground">
               Pass rates appear once applicants have been assessed.
             </p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={rows} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-              <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis dataKey="subject" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} />
-              <YAxis stroke="var(--muted-foreground)" fontSize={12} allowDecimals={false} tickLine={false} />
+            <BarChart
+              data={rows}
+              margin={{ top: 8, right: 16, bottom: 8, left: 0 }}
+            >
+              <CartesianGrid
+                vertical={false}
+                stroke="var(--border)"
+                strokeDasharray="3 3"
+              />
+              <XAxis
+                dataKey="subject"
+                stroke="var(--muted-foreground)"
+                fontSize={12}
+                tickLine={false}
+              />
+              <YAxis
+                stroke="var(--muted-foreground)"
+                fontSize={12}
+                allowDecimals={false}
+                tickLine={false}
+              />
               <Tooltip
                 cursor={{ fill: 'var(--accent)' }}
                 contentStyle={{
@@ -78,7 +107,13 @@ export function AssessmentOutcomesChart({
                   fontSize: 12,
                 }}
               />
-              <Legend content={chartLegendContent({ Pass: 'chart-5', Fail: 'very-stale', Unknown: 'chart-2' })} />
+              <Legend
+                content={chartLegendContent({
+                  Pass: 'chart-5',
+                  Fail: 'very-stale',
+                  Unknown: 'chart-2',
+                })}
+              />
               <Bar
                 dataKey="Pass"
                 stackId="a"
@@ -86,8 +121,12 @@ export function AssessmentOutcomesChart({
                 onClick={
                   onSegmentClick
                     ? (barData) => {
-                        const subject = (barData as unknown as { subject?: string }).subject;
-                        onSegmentClick(`${subject === 'English' ? 'eng' : 'math'}:pass`);
+                        const subject = (
+                          barData as unknown as { subject?: string }
+                        ).subject;
+                        onSegmentClick(
+                          `${subject === 'English' ? 'eng' : 'math'}:pass`
+                        );
                       }
                     : undefined
                 }
@@ -100,8 +139,12 @@ export function AssessmentOutcomesChart({
                 onClick={
                   onSegmentClick
                     ? (barData) => {
-                        const subject = (barData as unknown as { subject?: string }).subject;
-                        onSegmentClick(`${subject === 'English' ? 'eng' : 'math'}:fail`);
+                        const subject = (
+                          barData as unknown as { subject?: string }
+                        ).subject;
+                        onSegmentClick(
+                          `${subject === 'English' ? 'eng' : 'math'}:fail`
+                        );
                       }
                     : undefined
                 }
@@ -115,8 +158,12 @@ export function AssessmentOutcomesChart({
                 onClick={
                   onSegmentClick
                     ? (barData) => {
-                        const subject = (barData as unknown as { subject?: string }).subject;
-                        onSegmentClick(`${subject === 'English' ? 'eng' : 'math'}:unknown`);
+                        const subject = (
+                          barData as unknown as { subject?: string }
+                        ).subject;
+                        onSegmentClick(
+                          `${subject === 'English' ? 'eng' : 'math'}:unknown`
+                        );
                       }
                     : undefined
                 }

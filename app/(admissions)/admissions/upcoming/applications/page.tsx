@@ -10,7 +10,10 @@ import {
   Sparkles,
 } from 'lucide-react';
 
-import { StudentDataTable, type StatusBucketDef } from '@/components/sis/student-data-table';
+import {
+  StudentDataTable,
+  type StatusBucketDef,
+} from '@/components/sis/student-data-table';
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
@@ -39,7 +42,11 @@ import { getSessionUser } from '@/lib/supabase/server';
 // document chase, not the upcoming AY where the registrar is just opening
 // the funnel.
 
-const ACTIVE_FUNNEL_STAGES = new Set(['Submitted', 'Ongoing Verification', 'Processing']);
+const ACTIVE_FUNNEL_STAGES = new Set([
+  'Submitted',
+  'Ongoing Verification',
+  'Processing',
+]);
 
 const STAGES: Array<{
   key: string;
@@ -48,14 +55,28 @@ const STAGES: Array<{
   icon: React.ComponentType<{ className?: string }>;
 }> = [
   { key: 'submitted', status: 'Submitted', label: 'Submitted', icon: Mail },
-  { key: 'ongoing-verification', status: 'Ongoing Verification', label: 'Ongoing Verification', icon: ClipboardList },
-  { key: 'processing', status: 'Processing', label: 'Processing', icon: Hourglass },
+  {
+    key: 'ongoing-verification',
+    status: 'Ongoing Verification',
+    label: 'Ongoing Verification',
+    icon: ClipboardList,
+  },
+  {
+    key: 'processing',
+    status: 'Processing',
+    label: 'Processing',
+    icon: Hourglass,
+  },
 ];
 
 const APPLICATIONS_STATUS_BUCKETS: StatusBucketDef[] = [
   { key: 'all', label: 'All' },
   { key: 'submitted', label: 'Submitted', statuses: ['Submitted'] },
-  { key: 'ongoing-verification', label: 'Ongoing Verification', statuses: ['Ongoing Verification'] },
+  {
+    key: 'ongoing-verification',
+    label: 'Ongoing Verification',
+    statuses: ['Ongoing Verification'],
+  },
   { key: 'processing', label: 'Processing', statuses: ['Processing'] },
 ];
 
@@ -98,12 +119,21 @@ export default async function UpcomingAdmissionsApplicationsPage() {
               <CalendarPlus className="size-5" />
             </div>
             <div className="space-y-1">
-              <div className="font-serif text-lg font-semibold text-foreground">No early-bird AY currently accepting applications</div>
+              <div className="font-serif text-lg font-semibold text-foreground">
+                No early-bird AY currently accepting applications
+              </div>
               <p className="text-[13px] text-muted-foreground">
-                When you&apos;re ready to open early-bird for the upcoming AY, create it (or open the existing
-                row) from <Link href="/sis/ay-setup" className="font-medium underline underline-offset-2">AY Setup</Link>{' '}
-                and toggle <strong>Open for apps</strong>. The parent portal will then accept submissions for that
-                AY and this page will list them.
+                When you&apos;re ready to open early-bird for the upcoming AY,
+                create it (or open the existing row) from{' '}
+                <Link
+                  href="/sis/ay-setup"
+                  className="font-medium underline underline-offset-2"
+                >
+                  AY Setup
+                </Link>{' '}
+                and toggle <strong>Open for apps</strong>. The parent portal
+                will then accept submissions for that AY and this page will list
+                them.
               </p>
             </div>
           </CardContent>
@@ -114,7 +144,7 @@ export default async function UpcomingAdmissionsApplicationsPage() {
 
   const allStudents = await listStudents(upcomingAy.ay_code, 'created_at_desc');
   const applications = allStudents.filter((s) =>
-    ACTIVE_FUNNEL_STAGES.has((s.applicationStatus ?? '').trim()),
+    ACTIVE_FUNNEL_STAGES.has((s.applicationStatus ?? '').trim())
   );
 
   const stageCounts: Record<string, number> = {
@@ -148,9 +178,12 @@ export default async function UpcomingAdmissionsApplicationsPage() {
             Early-bird applications.
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            Pre-enrolment pipeline for <strong>{upcomingAy.label}</strong>. Same workflow as the current AY —{' '}
-            <strong>Submitted</strong>, <strong>Ongoing Verification</strong>, or <strong>Processing</strong> —{' '}
-            running in parallel until <strong>{upcomingAy.ay_code}</strong> becomes the operational AY at rollover.
+            Pre-enrolment pipeline for <strong>{upcomingAy.label}</strong>. Same
+            workflow as the current AY — <strong>Submitted</strong>,{' '}
+            <strong>Ongoing Verification</strong>, or{' '}
+            <strong>Processing</strong> — running in parallel until{' '}
+            <strong>{upcomingAy.ay_code}</strong> becomes the operational AY at
+            rollover.
           </p>
         </div>
         <div className="flex flex-col items-start gap-2 md:items-end">
@@ -161,7 +194,10 @@ export default async function UpcomingAdmissionsApplicationsPage() {
             >
               {upcomingAy.ay_code}
             </Badge>
-            <Badge variant="success" className="h-7 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
+            <Badge
+              variant="success"
+              className="h-7 px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.14em]"
+            >
               <Sparkles className="mr-1 size-3" />
               Early-bird open
             </Badge>

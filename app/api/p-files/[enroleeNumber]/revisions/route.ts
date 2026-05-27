@@ -9,7 +9,7 @@ import { getDocumentRevisions } from '@/lib/p-files/queries';
 // Returns the archived revisions for one document slot, newest first.
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ enroleeNumber: string }> },
+  { params }: { params: Promise<{ enroleeNumber: string }> }
 ) {
   const auth = await requireRole(['p-file', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -21,7 +21,10 @@ export async function GET(
     return NextResponse.json({ error: 'slotKey is required' }, { status: 400 });
   }
   if (!DOCUMENT_SLOTS.some((s) => s.key === slotKey)) {
-    return NextResponse.json({ error: `invalid slotKey: ${slotKey}` }, { status: 400 });
+    return NextResponse.json(
+      { error: `invalid slotKey: ${slotKey}` },
+      { status: 400 }
+    );
   }
 
   const service = createServiceClient();

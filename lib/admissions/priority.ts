@@ -48,7 +48,7 @@ function displayName(row: AppRow): string {
 }
 
 async function loadNewApplicationsPriorityUncached(
-  ayCode: string,
+  ayCode: string
 ): Promise<PriorityPayload> {
   const prefix = prefixFor(ayCode);
   const supabase = createAdmissionsClient();
@@ -65,7 +65,7 @@ async function loadNewApplicationsPriorityUncached(
   if (statusErr) {
     console.error(
       '[admissions] getNewApplicationsPriority status fetch failed:',
-      statusErr.message,
+      statusErr.message
     );
     return emptyPayload();
   }
@@ -82,7 +82,7 @@ async function loadNewApplicationsPriorityUncached(
   const { data: appsData, error: appsErr } = await supabase
     .from(`${prefix}_enrolment_applications`)
     .select(
-      'enroleeNumber, enroleeFullName, firstName, lastName, levelApplied, created_at',
+      'enroleeNumber, enroleeFullName, firstName, lastName, levelApplied, created_at'
     )
     .in('enroleeNumber', submittedEnroleeNumbers)
     .order('created_at', { ascending: false });
@@ -90,12 +90,12 @@ async function loadNewApplicationsPriorityUncached(
   if (appsErr) {
     console.error(
       '[admissions] getNewApplicationsPriority apps fetch failed:',
-      appsErr.message,
+      appsErr.message
     );
   }
 
   const appsByEnrolee = new Map<string, AppRow>();
-  for (const a of ((appsData ?? []) as AppRow[])) {
+  for (const a of (appsData ?? []) as AppRow[]) {
     if (a.enroleeNumber) appsByEnrolee.set(a.enroleeNumber, a);
   }
 
@@ -133,7 +133,8 @@ async function loadNewApplicationsPriorityUncached(
     },
     chips,
     cta: {
-      label: count === 1 ? 'View application' : `View all ${count} new applications`,
+      label:
+        count === 1 ? 'View application' : `View all ${count} new applications`,
       href: `/admissions/applications?ay=${encodeURIComponent(ayCode)}`,
     },
     iconKey: 'list',
@@ -164,11 +165,13 @@ function daysSince(iso: string | null): number {
   return Math.floor(diffMs / (1000 * 60 * 60 * 24));
 }
 
-export function getNewApplicationsPriority(ayCode: string): Promise<PriorityPayload> {
+export function getNewApplicationsPriority(
+  ayCode: string
+): Promise<PriorityPayload> {
   return unstable_cache(
     loadNewApplicationsPriorityUncached,
     ['admissions', 'priority-new-applications', ayCode],
-    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS },
+    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS }
   )(ayCode);
 }
 
@@ -187,14 +190,18 @@ export type AdmissionsPriorityInput = {
 const PRIORITY_CACHE_TTL = 600;
 
 async function loadAdmissionsPriorityUncached(
-  input: AdmissionsPriorityInput,
+  input: AdmissionsPriorityInput
 ): Promise<PriorityPayload> {
   // Lazy import to keep the priority module decoupled from dashboard.ts
   // at type-resolution time (dashboard.ts already imports priority.ts via
   // the priority panel wrapper, so a direct top-level import here would
   // create a cycle).
-  const { getAdmissionsCompletenessForChase } = await import('@/lib/admissions/dashboard');
-  const { students } = await getAdmissionsCompletenessForChase(input.ayCode, 'all');
+  const { getAdmissionsCompletenessForChase } =
+    await import('@/lib/admissions/dashboard');
+  const { students } = await getAdmissionsCompletenessForChase(
+    input.ayCode,
+    'all'
+  );
 
   // Rank by total chase pressure (toFollow + rejected + expired) desc;
   // tiebreak by oldest submitted date asc — surfaces the
@@ -207,8 +214,12 @@ async function loadAdmissionsPriorityUncached(
       const aScore = a.toFollow + a.rejected + a.expired;
       const bScore = b.toFollow + b.rejected + b.expired;
       if (aScore !== bScore) return bScore - aScore;
-      const aDate = a.submittedDate ? Date.parse(a.submittedDate) : Number.POSITIVE_INFINITY;
-      const bDate = b.submittedDate ? Date.parse(b.submittedDate) : Number.POSITIVE_INFINITY;
+      const aDate = a.submittedDate
+        ? Date.parse(a.submittedDate)
+        : Number.POSITIVE_INFINITY;
+      const bDate = b.submittedDate
+        ? Date.parse(b.submittedDate)
+        : Number.POSITIVE_INFINITY;
       return aDate - bDate;
     });
 
@@ -234,7 +245,10 @@ async function loadAdmissionsPriorityUncached(
       // Rejected + Expired are hard "registrar said no" / "doc lapsed"
       // signals — escalate to 'bad'. To-follow alone is a soft commitment
       // signal — 'warn'.
-      severity: row.rejected > 0 || row.expired > 0 ? ('bad' as const) : ('warn' as const),
+      severity:
+        row.rejected > 0 || row.expired > 0
+          ? ('bad' as const)
+          : ('warn' as const),
     };
   });
 
@@ -246,7 +260,8 @@ async function loadAdmissionsPriorityUncached(
         : `${total.toLocaleString('en-SG')} applicants have documents needing a chase`,
     headline: {
       value: total,
-      label: total === 1 ? 'applicant in chase queue' : 'applicants in chase queue',
+      label:
+        total === 1 ? 'applicant in chase queue' : 'applicants in chase queue',
       severity: 'warn',
     },
     chips,
@@ -259,11 +274,11 @@ async function loadAdmissionsPriorityUncached(
 }
 
 export function getAdmissionsPriority(
-  input: AdmissionsPriorityInput,
+  input: AdmissionsPriorityInput
 ): Promise<PriorityPayload> {
   return unstable_cache(
     () => loadAdmissionsPriorityUncached(input),
     ['admissions', 'priority-chase', input.ayCode],
-    { tags: tag(input.ayCode), revalidate: PRIORITY_CACHE_TTL },
+    { tags: tag(input.ayCode), revalidate: PRIORITY_CACHE_TTL }
   )();
 }

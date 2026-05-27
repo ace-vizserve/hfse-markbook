@@ -1,24 +1,30 @@
-import { ArrowRight, CalendarCheck, Clock, UserCheck, UserX } from "lucide-react";
-import Link from "next/link";
-import { redirect } from "next/navigation";
+import {
+  ArrowRight,
+  CalendarCheck,
+  Clock,
+  UserCheck,
+  UserX,
+} from 'lucide-react';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
-import { AttendanceBySectionCard } from "@/components/attendance/drills/attendance-by-section-card";
-import { AttendanceDrillSheet } from "@/components/attendance/drills/attendance-drill-sheet";
+import { AttendanceBySectionCard } from '@/components/attendance/drills/attendance-by-section-card';
+import { AttendanceDrillSheet } from '@/components/attendance/drills/attendance-drill-sheet';
 import {
   DailyAttendanceDrillCard,
   DayTypeDrillCard,
   ExReasonDrillCard,
   TopAbsentDrillCard,
-} from "@/components/attendance/drills/chart-drill-cards";
-import { CompassionateQuotaCard } from "@/components/attendance/drills/compassionate-quota-card";
-import { VacationLeaveQuotaCard } from "@/components/attendance/drills/vacation-leave-quota-card";
-import { ComparisonToolbar } from "@/components/dashboard/comparison-toolbar";
-import { DashboardHero } from "@/components/dashboard/dashboard-hero";
-import { InsightsPanel } from "@/components/dashboard/insights-panel";
-import { MetricCard } from "@/components/dashboard/metric-card";
-import { PriorityPanel } from "@/components/dashboard/priority-panel";
-import { Button } from "@/components/ui/button";
-import { PageShell } from "@/components/ui/page-shell";
+} from '@/components/attendance/drills/chart-drill-cards';
+import { CompassionateQuotaCard } from '@/components/attendance/drills/compassionate-quota-card';
+import { VacationLeaveQuotaCard } from '@/components/attendance/drills/vacation-leave-quota-card';
+import { ComparisonToolbar } from '@/components/dashboard/comparison-toolbar';
+import { DashboardHero } from '@/components/dashboard/dashboard-hero';
+import { InsightsPanel } from '@/components/dashboard/insights-panel';
+import { MetricCard } from '@/components/dashboard/metric-card';
+import { PriorityPanel } from '@/components/dashboard/priority-panel';
+import { Button } from '@/components/ui/button';
+import { PageShell } from '@/components/ui/page-shell';
 import {
   getAttendanceKpisRange,
   getAttendancePriority,
@@ -26,38 +32,50 @@ import {
   getDayTypeDistributionRange,
   getExReasonMixRange,
   getTopAbsentRange,
-} from "@/lib/attendance/dashboard";
-import { buildAllRowSets } from "@/lib/attendance/drill";
-import { attendanceInsights } from "@/lib/dashboard/insights";
-import { formatRangeLabel, resolveRange, TERM_SCOPED_PRESETS, type DashboardSearchParams } from "@/lib/dashboard/range";
-import { getDashboardWindows } from "@/lib/dashboard/windows";
-import { getSchoolConfig } from "@/lib/sis/school-config";
-import { createClient, getSessionUser } from "@/lib/supabase/server";
+} from '@/lib/attendance/dashboard';
+import { buildAllRowSets } from '@/lib/attendance/drill';
+import { attendanceInsights } from '@/lib/dashboard/insights';
+import {
+  formatRangeLabel,
+  resolveRange,
+  TERM_SCOPED_PRESETS,
+  type DashboardSearchParams,
+} from '@/lib/dashboard/range';
+import { getDashboardWindows } from '@/lib/dashboard/windows';
+import { getSchoolConfig } from '@/lib/sis/school-config';
+import { createClient, getSessionUser } from '@/lib/supabase/server';
 
-export default async function AttendanceDashboard({ searchParams }: { searchParams: Promise<DashboardSearchParams> }) {
+export default async function AttendanceDashboard({
+  searchParams,
+}: {
+  searchParams: Promise<DashboardSearchParams>;
+}) {
   const session = await getSessionUser();
-  if (!session) redirect("/login");
+  if (!session) redirect('/login');
 
   // Teachers should still land on the section picker — the dashboard is
   // registrar+.
-  if (session.role === "teacher") redirect("/attendance/sections");
+  if (session.role === 'teacher') redirect('/attendance/sections');
 
   const supabase = await createClient();
   const { data: ay } = await supabase
-    .from("academic_years")
-    .select("id, ay_code, label")
-    .eq("is_current", true)
+    .from('academic_years')
+    .select('id, ay_code, label')
+    .eq('is_current', true)
     .single();
   if (!ay) {
     return (
       <PageShell>
-        <div className="text-sm text-destructive">No current academic year configured.</div>
+        <div className="text-sm text-destructive">
+          No current academic year configured.
+        </div>
       </PageShell>
     );
   }
 
   const resolvedSearch = await searchParams;
-  const selectedAy = typeof resolvedSearch.ay === "string" ? resolvedSearch.ay : ay.ay_code;
+  const selectedAy =
+    typeof resolvedSearch.ay === 'string' ? resolvedSearch.ay : ay.ay_code;
   const windows = await getDashboardWindows(selectedAy);
   const rangeInput = resolveRange(resolvedSearch, windows, selectedAy);
   const ayCodes = [ay.ay_code];
@@ -65,20 +83,25 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
   // Resolve current term for the VL quota card (KD #94 — VL is per-term).
   // Prefer the current-flagged term in the selected AY; fall back to T1.
   const { data: ayRow } = await supabase
-    .from("academic_years")
-    .select("id")
-    .eq("ay_code", selectedAy)
+    .from('academic_years')
+    .select('id')
+    .eq('ay_code', selectedAy)
     .maybeSingle();
   let currentTermId: string | null = null;
   let currentTermLabel: string | null = null;
   if (ayRow) {
     const ayId = (ayRow as { id: string }).id;
     const { data: termRow } = await supabase
-      .from("terms")
-      .select("id, label, term_number, is_current")
-      .eq("academic_year_id", ayId)
-      .order("term_number", { ascending: true });
-    type TermRow = { id: string; label: string; term_number: number; is_current: boolean };
+      .from('terms')
+      .select('id, label, term_number, is_current')
+      .eq('academic_year_id', ayId)
+      .order('term_number', { ascending: true });
+    type TermRow = {
+      id: string;
+      label: string;
+      term_number: number;
+      is_current: boolean;
+    };
     const terms = (termRow ?? []) as TermRow[];
     const active = terms.find((t) => t.is_current) ?? terms[0] ?? null;
     if (active) {
@@ -89,20 +112,21 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
 
   const schoolConfig = await getSchoolConfig();
 
-  const [kpisResult, dailySeries, exMix, topAbsent, dayTypes, drillRowSets] = await Promise.all([
-    getAttendanceKpisRange(rangeInput),
-    getDailyAttendanceRange(rangeInput),
-    getExReasonMixRange(rangeInput),
-    getTopAbsentRange(rangeInput, 10),
-    getDayTypeDistributionRange(rangeInput),
-    buildAllRowSets({
-      ayCode: selectedAy,
-      from: rangeInput.from,
-      to: rangeInput.to,
-      vacationTermId: currentTermId,
-      defaultVlAllowance: schoolConfig.defaultVlAllowancePerTerm,
-    }),
-  ]);
+  const [kpisResult, dailySeries, exMix, topAbsent, dayTypes, drillRowSets] =
+    await Promise.all([
+      getAttendanceKpisRange(rangeInput),
+      getDailyAttendanceRange(rangeInput),
+      getExReasonMixRange(rangeInput),
+      getTopAbsentRange(rangeInput, 10),
+      getDayTypeDistributionRange(rangeInput),
+      buildAllRowSets({
+        ayCode: selectedAy,
+        from: rangeInput.from,
+        to: rangeInput.to,
+        vacationTermId: currentTermId,
+        defaultVlAllowance: schoolConfig.defaultVlAllowancePerTerm,
+      }),
+    ]);
 
   // Priority depends on the freshly-loaded compassionate roll-up; compute
   // after buildAllRowSets so we don't refetch entries inside the loader.
@@ -151,7 +175,8 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
 
       {windows.activeTermFallback && (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-900 dark:text-amber-100">
-          Active term hasn&apos;t started yet. Showing the previous term&apos;s data as a default — pick a different range above to override.
+          Active term hasn&apos;t started yet. Showing the previous term&apos;s
+          data as a default — pick a different range above to override.
         </div>
       )}
 
@@ -177,7 +202,7 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
           value={kpisResult.current.attendancePct}
           format="percent"
           icon={UserCheck}
-          intent={kpisResult.current.attendancePct >= 95 ? "good" : "warning"}
+          intent={kpisResult.current.attendancePct >= 95 ? 'good' : 'warning'}
           delta={kpisResult.delta ?? undefined}
           deltaGoodWhen="up"
           comparisonLabel={comparisonLabel}
@@ -196,13 +221,16 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
           value={kpisResult.current.late}
           icon={Clock}
           intent={
-            kpisResult.comparison && kpisResult.current.late > kpisResult.comparison.late
-              ? "warning"
-              : "default"
+            kpisResult.comparison &&
+            kpisResult.current.late > kpisResult.comparison.late
+              ? 'warning'
+              : 'default'
           }
           deltaGoodWhen="down"
           subtext={
-            kpisResult.comparison ? `${kpisResult.comparison.late} prior` : undefined
+            kpisResult.comparison
+              ? `${kpisResult.comparison.late} prior`
+              : undefined
           }
           drillSheet={() => (
             <AttendanceDrillSheet
@@ -219,7 +247,9 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
           icon={CalendarCheck}
           intent="default"
           subtext={
-            kpisResult.comparison ? `${kpisResult.comparison.excused} prior` : undefined
+            kpisResult.comparison
+              ? `${kpisResult.comparison.excused} prior`
+              : undefined
           }
           drillSheet={() => (
             <AttendanceDrillSheet
@@ -234,10 +264,12 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
           label="Absences"
           value={kpisResult.current.absent}
           icon={UserX}
-          intent={kpisResult.current.absent > 0 ? "bad" : "good"}
+          intent={kpisResult.current.absent > 0 ? 'bad' : 'good'}
           deltaGoodWhen="down"
           subtext={
-            kpisResult.comparison ? `${kpisResult.comparison.absent} prior` : undefined
+            kpisResult.comparison
+              ? `${kpisResult.comparison.absent} prior`
+              : undefined
           }
           drillSheet={() => (
             <AttendanceDrillSheet
@@ -322,7 +354,10 @@ export default async function AttendanceDashboard({ searchParams }: { searchPara
         <CalendarCheck className="size-3" strokeWidth={2.25} />
         <span>{selectedAy}</span>
         <span className="text-border">·</span>
-        <span>{kpisResult.current.encodedDays.toLocaleString("en-SG")} school days marked</span>
+        <span>
+          {kpisResult.current.encodedDays.toLocaleString('en-SG')} school days
+          marked
+        </span>
         <span className="text-border">·</span>
         <span>Refreshes every 5 minutes</span>
       </div>

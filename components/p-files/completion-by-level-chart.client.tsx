@@ -36,7 +36,7 @@ export function CompletionByLevelChartImpl({
   }));
   const total = data.reduce(
     (sum, r) => sum + r.valid + r.pending + r.rejected + r.missing,
-    0,
+    0
   );
   const empty = total === 0;
 
@@ -59,15 +59,24 @@ export function CompletionByLevelChartImpl({
         {empty ? (
           <div className="flex h-[340px] flex-col items-center justify-center gap-2 text-center">
             <GraduationCap className="size-6 text-muted-foreground/60" />
-            <p className="text-sm font-medium text-foreground">No document data</p>
+            <p className="text-sm font-medium text-foreground">
+              No document data
+            </p>
             <p className="max-w-xs text-xs text-muted-foreground">
               Bars appear once students have a level assignment.
             </p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={340}>
-            <BarChart data={chartData} margin={{ top: 16, right: 16, bottom: 8, left: 0 }}>
-              <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
+            <BarChart
+              data={chartData}
+              margin={{ top: 16, right: 16, bottom: 8, left: 0 }}
+            >
+              <CartesianGrid
+                vertical={false}
+                stroke="var(--border)"
+                strokeDasharray="3 3"
+              />
               <XAxis
                 dataKey="short"
                 stroke="var(--muted-foreground)"
@@ -80,7 +89,12 @@ export function CompletionByLevelChartImpl({
                 textAnchor="end"
                 height={56}
               />
-              <YAxis stroke="var(--muted-foreground)" fontSize={12} allowDecimals={false} tickLine={false} />
+              <YAxis
+                stroke="var(--muted-foreground)"
+                fontSize={12}
+                allowDecimals={false}
+                tickLine={false}
+              />
               <Tooltip
                 cursor={{ fill: 'var(--accent)' }}
                 contentStyle={{
@@ -91,11 +105,20 @@ export function CompletionByLevelChartImpl({
                   fontSize: 12,
                 }}
                 labelFormatter={(_, payload) => {
-                  const p = payload?.[0]?.payload as LevelCompletionRow | undefined;
+                  const p = payload?.[0]?.payload as
+                    | LevelCompletionRow
+                    | undefined;
                   return p?.level ?? '';
                 }}
               />
-              <Legend content={chartLegendContent({ valid: 'chart-5', pending: 'chart-3', rejected: 'very-stale', missing: 'chart-2' })} />
+              <Legend
+                content={chartLegendContent({
+                  valid: 'chart-5',
+                  pending: 'chart-3',
+                  rejected: 'very-stale',
+                  missing: 'chart-2',
+                })}
+              />
               <Bar
                 dataKey="valid"
                 name="Valid"
@@ -103,11 +126,11 @@ export function CompletionByLevelChartImpl({
                 fill="var(--chart-5)"
                 onClick={
                   onSegmentClick
-                    ? ((d: unknown) => {
+                    ? (((d: unknown) => {
                         const p = d as { payload?: { level?: string } };
                         const lvl = p?.payload?.level;
                         if (lvl) onSegmentClick(lvl);
-                      }) as never
+                      }) as never)
                     : undefined
                 }
                 style={onSegmentClick ? { cursor: 'pointer' } : undefined}
@@ -119,11 +142,11 @@ export function CompletionByLevelChartImpl({
                 fill="var(--chart-3)"
                 onClick={
                   onSegmentClick
-                    ? ((d: unknown) => {
+                    ? (((d: unknown) => {
                         const p = d as { payload?: { level?: string } };
                         const lvl = p?.payload?.level;
                         if (lvl) onSegmentClick(lvl);
-                      }) as never
+                      }) as never)
                     : undefined
                 }
                 style={onSegmentClick ? { cursor: 'pointer' } : undefined}
@@ -135,11 +158,11 @@ export function CompletionByLevelChartImpl({
                 fill="var(--destructive)"
                 onClick={
                   onSegmentClick
-                    ? ((d: unknown) => {
+                    ? (((d: unknown) => {
                         const p = d as { payload?: { level?: string } };
                         const lvl = p?.payload?.level;
                         if (lvl) onSegmentClick(lvl);
-                      }) as never
+                      }) as never)
                     : undefined
                 }
                 style={onSegmentClick ? { cursor: 'pointer' } : undefined}
@@ -151,11 +174,11 @@ export function CompletionByLevelChartImpl({
                 fill="var(--muted-foreground)"
                 onClick={
                   onSegmentClick
-                    ? ((d: unknown) => {
+                    ? (((d: unknown) => {
                         const p = d as { payload?: { level?: string } };
                         const lvl = p?.payload?.level;
                         if (lvl) onSegmentClick(lvl);
-                      }) as never
+                      }) as never)
                     : undefined
                 }
                 style={onSegmentClick ? { cursor: 'pointer' } : undefined}

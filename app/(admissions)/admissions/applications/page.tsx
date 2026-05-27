@@ -12,7 +12,10 @@ import {
 
 import { AySwitcher } from '@/components/admissions/ay-switcher';
 import { CrossAySearch } from '@/components/sis/cross-ay-search';
-import { StudentDataTable, type StatusBucketDef } from '@/components/sis/student-data-table';
+import {
+  StudentDataTable,
+  type StatusBucketDef,
+} from '@/components/sis/student-data-table';
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
@@ -34,7 +37,12 @@ import { createServiceClient } from '@/lib/supabase/service';
 // one of these `?status=` values, the applicant list pre-filters to rows
 // with at least one slot in that bucket so the admissions team can chase
 // straight from this page.
-const CHASE_STATUS_VALUES = ['to-follow', 'rejected', 'uploaded', 'expired'] as const;
+const CHASE_STATUS_VALUES = [
+  'to-follow',
+  'rejected',
+  'uploaded',
+  'expired',
+] as const;
 type ChaseStatusFilter = (typeof CHASE_STATUS_VALUES)[number];
 
 const CHASE_STATUS_LABEL: Record<ChaseStatusFilter, string> = {
@@ -44,7 +52,9 @@ const CHASE_STATUS_LABEL: Record<ChaseStatusFilter, string> = {
   expired: 'Expired',
 };
 
-function parseChaseStatus(raw: string | undefined): ChaseStatusFilter | undefined {
+function parseChaseStatus(
+  raw: string | undefined
+): ChaseStatusFilter | undefined {
   if (!raw) return undefined;
   return (CHASE_STATUS_VALUES as readonly string[]).includes(raw)
     ? (raw as ChaseStatusFilter)
@@ -59,7 +69,11 @@ function parseChaseStatus(raw: string | undefined): ChaseStatusFilter | undefine
 //   belong on the in-flight list.
 // This is the admissions team's operational list — drop-off% across the 3
 // stages surfaces on the /admissions dashboard's InsightsPanel narrative.
-const ACTIVE_FUNNEL_STAGES = new Set(['Submitted', 'Ongoing Verification', 'Processing']);
+const ACTIVE_FUNNEL_STAGES = new Set([
+  'Submitted',
+  'Ongoing Verification',
+  'Processing',
+]);
 
 const STAGES: Array<{
   key: string;
@@ -68,8 +82,18 @@ const STAGES: Array<{
   icon: React.ComponentType<{ className?: string }>;
 }> = [
   { key: 'submitted', status: 'Submitted', label: 'Submitted', icon: Mail },
-  { key: 'ongoing-verification', status: 'Ongoing Verification', label: 'Ongoing Verification', icon: ClipboardList },
-  { key: 'processing', status: 'Processing', label: 'Processing', icon: Hourglass },
+  {
+    key: 'ongoing-verification',
+    status: 'Ongoing Verification',
+    label: 'Ongoing Verification',
+    icon: ClipboardList,
+  },
+  {
+    key: 'processing',
+    status: 'Processing',
+    label: 'Processing',
+    icon: Hourglass,
+  },
 ];
 
 // Bucket tabs on the applications table mirror the 3 funnel stages instead
@@ -81,7 +105,11 @@ const STAGES: Array<{
 const APPLICATIONS_STATUS_BUCKETS: StatusBucketDef[] = [
   { key: 'all', label: 'All' },
   { key: 'submitted', label: 'Submitted', statuses: ['Submitted'] },
-  { key: 'ongoing-verification', label: 'Ongoing Verification', statuses: ['Ongoing Verification'] },
+  {
+    key: 'ongoing-verification',
+    label: 'Ongoing Verification',
+    statuses: ['Ongoing Verification'],
+  },
   { key: 'processing', label: 'Processing', statuses: ['Processing'] },
 ];
 
@@ -106,20 +134,23 @@ export default async function AdmissionsApplicationsPage({
   if (!currentAy) {
     return (
       <PageShell>
-        <div className="text-sm text-destructive">No current academic year configured.</div>
+        <div className="text-sm text-destructive">
+          No current academic year configured.
+        </div>
       </PageShell>
     );
   }
 
   const { ay: ayParam, status: statusParam } = await searchParams;
   const ayCodes = await listAyCodes(service);
-  const selectedAy = ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
+  const selectedAy =
+    ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
   const isCurrentAy = selectedAy === currentAy.ay_code;
   const chaseStatus = parseChaseStatus(statusParam);
 
   const allStudents = await listStudents(selectedAy, 'created_at_desc');
   let applications = allStudents.filter((s) =>
-    ACTIVE_FUNNEL_STAGES.has((s.applicationStatus ?? '').trim()),
+    ACTIVE_FUNNEL_STAGES.has((s.applicationStatus ?? '').trim())
   );
 
   // Optional chase pre-filter — when ?status=to-follow|rejected|uploaded is
@@ -127,7 +158,10 @@ export default async function AdmissionsApplicationsPage({
   // slot in the matching state. Reuses the same helper that powers the
   // dashboard focused view so the row sets agree.
   if (chaseStatus) {
-    const { students: chaseRows } = await getAdmissionsCompletenessForChase(selectedAy, chaseStatus);
+    const { students: chaseRows } = await getAdmissionsCompletenessForChase(
+      selectedAy,
+      chaseStatus
+    );
     const allowed = new Set(chaseRows.map((r) => r.enroleeNumber));
     applications = applications.filter((s) => allowed.has(s.enroleeNumber));
   }
@@ -161,7 +195,9 @@ export default async function AdmissionsApplicationsPage({
       <header className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div className="space-y-3">
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            {chaseStatus ? `Admissions · ${CHASE_STATUS_LABEL[chaseStatus]}` : 'Admissions · Applications'}
+            {chaseStatus
+              ? `Admissions · ${CHASE_STATUS_LABEL[chaseStatus]}`
+              : 'Admissions · Applications'}
           </p>
           <h1 className="font-serif text-[38px] font-semibold leading-[1.05] tracking-tight text-foreground md:text-[44px]">
             {chaseStatus
@@ -171,17 +207,21 @@ export default async function AdmissionsApplicationsPage({
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
             {chaseStatus ? (
               <>
-                Pre-enrolment scope only. Applicants below have at least one document slot in the{' '}
-                <strong>{CHASE_STATUS_LABEL[chaseStatus]}</strong> state. Open the application to chase
-                from the Documents tab, or clear the filter to see every application in flight.
+                Pre-enrolment scope only. Applicants below have at least one
+                document slot in the{' '}
+                <strong>{CHASE_STATUS_LABEL[chaseStatus]}</strong> state. Open
+                the application to chase from the Documents tab, or clear the
+                filter to see every application in flight.
               </>
             ) : (
               <>
                 Every application currently in the un-enrolled pipeline —{' '}
-                <strong>Submitted</strong>, <strong>Ongoing Verification</strong>, or{' '}
+                <strong>Submitted</strong>,{' '}
+                <strong>Ongoing Verification</strong>, or{' '}
                 <strong>Processing</strong>. Once a student is classified as{' '}
-                <strong>Enrolled</strong>, their permanent cross-year record moves to Records.
-                Cancelled and Withdrawn applications are excluded from this list.
+                <strong>Enrolled</strong>, their permanent cross-year record
+                moves to Records. Cancelled and Withdrawn applications are
+                excluded from this list.
               </>
             )}
           </p>
@@ -248,8 +288,9 @@ export default async function AdmissionsApplicationsPage({
           <CrossAySearch />
         </CardContent>
         <CardFooter className="text-xs text-muted-foreground">
-          Matches on studentNumber, name, or enroleeNumber across every AY. Useful when
-          an applicant has applied before under a different AY or enrolee number.
+          Matches on studentNumber, name, or enroleeNumber across every AY.
+          Useful when an applicant has applied before under a different AY or
+          enrolee number.
         </CardFooter>
       </Card>
 

@@ -25,7 +25,10 @@ export const LIFECYCLE_SEVERITY_TILE: Record<Severity, string> = {
   info: 'bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile',
 };
 
-export const LIFECYCLE_SEVERITY_BADGE_COLOR: Record<Severity, ChartLegendChipColor> = {
+export const LIFECYCLE_SEVERITY_BADGE_COLOR: Record<
+  Severity,
+  ChartLegendChipColor
+> = {
   good: 'fresh',
   warn: 'stale',
   bad: 'very-stale',

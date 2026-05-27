@@ -2,7 +2,12 @@ import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 
 import { createServiceClient } from '@/lib/supabase/service';
-import { toISODate, type AYWindows, type DateRange, type TermWindows } from './range';
+import {
+  toISODate,
+  type AYWindows,
+  type DateRange,
+  type TermWindows,
+} from './range';
 
 /**
  * Server-side window resolver — turns the `terms` table into the
@@ -36,16 +41,20 @@ async function loadTermsUncached(): Promise<TermRow[]> {
   const { data, error } = await supabase
     .from('terms')
     .select(
-      'id, academic_year_id, term_number, start_date, end_date, is_current, academic_years!inner(ay_code)',
+      'id, academic_year_id, term_number, start_date, end_date, is_current, academic_years!inner(ay_code)'
     )
     .order('start_date', { ascending: true, nullsFirst: false });
   if (error) {
     console.error('[dashboard/windows] loadTerms failed', error);
     return [];
   }
-  type JoinedRow = Omit<TermRow, 'ay_code'> & { academic_years: { ay_code: string } | { ay_code: string }[] };
-  return (data as JoinedRow[] | null ?? []).map((row) => {
-    const ay = Array.isArray(row.academic_years) ? row.academic_years[0] : row.academic_years;
+  type JoinedRow = Omit<TermRow, 'ay_code'> & {
+    academic_years: { ay_code: string } | { ay_code: string }[];
+  };
+  return ((data as JoinedRow[] | null) ?? []).map((row) => {
+    const ay = Array.isArray(row.academic_years)
+      ? row.academic_years[0]
+      : row.academic_years;
     return {
       id: row.id,
       academic_year_id: row.academic_year_id,
@@ -58,17 +67,21 @@ async function loadTermsUncached(): Promise<TermRow[]> {
   });
 }
 
-const loadTerms = unstable_cache(loadTermsUncached, ['dashboard', 'windows', 'terms'], {
-  revalidate: 300,
-  tags: ['dashboard-windows'],
-});
+const loadTerms = unstable_cache(
+  loadTermsUncached,
+  ['dashboard', 'windows', 'terms'],
+  {
+    revalidate: 300,
+    tags: ['dashboard-windows'],
+  }
+);
 
 // cache() gives request-scoped dedup: a KPI grid calling getDashboardWindows
 // for the same AY 4+ times pays one DB round-trip per request (loadTerms is
 // already cross-request cached via unstable_cache, but this eliminates the
 // repeated JS computation too). cache() accepts the service client per KD #54.
 export const getDashboardWindows = cache(async function getDashboardWindowsImpl(
-  ayCode: string,
+  ayCode: string
 ): Promise<{ term: TermWindows; ay: AYWindows; activeTermFallback: boolean }> {
   const terms = await loadTerms();
   const today = toISODate(new Date());
@@ -85,24 +98,34 @@ export const getDashboardWindows = cache(async function getDashboardWindowsImpl(
     sortedAy[0] ??
     null;
 
-  const thisTermInAy: DateRange | null = current?.start_date && current.end_date
-    ? { from: current.start_date, to: current.end_date }
-    : null;
+  const thisTermInAy: DateRange | null =
+    current?.start_date && current.end_date
+      ? { from: current.start_date, to: current.end_date }
+      : null;
 
   // Active-term fallback: when no term in CURRENT AY contains today and no
   // is_current flag is set, look across prior AYs for the most recently
   // finished term. The picker presets stay AY-scoped (T1–T4 of current AY)
   // but `thisTerm` becomes useful for default-range purposes.
   const hasTodayInCurrent = sortedAy.some(
-    (t) => t.start_date! <= today && today <= t.end_date!,
+    (t) => t.start_date! <= today && today <= t.end_date!
   );
   let priorAyLastTerm: DateRange | null = null;
   if (!hasTodayInCurrent && !sortedAy.some((t) => t.is_current)) {
     const priorFinished = terms
-      .filter((t) => t.ay_code !== ayCode && t.start_date && t.end_date && t.end_date! < today)
+      .filter(
+        (t) =>
+          t.ay_code !== ayCode &&
+          t.start_date &&
+          t.end_date &&
+          t.end_date! < today
+      )
       .sort((a, b) => (a.end_date! < b.end_date! ? 1 : -1))[0];
     if (priorFinished) {
-      priorAyLastTerm = { from: priorFinished.start_date!, to: priorFinished.end_date! };
+      priorAyLastTerm = {
+        from: priorFinished.start_date!,
+        to: priorFinished.end_date!,
+      };
     }
   }
 
@@ -113,14 +136,29 @@ export const getDashboardWindows = cache(async function getDashboardWindowsImpl(
   // Banner flag — page RSC renders "showing previous term" hint.
   const activeTermFallback = !hasTodayInCurrent && priorAyLastTerm !== null;
   if (process.env.NODE_ENV === 'development' && activeTermFallback) {
-    console.warn(`[dashboard/windows] activeTermFallback triggered for ${ayCode} — is_current may not be set on the new AY's terms`);
+    console.warn(
+      `[dashboard/windows] activeTermFallback triggered for ${ayCode} — is_current may not be set on the new AY's terms`
+    );
   }
 
   // Per-term-number lookup for T1/T2/T3/T4 presets.
-  const byNumber: TermWindows['byNumber'] = { 1: null, 2: null, 3: null, 4: null };
+  const byNumber: TermWindows['byNumber'] = {
+    1: null,
+    2: null,
+    3: null,
+    4: null,
+  };
   for (const t of sortedAy) {
-    if (t.term_number >= 1 && t.term_number <= 4 && t.start_date && t.end_date) {
-      byNumber[t.term_number as 1 | 2 | 3 | 4] = { from: t.start_date, to: t.end_date };
+    if (
+      t.term_number >= 1 &&
+      t.term_number <= 4 &&
+      t.start_date &&
+      t.end_date
+    ) {
+      byNumber[t.term_number as 1 | 2 | 3 | 4] = {
+        from: t.start_date,
+        to: t.end_date,
+      };
     }
   }
 
@@ -129,9 +167,10 @@ export const getDashboardWindows = cache(async function getDashboardWindowsImpl(
         .filter((t) => t.end_date! < current.start_date!)
         .sort((a, b) => (a.end_date! < b.end_date! ? 1 : -1))[0]
     : null;
-  const lastTerm: DateRange | null = prior?.start_date && prior.end_date
-    ? { from: prior.start_date, to: prior.end_date }
-    : null;
+  const lastTerm: DateRange | null =
+    prior?.start_date && prior.end_date
+      ? { from: prior.start_date, to: prior.end_date }
+      : null;
 
   // thisAY: prefer the actual term-spanning window when the AY has terms
   // with dates. Test AYs (e.g. AY9999) carry a code that doesn't match
@@ -191,4 +230,3 @@ function computePriorAyCode(ayCode: string): string | null {
   if (!m) return null;
   return `AY${Number(m[1]) - 1}`;
 }
-

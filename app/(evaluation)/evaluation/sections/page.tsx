@@ -66,7 +66,9 @@ export default async function EvaluationSectionsPickerPage({
   if (!ay) {
     return (
       <PageShell>
-        <div className="text-sm text-destructive">No current academic year configured.</div>
+        <div className="text-sm text-destructive">
+          No current academic year configured.
+        </div>
       </PageShell>
     );
   }
@@ -85,7 +87,9 @@ export default async function EvaluationSectionsPickerPage({
     is_current: boolean;
   };
   // T4 is excluded — the T4 final card has no comment section (KD #49).
-  const terms = ((termsRaw ?? []) as TermRow[]).filter((t) => t.term_number !== 4);
+  const terms = ((termsRaw ?? []) as TermRow[]).filter(
+    (t) => t.term_number !== 4
+  );
 
   // `?term=<1|2|3>` is the sidebar-Quicklink contract — resolve the semantic
   // number into the AY's term_id. `?term_id=<uuid>` is the canonical form (used
@@ -96,7 +100,11 @@ export default async function EvaluationSectionsPickerPage({
     : undefined;
 
   const defaultTermId =
-    sp.term_id ?? termIdFromNumber ?? terms.find((t) => t.is_current)?.id ?? terms[0]?.id ?? '';
+    sp.term_id ??
+    termIdFromNumber ??
+    terms.find((t) => t.is_current)?.id ??
+    terms[0]?.id ??
+    '';
   const selectedTerm = terms.find((t) => t.id === defaultTermId) ?? null;
 
   // Sections: teachers see every section they have any assignment in
@@ -115,7 +123,7 @@ export default async function EvaluationSectionsPickerPage({
   ).map((s) => ({
     id: s.id,
     name: s.name,
-    level: Array.isArray(s.level) ? s.level[0] ?? null : s.level,
+    level: Array.isArray(s.level) ? (s.level[0] ?? null) : s.level,
   }));
 
   // For teachers, resolve both assignment sets in parallel then filter.
@@ -128,7 +136,9 @@ export default async function EvaluationSectionsPickerPage({
       listFormAdviserSectionIds(sessionUser.id),
       listSubjectTeacherSectionIds(sessionUser.id),
     ]);
-    sections = sections.filter((s) => adviserSet.has(s.id) || subjectTeacherSet.has(s.id));
+    sections = sections.filter(
+      (s) => adviserSet.has(s.id) || subjectTeacherSet.has(s.id)
+    );
   }
 
   const sectionIds = sections.map((s) => s.id);
@@ -139,7 +149,10 @@ export default async function EvaluationSectionsPickerPage({
         getWriteupProgressByTerm(selectedTerm.id, sectionIds),
         getChecklistTopicCountByTerm(selectedTerm.id, sections),
       ])
-    : [{} as Record<string, { active_count: number; submitted_count: number }>, {} as Record<string, number>];
+    : [
+        {} as Record<string, { active_count: number; submitted_count: number }>,
+        {} as Record<string, number>,
+      ];
 
   const sorted = sections.slice().sort((a, b) => {
     const ca = a.level?.code ?? '';
@@ -154,8 +167,11 @@ export default async function EvaluationSectionsPickerPage({
     new Map(
       sorted
         .filter((s) => s.level?.id)
-        .map((s) => [s.level!.id, { id: s.level!.id, code: s.level!.code, label: s.level!.label }]),
-    ).values(),
+        .map((s) => [
+          s.level!.id,
+          { id: s.level!.id, code: s.level!.code, label: s.level!.label },
+        ])
+    ).values()
   );
 
   // Write-up progress stats are only meaningful for adviser sections.
@@ -171,7 +187,8 @@ export default async function EvaluationSectionsPickerPage({
     .reduce((n, [, p]) => n + (p?.submitted_count ?? 0), 0);
   const completePct =
     totalActive === 0 ? 0 : Math.round((totalSubmitted / totalActive) * 100);
-  const levelCount = new Set(sorted.map((s) => s.level?.label).filter(Boolean)).size;
+  const levelCount = new Set(sorted.map((s) => s.level?.label).filter(Boolean))
+    .size;
 
   // Is this teacher exclusively a subject teacher with no advisory sections?
   const isSubjectTeacherOnly = isTeacher && adviserSet.size === 0;
@@ -309,7 +326,11 @@ export default async function EvaluationSectionsPickerPage({
                     ? '—'
                     : `${totalSubmitted.toLocaleString('en-SG')} of ${totalActive.toLocaleString('en-SG')}`
                 }
-                footerDetail={selectedTerm ? `${selectedTerm.label} progress` : 'No term selected'}
+                footerDetail={
+                  selectedTerm
+                    ? `${selectedTerm.label} progress`
+                    : 'No term selected'
+                }
               />
             )}
           </div>
@@ -343,7 +364,9 @@ export default async function EvaluationSectionsPickerPage({
             <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               {sorted.length} {sorted.length === 1 ? 'section' : 'sections'}
               {selectedTerm && (
-                <span className="ml-2 text-muted-foreground/50">· {selectedTerm.label}</span>
+                <span className="ml-2 text-muted-foreground/50">
+                  · {selectedTerm.label}
+                </span>
               )}
             </p>
           </div>
@@ -360,7 +383,10 @@ export default async function EvaluationSectionsPickerPage({
                 levelId: s.level?.id ?? null,
                 levelLabel: s.level?.label ?? null,
                 isAdviserSection,
-                isAlsoBoth: isTeacher && adviserSet.has(s.id) && subjectTeacherSet.has(s.id),
+                isAlsoBoth:
+                  isTeacher &&
+                  adviserSet.has(s.id) &&
+                  subjectTeacherSet.has(s.id),
                 isSubjectTeacherOnly: isTeacher && !adviserSet.has(s.id),
                 active: p?.active_count ?? 0,
                 submitted: p?.submitted_count ?? 0,

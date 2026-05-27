@@ -36,7 +36,7 @@ type AuditInsert = {
 
 export async function seedMovements(
   service: SupabaseClient,
-  testAy: { id: string; ay_code: string },
+  testAy: { id: string; ay_code: string }
 ): Promise<number> {
   // Idempotency: skip if this AY already has any seeded transfer rows.
   const { count: existingTransferCount } = await service
@@ -69,7 +69,7 @@ export async function seedMovements(
   const { data: ssRows } = await service
     .from('section_students')
     .select(
-      'id, enrolee_number, sections!inner(id, name, academic_year_id, levels!inner(code, label))',
+      'id, enrolee_number, sections!inner(id, name, academic_year_id, levels!inner(code, label))'
     )
     .eq('sections.academic_year_id', testAy.id);
 
@@ -80,12 +80,16 @@ export async function seedMovements(
       | {
           id: string;
           name: string;
-          levels: { code: string; label: string } | { code: string; label: string }[];
+          levels:
+            | { code: string; label: string }
+            | { code: string; label: string }[];
         }
       | {
           id: string;
           name: string;
-          levels: { code: string; label: string } | { code: string; label: string }[];
+          levels:
+            | { code: string; label: string }
+            | { code: string; label: string }[];
         }[];
   };
   const roster = ((ssRows ?? []) as SsRow[]).map((r) => {
@@ -109,7 +113,10 @@ export async function seedMovements(
 
   // Group sections by level so each transfer can pick a sibling section at
   // the same level (matches Hard Rule + KD #67's same-level constraint).
-  const sectionsByLevel = new Map<string, Array<{ id: string; name: string }>>();
+  const sectionsByLevel = new Map<
+    string,
+    Array<{ id: string; name: string }>
+  >();
   for (const s of roster) {
     if (!s.levelCode) continue;
     let list = sectionsByLevel.get(s.levelCode);
@@ -133,8 +140,11 @@ export async function seedMovements(
   const transferEligible = roster.filter((r) => !!r.enroleeNumber);
 
   const rand = mulberry32(hashString(`${testAy.ay_code}:movements`));
-  const pick = <T,>(arr: T[]): T => arr[Math.floor(rand() * arr.length)];
-  const dateInWindow = (start: string, end: string): { date: string; iso: string } => {
+  const pick = <T>(arr: T[]): T => arr[Math.floor(rand() * arr.length)];
+  const dateInWindow = (
+    start: string,
+    end: string
+  ): { date: string; iso: string } => {
     const s = new Date(start).getTime();
     const e = new Date(end).getTime();
     const t = s + Math.floor(rand() * Math.max(1, e - s));
@@ -150,7 +160,7 @@ export async function seedMovements(
     .filter(
       (s) =>
         !!s.enroleeNumber &&
-        (sectionsByLevel.get(s.levelCode)?.length ?? 0) >= 2,
+        (sectionsByLevel.get(s.levelCode)?.length ?? 0) >= 2
     )
     .slice(0, 5);
   const used = new Set(transferPicks.map((s) => s.id));
@@ -162,7 +172,7 @@ export async function seedMovements(
 
   for (const s of transferPicks) {
     const siblings = (sectionsByLevel.get(s.levelCode) ?? []).filter(
-      (x) => x.id !== s.sectionId,
+      (x) => x.id !== s.sectionId
     );
     if (siblings.length === 0) continue;
     const target = pick(siblings);
@@ -259,7 +269,7 @@ export async function seedMovements(
     if (error) {
       console.error(
         `[populated seeder] movements audit insert failed for action=${row.action} entity_id=${row.entity_id}:`,
-        error.message,
+        error.message
       );
       continue;
     }

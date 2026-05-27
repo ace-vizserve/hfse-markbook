@@ -30,7 +30,13 @@ function _loadTermsForAYUncached(ayCode: string): Promise<TermWindow[]> {
         .eq('academic_year_id', (ayRow as { id: string }).id);
       if (!termRows) return [];
 
-      return (termRows as Array<{ term_number: number; start_date: string | null; end_date: string | null }>)
+      return (
+        termRows as Array<{
+          term_number: number;
+          start_date: string | null;
+          end_date: string | null;
+        }>
+      )
         .filter((t) => t.start_date && t.end_date)
         .map((t) => ({
           termNumber: t.term_number,
@@ -39,7 +45,7 @@ function _loadTermsForAYUncached(ayCode: string): Promise<TermWindow[]> {
         }));
     },
     [`sis-terms-${ayCode}`],
-    { revalidate: 300, tags: ['sis', `sis:${ayCode}`] },
+    { revalidate: 300, tags: ['sis', `sis:${ayCode}`] }
   )();
 }
 
@@ -54,7 +60,7 @@ export function loadTermsForAY(ayCode: string): Promise<TermWindow[]> {
 export async function getTermForDate(
   date: string,
   ayCode: string,
-  _service?: SupabaseClient,
+  _service?: SupabaseClient
 ): Promise<TermInfo | null> {
   const terms = await loadTermsForAY(ayCode);
   const match = terms.find((t) => t.startDate <= date && t.endDate >= date);
@@ -68,7 +74,7 @@ export async function getTermForDate(
 // per-AY loader in parallel so cache slots are shared across callers.
 export async function preloadTermsForAYs(
   ayCodes: string[],
-  _service?: SupabaseClient,
+  _service?: SupabaseClient
 ): Promise<Map<string, TermWindow[]>> {
   if (ayCodes.length === 0) return new Map();
   const results = await Promise.all(ayCodes.map((ay) => loadTermsForAY(ay)));
@@ -82,7 +88,7 @@ export async function preloadTermsForAYs(
 // "Mark as late enrollee?" prompt.
 export async function detectMidTermEnrolment(
   ayCode: string,
-  _service?: SupabaseClient,
+  _service?: SupabaseClient
 ): Promise<TermInfo | null> {
   const today = new Date().toISOString().slice(0, 10);
   const term = await getTermForDate(today, ayCode);
@@ -95,7 +101,7 @@ export async function detectMidTermEnrolment(
 export function termForDateInPreloaded(
   date: string,
   ayCode: string,
-  preloaded: Map<string, TermWindow[]>,
+  preloaded: Map<string, TermWindow[]>
 ): TermInfo | null {
   const terms = preloaded.get(ayCode);
   if (!terms) return null;

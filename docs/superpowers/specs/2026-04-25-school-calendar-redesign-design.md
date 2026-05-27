@@ -61,19 +61,19 @@ One recipe, driven by `DAY_TYPE_STYLES` (existing map, updated). Three stacked e
 
 ### 4.1 Per-type recipe table
 
-| Day type | Cell bg | Inset ring | Chip gradient (A only) | Text color |
-|---|---|---|---|---|
-| `school_day` | `bg-brand-mint/50` | mint / chart-5 at 35% | — (no chip, default state) | `text-ink` |
-| `public_holiday` | `bg-destructive/22` | destructive at 45% | `from-destructive to-destructive/80` | `text-ink` (cell), `text-white` (chip) |
-| `school_holiday` | `bg-brand-amber/35` | brand-amber at 55% | `from-brand-amber to-brand-amber/80` | `text-ink` (cell), `text-white` (chip) |
-| `hbl` | `bg-primary/30` | primary at 40% | `from-brand-indigo to-brand-indigo-deep` | `text-ink` (cell), `text-white` (chip) |
-| `no_class` | `bg-muted` | `hairline-strong` | `from-ink-4 to-ink-3` | `text-muted-foreground` (cell), `text-white` (chip) |
-| weekend (disabled) | `bg-background` | `hairline` | — | `text-hairline-strong`, cursor not-allowed |
+| Day type           | Cell bg             | Inset ring            | Chip gradient (A only)                   | Text color                                          |
+| ------------------ | ------------------- | --------------------- | ---------------------------------------- | --------------------------------------------------- |
+| `school_day`       | `bg-brand-mint/50`  | mint / chart-5 at 35% | — (no chip, default state)               | `text-ink`                                          |
+| `public_holiday`   | `bg-destructive/22` | destructive at 45%    | `from-destructive to-destructive/80`     | `text-ink` (cell), `text-white` (chip)              |
+| `school_holiday`   | `bg-brand-amber/35` | brand-amber at 55%    | `from-brand-amber to-brand-amber/80`     | `text-ink` (cell), `text-white` (chip)              |
+| `hbl`              | `bg-primary/30`     | primary at 40%        | `from-brand-indigo to-brand-indigo-deep` | `text-ink` (cell), `text-white` (chip)              |
+| `no_class`         | `bg-muted`          | `hairline-strong`     | `from-ink-4 to-ink-3`                    | `text-muted-foreground` (cell), `text-white` (chip) |
+| weekend (disabled) | `bg-background`     | `hairline`            | —                                        | `text-hairline-strong`, cursor not-allowed          |
 
 ### 4.2 State modifiers (additive on top of the type recipe)
 
 - **Today** — `shadow: inset 0 0 0 2px brand-indigo` (2px ring replaces the type's 1px ring — indigo wins visual priority).
-- **Multi-select candidate** — `scale-[0.98]` transform on the cell body (feels "pressed") + `ring-2 ring-brand-indigo/40` halo outside the cell. Halo is distinct from Today's inset ring so a day that's *both* today AND multi-selected shows both: today's inset 2px + selected's outside halo. Multi-select dominates visually via the halo, Today is never lost.
+- **Multi-select candidate** — `scale-[0.98]` transform on the cell body (feels "pressed") + `ring-2 ring-brand-indigo/40` halo outside the cell. Halo is distinct from Today's inset ring so a day that's _both_ today AND multi-selected shows both: today's inset 2px + selected's outside halo. Multi-select dominates visually via the halo, Today is never lost.
 - **Hover (clickable)** — `-translate-y-0.5` + graduated shadow `shadow-md`. Respects the T1 content-surface craft.
 - **Focus-visible (keyboard)** — `ring-[3px] ring-ring/50` (unchanged from shadcn default).
 
@@ -210,17 +210,17 @@ Dark mode: zero `dark:` branches in this file. All dark-mode overrides live in `
 
 ### 8.1 Typography scale used
 
-| Role | Class string |
-|---|---|
+| Role                                                   | Class string                                                                            |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------- |
 | Eyebrow (meta-strip, trust strip, weekday labels in C) | `font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground` |
-| Weekday labels (A-view) | `font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-4` |
-| Month caption (A) | `font-serif text-[30px] font-semibold tracking-tight text-foreground` |
-| Term caption (C) | `font-serif text-[24px] font-semibold tracking-tight text-foreground` |
-| Day number (A) | `font-serif text-[22px] font-semibold tabular-nums leading-none` |
-| Day number (C) | `font-serif text-[13px] font-semibold tabular-nums leading-none` |
-| Banner chip (A) | `font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-white` |
-| Week label (C rail) | `font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-3` |
-| Event label (A) | `font-mono text-[10px] text-muted-foreground italic` |
+| Weekday labels (A-view)                                | `font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-4`            |
+| Month caption (A)                                      | `font-serif text-[30px] font-semibold tracking-tight text-foreground`                   |
+| Term caption (C)                                       | `font-serif text-[24px] font-semibold tracking-tight text-foreground`                   |
+| Day number (A)                                         | `font-serif text-[22px] font-semibold tabular-nums leading-none`                        |
+| Day number (C)                                         | `font-serif text-[13px] font-semibold tabular-nums leading-none`                        |
+| Banner chip (A)                                        | `font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-white`             |
+| Week label (C rail)                                    | `font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-3`             |
+| Event label (A)                                        | `font-mono text-[10px] text-muted-foreground italic`                                    |
 
 ## 9. Explicitly out of scope
 

@@ -36,7 +36,13 @@ export type PFilesDrillRow = {
   level: string | null;
   slotKey: string; // 'medical' | 'passport' | 'birth-cert' | 'educ-cert' | 'id-picture' | ...
   slotLabel: string;
-  status: 'On file' | 'Awaiting validation' | 'Promised' | 'Rejected' | 'Expired' | 'Missing';
+  status:
+    | 'On file'
+    | 'Awaiting validation'
+    | 'Promised'
+    | 'Rejected'
+    | 'Expired'
+    | 'Missing';
   fileUrl: string | null;
   expiryDate: string | null;
   daysToExpiry: number | null;
@@ -89,14 +95,17 @@ function normaliseStatus(raw: string | null): PFilesDrillRow['status'] {
   const s = (raw ?? '').trim().toLowerCase();
   if (s === '' || s === 'missing') return 'Missing';
   if (s === 'valid') return 'On file';
-  if (s === 'uploaded' || s === 'pending' || s === 'pending review') return 'Awaiting validation';
+  if (s === 'uploaded' || s === 'pending' || s === 'pending review')
+    return 'Awaiting validation';
   if (s === 'to follow') return 'Promised';
   if (s === 'rejected') return 'Rejected';
   if (s === 'expired') return 'Expired';
   return 'Missing';
 }
 
-async function loadPFilesRowsUncached(ayCode: string): Promise<PFilesDrillRow[]> {
+async function loadPFilesRowsUncached(
+  ayCode: string
+): Promise<PFilesDrillRow[]> {
   const prefix = prefixFor(ayCode);
   const appsTable = `${prefix}_enrolment_applications`;
   const docsTable = `${prefix}_enrolment_documents`;
@@ -110,42 +119,55 @@ async function loadPFilesRowsUncached(ayCode: string): Promise<PFilesDrillRow[]>
   const docColumns = Array.from(
     new Set(
       ELIGIBLE_SLOTS.flatMap((s) =>
-        s.expiryCol ? [s.statusCol, s.expiryCol] : [s.statusCol],
-      ),
-    ),
+        s.expiryCol ? [s.statusCol, s.expiryCol] : [s.statusCol]
+      )
+    )
   ).join(', ');
 
-  type P<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
-  type StatusLite = { enroleeNumber: string | null; classLevel: string | null; applicationStatus: string | null };
+  type P<T> = PromiseLike<{
+    data: T[] | null;
+    error: { message: string } | null;
+  }>;
+  type StatusLite = {
+    enroleeNumber: string | null;
+    classLevel: string | null;
+    applicationStatus: string | null;
+  };
 
   const [apps, docs, statuses, revisions] = await Promise.all([
-    fetchAllPages<AppLite>((from, to) =>
-      admissions
-        .from(appsTable)
-        .select('enroleeNumber, enroleeFullName, firstName, lastName, levelApplied')
-        .range(from, to) as unknown as P<AppLite>,
+    fetchAllPages<AppLite>(
+      (from, to) =>
+        admissions
+          .from(appsTable)
+          .select(
+            'enroleeNumber, enroleeFullName, firstName, lastName, levelApplied'
+          )
+          .range(from, to) as unknown as P<AppLite>
     ),
-    fetchAllPages<DocLite>((from, to) =>
-      admissions
-        .from(docsTable)
-        .select(`enroleeNumber, ${docColumns}`)
-        .range(from, to) as unknown as P<DocLite>,
+    fetchAllPages<DocLite>(
+      (from, to) =>
+        admissions
+          .from(docsTable)
+          .select(`enroleeNumber, ${docColumns}`)
+          .range(from, to) as unknown as P<DocLite>
     ),
     // Enrollment gate: status-only per KD #91 — classSection IS NOT NULL
     // was relaxed so legacy/imported Enrolled rows without a section appear.
-    fetchAllPages<StatusLite>((from, to) =>
-      admissions
-        .from(statusTable)
-        .select('enroleeNumber, classLevel, applicationStatus')
-        .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)'])
-        .range(from, to) as unknown as P<StatusLite>,
+    fetchAllPages<StatusLite>(
+      (from, to) =>
+        admissions
+          .from(statusTable)
+          .select('enroleeNumber, classLevel, applicationStatus')
+          .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)'])
+          .range(from, to) as unknown as P<StatusLite>
     ),
-    fetchAllPages<RevisionLite>((from, to) =>
-      service
-        .from('p_file_revisions')
-        .select('enrolee_number, slot_key, ay_code, replaced_at')
-        .eq('ay_code', ayCode)
-        .range(from, to) as unknown as P<RevisionLite>,
+    fetchAllPages<RevisionLite>(
+      (from, to) =>
+        service
+          .from('p_file_revisions')
+          .select('enrolee_number, slot_key, ay_code, replaced_at')
+          .eq('ay_code', ayCode)
+          .range(from, to) as unknown as P<RevisionLite>
     ),
   ]);
 
@@ -192,18 +214,20 @@ async function loadPFilesRowsUncached(ayCode: string): Promise<PFilesDrillRow[]>
     // intent explicit at the iteration site too.
     if (!enrolledEnrolees.has(app.enroleeNumber)) continue;
     const docRow = docByEnrolee.get(app.enroleeNumber);
-    const level = classLevelByEnrolee.get(app.enroleeNumber) ?? app.levelApplied ?? null;
+    const level =
+      classLevelByEnrolee.get(app.enroleeNumber) ?? app.levelApplied ?? null;
 
     for (const slot of ELIGIBLE_SLOTS) {
-
-      const raw = (docRow?.[slot.statusCol] as string | null | undefined) ?? null;
+      const raw =
+        (docRow?.[slot.statusCol] as string | null | undefined) ?? null;
       const status = normaliseStatus(raw);
 
       // Per-slot expiry — every expiring slot carries its own date.
       let expiryDate: string | null = null;
       let daysToExpiry: number | null = null;
       if (slot.expiryCol) {
-        const raw = (docRow?.[slot.expiryCol] as string | null | undefined) ?? null;
+        const raw =
+          (docRow?.[slot.expiryCol] as string | null | undefined) ?? null;
         expiryDate = raw;
         const expiryMs = raw ? Date.parse(raw) : NaN;
         daysToExpiry = !Number.isNaN(expiryMs)
@@ -245,7 +269,7 @@ export async function buildPFilesDrillRows(input: {
   return unstable_cache(
     () => loadPFilesRowsUncached(input.ayCode),
     ['p-files-drill', 'rows', input.ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tags(input.ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tags(input.ayCode) }
   )();
 }
 
@@ -255,12 +279,15 @@ export function applyTargetFilter(
   rows: PFilesDrillRow[],
   target: PFilesDrillTarget,
   segment: string | null,
-  range?: { from: string; to: string },
+  range?: { from: string; to: string }
 ): PFilesDrillRow[] {
   switch (target) {
-    case 'all-docs': return rows;
-    case 'complete-docs': return rows.filter((r) => r.status === 'On file');
-    case 'expired-docs': return rows.filter((r) => r.status === 'Expired');
+    case 'all-docs':
+      return rows;
+    case 'complete-docs':
+      return rows.filter((r) => r.status === 'On file');
+    case 'expired-docs':
+      return rows.filter((r) => r.status === 'Expired');
     case 'expiring-soon': {
       // Future expiry within `segment` days. Default 60 if no segment.
       // Excludes already-expired (daysToExpiry < 0) — that's the
@@ -273,10 +300,11 @@ export function applyTargetFilter(
         (r) =>
           r.daysToExpiry !== null &&
           r.daysToExpiry >= 0 &&
-          r.daysToExpiry <= window,
+          r.daysToExpiry <= window
       );
     }
-    case 'missing-docs': return rows.filter((r) => r.status === 'Missing');
+    case 'missing-docs':
+      return rows.filter((r) => r.status === 'Missing');
     case 'slot-by-status': {
       // segment = a status string emitted by <SlotStatusDrillCard> after the
       // normaliseStatus change. Donut slices now use the discrete labels:
@@ -288,19 +316,27 @@ export function applyTargetFilter(
       //                         (slotMix.missing lumps both; clicking the
       //                          Expired slice must surface both — KD #82)
       if (!segment) return rows;
-      if (segment === 'On file') return rows.filter((r) => r.status === 'On file');
+      if (segment === 'On file')
+        return rows.filter((r) => r.status === 'On file');
       if (segment === 'Expired') {
-        return rows.filter((r) => r.status === 'Expired' || r.status === 'Missing');
+        return rows.filter(
+          (r) => r.status === 'Expired' || r.status === 'Missing'
+        );
       }
-      if (segment === 'Awaiting validation') return rows.filter((r) => r.status === 'Awaiting validation');
-      if (segment === 'Promised') return rows.filter((r) => r.status === 'Promised');
-      if (segment === 'Rejected') return rows.filter((r) => r.status === 'Rejected');
+      if (segment === 'Awaiting validation')
+        return rows.filter((r) => r.status === 'Awaiting validation');
+      if (segment === 'Promised')
+        return rows.filter((r) => r.status === 'Promised');
+      if (segment === 'Rejected')
+        return rows.filter((r) => r.status === 'Rejected');
       return rows.filter((r) => r.status === segment);
     }
     case 'missing-by-slot': {
       // segment = slotKey
       if (!segment) return rows.filter((r) => r.status === 'Missing');
-      return rows.filter((r) => r.slotKey === segment && r.status === 'Missing');
+      return rows.filter(
+        (r) => r.slotKey === segment && r.status === 'Missing'
+      );
     }
     case 'level-applicants': {
       if (!segment) return rows;
@@ -370,9 +406,12 @@ export const DRILL_COLUMN_LABELS: Record<DrillColumnKey, string> = {
   lastRevisionAt: 'Last revision',
 };
 
-export function defaultColumnsForTarget(target: PFilesDrillTarget): DrillColumnKey[] {
+export function defaultColumnsForTarget(
+  target: PFilesDrillTarget
+): DrillColumnKey[] {
   switch (target) {
-    case 'all-docs': return ['fullName', 'level', 'slotLabel', 'status'];
+    case 'all-docs':
+      return ['fullName', 'level', 'slotLabel', 'status'];
     case 'complete-docs':
     case 'missing-docs':
     case 'slot-by-status':
@@ -380,22 +419,41 @@ export function defaultColumnsForTarget(target: PFilesDrillTarget): DrillColumnK
       return ['fullName', 'level', 'slotLabel', 'status', 'lastRevisionAt'];
     case 'expired-docs':
     case 'expiring-soon':
-      return ['fullName', 'level', 'slotLabel', 'status', 'expiryDate', 'daysToExpiry'];
+      return [
+        'fullName',
+        'level',
+        'slotLabel',
+        'status',
+        'expiryDate',
+        'daysToExpiry',
+      ];
     case 'level-applicants':
       return ['fullName', 'level', 'slotLabel', 'status'];
     case 'revisions-on-day':
-      return ['fullName', 'level', 'slotLabel', 'revisionCount', 'lastRevisionAt'];
+      return [
+        'fullName',
+        'level',
+        'slotLabel',
+        'revisionCount',
+        'lastRevisionAt',
+      ];
   }
 }
 
 export function drillHeaderForTarget(
   target: PFilesDrillTarget,
-  segment: string | null,
+  segment: string | null
 ): { eyebrow: string; title: string } {
   switch (target) {
-    case 'all-docs': return { eyebrow: 'P-Files', title: 'Every tracked document slot, per student' };
-    case 'complete-docs': return { eyebrow: 'P-Files', title: 'Documents validated and on file' };
-    case 'expired-docs': return { eyebrow: 'P-Files', title: 'Documents that have expired' };
+    case 'all-docs':
+      return {
+        eyebrow: 'P-Files',
+        title: 'Every tracked document slot, per student',
+      };
+    case 'complete-docs':
+      return { eyebrow: 'P-Files', title: 'Documents validated and on file' };
+    case 'expired-docs':
+      return { eyebrow: 'P-Files', title: 'Documents that have expired' };
     case 'expiring-soon':
       return {
         eyebrow: 'P-Files',
@@ -403,7 +461,8 @@ export function drillHeaderForTarget(
           ? `Documents expiring within ${segment} days`
           : 'Documents expiring soon',
       };
-    case 'missing-docs': return { eyebrow: 'P-Files', title: 'Documents not yet uploaded' };
+    case 'missing-docs':
+      return { eyebrow: 'P-Files', title: 'Documents not yet uploaded' };
     case 'slot-by-status':
       return {
         eyebrow: 'P-Files',

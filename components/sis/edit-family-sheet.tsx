@@ -4,7 +4,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Pencil } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { useForm, type FieldValues, type Path, type Resolver, type UseFormReturn } from 'react-hook-form';
+import {
+  useForm,
+  type FieldValues,
+  type Path,
+  type Resolver,
+  type UseFormReturn,
+} from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -47,24 +53,33 @@ import {
 } from '@/lib/schemas/sis';
 
 type FieldKind = 'text' | 'email' | 'date' | 'tribool';
-type FieldConfig = { name: string; label: string; kind?: FieldKind; wide?: boolean };
+type FieldConfig = {
+  name: string;
+  label: string;
+  kind?: FieldKind;
+  wide?: boolean;
+};
 
 const FATHER_FIELDS: FieldConfig[] = [
-  { name: 'fatherFullName',  label: 'Full name', wide: true },
+  { name: 'fatherFullName', label: 'Full name', wide: true },
   { name: 'fatherFirstName', label: 'First name' },
-  { name: 'fatherLastName',  label: 'Last name' },
-  { name: 'fatherNric',      label: 'NRIC / FIN' },
-  { name: 'fatherBirthDay',  label: 'Date of birth', kind: 'date' },
-  { name: 'fatherMobile',    label: 'Mobile' },
-  { name: 'fatherEmail',     label: 'Email', kind: 'email', wide: true },
+  { name: 'fatherLastName', label: 'Last name' },
+  { name: 'fatherNric', label: 'NRIC / FIN' },
+  { name: 'fatherBirthDay', label: 'Date of birth', kind: 'date' },
+  { name: 'fatherMobile', label: 'Mobile' },
+  { name: 'fatherEmail', label: 'Email', kind: 'email', wide: true },
   { name: 'fatherNationality', label: 'Nationality' },
   { name: 'fatherCompanyName', label: 'Company' },
-  { name: 'fatherPosition',    label: 'Position' },
-  { name: 'fatherPassport',       label: 'Passport' },
+  { name: 'fatherPosition', label: 'Position' },
+  { name: 'fatherPassport', label: 'Passport' },
   { name: 'fatherPassportExpiry', label: 'Passport expiry', kind: 'date' },
-  { name: 'fatherPass',           label: 'Pass type' },
-  { name: 'fatherPassExpiry',     label: 'Pass expiry', kind: 'date' },
-  { name: 'fatherWhatsappTeamsConsent', label: 'WhatsApp / Teams consent', kind: 'tribool' },
+  { name: 'fatherPass', label: 'Pass type' },
+  { name: 'fatherPassExpiry', label: 'Pass expiry', kind: 'date' },
+  {
+    name: 'fatherWhatsappTeamsConsent',
+    label: 'WhatsApp / Teams consent',
+    kind: 'tribool',
+  },
 ];
 
 const MOTHER_FIELDS: FieldConfig[] = FATHER_FIELDS.map((f) => ({
@@ -73,15 +88,19 @@ const MOTHER_FIELDS: FieldConfig[] = FATHER_FIELDS.map((f) => ({
 }));
 
 const GUARDIAN_FIELDS: FieldConfig[] = [
-  { name: 'guardianFullName',     label: 'Full name', wide: true },
-  { name: 'guardianMobile',       label: 'Mobile' },
-  { name: 'guardianEmail',        label: 'Email', kind: 'email', wide: true },
-  { name: 'guardianNationality',  label: 'Nationality' },
-  { name: 'guardianPassport',     label: 'Passport' },
+  { name: 'guardianFullName', label: 'Full name', wide: true },
+  { name: 'guardianMobile', label: 'Mobile' },
+  { name: 'guardianEmail', label: 'Email', kind: 'email', wide: true },
+  { name: 'guardianNationality', label: 'Nationality' },
+  { name: 'guardianPassport', label: 'Passport' },
   { name: 'guardianPassportExpiry', label: 'Passport expiry', kind: 'date' },
-  { name: 'guardianPass',         label: 'Pass type' },
-  { name: 'guardianPassExpiry',   label: 'Pass expiry', kind: 'date' },
-  { name: 'guardianWhatsappTeamsConsent', label: 'WhatsApp / Teams consent', kind: 'tribool' },
+  { name: 'guardianPass', label: 'Pass type' },
+  { name: 'guardianPassExpiry', label: 'Pass expiry', kind: 'date' },
+  {
+    name: 'guardianWhatsappTeamsConsent',
+    label: 'WhatsApp / Teams consent',
+    kind: 'tribool',
+  },
 ];
 
 const PARENT_LABELS: Record<ParentSlot, string> = {
@@ -142,7 +161,7 @@ export function EditFamilySheet({
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(values),
-        },
+        }
       );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? 'Failed to save');
@@ -150,7 +169,7 @@ export function EditFamilySheet({
       toast.success(
         changed === 0
           ? `${PARENT_LABELS[parent]} saved (no changes)`
-          : `${PARENT_LABELS[parent]} updated (${changed} field${changed === 1 ? '' : 's'})`,
+          : `${PARENT_LABELS[parent]} updated (${changed} field${changed === 1 ? '' : 's'})`
       );
       setOpen(false);
       router.refresh();
@@ -198,7 +217,12 @@ export function EditFamilySheet({
 
               <SheetFooter className="flex-row justify-end gap-2 border-t border-border p-6 sm:justify-end">
                 <SheetClose asChild>
-                  <Button type="button" variant="outline" size="sm" disabled={busy}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                  >
                     Cancel
                   </Button>
                 </SheetClose>
@@ -215,7 +239,10 @@ export function EditFamilySheet({
   );
 }
 
-function buildDefaults(fields: FieldConfig[], initial: Record<string, unknown>): Record<string, unknown> {
+function buildDefaults(
+  fields: FieldConfig[],
+  initial: Record<string, unknown>
+): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const f of fields) {
     out[f.name] = initial[f.name] ?? null;
@@ -247,7 +274,9 @@ function SchemaField<T extends FieldValues>({
               <Select
                 value={value}
                 onValueChange={(next) =>
-                  field.onChange(next === 'yes' ? true : next === 'no' ? false : null)
+                  field.onChange(
+                    next === 'yes' ? true : next === 'no' ? false : null
+                  )
                 }
               >
                 <SelectTrigger className="h-9">
@@ -284,7 +313,9 @@ function SchemaField<T extends FieldValues>({
               <Input
                 type={kind === 'email' ? 'email' : 'text'}
                 value={(field.value as string | null) ?? ''}
-                onChange={(e) => field.onChange(e.target.value === '' ? null : e.target.value)}
+                onChange={(e) =>
+                  field.onChange(e.target.value === '' ? null : e.target.value)
+                }
                 placeholder=""
               />
             </FormControl>

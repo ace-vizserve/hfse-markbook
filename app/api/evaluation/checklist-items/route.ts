@@ -17,16 +17,25 @@ const CreateSchema = z.object({
 // Creates a checklist item for a (term × subject × section).
 // Auth: subject teacher assigned to section+subject, or registrar+.
 export async function POST(request: NextRequest) {
-  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'superadmin']);
+  const auth = await requireRole([
+    'teacher',
+    'registrar',
+    'school_admin',
+    'superadmin',
+  ]);
   if ('error' in auth) return auth.error;
 
   const body = await request.json().catch(() => null);
   const parsed = CreateSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid request', issues: parsed.error.issues }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid request', issues: parsed.error.issues },
+      { status: 400 }
+    );
   }
 
-  const { term_id, subject_id, section_id, item_text, sort_order } = parsed.data;
+  const { term_id, subject_id, section_id, item_text, sort_order } =
+    parsed.data;
   const service = createServiceClient();
 
   // Auth gate: teacher must be a subject_teacher for this section+subject.
@@ -59,7 +68,10 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     if (error.code === '23505') {
-      return NextResponse.json({ error: 'A topic with this text already exists for this subject.' }, { status: 409 });
+      return NextResponse.json(
+        { error: 'A topic with this text already exists for this subject.' },
+        { status: 409 }
+      );
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

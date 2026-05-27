@@ -31,7 +31,11 @@ export type CohortPageShellProps = {
   children: React.ReactNode;
 };
 
-function buildCsvHref(cohort: CohortKey, ayCode: string, scope: CohortScope): string {
+function buildCsvHref(
+  cohort: CohortKey,
+  ayCode: string,
+  scope: CohortScope
+): string {
   const params = new URLSearchParams();
   params.set('ay', ayCode);
   params.set('scope', scope);
@@ -59,14 +63,16 @@ export function CohortPageShell({
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
           <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-            {scope === 'enrolled' ? 'Records · Cohort' : 'Admissions · Cohort'} · {ayCode}
+            {scope === 'enrolled' ? 'Records · Cohort' : 'Admissions · Cohort'}{' '}
+            · {ayCode}
           </div>
           <div className="flex items-baseline gap-3">
             <h1 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
               {title}
             </h1>
             <Badge variant="outline">
-              {count.toLocaleString('en-SG')} {count === 1 ? 'student' : 'students'}
+              {count.toLocaleString('en-SG')}{' '}
+              {count === 1 ? 'student' : 'students'}
             </Badge>
           </div>
           <p className="max-w-2xl text-sm text-muted-foreground">

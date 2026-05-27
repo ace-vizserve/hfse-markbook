@@ -1,16 +1,32 @@
-"use client";
+'use client';
 
-import { CalendarOff, CalendarPlus, CheckCheck, ChevronLeft, ChevronRight, Loader2, Pencil, Trash2, X } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
-import { toast } from "sonner";
+import {
+  CalendarOff,
+  CalendarPlus,
+  CheckCheck,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Pencil,
+  Trash2,
+  X,
+} from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState, useTransition } from 'react';
+import { toast } from 'sonner';
 
-import { CopyFromPriorAyDialog, type CopyFromPriorAyProps } from "@/components/attendance/copy-from-prior-ay-dialog";
-import { ChartLegendChip, type ChartLegendChipColor } from "@/components/dashboard/chart-legend-chip";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { DatePicker } from "@/components/ui/date-picker";
+import {
+  CopyFromPriorAyDialog,
+  type CopyFromPriorAyProps,
+} from '@/components/attendance/copy-from-prior-ay-dialog';
+import {
+  ChartLegendChip,
+  type ChartLegendChipColor,
+} from '@/components/dashboard/chart-legend-chip';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   Dialog,
   DialogContent,
@@ -18,13 +34,22 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { CalendarEventRow, SchoolCalendarRow } from "@/lib/attendance/calendar";
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type {
+  CalendarEventRow,
+  SchoolCalendarRow,
+} from '@/lib/attendance/calendar';
 import {
   AUDIENCE_LABELS,
   AUDIENCE_VALUES,
@@ -36,7 +61,7 @@ import {
   type Audience,
   type DayType,
   type EventCategory,
-} from "@/lib/schemas/attendance";
+} from '@/lib/schemas/attendance';
 
 // School-calendar admin. Two views — Month grid and Full-term strip — both
 // rendered as custom 5-column (Mon–Fri) grids. Weekends are not school days
@@ -67,11 +92,11 @@ type TermOption = {
 // Short banner labels printed inside each cell (below the day number).
 // Keep terse — cell is ~80px wide.
 const DAY_TYPE_SHORT_LABEL: Record<DayType, string> = {
-  school_day: "School",
-  public_holiday: "Public",
-  school_holiday: "School hol.",
-  hbl: "HBL",
-  no_class: "No class",
+  school_day: 'School',
+  public_holiday: 'Public',
+  school_holiday: 'School hol.',
+  hbl: 'HBL',
+  no_class: 'No class',
 };
 
 // Color tone per event category. Drives the gradient on EventChip and the
@@ -86,47 +111,53 @@ const DAY_TYPE_SHORT_LABEL: Record<DayType, string> = {
 //   pfe              → chart-2 (partnership tone)
 //   ptc              → chart-5 (parent-touchpoint, sky)
 //   other            → neutral
-const EVENT_CATEGORY_LEGEND_COLOR: Record<EventCategory, ChartLegendChipColor> = {
-  term_exam: "very-stale",
-  term_break: "stale",
-  start_of_term: "fresh",
-  parents_dialogue: "primary",
-  subject_week: "chart-3",
-  school_event: "chart-4",
-  pfe: "chart-2",
-  ptc: "chart-5",
-  other: "neutral",
-};
+const EVENT_CATEGORY_LEGEND_COLOR: Record<EventCategory, ChartLegendChipColor> =
+  {
+    term_exam: 'very-stale',
+    term_break: 'stale',
+    start_of_term: 'fresh',
+    parents_dialogue: 'primary',
+    subject_week: 'chart-3',
+    school_event: 'chart-4',
+    pfe: 'chart-2',
+    ptc: 'chart-5',
+    other: 'neutral',
+  };
 
 // Tint + descriptive copy per day-type (KD #50). Spec §4.1 recipe: solid
 // medium-opacity wash + inset colored ring (cell), gradient chip + white text
 // (chip). All colors resolve to Aurora Vault tokens; rgba in shadow-[...] are
 // intentional (match hex values of brand tokens at specified opacity).
-const DAY_TYPE_STYLES: Record<DayType, { cell: string; chip: string; blurb: string }> = {
+const DAY_TYPE_STYLES: Record<
+  DayType,
+  { cell: string; chip: string; blurb: string }
+> = {
   school_day: {
-    cell: "bg-brand-mint/50 text-ink font-semibold shadow-[inset_0_0_0_1px_rgba(34,197,94,0.35)] hover:bg-brand-mint/60",
-    chip: "bg-gradient-to-b from-chart-5 to-chart-3 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]",
-    blurb: "Regular in-school day. Attendance is taken.",
+    cell: 'bg-brand-mint/50 text-ink font-semibold shadow-[inset_0_0_0_1px_rgba(34,197,94,0.35)] hover:bg-brand-mint/60',
+    chip: 'bg-gradient-to-b from-chart-5 to-chart-3 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]',
+    blurb: 'Regular in-school day. Attendance is taken.',
   },
   public_holiday: {
-    cell: "bg-destructive/22 text-ink font-semibold shadow-[inset_0_0_0_1px_rgba(239,68,68,0.45)] hover:bg-destructive/30",
-    chip: "bg-gradient-to-b from-destructive to-destructive/80 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]",
-    blurb: "National / public closure. No attendance taken.",
+    cell: 'bg-destructive/22 text-ink font-semibold shadow-[inset_0_0_0_1px_rgba(239,68,68,0.45)] hover:bg-destructive/30',
+    chip: 'bg-gradient-to-b from-destructive to-destructive/80 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]',
+    blurb: 'National / public closure. No attendance taken.',
   },
   school_holiday: {
-    cell: "bg-brand-amber/35 text-ink font-semibold shadow-[inset_0_0_0_1px_rgba(245,158,11,0.55)] hover:bg-brand-amber/45",
-    chip: "bg-gradient-to-b from-brand-amber to-brand-amber/80 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]",
-    blurb: "School-only closure (marking days, staff PD). No attendance by default — enable the HBL overlay below if teachers take attendance.",
+    cell: 'bg-brand-amber/35 text-ink font-semibold shadow-[inset_0_0_0_1px_rgba(245,158,11,0.55)] hover:bg-brand-amber/45',
+    chip: 'bg-gradient-to-b from-brand-amber to-brand-amber/80 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]',
+    blurb:
+      'School-only closure (marking days, staff PD). No attendance by default — enable the HBL overlay below if teachers take attendance.',
   },
   hbl: {
-    cell: "bg-primary/30 text-ink font-semibold shadow-[inset_0_0_0_1px_rgba(79,70,229,0.4)] hover:bg-primary/40",
-    chip: "bg-gradient-to-b from-brand-indigo to-brand-indigo-deep text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]",
-    blurb: "Home-based learning. Attendance still taken; counts as a school day.",
+    cell: 'bg-primary/30 text-ink font-semibold shadow-[inset_0_0_0_1px_rgba(79,70,229,0.4)] hover:bg-primary/40',
+    chip: 'bg-gradient-to-b from-brand-indigo to-brand-indigo-deep text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]',
+    blurb:
+      'Home-based learning. Attendance still taken; counts as a school day.',
   },
   no_class: {
-    cell: "bg-muted text-muted-foreground font-semibold shadow-[inset_0_0_0_1px_var(--av-hairline-strong)] hover:bg-muted/90",
-    chip: "bg-gradient-to-b from-ink-4 to-ink-3 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]",
-    blurb: "School-wide no class. No attendance taken.",
+    cell: 'bg-muted text-muted-foreground font-semibold shadow-[inset_0_0_0_1px_var(--av-hairline-strong)] hover:bg-muted/90',
+    chip: 'bg-gradient-to-b from-ink-4 to-ink-3 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]',
+    blurb: 'School-wide no class. No attendance taken.',
   },
 };
 
@@ -139,17 +170,17 @@ function parseIso(iso: string): Date {
 
 // local Date → yyyy-MM-dd.
 function formatIso(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
+  const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 // Readable date: "Monday, 15 Jan 2026".
 function formatHumanDate(iso: string): string {
-  return parseIso(iso).toLocaleDateString("en-SG", {
-    weekday: "long",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
+  return parseIso(iso).toLocaleDateString('en-SG', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
   });
 }
 
@@ -175,7 +206,9 @@ export function CalendarAdminClient({
 
   const [dateDialogIso, setDateDialogIso] = useState<string | null>(null);
   const [addEventOpen, setAddEventOpen] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<CalendarEventRow | null>(null);
+  const [editingEvent, setEditingEvent] = useState<CalendarEventRow | null>(
+    null
+  );
   const [tentativeOnly, setTentativeOnly] = useState(false);
 
   // Multi-select bulk-classify flow. When `multiSelect` is true, clicking a
@@ -185,7 +218,7 @@ export function CalendarAdminClient({
   const [multiSelect, setMultiSelect] = useState(false);
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
-  const [view, setView] = useState<"month" | "term">("month");
+  const [view, setView] = useState<'month' | 'term'>('month');
 
   const selectedTerm = terms.find((t) => t.id === termId) ?? terms[0];
 
@@ -207,7 +240,8 @@ export function CalendarAdminClient({
   // surface as side-by-side badges so the registrar can spot the divergence.
   const byDate = useMemo(() => {
     const map = new Map<string, SchoolCalendarRow>();
-    const rank = (a: Audience) => (a === "primary" ? 2 : a === "secondary" ? 1 : 0);
+    const rank = (a: Audience) =>
+      a === 'primary' ? 2 : a === 'secondary' ? 1 : 0;
     for (const r of calendar) {
       const cur = map.get(r.date);
       if (!cur || rank(r.audience) > rank(cur.audience)) {
@@ -220,7 +254,7 @@ export function CalendarAdminClient({
   // Visible events filtered by tentative-only toggle.
   const visibleEvents = useMemo(
     () => (tentativeOnly ? events.filter((e) => e.tentative) : events),
-    [events, tentativeOnly],
+    [events, tentativeOnly]
   );
 
   // Classified dates grouped by day-type, plus an `event` array of event days.
@@ -251,22 +285,26 @@ export function CalendarAdminClient({
 
   // Events overlapping a given ISO date — used by the date-action dialog.
   const eventsOnDate = useMemo(() => {
-    return (iso: string): CalendarEventRow[] => visibleEvents.filter((e) => iso >= e.startDate && iso <= e.endDate);
+    return (iso: string): CalendarEventRow[] =>
+      visibleEvents.filter((e) => iso >= e.startDate && iso <= e.endDate);
   }, [visibleEvents]);
 
   // Build a URL with current filters preserved + an override.
-  function buildUrl(overrides: { term_id?: string; audience?: Audience }): string {
+  function buildUrl(overrides: {
+    term_id?: string;
+    audience?: Audience;
+  }): string {
     const params = new URLSearchParams();
-    params.set("term_id", overrides.term_id ?? termId);
+    params.set('term_id', overrides.term_id ?? termId);
     const aud = overrides.audience ?? audience;
-    if (aud !== "all") params.set("audience", aud);
+    if (aud !== 'all') params.set('audience', aud);
     return `${pathname}?${params.toString()}`;
   }
 
   function switchTerm(next: string) {
     // Clear multi-select selection when crossing terms — the picked dates
     // belong to the previous term's calendar scope and shouldn't leak.
-    setView("month");
+    setView('month');
     setSelectedDates([]);
     setMultiSelect(false);
     startTransition(() => {
@@ -292,13 +330,17 @@ export function CalendarAdminClient({
     });
   }
 
-  async function bulkUpsert(dates: Date[], dayType: DayType, label: string | null) {
+  async function bulkUpsert(
+    dates: Date[],
+    dayType: DayType,
+    label: string | null
+  ) {
     if (!selectedTerm || dates.length === 0) return;
     setBusy(true);
     try {
-      const res = await fetch("/api/attendance/calendar", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+      const res = await fetch('/api/attendance/calendar', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           termId: selectedTerm.id,
           audience,
@@ -306,26 +348,33 @@ export function CalendarAdminClient({
         }),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ?? "save failed");
-      toast.success(`${dates.length} date${dates.length === 1 ? "" : "s"} set to ${DAY_TYPE_LABELS[dayType]}.`);
+      if (!res.ok) throw new Error(body?.error ?? 'save failed');
+      toast.success(
+        `${dates.length} date${dates.length === 1 ? '' : 's'} set to ${DAY_TYPE_LABELS[dayType]}.`
+      );
       setSelectedDates([]);
       setMultiSelect(false);
       setBulkDialogOpen(false);
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "save failed");
+      toast.error(e instanceof Error ? e.message : 'save failed');
     } finally {
       setBusy(false);
     }
   }
 
-  async function upsertDate(iso: string, dayType: DayType, label: string | null, hblOverlay = false) {
+  async function upsertDate(
+    iso: string,
+    dayType: DayType,
+    label: string | null,
+    hblOverlay = false
+  ) {
     if (!selectedTerm) return;
     setBusy(true);
     try {
-      const res = await fetch("/api/attendance/calendar", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+      const res = await fetch('/api/attendance/calendar', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           termId: selectedTerm.id,
           audience,
@@ -333,10 +382,10 @@ export function CalendarAdminClient({
         }),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ?? "save failed");
+      if (!res.ok) throw new Error(body?.error ?? 'save failed');
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "save failed");
+      toast.error(e instanceof Error ? e.message : 'save failed');
       throw e;
     } finally {
       setBusy(false);
@@ -344,7 +393,7 @@ export function CalendarAdminClient({
   }
 
   async function resetDateToAll(iso: string) {
-    if (!selectedTerm || audience === "all") return;
+    if (!selectedTerm || audience === 'all') return;
     setBusy(true);
     try {
       const params = new URLSearchParams({
@@ -353,14 +402,16 @@ export function CalendarAdminClient({
         audience,
       });
       const res = await fetch(`/api/attendance/calendar?${params.toString()}`, {
-        method: "DELETE",
+        method: 'DELETE',
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ?? "reset failed");
-      toast.success(`Override removed — ${formatHumanDate(iso)} now follows the All baseline.`);
+      if (!res.ok) throw new Error(body?.error ?? 'reset failed');
+      toast.success(
+        `Override removed — ${formatHumanDate(iso)} now follows the All baseline.`
+      );
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "reset failed");
+      toast.error(e instanceof Error ? e.message : 'reset failed');
     } finally {
       setBusy(false);
     }
@@ -369,16 +420,16 @@ export function CalendarAdminClient({
   async function createEventOnDate(
     iso: string,
     label: string,
-    category: EventCategory = "other",
+    category: EventCategory = 'other',
     eventAudience: Audience = audience,
-    tentative = false,
+    tentative = false
   ) {
     if (!selectedTerm) return;
     setBusy(true);
     try {
-      const res = await fetch("/api/attendance/calendar/events", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+      const res = await fetch('/api/attendance/calendar/events', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           termId: selectedTerm.id,
           startDate: iso,
@@ -390,10 +441,10 @@ export function CalendarAdminClient({
         }),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ?? "create failed");
+      if (!res.ok) throw new Error(body?.error ?? 'create failed');
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "create failed");
+      toast.error(e instanceof Error ? e.message : 'create failed');
       throw e;
     } finally {
       setBusy(false);
@@ -403,17 +454,17 @@ export function CalendarAdminClient({
   async function confirmEventDates(eventId: string) {
     setBusy(true);
     try {
-      const res = await fetch("/api/attendance/calendar/events", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
+      const res = await fetch('/api/attendance/calendar/events', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ id: eventId, tentative: false }),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ?? "confirm failed");
-      toast.success("Dates confirmed.");
+      if (!res.ok) throw new Error(body?.error ?? 'confirm failed');
+      toast.success('Dates confirmed.');
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "confirm failed");
+      toast.error(e instanceof Error ? e.message : 'confirm failed');
     } finally {
       setBusy(false);
     }
@@ -421,8 +472,10 @@ export function CalendarAdminClient({
 
   // Missing row is defensive only — auto-seed should prevent it. Treat as
   // school day so the dialog still offers sensible actions.
-  const dateDialogEntry = dateDialogIso ? (byDate.get(dateDialogIso) ?? null) : null;
-  const dateDialogType: DayType = dateDialogEntry?.dayType ?? "school_day";
+  const dateDialogEntry = dateDialogIso
+    ? (byDate.get(dateDialogIso) ?? null)
+    : null;
+  const dateDialogType: DayType = dateDialogEntry?.dayType ?? 'school_day';
 
   return (
     <div className="space-y-6">
@@ -454,7 +507,10 @@ export function CalendarAdminClient({
           </div>
         )}
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Tabs value={audience} onValueChange={(v) => switchAudience(v as Audience)}>
+          <Tabs
+            value={audience}
+            onValueChange={(v) => switchAudience(v as Audience)}
+          >
             <TabsList variant="default" aria-label="Audience filter">
               {AUDIENCE_VALUES.map((a) => (
                 <TabsTrigger key={a} value={a}>
@@ -463,32 +519,41 @@ export function CalendarAdminClient({
               ))}
             </TabsList>
           </Tabs>
-          <Tabs value={view} onValueChange={(v) => setView(v as "month" | "term")}>
+          <Tabs
+            value={view}
+            onValueChange={(v) => setView(v as 'month' | 'term')}
+          >
             <TabsList variant="default">
               <TabsTrigger value="month">Month</TabsTrigger>
               <TabsTrigger value="term">Full term</TabsTrigger>
             </TabsList>
           </Tabs>
-          {copyFromPriorAyProps && <CopyFromPriorAyDialog {...copyFromPriorAyProps} />}
+          {copyFromPriorAyProps && (
+            <CopyFromPriorAyDialog {...copyFromPriorAyProps} />
+          )}
           <Button
             type="button"
             size="sm"
             disabled={busy || !selectedTerm}
             onClick={toggleMultiSelect}
-            className="gap-1.5">
+            className="gap-1.5"
+          >
             <CheckCheck className="size-3.5" />
-            {multiSelect ? "Cancel multi-select" : "Multi-select"}
+            {multiSelect ? 'Cancel multi-select' : 'Multi-select'}
           </Button>
           <Button
             type="button"
             size="sm"
             disabled={busy || !selectedTerm}
             onClick={() => setAddEventOpen(true)}
-            className="gap-1.5">
+            className="gap-1.5"
+          >
             <CalendarPlus className="size-3.5" />
             Add date range
           </Button>
-          {busy && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
+          {busy && (
+            <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+          )}
         </div>
       </div>
 
@@ -498,28 +563,36 @@ export function CalendarAdminClient({
       {selectedTerm && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-hairline bg-muted/15 px-4 py-2 text-[12px]">
           <p className="text-muted-foreground">
-            {audience === "all" && (
+            {audience === 'all' && (
               <>
-                <span className="font-semibold text-foreground">All</span> · viewing every audience. Primary / Secondary
-                overrides show with a corner badge.
+                <span className="font-semibold text-foreground">All</span> ·
+                viewing every audience. Primary / Secondary overrides show with
+                a corner badge.
               </>
             )}
-            {audience === "primary" && (
+            {audience === 'primary' && (
               <>
-                <span className="font-semibold text-foreground">Primary</span> · Primary-specific overrides are layered
-                on top of the All baseline; clicking a date here writes to the Primary scope.
+                <span className="font-semibold text-foreground">Primary</span> ·
+                Primary-specific overrides are layered on top of the All
+                baseline; clicking a date here writes to the Primary scope.
               </>
             )}
-            {audience === "secondary" && (
+            {audience === 'secondary' && (
               <>
-                <span className="font-semibold text-foreground">Secondary</span> · Secondary-specific overrides are
-                layered on top of the All baseline; clicking a date here writes to the Secondary scope.
+                <span className="font-semibold text-foreground">Secondary</span>{' '}
+                · Secondary-specific overrides are layered on top of the All
+                baseline; clicking a date here writes to the Secondary scope.
               </>
             )}
           </p>
           <label className="flex cursor-pointer items-center gap-2 text-muted-foreground">
-            <Checkbox checked={tentativeOnly} onCheckedChange={(v) => setTentativeOnly(Boolean(v))} />
-            <span className="font-mono text-[11px] uppercase tracking-[0.14em]">Tentative only</span>
+            <Checkbox
+              checked={tentativeOnly}
+              onCheckedChange={(v) => setTentativeOnly(Boolean(v))}
+            />
+            <span className="font-mono text-[11px] uppercase tracking-[0.14em]">
+              Tentative only
+            </span>
           </label>
         </div>
       )}
@@ -531,8 +604,8 @@ export function CalendarAdminClient({
             <CheckCheck className="size-4 text-primary" />
             <span className="font-medium tabular-nums">
               {selectedDates.length === 0
-                ? "Click dates to build a selection"
-                : `${selectedDates.length} date${selectedDates.length === 1 ? "" : "s"} selected`}
+                ? 'Click dates to build a selection'
+                : `${selectedDates.length} date${selectedDates.length === 1 ? '' : 's'} selected`}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -542,7 +615,8 @@ export function CalendarAdminClient({
               size="sm"
               disabled={busy || selectedDates.length === 0}
               onClick={() => setSelectedDates([])}
-              className="gap-1.5">
+              className="gap-1.5"
+            >
               <X className="size-3.5" />
               Clear
             </Button>
@@ -551,7 +625,8 @@ export function CalendarAdminClient({
               size="sm"
               disabled={busy || selectedDates.length === 0}
               onClick={() => setBulkDialogOpen(true)}
-              className="gap-1.5">
+              className="gap-1.5"
+            >
               Apply day-type
             </Button>
           </div>
@@ -567,9 +642,13 @@ export function CalendarAdminClient({
           <ChartLegendChip color="primary" label="HBL" />
           <div className="flex items-center gap-1">
             <ChartLegendChip color="stale" label="School holiday" />
-            <span className="font-mono text-[9px] text-muted-foreground">+</span>
+            <span className="font-mono text-[9px] text-muted-foreground">
+              +
+            </span>
             <ChartLegendChip color="primary" label="HBL" />
-            <span className="font-mono text-[9px] text-muted-foreground">= HBL overlay</span>
+            <span className="font-mono text-[9px] text-muted-foreground">
+              = HBL overlay
+            </span>
           </div>
           <ChartLegendChip color="neutral" label="No class" />
           <ChartLegendChip color="chart-4" label="Important date" />
@@ -577,7 +656,7 @@ export function CalendarAdminClient({
       )}
 
       {/* Calendar view — Month (default) or Full-term strip */}
-      {selectedTerm && view === "month" && (
+      {selectedTerm && view === 'month' && (
         <MonthView
           term={selectedTerm}
           audience={audience}
@@ -590,7 +669,7 @@ export function CalendarAdminClient({
           onDayClick={(iso) => setDateDialogIso(iso)}
         />
       )}
-      {selectedTerm && view === "term" && (
+      {selectedTerm && view === 'term' && (
         <TermStripView
           term={selectedTerm}
           audience={audience}
@@ -614,14 +693,17 @@ export function CalendarAdminClient({
           onDelete={async (id) => {
             setBusy(true);
             try {
-              const res = await fetch(`/api/attendance/calendar/events?id=${encodeURIComponent(id)}`, {
-                method: "DELETE",
-              });
+              const res = await fetch(
+                `/api/attendance/calendar/events?id=${encodeURIComponent(id)}`,
+                {
+                  method: 'DELETE',
+                }
+              );
               const body = await res.json();
-              if (!res.ok) throw new Error(body?.error ?? "delete failed");
+              if (!res.ok) throw new Error(body?.error ?? 'delete failed');
               router.refresh();
             } catch (e) {
-              toast.error(e instanceof Error ? e.message : "delete failed");
+              toast.error(e instanceof Error ? e.message : 'delete failed');
             } finally {
               setBusy(false);
             }
@@ -636,7 +718,7 @@ export function CalendarAdminClient({
         audience={audience}
         currentDayType={dateDialogType}
         currentHblOverlay={dateDialogEntry?.hblOverlay ?? false}
-        currentRowAudience={dateDialogEntry?.audience ?? "all"}
+        currentRowAudience={dateDialogEntry?.audience ?? 'all'}
         existingLabel={dateDialogEntry?.label ?? null}
         eventsOnDate={dateDialogIso ? eventsOnDate(dateDialogIso) : []}
         busy={busy}
@@ -645,8 +727,20 @@ export function CalendarAdminClient({
           await upsertDate(iso, dayType, label, hblOverlay);
           setDateDialogIso(null);
         }}
-        onAddImportantDate={async (iso, label, category, eventAudience, tentative) => {
-          await createEventOnDate(iso, label, category, eventAudience, tentative);
+        onAddImportantDate={async (
+          iso,
+          label,
+          category,
+          eventAudience,
+          tentative
+        ) => {
+          await createEventOnDate(
+            iso,
+            label,
+            category,
+            eventAudience,
+            tentative
+          );
           setDateDialogIso(null);
         }}
         onResetToAll={async (iso) => {
@@ -657,9 +751,9 @@ export function CalendarAdminClient({
 
       <AddEventDialog
         open={addEventOpen || editingEvent !== null}
-        termId={selectedTerm?.id ?? ""}
-        termStart={selectedTerm?.startDate ?? ""}
-        termEnd={selectedTerm?.endDate ?? ""}
+        termId={selectedTerm?.id ?? ''}
+        termStart={selectedTerm?.startDate ?? ''}
+        termEnd={selectedTerm?.endDate ?? ''}
         defaultAudience={audience}
         editing={editingEvent}
         onClose={() => {
@@ -685,8 +779,20 @@ export function CalendarAdminClient({
   );
 }
 
-function LegendChip({ className, children }: { className: string; children: React.ReactNode }) {
-  return <span className={`inline-flex items-center rounded-sm px-2 py-0.5 font-medium ${className}`}>{children}</span>;
+function LegendChip({
+  className,
+  children,
+}: {
+  className: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-sm px-2 py-0.5 font-medium ${className}`}
+    >
+      {children}
+    </span>
+  );
 }
 
 // Build 5-column (Mon–Fri) weekday rows for the month containing `cursor`.
@@ -708,7 +814,7 @@ function buildMonthWeekdayRows(
   cursor: Date,
   termStart: Date,
   termEnd: Date,
-  dayTypeByIso: Map<string, DayType>,
+  dayTypeByIso: Map<string, DayType>
 ): MonthCell[][] {
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
@@ -735,7 +841,9 @@ function buildMonthWeekdayRows(
         date: new Date(d),
         dayType: dayTypeByIso.get(iso) ?? null,
         isToday: iso === todayIso,
-        inTermRange: d.getTime() >= termStart.getTime() && d.getTime() <= termEnd.getTime(),
+        inTermRange:
+          d.getTime() >= termStart.getTime() &&
+          d.getTime() <= termEnd.getTime(),
         outOfMonth: d.getMonth() !== month,
       });
     }
@@ -749,11 +857,11 @@ function buildMonthWeekdayRows(
 // Using the same mapping here guarantees the in-cell badge renders with the
 // exact same gradient as the Legend chip for that day-type.
 const DAY_TYPE_LEGEND_COLOR: Record<DayType, ChartLegendChipColor> = {
-  school_day: "fresh",
-  public_holiday: "very-stale",
-  school_holiday: "stale",
-  hbl: "primary",
-  no_class: "neutral",
+  school_day: 'fresh',
+  public_holiday: 'very-stale',
+  school_holiday: 'stale',
+  hbl: 'primary',
+  no_class: 'neutral',
 };
 
 // Gradient chip for informational events (calendar_events rows). The chip
@@ -766,9 +874,12 @@ function EventChip({ event }: { event: CalendarEventRow }) {
     <ChartLegendChip
       color={EVENT_CATEGORY_LEGEND_COLOR[event.category]}
       label={event.label}
-      className={["flex w-full justify-center", event.tentative && "opacity-70 [&]:border-dashed [&]:border-white/60"]
+      className={[
+        'flex w-full justify-center',
+        event.tentative && 'opacity-70 [&]:border-dashed [&]:border-white/60',
+      ]
         .filter(Boolean)
-        .join(" ")}
+        .join(' ')}
     />
   );
 }
@@ -798,7 +909,9 @@ function MonthView({
   const termEnd = parseIso(term.endDate);
 
   // Cursor = first-of-month for the visible month. Starts at term-start month.
-  const [cursor, setCursor] = useState<Date>(() => new Date(termStart.getFullYear(), termStart.getMonth(), 1));
+  const [cursor, setCursor] = useState<Date>(
+    () => new Date(termStart.getFullYear(), termStart.getMonth(), 1)
+  );
 
   // When the user switches to a different term via the dropdown, reset the
   // cursor to the new term's start month. Without this, the cursor stays at
@@ -814,10 +927,14 @@ function MonthView({
   // Flatten daysByType into an iso → DayType map for O(1) lookup.
   const dayTypeByIso = useMemo(() => {
     const m = new Map<string, DayType>();
-    (Object.keys(daysByType) as Array<keyof typeof daysByType>).forEach((key) => {
-      if (key === "event") return;
-      daysByType[key as DayType].forEach((d) => m.set(formatIso(d), key as DayType));
-    });
+    (Object.keys(daysByType) as Array<keyof typeof daysByType>).forEach(
+      (key) => {
+        if (key === 'event') return;
+        daysByType[key as DayType].forEach((d) =>
+          m.set(formatIso(d), key as DayType)
+        );
+      }
+    );
     return m;
   }, [daysByType]);
 
@@ -825,7 +942,7 @@ function MonthView({
   const hblOverlayIsoSet = useMemo(() => {
     const s = new Set<string>();
     for (const r of calendar) {
-      if (r.hblOverlay && r.dayType === "school_holiday") s.add(r.date);
+      if (r.hblOverlay && r.dayType === 'school_holiday') s.add(r.date);
     }
     return s;
   }, [calendar]);
@@ -837,10 +954,10 @@ function MonthView({
   // surface as separate badges so the registrar can see at a glance which
   // levels diverge from the 'all' baseline.
   const audienceBadgeByIso = useMemo(() => {
-    if (audience !== "all") return new Map<string, Audience[]>();
+    if (audience !== 'all') return new Map<string, Audience[]>();
     const m = new Map<string, Audience[]>();
     for (const r of calendar) {
-      if (r.audience === "all") continue;
+      if (r.audience === 'all') continue;
       const cur = m.get(r.date);
       if (!cur) {
         m.set(r.date, [r.audience]);
@@ -850,7 +967,7 @@ function MonthView({
     }
     // Stable ordering — primary always renders above secondary.
     for (const arr of m.values()) {
-      arr.sort((a, b) => (a === "primary" ? -1 : b === "primary" ? 1 : 0));
+      arr.sort((a, b) => (a === 'primary' ? -1 : b === 'primary' ? 1 : 0));
     }
     return m;
   }, [audience, calendar]);
@@ -874,15 +991,22 @@ function MonthView({
     return m;
   }, [events]);
 
-  const selectedIsoSet = useMemo(() => new Set(selectedDates.map(formatIso)), [selectedDates]);
+  const selectedIsoSet = useMemo(
+    () => new Set(selectedDates.map(formatIso)),
+    [selectedDates]
+  );
 
   const rows = useMemo(
     () => buildMonthWeekdayRows(cursor, termStart, termEnd, dayTypeByIso),
-    [cursor, termStart, termEnd, dayTypeByIso],
+    [cursor, termStart, termEnd, dayTypeByIso]
   );
 
   // Nav — clamp prev/next to months that overlap the term range.
-  const firstOfTermStart = new Date(termStart.getFullYear(), termStart.getMonth(), 1);
+  const firstOfTermStart = new Date(
+    termStart.getFullYear(),
+    termStart.getMonth(),
+    1
+  );
   const firstOfTermEnd = new Date(termEnd.getFullYear(), termEnd.getMonth(), 1);
   const canPrev = cursor.getTime() > firstOfTermStart.getTime();
   const canNext = cursor.getTime() < firstOfTermEnd.getTime();
@@ -899,7 +1023,8 @@ function MonthView({
     return new Date(t.getFullYear(), t.getMonth(), 1);
   })();
   const todayInTerm =
-    todayMonth.getTime() >= firstOfTermStart.getTime() && todayMonth.getTime() <= firstOfTermEnd.getTime();
+    todayMonth.getTime() >= firstOfTermStart.getTime() &&
+    todayMonth.getTime() <= firstOfTermEnd.getTime();
 
   function goPrev() {
     setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1));
@@ -919,7 +1044,10 @@ function MonthView({
     }
   }
 
-  const monthLabel = cursor.toLocaleString("en-SG", { month: "long", year: "numeric" });
+  const monthLabel = cursor.toLocaleString('en-SG', {
+    month: 'long',
+    year: 'numeric',
+  });
 
   const totalSchoolDays =
     daysByType.school_day.length +
@@ -932,23 +1060,29 @@ function MonthView({
   // hardcoding 13. Week-of-term is 1-indexed, only meaningful when today is
   // inside the term; pre/post-term render as "Starts MMM DD" / "Ended MMM DD"
   // to give the registrar an accurate at-a-glance state.
-  const termSpanDays = Math.max(1, Math.floor((termEnd.getTime() - termStart.getTime()) / 86400000) + 1);
+  const termSpanDays = Math.max(
+    1,
+    Math.floor((termEnd.getTime() - termStart.getTime()) / 86400000) + 1
+  );
   const totalWeeks = Math.max(1, Math.ceil(termSpanDays / 7));
   const now = new Date();
-  let termPhase: "pre" | "in" | "post";
+  let termPhase: 'pre' | 'in' | 'post';
   let weekOfTerm: number;
   if (now.getTime() < termStart.getTime()) {
-    termPhase = "pre";
+    termPhase = 'pre';
     weekOfTerm = 0;
   } else if (now.getTime() > termEnd.getTime()) {
-    termPhase = "post";
+    termPhase = 'post';
     weekOfTerm = totalWeeks;
   } else {
-    termPhase = "in";
-    const daysSinceStart = Math.floor((now.getTime() - termStart.getTime()) / 86400000);
+    termPhase = 'in';
+    const daysSinceStart = Math.floor(
+      (now.getTime() - termStart.getTime()) / 86400000
+    );
     weekOfTerm = Math.min(totalWeeks, Math.floor(daysSinceStart / 7) + 1);
   }
-  const formatMetaDate = (d: Date) => d.toLocaleDateString("en-SG", { month: "short", day: "numeric" });
+  const formatMetaDate = (d: Date) =>
+    d.toLocaleDateString('en-SG', { month: 'short', day: 'numeric' });
 
   return (
     <div className="rounded-xl border border-hairline bg-card shadow-sm ring-1 ring-inset ring-hairline">
@@ -957,25 +1091,28 @@ function MonthView({
         <Badge>
           {term.label}
           <span className="mx-2 text-hairline-strong">·</span>
-          {termPhase === "pre" && (
+          {termPhase === 'pre' && (
             <>
-              Starts <span className="tabular-nums">{formatMetaDate(termStart)}</span>
+              Starts{' '}
+              <span className="tabular-nums">{formatMetaDate(termStart)}</span>
             </>
           )}
-          {termPhase === "in" && (
+          {termPhase === 'in' && (
             <>
-              Week <span className="tabular-nums">{weekOfTerm}</span> of{" "}
+              Week <span className="tabular-nums">{weekOfTerm}</span> of{' '}
               <span className="tabular-nums">{totalWeeks}</span>
             </>
           )}
-          {termPhase === "post" && (
+          {termPhase === 'post' && (
             <>
-              Ended <span className="tabular-nums">{formatMetaDate(termEnd)}</span>
+              Ended{' '}
+              <span className="tabular-nums">{formatMetaDate(termEnd)}</span>
             </>
           )}
         </Badge>
         <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-          <span className="tabular-nums">{totalSchoolDays}</span> days classified
+          <span className="tabular-nums">{totalSchoolDays}</span> days
+          classified
         </p>
       </div>
 
@@ -992,7 +1129,8 @@ function MonthView({
             onClick={goPrev}
             disabled={!canPrev}
             aria-label="Previous month"
-            className="size-8">
+            className="size-8"
+          >
             <ChevronLeft />
           </Button>
           <Button
@@ -1002,7 +1140,8 @@ function MonthView({
             onClick={goNext}
             disabled={!canNext}
             aria-label="Next month"
-            className="size-8">
+            className="size-8"
+          >
             <ChevronRight />
           </Button>
           <Button
@@ -1011,10 +1150,11 @@ function MonthView({
             onClick={goToday}
             title={
               todayInTerm
-                ? "Jump to today"
+                ? 'Jump to today'
                 : "Today is outside this term — view will show today's month with empty cells; switch terms to see badges"
             }
-            className="h-8 font-mono text-[10px] uppercase tracking-[0.14em]">
+            className="h-8 font-mono text-[10px] uppercase tracking-[0.14em]"
+          >
             Today
           </Button>
         </div>
@@ -1025,12 +1165,13 @@ function MonthView({
       <div className="border-t border-hairline">
         {/* Weekday header row */}
         <div className="grid grid-cols-5 bg-muted/30">
-          {["Mon", "Tue", "Wed", "Thu", "Fri"].map((d, idx) => (
+          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((d, idx) => (
             <div
               key={d}
               className={`px-3 py-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4 ${
-                idx < 4 ? "border-r border-hairline" : ""
-              } border-b border-hairline`}>
+                idx < 4 ? 'border-r border-hairline' : ''
+              } border-b border-hairline`}
+            >
               {d}
             </div>
           ))}
@@ -1042,7 +1183,9 @@ function MonthView({
             {row.map((cell, colIdx) => {
               const isSelected = selectedIsoSet.has(cell.iso);
               const dayEvents = eventsByIso.get(cell.iso) ?? [];
-              const shortLabel = cell.dayType ? DAY_TYPE_SHORT_LABEL[cell.dayType] : null;
+              const shortLabel = cell.dayType
+                ? DAY_TYPE_SHORT_LABEL[cell.dayType]
+                : null;
               const clickable = cell.inTermRange && !cell.outOfMonth;
               const isLastRow = rowIdx === rows.length - 1;
               const isLastCol = colIdx === 4;
@@ -1063,29 +1206,31 @@ function MonthView({
                     else onDayClick(cell.iso);
                   }}
                   className={[
-                    "relative flex min-h-[120px] flex-col gap-1.5 p-2 text-left align-top transition-colors",
-                    !isLastCol && "border-r border-hairline",
-                    !isLastRow && "border-b border-hairline",
-                    cell.outOfMonth ? "bg-muted/20" : "bg-background",
-                    isSelected && "bg-accent",
-                    clickable && "cursor-pointer hover:bg-muted/40",
-                    !clickable && "cursor-not-allowed",
+                    'relative flex min-h-[120px] flex-col gap-1.5 p-2 text-left align-top transition-colors',
+                    !isLastCol && 'border-r border-hairline',
+                    !isLastRow && 'border-b border-hairline',
+                    cell.outOfMonth ? 'bg-muted/20' : 'bg-background',
+                    isSelected && 'bg-accent',
+                    clickable && 'cursor-pointer hover:bg-muted/40',
+                    !clickable && 'cursor-not-allowed',
                   ]
                     .filter(Boolean)
-                    .join(" ")}
-                  title={formatHumanDate(cell.iso)}>
+                    .join(' ')}
+                  title={formatHumanDate(cell.iso)}
+                >
                   {/* Date number — sans, top-left. Today = filled indigo circle. */}
                   <span
                     className={[
-                      "inline-flex size-6 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold tabular-nums leading-none",
+                      'inline-flex size-6 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold tabular-nums leading-none',
                       cell.isToday
-                        ? "bg-gradient-to-b from-brand-indigo to-brand-indigo-deep text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_1px_2px_rgba(15,23,42,0.1)]"
+                        ? 'bg-gradient-to-b from-brand-indigo to-brand-indigo-deep text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_1px_2px_rgba(15,23,42,0.1)]'
                         : cell.outOfMonth
-                          ? "text-ink-5"
-                          : "text-foreground",
+                          ? 'text-ink-5'
+                          : 'text-foreground',
                     ]
                       .filter(Boolean)
-                      .join(" ")}>
+                      .join(' ')}
+                  >
                     {cell.date.getDate()}
                   </span>
 
@@ -1095,7 +1240,11 @@ function MonthView({
                   {(audienceBadgeByIso.get(cell.iso)?.length ?? 0) > 0 && (
                     <div className="absolute right-1.5 top-1.5 flex flex-wrap items-center gap-0.5">
                       {audienceBadgeByIso.get(cell.iso)!.map((aud) => (
-                        <Badge key={aud} variant={"warning"} title={`${AUDIENCE_LABELS[aud]} override`}>
+                        <Badge
+                          key={aud}
+                          variant={'warning'}
+                          title={`${AUDIENCE_LABELS[aud]} override`}
+                        >
                           {AUDIENCE_LABELS[aud]}
                         </Badge>
                       ))}
@@ -1158,7 +1307,7 @@ function buildStripWeeks(
   termStartIso: string,
   termEndIso: string,
   dayTypeByIso: Map<string, DayType>,
-  eventIsos: Set<string>,
+  eventIsos: Set<string>
 ): StripWeek[] {
   const start = parseIso(termStartIso);
   const end = parseIso(termEndIso);
@@ -1181,7 +1330,8 @@ function buildStripWeeks(
       const d = new Date(weekStart);
       d.setDate(weekStart.getDate() + i);
       const iso = formatIso(d);
-      const inRange = d.getTime() >= start.getTime() && d.getTime() <= end.getTime();
+      const inRange =
+        d.getTime() >= start.getTime() && d.getTime() <= end.getTime();
       if (!inRange) {
         days.push(null);
       } else {
@@ -1226,10 +1376,14 @@ function TermStripView({
   // Flatten daysByType into an iso→dayType map for O(1) lookup per cell.
   const dayTypeByIso = useMemo(() => {
     const m = new Map<string, DayType>();
-    (Object.keys(daysByType) as Array<keyof typeof daysByType>).forEach((key) => {
-      if (key === "event") return;
-      daysByType[key as DayType].forEach((d) => m.set(formatIso(d), key as DayType));
-    });
+    (Object.keys(daysByType) as Array<keyof typeof daysByType>).forEach(
+      (key) => {
+        if (key === 'event') return;
+        daysByType[key as DayType].forEach((d) =>
+          m.set(formatIso(d), key as DayType)
+        );
+      }
+    );
     return m;
   }, [daysByType]);
 
@@ -1237,7 +1391,7 @@ function TermStripView({
   const hblOverlayIsoSet = useMemo(() => {
     const s = new Set<string>();
     for (const r of calendar) {
-      if (r.hblOverlay && r.dayType === "school_holiday") s.add(r.date);
+      if (r.hblOverlay && r.dayType === 'school_holiday') s.add(r.date);
     }
     return s;
   }, [calendar]);
@@ -1249,10 +1403,10 @@ function TermStripView({
   }, [daysByType]);
 
   const audienceBadgeByIso = useMemo(() => {
-    if (audience !== "all") return new Map<string, Audience[]>();
+    if (audience !== 'all') return new Map<string, Audience[]>();
     const m = new Map<string, Audience[]>();
     for (const r of calendar) {
-      if (r.audience === "all") continue;
+      if (r.audience === 'all') continue;
       const cur = m.get(r.date);
       if (!cur) {
         m.set(r.date, [r.audience]);
@@ -1261,7 +1415,7 @@ function TermStripView({
       }
     }
     for (const arr of m.values()) {
-      arr.sort((a, b) => (a === "primary" ? -1 : b === "primary" ? 1 : 0));
+      arr.sort((a, b) => (a === 'primary' ? -1 : b === 'primary' ? 1 : 0));
     }
     return m;
   }, [audience, calendar]);
@@ -1285,11 +1439,15 @@ function TermStripView({
   }, [events]);
 
   const weeks = useMemo(
-    () => buildStripWeeks(term.startDate, term.endDate, dayTypeByIso, eventIsoSet),
-    [term.startDate, term.endDate, dayTypeByIso, eventIsoSet],
+    () =>
+      buildStripWeeks(term.startDate, term.endDate, dayTypeByIso, eventIsoSet),
+    [term.startDate, term.endDate, dayTypeByIso, eventIsoSet]
   );
 
-  const selectedIsoSet = useMemo(() => new Set(selectedDates.map(formatIso)), [selectedDates]);
+  const selectedIsoSet = useMemo(
+    () => new Set(selectedDates.map(formatIso)),
+    [selectedDates]
+  );
 
   function toggleSelection(iso: string, d: Date) {
     if (selectedIsoSet.has(iso)) {
@@ -1328,12 +1486,13 @@ function TermStripView({
         {/* Weekday header row (with week-label rail) */}
         <div className="grid grid-cols-[56px_repeat(5,1fr)] bg-muted/30">
           <div className="border-b border-r border-hairline" />
-          {["Mon", "Tue", "Wed", "Thu", "Fri"].map((d, idx) => (
+          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((d, idx) => (
             <div
               key={d}
               className={`px-3 py-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4 ${
-                idx < 4 ? "border-r border-hairline" : ""
-              } border-b border-hairline`}>
+                idx < 4 ? 'border-r border-hairline' : ''
+              } border-b border-hairline`}
+            >
               {d}
             </div>
           ))}
@@ -1343,29 +1502,40 @@ function TermStripView({
         {weeks.map((wk, wkIdx) => {
           const isLastRow = wkIdx === weeks.length - 1;
           return (
-            <div key={wk.weekNumber} className="grid grid-cols-[56px_repeat(5,1fr)]">
+            <div
+              key={wk.weekNumber}
+              className="grid grid-cols-[56px_repeat(5,1fr)]"
+            >
               <div
-                className={`flex items-center justify-center bg-muted/30 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-3 border-r border-hairline ${!isLastRow ? "border-b border-hairline" : ""}`}>
+                className={`flex items-center justify-center bg-muted/30 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-3 border-r border-hairline ${!isLastRow ? 'border-b border-hairline' : ''}`}
+              >
                 W{wk.weekNumber}
               </div>
               {wk.days.map((d, colIdx) => {
                 const isLastCol = colIdx === 4;
                 const borderClasses = [
-                  !isLastCol && "border-r border-hairline",
-                  !isLastRow && "border-b border-hairline",
+                  !isLastCol && 'border-r border-hairline',
+                  !isLastRow && 'border-b border-hairline',
                 ]
                   .filter(Boolean)
-                  .join(" ");
+                  .join(' ');
 
                 if (!d) {
                   // Leading / trailing days outside term range — rendered as a
                   // subtle placeholder so the grid shape stays legible.
-                  return <div key={colIdx} className={`min-h-[100px] bg-muted/20 ${borderClasses}`} />;
+                  return (
+                    <div
+                      key={colIdx}
+                      className={`min-h-[100px] bg-muted/20 ${borderClasses}`}
+                    />
+                  );
                 }
 
                 const isSelected = selectedIsoSet.has(d.iso);
                 const dayEvents = eventsByIso.get(d.iso) ?? [];
-                const shortLabel = d.dayType ? DAY_TYPE_SHORT_LABEL[d.dayType] : null;
+                const shortLabel = d.dayType
+                  ? DAY_TYPE_SHORT_LABEL[d.dayType]
+                  : null;
 
                 // Custom <button> per §5 step 5 — same reasoning as MonthView
                 // day-button. Cell structure identical to MonthView for visual
@@ -1379,23 +1549,27 @@ function TermStripView({
                       else onDayClick(d.iso);
                     }}
                     className={[
-                      "relative flex min-h-[100px] cursor-pointer flex-col items-start gap-1.5 p-2 text-left transition-colors",
+                      'relative flex min-h-[100px] cursor-pointer flex-col items-start gap-1.5 p-2 text-left transition-colors',
                       borderClasses,
-                      isSelected ? "bg-accent" : "bg-background hover:bg-muted/40",
+                      isSelected
+                        ? 'bg-accent'
+                        : 'bg-background hover:bg-muted/40',
                     ]
                       .filter(Boolean)
-                      .join(" ")}
-                    title={formatHumanDate(d.iso)}>
+                      .join(' ')}
+                    title={formatHumanDate(d.iso)}
+                  >
                     {/* Date number — sans, top-left. Today = filled indigo circle. */}
                     <span
                       className={[
-                        "inline-flex size-6 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold tabular-nums leading-none",
+                        'inline-flex size-6 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold tabular-nums leading-none',
                         d.isToday
-                          ? "bg-gradient-to-b from-brand-indigo to-brand-indigo-deep text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_1px_2px_rgba(15,23,42,0.1)]"
-                          : "text-foreground",
+                          ? 'bg-gradient-to-b from-brand-indigo to-brand-indigo-deep text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_1px_2px_rgba(15,23,42,0.1)]'
+                          : 'text-foreground',
                       ]
                         .filter(Boolean)
-                        .join(" ")}>
+                        .join(' ')}
+                    >
                       {d.date.getDate()}
                     </span>
 
@@ -1408,7 +1582,8 @@ function TermStripView({
                           <span
                             key={aud}
                             className="inline-flex items-center rounded-sm bg-primary/15 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase leading-none tracking-[0.14em] text-primary"
-                            title={`${AUDIENCE_LABELS[aud]} override`}>
+                            title={`${AUDIENCE_LABELS[aud]} override`}
+                          >
                             {AUDIENCE_LABELS[aud]}
                           </span>
                         ))}
@@ -1451,7 +1626,7 @@ function TermStripView({
   );
 }
 
-type InputMode = "view" | "event";
+type InputMode = 'view' | 'event';
 
 function DateActionDialog({
   open,
@@ -1478,35 +1653,40 @@ function DateActionDialog({
   eventsOnDate: CalendarEventRow[];
   busy: boolean;
   onClose: () => void;
-  onSaveDayType: (iso: string, dayType: DayType, label: string | null, hblOverlay: boolean) => Promise<void>;
+  onSaveDayType: (
+    iso: string,
+    dayType: DayType,
+    label: string | null,
+    hblOverlay: boolean
+  ) => Promise<void>;
   onAddImportantDate: (
     iso: string,
     label: string,
     category: EventCategory,
     audience: Audience,
-    tentative: boolean,
+    tentative: boolean
   ) => Promise<void>;
   onResetToAll: (iso: string) => Promise<void>;
 }) {
-  const [mode, setMode] = useState<InputMode>("view");
+  const [mode, setMode] = useState<InputMode>('view');
   const [pickedType, setPickedType] = useState<DayType>(currentDayType);
   const [hblOverlay, setHblOverlay] = useState(currentHblOverlay);
-  const [labelInput, setLabelInput] = useState(existingLabel ?? "");
-  const [eventLabelInput, setEventLabelInput] = useState("");
-  const [eventCategory, setEventCategory] = useState<EventCategory>("other");
+  const [labelInput, setLabelInput] = useState(existingLabel ?? '');
+  const [eventLabelInput, setEventLabelInput] = useState('');
+  const [eventCategory, setEventCategory] = useState<EventCategory>('other');
   const [eventTentative, setEventTentative] = useState(false);
 
   // Reset local state when the dialog opens for a new date.
-  const key = `${iso}-${currentDayType}-${currentHblOverlay}-${existingLabel ?? ""}`;
+  const key = `${iso}-${currentDayType}-${currentHblOverlay}-${existingLabel ?? ''}`;
   const [initKey, setInitKey] = useState<string | null>(null);
   if (open && initKey !== key) {
     setInitKey(key);
-    setMode("view");
+    setMode('view');
     setPickedType(currentDayType);
     setHblOverlay(currentHblOverlay);
-    setLabelInput(existingLabel ?? "");
-    setEventLabelInput("");
-    setEventCategory("other");
+    setLabelInput(existingLabel ?? '');
+    setEventLabelInput('');
+    setEventCategory('other');
     setEventTentative(false);
   }
   if (!open && initKey !== null) setInitKey(null);
@@ -1515,17 +1695,18 @@ function DateActionDialog({
 
   const dirty =
     pickedType !== currentDayType ||
-    labelInput.trim() !== (existingLabel ?? "").trim() ||
-    (pickedType === "school_holiday" && hblOverlay !== currentHblOverlay);
+    labelInput.trim() !== (existingLabel ?? '').trim() ||
+    (pickedType === 'school_holiday' && hblOverlay !== currentHblOverlay);
   // Show "Reset to All" only when:
   //  - filter is primary or secondary (we're editing an override-scope row), AND
   //  - the visible row IS an override (currentRowAudience !== 'all').
-  const canResetToAll = audience !== "all" && currentRowAudience !== "all";
+  const canResetToAll = audience !== 'all' && currentRowAudience !== 'all';
 
   async function saveDayType() {
     if (!iso) return;
     const label = labelInput.trim();
-    const effectiveHblOverlay = pickedType === "school_holiday" ? hblOverlay : false;
+    const effectiveHblOverlay =
+      pickedType === 'school_holiday' ? hblOverlay : false;
     // For encodable types an empty label is fine; for holidays default to the
     // type label so the attendance sheet header always reads something.
     const resolvedLabel =
@@ -1545,11 +1726,17 @@ function DateActionDialog({
     if (!iso) return;
     const label = eventLabelInput.trim();
     if (!label) {
-      toast.error("Label is required");
+      toast.error('Label is required');
       return;
     }
     try {
-      await onAddImportantDate(iso, label, eventCategory, audience, eventTentative);
+      await onAddImportantDate(
+        iso,
+        label,
+        eventCategory,
+        audience,
+        eventTentative
+      );
     } catch {
       // toast raised by parent
     }
@@ -1563,18 +1750,24 @@ function DateActionDialog({
         <DialogHeader>
           <div className="flex items-center gap-2">
             <span
-              className={`inline-flex items-center rounded-sm px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] ${statusBadgeClass}`}>
+              className={`inline-flex items-center rounded-sm px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] ${statusBadgeClass}`}
+            >
               {DAY_TYPE_LABELS[currentDayType]}
             </span>
-            {existingLabel && <span className="text-sm font-medium text-foreground">· {existingLabel}</span>}
+            {existingLabel && (
+              <span className="text-sm font-medium text-foreground">
+                · {existingLabel}
+              </span>
+            )}
           </div>
           <DialogTitle className="font-serif text-[18px] font-semibold tracking-tight">
             {formatHumanDate(iso)}
           </DialogTitle>
           <DialogDescription>
-            Pick a day-type to classify this date. School day and HBL let teachers mark attendance; the
-            others (Public holiday, School holiday, No class) block attendance and grey the column out
-            on the attendance sheet.
+            Pick a day-type to classify this date. School day and HBL let
+            teachers mark attendance; the others (Public holiday, School
+            holiday, No class) block attendance and grey the column out on the
+            attendance sheet.
           </DialogDescription>
         </DialogHeader>
 
@@ -1595,7 +1788,7 @@ function DateActionDialog({
             </div>
           )}
 
-          {mode === "view" && (
+          {mode === 'view' && (
             <>
               <fieldset className="space-y-2">
                 <legend className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -1604,28 +1797,33 @@ function DateActionDialog({
                 <RadioGroup
                   value={pickedType}
                   onValueChange={(v) => setPickedType(v as DayType)}
-                  className="grid gap-2">
+                  className="grid gap-2"
+                >
                   {DAY_TYPE_VALUES.map((dt) => {
                     const style = DAY_TYPE_STYLES[dt];
                     const selected = pickedType === dt;
                     const id = `day-type-${dt}`;
                     const encodable =
                       isEncodableDayType(dt) ||
-                      (dt === "school_holiday" && pickedType === "school_holiday" && hblOverlay);
+                      (dt === 'school_holiday' &&
+                        pickedType === 'school_holiday' &&
+                        hblOverlay);
                     return (
                       <label
                         key={dt}
                         htmlFor={id}
                         className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
                           selected
-                            ? "border-primary/40 ring-2 ring-primary/20"
-                            : "border-border hover:border-primary/30"
-                        }`}>
+                            ? 'border-primary/40 ring-2 ring-primary/20'
+                            : 'border-border hover:border-primary/30'
+                        }`}
+                      >
                         <RadioGroupItem id={id} value={dt} className="mt-1" />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span
-                              className={`inline-flex items-center rounded-sm px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.14em] ${style.chip}`}>
+                              className={`inline-flex items-center rounded-sm px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.14em] ${style.chip}`}
+                            >
                               {DAY_TYPE_LABELS[dt]}
                             </span>
                             {encodable && (
@@ -1634,7 +1832,9 @@ function DateActionDialog({
                               </span>
                             )}
                           </div>
-                          <p className="mt-1 text-[12px] leading-snug text-muted-foreground">{style.blurb}</p>
+                          <p className="mt-1 text-[12px] leading-snug text-muted-foreground">
+                            {style.blurb}
+                          </p>
                         </div>
                       </label>
                     );
@@ -1642,7 +1842,7 @@ function DateActionDialog({
                 </RadioGroup>
               </fieldset>
 
-              {pickedType === "school_holiday" && (
+              {pickedType === 'school_holiday' && (
                 <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 transition-colors hover:border-primary/30">
                   <Checkbox
                     checked={hblOverlay}
@@ -1651,7 +1851,9 @@ function DateActionDialog({
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-[13px] font-medium text-foreground">HBL overlay</span>
+                      <span className="text-[13px] font-medium text-foreground">
+                        HBL overlay
+                      </span>
                       {hblOverlay && (
                         <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-primary">
                           attendance taken
@@ -1659,8 +1861,9 @@ function DateActionDialog({
                       )}
                     </div>
                     <p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">
-                      School is closed for students, but teachers deliver home-based learning and take attendance.
-                      Use this for marking days and deliberation days where HBL is scheduled.
+                      School is closed for students, but teachers deliver
+                      home-based learning and take attendance. Use this for
+                      marking days and deliberation days where HBL is scheduled.
                     </p>
                   </div>
                 </label>
@@ -1668,7 +1871,7 @@ function DateActionDialog({
 
               <div className="space-y-2">
                 <Label htmlFor="dlgDayLabel">
-                  Label{" "}
+                  Label{' '}
                   <span className="font-mono text-[10px] font-normal text-muted-foreground">
                     (optional for school day; required-ish for closures)
                   </span>
@@ -1678,21 +1881,25 @@ function DateActionDialog({
                   value={labelInput}
                   onChange={(e) => setLabelInput(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && dirty) {
+                    if (e.key === 'Enter' && dirty) {
                       e.preventDefault();
                       saveDayType();
                     }
                   }}
                   placeholder={
-                    isEncodableDayType(pickedType) ? "e.g. Half-day: early dismissal" : "e.g. CNY Day 1, Staff Dev Day"
+                    isEncodableDayType(pickedType)
+                      ? 'e.g. Half-day: early dismissal'
+                      : 'e.g. CNY Day 1, Staff Dev Day'
                   }
                 />
-                <p className="text-[11px] text-muted-foreground">Shown on the attendance sheet header for this date.</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Shown on the attendance sheet header for this date.
+                </p>
               </div>
             </>
           )}
 
-          {mode === "event" && (
+          {mode === 'event' && (
             <div className="space-y-3">
               <div className="space-y-2">
                 <Label htmlFor="dlgEventLabel">Important date label</Label>
@@ -1702,11 +1909,11 @@ function DateActionDialog({
                   value={eventLabelInput}
                   onChange={(e) => setEventLabelInput(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") {
+                    if (e.key === 'Enter') {
                       e.preventDefault();
                       saveImportantDate();
                     }
-                    if (e.key === "Escape") setMode("view");
+                    if (e.key === 'Escape') setMode('view');
                   }}
                   placeholder="e.g. P5 Mock Exam Week 1, School Photos"
                 />
@@ -1714,7 +1921,10 @@ function DateActionDialog({
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="dlgEventCategory">Category</Label>
-                  <Select value={eventCategory} onValueChange={(v) => setEventCategory(v as EventCategory)}>
+                  <Select
+                    value={eventCategory}
+                    onValueChange={(v) => setEventCategory(v as EventCategory)}
+                  >
                     <SelectTrigger id="dlgEventCategory" className="h-9">
                       <SelectValue placeholder="Pick a category" />
                     </SelectTrigger>
@@ -1735,18 +1945,24 @@ function DateActionDialog({
                 </div>
               </div>
               <label className="flex cursor-pointer items-center gap-2 text-[12px] text-muted-foreground">
-                <Checkbox checked={eventTentative} onCheckedChange={(v) => setEventTentative(Boolean(v))} />
-                <span>Tentative — date is provisional, review before locking</span>
+                <Checkbox
+                  checked={eventTentative}
+                  onCheckedChange={(v) => setEventTentative(Boolean(v))}
+                />
+                <span>
+                  Tentative — date is provisional, review before locking
+                </span>
               </label>
               <p className="text-[11px] text-muted-foreground">
-                Overlays a category-colored chip on the grid for this date. Does not affect attendance.
+                Overlays a category-colored chip on the grid for this date. Does
+                not affect attendance.
               </p>
             </div>
           )}
         </div>
 
         <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
-          {mode === "view" ? (
+          {mode === 'view' ? (
             <>
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -1754,8 +1970,9 @@ function DateActionDialog({
                   variant="ghost"
                   size="sm"
                   disabled={busy}
-                  onClick={() => setMode("event")}
-                  className="gap-1.5 text-muted-foreground">
+                  onClick={() => setMode('event')}
+                  className="gap-1.5 text-muted-foreground"
+                >
                   <CalendarPlus className="size-3.5" />
                   Set as important date
                 </Button>
@@ -1770,22 +1987,44 @@ function DateActionDialog({
                       await onResetToAll(iso);
                     }}
                     className="gap-1.5 text-muted-foreground"
-                    title={`Remove the ${AUDIENCE_LABELS[audience]} override and follow the All baseline.`}>
+                    title={`Remove the ${AUDIENCE_LABELS[audience]} override and follow the All baseline.`}
+                  >
                     Reset to All
                   </Button>
                 )}
               </div>
-              <Button type="button" size="sm" disabled={busy || !dirty} onClick={saveDayType} className="gap-1.5">
-                {busy ? <Loader2 className="size-3.5 animate-spin" /> : <CalendarOff className="size-3.5" />}
+              <Button
+                type="button"
+                size="sm"
+                disabled={busy || !dirty}
+                onClick={saveDayType}
+                className="gap-1.5"
+              >
+                {busy ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <CalendarOff className="size-3.5" />
+                )}
                 Save day type
               </Button>
             </>
           ) : (
             <>
-              <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setMode("view")}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={() => setMode('view')}
+              >
                 Cancel
               </Button>
-              <Button type="button" size="sm" disabled={busy} onClick={saveImportantDate}>
+              <Button
+                type="button"
+                size="sm"
+                disabled={busy}
+                onClick={saveImportantDate}
+              >
                 {busy && <Loader2 className="size-3.5 animate-spin" />}
                 Save
               </Button>
@@ -1820,8 +2059,8 @@ function AddEventDialog({
   const isEdit = editing !== null;
   const [start, setStart] = useState(termStart);
   const [end, setEnd] = useState(termEnd);
-  const [label, setLabel] = useState("");
-  const [category, setCategory] = useState<EventCategory>("school_event");
+  const [label, setLabel] = useState('');
+  const [category, setCategory] = useState<EventCategory>('school_event');
   const [eventAudience, setEventAudience] = useState<Audience>(defaultAudience);
   const [tentative, setTentative] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1844,8 +2083,8 @@ function AddEventDialog({
     } else {
       setStart(termStart);
       setEnd(termEnd);
-      setLabel("");
-      setCategory("school_event");
+      setLabel('');
+      setCategory('school_event');
       setEventAudience(defaultAudience);
       setTentative(false);
     }
@@ -1854,18 +2093,18 @@ function AddEventDialog({
 
   async function save() {
     if (!label.trim()) {
-      toast.error("Label is required");
+      toast.error('Label is required');
       return;
     }
     if (end < start) {
-      toast.error("End date must be on or after start date");
+      toast.error('End date must be on or after start date');
       return;
     }
     setSaving(true);
     try {
-      const res = await fetch("/api/attendance/calendar/events", {
-        method: isEdit ? "PATCH" : "POST",
-        headers: { "content-type": "application/json" },
+      const res = await fetch('/api/attendance/calendar/events', {
+        method: isEdit ? 'PATCH' : 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify(
           isEdit
             ? {
@@ -1885,15 +2124,24 @@ function AddEventDialog({
                 category,
                 audience: eventAudience,
                 tentative,
-              },
+              }
         ),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error ?? (isEdit ? "update failed" : "create failed"));
-      toast.success(isEdit ? "Event updated" : "Event added");
+      if (!res.ok)
+        throw new Error(
+          body?.error ?? (isEdit ? 'update failed' : 'create failed')
+        );
+      toast.success(isEdit ? 'Event updated' : 'Event added');
       onCreated();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : isEdit ? "update failed" : "create failed");
+      toast.error(
+        e instanceof Error
+          ? e.message
+          : isEdit
+            ? 'update failed'
+            : 'create failed'
+      );
     } finally {
       setSaving(false);
     }
@@ -1904,7 +2152,7 @@ function AddEventDialog({
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle className="font-serif text-[18px] font-semibold tracking-tight">
-            {isEdit ? "Edit date range" : "Add a date range"}
+            {isEdit ? 'Edit date range' : 'Add a date range'}
           </DialogTitle>
           <DialogDescription>
             {isEdit
@@ -1932,7 +2180,7 @@ function AddEventDialog({
               onChange={(e) => setLabel(e.target.value)}
               placeholder="e.g. P5 Mock Exam Week, Founders' Day, PFE Site Visit"
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !saving) {
+                if (e.key === 'Enter' && !saving) {
                   e.preventDefault();
                   save();
                 }
@@ -1942,7 +2190,10 @@ function AddEventDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="addEventCategory">Category</Label>
-              <Select value={category} onValueChange={(v) => setCategory(v as EventCategory)}>
+              <Select
+                value={category}
+                onValueChange={(v) => setCategory(v as EventCategory)}
+              >
                 <SelectTrigger id="addEventCategory" className="h-9">
                   <SelectValue placeholder="Pick a category" />
                 </SelectTrigger>
@@ -1957,7 +2208,10 @@ function AddEventDialog({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="addEventAudience">Audience</Label>
-              <Select value={eventAudience} onValueChange={(v) => setEventAudience(v as Audience)}>
+              <Select
+                value={eventAudience}
+                onValueChange={(v) => setEventAudience(v as Audience)}
+              >
                 <SelectTrigger id="addEventAudience" className="h-9">
                   <SelectValue placeholder="Pick an audience" />
                 </SelectTrigger>
@@ -1972,18 +2226,30 @@ function AddEventDialog({
             </div>
           </div>
           <label className="flex cursor-pointer items-center gap-2 text-[12px] text-muted-foreground">
-            <Checkbox checked={tentative} onCheckedChange={(v) => setTentative(Boolean(v))} />
-            <span>Tentative — provisional date pending review (renders dashed in the grid)</span>
+            <Checkbox
+              checked={tentative}
+              onCheckedChange={(v) => setTentative(Boolean(v))}
+            />
+            <span>
+              Tentative — provisional date pending review (renders dashed in the
+              grid)
+            </span>
           </label>
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" size="sm" disabled={saving} onClick={onClose}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={saving}
+            onClick={onClose}
+          >
             Cancel
           </Button>
           <Button type="button" size="sm" disabled={saving} onClick={save}>
             {saving ? <Loader2 className="size-3.5 animate-spin" /> : null}
-            {isEdit ? "Update" : "Save"}
+            {isEdit ? 'Update' : 'Save'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -2011,27 +2277,31 @@ function EventsPanel({
           Events
         </div>
         <p className="text-[12px] text-muted-foreground">
-          Color-coded event chips (term exams, subject weeks, parents dialogue, etc.). Doesn&apos;t
-          affect whether teachers can mark attendance on the day.
+          Color-coded event chips (term exams, subject weeks, parents dialogue,
+          etc.). Doesn&apos;t affect whether teachers can mark attendance on the
+          day.
         </p>
       </div>
 
       {events.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-muted/20 p-4 text-center text-[12px] text-muted-foreground">
-          No events yet. Use <strong>Add date range</strong> to label a span like &ldquo;Subject Week 2&rdquo; or
-          &ldquo;P5 Mock Exam&rdquo;.
+          No events yet. Use <strong>Add date range</strong> to label a span
+          like &ldquo;Subject Week 2&rdquo; or &ldquo;P5 Mock Exam&rdquo;.
         </div>
       ) : (
         <div className="divide-y divide-border rounded-xl border border-border bg-card">
           {events.map((e) => (
-            <div key={e.id} className="flex items-center justify-between gap-4 px-4 py-3">
+            <div
+              key={e.id}
+              className="flex items-center justify-between gap-4 px-4 py-3"
+            >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2 font-serif text-[14px] font-semibold text-foreground">
                   <span>{e.label}</span>
                   <Badge variant="outline" className="text-[10px]">
                     {EVENT_CATEGORY_LABELS[e.category]}
                   </Badge>
-                  {e.audience !== "all" && (
+                  {e.audience !== 'all' && (
                     <Badge variant="secondary" className="text-[10px]">
                       {AUDIENCE_LABELS[e.audience]}
                     </Badge>
@@ -2039,7 +2309,8 @@ function EventsPanel({
                   {e.tentative && (
                     <Badge
                       variant="outline"
-                      className="border-dashed border-amber-500/50 bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-200">
+                      className="border-dashed border-amber-500/50 bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-200"
+                    >
                       Tentative
                     </Badge>
                   )}
@@ -2056,7 +2327,8 @@ function EventsPanel({
                     size="sm"
                     variant="outline"
                     disabled={busy}
-                    onClick={() => onConfirmDates(e.id)}>
+                    onClick={() => onConfirmDates(e.id)}
+                  >
                     Confirm dates
                   </Button>
                 )}
@@ -2066,7 +2338,8 @@ function EventsPanel({
                   variant="outline"
                   disabled={busy}
                   onClick={() => onEdit(e)}
-                  className="gap-1">
+                  className="gap-1"
+                >
                   <Pencil className="size-3.5" />
                   Edit
                 </Button>
@@ -2076,7 +2349,8 @@ function EventsPanel({
                   variant="destructive"
                   disabled={busy}
                   onClick={() => onDelete(e.id)}
-                  className="gap-1">
+                  className="gap-1"
+                >
                   <Trash2 className="size-3.5" />
                   Remove
                 </Button>
@@ -2093,7 +2367,7 @@ function EventsPanel({
 // preview ("Feb 3–5 · Feb 8 · Feb 10–14"). Non-adjacent dates are single
 // entries; adjacent dates collapse.
 function summariseDates(dates: Date[]): string {
-  if (dates.length === 0) return "";
+  if (dates.length === 0) return '';
   const sorted = [...dates].sort((a, b) => a.getTime() - b.getTime());
   type Run = { start: Date; end: Date };
   const runs: Run[] = [];
@@ -2109,12 +2383,15 @@ function summariseDates(dates: Date[]): string {
     }
     runs.push({ start: d, end: d });
   }
-  const fmtShort = (d: Date) => d.toLocaleDateString("en-SG", { month: "short", day: "numeric" });
+  const fmtShort = (d: Date) =>
+    d.toLocaleDateString('en-SG', { month: 'short', day: 'numeric' });
   return runs
     .map((r) =>
-      formatIso(r.start) === formatIso(r.end) ? fmtShort(r.start) : `${fmtShort(r.start)}–${r.end.getDate()}`,
+      formatIso(r.start) === formatIso(r.end)
+        ? fmtShort(r.start)
+        : `${fmtShort(r.start)}–${r.end.getDate()}`
     )
-    .join(" · ");
+    .join(' · ');
 }
 
 function BulkDayTypeDialog({
@@ -2130,24 +2407,33 @@ function BulkDayTypeDialog({
   audience: Audience;
   busy: boolean;
   onClose: () => void;
-  onSave: (dates: Date[], dayType: DayType, label: string | null) => Promise<void>;
+  onSave: (
+    dates: Date[],
+    dayType: DayType,
+    label: string | null
+  ) => Promise<void>;
 }) {
-  const [pickedType, setPickedType] = useState<DayType>("public_holiday");
-  const [labelInput, setLabelInput] = useState("");
+  const [pickedType, setPickedType] = useState<DayType>('public_holiday');
+  const [labelInput, setLabelInput] = useState('');
 
   // Reset on dialog open so the next use doesn't inherit a stale label.
-  const key = `${open ? "open" : "closed"}-${selectedDates.length}`;
+  const key = `${open ? 'open' : 'closed'}-${selectedDates.length}`;
   const [initKey, setInitKey] = useState<string | null>(null);
   if (open && initKey !== key) {
     setInitKey(key);
-    setPickedType("public_holiday");
-    setLabelInput("");
+    setPickedType('public_holiday');
+    setLabelInput('');
   }
   if (!open && initKey !== null) setInitKey(null);
 
   async function save() {
     const label = labelInput.trim();
-    const resolved = label.length > 0 ? label : isEncodableDayType(pickedType) ? null : DAY_TYPE_LABELS[pickedType];
+    const resolved =
+      label.length > 0
+        ? label
+        : isEncodableDayType(pickedType)
+          ? null
+          : DAY_TYPE_LABELS[pickedType];
     await onSave(selectedDates, pickedType, resolved);
   }
 
@@ -2157,12 +2443,15 @@ function BulkDayTypeDialog({
         <DialogHeader>
           <DialogTitle className="font-serif text-[18px] font-semibold tracking-tight">
             Apply day-type to {selectedDates.length} date
-            {selectedDates.length === 1 ? "" : "s"}
+            {selectedDates.length === 1 ? '' : 's'}
           </DialogTitle>
           <DialogDescription>
-            All selected dates get overwritten with the picked day-type for the{" "}
-            <span className="font-medium text-foreground">{AUDIENCE_LABELS[audience]}</span> audience scope. Existing
-            labels on those dates are replaced by the single label below (blank = use the type default).
+            All selected dates get overwritten with the picked day-type for the{' '}
+            <span className="font-medium text-foreground">
+              {AUDIENCE_LABELS[audience]}
+            </span>{' '}
+            audience scope. Existing labels on those dates are replaced by the
+            single label below (blank = use the type default).
           </DialogDescription>
         </DialogHeader>
 
@@ -2182,7 +2471,11 @@ function BulkDayTypeDialog({
             <legend className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Day type
             </legend>
-            <RadioGroup value={pickedType} onValueChange={(v) => setPickedType(v as DayType)} className="grid gap-2">
+            <RadioGroup
+              value={pickedType}
+              onValueChange={(v) => setPickedType(v as DayType)}
+              className="grid gap-2"
+            >
               {DAY_TYPE_VALUES.map((dt) => {
                 const style = DAY_TYPE_STYLES[dt];
                 const selected = pickedType === dt;
@@ -2192,13 +2485,17 @@ function BulkDayTypeDialog({
                     key={dt}
                     htmlFor={id}
                     className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
-                      selected ? "border-primary/40 ring-2 ring-primary/20" : "border-border hover:border-primary/30"
-                    }`}>
+                      selected
+                        ? 'border-primary/40 ring-2 ring-primary/20'
+                        : 'border-border hover:border-primary/30'
+                    }`}
+                  >
                     <RadioGroupItem id={id} value={dt} className="mt-1" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span
-                          className={`inline-flex items-center rounded-sm px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.14em] ${style.chip}`}>
+                          className={`inline-flex items-center rounded-sm px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.14em] ${style.chip}`}
+                        >
                           {DAY_TYPE_LABELS[dt]}
                         </span>
                         {isEncodableDayType(dt) && (
@@ -2207,7 +2504,9 @@ function BulkDayTypeDialog({
                           </span>
                         )}
                       </div>
-                      <p className="mt-1 text-[12px] leading-snug text-muted-foreground">{style.blurb}</p>
+                      <p className="mt-1 text-[12px] leading-snug text-muted-foreground">
+                        {style.blurb}
+                      </p>
                     </div>
                   </label>
                 );
@@ -2217,7 +2516,7 @@ function BulkDayTypeDialog({
 
           <div className="space-y-2">
             <Label htmlFor="bulkDayLabel">
-              Label{" "}
+              Label{' '}
               <span className="font-mono text-[10px] font-normal text-muted-foreground">
                 (applied to every selected date)
               </span>
@@ -2226,13 +2525,23 @@ function BulkDayTypeDialog({
               id="bulkDayLabel"
               value={labelInput}
               onChange={(e) => setLabelInput(e.target.value)}
-              placeholder={isEncodableDayType(pickedType) ? "e.g. Early dismissal week" : "e.g. CNY Block, Term break"}
+              placeholder={
+                isEncodableDayType(pickedType)
+                  ? 'e.g. Early dismissal week'
+                  : 'e.g. CNY Block, Term break'
+              }
             />
           </div>
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" size="sm" disabled={busy} onClick={onClose}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={onClose}
+          >
             Cancel
           </Button>
           <Button
@@ -2240,9 +2549,15 @@ function BulkDayTypeDialog({
             size="sm"
             disabled={busy || selectedDates.length === 0}
             onClick={save}
-            className="gap-1.5">
-            {busy ? <Loader2 className="size-3.5 animate-spin" /> : <CalendarOff className="size-3.5" />}
-            Apply to {selectedDates.length} date{selectedDates.length === 1 ? "" : "s"}
+            className="gap-1.5"
+          >
+            {busy ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <CalendarOff className="size-3.5" />
+            )}
+            Apply to {selectedDates.length} date
+            {selectedDates.length === 1 ? '' : 's'}
           </Button>
         </DialogFooter>
       </DialogContent>

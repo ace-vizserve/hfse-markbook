@@ -41,7 +41,7 @@ export async function GET(req: Request) {
       r.lastUpdated,
       r.daysSinceUpdate,
       r.daysInPipeline,
-    ]),
+    ])
   );
 
   const filename = `admissions-outdated-${ayCode}-${new Date()

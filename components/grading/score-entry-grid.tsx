@@ -1,16 +1,30 @@
-"use client";
+'use client';
 
-import { AlertTriangle, ChevronRight, Loader2 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
+import { AlertTriangle, ChevronRight, Loader2 } from 'lucide-react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DEFAULT_GRID_FILTERS, GridFilterToolbar, type GridFilters } from "./grid-filter-toolbar";
-import { useChangeReference, type ChangeReferenceTarget } from "./use-approval-reference";
-import { GradeDiffDialog, type AlertComparison } from "./grade-diff-dialog";
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  DEFAULT_GRID_FILTERS,
+  GridFilterToolbar,
+  type GridFilters,
+} from './grid-filter-toolbar';
+import {
+  useChangeReference,
+  type ChangeReferenceTarget,
+} from './use-approval-reference';
+import { GradeDiffDialog, type AlertComparison } from './grade-diff-dialog';
 
 export type GradeRow = {
   entry_id: string;
@@ -75,13 +89,13 @@ type Props = {
 };
 
 function parseCell(raw: string): number | null {
-  if (raw === "" || raw == null) return null;
+  if (raw === '' || raw == null) return null;
   const n = Number(raw);
   return Number.isFinite(n) ? n : null;
 }
 
 function displayCell(v: number | null): string {
-  return v == null ? "" : String(v);
+  return v == null ? '' : String(v);
 }
 
 export function ScoreEntryGrid({
@@ -107,7 +121,8 @@ export function ScoreEntryGrid({
   rowsRef.current = rows;
   const [savingId, setSavingId] = useState<string | null>(null);
   const [filters, setFilters] = useState<GridFilters>(DEFAULT_GRID_FILTERS);
-  const { requireChangeReference, dialog: approvalDialog } = useChangeReference();
+  const { requireChangeReference, dialog: approvalDialog } =
+    useChangeReference();
   const [alertDialogState, setAlertDialogState] = useState<{
     studentName: string;
     currentGrade: number;
@@ -149,15 +164,23 @@ export function ScoreEntryGrid({
   const patchEntry = useCallback(
     async (
       entryId: string,
-      target: Omit<ChangeReferenceTarget, "sheetId" | "entryId">,
-      body: Partial<Pick<GradeRow, "ww_scores" | "pt_scores" | "qa_score" | "is_na">>,
+      target: Omit<ChangeReferenceTarget, 'sheetId' | 'entryId'>,
+      body: Partial<
+        Pick<GradeRow, 'ww_scores' | 'pt_scores' | 'qa_score' | 'is_na'>
+      >
     ) => {
       let extraPayload: Record<string, unknown> = {};
-      let bodyOverride: Partial<Pick<GradeRow, "ww_scores" | "pt_scores" | "qa_score" | "is_na">> | null = null;
+      let bodyOverride: Partial<
+        Pick<GradeRow, 'ww_scores' | 'pt_scores' | 'qa_score' | 'is_na'>
+      > | null = null;
       if (requireApproval) {
-        const ref = await requireChangeReference({ sheetId, entryId, ...target });
+        const ref = await requireChangeReference({
+          sheetId,
+          entryId,
+          ...target,
+        });
         if (!ref) return;
-        if (ref.mode === "request") {
+        if (ref.mode === 'request') {
           extraPayload = {
             change_request_id: ref.change_request_id,
             patch_target: target,
@@ -168,7 +191,7 @@ export function ScoreEntryGrid({
             ref.proposed_value,
             rowsRef.current.find((r) => r.entry_id === entryId) ?? null,
             wwTotals.length,
-            ptTotals.length,
+            ptTotals.length
           );
         } else {
           extraPayload = {
@@ -182,16 +205,19 @@ export function ScoreEntryGrid({
       setSavingId(entryId);
       try {
         const payload = { ...body, ...(bodyOverride ?? {}), ...extraPayload };
-        const res = await fetch(`/api/grading-sheets/${sheetId}/entries/${entryId}`, {
-          method: "PATCH",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+        const res = await fetch(
+          `/api/grading-sheets/${sheetId}/entries/${entryId}`,
+          {
+            method: 'PATCH',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(payload),
+          }
+        );
         const data = await res.json();
         if (!res.ok) {
           const row = rowsRef.current.find((r) => r.entry_id === entryId);
           toast.error(
-            `Failed to save ${row ? `#${row.index_number} ${row.student_name}` : "entry"}: ${data.error ?? "save failed"}`,
+            `Failed to save ${row ? `#${row.index_number} ${row.student_name}` : 'entry'}: ${data.error ?? 'save failed'}`
           );
           return;
         }
@@ -211,26 +237,37 @@ export function ScoreEntryGrid({
                   letter_grade: data.entry.letter_grade ?? null,
                   is_na: data.entry.is_na ?? r.is_na,
                 }
-              : r,
-          ),
+              : r
+          )
         );
-        if ("change_request_id" in extraPayload) {
-          toast.success("Change request applied — teacher will be notified");
-        } else if ("correction_reason" in extraPayload) {
-          toast.success("Correction logged on activity history");
+        if ('change_request_id' in extraPayload) {
+          toast.success('Change request applied — teacher will be notified');
+        } else if ('correction_reason' in extraPayload) {
+          toast.success('Correction logged on activity history');
         }
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Failed to save entry");
+        toast.error(e instanceof Error ? e.message : 'Failed to save entry');
       } finally {
         setSavingId(null);
       }
     },
-    [sheetId, requireApproval, requireChangeReference, wwTotals.length, ptTotals.length],
+    [
+      sheetId,
+      requireApproval,
+      requireChangeReference,
+      wwTotals.length,
+      ptTotals.length,
+    ]
   );
 
-  const updateLocal = useCallback((entryId: string, patch: (row: GradeRow) => GradeRow) => {
-    setRows((current) => current.map((r) => (r.entry_id === entryId ? patch(r) : r)));
-  }, []);
+  const updateLocal = useCallback(
+    (entryId: string, patch: (row: GradeRow) => GradeRow) => {
+      setRows((current) =>
+        current.map((r) => (r.entry_id === entryId ? patch(r) : r))
+      );
+    },
+    []
+  );
 
   // # + Student | WW slots + (Total PS WS) | PT slots + (Total PS WS) | QA (Exam PS WS) | Initial | Quarterly | N/A | Alerts
   const totalCols =
@@ -255,7 +292,12 @@ export function ScoreEntryGrid({
         qaPct={qaPct}
       />
       <div className="flex items-center justify-between gap-3">
-        <GridFilterToolbar filters={filters} onChange={setFilters} total={rows.length} visible={visibleRows.length} />
+        <GridFilterToolbar
+          filters={filters}
+          onChange={setFilters}
+          total={rows.length}
+          visible={visibleRows.length}
+        />
         {savingId && (
           <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-brand-indigo/20 bg-brand-indigo/8 px-2.5 py-1 font-mono text-[11px] font-semibold text-brand-indigo">
             <Loader2 className="h-3 w-3 animate-spin" />
@@ -269,41 +311,66 @@ export function ScoreEntryGrid({
           <TableHeader>
             {/* Row 1 — group headers */}
             <TableRow className="bg-muted/60 hover:bg-muted/60">
-              <TableHead rowSpan={3} className="sticky left-0 z-10 bg-muted/60 w-8 align-bottom text-right font-mono text-[10px] text-muted-foreground/60">
+              <TableHead
+                rowSpan={3}
+                className="sticky left-0 z-10 bg-muted/60 w-8 align-bottom text-right font-mono text-[10px] text-muted-foreground/60"
+              >
                 #
               </TableHead>
-              <TableHead rowSpan={3} className="sticky left-8 z-10 min-w-[160px] border-r-2 border-border/60 bg-muted/60 align-bottom text-xs text-muted-foreground">
+              <TableHead
+                rowSpan={3}
+                className="sticky left-8 z-10 min-w-[160px] border-r-2 border-border/60 bg-muted/60 align-bottom text-xs text-muted-foreground"
+              >
                 Student
               </TableHead>
               {wwLen > 0 && (
                 <TableHead
                   colSpan={wwLen + 3}
-                  className="border-r-2 border-border/60 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  className="border-r-2 border-border/60 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+                >
                   Written Works ({wwPct}%)
                 </TableHead>
               )}
               {ptLen > 0 && (
                 <TableHead
                   colSpan={ptLen + 3}
-                  className="border-r-2 border-border/60 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  className="border-r-2 border-border/60 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+                >
                   Performance Tasks ({ptPct}%)
                 </TableHead>
               )}
               <TableHead
                 colSpan={3}
-                className="border-r-2 border-border/60 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                className="border-r-2 border-border/60 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+              >
                 Quarterly Assessment ({qaPct}%)
               </TableHead>
-              <TableHead rowSpan={3} className="border-l-2 border-border/40 align-bottom text-right text-[10px] text-muted-foreground/70">
-                Initial<br />Grade
+              <TableHead
+                rowSpan={3}
+                className="border-l-2 border-border/40 align-bottom text-right text-[10px] text-muted-foreground/70"
+              >
+                Initial
+                <br />
+                Grade
               </TableHead>
-              <TableHead rowSpan={3} className="align-bottom text-right text-xs text-muted-foreground">
-                Quarterly<br />Grade
+              <TableHead
+                rowSpan={3}
+                className="align-bottom text-right text-xs text-muted-foreground"
+              >
+                Quarterly
+                <br />
+                Grade
               </TableHead>
-              <TableHead rowSpan={3} className="align-bottom text-center text-xs text-muted-foreground">
+              <TableHead
+                rowSpan={3}
+                className="align-bottom text-center text-xs text-muted-foreground"
+              >
                 N/A
               </TableHead>
-              <TableHead rowSpan={3} className="align-bottom text-center text-xs text-muted-foreground">
+              <TableHead
+                rowSpan={3}
+                className="align-bottom text-center text-xs text-muted-foreground"
+              >
                 Alerts
               </TableHead>
             </TableRow>
@@ -311,63 +378,112 @@ export function ScoreEntryGrid({
             {/* Row 2 — column codes */}
             <TableRow className="bg-muted/40 hover:bg-muted/40">
               {wwTotals.map((_, i) => (
-                <TableHead key={`ww-lbl-${i}`} className="text-center font-mono text-xs font-semibold text-foreground">
+                <TableHead
+                  key={`ww-lbl-${i}`}
+                  className="text-center font-mono text-xs font-semibold text-foreground"
+                >
                   W{i + 1}
                 </TableHead>
               ))}
-              <TableHead className="text-center font-mono text-[10px] text-muted-foreground">Total</TableHead>
-              <TableHead className="text-center font-mono text-[10px] text-muted-foreground">PS</TableHead>
-              <TableHead className="border-r-2 border-border/60 text-center font-mono text-[10px] text-muted-foreground">WS</TableHead>
+              <TableHead className="text-center font-mono text-[10px] text-muted-foreground">
+                Total
+              </TableHead>
+              <TableHead className="text-center font-mono text-[10px] text-muted-foreground">
+                PS
+              </TableHead>
+              <TableHead className="border-r-2 border-border/60 text-center font-mono text-[10px] text-muted-foreground">
+                WS
+              </TableHead>
               {ptLen > 0 && (
                 <>
                   {ptTotals.map((_, i) => (
-                    <TableHead key={`pt-lbl-${i}`} className="text-center font-mono text-xs font-semibold text-foreground">
+                    <TableHead
+                      key={`pt-lbl-${i}`}
+                      className="text-center font-mono text-xs font-semibold text-foreground"
+                    >
                       PT{i + 1}
                     </TableHead>
                   ))}
-                  <TableHead className="text-center font-mono text-[10px] text-muted-foreground">Total</TableHead>
-                  <TableHead className="text-center font-mono text-[10px] text-muted-foreground">PS</TableHead>
-                  <TableHead className="border-r-2 border-border/60 text-center font-mono text-[10px] text-muted-foreground">WS</TableHead>
+                  <TableHead className="text-center font-mono text-[10px] text-muted-foreground">
+                    Total
+                  </TableHead>
+                  <TableHead className="text-center font-mono text-[10px] text-muted-foreground">
+                    PS
+                  </TableHead>
+                  <TableHead className="border-r-2 border-border/60 text-center font-mono text-[10px] text-muted-foreground">
+                    WS
+                  </TableHead>
                 </>
               )}
-              <TableHead className="text-center font-mono text-xs font-semibold text-foreground">Exam</TableHead>
-              <TableHead className="text-center font-mono text-[10px] text-muted-foreground">PS</TableHead>
-              <TableHead className="border-r-2 border-border/60 text-center font-mono text-[10px] text-muted-foreground">WS</TableHead>
+              <TableHead className="text-center font-mono text-xs font-semibold text-foreground">
+                Exam
+              </TableHead>
+              <TableHead className="text-center font-mono text-[10px] text-muted-foreground">
+                PS
+              </TableHead>
+              <TableHead className="border-r-2 border-border/60 text-center font-mono text-[10px] text-muted-foreground">
+                WS
+              </TableHead>
             </TableRow>
 
             {/* Row 3 — max values reference row */}
             <TableRow className="bg-muted/20 hover:bg-muted/20">
               {wwTotals.map((max, i) => (
-                <TableHead key={`ww-max-${i}`} className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/50">
+                <TableHead
+                  key={`ww-max-${i}`}
+                  className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/50"
+                >
                   {max}
                 </TableHead>
               ))}
-              <TableHead className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/50">{wwMaxTotal}</TableHead>
-              <TableHead className="text-center font-mono text-[10px] text-muted-foreground/50">100%</TableHead>
-              <TableHead className="border-r-2 border-border/60 text-center font-mono text-[10px] text-muted-foreground/50">{wwPct}%</TableHead>
+              <TableHead className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/50">
+                {wwMaxTotal}
+              </TableHead>
+              <TableHead className="text-center font-mono text-[10px] text-muted-foreground/50">
+                100%
+              </TableHead>
+              <TableHead className="border-r-2 border-border/60 text-center font-mono text-[10px] text-muted-foreground/50">
+                {wwPct}%
+              </TableHead>
               {ptLen > 0 && (
                 <>
                   {ptTotals.map((max, i) => (
-                    <TableHead key={`pt-max-${i}`} className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/50">
+                    <TableHead
+                      key={`pt-max-${i}`}
+                      className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/50"
+                    >
                       {max}
                     </TableHead>
                   ))}
-                  <TableHead className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/50">{ptMaxTotal}</TableHead>
-                  <TableHead className="text-center font-mono text-[10px] text-muted-foreground/50">100%</TableHead>
-                  <TableHead className="border-r-2 border-border/60 text-center font-mono text-[10px] text-muted-foreground/50">{ptPct}%</TableHead>
+                  <TableHead className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/50">
+                    {ptMaxTotal}
+                  </TableHead>
+                  <TableHead className="text-center font-mono text-[10px] text-muted-foreground/50">
+                    100%
+                  </TableHead>
+                  <TableHead className="border-r-2 border-border/60 text-center font-mono text-[10px] text-muted-foreground/50">
+                    {ptPct}%
+                  </TableHead>
                 </>
               )}
               <TableHead className="text-center font-mono text-[10px] tabular-nums text-muted-foreground/50">
-                {qaTotal ?? "—"}
+                {qaTotal ?? '—'}
               </TableHead>
-              <TableHead className="text-center font-mono text-[10px] text-muted-foreground/50">100%</TableHead>
-              <TableHead className="border-r-2 border-border/60 text-center font-mono text-[10px] text-muted-foreground/50">{qaPct}%</TableHead>
+              <TableHead className="text-center font-mono text-[10px] text-muted-foreground/50">
+                100%
+              </TableHead>
+              <TableHead className="border-r-2 border-border/60 text-center font-mono text-[10px] text-muted-foreground/50">
+                {qaPct}%
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {visibleRows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={totalCols} className="py-10 text-center text-sm text-muted-foreground">
+                <TableCell
+                  colSpan={totalCols}
+                  className="py-10 text-center text-sm text-muted-foreground"
+                >
                   No students match the current filters.
                 </TableCell>
               </TableRow>
@@ -375,10 +491,10 @@ export function ScoreEntryGrid({
             {visibleRows.map((r) => {
               const inputsDisabled = r.withdrawn || r.is_na || readOnly;
               const rowClass = r.withdrawn
-                ? "opacity-50"
+                ? 'opacity-50'
                 : r.is_na
-                  ? "text-muted-foreground"
-                  : "";
+                  ? 'text-muted-foreground'
+                  : '';
 
               const wwTotal = sumScores(r.ww_scores, wwLen);
               const ptTotal = sumScores(r.pt_scores, ptLen);
@@ -398,14 +514,23 @@ export function ScoreEntryGrid({
 
                   {/* Student */}
                   <TableCell className="sticky left-8 z-10 min-w-[160px] border-r-2 border-border/40 bg-card py-2">
-                    <div className={r.withdrawn ? "whitespace-nowrap text-sm font-medium text-muted-foreground line-through" : "whitespace-nowrap text-sm font-medium text-foreground"}>
+                    <div
+                      className={
+                        r.withdrawn
+                          ? 'whitespace-nowrap text-sm font-medium text-muted-foreground line-through'
+                          : 'whitespace-nowrap text-sm font-medium text-foreground'
+                      }
+                    >
                       {r.student_name}
                     </div>
-                    <div className="font-mono text-[11px] tabular-nums text-muted-foreground">{r.student_number}</div>
+                    <div className="font-mono text-[11px] tabular-nums text-muted-foreground">
+                      {r.student_number}
+                    </div>
                     {r.late_enrollee && !r.withdrawn && (
                       <span
                         className="mt-0.5 inline-flex items-center rounded bg-brand-amber/10 px-1 py-px font-mono text-[9px] font-semibold uppercase tracking-wider text-brand-amber"
-                        title="Earlier assessments stay blank and are excluded from the average — proration is automatic.">
+                        title="Earlier assessments stay blank and are excluded from the average — proration is automatic."
+                      >
                         Late
                       </span>
                     )}
@@ -422,12 +547,26 @@ export function ScoreEntryGrid({
                         onLocalChange={(v) =>
                           updateLocal(r.entry_id, (row) => ({
                             ...row,
-                            ww_scores: replaceAt(row.ww_scores, i, v, wwTotals.length),
+                            ww_scores: replaceAt(
+                              row.ww_scores,
+                              i,
+                              v,
+                              wwTotals.length
+                            ),
                           }))
                         }
                         onCommit={(v) => {
-                          const next = replaceAt(r.ww_scores, i, v, wwTotals.length);
-                          patchEntry(r.entry_id, { field: "ww_scores", slotIndex: i }, { ww_scores: next });
+                          const next = replaceAt(
+                            r.ww_scores,
+                            i,
+                            v,
+                            wwTotals.length
+                          );
+                          patchEntry(
+                            r.entry_id,
+                            { field: 'ww_scores', slotIndex: i },
+                            { ww_scores: next }
+                          );
                         }}
                       />
                     </TableCell>
@@ -449,12 +588,26 @@ export function ScoreEntryGrid({
                             onLocalChange={(v) =>
                               updateLocal(r.entry_id, (row) => ({
                                 ...row,
-                                pt_scores: replaceAt(row.pt_scores, i, v, ptTotals.length),
+                                pt_scores: replaceAt(
+                                  row.pt_scores,
+                                  i,
+                                  v,
+                                  ptTotals.length
+                                ),
                               }))
                             }
                             onCommit={(v) => {
-                              const next = replaceAt(r.pt_scores, i, v, ptTotals.length);
-                              patchEntry(r.entry_id, { field: "pt_scores", slotIndex: i }, { pt_scores: next });
+                              const next = replaceAt(
+                                r.pt_scores,
+                                i,
+                                v,
+                                ptTotals.length
+                              );
+                              patchEntry(
+                                r.entry_id,
+                                { field: 'pt_scores', slotIndex: i },
+                                { pt_scores: next }
+                              );
                             }}
                           />
                         </TableCell>
@@ -472,8 +625,19 @@ export function ScoreEntryGrid({
                       max={qaTotal}
                       plaintext={locked}
                       disabled={inputsDisabled}
-                      onLocalChange={(v) => updateLocal(r.entry_id, (row) => ({ ...row, qa_score: v }))}
-                      onCommit={(v) => patchEntry(r.entry_id, { field: "qa_score", slotIndex: null }, { qa_score: v })}
+                      onLocalChange={(v) =>
+                        updateLocal(r.entry_id, (row) => ({
+                          ...row,
+                          qa_score: v,
+                        }))
+                      }
+                      onCommit={(v) =>
+                        patchEntry(
+                          r.entry_id,
+                          { field: 'qa_score', slotIndex: null },
+                          { qa_score: v }
+                        )
+                      }
                     />
                   </TableCell>
                   <ComputedCell value={r.qa_ps} />
@@ -481,12 +645,15 @@ export function ScoreEntryGrid({
 
                   {/* Initial grade — de-emphasised; the quarterly is the result the teacher cares about */}
                   <TableCell className="border-l-2 border-border/30 px-2 text-right font-mono tabular-nums text-[11px] text-muted-foreground/60">
-                    {r.initial_grade != null ? r.initial_grade.toFixed(2) : "—"}
+                    {r.initial_grade != null ? r.initial_grade.toFixed(2) : '—'}
                   </TableCell>
 
                   {/* Quarterly grade */}
                   <TableCell className="text-right tabular-nums">
-                    <QuarterlyPill value={r.quarterly_grade} muted={r.withdrawn || r.is_na || readOnly} />
+                    <QuarterlyPill
+                      value={r.quarterly_grade}
+                      muted={r.withdrawn || r.is_na || readOnly}
+                    />
                   </TableCell>
 
                   {/* N/A */}
@@ -497,8 +664,15 @@ export function ScoreEntryGrid({
                       aria-label="Mark late enrollee N/A"
                       onCheckedChange={(v) => {
                         const next = v === true;
-                        updateLocal(r.entry_id, (row) => ({ ...row, is_na: next }));
-                        patchEntry(r.entry_id, { field: "is_na", slotIndex: null }, { is_na: next });
+                        updateLocal(r.entry_id, (row) => ({
+                          ...row,
+                          is_na: next,
+                        }));
+                        patchEntry(
+                          r.entry_id,
+                          { field: 'is_na', slotIndex: null },
+                          { is_na: next }
+                        );
                       }}
                     />
                   </TableCell>
@@ -507,7 +681,9 @@ export function ScoreEntryGrid({
                   <TableCell className="text-center">
                     <AlertCell
                       row={r}
-                      priorTermGrades={priorGrades?.[r.section_student_id] ?? []}
+                      priorTermGrades={
+                        priorGrades?.[r.section_student_id] ?? []
+                      }
                       currentTermNumber={currentTermNumber}
                       onOpen={(comparisons) =>
                         setAlertDialogState({
@@ -530,7 +706,9 @@ export function ScoreEntryGrid({
       {alertDialogState && (
         <GradeDiffDialog
           open
-          onOpenChange={(open) => { if (!open) setAlertDialogState(null); }}
+          onOpenChange={(open) => {
+            if (!open) setAlertDialogState(null);
+          }}
           studentName={alertDialogState.studentName}
           currentTermLabel={currentTermLabel}
           currentGrade={alertDialogState.currentGrade}
@@ -543,7 +721,7 @@ export function ScoreEntryGrid({
 
 function computeComparisons(
   currentGrade: number,
-  priorTermGrades: PriorTermGrade[],
+  priorTermGrades: PriorTermGrade[]
 ): AlertComparison[] {
   return priorTermGrades
     .filter((p) => p.quarterly_grade !== null)
@@ -576,14 +754,18 @@ function AlertCell({
     row.withdrawn ||
     row.quarterly_grade == null
   ) {
-    return <span className="font-mono text-[11px] text-muted-foreground/40">—</span>;
+    return (
+      <span className="font-mono text-[11px] text-muted-foreground/40">—</span>
+    );
   }
 
   const comparisons = computeComparisons(row.quarterly_grade, priorTermGrades);
   const flaggedCount = comparisons.filter((c) => c.flagged).length;
 
   if (flaggedCount === 0) {
-    return <span className="font-mono text-[11px] text-muted-foreground/40">—</span>;
+    return (
+      <span className="font-mono text-[11px] text-muted-foreground/40">—</span>
+    );
   }
 
   return (
@@ -591,7 +773,7 @@ function AlertCell({
       type="button"
       onClick={() => onOpen(comparisons)}
       className="inline-flex items-center gap-1 rounded border border-brand-amber/40 bg-brand-amber/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-foreground transition-colors hover:bg-brand-amber/20"
-      title={`${flaggedCount} grade change${flaggedCount === 1 ? "" : "s"} ≥5 points`}
+      title={`${flaggedCount} grade change${flaggedCount === 1 ? '' : 's'} ≥5 points`}
     >
       <AlertTriangle className="h-3 w-3 text-brand-amber" />
       {flaggedCount}
@@ -633,12 +815,12 @@ function ScoringGuide({
 
   const summaryParts = [
     wwTotals.length > 0
-      ? `${wwTotals.length} Written Work${wwTotals.length !== 1 ? "s" : ""}`
+      ? `${wwTotals.length} Written Work${wwTotals.length !== 1 ? 's' : ''}`
       : null,
     ptTotals.length > 0
-      ? `${ptTotals.length} Performance Task${ptTotals.length !== 1 ? "s" : ""}`
+      ? `${ptTotals.length} Performance Task${ptTotals.length !== 1 ? 's' : ''}`
       : null,
-    "QA",
+    'QA',
   ].filter(Boolean);
 
   return (
@@ -650,12 +832,14 @@ function ScoringGuide({
         className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
       >
         <ChevronRight
-          className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ${expanded ? "rotate-90" : ""}`}
+          className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ${expanded ? 'rotate-90' : ''}`}
         />
         <span className="font-mono text-[11px] text-muted-foreground">
           {summaryParts.map((part, i) => (
             <span key={i}>
-              {i > 0 && <span className="mx-1.5 select-none opacity-40">·</span>}
+              {i > 0 && (
+                <span className="mx-1.5 select-none opacity-40">·</span>
+              )}
               {part}
             </span>
           ))}
@@ -672,7 +856,12 @@ function ScoringGuide({
               </p>
               <div className="space-y-1.5">
                 {wwTotals.map((max, i) => (
-                  <ActivityRow key={i} code={`W${i + 1}`} max={max} meta={effectiveWw(i)} />
+                  <ActivityRow
+                    key={i}
+                    code={`W${i + 1}`}
+                    max={max}
+                    meta={effectiveWw(i)}
+                  />
                 ))}
               </div>
             </div>
@@ -684,7 +873,12 @@ function ScoringGuide({
               </p>
               <div className="space-y-1.5">
                 {ptTotals.map((max, i) => (
-                  <ActivityRow key={i} code={`PT${i + 1}`} max={max} meta={effectivePt(i)} />
+                  <ActivityRow
+                    key={i}
+                    code={`PT${i + 1}`}
+                    max={max}
+                    meta={effectivePt(i)}
+                  />
                 ))}
               </div>
             </div>
@@ -705,7 +899,7 @@ function formatChipDate(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   if (!m) return iso;
   const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  return d.toLocaleDateString("en-SG", { month: "short", day: "numeric" });
+  return d.toLocaleDateString('en-SG', { month: 'short', day: 'numeric' });
 }
 
 function ActivityRow({
@@ -728,19 +922,25 @@ function ActivityRow({
       {/* Code badge */}
       <span className="inline-flex w-14 shrink-0 items-baseline justify-center gap-0.5 rounded border border-border bg-muted/70 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-foreground">
         {code}
-        {max != null && <span className="text-[9px] font-normal text-muted-foreground/60">/{max}</span>}
+        {max != null && (
+          <span className="text-[9px] font-normal text-muted-foreground/60">
+            /{max}
+          </span>
+        )}
       </span>
 
       {/* Label */}
-      <span className={`flex-1 truncate text-sm ${label ? "text-foreground" : "italic text-muted-foreground/50"}`}>
-        {label ?? "No label set"}
+      <span
+        className={`flex-1 truncate text-sm ${label ? 'text-foreground' : 'italic text-muted-foreground/50'}`}
+      >
+        {label ?? 'No label set'}
       </span>
 
       {/* Date + page metadata */}
       {(hasDate || hasPage) && (
         <span className="shrink-0 font-mono text-[11px] text-muted-foreground/70">
           {hasDate && formatChipDate(meta!.date!)}
-          {hasDate && hasPage && " · "}
+          {hasDate && hasPage && ' · '}
           {hasPage && `p. ${meta!.page}`}
         </span>
       )}
@@ -748,21 +948,38 @@ function ActivityRow({
   );
 }
 
-function QuarterlyPill({ value, muted }: { value: number | null; muted: boolean }) {
+function QuarterlyPill({
+  value,
+  muted,
+}: {
+  value: number | null;
+  muted: boolean;
+}) {
   if (value == null) {
-    return <span className="font-mono text-base font-semibold text-muted-foreground/50">—</span>;
+    return (
+      <span className="font-mono text-base font-semibold text-muted-foreground/50">
+        —
+      </span>
+    );
   }
   if (muted) {
-    return <span className="font-mono text-base font-semibold tabular-nums text-muted-foreground/60">{value}</span>;
+    return (
+      <span className="font-mono text-base font-semibold tabular-nums text-muted-foreground/60">
+        {value}
+      </span>
+    );
   }
   const tone =
     value < 75
-      ? "border-destructive/40 bg-destructive/10 text-destructive"
+      ? 'border-destructive/40 bg-destructive/10 text-destructive'
       : value < 85
-        ? "border-hairline bg-muted text-ink"
-        : "border-brand-mint/60 bg-brand-mint/20 text-ink";
+        ? 'border-hairline bg-muted text-ink'
+        : 'border-brand-mint/60 bg-brand-mint/20 text-ink';
   return (
-    <Badge variant="outline" className={`h-7 justify-end px-2 font-mono text-sm font-semibold tabular-nums ${tone}`}>
+    <Badge
+      variant="outline"
+      className={`h-7 justify-end px-2 font-mono text-sm font-semibold tabular-nums ${tone}`}
+    >
       {value}
     </Badge>
   );
@@ -774,16 +991,30 @@ function sumScores(scores: (number | null)[], len: number): number | null {
   return slice.reduce<number>((acc, v) => acc + (v ?? 0), 0);
 }
 
-function ComputedCell({ value, dp = 2, groupEnd }: { value: number | null; dp?: number; groupEnd?: boolean }) {
+function ComputedCell({
+  value,
+  dp = 2,
+  groupEnd,
+}: {
+  value: number | null;
+  dp?: number;
+  groupEnd?: boolean;
+}) {
   return (
     <TableCell
-      className={`px-2 text-right font-mono tabular-nums text-xs text-muted-foreground${groupEnd ? " border-r-2 border-border/60" : ""}`}>
-      {value != null ? value.toFixed(dp) : "—"}
+      className={`px-2 text-right font-mono tabular-nums text-xs text-muted-foreground${groupEnd ? ' border-r-2 border-border/60' : ''}`}
+    >
+      {value != null ? value.toFixed(dp) : '—'}
     </TableCell>
   );
 }
 
-function replaceAt(arr: (number | null)[], i: number, v: number | null, length: number): (number | null)[] {
+function replaceAt(
+  arr: (number | null)[],
+  i: number,
+  v: number | null,
+  length: number
+): (number | null)[] {
   const out = new Array<number | null>(length).fill(null);
   for (let k = 0; k < length; k++) out[k] = arr[k] ?? null;
   out[i] = v;
@@ -791,30 +1022,42 @@ function replaceAt(arr: (number | null)[], i: number, v: number | null, length: 
 }
 
 function approvedValueToPatchBody(
-  field: "ww_scores" | "pt_scores" | "qa_score" | "letter_grade" | "is_na",
+  field: 'ww_scores' | 'pt_scores' | 'qa_score' | 'letter_grade' | 'is_na',
   slotIndex: number | null,
   proposed: string,
   row: GradeRow | null,
   wwLength: number,
-  ptLength: number,
-): Partial<Pick<GradeRow, "ww_scores" | "pt_scores" | "qa_score" | "is_na">> | null {
+  ptLength: number
+): Partial<
+  Pick<GradeRow, 'ww_scores' | 'pt_scores' | 'qa_score' | 'is_na'>
+> | null {
   switch (field) {
-    case "ww_scores": {
+    case 'ww_scores': {
       if (slotIndex == null || row == null) return null;
       return {
-        ww_scores: replaceAt(row.ww_scores, slotIndex, parseCell(proposed), wwLength),
+        ww_scores: replaceAt(
+          row.ww_scores,
+          slotIndex,
+          parseCell(proposed),
+          wwLength
+        ),
       };
     }
-    case "pt_scores": {
+    case 'pt_scores': {
       if (slotIndex == null || row == null) return null;
       return {
-        pt_scores: replaceAt(row.pt_scores, slotIndex, parseCell(proposed), ptLength),
+        pt_scores: replaceAt(
+          row.pt_scores,
+          slotIndex,
+          parseCell(proposed),
+          ptLength
+        ),
       };
     }
-    case "qa_score":
+    case 'qa_score':
       return { qa_score: parseCell(proposed) };
-    case "is_na":
-      return { is_na: proposed.trim().toLowerCase() === "true" };
+    case 'is_na':
+      return { is_na: proposed.trim().toLowerCase() === 'true' };
     default:
       return null;
   }
@@ -840,7 +1083,7 @@ function ScoreInput({
   if (plaintext) {
     return (
       <span className="inline-block h-8 w-14 px-1.5 py-1 text-right font-mono text-sm tabular-nums text-ink">
-        {displayCell(value) || "—"}
+        {displayCell(value) || '—'}
       </span>
     );
   }
@@ -863,7 +1106,7 @@ function ScoreInput({
         onCommit(parseCell(text));
       }}
       onKeyDown={(e) => {
-        if (e.key === "Enter") {
+        if (e.key === 'Enter') {
           (e.target as HTMLInputElement).blur();
         }
       }}

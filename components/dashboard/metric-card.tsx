@@ -60,7 +60,7 @@ export type MetricCardProps = {
 function formatValue(
   value: string | number,
   format: MetricCardProps['format'],
-  currencySuffix?: string,
+  currencySuffix?: string
 ): string {
   if (typeof value === 'string') return value;
   if (!Number.isFinite(value)) return '—';
@@ -87,7 +87,7 @@ function formatValue(
 
 function deltaChipClass(
   delta: Delta | undefined,
-  goodWhen: 'up' | 'down',
+  goodWhen: 'up' | 'down'
 ): string {
   if (!delta || delta.direction === 'flat')
     return 'border-border bg-muted text-muted-foreground';
@@ -99,7 +99,13 @@ function deltaChipClass(
     : 'border-destructive/40 bg-gradient-to-b from-destructive/15 to-destructive/5 text-destructive';
 }
 
-function DeltaChip({ delta, goodWhen }: { delta: Delta; goodWhen: 'up' | 'down' }) {
+function DeltaChip({
+  delta,
+  goodWhen,
+}: {
+  delta: Delta;
+  goodWhen: 'up' | 'down';
+}) {
   const Icon =
     delta.direction === 'up'
       ? ArrowUpIcon
@@ -110,7 +116,7 @@ function DeltaChip({ delta, goodWhen }: { delta: Delta; goodWhen: 'up' | 'down' 
     <span
       className={cn(
         'inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider',
-        deltaChipClass(delta, goodWhen),
+        deltaChipClass(delta, goodWhen)
       )}
     >
       <Icon className="size-3" strokeWidth={2.5} />
@@ -139,7 +145,7 @@ function MetricCardImpl({
   if (drillSheet && href) {
     // eslint-disable-next-line no-console
     console.warn(
-      '[MetricCard] drillSheet and href are mutually exclusive; drillSheet takes precedence',
+      '[MetricCard] drillSheet and href are mutually exclusive; drillSheet takes precedence'
     );
   }
   const effectiveHref = drillSheet ? undefined : href;
@@ -149,7 +155,7 @@ function MetricCardImpl({
     '@container/card bg-gradient-to-t from-primary/5 to-card shadow-xs',
     interactive &&
       'group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md',
-    className,
+    className
   );
 
   const inner = (
@@ -173,7 +179,9 @@ function MetricCardImpl({
         <div className="flex items-center gap-2">
           {delta && <DeltaChip delta={delta} goodWhen={deltaGoodWhen} />}
           {comparisonLabel && (
-            <span className="text-xs text-muted-foreground">{comparisonLabel}</span>
+            <span className="text-xs text-muted-foreground">
+              {comparisonLabel}
+            </span>
           )}
         </div>
         {subtext && !comparisonLabel && (

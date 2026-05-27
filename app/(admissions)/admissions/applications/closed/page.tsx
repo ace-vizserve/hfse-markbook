@@ -3,7 +3,10 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, Archive, XCircle } from 'lucide-react';
 
 import { AySwitcher } from '@/components/admissions/ay-switcher';
-import { StudentDataTable, type StatusBucketDef } from '@/components/sis/student-data-table';
+import {
+  StudentDataTable,
+  type StatusBucketDef,
+} from '@/components/sis/student-data-table';
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
@@ -53,26 +56,29 @@ export default async function AdmissionsApplicationsClosedPage({
   if (!currentAy) {
     return (
       <PageShell>
-        <div className="text-sm text-destructive">No current academic year configured.</div>
+        <div className="text-sm text-destructive">
+          No current academic year configured.
+        </div>
       </PageShell>
     );
   }
 
   const { ay: ayParam } = await searchParams;
   const ayCodes = await listAyCodes(service);
-  const selectedAy = ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
+  const selectedAy =
+    ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
   const isCurrentAy = selectedAy === currentAy.ay_code;
 
   const allStudents = await listStudents(selectedAy, 'created_at_desc');
   const closed = allStudents.filter((s) =>
-    TERMINAL_STAGES.has((s.applicationStatus ?? '').trim()),
+    TERMINAL_STAGES.has((s.applicationStatus ?? '').trim())
   );
 
   const cancelledCount = closed.filter(
-    (s) => (s.applicationStatus ?? '').trim() === 'Cancelled',
+    (s) => (s.applicationStatus ?? '').trim() === 'Cancelled'
   ).length;
   const withdrawnCount = closed.filter(
-    (s) => (s.applicationStatus ?? '').trim() === 'Withdrawn',
+    (s) => (s.applicationStatus ?? '').trim() === 'Withdrawn'
   ).length;
 
   return (
@@ -97,9 +103,10 @@ export default async function AdmissionsApplicationsClosedPage({
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
             Applicants who exited the funnel without ever being classified as{' '}
             <strong>Enrolled</strong> — terminal <strong>Cancelled</strong> and{' '}
-            <strong>Withdrawn</strong> rows. Read-only archive. The Submitted column
-            shows when each application was originally filed; subtract from today to
-            gauge how long the application was alive before closing.
+            <strong>Withdrawn</strong> rows. Read-only archive. The Submitted
+            column shows when each application was originally filed; subtract
+            from today to gauge how long the application was alive before
+            closing.
           </p>
         </div>
         <div className="flex flex-col items-start gap-2 md:items-end">

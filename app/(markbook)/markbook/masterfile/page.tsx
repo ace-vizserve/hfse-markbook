@@ -58,7 +58,9 @@ export default async function MasterfilePage({
     .from('academic_years')
     .select('ay_code')
     .order('ay_code', { ascending: false });
-  const ayCodes = ((allAysRaw ?? []) as Array<{ ay_code: string }>).map((a) => a.ay_code);
+  const ayCodes = ((allAysRaw ?? []) as Array<{ ay_code: string }>).map(
+    (a) => a.ay_code
+  );
 
   // Resolve AY id and pull every level that has at least one section
   // configured this AY (so the picker doesn't list empty levels).
@@ -70,7 +72,9 @@ export default async function MasterfilePage({
   if (!ayRow) {
     return (
       <PageShell>
-        <div className="text-sm text-destructive">No academic year configured.</div>
+        <div className="text-sm text-destructive">
+          No academic year configured.
+        </div>
       </PageShell>
     );
   }
@@ -81,7 +85,12 @@ export default async function MasterfilePage({
     .select('level:levels(id, code, label, level_type)')
     .eq('academic_year_id', ayId);
 
-  type LvlLite = { id: string; code: string; label: string; level_type: string };
+  type LvlLite = {
+    id: string;
+    code: string;
+    label: string;
+    level_type: string;
+  };
   const levelMap = new Map<string, LvlLite>();
   for (const row of (sectionLevelRows ?? []) as Array<{
     level: LvlLite | LvlLite[] | null;
@@ -100,7 +109,7 @@ export default async function MasterfilePage({
   const selectedLevelId =
     sp.level && levels.some((l) => l.id === sp.level)
       ? sp.level
-      : levels[0]?.id ?? null;
+      : (levels[0]?.id ?? null);
 
   if (!selectedLevelId) {
     return (
@@ -131,14 +140,17 @@ export default async function MasterfilePage({
   if (!payload) {
     return (
       <PageShell>
-        <div className="text-sm text-destructive">Could not load Masterfile data.</div>
+        <div className="text-sm text-destructive">
+          Could not load Masterfile data.
+        </div>
       </PageShell>
     );
   }
 
-  const selectedSectionId = sp.class && payload.sections.some((s) => s.id === sp.class)
-    ? sp.class
-    : null;
+  const selectedSectionId =
+    sp.class && payload.sections.some((s) => s.id === sp.class)
+      ? sp.class
+      : null;
 
   return (
     <PageShell>
@@ -160,14 +172,15 @@ export default async function MasterfilePage({
             variant="outline"
             className="h-7 border-border bg-card px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground"
           >
-            {payload.rows.length} {payload.rows.length === 1 ? 'student' : 'students'}
+            {payload.rows.length}{' '}
+            {payload.rows.length === 1 ? 'student' : 'students'}
           </Badge>
         </div>
         <p className="max-w-3xl text-[15px] leading-relaxed text-muted-foreground">
-          Cross-subject grid for the whole level. Subject Award and Overall Academic
-          Award badges compute server-side from the locked grading sheets. Letter-graded
-          subject columns (Music, Arts, PE, Health, etc.) stay empty this sprint —
-          letter entry ships in Phase 2.
+          Cross-subject grid for the whole level. Subject Award and Overall
+          Academic Award badges compute server-side from the locked grading
+          sheets. Letter-graded subject columns (Music, Arts, PE, Health, etc.)
+          stay empty this sprint — letter entry ships in Phase 2.
         </p>
       </header>
 
@@ -185,7 +198,8 @@ export default async function MasterfilePage({
       <p className="border-t border-border pt-3 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
         Award thresholds · Bronze ≥ {payload.thresholds.bronzeMin} · Silver ≥{' '}
         {payload.thresholds.silverMin} · Gold ≥ {payload.thresholds.goldMin} ·
-        Editable in <span className="text-foreground">SIS Admin → School config</span>
+        Editable in{' '}
+        <span className="text-foreground">SIS Admin → School config</span>
       </p>
     </PageShell>
   );

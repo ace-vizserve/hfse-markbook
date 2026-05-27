@@ -66,7 +66,7 @@ export type OverallAwardLabel =
 
 function tierFor(
   score: number,
-  thresholds: AwardThresholds,
+  thresholds: AwardThresholds
 ): 'Gold' | 'Silver' | 'Bronze' | 'NE' {
   if (score < thresholds.bronzeMin) return 'NE';
   if (score < thresholds.silverMin) return 'Bronze';
@@ -88,7 +88,7 @@ function tierFor(
 export function subjectAward(
   subjectOverall: number | null,
   thresholds: AwardThresholds,
-  eligibility: AwardEligibility,
+  eligibility: AwardEligibility
 ): SubjectAwardLabel {
   if (!eligibility.enrolled) return null;
   if (!eligibility.hasCompleteData) return 'Not eligible for Subject Award';
@@ -108,7 +108,7 @@ export function subjectAward(
 export function overallAcademicAward(
   generalAverage: number | null,
   thresholds: AwardThresholds,
-  eligibility: AwardEligibility,
+  eligibility: AwardEligibility
 ): OverallAwardLabel {
   if (!eligibility.enrolled) return null;
   if (!eligibility.hasCompleteData) return 'Not eligible for Overall Award';
@@ -141,40 +141,52 @@ export function overallAcademicAward(
     const got = subjectAward(score, t, elig);
     if (got !== expected) {
       throw new Error(
-        `awards self-test failed: score=${score} expected=${expected} got=${got}`,
+        `awards self-test failed: score=${score} expected=${expected} got=${got}`
       );
     }
   }
 
   // Withdrawn → null, regardless of score.
-  const withdrawn = subjectAward(95.0, t, { enrolled: false, hasCompleteData: true });
+  const withdrawn = subjectAward(95.0, t, {
+    enrolled: false,
+    hasCompleteData: true,
+  });
   if (withdrawn !== null) {
-    throw new Error(`awards self-test: withdrawn should be null, got ${withdrawn}`);
+    throw new Error(
+      `awards self-test: withdrawn should be null, got ${withdrawn}`
+    );
   }
 
   // Incomplete data → "Not eligible".
-  const incomplete = subjectAward(95.0, t, { enrolled: true, hasCompleteData: false });
+  const incomplete = subjectAward(95.0, t, {
+    enrolled: true,
+    hasCompleteData: false,
+  });
   if (incomplete !== 'Not eligible for Subject Award') {
     throw new Error(
-      `awards self-test: incomplete should be NE, got ${incomplete}`,
+      `awards self-test: incomplete should be NE, got ${incomplete}`
     );
   }
 
   // Null score → "Not eligible".
   const nullInput = subjectAward(null, t, elig);
   if (nullInput !== 'Not eligible for Subject Award') {
-    throw new Error(`awards self-test: null score should be NE, got ${nullInput}`);
+    throw new Error(
+      `awards self-test: null score should be NE, got ${nullInput}`
+    );
   }
 
   // Overall Award uses the same ladder, different label.
   const overall = overallAcademicAward(93.5, t, elig);
   if (overall !== 'Silver') {
-    throw new Error(`awards self-test: overall 93.5 should be Silver, got ${overall}`);
+    throw new Error(
+      `awards self-test: overall 93.5 should be Silver, got ${overall}`
+    );
   }
   const overallNE = overallAcademicAward(80.0, t, elig);
   if (overallNE !== 'Not eligible for Overall Award') {
     throw new Error(
-      `awards self-test: overall 80 should be NE Overall, got ${overallNE}`,
+      `awards self-test: overall 80 should be NE Overall, got ${overallNE}`
     );
   }
 })();

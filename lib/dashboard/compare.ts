@@ -88,7 +88,7 @@ export function parseCompareParams(params: {
  */
 export async function buildCompareCells(
   input: CompareInput,
-  service?: SupabaseClient,
+  service?: SupabaseClient
 ): Promise<CompareCell[]> {
   if (input.kind === 'month') {
     const cells: CompareCell[] = [];
@@ -121,7 +121,9 @@ export async function buildCompareCells(
   const termsByAy = new Map<string, Map<number, DateRange>>();
   for (const row of (termsData ?? []) as Row[]) {
     if (!row.start_date || !row.end_date) continue;
-    const ay = Array.isArray(row.academic_years) ? row.academic_years[0] : row.academic_years;
+    const ay = Array.isArray(row.academic_years)
+      ? row.academic_years[0]
+      : row.academic_years;
     if (!ay?.ay_code) continue;
     if (!termsByAy.has(ay.ay_code)) termsByAy.set(ay.ay_code, new Map());
     termsByAy.get(ay.ay_code)!.set(row.term_number, {

@@ -2,7 +2,10 @@
 import { requireRole } from '@/lib/auth/require-role';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
-import { loadAssignmentsForUser, subjectTeacherPairs } from '@/lib/auth/teacher-assignments';
+import {
+  loadAssignmentsForUser,
+  subjectTeacherPairs,
+} from '@/lib/auth/teacher-assignments';
 import { logAction } from '@/lib/audit/log-action';
 import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 
@@ -11,7 +14,12 @@ import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 // Teachers only see sheets matching their (section, subject) assignments.
 // Managers (registrar/admin/superadmin) see everything.
 export async function GET(request: NextRequest) {
-  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'superadmin']);
+  const auth = await requireRole([
+    'teacher',
+    'registrar',
+    'school_admin',
+    'superadmin',
+  ]);
   if ('error' in auth) return auth.error;
 
   const supabase = await createClient();
@@ -24,14 +32,15 @@ export async function GET(request: NextRequest) {
       `id, teacher_name, is_locked, ww_totals, pt_totals, qa_total, section_id, subject_id,
        term:terms(id, term_number, label),
        subject:subjects(id, code, name, is_examinable),
-       section:sections(id, name, level:levels(id, code, label, level_type))`,
+       section:sections(id, name, level:levels(id, code, label, level_type))`
     )
     .order('id');
 
   if (termId) query = query.eq('term_id', termId);
 
   const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
 
   let sheets = data ?? [];
 
@@ -39,8 +48,12 @@ export async function GET(request: NextRequest) {
   if (role === 'teacher') {
     const assignments = await loadAssignmentsForUser(supabase, auth.user.id);
     const pairs = subjectTeacherPairs(assignments);
-    const allowed = new Set(pairs.map(p => `${p.section_id}::${p.subject_id}`));
-    sheets = sheets.filter(s => allowed.has(`${s.section_id}::${s.subject_id}`));
+    const allowed = new Set(
+      pairs.map((p) => `${p.section_id}::${p.subject_id}`)
+    );
+    sheets = sheets.filter((s) =>
+      allowed.has(`${s.section_id}::${s.subject_id}`)
+    );
   }
 
   return NextResponse.json({ sheets });
@@ -60,12 +73,14 @@ export async function POST(request: NextRequest) {
   const body = raw as Record<string, unknown>;
 
   const term_id = typeof body.term_id === 'string' ? body.term_id.trim() : '';
-  const section_id = typeof body.section_id === 'string' ? body.section_id.trim() : '';
-  const subject_id = typeof body.subject_id === 'string' ? body.subject_id.trim() : '';
+  const section_id =
+    typeof body.section_id === 'string' ? body.section_id.trim() : '';
+  const subject_id =
+    typeof body.subject_id === 'string' ? body.subject_id.trim() : '';
   if (!term_id || !section_id || !subject_id) {
     return NextResponse.json(
       { error: 'term_id, section_id, subject_id are required' },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -77,19 +92,33 @@ export async function POST(request: NextRequest) {
         ? rawTeacherName.trim().slice(0, 150) || null
         : null;
 
-  const ww_totals = Array.isArray(body.ww_totals) ? (body.ww_totals as unknown[]) : [];
-  const pt_totals = Array.isArray(body.pt_totals) ? (body.pt_totals as unknown[]) : [];
+  const ww_totals = Array.isArray(body.ww_totals)
+    ? (body.ww_totals as unknown[])
+    : [];
+  const pt_totals = Array.isArray(body.pt_totals)
+    ? (body.pt_totals as unknown[])
+    : [];
   const rawQa = body.qa_total;
-  const qa_total = rawQa == null ? null : typeof rawQa === 'number' ? rawQa : null;
+  const qa_total =
+    rawQa == null ? null : typeof rawQa === 'number' ? rawQa : null;
 
-  if (ww_totals.some(v => typeof v !== 'number' || v <= 0)) {
-    return NextResponse.json({ error: 'ww_totals must be positive numbers' }, { status: 400 });
+  if (ww_totals.some((v) => typeof v !== 'number' || v <= 0)) {
+    return NextResponse.json(
+      { error: 'ww_totals must be positive numbers' },
+      { status: 400 }
+    );
   }
-  if (pt_totals.some(v => typeof v !== 'number' || v <= 0)) {
-    return NextResponse.json({ error: 'pt_totals must be positive numbers' }, { status: 400 });
+  if (pt_totals.some((v) => typeof v !== 'number' || v <= 0)) {
+    return NextResponse.json(
+      { error: 'pt_totals must be positive numbers' },
+      { status: 400 }
+    );
   }
   if (qa_total !== null && (typeof qa_total !== 'number' || qa_total <= 0)) {
-    return NextResponse.json({ error: 'qa_total must be a positive number' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'qa_total must be a positive number' },
+      { status: 400 }
+    );
   }
 
   const service = createServiceClient();
@@ -111,23 +140,24 @@ export async function POST(request: NextRequest) {
     .eq('subject_id', subject_id)
     .eq('level_id', section.level_id)
     .maybeSingle();
-  if (cfgErr) return NextResponse.json({ error: cfgErr.message }, { status: 500 });
+  if (cfgErr)
+    return NextResponse.json({ error: cfgErr.message }, { status: 500 });
   if (!config) {
     return NextResponse.json(
       { error: 'no subject_config for this subject Ã— level Ã— academic year' },
-      { status: 400 },
+      { status: 400 }
     );
   }
   if (ww_totals.length > config.ww_max_slots) {
     return NextResponse.json(
       { error: `too many WW slots (max ${config.ww_max_slots})` },
-      { status: 400 },
+      { status: 400 }
     );
   }
   if (pt_totals.length > config.pt_max_slots) {
     return NextResponse.json(
       { error: `too many PT slots (max ${config.pt_max_slots})` },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -150,7 +180,7 @@ export async function POST(request: NextRequest) {
     // Unique(term_id, section_id, subject_id) likely hit.
     return NextResponse.json(
       { error: sheetErr?.message ?? 'failed to create sheet' },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -160,15 +190,16 @@ export async function POST(request: NextRequest) {
     .select('id, enrollment_status')
     .eq('section_id', section_id)
     .in('enrollment_status', ['active', 'late_enrollee']);
-  if (enrErr) return NextResponse.json({ error: enrErr.message }, { status: 500 });
+  if (enrErr)
+    return NextResponse.json({ error: enrErr.message }, { status: 500 });
 
   if (enrolments && enrolments.length > 0) {
     const { error: entriesErr } = await service.from('grade_entries').insert(
-      enrolments.map(e => ({
+      enrolments.map((e) => ({
         grading_sheet_id: sheet.id,
         section_student_id: e.id,
         is_na: e.enrollment_status === 'late_enrollee',
-      })),
+      }))
     );
     if (entriesErr) {
       return NextResponse.json({ error: entriesErr.message }, { status: 500 });

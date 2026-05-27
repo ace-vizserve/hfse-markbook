@@ -13,12 +13,23 @@ type EmptyStateProps = {
   className?: string;
 };
 
-export function DataTableEmptyState({ icon: Icon = Inbox, title, body, cta, className }: EmptyStateProps) {
+export function DataTableEmptyState({
+  icon: Icon = Inbox,
+  title,
+  body,
+  cta,
+  className,
+}: EmptyStateProps) {
   return (
-    <div className={cn('flex flex-col items-center justify-center gap-3 px-6 py-12 text-center', className)}>
+    <div
+      className={cn(
+        'flex flex-col items-center justify-center gap-3 px-6 py-12 text-center',
+        className
+      )}
+    >
       <span
         className={cn(
-          'inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-b from-accent/20 to-accent/5 text-accent-foreground ring-inset ring-1 ring-accent/30',
+          'inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-b from-accent/20 to-accent/5 text-accent-foreground ring-inset ring-1 ring-accent/30'
         )}
       >
         <Icon className="h-5 w-5" aria-hidden />
@@ -27,8 +38,8 @@ export function DataTableEmptyState({ icon: Icon = Inbox, title, body, cta, clas
         <p className="font-serif text-base text-foreground">{title}</p>
         {body && <p className="text-sm text-muted-foreground">{body}</p>}
       </div>
-      {cta && (
-        cta.href ? (
+      {cta &&
+        (cta.href ? (
           <Button asChild size="sm" variant="outline">
             <Link href={cta.href}>{cta.label}</Link>
           </Button>
@@ -36,8 +47,7 @@ export function DataTableEmptyState({ icon: Icon = Inbox, title, body, cta, clas
           <Button size="sm" variant="outline" onClick={cta.onClick}>
             {cta.label}
           </Button>
-        )
-      )}
+        ))}
     </div>
   );
 }

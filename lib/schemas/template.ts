@@ -9,16 +9,28 @@ const uuidString = z.string().uuid('Invalid id');
 
 export const TemplateSectionCreateSchema = z.object({
   level_id: uuidString,
-  name: z.string().trim().min(1, 'Name required').max(60, 'Keep it under 60 chars'),
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Name required')
+    .max(60, 'Keep it under 60 chars'),
   class_type: z.enum(SECTION_CLASS_TYPES).nullable().optional(),
 });
-export type TemplateSectionCreateInput = z.infer<typeof TemplateSectionCreateSchema>;
+export type TemplateSectionCreateInput = z.infer<
+  typeof TemplateSectionCreateSchema
+>;
 
 export const TemplateSectionUpdateSchema = z.object({
-  name: z.string().trim().min(1, 'Name required').max(60, 'Keep it under 60 chars'),
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Name required')
+    .max(60, 'Keep it under 60 chars'),
   class_type: z.enum(SECTION_CLASS_TYPES).nullable().optional(),
 });
-export type TemplateSectionUpdateInput = z.infer<typeof TemplateSectionUpdateSchema>;
+export type TemplateSectionUpdateInput = z.infer<
+  typeof TemplateSectionUpdateSchema
+>;
 
 // Same wire shape as `SubjectConfigUpdateSchema` — integer percentages,
 // route converts to numeric(4,2) on write.
@@ -35,7 +47,9 @@ export const TemplateSubjectConfigUpdateSchema = z
     message: 'WW + PT + QA must sum to 100',
     path: ['qa_weight'],
   });
-export type TemplateSubjectConfigUpdateInput = z.infer<typeof TemplateSubjectConfigUpdateSchema>;
+export type TemplateSubjectConfigUpdateInput = z.infer<
+  typeof TemplateSubjectConfigUpdateSchema
+>;
 
 // POST /api/sis/admin/template/subject-configs — enable a (subject × level)
 // in the template. Mirrors `TemplateSubjectConfigUpdateSchema` but adds the
@@ -56,7 +70,9 @@ export const TemplateSubjectConfigCreateSchema = z
     message: 'WW + PT + QA must sum to 100',
     path: ['qa_weight'],
   });
-export type TemplateSubjectConfigCreateInput = z.infer<typeof TemplateSubjectConfigCreateSchema>;
+export type TemplateSubjectConfigCreateInput = z.infer<
+  typeof TemplateSubjectConfigCreateSchema
+>;
 
 // POST /api/sis/admin/template/apply — propagate template to selected AYs.
 export const ApplyTemplateSchema = z.object({

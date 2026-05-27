@@ -29,7 +29,7 @@ export function SectionPicker({
     grouped.get(s.level_label)!.push(s);
   }
   const sortedLevels = Array.from(grouped.entries()).sort(([a], [b]) =>
-    a.localeCompare(b),
+    a.localeCompare(b)
   );
 
   return (

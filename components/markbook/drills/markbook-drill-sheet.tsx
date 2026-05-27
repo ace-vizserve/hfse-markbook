@@ -42,7 +42,16 @@ export type MarkbookDrillSheetProps = {
 };
 
 const CANONICAL_LEVEL_ORDER = [
-  'P1','P2','P3','P4','P5','P6','S1','S2','S3','S4',
+  'P1',
+  'P2',
+  'P3',
+  'P4',
+  'P5',
+  'P6',
+  'S1',
+  'S2',
+  'S3',
+  'S4',
 ];
 function compareLevels(a: string | null, b: string | null): number {
   const av = a ?? 'Unknown';
@@ -62,18 +71,29 @@ function formatDate(iso: string | null): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-SG', { year: 'numeric', month: 'short', day: 'numeric' });
+  return d.toLocaleDateString('en-SG', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
-const BADGE_BASE = 'h-6 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]';
+const BADGE_BASE =
+  'h-6 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]';
 
 function GradeBucketBadge({ bucket }: { bucket: string | null }) {
   if (!bucket) return <span className="text-muted-foreground">—</span>;
   const variant: 'success' | 'muted' | 'blocked' =
-    bucket === 'o' || bucket === 'vs' ? 'success' :
-    bucket === 'dnm' ? 'blocked' :
-    'muted';
-  return <Badge variant={variant} className={BADGE_BASE}>{bucket.toUpperCase()}</Badge>;
+    bucket === 'o' || bucket === 'vs'
+      ? 'success'
+      : bucket === 'dnm'
+        ? 'blocked'
+        : 'muted';
+  return (
+    <Badge variant={variant} className={BADGE_BASE}>
+      {bucket.toUpperCase()}
+    </Badge>
+  );
 }
 
 function LockBadge({ locked }: { locked: boolean }) {
@@ -94,24 +114,34 @@ function PublishBadge({ published }: { published: boolean }) {
       <CheckCircle2 className="h-3 w-3" /> Published
     </Badge>
   ) : (
-    <Badge variant="muted" className={BADGE_BASE}>—</Badge>
+    <Badge variant="muted" className={BADGE_BASE}>
+      —
+    </Badge>
   );
 }
 
 function StatusBadge({ status }: { status: string }) {
   const lower = status.toLowerCase();
   const variant: 'success' | 'muted' | 'blocked' =
-    lower === 'approved' || lower === 'closed' ? 'success' :
-    lower === 'rejected' ? 'blocked' :
-    'muted';
-  return <Badge variant={variant} className={BADGE_BASE}>{status}</Badge>;
+    lower === 'approved' || lower === 'closed'
+      ? 'success'
+      : lower === 'rejected'
+        ? 'blocked'
+        : 'muted';
+  return (
+    <Badge variant={variant} className={BADGE_BASE}>
+      {status}
+    </Badge>
+  );
 }
 
 function CompletenessCell({ row }: { row: SheetRow }) {
   const tone =
-    row.completenessPct >= 100 ? 'text-foreground' :
-    row.completenessPct >= 50 ? 'text-foreground' :
-    'text-destructive';
+    row.completenessPct >= 100
+      ? 'text-foreground'
+      : row.completenessPct >= 50
+        ? 'text-foreground'
+        : 'text-destructive';
   return (
     <span className={`font-mono text-[11px] tabular-nums ${tone}`}>
       {row.entriesPresent}/{row.entriesExpected} · {row.completenessPct}%
@@ -119,7 +149,9 @@ function CompletenessCell({ row }: { row: SheetRow }) {
   );
 }
 
-function buildEntryColumns(visible: DrillColumnKey[]): ColumnDef<GradeEntryRow, unknown>[] {
+function buildEntryColumns(
+  visible: DrillColumnKey[]
+): ColumnDef<GradeEntryRow, unknown>[] {
   const cols: ColumnDef<GradeEntryRow, unknown>[] = [];
   for (const key of visible) {
     switch (key) {
@@ -144,18 +176,35 @@ function buildEntryColumns(visible: DrillColumnKey[]): ColumnDef<GradeEntryRow, 
         });
         break;
       case 'studentNumber':
-        cols.push({ id: 'studentNumber', accessorKey: 'studentNumber',
+        cols.push({
+          id: 'studentNumber',
+          accessorKey: 'studentNumber',
           header: DRILL_COLUMN_LABELS.studentNumber,
-          cell: ({ row }) => <span className="font-mono text-xs">{row.original.studentNumber}</span> });
+          cell: ({ row }) => (
+            <span className="font-mono text-xs">
+              {row.original.studentNumber}
+            </span>
+          ),
+        });
         break;
       case 'level':
-        cols.push({ id: 'level', accessorKey: 'level',
+        cols.push({
+          id: 'level',
+          accessorKey: 'level',
           header: DRILL_COLUMN_LABELS.level,
-          cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.level ?? '—'}</span>,
-          sortingFn: (a, b) => compareLevels(a.original.level, b.original.level) });
+          cell: ({ row }) => (
+            <span className="text-sm text-muted-foreground">
+              {row.original.level ?? '—'}
+            </span>
+          ),
+          sortingFn: (a, b) =>
+            compareLevels(a.original.level, b.original.level),
+        });
         break;
       case 'sectionName':
-        cols.push({ id: 'sectionName', accessorKey: 'sectionName',
+        cols.push({
+          id: 'sectionName',
+          accessorKey: 'sectionName',
           header: DRILL_COLUMN_LABELS.sectionName,
           cell: ({ row }) => (
             <Link
@@ -164,103 +213,177 @@ function buildEntryColumns(visible: DrillColumnKey[]): ColumnDef<GradeEntryRow, 
             >
               {row.original.sectionName}
             </Link>
-          ) });
+          ),
+        });
         break;
       case 'subjectCode':
-        cols.push({ id: 'subjectCode', accessorKey: 'subjectCode',
+        cols.push({
+          id: 'subjectCode',
+          accessorKey: 'subjectCode',
           header: DRILL_COLUMN_LABELS.subjectCode,
-          cell: ({ row }) => <span className="font-mono text-xs">{row.original.subjectCode}</span> });
+          cell: ({ row }) => (
+            <span className="font-mono text-xs">
+              {row.original.subjectCode}
+            </span>
+          ),
+        });
         break;
       case 'termNumber':
-        cols.push({ id: 'termNumber', accessorKey: 'termNumber',
+        cols.push({
+          id: 'termNumber',
+          accessorKey: 'termNumber',
           header: DRILL_COLUMN_LABELS.termNumber,
-          cell: ({ row }) => <span className="font-mono text-xs">T{row.original.termNumber}</span> });
+          cell: ({ row }) => (
+            <span className="font-mono text-xs">
+              T{row.original.termNumber}
+            </span>
+          ),
+        });
         break;
       case 'rawScore':
-        cols.push({ id: 'rawScore', accessorKey: 'rawScore',
+        cols.push({
+          id: 'rawScore',
+          accessorKey: 'rawScore',
           header: DRILL_COLUMN_LABELS.rawScore,
-          cell: ({ row }) => <span className="tabular-nums">{row.original.rawScore ?? '—'}/{row.original.maxScore}</span> });
+          cell: ({ row }) => (
+            <span className="tabular-nums">
+              {row.original.rawScore ?? '—'}/{row.original.maxScore}
+            </span>
+          ),
+        });
         break;
       case 'wwScores':
-        cols.push({ id: 'wwScores', accessorKey: 'wwScores',
+        cols.push({
+          id: 'wwScores',
+          accessorKey: 'wwScores',
           header: DRILL_COLUMN_LABELS.wwScores,
           cell: ({ row }) => (
             <span className="font-mono text-xs tabular-nums">
               {(row.original.wwScores ?? []).length === 0
                 ? '—'
-                : (row.original.wwScores ?? []).map((s) => (s == null ? '—' : s)).join(' · ')}
+                : (row.original.wwScores ?? [])
+                    .map((s) => (s == null ? '—' : s))
+                    .join(' · ')}
             </span>
-          ) });
+          ),
+        });
         break;
       case 'ptScores':
-        cols.push({ id: 'ptScores', accessorKey: 'ptScores',
+        cols.push({
+          id: 'ptScores',
+          accessorKey: 'ptScores',
           header: DRILL_COLUMN_LABELS.ptScores,
           cell: ({ row }) => (
             <span className="font-mono text-xs tabular-nums">
               {(row.original.ptScores ?? []).length === 0
                 ? '—'
-                : (row.original.ptScores ?? []).map((s) => (s == null ? '—' : s)).join(' · ')}
+                : (row.original.ptScores ?? [])
+                    .map((s) => (s == null ? '—' : s))
+                    .join(' · ')}
             </span>
-          ) });
+          ),
+        });
         break;
       case 'qaScore':
-        cols.push({ id: 'qaScore', accessorKey: 'qaScore',
+        cols.push({
+          id: 'qaScore',
+          accessorKey: 'qaScore',
           header: DRILL_COLUMN_LABELS.qaScore,
           cell: ({ row }) => (
             <span className="font-mono text-xs tabular-nums">
               {row.original.qaScore ?? '—'}/{row.original.qaMax ?? '—'}
             </span>
-          ) });
+          ),
+        });
         break;
       case 'computedGrade':
-        cols.push({ id: 'computedGrade', accessorKey: 'computedGrade',
+        cols.push({
+          id: 'computedGrade',
+          accessorKey: 'computedGrade',
           header: DRILL_COLUMN_LABELS.computedGrade,
-          cell: ({ row }) => <span className="font-mono text-sm font-semibold tabular-nums">{row.original.computedGrade ?? '—'}</span> });
+          cell: ({ row }) => (
+            <span className="font-mono text-sm font-semibold tabular-nums">
+              {row.original.computedGrade ?? '—'}
+            </span>
+          ),
+        });
         break;
       case 'letterGrade':
-        cols.push({ id: 'letterGrade', accessorKey: 'letterGrade',
+        cols.push({
+          id: 'letterGrade',
+          accessorKey: 'letterGrade',
           header: DRILL_COLUMN_LABELS.letterGrade,
-          cell: ({ row }) => <span className="font-mono text-sm font-semibold">{row.original.letterGrade ?? '—'}</span> });
+          cell: ({ row }) => (
+            <span className="font-mono text-sm font-semibold">
+              {row.original.letterGrade ?? '—'}
+            </span>
+          ),
+        });
         break;
       case 'isLocked':
-        cols.push({ id: 'isLocked', accessorKey: 'isLocked',
+        cols.push({
+          id: 'isLocked',
+          accessorKey: 'isLocked',
           header: DRILL_COLUMN_LABELS.isLocked,
-          cell: ({ row }) => <LockBadge locked={row.original.isLocked} /> });
+          cell: ({ row }) => <LockBadge locked={row.original.isLocked} />,
+        });
         break;
       case 'enteredAt':
-        cols.push({ id: 'enteredAt', accessorKey: 'enteredAt',
+        cols.push({
+          id: 'enteredAt',
+          accessorKey: 'enteredAt',
           header: DRILL_COLUMN_LABELS.enteredAt,
-          cell: ({ row }) => <span className="text-sm tabular-nums text-muted-foreground">{formatDate(row.original.enteredAt)}</span> });
+          cell: ({ row }) => (
+            <span className="text-sm tabular-nums text-muted-foreground">
+              {formatDate(row.original.enteredAt)}
+            </span>
+          ),
+        });
         break;
       case 'enteredBy':
-        cols.push({ id: 'enteredBy', accessorKey: 'enteredBy',
+        cols.push({
+          id: 'enteredBy',
+          accessorKey: 'enteredBy',
           header: DRILL_COLUMN_LABELS.enteredBy,
-          cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.enteredBy ?? '—'}</span> });
+          cell: ({ row }) => (
+            <span className="text-xs text-muted-foreground">
+              {row.original.enteredBy ?? '—'}
+            </span>
+          ),
+        });
         break;
     }
   }
   return cols;
 }
 
-function buildSheetColumns(visible: DrillColumnKey[]): ColumnDef<SheetRow, unknown>[] {
+function buildSheetColumns(
+  visible: DrillColumnKey[]
+): ColumnDef<SheetRow, unknown>[] {
   const cols: ColumnDef<SheetRow, unknown>[] = [];
   for (const key of visible) {
     switch (key) {
       case 'sheetSubjectTerm':
-        cols.push({ id: 'sheetSubjectTerm',
+        cols.push({
+          id: 'sheetSubjectTerm',
           header: DRILL_COLUMN_LABELS.sheetSubjectTerm,
           accessorFn: (r) => `${r.subjectCode} · T${r.termNumber}`,
           cell: ({ row }) => (
             <div className="space-y-0.5">
-              <div className="font-mono text-xs">{row.original.subjectCode}</div>
+              <div className="font-mono text-xs">
+                {row.original.subjectCode}
+              </div>
               <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
                 Term {row.original.termNumber}
               </div>
             </div>
-          ) });
+          ),
+        });
         break;
       case 'sectionName':
-        cols.push({ id: 'sectionName', accessorKey: 'sectionName',
+        cols.push({
+          id: 'sectionName',
+          accessorKey: 'sectionName',
           header: DRILL_COLUMN_LABELS.sectionName,
           cell: ({ row }) => {
             const p: Record<string, string> = {
@@ -277,62 +400,118 @@ function buildSheetColumns(visible: DrillColumnKey[]): ColumnDef<SheetRow, unkno
                 {row.original.sectionName}
               </Link>
             );
-          } });
+          },
+        });
         break;
       case 'level':
-        cols.push({ id: 'level', accessorKey: 'level',
+        cols.push({
+          id: 'level',
+          accessorKey: 'level',
           header: DRILL_COLUMN_LABELS.level,
-          cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.level ?? '—'}</span>,
-          sortingFn: (a, b) => compareLevels(a.original.level, b.original.level) });
+          cell: ({ row }) => (
+            <span className="text-sm text-muted-foreground">
+              {row.original.level ?? '—'}
+            </span>
+          ),
+          sortingFn: (a, b) =>
+            compareLevels(a.original.level, b.original.level),
+        });
         break;
       case 'subjectCode':
-        cols.push({ id: 'subjectCode', accessorKey: 'subjectCode',
+        cols.push({
+          id: 'subjectCode',
+          accessorKey: 'subjectCode',
           header: DRILL_COLUMN_LABELS.subjectCode,
-          cell: ({ row }) => <span className="font-mono text-xs">{row.original.subjectCode}</span> });
+          cell: ({ row }) => (
+            <span className="font-mono text-xs">
+              {row.original.subjectCode}
+            </span>
+          ),
+        });
         break;
       case 'termNumber':
-        cols.push({ id: 'termNumber', accessorKey: 'termNumber',
+        cols.push({
+          id: 'termNumber',
+          accessorKey: 'termNumber',
           header: DRILL_COLUMN_LABELS.termNumber,
-          cell: ({ row }) => <span className="font-mono text-xs">T{row.original.termNumber}</span> });
+          cell: ({ row }) => (
+            <span className="font-mono text-xs">
+              T{row.original.termNumber}
+            </span>
+          ),
+        });
         break;
       case 'isLocked':
-        cols.push({ id: 'isLocked', accessorKey: 'isLocked',
+        cols.push({
+          id: 'isLocked',
+          accessorKey: 'isLocked',
           header: DRILL_COLUMN_LABELS.isLocked,
-          cell: ({ row }) => <LockBadge locked={row.original.isLocked} /> });
+          cell: ({ row }) => <LockBadge locked={row.original.isLocked} />,
+        });
         break;
       case 'lockedAt':
-        cols.push({ id: 'lockedAt', accessorKey: 'lockedAt',
+        cols.push({
+          id: 'lockedAt',
+          accessorKey: 'lockedAt',
           header: DRILL_COLUMN_LABELS.lockedAt,
-          cell: ({ row }) => <span className="text-sm tabular-nums text-muted-foreground">{formatDate(row.original.lockedAt)}</span> });
+          cell: ({ row }) => (
+            <span className="text-sm tabular-nums text-muted-foreground">
+              {formatDate(row.original.lockedAt)}
+            </span>
+          ),
+        });
         break;
       case 'publishedAt':
-        cols.push({ id: 'publishedAt', accessorKey: 'publishedAt',
+        cols.push({
+          id: 'publishedAt',
+          accessorKey: 'publishedAt',
           header: DRILL_COLUMN_LABELS.publishedAt,
-          cell: ({ row }) => row.original.isPublished
-            ? <span className="text-sm tabular-nums">{formatDate(row.original.publishedAt)}</span>
-            : <PublishBadge published={false} /> });
+          cell: ({ row }) =>
+            row.original.isPublished ? (
+              <span className="text-sm tabular-nums">
+                {formatDate(row.original.publishedAt)}
+              </span>
+            ) : (
+              <PublishBadge published={false} />
+            ),
+        });
         break;
       case 'completeness':
-        cols.push({ id: 'completeness', accessorKey: 'completenessPct',
+        cols.push({
+          id: 'completeness',
+          accessorKey: 'completenessPct',
           header: DRILL_COLUMN_LABELS.completeness,
-          cell: ({ row }) => <CompletenessCell row={row.original} /> });
+          cell: ({ row }) => <CompletenessCell row={row.original} />,
+        });
         break;
       case 'teacherName':
-        cols.push({ id: 'teacherName', accessorKey: 'teacherName',
+        cols.push({
+          id: 'teacherName',
+          accessorKey: 'teacherName',
           header: DRILL_COLUMN_LABELS.teacherName,
-          cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.teacherName ?? '—'}</span> });
+          cell: ({ row }) => (
+            <span className="text-xs text-muted-foreground">
+              {row.original.teacherName ?? '—'}
+            </span>
+          ),
+        });
         break;
     }
   }
   return cols;
 }
 
-function buildChangeRequestColumns(visible: DrillColumnKey[]): ColumnDef<ChangeRequestRow, unknown>[] {
+function buildChangeRequestColumns(
+  visible: DrillColumnKey[]
+): ColumnDef<ChangeRequestRow, unknown>[] {
   const cols: ColumnDef<ChangeRequestRow, unknown>[] = [];
   for (const key of visible) {
     switch (key) {
       case 'sectionName':
-        cols.push({ id: 'sectionName', accessorKey: 'sectionName', header: DRILL_COLUMN_LABELS.sectionName,
+        cols.push({
+          id: 'sectionName',
+          accessorKey: 'sectionName',
+          header: DRILL_COLUMN_LABELS.sectionName,
           cell: ({ row }) => (
             <Link
               href={`/markbook/grading?q=${encodeURIComponent(row.original.sectionName)}`}
@@ -340,39 +519,100 @@ function buildChangeRequestColumns(visible: DrillColumnKey[]): ColumnDef<ChangeR
             >
               {row.original.sectionName}
             </Link>
-          ) });
+          ),
+        });
         break;
       case 'subjectCode':
-        cols.push({ id: 'subjectCode', accessorKey: 'subjectCode', header: DRILL_COLUMN_LABELS.subjectCode,
-          cell: ({ row }) => <span className="font-mono text-xs">{row.original.subjectCode}</span> });
+        cols.push({
+          id: 'subjectCode',
+          accessorKey: 'subjectCode',
+          header: DRILL_COLUMN_LABELS.subjectCode,
+          cell: ({ row }) => (
+            <span className="font-mono text-xs">
+              {row.original.subjectCode}
+            </span>
+          ),
+        });
         break;
       case 'termNumber':
-        cols.push({ id: 'termNumber', accessorKey: 'termNumber', header: DRILL_COLUMN_LABELS.termNumber,
-          cell: ({ row }) => <span className="font-mono text-xs">T{row.original.termNumber}</span> });
+        cols.push({
+          id: 'termNumber',
+          accessorKey: 'termNumber',
+          header: DRILL_COLUMN_LABELS.termNumber,
+          cell: ({ row }) => (
+            <span className="font-mono text-xs">
+              T{row.original.termNumber}
+            </span>
+          ),
+        });
         break;
       case 'status':
-        cols.push({ id: 'status', accessorKey: 'status', header: DRILL_COLUMN_LABELS.status,
-          cell: ({ row }) => <StatusBadge status={row.original.status} /> });
+        cols.push({
+          id: 'status',
+          accessorKey: 'status',
+          header: DRILL_COLUMN_LABELS.status,
+          cell: ({ row }) => <StatusBadge status={row.original.status} />,
+        });
         break;
       case 'fieldChanged':
-        cols.push({ id: 'fieldChanged', accessorKey: 'fieldChanged', header: DRILL_COLUMN_LABELS.fieldChanged,
-          cell: ({ row }) => <span className="font-mono text-xs">{row.original.fieldChanged}</span> });
+        cols.push({
+          id: 'fieldChanged',
+          accessorKey: 'fieldChanged',
+          header: DRILL_COLUMN_LABELS.fieldChanged,
+          cell: ({ row }) => (
+            <span className="font-mono text-xs">
+              {row.original.fieldChanged}
+            </span>
+          ),
+        });
         break;
       case 'reasonCategory':
-        cols.push({ id: 'reasonCategory', accessorKey: 'reasonCategory', header: DRILL_COLUMN_LABELS.reasonCategory,
-          cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.reasonCategory}</span> });
+        cols.push({
+          id: 'reasonCategory',
+          accessorKey: 'reasonCategory',
+          header: DRILL_COLUMN_LABELS.reasonCategory,
+          cell: ({ row }) => (
+            <span className="text-xs text-muted-foreground">
+              {row.original.reasonCategory}
+            </span>
+          ),
+        });
         break;
       case 'requestedBy':
-        cols.push({ id: 'requestedBy', accessorKey: 'requestedBy', header: DRILL_COLUMN_LABELS.requestedBy,
-          cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.requestedBy}</span> });
+        cols.push({
+          id: 'requestedBy',
+          accessorKey: 'requestedBy',
+          header: DRILL_COLUMN_LABELS.requestedBy,
+          cell: ({ row }) => (
+            <span className="text-xs text-muted-foreground">
+              {row.original.requestedBy}
+            </span>
+          ),
+        });
         break;
       case 'requestedAt':
-        cols.push({ id: 'requestedAt', accessorKey: 'requestedAt', header: DRILL_COLUMN_LABELS.requestedAt,
-          cell: ({ row }) => <span className="text-sm tabular-nums">{formatDate(row.original.requestedAt)}</span> });
+        cols.push({
+          id: 'requestedAt',
+          accessorKey: 'requestedAt',
+          header: DRILL_COLUMN_LABELS.requestedAt,
+          cell: ({ row }) => (
+            <span className="text-sm tabular-nums">
+              {formatDate(row.original.requestedAt)}
+            </span>
+          ),
+        });
         break;
       case 'resolvedAt':
-        cols.push({ id: 'resolvedAt', accessorKey: 'resolvedAt', header: DRILL_COLUMN_LABELS.resolvedAt,
-          cell: ({ row }) => <span className="text-sm tabular-nums text-muted-foreground">{formatDate(row.original.resolvedAt)}</span> });
+        cols.push({
+          id: 'resolvedAt',
+          accessorKey: 'resolvedAt',
+          header: DRILL_COLUMN_LABELS.resolvedAt,
+          cell: ({ row }) => (
+            <span className="text-sm tabular-nums text-muted-foreground">
+              {formatDate(row.original.resolvedAt)}
+            </span>
+          ),
+        });
         break;
     }
   }
@@ -402,16 +642,25 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
   const seedRows: MarkbookDrillRow[] = React.useMemo(() => {
     const raw: MarkbookDrillRow[] =
       kind === 'entry'
-        ? initialEntries ?? []
+        ? (initialEntries ?? [])
         : kind === 'sheet'
-          ? initialSheets ?? []
-          : initialChangeRequests ?? [];
+          ? (initialSheets ?? [])
+          : (initialChangeRequests ?? []);
     if (raw.length === 0) return raw;
     return applyTargetFilterClient(raw, target, segment ?? null, {
       from: initialFrom,
       to: initialTo,
     });
-  }, [kind, target, segment, initialFrom, initialTo, initialEntries, initialSheets, initialChangeRequests]);
+  }, [
+    kind,
+    target,
+    segment,
+    initialFrom,
+    initialTo,
+    initialEntries,
+    initialSheets,
+    initialChangeRequests,
+  ]);
 
   const [rows, setRows] = React.useState<MarkbookDrillRow[]>(seedRows);
   const [loading, setLoading] = React.useState(seedRows.length === 0);
@@ -421,9 +670,9 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
   const [selectedLevels, setSelectedLevels] = React.useState<string[]>([]);
   const [groupBy, setGroupBy] = React.useState<DrillDownGroupBy>('none');
   const [density, setDensity] = React.useState<DrillDownDensity>('comfortable');
-  const [visibleColumnKeys, setVisibleColumnKeys] = React.useState<DrillColumnKey[]>(
-    () => defaultColumnsForTarget(target),
-  );
+  const [visibleColumnKeys, setVisibleColumnKeys] = React.useState<
+    DrillColumnKey[]
+  >(() => defaultColumnsForTarget(target));
 
   const skipNextFetchRef = React.useRef(seedRows.length > 0);
 
@@ -467,8 +716,10 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
   const statusOptions = React.useMemo(() => {
     const s = new Set<string>();
     for (const r of rows) {
-      if (kind === 'entry') s.add((r as GradeEntryRow).isLocked ? 'Locked' : 'Open');
-      else if (kind === 'sheet') s.add((r as SheetRow).isLocked ? 'Locked' : 'Open');
+      if (kind === 'entry')
+        s.add((r as GradeEntryRow).isLocked ? 'Locked' : 'Open');
+      else if (kind === 'sheet')
+        s.add((r as SheetRow).isLocked ? 'Locked' : 'Open');
       else s.add((r as ChangeRequestRow).status);
     }
     return Array.from(s).sort();
@@ -488,19 +739,25 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
 
   // Apply status + level filters before passing to DrillDownSheet.
   const preFiltered = React.useMemo(() => {
-    if (selectedStatuses.length === 0 && selectedLevels.length === 0) return rows;
+    if (selectedStatuses.length === 0 && selectedLevels.length === 0)
+      return rows;
     const statusSet = new Set(selectedStatuses);
     const levelSet = new Set(selectedLevels);
     return rows.filter((r) => {
       if (selectedStatuses.length > 0) {
         let status: string;
-        if (kind === 'entry') status = (r as GradeEntryRow).isLocked ? 'Locked' : 'Open';
-        else if (kind === 'sheet') status = (r as SheetRow).isLocked ? 'Locked' : 'Open';
+        if (kind === 'entry')
+          status = (r as GradeEntryRow).isLocked ? 'Locked' : 'Open';
+        else if (kind === 'sheet')
+          status = (r as SheetRow).isLocked ? 'Locked' : 'Open';
         else status = (r as ChangeRequestRow).status;
         if (!statusSet.has(status)) return false;
       }
       if (selectedLevels.length > 0 && kind !== 'change-request') {
-        const lvl = (kind === 'entry' ? (r as GradeEntryRow).level : (r as SheetRow).level) ?? 'Unknown';
+        const lvl =
+          (kind === 'entry'
+            ? (r as GradeEntryRow).level
+            : (r as SheetRow).level) ?? 'Unknown';
         if (!levelSet.has(lvl)) return false;
       }
       return true;
@@ -509,9 +766,20 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
 
   // Build columns based on row kind.
   const columns = React.useMemo(() => {
-    if (kind === 'entry') return buildEntryColumns(visibleColumnKeys) as ColumnDef<MarkbookDrillRow, unknown>[];
-    if (kind === 'sheet') return buildSheetColumns(visibleColumnKeys) as ColumnDef<MarkbookDrillRow, unknown>[];
-    return buildChangeRequestColumns(visibleColumnKeys) as ColumnDef<MarkbookDrillRow, unknown>[];
+    if (kind === 'entry')
+      return buildEntryColumns(visibleColumnKeys) as ColumnDef<
+        MarkbookDrillRow,
+        unknown
+      >[];
+    if (kind === 'sheet')
+      return buildSheetColumns(visibleColumnKeys) as ColumnDef<
+        MarkbookDrillRow,
+        unknown
+      >[];
+    return buildChangeRequestColumns(visibleColumnKeys) as ColumnDef<
+      MarkbookDrillRow,
+      unknown
+    >[];
   }, [kind, visibleColumnKeys]);
 
   const columnOptions = React.useMemo(
@@ -520,7 +788,7 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
         key: k,
         label: DRILL_COLUMN_LABELS[k] ?? k,
       })),
-    [kind],
+    [kind]
   );
 
   const groupAccessor = React.useCallback(
@@ -543,7 +811,7 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
       if (groupBy === 'stage') return `T${r.termNumber}`;
       return null;
     },
-    [groupBy, kind],
+    [groupBy, kind]
   );
 
   const header = drillHeaderForTarget(target, segment ?? null);
@@ -556,7 +824,8 @@ export function MarkbookDrillSheet(props: MarkbookDrillSheetProps) {
   if (initialFrom) csvParams.set('from', initialFrom);
   if (initialTo) csvParams.set('to', initialTo);
   if (segment) csvParams.set('segment', segment);
-  if (visibleColumnKeys.length) csvParams.set('columns', visibleColumnKeys.join(','));
+  if (visibleColumnKeys.length)
+    csvParams.set('columns', visibleColumnKeys.join(','));
   const csvHref = `/api/markbook/drill/${target}?${csvParams.toString()}`;
 
   return (

@@ -1,11 +1,4 @@
-import {
-  Globe,
-  Heart,
-  Phone,
-  Tags,
-  User,
-  type LucideIcon,
-} from 'lucide-react';
+import { Globe, Heart, Phone, Tags, User, type LucideIcon } from 'lucide-react';
 
 import { EditProfileSheet } from '@/components/sis/edit-profile-sheet';
 import { FieldGrid, type Field } from '@/components/sis/field-grid';
@@ -43,11 +36,7 @@ type Props = {
   enroleeNumber: string;
 };
 
-export function ProfileTab({
-  app,
-  ayCode,
-  enroleeNumber,
-}: Props) {
+export function ProfileTab({ app, ayCode, enroleeNumber }: Props) {
   const initial: Partial<ProfileUpdateInput> = {
     firstName: app.firstName,
     middleName: app.middleName,
@@ -78,7 +67,8 @@ export function ProfileTab({
     classType: app.classType,
     paymentOption: app.paymentOption,
     availSchoolBus: app.availSchoolBus as ProfileUpdateInput['availSchoolBus'],
-    availStudentCare: app.availStudentCare as ProfileUpdateInput['availStudentCare'],
+    availStudentCare:
+      app.availStudentCare as ProfileUpdateInput['availStudentCare'],
     studentCareProgram: app.studentCareProgram,
     availUniform: app.availUniform as ProfileUpdateInput['availUniform'],
     additionalLearningNeeds: app.additionalLearningNeeds,
@@ -128,8 +118,18 @@ export function ProfileTab({
     { label: 'Student care', value: app.availStudentCare },
     { label: 'Student care program', value: app.studentCareProgram },
     { label: 'Uniform', value: app.availUniform },
-    { label: 'Additional learning needs', value: app.additionalLearningNeeds, wide: true, multiline: true },
-    { label: 'Other learning needs', value: app.otherLearningNeeds, wide: true, multiline: true },
+    {
+      label: 'Additional learning needs',
+      value: app.additionalLearningNeeds,
+      wide: true,
+      multiline: true,
+    },
+    {
+      label: 'Other learning needs',
+      value: app.otherLearningNeeds,
+      wide: true,
+      multiline: true,
+    },
     { label: 'Previous school', value: app.previousSchool },
     { label: 'Referral source', value: app.howDidYouKnowAboutHFSEIS },
     { label: 'Other source', value: app.otherSource },
@@ -139,7 +139,10 @@ export function ProfileTab({
   ];
 
   // Medical flags — boolean conditions reported on the application.
-  const medicalFlags: Array<{ label: string; value: boolean | null | undefined }> = [
+  const medicalFlags: Array<{
+    label: string;
+    value: boolean | null | undefined;
+  }> = [
     { label: 'Allergies', value: app.allergies },
     { label: 'Food allergies', value: app.foodAllergies },
     { label: 'Asthma', value: app.asthma },
@@ -149,10 +152,30 @@ export function ProfileTab({
     { label: 'Eczema', value: app.eczema },
   ];
   const medicalDetails: Field[] = [
-    { label: 'Allergy details', value: app.allergyDetails, wide: true, multiline: true },
-    { label: 'Food allergy details', value: app.foodAllergyDetails, wide: true, multiline: true },
-    { label: 'Other conditions', value: app.otherMedicalConditions, wide: true, multiline: true },
-    { label: 'Dietary restrictions', value: app.dietaryRestrictions, wide: true, multiline: true },
+    {
+      label: 'Allergy details',
+      value: app.allergyDetails,
+      wide: true,
+      multiline: true,
+    },
+    {
+      label: 'Food allergy details',
+      value: app.foodAllergyDetails,
+      wide: true,
+      multiline: true,
+    },
+    {
+      label: 'Other conditions',
+      value: app.otherMedicalConditions,
+      wide: true,
+      multiline: true,
+    },
+    {
+      label: 'Dietary restrictions',
+      value: app.dietaryRestrictions,
+      wide: true,
+      multiline: true,
+    },
   ];
 
   // Show the medical card only when at least one flag is true or a detail field has a value.
@@ -169,7 +192,12 @@ export function ProfileTab({
 
   // Total fields filled across all 4 sections — drives the hero progress
   // bar. Medical fields are optional health info and excluded intentionally.
-  const allFields = [...identityFields, ...travelFields, ...contactFields, ...preferencesFields];
+  const allFields = [
+    ...identityFields,
+    ...travelFields,
+    ...contactFields,
+    ...preferencesFields,
+  ];
   const totalFilled = allFields.filter((f) => !isFieldEmpty(f)).length;
   const total = allFields.length;
   const progressPct = total === 0 ? 0 : Math.round((totalFilled / total) * 100);
@@ -212,7 +240,11 @@ export function ProfileTab({
               <div className="flex size-12 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
                 <User className="size-5" />
               </div>
-              <EditProfileSheet ayCode={ayCode} enroleeNumber={enroleeNumber} initial={initial} />
+              <EditProfileSheet
+                ayCode={ayCode}
+                enroleeNumber={enroleeNumber}
+                initial={initial}
+              />
             </div>
           </CardAction>
         </CardHeader>
@@ -226,7 +258,7 @@ export function ProfileTab({
               <span
                 className={cn(
                   'font-semibold',
-                  progressPct === 100 ? 'text-brand-mint' : 'text-foreground',
+                  progressPct === 100 ? 'text-brand-mint' : 'text-foreground'
                 )}
               >
                 {progressPct}%
@@ -239,7 +271,7 @@ export function ProfileTab({
                 'h-full transition-all',
                 progressPct === 100
                   ? 'bg-gradient-to-r from-brand-mint to-brand-mint/70'
-                  : 'bg-gradient-to-r from-brand-indigo to-brand-indigo/70',
+                  : 'bg-gradient-to-r from-brand-indigo to-brand-indigo/70'
               )}
               style={{ width: `${progressPct}%` }}
             />
@@ -249,14 +281,24 @@ export function ProfileTab({
 
       {/* 2×2 section grid — collapses to 1 column on smaller viewports */}
       <div className="grid gap-5 lg:grid-cols-2">
-        <ProfileSectionCard eyebrow="Identity" title="Personal & demographic" icon={User} fields={identityFields} />
+        <ProfileSectionCard
+          eyebrow="Identity"
+          title="Personal & demographic"
+          icon={User}
+          fields={identityFields}
+        />
         <ProfileSectionCard
           eyebrow="Travel documents"
           title="Student passport & pass"
           icon={Globe}
           fields={travelFields}
         />
-        <ProfileSectionCard eyebrow="Contact" title="Household & emergency" icon={Phone} fields={contactFields} />
+        <ProfileSectionCard
+          eyebrow="Contact"
+          title="Household & emergency"
+          icon={Phone}
+          fields={contactFields}
+        />
         <ProfileSectionCard
           eyebrow="Application preferences"
           title="Level, schedule & services"
@@ -293,24 +335,31 @@ export function ProfileTab({
                     <Badge key={f.label} variant="warning">
                       {f.label}
                     </Badge>
-                  ) : null,
+                  ) : null
                 )}
                 {medicalFlags.every((f) => !f.value) && (
-                  <span className="text-sm text-muted-foreground">None reported</span>
+                  <span className="text-sm text-muted-foreground">
+                    None reported
+                  </span>
                 )}
               </div>
             </div>
             {/* Detail text fields */}
             <FieldGrid fields={medicalDetails} dimEmpty />
             {/* Paracetamol consent */}
-            {app.paracetamolConsent !== null && app.paracetamolConsent !== undefined && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Paracetamol consent:</span>
-                <Badge variant={app.paracetamolConsent ? 'success' : 'blocked'}>
-                  {paracetamolLabel}
-                </Badge>
-              </div>
-            )}
+            {app.paracetamolConsent !== null &&
+              app.paracetamolConsent !== undefined && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    Paracetamol consent:
+                  </span>
+                  <Badge
+                    variant={app.paracetamolConsent ? 'success' : 'blocked'}
+                  >
+                    {paracetamolLabel}
+                  </Badge>
+                </div>
+              )}
           </CardContent>
         </Card>
       )}

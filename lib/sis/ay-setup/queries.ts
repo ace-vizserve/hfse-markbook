@@ -42,7 +42,9 @@ export async function listTermsByAy(): Promise<Record<string, TermRow[]>> {
   const service = createServiceClient();
   const { data, error } = await service
     .from('terms')
-    .select('id, academic_year_id, term_number, label, start_date, end_date, is_current, virtue_theme, grading_lock_date')
+    .select(
+      'id, academic_year_id, term_number, label, start_date, end_date, is_current, virtue_theme, grading_lock_date'
+    )
     .order('term_number', { ascending: true });
   if (error) {
     console.error('[ay-setup queries] listTermsByAy failed:', error.message);
@@ -76,11 +78,16 @@ export async function listAcademicYears(): Promise<AcademicYearListItem[]> {
   const service = createServiceClient();
   const { data, error } = await service
     .from('academic_years')
-    .select('id, ay_code, label, is_current, accepting_applications, created_at')
+    .select(
+      'id, ay_code, label, is_current, accepting_applications, created_at'
+    )
     .order('ay_code', { ascending: false });
 
   if (error) {
-    console.error('[ay-setup queries] listAcademicYears failed:', error.message);
+    console.error(
+      '[ay-setup queries] listAcademicYears failed:',
+      error.message
+    );
     return [];
   }
 
@@ -91,15 +98,28 @@ export async function listAcademicYears(): Promise<AcademicYearListItem[]> {
   const items: AcademicYearListItem[] = await Promise.all(
     rows.map(async (row) => {
       const [termsRes, sectionsRes, configsRes] = await Promise.all([
-        service.from('terms').select('id', { count: 'exact', head: true }).eq('academic_year_id', row.id),
-        service.from('sections').select('id', { count: 'exact', head: true }).eq('academic_year_id', row.id),
-        service.from('subject_configs').select('id', { count: 'exact', head: true }).eq('academic_year_id', row.id),
+        service
+          .from('terms')
+          .select('id', { count: 'exact', head: true })
+          .eq('academic_year_id', row.id),
+        service
+          .from('sections')
+          .select('id', { count: 'exact', head: true })
+          .eq('academic_year_id', row.id),
+        service
+          .from('subject_configs')
+          .select('id', { count: 'exact', head: true })
+          .eq('academic_year_id', row.id),
       ]);
 
       // section_students is a count across all sections in this AY.
-      const sectionIds = (
-        await service.from('sections').select('id').eq('academic_year_id', row.id)
-      ).data?.map((s) => (s as { id: string }).id) ?? [];
+      const sectionIds =
+        (
+          await service
+            .from('sections')
+            .select('id')
+            .eq('academic_year_id', row.id)
+        ).data?.map((s) => (s as { id: string }).id) ?? [];
 
       let ssCount = 0;
       if (sectionIds.length > 0) {
@@ -122,7 +142,7 @@ export async function listAcademicYears(): Promise<AcademicYearListItem[]> {
         counts,
         has_children: ssCount > 0,
       };
-    }),
+    })
   );
 
   return items;
@@ -160,7 +180,9 @@ export type CopyForwardPreview = {
  *   - The RPC skips copying if the target AY already has sections (or
  *     subject_configs). The preview reports 0 in that case.
  */
-export async function getCopyForwardPreview(newAyCode: string): Promise<CopyForwardPreview> {
+export async function getCopyForwardPreview(
+  newAyCode: string
+): Promise<CopyForwardPreview> {
   const service = createServiceClient();
 
   // Look up the target AY row first — drives idempotent-state fields.
@@ -171,22 +193,28 @@ export async function getCopyForwardPreview(newAyCode: string): Promise<CopyForw
     .maybeSingle();
   const targetId = (target as { id: string } | null)?.id ?? null;
   const targetExistingTermsCount = targetId
-    ? (
+    ? ((
         await service
           .from('terms')
           .select('id', { count: 'exact', head: true })
           .eq('academic_year_id', targetId)
-      ).count ?? 0
+      ).count ?? 0)
     : 0;
   const termsToInsert = Math.max(0, 4 - targetExistingTermsCount);
 
   // Pre-compute target-side counts so we can skip-report for either source.
   const [targetSectionsRes, targetConfigsRes] = await Promise.all([
     targetId
-      ? service.from('sections').select('id', { count: 'exact', head: true }).eq('academic_year_id', targetId)
+      ? service
+          .from('sections')
+          .select('id', { count: 'exact', head: true })
+          .eq('academic_year_id', targetId)
       : Promise.resolve({ count: 0 }),
     targetId
-      ? service.from('subject_configs').select('id', { count: 'exact', head: true }).eq('academic_year_id', targetId)
+      ? service
+          .from('subject_configs')
+          .select('id', { count: 'exact', head: true })
+          .eq('academic_year_id', targetId)
       : Promise.resolve({ count: 0 }),
   ]);
   const targetHasSections = (targetSectionsRes.count ?? 0) > 0;
@@ -195,8 +223,12 @@ export async function getCopyForwardPreview(newAyCode: string): Promise<CopyForw
   // Template wins when populated. Count rows directly from the template
   // tables — same source the RPC actually copies from.
   const [templateSectionsRes, templateConfigsRes] = await Promise.all([
-    service.from('template_sections').select('id', { count: 'exact', head: true }),
-    service.from('template_subject_configs').select('id', { count: 'exact', head: true }),
+    service
+      .from('template_sections')
+      .select('id', { count: 'exact', head: true }),
+    service
+      .from('template_subject_configs')
+      .select('id', { count: 'exact', head: true }),
   ]);
   const templateSectionsCount = templateSectionsRes.count ?? 0;
   const templateConfigsCount = templateConfigsRes.count ?? 0;
@@ -232,8 +264,14 @@ export async function getCopyForwardPreview(newAyCode: string): Promise<CopyForw
 
   const priorId = (prior as { id: string }).id;
   const [sectionsRes, configsRes] = await Promise.all([
-    service.from('sections').select('id', { count: 'exact', head: true }).eq('academic_year_id', priorId),
-    service.from('subject_configs').select('id', { count: 'exact', head: true }).eq('academic_year_id', priorId),
+    service
+      .from('sections')
+      .select('id', { count: 'exact', head: true })
+      .eq('academic_year_id', priorId),
+    service
+      .from('subject_configs')
+      .select('id', { count: 'exact', head: true })
+      .eq('academic_year_id', priorId),
   ]);
 
   return {
@@ -280,7 +318,10 @@ export async function checkAyEmpty(ayCode: string): Promise<AyEmptinessCheck> {
   }
 
   // section_students via sections
-  const { data: sectionRows } = await service.from('sections').select('id').eq('academic_year_id', ayId);
+  const { data: sectionRows } = await service
+    .from('sections')
+    .select('id')
+    .eq('academic_year_id', ayId);
   const sectionIds = (sectionRows ?? []).map((r) => (r as { id: string }).id);
   if (sectionIds.length > 0) {
     const { count } = await service
@@ -291,13 +332,18 @@ export async function checkAyEmpty(ayCode: string): Promise<AyEmptinessCheck> {
   }
 
   // grading_sheets via terms or sections
-  const { data: termRows } = await service.from('terms').select('id').eq('academic_year_id', ayId);
+  const { data: termRows } = await service
+    .from('terms')
+    .select('id')
+    .eq('academic_year_id', ayId);
   const termIds = (termRows ?? []).map((r) => (r as { id: string }).id);
   if (termIds.length > 0 || sectionIds.length > 0) {
-    const sheetsQuery = service.from('grading_sheets').select('id', { count: 'exact', head: true });
+    const sheetsQuery = service
+      .from('grading_sheets')
+      .select('id', { count: 'exact', head: true });
     if (termIds.length > 0 && sectionIds.length > 0) {
       const { count } = await sheetsQuery.or(
-        `term_id.in.(${termIds.join(',')}),section_id.in.(${sectionIds.join(',')})`,
+        `term_id.in.(${termIds.join(',')}),section_id.in.(${sectionIds.join(',')})`
       );
       if ((count ?? 0) > 0) blockers.push(`${count} grading_sheets rows`);
     }
@@ -311,7 +357,9 @@ export async function checkAyEmpty(ayCode: string): Promise<AyEmptinessCheck> {
     'discount_codes',
   ]) {
     const table = `${slug}_${suffix}`;
-    const { count, error } = await service.from(table).select('id', { count: 'exact', head: true });
+    const { count, error } = await service
+      .from(table)
+      .select('id', { count: 'exact', head: true });
     // Missing table → count errors; treat as zero (table doesn't exist yet).
     if (error) continue;
     if ((count ?? 0) > 0) blockers.push(`${count} rows in ${table}`);

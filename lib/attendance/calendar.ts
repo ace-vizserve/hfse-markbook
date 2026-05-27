@@ -19,7 +19,7 @@ import {
 export type SchoolCalendarRow = {
   id: string;
   termId: string;
-  date: string;         // yyyy-MM-dd
+  date: string; // yyyy-MM-dd
   /** 5 typed values per KD #50. `school_day` + `hbl` are encodable. */
   dayType: DayType;
   /** Legacy derived column (`day_type NOT IN ('school_day','hbl')`).
@@ -80,17 +80,22 @@ function audienceFilterValues(filter: Audience): Audience[] {
 // Defaults to 'all' which returns every row regardless of audience.
 export async function getSchoolCalendarForTerm(
   termId: string,
-  audience: Audience = 'all',
+  audience: Audience = 'all'
 ): Promise<SchoolCalendarRow[]> {
   const service = createServiceClient();
   const { data, error } = await service
     .from('school_calendar')
-    .select('id, term_id, date, day_type, is_holiday, label, audience, hbl_overlay')
+    .select(
+      'id, term_id, date, day_type, is_holiday, label, audience, hbl_overlay'
+    )
     .eq('term_id', termId)
     .in('audience', audienceFilterValues(audience))
     .order('date', { ascending: true });
   if (error) {
-    console.error('[attendance] getSchoolCalendarForTerm failed:', error.message);
+    console.error(
+      '[attendance] getSchoolCalendarForTerm failed:',
+      error.message
+    );
     return [];
   }
   return ((data ?? []) as RawSchoolCalendarRow[]).map((r) => ({
@@ -107,17 +112,22 @@ export async function getSchoolCalendarForTerm(
 
 export async function getCalendarEventsForTerm(
   termId: string,
-  audience: Audience = 'all',
+  audience: Audience = 'all'
 ): Promise<CalendarEventRow[]> {
   const service = createServiceClient();
   const { data, error } = await service
     .from('calendar_events')
-    .select('id, term_id, start_date, end_date, label, category, audience, tentative')
+    .select(
+      'id, term_id, start_date, end_date, label, category, audience, tentative'
+    )
     .eq('term_id', termId)
     .in('audience', audienceFilterValues(audience))
     .order('start_date', { ascending: true });
   if (error) {
-    console.error('[attendance] getCalendarEventsForTerm failed:', error.message);
+    console.error(
+      '[attendance] getCalendarEventsForTerm failed:',
+      error.message
+    );
     return [];
   }
   return ((data ?? []) as RawCalendarEventRow[]).map((r) => ({
@@ -144,7 +154,7 @@ export async function getCalendarEventsForTerm(
 // on dates that have both a baseline and an override).
 export async function getDedupedSchoolCalendarForTerm(
   termId: string,
-  levelType: 'primary' | 'secondary' | null = null,
+  levelType: 'primary' | 'secondary' | null = null
 ): Promise<SchoolCalendarRow[]> {
   const audience: Audience = levelType ?? 'all';
   const rows = await getSchoolCalendarForTerm(termId, audience);
@@ -161,7 +171,7 @@ export async function getDedupedSchoolCalendarForTerm(
     }
   }
   return Array.from(byDate.values()).sort((a, b) =>
-    a.date < b.date ? -1 : a.date > b.date ? 1 : 0,
+    a.date < b.date ? -1 : a.date > b.date ? 1 : 0
   );
 }
 
@@ -171,10 +181,12 @@ export async function getDedupedSchoolCalendarForTerm(
 // Same audience-precedence semantics as `getDedupedSchoolCalendarForTerm`.
 export async function getEncodableDatesForTerm(
   termId: string,
-  levelType: 'primary' | 'secondary' | null = null,
+  levelType: 'primary' | 'secondary' | null = null
 ): Promise<string[]> {
   const rows = await getDedupedSchoolCalendarForTerm(termId, levelType);
-  return rows.filter((r) => isEncodableDayType(r.dayType, r.hblOverlay)).map((r) => r.date);
+  return rows
+    .filter((r) => isEncodableDayType(r.dayType, r.hblOverlay))
+    .map((r) => r.date);
 }
 
 // Fast lookup: is a given date a holiday in this term? Returns null when
@@ -188,7 +200,7 @@ export async function getEncodableDatesForTerm(
 export async function isHoliday(
   termId: string,
   date: string,
-  levelType: 'primary' | 'secondary' | null = null,
+  levelType: 'primary' | 'secondary' | null = null
 ): Promise<boolean | null> {
   const service = createServiceClient();
 
@@ -211,7 +223,11 @@ export async function isHoliday(
     return true;
   }
   // Audience precedence: prefer the level-specific row over 'all'.
-  const rows = data as Array<{ day_type: DayType; audience: Audience; hbl_overlay: boolean }>;
+  const rows = data as Array<{
+    day_type: DayType;
+    audience: Audience;
+    hbl_overlay: boolean;
+  }>;
   const specific = rows.find((r) => r.audience === levelType);
   const chosen = specific ?? rows[0];
   return !isEncodableDayType(chosen.day_type, chosen.hbl_overlay ?? false);
@@ -237,9 +253,14 @@ export async function isHoliday(
 // every calendar_events row from the source term.
 export async function listPriorAyEntriesForCopy(
   targetAyId: string,
-  termNumber: number,
+  termNumber: number
 ): Promise<{
-  sourceAy: { id: string; ay_code: string; label: string; term_id: string } | null;
+  sourceAy: {
+    id: string;
+    ay_code: string;
+    label: string;
+    term_id: string;
+  } | null;
   holidays: SchoolCalendarRow[];
   events: CalendarEventRow[];
 }> {
@@ -252,9 +273,9 @@ export async function listPriorAyEntriesForCopy(
     .order('ay_code', { ascending: false });
   if (ayErr || !ays) return { sourceAy: null, holidays: [], events: [] };
 
-  const productionAys = (ays as Array<{ id: string; ay_code: string; label: string }>).filter(
-    (ay) => !/^AY9/i.test(ay.ay_code),
-  );
+  const productionAys = (
+    ays as Array<{ id: string; ay_code: string; label: string }>
+  ).filter((ay) => !/^AY9/i.test(ay.ay_code));
 
   for (const ay of productionAys) {
     const { data: term } = await service
@@ -274,13 +295,23 @@ export async function listPriorAyEntriesForCopy(
       // Nothing to copy on this term — keep this AY as the source anyway
       // (registrar gets a clear "no prior entries" empty state).
       return {
-        sourceAy: { id: ay.id, ay_code: ay.ay_code, label: ay.label, term_id: termId },
+        sourceAy: {
+          id: ay.id,
+          ay_code: ay.ay_code,
+          label: ay.label,
+          term_id: termId,
+        },
         holidays: [],
         events: [],
       };
     }
     return {
-      sourceAy: { id: ay.id, ay_code: ay.ay_code, label: ay.label, term_id: termId },
+      sourceAy: {
+        id: ay.id,
+        ay_code: ay.ay_code,
+        label: ay.label,
+        term_id: termId,
+      },
       holidays: overrides,
       events,
     };
@@ -292,14 +323,19 @@ export async function listPriorAyEntriesForCopy(
 // Used by the holiday-copy dialog. Returns null on invalid input; clamps Feb 29
 // to Feb 28 if the target year isn't a leap year.
 // fallow-ignore-next-line unused-export
-export function shiftYearPreserveMonthDay(iso: string, targetYear: number): string | null {
+export function shiftYearPreserveMonthDay(
+  iso: string,
+  targetYear: number
+): string | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   if (!m) return null;
   const month = Number(m[2]);
   let day = Number(m[3]);
   // Leap-year clamp
   if (month === 2 && day === 29) {
-    const isLeap = (targetYear % 4 === 0 && targetYear % 100 !== 0) || targetYear % 400 === 0;
+    const isLeap =
+      (targetYear % 4 === 0 && targetYear % 100 !== 0) ||
+      targetYear % 400 === 0;
     if (!isLeap) day = 28;
   }
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -323,7 +359,7 @@ export async function ensureTermSeeded(
   termId: string,
   startIso: string,
   endIso: string,
-  userId: string,
+  userId: string
 ): Promise<number> {
   const service = createServiceClient();
 
@@ -341,13 +377,11 @@ export async function ensureTermSeeded(
     label: null,
     created_by: userId,
   }));
-  const { error, count } = await service
-    .from('school_calendar')
-    .upsert(rows, {
-      onConflict: 'term_id,audience,date',
-      ignoreDuplicates: true,
-      count: 'exact',
-    });
+  const { error, count } = await service.from('school_calendar').upsert(rows, {
+    onConflict: 'term_id,audience,date',
+    ignoreDuplicates: true,
+    count: 'exact',
+  });
   if (error) {
     console.error('[attendance] ensureTermSeeded failed:', error.message);
     return 0;

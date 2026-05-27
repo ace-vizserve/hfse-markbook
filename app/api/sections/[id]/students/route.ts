@@ -9,9 +9,14 @@ import { invalidateAllOperationalDrills } from '@/lib/cache/invalidate-drill-tag
 // Roster for a single section — ordered by index number (immutable).
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'superadmin']);
+  const auth = await requireRole([
+    'teacher',
+    'registrar',
+    'school_admin',
+    'superadmin',
+  ]);
   if ('error' in auth) return auth.error;
 
   const { id } = await params;
@@ -29,11 +34,12 @@ export async function GET(
   const { data, error } = await supabase
     .from('section_students')
     .select(
-      'id, index_number, enrollment_status, enrollment_date, withdrawal_date, student:students(id, student_number, last_name, first_name, middle_name)',
+      'id, index_number, enrollment_status, enrollment_date, withdrawal_date, student:students(id, student_number, last_name, first_name, middle_name)'
     )
     .eq('section_id', id)
     .order('index_number');
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ section, students: data ?? [] });
 }
@@ -58,34 +64,37 @@ const ENROLLED_STATUSES = ['Enrolled', 'Enrolled (Conditional)'];
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const { id: sectionId } = await params;
-  const body = await request.json().catch(() => null) as
-    | {
-        student_number?: string;
-        enrollment_status?: 'active' | 'late_enrollee';
-        bus_no?: string | null;
-        classroom_officer_role?: string | null;
-      }
-    | null;
+  const body = (await request.json().catch(() => null)) as {
+    student_number?: string;
+    enrollment_status?: 'active' | 'late_enrollee';
+    bus_no?: string | null;
+    classroom_officer_role?: string | null;
+  } | null;
   if (!body) {
-    return NextResponse.json({ error: 'invalid body', code: 'invalid_body' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'invalid body', code: 'invalid_body' },
+      { status: 400 }
+    );
   }
 
   const studentNumber = body.student_number?.trim();
   if (!studentNumber) {
     return NextResponse.json(
       { error: 'student_number is required', code: 'missing_student_number' },
-      { status: 400 },
+      { status: 400 }
     );
   }
-  const enrollmentStatus = body.enrollment_status === 'late_enrollee' ? 'late_enrollee' : 'active';
+  const enrollmentStatus =
+    body.enrollment_status === 'late_enrollee' ? 'late_enrollee' : 'active';
   const busNo = body.bus_no?.toString().trim().slice(0, 30) || null;
-  const classroomOfficerRole = body.classroom_officer_role?.toString().trim().slice(0, 100) || null;
+  const classroomOfficerRole =
+    body.classroom_officer_role?.toString().trim().slice(0, 100) || null;
 
   const service = createServiceClient();
 
@@ -96,7 +105,10 @@ export async function POST(
     .eq('id', sectionId)
     .maybeSingle();
   if (secErr || !secRow) {
-    return NextResponse.json({ error: 'section not found', code: 'section_not_found' }, { status: 404 });
+    return NextResponse.json(
+      { error: 'section not found', code: 'section_not_found' },
+      { status: 404 }
+    );
   }
   const section = secRow as {
     id: string;
@@ -110,7 +122,7 @@ export async function POST(
   if (!sectionLevelLabel) {
     return NextResponse.json(
       { error: 'section has no level label', code: 'section_level_missing' },
-      { status: 500 },
+      { status: 500 }
     );
   }
 
@@ -122,7 +134,7 @@ export async function POST(
   if (ayErr || !ayRow) {
     return NextResponse.json(
       { error: 'academic year for section not found', code: 'ay_not_found' },
-      { status: 404 },
+      { status: 404 }
     );
   }
   const ayCode = (ayRow as { ay_code: string }).ay_code;
@@ -137,7 +149,10 @@ export async function POST(
     .eq('student_number', studentNumber)
     .maybeSingle();
   if (stuErr) {
-    return NextResponse.json({ error: stuErr.message, code: 'student_lookup_failed' }, { status: 500 });
+    return NextResponse.json(
+      { error: stuErr.message, code: 'student_lookup_failed' },
+      { status: 500 }
+    );
   }
   if (!existing) {
     return NextResponse.json(
@@ -147,7 +162,7 @@ export async function POST(
         code: 'not_synced',
         studentNumber,
       },
-      { status: 404 },
+      { status: 404 }
     );
   }
   const studentId = (existing as { id: string }).id;
@@ -162,7 +177,7 @@ export async function POST(
   if (appErr) {
     return NextResponse.json(
       { error: appErr.message, code: 'admissions_lookup_failed' },
-      { status: 500 },
+      { status: 500 }
     );
   }
   const apps = (appRows ?? []) as Array<{ enroleeNumber: string | null }>;
@@ -175,7 +190,7 @@ export async function POST(
         studentNumber,
         ayCode,
       },
-      { status: 422 },
+      { status: 422 }
     );
   }
 
@@ -187,11 +202,14 @@ export async function POST(
   if (statusErr) {
     return NextResponse.json(
       { error: statusErr.message, code: 'status_lookup_failed' },
-      { status: 500 },
+      { status: 500 }
     );
   }
-  const applicationStatus = (statusRow as { applicationStatus: string | null } | null)?.applicationStatus ?? null;
-  const applicantLevel = (statusRow as { classLevel: string | null } | null)?.classLevel ?? null;
+  const applicationStatus =
+    (statusRow as { applicationStatus: string | null } | null)
+      ?.applicationStatus ?? null;
+  const applicantLevel =
+    (statusRow as { classLevel: string | null } | null)?.classLevel ?? null;
 
   if (!applicationStatus || !ENROLLED_STATUSES.includes(applicationStatus)) {
     return NextResponse.json(
@@ -202,7 +220,7 @@ export async function POST(
         ayCode,
         applicationStatus,
       },
-      { status: 422 },
+      { status: 422 }
     );
   }
 
@@ -217,7 +235,7 @@ export async function POST(
         applicantLevel,
         sectionLevelLabel,
       },
-      { status: 422 },
+      { status: 422 }
     );
   }
 
@@ -228,7 +246,9 @@ export async function POST(
     .from('sections')
     .select('id')
     .eq('academic_year_id', section.academic_year_id);
-  const aySectionIds = ((aySectionRows ?? []) as { id: string }[]).map((s) => s.id);
+  const aySectionIds = ((aySectionRows ?? []) as { id: string }[]).map(
+    (s) => s.id
+  );
 
   if (aySectionIds.length > 0) {
     const { data: existingEnrolments } = await service
@@ -250,7 +270,7 @@ export async function POST(
           error: `already enrolled in this section (status: ${sameSectionRow.enrollment_status})`,
           code: 'already_in_this_section',
         },
-        { status: 409 },
+        { status: 409 }
       );
     }
     if (conflict) {
@@ -262,7 +282,7 @@ export async function POST(
           enroleeNumber,
           ayCode,
         },
-        { status: 409 },
+        { status: 409 }
       );
     }
   }
@@ -280,7 +300,7 @@ export async function POST(
         code: 'at_capacity',
         sectionId,
       },
-      { status: 422 },
+      { status: 422 }
     );
   }
 
@@ -292,7 +312,8 @@ export async function POST(
     .order('index_number', { ascending: false })
     .limit(1)
     .maybeSingle();
-  const nextIndex = ((maxRow as { index_number: number } | null)?.index_number ?? 0) + 1;
+  const nextIndex =
+    ((maxRow as { index_number: number } | null)?.index_number ?? 0) + 1;
 
   const { data: enrolmentRow, error: enrErr } = await service
     .from('section_students')
@@ -310,7 +331,7 @@ export async function POST(
   if (enrErr || !enrolmentRow) {
     return NextResponse.json(
       { error: enrErr?.message ?? 'enrolment failed', code: 'insert_failed' },
-      { status: 500 },
+      { status: 500 }
     );
   }
 

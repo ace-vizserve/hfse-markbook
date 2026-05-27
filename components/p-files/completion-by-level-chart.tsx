@@ -8,9 +8,9 @@ import type { LevelCompletionRow } from '@/lib/p-files/dashboard';
 const CompletionByLevelChartImpl = dynamic(
   () =>
     import('./completion-by-level-chart.client').then(
-      (m) => m.CompletionByLevelChartImpl,
+      (m) => m.CompletionByLevelChartImpl
     ),
-  { ssr: false, loading: () => <ChartSkeleton kind="comparison-bar" /> },
+  { ssr: false, loading: () => <ChartSkeleton kind="comparison-bar" /> }
 );
 
 export function CompletionByLevelChart({
@@ -20,5 +20,7 @@ export function CompletionByLevelChart({
   data: LevelCompletionRow[];
   onSegmentClick?: (level: string) => void;
 }) {
-  return <CompletionByLevelChartImpl data={data} onSegmentClick={onSegmentClick} />;
+  return (
+    <CompletionByLevelChartImpl data={data} onSegmentClick={onSegmentClick} />
+  );
 }

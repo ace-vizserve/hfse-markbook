@@ -22,7 +22,9 @@ export type ComparisonBarPoint = {
 
 export type YFormat = 'number' | 'percent' | 'days';
 
-function formatterFor(format: YFormat | undefined): ((n: number) => string) | undefined {
+function formatterFor(
+  format: YFormat | undefined
+): ((n: number) => string) | undefined {
   switch (format) {
     case 'percent':
       return (n) => `${Math.round(n)}%`;
@@ -125,7 +127,12 @@ function ComparisonBarChartImpl({
           cursor={{ fill: 'var(--color-accent)', opacity: 0.5 }}
         />
         {showCmp && (
-          <Legend content={chartLegendContent({ current: 'chart-1', comparison: 'chart-3' })} />
+          <Legend
+            content={chartLegendContent({
+              current: 'chart-1',
+              comparison: 'chart-3',
+            })}
+          />
         )}
         <Bar
           dataKey="current"
@@ -136,11 +143,15 @@ function ComparisonBarChartImpl({
           isAnimationActive={false}
           onClick={
             onSegmentClick
-              ? ((data: unknown) => {
-                  const payload = (data as { payload?: { category?: string }; category?: string });
-                  const category = payload?.payload?.category ?? payload?.category;
+              ? (((data: unknown) => {
+                  const payload = data as {
+                    payload?: { category?: string };
+                    category?: string;
+                  };
+                  const category =
+                    payload?.payload?.category ?? payload?.category;
                   if (category) onSegmentClick(category);
-                }) as never
+                }) as never)
               : undefined
           }
           style={onSegmentClick ? { cursor: 'pointer' } : undefined}

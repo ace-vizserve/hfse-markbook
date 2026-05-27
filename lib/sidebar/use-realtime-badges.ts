@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
-import type { Role, SidebarBadgeKey, SidebarBadges } from "@/lib/auth/roles";
-import { createClient } from "@/lib/supabase/client";
+import type { Role, SidebarBadgeKey, SidebarBadges } from '@/lib/auth/roles';
+import { createClient } from '@/lib/supabase/client';
 
 // Generalized realtime sidebar badge hook. Subscribes to one supabase
 // channel per badge key present in `initial`, returns merged live counts.
@@ -30,26 +30,26 @@ type BadgeChannel = {
 function subscribeChannels(
   initial: SidebarBadges,
   role: Role,
-  userId: string,
+  userId: string
 ): BadgeChannel[] {
   const channels: BadgeChannel[] = [];
   const supabase = createClient();
 
   if (initial.changeRequests != null) {
     let filter: string | null = null;
-    if (role === "teacher") {
+    if (role === 'teacher') {
       filter = `requested_by=eq.${userId}`;
-    } else if (role === "registrar") {
+    } else if (role === 'registrar') {
       filter = `status=eq.approved`;
-    } else if (role === "school_admin" || role === "superadmin") {
+    } else if (role === 'school_admin' || role === 'superadmin') {
       filter = `status=eq.pending`;
     }
 
     if (filter) {
       channels.push({
-        key: "changeRequests",
-        channelName: "sidebar-badge-change-requests",
-        table: "grade_change_requests",
+        key: 'changeRequests',
+        channelName: 'sidebar-badge-change-requests',
+        table: 'grade_change_requests',
         filter,
         recount: async () => {
           // Scope MUST mirror getSidebarChangeRequestCount (SSR sibling)
@@ -59,35 +59,35 @@ function subscribeChannels(
           // scope (page filters via grading_sheet.section.academic_year_id;
           // without it, pending CRs from prior/test AYs inflate the badge).
           const { data: ayData } = await supabase
-            .from("academic_years")
-            .select("id")
-            .eq("is_current", true)
+            .from('academic_years')
+            .select('id')
+            .eq('is_current', true)
             .maybeSingle();
           const currentAyId = (ayData as { id: string } | null)?.id ?? null;
           if (!currentAyId) return 0;
 
           let query = supabase
-            .from("grade_change_requests")
+            .from('grade_change_requests')
             .select(
-              "id, grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))",
-              { count: "exact", head: true },
+              'id, grading_sheet:grading_sheets!inner(section:sections!inner(academic_year_id))',
+              { count: 'exact', head: true }
             )
-            .eq("grading_sheet.section.academic_year_id", currentAyId);
-          if (role === "teacher") {
-            query = query.eq("requested_by", userId).eq("status", "pending");
-          } else if (role === "registrar") {
-            query = query.eq("status", "approved");
-          } else if (role === "school_admin") {
+            .eq('grading_sheet.section.academic_year_id', currentAyId);
+          if (role === 'teacher') {
+            query = query.eq('requested_by', userId).eq('status', 'pending');
+          } else if (role === 'registrar') {
+            query = query.eq('status', 'approved');
+          } else if (role === 'school_admin') {
             // Designated approver scope (KD #41): only requests this admin is
             // primary/secondary on, plus legacy null-approver rows.
             query = query
-              .eq("status", "pending")
+              .eq('status', 'pending')
               .or(
-                `primary_approver_id.eq.${userId},secondary_approver_id.eq.${userId},and(primary_approver_id.is.null,secondary_approver_id.is.null)`,
+                `primary_approver_id.eq.${userId},secondary_approver_id.eq.${userId},and(primary_approver_id.is.null,secondary_approver_id.is.null)`
               );
-          } else if (role === "superadmin") {
+          } else if (role === 'superadmin') {
             // Oversight scope: full visibility, matches the page filter.
-            query = query.eq("status", "pending");
+            query = query.eq('status', 'pending');
           } else {
             return null;
           }
@@ -105,22 +105,22 @@ function subscribeChannels(
 // have changed. INSERT on audit_log with one of these actions triggers a
 // router.refresh() so the SSR-rendered badge re-fetches from the server.
 const PFILE_VERIFICATION_ACTIONS = [
-  "pfile.upload",
-  "pfile.reminder.sent",
-  "sis.document.approve",
-  "sis.document.reject",
-  "sis.documents.auto-expire",
-  "sis.documents.auto-revive",
+  'pfile.upload',
+  'pfile.reminder.sent',
+  'sis.document.approve',
+  'sis.document.reject',
+  'sis.documents.auto-expire',
+  'sis.documents.auto-revive',
 ] as const;
 
 // Roles that see the pfileAwaitingVerification badge. Mirrors the p-files
 // layout gate (p-file, school_admin, superadmin per KD #31 + KD #74).
-const PFILE_BADGE_ROLES: Role[] = ["p-file", "school_admin", "superadmin"];
+const PFILE_BADGE_ROLES: Role[] = ['p-file', 'school_admin', 'superadmin'];
 
 export function useRealtimeBadges(
   role: Role | null,
   userId: string,
-  initial: SidebarBadges,
+  initial: SidebarBadges
 ): SidebarBadges {
   const router = useRouter();
   const [badges, setBadges] = useState<SidebarBadges>(initial);
@@ -152,20 +152,32 @@ export function useRealtimeBadges(
       const channel = supabase
         .channel(c.channelName)
         .on(
-          "postgres_changes",
-          { event: "INSERT", schema: "public", table: c.table, filter: c.filter ?? undefined },
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: c.table,
+            filter: c.filter ?? undefined,
+          },
           async () => {
             const fresh = await c.recount();
-            if (fresh != null) setBadges((prev) => ({ ...prev, [c.key]: fresh }));
-          },
+            if (fresh != null)
+              setBadges((prev) => ({ ...prev, [c.key]: fresh }));
+          }
         )
         .on(
-          "postgres_changes",
-          { event: "UPDATE", schema: "public", table: c.table, filter: c.filter ?? undefined },
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: c.table,
+            filter: c.filter ?? undefined,
+          },
           async () => {
             const fresh = await c.recount();
-            if (fresh != null) setBadges((prev) => ({ ...prev, [c.key]: fresh }));
-          },
+            if (fresh != null)
+              setBadges((prev) => ({ ...prev, [c.key]: fresh }));
+          }
         )
         .subscribe();
       return channel;
@@ -188,15 +200,15 @@ export function useRealtimeBadges(
     if (initial.pfileAwaitingVerification == null) return;
 
     const supabase = createClient();
-    const filter = `action=in.(${PFILE_VERIFICATION_ACTIONS.join(",")})`;
+    const filter = `action=in.(${PFILE_VERIFICATION_ACTIONS.join(',')})`;
     const channel = supabase
-      .channel("sidebar-badge-pfile-awaiting-verification")
+      .channel('sidebar-badge-pfile-awaiting-verification')
       .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "audit_log", filter },
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'audit_log', filter },
         () => {
           router.refresh();
-        },
+        }
       )
       .subscribe();
 

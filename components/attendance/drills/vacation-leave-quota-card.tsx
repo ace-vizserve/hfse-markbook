@@ -18,7 +18,8 @@ import {
 import { Sheet } from '@/components/ui/sheet';
 import type { VacationLeaveUsageRow } from '@/lib/attendance/drill';
 
-const BADGE_BASE = 'h-6 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]';
+const BADGE_BASE =
+  'h-6 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]';
 
 /**
  * VacationLeaveQuotaCard — students near or over their per-term vacation-leave
@@ -48,12 +49,17 @@ export function VacationLeaveQuotaCard({
   const atRisk = React.useMemo(
     () =>
       data
-        .filter((r) => r.usedThisTerm > 0 && (r.isOverTermQuota || r.remainingThisTerm <= 0))
+        .filter(
+          (r) =>
+            r.usedThisTerm > 0 &&
+            (r.isOverTermQuota || r.remainingThisTerm <= 0)
+        )
         .sort((a, b) => {
-          if (a.isOverTermQuota !== b.isOverTermQuota) return a.isOverTermQuota ? -1 : 1;
+          if (a.isOverTermQuota !== b.isOverTermQuota)
+            return a.isOverTermQuota ? -1 : 1;
           return b.usedThisTerm - a.usedThisTerm;
         }),
-    [data],
+    [data]
   );
 
   const overCount = atRisk.filter((r) => r.isOverTermQuota).length;
@@ -107,9 +113,16 @@ export function VacationLeaveQuotaCard({
               </thead>
               <tbody>
                 {atRisk.slice(0, 8).map((r) => (
-                  <tr key={r.studentSectionId} className="border-b border-border/60">
-                    <td className="py-2 font-medium text-foreground">{r.studentName}</td>
-                    <td className="py-2 text-muted-foreground">{r.sectionName}</td>
+                  <tr
+                    key={r.studentSectionId}
+                    className="border-b border-border/60"
+                  >
+                    <td className="py-2 font-medium text-foreground">
+                      {r.studentName}
+                    </td>
+                    <td className="py-2 text-muted-foreground">
+                      {r.sectionName}
+                    </td>
                     <td className="py-2 text-right font-mono tabular-nums">
                       {r.usedThisTerm}/{r.allowance}
                     </td>
@@ -140,7 +153,8 @@ export function VacationLeaveQuotaCard({
             </table>
           )}
           <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-            Counts EX entries marked as Vacation leave, scoped to {termLabel}. Unused days do not carry forward.
+            Counts EX entries marked as Vacation leave, scoped to {termLabel}.
+            Unused days do not carry forward.
           </p>
         </CardContent>
       </Card>

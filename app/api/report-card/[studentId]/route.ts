@@ -10,7 +10,7 @@ import { buildReportCard } from '@/lib/report-card/build-report-card';
 // Role: registrar / admin / superadmin.
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ studentId: string }> },
+  { params }: { params: Promise<{ studentId: string }> }
 ) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -23,27 +23,39 @@ export async function GET(
   if (!result.ok) {
     switch (result.error.kind) {
       case 'student_not_found':
-        return NextResponse.json({ error: 'student not found' }, { status: 404 });
+        return NextResponse.json(
+          { error: 'student not found' },
+          { status: 404 }
+        );
       case 'no_current_ay':
-        return NextResponse.json({ error: 'no current academic year' }, { status: 500 });
+        return NextResponse.json(
+          { error: 'no current academic year' },
+          { status: 500 }
+        );
       case 'not_enrolled_this_ay':
         return NextResponse.json(
           { error: `student has no enrolment in ${result.error.ayLabel}` },
-          { status: 404 },
+          { status: 404 }
         );
       case 'level_not_found':
-        return NextResponse.json({ error: 'section has no level' }, { status: 500 });
+        return NextResponse.json(
+          { error: 'section has no level' },
+          { status: 500 }
+        );
     }
   }
 
   const { payload } = result;
 
   // Reshape to a flat API-friendly format keyed by term_number
-  const attendanceByTerm: Record<number, {
-    school_days: number | null;
-    days_present: number | null;
-    days_late: number | null;
-  }> = {};
+  const attendanceByTerm: Record<
+    number,
+    {
+      school_days: number | null;
+      days_present: number | null;
+      days_late: number | null;
+    }
+  > = {};
   const commentsByTerm: Record<number, string | null> = {};
 
   for (const t of payload.terms) {
@@ -69,7 +81,10 @@ export async function GET(
     section: payload.section,
     level: payload.level,
     enrollment_status: payload.enrollment_status,
-    terms: payload.terms.map((t) => ({ term_number: t.term_number, label: t.label })),
+    terms: payload.terms.map((t) => ({
+      term_number: t.term_number,
+      label: t.label,
+    })),
     subject_rows: payload.subjects,
     attendance: attendanceByTerm,
     comments: commentsByTerm,

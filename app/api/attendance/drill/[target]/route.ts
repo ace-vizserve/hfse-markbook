@@ -36,15 +36,11 @@ const VALID_TARGETS: AttendanceDrillTarget[] = [
   'vacation-leave-quota',
 ];
 
-const ALLOWED_ROLES = [
-  'registrar',
-  'school_admin',
-  'superadmin',
-] as const;
+const ALLOWED_ROLES = ['registrar', 'school_admin', 'superadmin'] as const;
 
 export async function GET(
   req: Request,
-  ctx: { params: Promise<{ target: string }> },
+  ctx: { params: Promise<{ target: string }> }
 ) {
   const guard = await requireRole([...ALLOWED_ROLES]);
   if ('error' in guard) return guard.error;
@@ -107,14 +103,20 @@ export async function GET(
   });
   res.headers.set(
     'Cache-Control',
-    'private, max-age=60, stale-while-revalidate=300',
+    'private, max-age=60, stale-while-revalidate=300'
   );
   return res;
 }
 
-function pickColumns(target: AttendanceDrillTarget, columnsParam: string | null): DrillColumnKey[] {
+function pickColumns(
+  target: AttendanceDrillTarget,
+  columnsParam: string | null
+): DrillColumnKey[] {
   if (!columnsParam) return defaultColumnsForTarget(target);
-  const requested = columnsParam.split(',').map((c) => c.trim()).filter(Boolean) as DrillColumnKey[];
+  const requested = columnsParam
+    .split(',')
+    .map((c) => c.trim())
+    .filter(Boolean) as DrillColumnKey[];
   return requested.length > 0 ? requested : defaultColumnsForTarget(target);
 }
 
@@ -123,7 +125,7 @@ function csvResponse(
   target: AttendanceDrillTarget,
   segment: string | null,
   ayCode: string,
-  columnsParam: string | null,
+  columnsParam: string | null
 ): Response {
   const columns = pickColumns(target, columnsParam);
   const headers = columns.map((c) => DRILL_COLUMN_LABELS[c] ?? c);
@@ -141,87 +143,143 @@ function csvResponse(
   });
 }
 
-function csvCell(row: AttendanceDrillRow, key: DrillColumnKey, kind: AttendanceDrillRowKind): string | number {
+function csvCell(
+  row: AttendanceDrillRow,
+  key: DrillColumnKey,
+  kind: AttendanceDrillRowKind
+): string | number {
   if (kind === 'entry') {
     const r = row as AttendanceEntryRow;
     switch (key) {
-      case 'attendanceDate': return r.attendanceDate.slice(0, 10);
-      case 'studentName': return r.studentName;
-      case 'studentNumber': return r.studentNumber;
-      case 'sectionName': return r.sectionName;
-      case 'level': return r.level ?? '';
-      case 'status': return r.status;
-      case 'exReason': return r.exReason ?? '';
-      default: return '';
+      case 'attendanceDate':
+        return r.attendanceDate.slice(0, 10);
+      case 'studentName':
+        return r.studentName;
+      case 'studentNumber':
+        return r.studentNumber;
+      case 'sectionName':
+        return r.sectionName;
+      case 'level':
+        return r.level ?? '';
+      case 'status':
+        return r.status;
+      case 'exReason':
+        return r.exReason ?? '';
+      default:
+        return '';
     }
   }
   if (kind === 'top-absent') {
     const r = row as TopAbsentDrillRow;
     switch (key) {
-      case 'studentName': return r.studentName;
-      case 'studentNumber': return r.studentNumber;
-      case 'sectionName': return r.sectionName;
-      case 'level': return r.level ?? '';
-      case 'absences': return r.absences;
-      case 'lates': return r.lates;
-      case 'excused': return r.excused;
-      case 'encodedDays': return r.encodedDays;
-      case 'attendancePct': return `${r.attendancePct}%`;
-      default: return '';
+      case 'studentName':
+        return r.studentName;
+      case 'studentNumber':
+        return r.studentNumber;
+      case 'sectionName':
+        return r.sectionName;
+      case 'level':
+        return r.level ?? '';
+      case 'absences':
+        return r.absences;
+      case 'lates':
+        return r.lates;
+      case 'excused':
+        return r.excused;
+      case 'encodedDays':
+        return r.encodedDays;
+      case 'attendancePct':
+        return `${r.attendancePct}%`;
+      default:
+        return '';
     }
   }
   if (kind === 'section-rollup') {
     const r = row as SectionAttendanceRow;
     switch (key) {
-      case 'sectionName': return r.sectionName;
-      case 'level': return r.level ?? '';
-      case 'attendancePct': return `${r.attendancePct}%`;
-      case 'absences': return r.absentCount;
-      case 'lates': return r.lateCount;
-      case 'excused': return r.excusedCount;
-      case 'encodedDays': return r.encodedDays;
-      default: return '';
+      case 'sectionName':
+        return r.sectionName;
+      case 'level':
+        return r.level ?? '';
+      case 'attendancePct':
+        return `${r.attendancePct}%`;
+      case 'absences':
+        return r.absentCount;
+      case 'lates':
+        return r.lateCount;
+      case 'excused':
+        return r.excusedCount;
+      case 'encodedDays':
+        return r.encodedDays;
+      default:
+        return '';
     }
   }
   if (kind === 'compassionate') {
     const r = row as CompassionateUsageRow;
     switch (key) {
-      case 'studentName': return r.studentName;
-      case 'studentNumber': return r.studentNumber;
-      case 'sectionName': return r.sectionName;
-      case 'level': return r.level ?? '';
-      case 'allowance': return r.allowance;
-      case 'used': return r.used;
-      case 'remaining': return r.remaining;
-      case 'isOverQuota': return r.isOverQuota ? 'Yes' : 'No';
-      default: return '';
+      case 'studentName':
+        return r.studentName;
+      case 'studentNumber':
+        return r.studentNumber;
+      case 'sectionName':
+        return r.sectionName;
+      case 'level':
+        return r.level ?? '';
+      case 'allowance':
+        return r.allowance;
+      case 'used':
+        return r.used;
+      case 'remaining':
+        return r.remaining;
+      case 'isOverQuota':
+        return r.isOverQuota ? 'Yes' : 'No';
+      default:
+        return '';
     }
   }
   if (kind === 'vacation-leave') {
     const r = row as VacationLeaveUsageRow;
     switch (key) {
-      case 'studentName': return r.studentName;
-      case 'studentNumber': return r.studentNumber;
-      case 'sectionName': return r.sectionName;
-      case 'level': return r.level ?? '';
-      case 'termNumber': return `T${r.termNumber}`;
-      case 'allowance': return r.allowance;
-      case 'usedThisTerm': return r.usedThisTerm;
-      case 'remainingThisTerm': return r.remainingThisTerm;
-      case 'isOverTermQuota': return r.isOverTermQuota ? 'Yes' : 'No';
-      default: return '';
+      case 'studentName':
+        return r.studentName;
+      case 'studentNumber':
+        return r.studentNumber;
+      case 'sectionName':
+        return r.sectionName;
+      case 'level':
+        return r.level ?? '';
+      case 'termNumber':
+        return `T${r.termNumber}`;
+      case 'allowance':
+        return r.allowance;
+      case 'usedThisTerm':
+        return r.usedThisTerm;
+      case 'remainingThisTerm':
+        return r.remainingThisTerm;
+      case 'isOverTermQuota':
+        return r.isOverTermQuota ? 'Yes' : 'No';
+      default:
+        return '';
     }
   }
   // calendar-day
   const r = row as CalendarDayRow;
   switch (key) {
-    case 'date': return r.date.slice(0, 10);
-    case 'dayType': return r.dayType;
-    case 'label': return r.label ?? '';
-    default: return '';
+    case 'date':
+      return r.date.slice(0, 10);
+    case 'dayType':
+      return r.dayType;
+    case 'label':
+      return r.label ?? '';
+    default:
+      return '';
   }
 }
 
 function slug(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }

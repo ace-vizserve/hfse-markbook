@@ -36,11 +36,7 @@ async function loadSystemHealthUncached(): Promise<SystemHealth> {
     service
       .from('audit_log')
       .select('created_at')
-      .or(
-        ['ay.', 'approver.']
-          .map((p) => `action.like.${p}%`)
-          .join(','),
-      )
+      .or(['ay.', 'approver.'].map((p) => `action.like.${p}%`).join(','))
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -68,10 +64,14 @@ async function loadSystemHealthUncached(): Promise<SystemHealth> {
   return {
     ayCount: aysRes.count ?? 0,
     currentAy: currentRes.data
-      ? { ayCode: currentRes.data.ay_code as string, label: currentRes.data.label as string }
+      ? {
+          ayCode: currentRes.data.ay_code as string,
+          label: currentRes.data.label as string,
+        }
       : null,
     approverFlows,
-    lastAdminActivityAt: (lastAdminRes.data?.created_at as string | undefined) ?? null,
+    lastAdminActivityAt:
+      (lastAdminRes.data?.created_at as string | undefined) ?? null,
   };
 }
 
@@ -81,10 +81,14 @@ const FLOW_LABELS: Record<ApproverFlow, string> = {
   'markbook.change_request': 'Markbook · Change requests',
 };
 
-const loadSystemHealth = unstable_cache(loadSystemHealthUncached, ['sis', 'system-health'], {
-  tags: ['sis', 'markbook'],
-  revalidate: CACHE_TTL_SECONDS,
-});
+const loadSystemHealth = unstable_cache(
+  loadSystemHealthUncached,
+  ['sis', 'system-health'],
+  {
+    tags: ['sis', 'markbook'],
+    revalidate: CACHE_TTL_SECONDS,
+  }
+);
 
 export function getSystemHealth(): Promise<SystemHealth> {
   return loadSystemHealth();

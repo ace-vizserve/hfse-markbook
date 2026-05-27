@@ -9,8 +9,16 @@ export function SummaryCards({ summary }: { summary: DashboardSummary }) {
   // fold. P-Files is renewal-lens only; missing docs are admissions-side.
   const cards = [
     { label: 'Total Students', value: summary.totalStudents, icon: Users },
-    { label: 'Fully Complete', value: summary.fullyComplete, icon: CheckCircle2 },
-    { label: 'Expiring ≤90d', value: summary.expiringSoon90, icon: CalendarClock },
+    {
+      label: 'Fully Complete',
+      value: summary.fullyComplete,
+      icon: CheckCircle2,
+    },
+    {
+      label: 'Expiring ≤90d',
+      value: summary.expiringSoon90,
+      icon: CalendarClock,
+    },
   ];
 
   return (

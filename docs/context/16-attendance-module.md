@@ -52,7 +52,7 @@ Markbook's report card consumes term-summary counts from `attendance_records` to
 
 The contract instead: the Attendance module becomes the **feeder** for `attendance_records`. On every daily-attendance write, the module also updates the corresponding term's summary row (or a nightly rollup job does it). Markbook's read path is unchanged.
 
-This updates one row in `15-markbook-module.md` "Planned migrations": attendance entry *moves* to this module, but the `attendance_records` table *stays* (consumed by both modules — Attendance writes, Markbook reads for report cards).
+This updates one row in `15-markbook-module.md` "Planned migrations": attendance entry _moves_ to this module, but the `attendance_records` table _stays_ (consumed by both modules — Attendance writes, Markbook reads for report cards).
 
 **Decision:** write-through. Every daily write (import, live-entry PATCH, correction) recomputes the `attendance_records` row for the same `(term_id, section_student_id)` in the same transaction. Trivial given Phase 1's flat status vocabulary — `days_present = count(P∪L∪EX)`, `days_late = count(L)`, `days_excused = count(EX)`, `days_absent = count(A)`, `school_days = count(status != 'NC')`, `attendance_pct = round(days_present / school_days * 100, 2)`.
 
@@ -60,13 +60,13 @@ This updates one row in `15-markbook-module.md` "Planned migrations": attendance
 
 `school_calendar.day_type` replaces the binary is_holiday flag with five values:
 
-| Day type | Encodable? | Header tint | Semantics |
-|---|---|---|---|
-| `school_day` | ✅ yes | muted | Regular in-school day. Attendance taken. |
-| `hbl` | ✅ yes | primary (blue) | Home-based learning. Attendance taken; counts in `school_days`. |
-| `public_holiday` | ❌ no | destructive (red) | National / public closure (e.g. CNY Day 1). |
-| `school_holiday` | ❌ no | amber | School-only closure (staff PD, founder's day). |
-| `no_class` | ❌ no | muted grey | School-wide no class (typhoon, assembly block). |
+| Day type         | Encodable? | Header tint       | Semantics                                                       |
+| ---------------- | ---------- | ----------------- | --------------------------------------------------------------- |
+| `school_day`     | ✅ yes     | muted             | Regular in-school day. Attendance taken.                        |
+| `hbl`            | ✅ yes     | primary (blue)    | Home-based learning. Attendance taken; counts in `school_days`. |
+| `public_holiday` | ❌ no      | destructive (red) | National / public closure (e.g. CNY Day 1).                     |
+| `school_holiday` | ❌ no      | amber             | School-only closure (staff PD, founder's day).                  |
+| `no_class`       | ❌ no      | muted grey        | School-wide no class (typhoon, assembly block).                 |
 
 Writes to `/api/attendance/daily` reject with 409 on any non-encodable day-type. The rollup in §3 is unchanged — `school_days = count(status != 'NC')` naturally collapses to encodable days only because non-encodable days produce no rows (or `NC` rows if a registrar back-fills).
 
@@ -180,7 +180,7 @@ Still open — none blocks the Phase 1 build:
 - [ ] **Late-minutes granularity** (tardy = 10 min vs tardy = 45 min). Proposal doesn't answer. If HFSE wants this, add `late_minutes smallint` to `attendance_daily` in Phase 1b.
 - [ ] **School-calendar publication.** Needs the registrar to publish the list of school days ahead of time so the daily grid pre-renders only weekdays in session (vs. `NC`-marking every holiday reactively after the fact). Affects grid UX, not schema.
 - [ ] **Parent daily visibility.** Today parents only see the report-card rollup. Not needed for Phase 1; revisit if a stakeholder asks.
-- [ ] **Who enters attendance today.** Excel reference shows Joann imports centrally; teacher live-entry is *planned* but not confirmed as a current HFSE habit. **Sprint-kickoff decision** — if teachers won't do live entry immediately, ship the import flow first and add the live grid in a 1b bite.
+- [ ] **Who enters attendance today.** Excel reference shows Joann imports centrally; teacher live-entry is _planned_ but not confirmed as a current HFSE habit. **Sprint-kickoff decision** — if teachers won't do live entry immediately, ship the import flow first and add the live grid in a 1b bite.
 
 ## Out of scope (until explicitly pulled in)
 
@@ -200,38 +200,38 @@ Preserved from the HFSE reference file so future sprints don't re-derive the lay
 
 **Per-sheet columns** (left to right):
 
-| Column | Content |
-|---|---|
-| `Index No` | Student's fixed index number — matches `section_students.index_number` |
-| `Bus No.` | School bus assignment (out of scope — see §Data model) |
-| `Urgent/Compassionate Leave` | 5-day yearly allowance tracker (out of scope — student-profile quota) |
-| `Classroom Officers` | Student role tag e.g. `HAPI HAUS` (out of scope — section-role tag) |
-| `Full Name` | `LASTNAME, First Middle` |
-| `Jan 8` … `Mar 13` | One column per school-day — daily attendance code |
-| `Days present` | Excel-computed total (recomputed server-side on import, not trusted) |
-| `Attendance %` | Excel-computed percentage (recomputed server-side) |
-| `Days late` | Excel-computed total (recomputed server-side) |
-| `Excused` | Excel-computed total (recomputed server-side) |
-| `Days absent` | Excel-computed total (recomputed server-side) |
-| `Total Days With Class` | Total school-days applicable to this student (reconciled via `count(status != 'NC')`) |
-| `Jan / %`, `Feb / %`, `Mar / %` | Monthly count + percentage — attendance-module dashboard only, not stored |
+| Column                          | Content                                                                               |
+| ------------------------------- | ------------------------------------------------------------------------------------- |
+| `Index No`                      | Student's fixed index number — matches `section_students.index_number`                |
+| `Bus No.`                       | School bus assignment (out of scope — see §Data model)                                |
+| `Urgent/Compassionate Leave`    | 5-day yearly allowance tracker (out of scope — student-profile quota)                 |
+| `Classroom Officers`            | Student role tag e.g. `HAPI HAUS` (out of scope — section-role tag)                   |
+| `Full Name`                     | `LASTNAME, First Middle`                                                              |
+| `Jan 8` … `Mar 13`              | One column per school-day — daily attendance code                                     |
+| `Days present`                  | Excel-computed total (recomputed server-side on import, not trusted)                  |
+| `Attendance %`                  | Excel-computed percentage (recomputed server-side)                                    |
+| `Days late`                     | Excel-computed total (recomputed server-side)                                         |
+| `Excused`                       | Excel-computed total (recomputed server-side)                                         |
+| `Days absent`                   | Excel-computed total (recomputed server-side)                                         |
+| `Total Days With Class`         | Total school-days applicable to this student (reconciled via `count(status != 'NC')`) |
+| `Jan / %`, `Feb / %`, `Mar / %` | Monthly count + percentage — attendance-module dashboard only, not stored             |
 
 **Attendance codes** (sole source of truth for Phase 1):
 
-| Code | Meaning | Counts as present? |
-|---|---|---|
-| `P` | Present | ✅ Yes |
-| `L` | Late | ✅ Yes (also counted in `days_late`) |
-| `EX` | Excused — MC / compassionate leave / school activity | ✅ Yes (also counted in `days_excused`) |
-| `A` | Absent | ❌ No |
-| `NC` | No Class — holiday / not yet enrolled | ❌ Not applicable (excluded from `school_days`) |
+| Code | Meaning                                              | Counts as present?                              |
+| ---- | ---------------------------------------------------- | ----------------------------------------------- |
+| `P`  | Present                                              | ✅ Yes                                          |
+| `L`  | Late                                                 | ✅ Yes (also counted in `days_late`)            |
+| `EX` | Excused — MC / compassionate leave / school activity | ✅ Yes (also counted in `days_excused`)         |
+| `A`  | Absent                                               | ❌ No                                           |
+| `NC` | No Class — holiday / not yet enrolled                | ❌ Not applicable (excluded from `school_days`) |
 
 **Field mapping (Excel → DB) on import:**
 
 - `Index No` → `section_students.index_number` (match key, with `section_id` + `term_id`).
 - Daily cells (`Jan 8` … `Mar 13`) → one `attendance_daily` row per (student, date) with the cell value as `status`.
 - Excel-computed totals → **discarded on import**; rollup is recomputed server-side from `attendance_daily` in the same transaction per §Agreed decisions §3.
-- Monthly breakdowns, bus_no, classroom_officers, urgent/compassionate-leave quota → **parsed but not written to `attendance_*` tables** (future modules may claim them).
+- Monthly breakdowns, bus*no, classroom_officers, urgent/compassionate-leave quota → \*\*parsed but not written to `attendance*\*` tables\*\* (future modules may claim them).
 
 ## See also
 

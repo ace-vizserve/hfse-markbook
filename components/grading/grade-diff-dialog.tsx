@@ -1,14 +1,20 @@
-"use client";
+'use client';
 
-import { AlertTriangle, CheckCircle2, Minus, TrendingDown, TrendingUp } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Minus,
+  TrendingDown,
+  TrendingUp,
+} from 'lucide-react';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export type AlertComparison = {
   term_label: string;
@@ -43,7 +49,9 @@ export function GradeDiffDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Grade Difference Analysis</DialogTitle>
-          <DialogDescription className="truncate">{studentName}</DialogDescription>
+          <DialogDescription className="truncate">
+            {studentName}
+          </DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[60vh]">
           <div className="space-y-3 pr-4">
@@ -60,7 +68,8 @@ export function GradeDiffDialog({
             {/* Per-prior-term comparison cards */}
             {comparisons.map((c) => {
               const absDiff = Math.abs(c.diff);
-              const signedDiff = c.diff > 0 ? `+${absDiff}` : c.diff < 0 ? `−${absDiff}` : "0";
+              const signedDiff =
+                c.diff > 0 ? `+${absDiff}` : c.diff < 0 ? `−${absDiff}` : '0';
               const isUp = c.diff > 0;
               const isDown = c.diff < 0;
 
@@ -69,8 +78,8 @@ export function GradeDiffDialog({
                   key={c.term_number}
                   className={`flex items-center gap-4 rounded-lg border px-4 py-3 ${
                     c.flagged
-                      ? "border-brand-amber/40 bg-brand-amber/5"
-                      : "border-border bg-background"
+                      ? 'border-brand-amber/40 bg-brand-amber/5'
+                      : 'border-border bg-background'
                   }`}
                 >
                   <div className="min-w-0 flex-1">
@@ -85,10 +94,10 @@ export function GradeDiffDialog({
                     <span
                       className={`inline-flex items-center gap-1 font-mono text-sm font-semibold tabular-nums ${
                         !c.flagged
-                          ? "text-muted-foreground"
+                          ? 'text-muted-foreground'
                           : isDown
-                            ? "text-destructive"
-                            : "text-brand-mint"
+                            ? 'text-destructive'
+                            : 'text-brand-mint'
                       }`}
                     >
                       {isUp ? (
@@ -119,9 +128,9 @@ export function GradeDiffDialog({
         </ScrollArea>
         <p className="border-t border-border pt-3 text-sm text-muted-foreground">
           {flaggedCount === 0
-            ? "No significant grade changes detected."
+            ? 'No significant grade changes detected.'
             : flaggedCount === 1
-              ? "1 significant change detected."
+              ? '1 significant change detected.'
               : `${flaggedCount} significant changes detected.`}
         </p>
       </DialogContent>

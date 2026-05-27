@@ -4,15 +4,15 @@
 
 HFSE runs **two parallel grading tracks** distinguished by `subjects.is_examinable`:
 
-| Track | Examinable subjects | Non-examinable subjects |
-|---|---|---|
-| **Input** | Raw scores (WW, PT, QA) | Letter grade selection |
-| **Computation** | PS → WS → Initial → Quarterly | None |
-| **Quarterly value** | Integer 0–100 (transmutation) | Letter (`A`/`B`/`C`/`IP`/`UG`/`NA`/`E`) |
-| **T4 Final Grade** | `ROUND((T1×0.2)+(T2×0.2)+(T3×0.2)+(T4×0.4), 2)` | Always `"Passed"` |
-| **General Average** | ✅ Included (examinable Final Grades only) | ❌ Excluded entirely |
-| **Subject Award** | ✅ Eligible | ❌ N/A |
-| **Storage** | `grade_entries.{ww_scores, pt_scores, qa_score, quarterly_grade}` | `grade_entries.letter_grade` |
+| Track               | Examinable subjects                                               | Non-examinable subjects                 |
+| ------------------- | ----------------------------------------------------------------- | --------------------------------------- |
+| **Input**           | Raw scores (WW, PT, QA)                                           | Letter grade selection                  |
+| **Computation**     | PS → WS → Initial → Quarterly                                     | None                                    |
+| **Quarterly value** | Integer 0–100 (transmutation)                                     | Letter (`A`/`B`/`C`/`IP`/`UG`/`NA`/`E`) |
+| **T4 Final Grade**  | `ROUND((T1×0.2)+(T2×0.2)+(T3×0.2)+(T4×0.4), 2)`                   | Always `"Passed"`                       |
+| **General Average** | ✅ Included (examinable Final Grades only)                        | ❌ Excluded entirely                    |
+| **Subject Award**   | ✅ Eligible                                                       | ❌ N/A                                  |
+| **Storage**         | `grade_entries.{ww_scores, pt_scores, qa_score, quarterly_grade}` | `grade_entries.letter_grade`            |
 
 The `is_examinable` flag (`public.subjects.is_examinable`) is the single source of truth that drives every branch: the grading-sheet UI (`<LetterGradeGrid>` vs WW/PT/QA grid), the report card cell renderer (`cellText` in `<ReportCardDocument>`), the publish-readiness check, the Masterfile column shape, and the General Average / Award computations.
 
@@ -132,28 +132,30 @@ input ≤ gold_min - 0.1   → "Silver"
 input ≤ max              → "Gold"
 ```
 
-| Award | Input | Per | Label when below threshold |
-|---|---|---|---|
-| **Subject Award** | Subject Overall (2dp) | Examinable subject × student | `"Not eligible for Subject Award"` |
-| **Overall Academic Award** | General Average (1dp) | Student | `"Not eligible for Overall Award"` |
+| Award                      | Input                 | Per                          | Label when below threshold         |
+| -------------------------- | --------------------- | ---------------------------- | ---------------------------------- |
+| **Subject Award**          | Subject Overall (2dp) | Examinable subject × student | `"Not eligible for Subject Award"` |
+| **Overall Academic Award** | General Average (1dp) | Student                      | `"Not eligible for Overall Award"` |
 
 **Default thresholds** (from HFSE's `=IFS(<88.5,"NE",<=91.4,"Bronze",<=95.4,"Silver",<=99.4,"Gold")`):
 
-| Threshold | Default | Editable in |
-|---|---|---|
-| `subject_award_bronze_min` | 88.5 | `/sis/admin/school-config` (school_admin+) |
-| `subject_award_silver_min` | 91.5 | (same) |
-| `subject_award_gold_min` | 95.5 | (same) |
-| `subject_award_max` | 100.0 | (same) |
+| Threshold                  | Default | Editable in                                |
+| -------------------------- | ------- | ------------------------------------------ |
+| `subject_award_bronze_min` | 88.5    | `/sis/admin/school-config` (school_admin+) |
+| `subject_award_silver_min` | 91.5    | (same)                                     |
+| `subject_award_gold_min`   | 95.5    | (same)                                     |
+| `subject_award_max`        | 100.0   | (same)                                     |
 
 Stored as 4 typed columns on `school_config` (migration 049) with a CHECK enforcing `bronze < silver < gold ≤ max`. Implementation: `lib/compute/awards.ts`.
 
 **Disqualifiers** override the numeric tier:
+
 - Withdrawn students → no badge (blank cell)
 - Late enrollees missing examinable data → "Not eligible"
 - Any null input → "Not eligible"
 
 The badges render on:
+
 - Masterfile (`/markbook/masterfile`) — Subject Award per examinable subject column + Overall Award column per student
 - (Future) T4 report card General Average row badge — currently shows the numeric value only
 
@@ -171,15 +173,15 @@ The badges render on:
 
 ### Non-Examinable Subjects (letter)
 
-| Code | Meaning | Range |
-| ---- | --- | --- |
-| A    | Advanced — fully demonstrated the skills required | 90–100 |
-| B    | Proficient — demonstrated some skills required | 85–89 |
-| C    | Approaching Proficiency — fairly demonstrated the skill required | 80–84 |
-| IP   | In Progress | 79 and below |
-| UG   | Ungraded | — |
-| NA   | Not Applicable | — |
-| E    | Exempted (**Secondary only**) | — |
+| Code | Meaning                                                          | Range        |
+| ---- | ---------------------------------------------------------------- | ------------ |
+| A    | Advanced — fully demonstrated the skills required                | 90–100       |
+| B    | Proficient — demonstrated some skills required                   | 85–89        |
+| C    | Approaching Proficiency — fairly demonstrated the skill required | 80–84        |
+| IP   | In Progress                                                      | 79 and below |
+| UG   | Ungraded                                                         | —            |
+| NA   | Not Applicable                                                   | —            |
+| E    | Exempted (**Secondary only**)                                    | —            |
 
 The number ranges are display-only context for the legend. Teachers (or registrar via consolidated form per Phase 2) pick the letter directly — the system never derives a letter from a number.
 

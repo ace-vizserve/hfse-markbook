@@ -45,8 +45,10 @@ const BUCKET_LABEL: Record<StageStatusBucket, string> = {
 // solid disc so the timeline reads as a connected progression.
 const BUCKET_DOT: Record<StageStatusBucket, string> = {
   done: 'bg-gradient-to-b from-chart-5 to-chart-3 ring-2 ring-chart-5/30',
-  in_progress: 'bg-gradient-to-b from-brand-indigo to-brand-navy ring-2 ring-brand-indigo/25',
-  blocked: 'bg-gradient-to-b from-destructive to-destructive/80 ring-2 ring-destructive/30',
+  in_progress:
+    'bg-gradient-to-b from-brand-indigo to-brand-navy ring-2 ring-brand-indigo/25',
+  blocked:
+    'bg-gradient-to-b from-destructive to-destructive/80 ring-2 ring-destructive/30',
   not_started: 'bg-ink-3 ring-2 ring-ink-3/30',
 };
 
@@ -90,7 +92,8 @@ export function StudentLifecycleTimeline({
     <Card className="@container/card">
       <CardHeader>
         <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-          Lifecycle · {snapshot.ayCode} · {completedRows}/{snapshot.rows.length} stages done
+          Lifecycle · {snapshot.ayCode} · {completedRows}/{snapshot.rows.length}{' '}
+          stages done
         </CardDescription>
         <CardTitle className="font-serif text-xl font-semibold tracking-tight text-foreground">
           {title}
@@ -98,7 +101,11 @@ export function StudentLifecycleTimeline({
         <CardAction>
           <ChartLegendChip
             color={isWithdrawn ? 'very-stale' : 'primary'}
-            label={isWithdrawn ? 'Withdrawn' : (snapshot.applicationStatus ?? 'In funnel')}
+            label={
+              isWithdrawn
+                ? 'Withdrawn'
+                : (snapshot.applicationStatus ?? 'In funnel')
+            }
           />
         </CardAction>
       </CardHeader>
@@ -122,7 +129,9 @@ export function StudentLifecycleTimeline({
                   <span className="text-muted-foreground">· {entry.level}</span>
                 )}
                 {entry.status && (
-                  <span className="text-muted-foreground">· {entry.status}</span>
+                  <span className="text-muted-foreground">
+                    · {entry.status}
+                  </span>
                 )}
               </Link>
             ))}
@@ -158,12 +167,18 @@ export function StudentLifecycleTimeline({
           conditions without tearing down the timeline. */}
       {snapshot.fetchWarnings.length > 0 && (
         <div className="border-t border-hairline bg-muted/20 px-5 py-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          Partial data · {snapshot.fetchWarnings.length} source{snapshot.fetchWarnings.length === 1 ? '' : 's'} unreachable
+          Partial data · {snapshot.fetchWarnings.length} source
+          {snapshot.fetchWarnings.length === 1 ? '' : 's'} unreachable
         </div>
       )}
 
       <CardContent className="p-0">
-        <ol className={cn('divide-y divide-hairline', isWithdrawn && 'opacity-60')}>
+        <ol
+          className={cn(
+            'divide-y divide-hairline',
+            isWithdrawn && 'opacity-60'
+          )}
+        >
           {snapshot.rows.map((row, i) => (
             <TimelineRow
               key={`${row.stageKey}-${i}`}
@@ -181,7 +196,13 @@ export function StudentLifecycleTimeline({
 // Row — left rail dot + line, right column label + chip + detail.
 // ──────────────────────────────────────────────────────────────────────────
 
-function TimelineRow({ row, isLast }: { row: LifecycleStageRow; isLast: boolean }) {
+function TimelineRow({
+  row,
+  isLast,
+}: {
+  row: LifecycleStageRow;
+  isLast: boolean;
+}) {
   const timestamp = formatTimestamp(row.updatedAt);
   return (
     <li className="relative px-5 py-3.5 transition-colors hover:bg-muted/30">
@@ -198,7 +219,7 @@ function TimelineRow({ row, isLast }: { row: LifecycleStageRow; isLast: boolean 
           <span
             className={cn(
               'relative z-10 size-3 shrink-0 rounded-full',
-              BUCKET_DOT[row.bucket],
+              BUCKET_DOT[row.bucket]
             )}
             aria-hidden
           />

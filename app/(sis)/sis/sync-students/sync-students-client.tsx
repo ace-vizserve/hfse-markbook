@@ -88,12 +88,16 @@ export function SyncStudentsClient({
   async function loadPreview() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/students/sync/stats?ay=${encodeURIComponent(selectedAy)}`);
+      const res = await fetch(
+        `/api/students/sync/stats?ay=${encodeURIComponent(selectedAy)}`
+      );
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? 'preview failed');
       setPreview(body);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to load sync preview');
+      toast.error(
+        e instanceof Error ? e.message : 'Failed to load sync preview'
+      );
     } finally {
       setLoading(false);
     }
@@ -147,8 +151,9 @@ export function SyncStudentsClient({
             Sync students from admissions.
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            Preview changes from admissions, then save. Existing students keep their index numbers;
-            new students get the next available number for their section.
+            Preview changes from admissions, then save. Existing students keep
+            their index numbers; new students get the next available number for
+            their section.
           </p>
         </div>
         <div className="w-full shrink-0 md:w-44">
@@ -178,8 +183,8 @@ export function SyncStudentsClient({
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Loads the {selectedAy} admissions roster and computes what would change. Nothing is
-            written yet.
+            Loads the {selectedAy} admissions roster and computes what would
+            change. Nothing is written yet.
           </p>
           <div className="flex flex-wrap gap-2">
             <Button onClick={loadPreview} disabled={loading}>
@@ -188,7 +193,11 @@ export function SyncStudentsClient({
               ) : (
                 <RefreshCw className="h-4 w-4" />
               )}
-              {loading ? 'Loading preview…' : preview ? 'Reload preview' : 'Load preview'}
+              {loading
+                ? 'Loading preview…'
+                : preview
+                  ? 'Reload preview'
+                  : 'Load preview'}
             </Button>
             {preview && (
               <Button
@@ -297,8 +306,12 @@ export function SyncStudentsClient({
                   <TableBody>
                     {levelRows.map(([label, b]) => (
                       <TableRow key={label}>
-                        <TableCell className="font-medium text-foreground">{label}</TableCell>
-                        <TableCell className="text-right font-mono tabular-nums">{b.add}</TableCell>
+                        <TableCell className="font-medium text-foreground">
+                          {label}
+                        </TableCell>
+                        <TableCell className="text-right font-mono tabular-nums">
+                          {b.add}
+                        </TableCell>
                         <TableCell className="text-right font-mono tabular-nums">
                           {b.update}
                         </TableCell>
@@ -335,7 +348,8 @@ export function SyncStudentsClient({
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-destructive" />
                 <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-destructive">
-                  {preview.errors.length} row{preview.errors.length === 1 ? '' : 's'} skipped
+                  {preview.errors.length} row
+                  {preview.errors.length === 1 ? '' : 's'} skipped
                 </h2>
               </div>
               <Card className="overflow-hidden p-0">
@@ -355,10 +369,14 @@ export function SyncStudentsClient({
                         </TableCell>
                         <TableCell className="font-mono">
                           {e.student_number ?? (
-                            <em className="text-muted-foreground">— missing —</em>
+                            <em className="text-muted-foreground">
+                              — missing —
+                            </em>
                           )}
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{e.reason}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {e.reason}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -374,8 +392,8 @@ export function SyncStudentsClient({
           <AlertDialogHeader>
             <AlertDialogTitle>Apply this sync?</AlertDialogTitle>
             <AlertDialogDescription>
-              This applies all previewed changes for {selectedAy} — adds, updates, withdrawals, and
-              reactivations. This cannot be undone.
+              This applies all previewed changes for {selectedAy} — adds,
+              updates, withdrawals, and reactivations. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

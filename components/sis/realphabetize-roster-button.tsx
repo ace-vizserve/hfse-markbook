@@ -57,7 +57,7 @@ export function RealphabetizeRosterButton({
       toast.success(
         `Re-numbered ${data.rows_renumbered ?? 0} student${
           data.rows_renumbered === 1 ? '' : 's'
-        } in ${sectionName} alphabetically.`,
+        } in ${sectionName} alphabetically.`
       );
       setOpen(false);
       router.refresh();
@@ -78,18 +78,20 @@ export function RealphabetizeRosterButton({
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Re-number {sectionName} alphabetically?</AlertDialogTitle>
+          <AlertDialogTitle>
+            Re-number {sectionName} alphabetically?
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            Every student in this section will be re-assigned an index number
-            in alphabetical order (last name, first name). Active and
-            late-enrolled students come first; withdrawn students keep their
-            relative order at the bottom of the roster.
+            Every student in this section will be re-assigned an index number in
+            alphabetical order (last name, first name). Active and late-enrolled
+            students come first; withdrawn students keep their relative order at
+            the bottom of the roster.
             <br />
             <br />
             Existing grade entries, attendance, and evaluations are{' '}
             <strong>not affected</strong> — they reference each student
-            internally, not by index number. The change is logged in the
-            audit trail.
+            internally, not by index number. The change is logged in the audit
+            trail.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

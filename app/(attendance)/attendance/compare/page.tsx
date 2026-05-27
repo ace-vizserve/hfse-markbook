@@ -2,11 +2,17 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
-import { CompareGrid, type CompareGridMetric } from '@/components/dashboard/compare-grid';
+import {
+  CompareGrid,
+  type CompareGridMetric,
+} from '@/components/dashboard/compare-grid';
 import { CompareToolbar } from '@/components/dashboard/compare-toolbar';
 import { PageShell } from '@/components/ui/page-shell';
 import { listAyCodes } from '@/lib/academic-year';
-import { getAttendanceCompareKpis, type AttendanceCompareKpis } from '@/lib/attendance/compare';
+import {
+  getAttendanceCompareKpis,
+  type AttendanceCompareKpis,
+} from '@/lib/attendance/compare';
 import { parseCompareParams } from '@/lib/dashboard/compare';
 import { createClient, getSessionUser } from '@/lib/supabase/server';
 
@@ -38,10 +44,32 @@ export default async function AttendanceComparePage({
       getValue: (d) => d.attendancePct,
       highlightExtremes: true,
     },
-    { key: 'present', label: 'Present', format: 'number', getValue: (d) => d.present },
-    { key: 'late', label: 'Late', format: 'number', getValue: (d) => d.late, lowerIsBetter: true },
-    { key: 'absent', label: 'Absent', format: 'number', getValue: (d) => d.absent, lowerIsBetter: true },
-    { key: 'excused', label: 'Excused', format: 'number', getValue: (d) => d.excused },
+    {
+      key: 'present',
+      label: 'Present',
+      format: 'number',
+      getValue: (d) => d.present,
+    },
+    {
+      key: 'late',
+      label: 'Late',
+      format: 'number',
+      getValue: (d) => d.late,
+      lowerIsBetter: true,
+    },
+    {
+      key: 'absent',
+      label: 'Absent',
+      format: 'number',
+      getValue: (d) => d.absent,
+      lowerIsBetter: true,
+    },
+    {
+      key: 'excused',
+      label: 'Excused',
+      format: 'number',
+      getValue: (d) => d.excused,
+    },
     {
       key: 'encodedDays',
       label: 'School days',
@@ -68,8 +96,9 @@ export default async function AttendanceComparePage({
           Term-on-term, year-on-year.
         </h1>
         <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-          Pick the academic years and terms you want to line up, side by side. Numbers are
-          equivalent slices — T1 of one AY against T1 of another — so you can spot real movement.
+          Pick the academic years and terms you want to line up, side by side.
+          Numbers are equivalent slices — T1 of one AY against T1 of another —
+          so you can spot real movement.
         </p>
       </header>
 

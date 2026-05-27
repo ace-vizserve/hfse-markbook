@@ -74,14 +74,18 @@ function AuthRow({
       <div
         className={cn(
           'flex size-9 shrink-0 items-center justify-center rounded-xl',
-          tileClass,
+          tileClass
         )}
       >
         <Icon className="size-[17px]" strokeWidth={2.25} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-serif text-[14px] font-semibold leading-snug text-foreground">{label}</p>
-        <p className="text-[12px] leading-relaxed text-muted-foreground">{description}</p>
+        <p className="font-serif text-[14px] font-semibold leading-snug text-foreground">
+          {label}
+        </p>
+        <p className="text-[12px] leading-relaxed text-muted-foreground">
+          {description}
+        </p>
       </div>
       <span className="shrink-0 font-mono text-xl font-bold tabular-nums text-foreground">
         {count.toLocaleString('en-SG')}

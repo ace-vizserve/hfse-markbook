@@ -1,24 +1,29 @@
-"use client";
+'use client';
 
-import { Scale, Search, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Scale, Search, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 import {
   SubjectConfigEditDialog,
   type SubjectConfigDraft,
-} from "@/components/sis/subject-config-edit-dialog";
+} from '@/components/sis/subject-config-edit-dialog';
 import {
   classifyProfile,
   PROFILE_CLASS,
   PROFILE_TEXT,
   ProfileLegendChip,
-} from "@/components/sis/weight-profile";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+} from '@/components/sis/weight-profile';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
-type Subject = { id: string; code: string; name: string; is_examinable: boolean };
+type Subject = {
+  id: string;
+  code: string;
+  name: string;
+  is_examinable: boolean;
+};
 type Level = { id: string; code: string; label: string; level_type?: string };
 type Config = {
   id: string;
@@ -54,7 +59,7 @@ export function SubjectConfigMatrix({
 }) {
   const [draft, setDraft] = useState<SubjectConfigDraft | null>(null);
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
 
   const byKey = useMemo(() => {
     const m = new Map<string, Config>();
@@ -66,7 +71,8 @@ export function SubjectConfigMatrix({
     const q = query.trim().toLowerCase();
     if (!q) return subjects;
     return subjects.filter(
-      (s) => s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q),
+      (s) =>
+        s.name.toLowerCase().includes(q) || s.code.toLowerCase().includes(q)
     );
   }, [subjects, query]);
 
@@ -106,7 +112,7 @@ export function SubjectConfigMatrix({
             {query && (
               <button
                 type="button"
-                onClick={() => setQuery("")}
+                onClick={() => setQuery('')}
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                 aria-label="Clear search"
               >
@@ -122,10 +128,13 @@ export function SubjectConfigMatrix({
           </div>
         </div>
         <div className="px-5 py-3 text-[12px] text-muted-foreground">
-          Each chip is one (subject × level) weight config for{" "}
-          <span className="font-mono font-semibold text-foreground">{ayCode}</span>. Click any
-          chip to edit. A dashed cell means this AY doesn&apos;t have a config for that pair —
-          add one via the template, then click <strong>Apply template</strong>.
+          Each chip is one (subject × level) weight config for{' '}
+          <span className="font-mono font-semibold text-foreground">
+            {ayCode}
+          </span>
+          . Click any chip to edit. A dashed cell means this AY doesn&apos;t
+          have a config for that pair — add one via the template, then click{' '}
+          <strong>Apply template</strong>.
         </div>
       </Card>
 
@@ -134,7 +143,8 @@ export function SubjectConfigMatrix({
         <Card className="items-center py-12 text-center">
           <div className="flex flex-col items-center gap-3 px-6 py-2">
             <p className="text-sm text-muted-foreground">
-              No subjects in catalogue. Add some in the template&apos;s Subjects tab first.
+              No subjects in catalogue. Add some in the template&apos;s Subjects
+              tab first.
             </p>
           </div>
         </Card>
@@ -160,7 +170,11 @@ export function SubjectConfigMatrix({
         />
       ))}
 
-      <SubjectConfigEditDialog draft={draft} open={open} onOpenChange={setOpen} />
+      <SubjectConfigEditDialog
+        draft={draft}
+        open={open}
+        onOpenChange={setOpen}
+      />
     </div>
   );
 }
@@ -207,12 +221,14 @@ function SubjectCard({
             action, not a per-AY edit. Subjects with zero configs in this
             AY get an empty-state hint below. */}
         {(() => {
-          const visibleLevels = levels.filter((l) => configByKey.has(`${subject.id}|${l.id}`));
+          const visibleLevels = levels.filter((l) =>
+            configByKey.has(`${subject.id}|${l.id}`)
+          );
           if (visibleLevels.length === 0) {
             return (
               <p className="px-1 py-1 text-[12px] text-muted-foreground">
-                Not configured at any level in this AY. Enable in the template + click{" "}
-                <strong>Apply template</strong>.
+                Not configured at any level in this AY. Enable in the template +
+                click <strong>Apply template</strong>.
               </p>
             );
           }
@@ -228,25 +244,25 @@ function SubjectCard({
                 type="button"
                 onClick={() => onOpenCell(subject, level, cfg)}
                 className={cn(
-                  "inline-flex flex-col items-start gap-0.5 rounded-md px-3 py-1.5 transition-all",
-                  "hover:-translate-y-0.5 hover:shadow-md",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-indigo/40",
-                  PROFILE_CLASS[profile],
+                  'inline-flex flex-col items-start gap-0.5 rounded-md px-3 py-1.5 transition-all',
+                  'hover:-translate-y-0.5 hover:shadow-md',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-indigo/40',
+                  PROFILE_CLASS[profile]
                 )}
                 title={`${subject.name} · ${level.label} — ${ww}·${pt}·${qa} · slots ${cfg.ww_max_slots}/${cfg.pt_max_slots} · QA/${cfg.qa_max}. Click to edit.`}
               >
                 <span
                   className={cn(
-                    "font-serif text-[12px] font-semibold leading-tight tracking-tight",
-                    PROFILE_TEXT[profile].code,
+                    'font-serif text-[12px] font-semibold leading-tight tracking-tight',
+                    PROFILE_TEXT[profile].code
                   )}
                 >
                   {level.label}
                 </span>
                 <span
                   className={cn(
-                    "font-mono text-[10px] tabular-nums",
-                    PROFILE_TEXT[profile].ratio,
+                    'font-mono text-[10px] tabular-nums',
+                    PROFILE_TEXT[profile].ratio
                   )}
                 >
                   {ww} · {pt} · {qa}

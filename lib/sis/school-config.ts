@@ -25,9 +25,9 @@ export type SchoolConfig = {
   phoneNumber: string;
   websiteUrl: string;
   contactEmail: string;
-  peiRegistrationStartDate: string | null;  // ISO yyyy-mm-dd
-  peiRegistrationEndDate: string | null;    // ISO yyyy-mm-dd
-  logoUrl: string;                          // empty = fall back to /hfse-logo.webp
+  peiRegistrationStartDate: string | null; // ISO yyyy-mm-dd
+  peiRegistrationEndDate: string | null; // ISO yyyy-mm-dd
+  logoUrl: string; // empty = fall back to /hfse-logo.webp
 };
 
 export const DEFAULT_SCHOOL_CONFIG: SchoolConfig = {
@@ -57,7 +57,7 @@ export async function getSchoolConfig(): Promise<SchoolConfig> {
   const { data, error } = await service
     .from('school_config')
     .select(
-      'principal_name, ceo_name, pei_registration_number, default_publish_window_days, default_compassionate_allowance_per_year, default_vl_allowance_per_term, subject_award_bronze_min, subject_award_silver_min, subject_award_gold_min, subject_award_max, organization_name, address_line_1, address_line_2, phone_number, website_url, contact_email, pei_registration_start_date, pei_registration_end_date, logo_url',
+      'principal_name, ceo_name, pei_registration_number, default_publish_window_days, default_compassionate_allowance_per_year, default_vl_allowance_per_term, subject_award_bronze_min, subject_award_silver_min, subject_award_gold_min, subject_award_max, organization_name, address_line_1, address_line_2, phone_number, website_url, contact_email, pei_registration_start_date, pei_registration_end_date, logo_url'
     )
     .eq('id', 1)
     .maybeSingle();
@@ -69,7 +69,8 @@ export async function getSchoolConfig(): Promise<SchoolConfig> {
   return {
     principalName: (data.principal_name as string | null) ?? '',
     ceoName: (data.ceo_name as string | null) ?? '',
-    peiRegistrationNumber: (data.pei_registration_number as string | null) ?? '',
+    peiRegistrationNumber:
+      (data.pei_registration_number as string | null) ?? '',
     defaultPublishWindowDays:
       (data.default_publish_window_days as number | null) ??
       DEFAULT_SCHOOL_CONFIG.defaultPublishWindowDays,
@@ -79,22 +80,40 @@ export async function getSchoolConfig(): Promise<SchoolConfig> {
     defaultVlAllowancePerTerm:
       (data.default_vl_allowance_per_term as number | null) ??
       DEFAULT_SCHOOL_CONFIG.defaultVlAllowancePerTerm,
-    subjectAwardBronzeMin:
-      Number(data.subject_award_bronze_min ?? DEFAULT_SCHOOL_CONFIG.subjectAwardBronzeMin),
-    subjectAwardSilverMin:
-      Number(data.subject_award_silver_min ?? DEFAULT_SCHOOL_CONFIG.subjectAwardSilverMin),
-    subjectAwardGoldMin:
-      Number(data.subject_award_gold_min ?? DEFAULT_SCHOOL_CONFIG.subjectAwardGoldMin),
-    subjectAwardMax:
-      Number(data.subject_award_max ?? DEFAULT_SCHOOL_CONFIG.subjectAwardMax),
-    organizationName: (data.organization_name as string | null) ?? DEFAULT_SCHOOL_CONFIG.organizationName,
-    addressLine1: (data.address_line_1 as string | null) ?? DEFAULT_SCHOOL_CONFIG.addressLine1,
-    addressLine2: (data.address_line_2 as string | null) ?? DEFAULT_SCHOOL_CONFIG.addressLine2,
-    phoneNumber: (data.phone_number as string | null) ?? DEFAULT_SCHOOL_CONFIG.phoneNumber,
-    websiteUrl: (data.website_url as string | null) ?? DEFAULT_SCHOOL_CONFIG.websiteUrl,
-    contactEmail: (data.contact_email as string | null) ?? DEFAULT_SCHOOL_CONFIG.contactEmail,
-    peiRegistrationStartDate: (data.pei_registration_start_date as string | null) ?? null,
-    peiRegistrationEndDate: (data.pei_registration_end_date as string | null) ?? null,
+    subjectAwardBronzeMin: Number(
+      data.subject_award_bronze_min ??
+        DEFAULT_SCHOOL_CONFIG.subjectAwardBronzeMin
+    ),
+    subjectAwardSilverMin: Number(
+      data.subject_award_silver_min ??
+        DEFAULT_SCHOOL_CONFIG.subjectAwardSilverMin
+    ),
+    subjectAwardGoldMin: Number(
+      data.subject_award_gold_min ?? DEFAULT_SCHOOL_CONFIG.subjectAwardGoldMin
+    ),
+    subjectAwardMax: Number(
+      data.subject_award_max ?? DEFAULT_SCHOOL_CONFIG.subjectAwardMax
+    ),
+    organizationName:
+      (data.organization_name as string | null) ??
+      DEFAULT_SCHOOL_CONFIG.organizationName,
+    addressLine1:
+      (data.address_line_1 as string | null) ??
+      DEFAULT_SCHOOL_CONFIG.addressLine1,
+    addressLine2:
+      (data.address_line_2 as string | null) ??
+      DEFAULT_SCHOOL_CONFIG.addressLine2,
+    phoneNumber:
+      (data.phone_number as string | null) ?? DEFAULT_SCHOOL_CONFIG.phoneNumber,
+    websiteUrl:
+      (data.website_url as string | null) ?? DEFAULT_SCHOOL_CONFIG.websiteUrl,
+    contactEmail:
+      (data.contact_email as string | null) ??
+      DEFAULT_SCHOOL_CONFIG.contactEmail,
+    peiRegistrationStartDate:
+      (data.pei_registration_start_date as string | null) ?? null,
+    peiRegistrationEndDate:
+      (data.pei_registration_end_date as string | null) ?? null,
     logoUrl: (data.logo_url as string | null) ?? '',
   };
 }

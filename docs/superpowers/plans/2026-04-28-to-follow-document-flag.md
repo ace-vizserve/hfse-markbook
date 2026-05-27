@@ -14,22 +14,22 @@
 
 ## File structure
 
-| Path                                                     | Action  | Responsibility                                                          |
-| -------------------------------------------------------- | ------- | ----------------------------------------------------------------------- |
-| `lib/sis/process.ts`                                     | Modify  | Extract slot-scan helper · add new aggregate bucket · rebucket timeline |
-| `lib/sis/drill.ts`                                       | Modify  | New `awaiting-promised-documents` target · `promisedSlots` row field   |
-| `components/sis/drills/lifecycle-drill-sheet.tsx`        | Modify  | Render `promisedSlots` column with `SlotChips`                          |
-| `lib/sis/document-chase-queue.ts`                        | Create  | `getDocumentChaseQueueCounts(ayCode)` loader (60s `unstable_cache`)     |
-| `components/sis/document-chase-queue-strip.tsx`          | Create  | 3-chip strip server component, each chip opens a `<LifecycleDrillSheet>` |
-| `app/(p-files)/p-files/page.tsx`                         | Modify  | Mount chase strip directly below the existing `<PriorityPanel>`         |
-| `app/(admissions)/admissions/page.tsx`                   | Modify  | Mount chase strip top-of-fold (above the KPI grid)                      |
-| `app/(records)/records/page.tsx`                         | Modify  | Mount chase strip top-of-fold (above InsightsPanel + KPI grid)          |
+| Path                                              | Action | Responsibility                                                           |
+| ------------------------------------------------- | ------ | ------------------------------------------------------------------------ |
+| `lib/sis/process.ts`                              | Modify | Extract slot-scan helper · add new aggregate bucket · rebucket timeline  |
+| `lib/sis/drill.ts`                                | Modify | New `awaiting-promised-documents` target · `promisedSlots` row field     |
+| `components/sis/drills/lifecycle-drill-sheet.tsx` | Modify | Render `promisedSlots` column with `SlotChips`                           |
+| `lib/sis/document-chase-queue.ts`                 | Create | `getDocumentChaseQueueCounts(ayCode)` loader (60s `unstable_cache`)      |
+| `components/sis/document-chase-queue-strip.tsx`   | Create | 3-chip strip server component, each chip opens a `<LifecycleDrillSheet>` |
+| `app/(p-files)/p-files/page.tsx`                  | Modify | Mount chase strip directly below the existing `<PriorityPanel>`          |
+| `app/(admissions)/admissions/page.tsx`            | Modify | Mount chase strip top-of-fold (above the KPI grid)                       |
+| `app/(records)/records/page.tsx`                  | Modify | Mount chase strip top-of-fold (above InsightsPanel + KPI grid)           |
 
 No DB migration. No new API route. No new dependency.
 
 **Verification:** the repo has no test framework (`package.json` has `dev`/`build`/`start`/`lint` scripts only). Each task ends with `npx next build` (type-check + compile) and where applicable a manual reproduction step in the browser on the seeded AY9999 (test-mode, KD #52).
 
-**Implementation refinement vs spec §4c:** the spec describes the P-Files chase strip as living *inside* `<PriorityPanel>` as a second section. In implementation we mount it as a sibling card directly below the existing `<PriorityPanel>` instead — same visual location and UX outcome, but keeps `PriorityPayload` shape unchanged and makes the strip component reusable across all 3 dashboards (DRY). The spec's intent — top-of-fold navigation to the document chase queues — is preserved.
+**Implementation refinement vs spec §4c:** the spec describes the P-Files chase strip as living _inside_ `<PriorityPanel>` as a second section. In implementation we mount it as a sibling card directly below the existing `<PriorityPanel>` instead — same visual location and UX outcome, but keeps `PriorityPayload` shape unchanged and makes the strip component reusable across all 3 dashboards (DRY). The spec's intent — top-of-fold navigation to the document chase queues — is preserved.
 
 ---
 
@@ -38,6 +38,7 @@ No DB migration. No new API route. No new dependency.
 **Goal:** Pull the per-row slot scan from `process.ts:683-694` into a pure named helper. Subsequent tasks (cohort aggregate, chase-queue loader) call this single source of truth instead of re-implementing the loop.
 
 **Files:**
+
 - Modify: `lib/sis/process.ts:683-694`
 
 - [ ] **Step 1: Read the existing scan**
@@ -74,12 +75,12 @@ Insert this helper near the top of `lib/sis/process.ts`, after the `tag()` funct
  */
 export type DocStatusActionFlags = {
   hasRevalidation: boolean; // any slot at 'Rejected' or 'Expired'
-  hasValidation: boolean;   // any slot at 'Uploaded'
-  hasPromised: boolean;     // any slot at 'To follow'
+  hasValidation: boolean; // any slot at 'Uploaded'
+  hasPromised: boolean; // any slot at 'To follow'
 };
 
 export function scanDocStatusForActionFlags(
-  docs: Record<string, string | null> | undefined,
+  docs: Record<string, string | null> | undefined
 ): DocStatusActionFlags {
   const out: DocStatusActionFlags = {
     hasRevalidation: false,
@@ -124,6 +125,7 @@ Behavior unchanged — caller still inlines the existing scan."
 **Goal:** The lifecycle aggregate widget renders a 3rd document bucket. Use the helper from Task 1; insert the bucket between validation and STP completion in the `buckets` array.
 
 **Files:**
+
 - Modify: `lib/sis/process.ts:654-827`
 
 - [ ] **Step 1: Add the new counter alongside the existing 9**
@@ -148,7 +150,7 @@ to (one new line `awaitingPromisedDocs`):
 let awaitingFeePayment = 0;
 let awaitingDocRevalidation = 0;
 let awaitingDocValidation = 0;
-let awaitingPromisedDocs = 0;     // NEW: any slot at 'To follow'
+let awaitingPromisedDocs = 0; // NEW: any slot at 'To follow'
 let awaitingStpCompletion = 0;
 let awaitingAssessmentSchedule = 0;
 let awaitingContractSignature = 0;
@@ -243,6 +245,7 @@ chase-queue loader stay coherent."
 **Goal:** Single-student detail string surfaces "promised" separately from "settled", agreeing with the cohort flag from Task 2.
 
 **Files:**
+
 - Modify: `lib/sis/process.ts:236-264`
 
 - [ ] **Step 1: Update the per-slot bucket logic**
@@ -251,9 +254,9 @@ In `lib/sis/process.ts` around line 236-256, change:
 
 ```ts
 let needsAction = 0; // null + Pending + Rejected + Expired
-let inFlight = 0;    // Uploaded (registrar needs to validate)
-let settled = 0;     // Valid + To follow
-let blank = 0;       // null specifically (subset of needsAction)
+let inFlight = 0; // Uploaded (registrar needs to validate)
+let settled = 0; // Valid + To follow
+let blank = 0; // null specifically (subset of needsAction)
 for (const slot of DOCUMENT_SLOTS) {
   const slotStatus = (docs?.[slot.statusCol] ?? null)?.toString().trim() ?? '';
   if (!slotStatus) {
@@ -278,10 +281,10 @@ to (new `promised` counter, `settled` becomes `Valid`-only):
 
 ```ts
 let needsAction = 0; // null + Pending + Rejected + Expired
-let inFlight = 0;    // Uploaded (registrar needs to validate)
-let promised = 0;    // To follow (parent acknowledged, file not sent)
-let settled = 0;     // Valid (terminal)
-let blank = 0;       // null specifically (subset of needsAction)
+let inFlight = 0; // Uploaded (registrar needs to validate)
+let promised = 0; // To follow (parent acknowledged, file not sent)
+let settled = 0; // Valid (terminal)
+let blank = 0; // null specifically (subset of needsAction)
 for (const slot of DOCUMENT_SLOTS) {
   const slotStatus = (docs?.[slot.statusCol] ?? null)?.toString().trim() ?? '';
   if (!slotStatus) {
@@ -339,7 +342,7 @@ Expected: clean compile.
 
 - [ ] **Step 4: Manual reproduction**
 
-Start dev server: `npm run dev`. Navigate to `/admissions/applications/<some-enrolee-with-To-follow-slots>` (the AY9999 seeder writes 1-2 'To follow' slots per "Processing"-stage row, see `lib/sis/seeder/populated.ts:1517`). The Documents stage detail line should now read like *"Status: Processing · 6/16 settled · 2 awaiting validation · 3 promised · 4 needs action"* — the `promised` segment must appear, and `settled` should be lower than before.
+Start dev server: `npm run dev`. Navigate to `/admissions/applications/<some-enrolee-with-To-follow-slots>` (the AY9999 seeder writes 1-2 'To follow' slots per "Processing"-stage row, see `lib/sis/seeder/populated.ts:1517`). The Documents stage detail line should now read like _"Status: Processing · 6/16 settled · 2 awaiting validation · 3 promised · 4 needs action"_ — the `promised` segment must appear, and `settled` should be lower than before.
 
 - [ ] **Step 5: Commit**
 
@@ -360,6 +363,7 @@ are 'To follow' (formatDetail drops null segments)."
 **Goal:** Clicking the new bucket opens a `<LifecycleDrillSheet>` listing the affected students with a `promisedSlots` chips column. Same UX as the existing validation/revalidation drills.
 
 **Files:**
+
 - Modify: `lib/sis/drill.ts:672-1148`
 - Modify: `components/sis/drills/lifecycle-drill-sheet.tsx:300-340`
 
@@ -563,7 +567,10 @@ export const ALL_LIFECYCLE_DRILL_COLUMNS: LifecycleDrillColumnKey[] = [
   'classSection',
 ];
 
-export const LIFECYCLE_DRILL_COLUMN_LABELS: Record<LifecycleDrillColumnKey, string> = {
+export const LIFECYCLE_DRILL_COLUMN_LABELS: Record<
+  LifecycleDrillColumnKey,
+  string
+> = {
   enroleeNumber: 'Enrolee #',
   studentNumber: 'Student #',
   enroleeFullName: 'Name',
@@ -660,7 +667,7 @@ Expected: clean compile. Watch for switch-exhaustiveness errors — TS will flag
 
 - [ ] **Step 9: Manual reproduction**
 
-`npm run dev`. Navigate to `/records?ay=AY9999`. Find the lifecycle aggregate widget — *Awaiting promised documents* should appear as a chip with a non-zero count between *Awaiting document validation* and *Awaiting STP completion*. Click it. The drill sheet opens with title "Awaiting promised documents", row table with a "Promised slots" column showing chips per affected student. CSV export button works (UTF-8 BOM, KD #56). Close the sheet, click *Awaiting document validation* — that drill still works untouched.
+`npm run dev`. Navigate to `/records?ay=AY9999`. Find the lifecycle aggregate widget — _Awaiting promised documents_ should appear as a chip with a non-zero count between _Awaiting document validation_ and _Awaiting STP completion_. Click it. The drill sheet opens with title "Awaiting promised documents", row table with a "Promised slots" column showing chips per affected student. CSV export button works (UTF-8 BOM, KD #56). Close the sheet, click _Awaiting document validation_ — that drill still works untouched.
 
 - [ ] **Step 10: Commit**
 
@@ -684,6 +691,7 @@ clicking the bucket now opens the affected-students drill.
 **Goal:** Single cached helper returning `{ promised, validation, revalidation }` counts for the chase-queue strip. Reuses the helper from Task 1; same scan, isolated cache key.
 
 **Files:**
+
 - Create: `lib/sis/document-chase-queue.ts`
 
 - [ ] **Step 1: Write the loader file**
@@ -711,8 +719,8 @@ import { scanDocStatusForActionFlags } from '@/lib/sis/process';
 // ──────────────────────────────────────────────────────────────────────────
 
 export type DocumentChaseQueueCounts = {
-  promised: number;     // any slot at 'To follow'
-  validation: number;   // any slot at 'Uploaded'
+  promised: number; // any slot at 'To follow'
+  validation: number; // any slot at 'Uploaded'
   revalidation: number; // any slot at 'Rejected' or 'Expired'
 };
 
@@ -723,12 +731,15 @@ function prefixFor(ayCode: string): string {
 }
 
 async function loadChaseQueueUncached(
-  ayCode: string,
+  ayCode: string
 ): Promise<DocumentChaseQueueCounts> {
   const prefix = prefixFor(ayCode);
   const supabase = createAdmissionsClient();
 
-  const docColumns = ['enroleeNumber', ...DOCUMENT_SLOTS.map((s) => s.statusCol)];
+  const docColumns = [
+    'enroleeNumber',
+    ...DOCUMENT_SLOTS.map((s) => s.statusCol),
+  ];
 
   const docsRes = await supabase
     .from(`${prefix}_enrolment_documents`)
@@ -737,7 +748,7 @@ async function loadChaseQueueUncached(
   if (docsRes.error) {
     console.warn(
       '[sis/document-chase-queue] docs fetch failed:',
-      docsRes.error.message,
+      docsRes.error.message
     );
     return { promised: 0, validation: 0, revalidation: 0 };
   }
@@ -760,7 +771,7 @@ async function loadChaseQueueUncached(
 }
 
 export async function getDocumentChaseQueueCounts(
-  ayCode: string,
+  ayCode: string
 ): Promise<DocumentChaseQueueCounts> {
   return unstable_cache(
     () => loadChaseQueueUncached(ayCode),
@@ -768,7 +779,7 @@ export async function getDocumentChaseQueueCounts(
     {
       revalidate: CACHE_TTL_SECONDS,
       tags: ['sis', `sis:${ayCode}`],
-    },
+    }
   )();
 }
 ```
@@ -797,6 +808,7 @@ widget exactly. 60s unstable_cache, sis:\${ayCode} tag (KD #46)."
 **Goal:** Server component rendering 3 cards in a flex row. Each card opens a `<LifecycleDrillSheet>` for the matching target. Reused on all 3 dashboards.
 
 **Files:**
+
 - Create: `components/sis/document-chase-queue-strip.tsx`
 
 - [ ] **Step 1: Write the component**
@@ -897,7 +909,10 @@ export async function DocumentChaseQueueStrip({
   };
 
   return (
-    <section className="grid gap-4 md:grid-cols-3" aria-label="Documents needing action">
+    <section
+      className="grid gap-4 md:grid-cols-3"
+      aria-label="Documents needing action"
+    >
       {TILES.map((tile) => {
         const value = valueByTarget[tile.target] ?? 0;
         const Icon = tile.icon;
@@ -905,7 +920,9 @@ export async function DocumentChaseQueueStrip({
           <Card key={tile.target} className={TILE_CRAFT[tile.severity]}>
             <CardHeader>
               <CardAction>
-                <div className={`flex size-12 items-center justify-center rounded-xl ${ICON_TILE_CRAFT[tile.severity]}`}>
+                <div
+                  className={`flex size-12 items-center justify-center rounded-xl ${ICON_TILE_CRAFT[tile.severity]}`}
+                >
                   <Icon className="size-6" aria-hidden />
                 </div>
               </CardAction>
@@ -957,6 +974,7 @@ Severity craft pulled from 09a-design-patterns.md §7.4 + §10."
 **Goal:** Strip lands top-of-fold on the admissions dashboard, immediately above the existing KPI grid.
 
 **Files:**
+
 - Modify: `app/(admissions)/admissions/page.tsx`
 
 - [ ] **Step 1: Add the import**
@@ -964,7 +982,7 @@ Severity craft pulled from 09a-design-patterns.md §7.4 + §10."
 Open `app/(admissions)/admissions/page.tsx`. Find the existing per-module imports (around line 7–17). Add the new import:
 
 ```tsx
-import { DocumentChaseQueueStrip } from "@/components/sis/document-chase-queue-strip";
+import { DocumentChaseQueueStrip } from '@/components/sis/document-chase-queue-strip';
 ```
 
 Place it alphabetically — between `DocumentCompletionCard` and `NewApplicationsPriority` if you want strict alphabetical order, or just at the end of the per-module group.
@@ -1021,6 +1039,7 @@ for the deliberate KD #57 deviation."
 **Goal:** Same strip, same position, on the Records dashboard.
 
 **Files:**
+
 - Modify: `app/(records)/records/page.tsx`
 
 - [ ] **Step 1: Add the import**
@@ -1028,7 +1047,7 @@ for the deliberate KD #57 deviation."
 In `app/(records)/records/page.tsx`, add the import alongside the other component imports (search for the existing `import { ... } from "@/components/...";` block):
 
 ```tsx
-import { DocumentChaseQueueStrip } from "@/components/sis/document-chase-queue-strip";
+import { DocumentChaseQueueStrip } from '@/components/sis/document-chase-queue-strip';
 ```
 
 - [ ] **Step 2: Mount the strip in the JSX**
@@ -1084,6 +1103,7 @@ analytical dashboard (KD #57 deviation, spec § 4d)."
 **Goal:** Strip sits directly below the existing `<PriorityPanel>` (expiring docs). Implementation refinement vs spec — see header note. Keeps `PriorityPayload` unchanged.
 
 **Files:**
+
 - Modify: `app/(p-files)/p-files/page.tsx`
 
 - [ ] **Step 1: Add the import**
@@ -1091,7 +1111,7 @@ analytical dashboard (KD #57 deviation, spec § 4d)."
 In `app/(p-files)/p-files/page.tsx` (around line 9 where `PriorityPanel` is imported), add:
 
 ```tsx
-import { DocumentChaseQueueStrip } from "@/components/sis/document-chase-queue-strip";
+import { DocumentChaseQueueStrip } from '@/components/sis/document-chase-queue-strip';
 ```
 
 - [ ] **Step 2: Mount the strip directly below `<PriorityPanel>`**
@@ -1105,11 +1125,13 @@ Find the existing PriorityPanel mount (around line 144):
 Insert the strip directly after:
 
 ```tsx
-<PriorityPanel payload={priority} />
+<PriorityPanel payload={priority} />;
 
-{/* Document chase queue (spec 2026-04-28) — sibling to the expiring-docs
-    PriorityPanel. Together they form "Documents needing attention". */}
-<DocumentChaseQueueStrip ayCode={selectedAy} />
+{
+  /* Document chase queue (spec 2026-04-28) — sibling to the expiring-docs
+    PriorityPanel. Together they form "Documents needing attention". */
+}
+<DocumentChaseQueueStrip ayCode={selectedAy} />;
 ```
 
 - [ ] **Step 3: Verify the build**
@@ -1156,8 +1178,8 @@ Confirm in this order, in a fresh browser session:
 
 1. `/sis/admin/settings` → switch to test environment (AY9999) if not already.
 2. `/admissions?ay=AY9999` → chase strip renders top-of-fold with non-zero "Awaiting promised" count. Click that card → drill sheet opens, "Promised slots" column shows chips. Close.
-3. Click *Awaiting validation* card → drill opens with "Uploaded slots" column. Close.
-4. `/records?ay=AY9999` → same chase strip, same counts. Lifecycle aggregate widget (farther down) shows the new *Awaiting promised documents* bucket between *Awaiting document validation* and *Awaiting STP completion*. Counts match the strip.
+3. Click _Awaiting validation_ card → drill opens with "Uploaded slots" column. Close.
+4. `/records?ay=AY9999` → same chase strip, same counts. Lifecycle aggregate widget (farther down) shows the new _Awaiting promised documents_ bucket between _Awaiting document validation_ and _Awaiting STP completion_. Counts match the strip.
 5. `/p-files?ay=AY9999` → existing PriorityPanel renders above, chase strip below.
 6. Open any "promised" student's profile (`/admissions/applications/<enroleeNumber>` for one of the rows in the drill). The Documents stage detail line shows `… · N promised · …` segment.
 7. In `/admissions/applications/<enroleeNumber>`, edit one of that student's `'To follow'` slots to `'Valid'` (manually, via the existing form). Save. Refresh `/admissions` — chase-strip "Awaiting promised" count should decrement; the drill sheet for that target should no longer list this student.

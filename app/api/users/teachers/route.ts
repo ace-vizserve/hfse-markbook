@@ -10,7 +10,7 @@ export async function GET() {
   if ('error' in auth) return auth.error;
 
   const list = await getTeacherList();
-  const teachers = list.map(u => ({
+  const teachers = list.map((u) => ({
     id: u.id,
     email: u.email,
     display_name: u.name,

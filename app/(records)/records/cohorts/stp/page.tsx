@@ -21,7 +21,8 @@ export default async function RecordsCohortsStpPage({
 }) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
-  if (!sessionUser.role || !ALLOWED_ROLES.includes(sessionUser.role)) redirect('/');
+  if (!sessionUser.role || !ALLOWED_ROLES.includes(sessionUser.role))
+    redirect('/');
 
   const resolved = await searchParams;
   const service = createServiceClient();

@@ -1,5 +1,11 @@
 import Link from 'next/link';
-import { AlertTriangle, ArrowLeft, ListChecks, Lock, Users } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ListChecks,
+  Lock,
+  Users,
+} from 'lucide-react';
 import { createClient, getSessionUser } from '@/lib/supabase/server';
 import {
   Card,
@@ -18,31 +24,46 @@ import { AuditLogDataTable, type MergedRow } from './audit-log-data-table';
 // grade_audit_log (pre-migration-006 rows) is no longer unioned here;
 // the table stays in Postgres but is off-screen (Hard Rule #6).
 const MARKBOOK_AUDIT_ALLOWLIST = [
-  'sheet.create', 'sheet.bulk_create',
-  'sheet.lock', 'sheet.unlock',
+  'sheet.create',
+  'sheet.bulk_create',
+  'sheet.lock',
+  'sheet.unlock',
   'sheet.unlock_force_with_pending_crs',
   'sheet.unlock_force_deadline_passed',
   'sheet.lock_overdue_batch',
-  'entry.update', 'totals.update',
+  'entry.update',
+  'totals.update',
   'comment.update',
-  'publication.create', 'publication.delete',
-  'grade_change_requested', 'grade_change_approved',
-  'grade_change_rejected', 'grade_change_cancelled',
-  'grade_change_applied', 'grade_change_undo_rejection',
+  'publication.create',
+  'publication.delete',
+  'grade_change_requested',
+  'grade_change_approved',
+  'grade_change_rejected',
+  'grade_change_cancelled',
+  'grade_change_applied',
+  'grade_change_undo_rejection',
   'grade_correction',
   'grade_entry.annual_letter.update',
   // Scheme of Work — teacher-owned (KD #110)
-  'sow.instance.save', 'sow.instance.import_from', 'sow.labels.synced',
+  'sow.instance.save',
+  'sow.instance.import_from',
+  'sow.labels.synced',
 ] as const;
 
 export default async function AuditLogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sheet_id?: string; action?: string; page?: string; pageSize?: string }>;
+  searchParams: Promise<{
+    sheet_id?: string;
+    action?: string;
+    page?: string;
+    pageSize?: string;
+  }>;
 }) {
   const params = await searchParams;
   const sessionUser = await getSessionUser();
-  const canExport = sessionUser?.role === 'school_admin' || sessionUser?.role === 'superadmin';
+  const canExport =
+    sessionUser?.role === 'school_admin' || sessionUser?.role === 'superadmin';
   const supabase = await createClient();
 
   const PAGE_SIZE = Math.min(Number(params.pageSize ?? 50), 200);
@@ -52,11 +73,15 @@ export default async function AuditLogPage({
 
   let q = supabase
     .from('audit_log')
-    .select('id, actor_email, action, entity_type, entity_id, context, created_at', { count: 'exact' })
+    .select(
+      'id, actor_email, action, entity_type, entity_id, context, created_at',
+      { count: 'exact' }
+    )
     .in('action', MARKBOOK_AUDIT_ALLOWLIST);
 
   if (params.action) q = q.eq('action', params.action);
-  if (params.sheet_id) q = q.contains('context', { grading_sheet_id: params.sheet_id });
+  if (params.sheet_id)
+    q = q.contains('context', { grading_sheet_id: params.sheet_id });
 
   const { data, count, error } = await q
     .order('created_at', { ascending: false })
@@ -64,36 +89,40 @@ export default async function AuditLogPage({
 
   const totalPages = count ? Math.ceil(count / PAGE_SIZE) : 1;
 
-  const rows: MergedRow[] = ((data ?? []) as Array<{
-    id: string;
-    actor_email: string;
-    action: string;
-    entity_type: string;
-    entity_id: string | null;
-    context: Record<string, unknown>;
-    created_at: string;
-  }>).map((r): MergedRow => ({
-    id: `new-${r.id}`,
-    at: r.created_at,
-    actor: r.actor_email,
-    action: r.action,
-    entity_type: r.entity_type,
-    entity_id: r.entity_id,
-    context: r.context ?? {},
-    sheet_id:
-      (r.context as Record<string, unknown> | null)?.['grading_sheet_id'] as
-        | string
-        | null
-        | undefined ??
-      (r.entity_type === 'grading_sheet' ? r.entity_id : null),
-    source: 'audit_log',
-  }));
+  const rows: MergedRow[] = (
+    (data ?? []) as Array<{
+      id: string;
+      actor_email: string;
+      action: string;
+      entity_type: string;
+      entity_id: string | null;
+      context: Record<string, unknown>;
+      created_at: string;
+    }>
+  ).map(
+    (r): MergedRow => ({
+      id: `new-${r.id}`,
+      at: r.created_at,
+      actor: r.actor_email,
+      action: r.action,
+      entity_type: r.entity_type,
+      entity_id: r.entity_id,
+      context: r.context ?? {},
+      sheet_id:
+        ((r.context as Record<string, unknown> | null)?.['grading_sheet_id'] as
+          | string
+          | null
+          | undefined) ??
+        (r.entity_type === 'grading_sheet' ? r.entity_id : null),
+      source: 'audit_log',
+    })
+  );
 
   const uniqueActors = new Set(rows.map((r) => r.actor)).size;
   const lockedEdits = rows.filter(
     (r) =>
       (r.action === 'entry.update' || r.action === 'totals.update') &&
-      r.context['was_locked'] === true,
+      r.context['was_locked'] === true
   ).length;
 
   return (
@@ -115,8 +144,9 @@ export default async function AuditLogPage({
             Audit log.
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            A history of every grading change — sheet creation, locks and unlocks, score edits,
-            totals, change requests, and report card publications. Past entries are kept on the record.
+            A history of every grading change — sheet creation, locks and
+            unlocks, score edits, totals, change requests, and report card
+            publications. Past entries are kept on the record.
           </p>
         </div>
       </header>
@@ -139,14 +169,18 @@ export default async function AuditLogPage({
             description="Unique actors"
             value={uniqueActors.toLocaleString('en-SG')}
             icon={Users}
-            footerTitle={uniqueActors === 1 ? '1 user' : `${uniqueActors} users`}
+            footerTitle={
+              uniqueActors === 1 ? '1 user' : `${uniqueActors} users`
+            }
             footerDetail="Distinct accounts on this page"
           />
           <StatCard
             description="Post-lock edits"
             value={lockedEdits.toLocaleString('en-SG')}
             icon={Lock}
-            footerTitle={lockedEdits === 0 ? 'None' : 'Approval-required changes'}
+            footerTitle={
+              lockedEdits === 0 ? 'None' : 'Approval-required changes'
+            }
             footerDetail="Edits to locked sheets — should be rare"
           />
         </div>
@@ -161,7 +195,9 @@ export default async function AuditLogPage({
             <p className="font-serif text-base font-semibold leading-tight text-foreground">
               Could not load audit entries
             </p>
-            <p className="text-sm leading-relaxed text-muted-foreground">{error.message}</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {error.message}
+            </p>
           </div>
         </div>
       )}
@@ -171,7 +207,12 @@ export default async function AuditLogPage({
         initialSheetIdFilter={params.sheet_id ?? null}
         initialActionFilter={params.action ?? null}
         canExport={canExport}
-        pagination={{ page, pageSize: PAGE_SIZE, totalPages, total: count ?? 0 }}
+        pagination={{
+          page,
+          pageSize: PAGE_SIZE,
+          totalPages,
+          total: count ?? 0,
+        }}
       />
     </PageShell>
   );

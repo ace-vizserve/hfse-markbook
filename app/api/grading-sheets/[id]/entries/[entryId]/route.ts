@@ -10,7 +10,10 @@ import {
   type CorrectionReason,
 } from '@/lib/schemas/change-request';
 import { notifyRequestApplied } from '@/lib/notifications/email-change-request';
-import { fetchApproverEmails, fetchLabels } from '@/app/api/change-requests/route';
+import {
+  fetchApproverEmails,
+  fetchLabels,
+} from '@/app/api/change-requests/route';
 import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 import { requireCurrentAyCode } from '@/lib/academic-year';
 
@@ -27,40 +30,44 @@ import { requireCurrentAyCode } from '@/lib/academic-year';
 //   * Score validation vs max and server-side compute are unchanged from S3.
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string; entryId: string }> },
+  { params }: { params: Promise<{ id: string; entryId: string }> }
 ) {
-  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'superadmin']);
+  const auth = await requireRole([
+    'teacher',
+    'registrar',
+    'school_admin',
+    'superadmin',
+  ]);
   if ('error' in auth) return auth.error;
   const role = auth.role;
 
   const { id: sheetId, entryId } = await params;
-  const body = (await request.json().catch(() => null)) as
-    | {
-        ww_scores?: (number | null)[];
-        pt_scores?: (number | null)[];
-        qa_score?: number | null;
-        letter_grade?: string | null;
-        is_na?: boolean;
-        // Sprint 9 — post-lock edits must use exactly one of these branches.
-        change_request_id?: string;
-        correction_reason?: string;
-        correction_justification?: string;
-        patch_target?: {
-          field: 'ww_scores' | 'pt_scores' | 'qa_score' | 'letter_grade' | 'is_na';
-          slotIndex?: number | null;
-        };
-        // Rejected — legacy clients. Return a clear error if present.
-        approval_reference?: string;
-      }
-    | null;
-  if (!body) return NextResponse.json({ error: 'invalid body' }, { status: 400 });
+  const body = (await request.json().catch(() => null)) as {
+    ww_scores?: (number | null)[];
+    pt_scores?: (number | null)[];
+    qa_score?: number | null;
+    letter_grade?: string | null;
+    is_na?: boolean;
+    // Sprint 9 — post-lock edits must use exactly one of these branches.
+    change_request_id?: string;
+    correction_reason?: string;
+    correction_justification?: string;
+    patch_target?: {
+      field: 'ww_scores' | 'pt_scores' | 'qa_score' | 'letter_grade' | 'is_na';
+      slotIndex?: number | null;
+    };
+    // Rejected — legacy clients. Return a clear error if present.
+    approval_reference?: string;
+  } | null;
+  if (!body)
+    return NextResponse.json({ error: 'invalid body' }, { status: 400 });
   if (body.approval_reference) {
     return NextResponse.json(
       {
         error:
           'approval_reference is no longer accepted — use change_request_id or correction_reason',
       },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -72,13 +79,15 @@ export async function PATCH(
       .select(
         `id, ww_totals, pt_totals, qa_total, is_locked,
          subject:subjects(is_examinable),
-         subject_config:subject_configs(ww_weight, pt_weight, qa_weight)`,
+         subject_config:subject_configs(ww_weight, pt_weight, qa_weight)`
       )
       .eq('id', sheetId)
       .single(),
     service
       .from('grade_entries')
-      .select('id, grading_sheet_id, ww_scores, pt_scores, qa_score, letter_grade, is_na')
+      .select(
+        'id, grading_sheet_id, ww_scores, pt_scores, qa_score, letter_grade, is_na'
+      )
       .eq('id', entryId)
       .single(),
   ]);
@@ -103,32 +112,33 @@ export async function PATCH(
   };
   const entry = entryRes.data;
   if (entry.grading_sheet_id !== sheetId) {
-    return NextResponse.json({ error: 'entry does not belong to sheet' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'entry does not belong to sheet' },
+      { status: 400 }
+    );
   }
 
   // ----- Lock-gate (Sprint 9 two-path workflow) -----
   // Server-derived approval reference for grade_audit_log (Hard Rule #5).
   let approval_reference = '';
   // Path metadata for logging + post-save request state transitions.
-  let appliedChangeRequest:
-    | {
-        id: string;
-        grading_sheet_id: string;
-        grade_entry_id: string;
-        field_changed: string;
-        slot_index: number | null;
-        current_value: string | null;
-        proposed_value: string;
-        reason_category: string;
-        justification: string;
-        requested_by_email: string;
-        requested_at: string;
-        reviewed_by_email: string | null;
-        primary_reviewed_by_email?: string | null;
-        reviewed_at?: string | null;
-        decision_note: string | null;
-      }
-    | null = null;
+  let appliedChangeRequest: {
+    id: string;
+    grading_sheet_id: string;
+    grade_entry_id: string;
+    field_changed: string;
+    slot_index: number | null;
+    current_value: string | null;
+    proposed_value: string;
+    reason_category: string;
+    justification: string;
+    requested_by_email: string;
+    requested_at: string;
+    reviewed_by_email: string | null;
+    primary_reviewed_by_email?: string | null;
+    reviewed_at?: string | null;
+    decision_note: string | null;
+  } | null = null;
   let correctionMeta: {
     reason: CorrectionReason;
     justification: string;
@@ -138,7 +148,9 @@ export async function PATCH(
     if (role === 'teacher') {
       return NextResponse.json({ error: 'sheet is locked' }, { status: 403 });
     }
-    const hasRequest = typeof body.change_request_id === 'string' && body.change_request_id.length > 0;
+    const hasRequest =
+      typeof body.change_request_id === 'string' &&
+      body.change_request_id.length > 0;
     const hasCorrection =
       typeof body.correction_reason === 'string' &&
       typeof body.correction_justification === 'string';
@@ -148,7 +160,7 @@ export async function PATCH(
           error:
             'post-lock edits require exactly one of change_request_id or correction_reason',
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -162,19 +174,24 @@ export async function PATCH(
       if (reqErr || !reqRow) {
         return NextResponse.json(
           { error: 'change request not found' },
-          { status: 404 },
+          { status: 404 }
         );
       }
       if (reqRow.status !== 'approved') {
         return NextResponse.json(
-          { error: `change request is in status "${reqRow.status}", not approved` },
-          { status: 400 },
+          {
+            error: `change request is in status "${reqRow.status}", not approved`,
+          },
+          { status: 400 }
         );
       }
-      if (reqRow.grading_sheet_id !== sheetId || reqRow.grade_entry_id !== entryId) {
+      if (
+        reqRow.grading_sheet_id !== sheetId ||
+        reqRow.grade_entry_id !== entryId
+      ) {
         return NextResponse.json(
           { error: 'change request does not match this entry' },
-          { status: 400 },
+          { status: 400 }
         );
       }
       // Target must line up with the request's field + slot.
@@ -182,62 +199,78 @@ export async function PATCH(
       if (!target || target.field !== reqRow.field_changed) {
         return NextResponse.json(
           { error: 'patch_target field does not match approved request' },
-          { status: 400 },
+          { status: 400 }
         );
       }
       if (
-        (reqRow.field_changed === 'ww_scores' || reqRow.field_changed === 'pt_scores') &&
+        (reqRow.field_changed === 'ww_scores' ||
+          reqRow.field_changed === 'pt_scores') &&
         (target.slotIndex ?? null) !== reqRow.slot_index
       ) {
         return NextResponse.json(
           { error: 'patch_target slot does not match approved request' },
-          { status: 400 },
+          { status: 400 }
         );
       }
 
       // Verify the proposed value in the payload matches the request's proposed_value.
-      const typedProposed = proposedFromPayload(body, reqRow.field_changed, reqRow.slot_index);
+      const typedProposed = proposedFromPayload(
+        body,
+        reqRow.field_changed,
+        reqRow.slot_index
+      );
       if (typedProposed === undefined) {
         return NextResponse.json(
           { error: 'payload does not include the field being changed' },
-          { status: 400 },
+          { status: 400 }
         );
       }
-      if (!valuesMatch(reqRow.field_changed, typedProposed, reqRow.proposed_value)) {
+      if (
+        !valuesMatch(reqRow.field_changed, typedProposed, reqRow.proposed_value)
+      ) {
         return NextResponse.json(
           {
             error: `typed value "${typedProposed}" does not match approved proposal "${reqRow.proposed_value}"`,
           },
-          { status: 400 },
+          { status: 400 }
         );
       }
       if (String(typedProposed) !== String(reqRow.proposed_value)) {
         console.warn(
           '[entries PATCH] proposed value matched canonically but not as string',
-          { typed: typedProposed, approved: reqRow.proposed_value, field: reqRow.field_changed },
+          {
+            typed: typedProposed,
+            approved: reqRow.proposed_value,
+            field: reqRow.field_changed,
+          }
         );
       }
 
       appliedChangeRequest = reqRow;
       const approverEmail =
-        reqRow.primary_reviewed_by_email ?? reqRow.reviewed_by_email ?? '(unknown)';
-      approval_reference = `Request #${reqRow.id.slice(0, 8)} approved by ${approverEmail} ${
-        reqRow.reviewed_at ? new Date(reqRow.reviewed_at).toISOString().slice(0, 10) : ''
-      }`.trim();
+        reqRow.primary_reviewed_by_email ??
+        reqRow.reviewed_by_email ??
+        '(unknown)';
+      approval_reference =
+        `Request #${reqRow.id.slice(0, 8)} approved by ${approverEmail} ${
+          reqRow.reviewed_at
+            ? new Date(reqRow.reviewed_at).toISOString().slice(0, 10)
+            : ''
+        }`.trim();
     } else {
       // ----- Path B: data entry correction -----
       const reason = body.correction_reason as string;
       if (!(CORRECTION_REASONS as readonly string[]).includes(reason)) {
         return NextResponse.json(
           { error: `invalid correction_reason "${reason}"` },
-          { status: 400 },
+          { status: 400 }
         );
       }
       const justification = (body.correction_justification ?? '').trim();
       if (justification.length < 20) {
         return NextResponse.json(
           { error: 'correction_justification must be at least 20 characters' },
-          { status: 400 },
+          { status: 400 }
         );
       }
       correctionMeta = {
@@ -256,13 +289,19 @@ export async function PATCH(
       ? 'grade_change_applied'
       : 'grade_correction';
 
-  const subject = Array.isArray(sheet.subject) ? sheet.subject[0] : sheet.subject;
-  const config = Array.isArray(sheet.subject_config) ? sheet.subject_config[0] : sheet.subject_config;
+  const subject = Array.isArray(sheet.subject)
+    ? sheet.subject[0]
+    : sheet.subject;
+  const config = Array.isArray(sheet.subject_config)
+    ? sheet.subject_config[0]
+    : sheet.subject_config;
 
   if (!config) {
-    return NextResponse.json({ error: 'missing subject_config on sheet' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'missing subject_config on sheet' },
+      { status: 500 }
+    );
   }
-
 
   // ----- Examinable: merge + validate vs max -----
   const merged = {
@@ -271,12 +310,13 @@ export async function PATCH(
     qa_score:
       'qa_score' in body
         ? (body.qa_score ?? null)
-        : (entry.qa_score as number | null | undefined) ?? null,
+        : ((entry.qa_score as number | null | undefined) ?? null),
   };
 
   const normalizeArr = (arr: (number | null)[], length: number) => {
     const out: (number | null)[] = new Array(length).fill(null);
-    for (let i = 0; i < Math.min(arr.length, length); i++) out[i] = arr[i] ?? null;
+    for (let i = 0; i < Math.min(arr.length, length); i++)
+      out[i] = arr[i] ?? null;
     return out;
   };
   const ww_scores = normalizeArr(merged.ww_scores, sheet.ww_totals.length);
@@ -287,8 +327,10 @@ export async function PATCH(
     const v = ww_scores[i];
     if (v != null && (v < 0 || v > sheet.ww_totals[i])) {
       return NextResponse.json(
-        { error: `W${i + 1} score ${v} out of range [0, ${sheet.ww_totals[i]}]` },
-        { status: 400 },
+        {
+          error: `W${i + 1} score ${v} out of range [0, ${sheet.ww_totals[i]}]`,
+        },
+        { status: 400 }
       );
     }
   }
@@ -296,8 +338,10 @@ export async function PATCH(
     const v = pt_scores[i];
     if (v != null && (v < 0 || v > sheet.pt_totals[i])) {
       return NextResponse.json(
-        { error: `PT${i + 1} score ${v} out of range [0, ${sheet.pt_totals[i]}]` },
-        { status: 400 },
+        {
+          error: `PT${i + 1} score ${v} out of range [0, ${sheet.pt_totals[i]}]`,
+        },
+        { status: 400 }
       );
     }
   }
@@ -305,7 +349,7 @@ export async function PATCH(
     if (qa_score < 0 || qa_score > sheet.qa_total) {
       return NextResponse.json(
         { error: `QA score ${qa_score} out of range [0, ${sheet.qa_total}]` },
-        { status: 400 },
+        { status: 400 }
       );
     }
   }
@@ -329,7 +373,10 @@ export async function PATCH(
     // Path A — route the raw entry patch + request flip through the atomic
     // RPC. The RPC owns the lock re-check, so a concurrent unlock between
     // the top-of-handler read and now will surface as `lock_state_changed`.
-    const entryPatch = buildEntryPatch(appliedChangeRequest.field_changed, body);
+    const entryPatch = buildEntryPatch(
+      appliedChangeRequest.field_changed,
+      body
+    );
     const { error: rpcErr } = await service.rpc('apply_change_request_atomic', {
       p_grading_sheet_id: sheet.id,
       p_grade_entry_id: entryId,
@@ -344,7 +391,7 @@ export async function PATCH(
             error:
               'The sheet was unlocked while this request was being processed. No change was saved. Please refresh and try again.',
           },
-          { status: 409 },
+          { status: 409 }
         );
       }
       if (rpcErr.message.includes('change_request_not_approved')) {
@@ -353,10 +400,13 @@ export async function PATCH(
             error:
               'This request is no longer in approved status. It may have been cancelled or already applied — please refresh.',
           },
-          { status: 409 },
+          { status: 409 }
         );
       }
-      console.error('[entries PATCH] apply_change_request_atomic failed:', rpcErr);
+      console.error(
+        '[entries PATCH] apply_change_request_atomic failed:',
+        rpcErr
+      );
       return NextResponse.json({ error: 'Apply failed' }, { status: 500 });
     }
     // The RPC wrote raw mutable columns only. Computed derived fields
@@ -375,7 +425,8 @@ export async function PATCH(
       .eq('id', entryId)
       .select('*')
       .single();
-    if (derivedErr) return NextResponse.json({ error: derivedErr.message }, { status: 500 });
+    if (derivedErr)
+      return NextResponse.json({ error: derivedErr.message }, { status: 500 });
     updated = derivedUpdated;
   } else {
     const { data: directUpdated, error } = await service
@@ -395,7 +446,8 @@ export async function PATCH(
       .eq('id', entryId)
       .select('*')
       .single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error)
+      return NextResponse.json({ error: error.message }, { status: 500 });
     updated = directUpdated;
   }
 
@@ -410,7 +462,12 @@ export async function PATCH(
       is_na: entry.is_na as boolean,
     },
     { ww_scores, pt_scores, qa_score, is_na },
-    { grading_sheet_id: sheetId, grade_entry_id: entryId, changed_by, approval_reference },
+    {
+      grading_sheet_id: sheetId,
+      grade_entry_id: entryId,
+      changed_by,
+      approval_reference,
+    }
   );
   if (diffRows.length > 0) {
     if (sheet.is_locked) {
@@ -421,8 +478,14 @@ export async function PATCH(
         service,
         actor: { id: auth.user.id, email: auth.user.email ?? null },
         action: actionForAudit,
-        entityType: sheet.is_locked && appliedChangeRequest ? 'grade_change_request' : 'grade_entry',
-        entityId: sheet.is_locked && appliedChangeRequest ? appliedChangeRequest.id : entryId,
+        entityType:
+          sheet.is_locked && appliedChangeRequest
+            ? 'grade_change_request'
+            : 'grade_entry',
+        entityId:
+          sheet.is_locked && appliedChangeRequest
+            ? appliedChangeRequest.id
+            : entryId,
         context: {
           grading_sheet_id: sheetId,
           grade_entry_id: entryId,
@@ -431,9 +494,14 @@ export async function PATCH(
           new: row.new_value,
           was_locked: sheet.is_locked,
           ...(sheet.is_locked ? { approval_reference } : {}),
-          ...(appliedChangeRequest ? { change_request_id: appliedChangeRequest.id } : {}),
+          ...(appliedChangeRequest
+            ? { change_request_id: appliedChangeRequest.id }
+            : {}),
           ...(correctionMeta
-            ? { correction_reason: correctionMeta.reason, correction_justification: correctionMeta.justification }
+            ? {
+                correction_reason: correctionMeta.reason,
+                correction_justification: correctionMeta.justification,
+              }
             : {}),
         },
       });
@@ -487,7 +555,7 @@ export async function PATCH(
 function valuesMatch(
   fieldChanged: string,
   typed: unknown,
-  approved: unknown,
+  approved: unknown
 ): boolean {
   if (typed == null && approved == null) return true;
   if (typed == null || approved == null) return false;
@@ -518,7 +586,7 @@ function buildEntryPatch(
     qa_score?: number | null;
     letter_grade?: string | null;
     is_na?: boolean;
-  },
+  }
 ): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
   if (fieldChanged === 'ww_scores' && Array.isArray(body.ww_scores)) {
@@ -547,7 +615,7 @@ function proposedFromPayload(
     is_na?: boolean;
   },
   field: string,
-  slotIndex: number | null,
+  slotIndex: number | null
 ): string | number | boolean | null | undefined {
   switch (field) {
     case 'ww_scores':
@@ -620,7 +688,7 @@ async function finalizeChangeRequestPathA(args: {
           sheet_label: labels.sheet_label,
         },
         appliedChangeRequest.requested_by_email,
-        approverEmails,
+        approverEmails
       );
     } catch (e) {
       console.error('[change-requests] notify applied failed', e);

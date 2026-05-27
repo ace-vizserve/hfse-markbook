@@ -14,6 +14,7 @@ This is the final dashboard sprint of the cycle. After this, every aggregating s
 ## 2. Survey findings
 
 Three parallel Explore-agent surveys identified:
+
 - **Records** (`/records`): 12 surfaces. 4 KPI MetricCards (HIGH/MEDIUM drill value), 3 chart cards (HIGH drill value), 1 panel that already drills via row link, 4 link/quick-link cards (skip).
 - **P-Files** (`/p-files`): 10 surfaces. 4 KPI MetricCards + 4 Range MetricCards (HIGH drill on summary cards), 5 chart/panel cards (HIGH drill on Slot Status Donut, Top Missing, Completeness Table; row-link drill on Expiring Docs).
 - **SIS Admin** (`/sis`): 1 chart + 4 MetricCards + system-health strip. Per user direction: only the audit-by-module chart drills.
@@ -24,40 +25,40 @@ One chart-quality issue worth fixing this pass: **Pipeline Stage Chart on `/reco
 
 ### 3.1 Records (9 targets + 1 NEW card)
 
-| # | Surface | Drill content | Slug |
-|---|---|---|---|
-| 1 | KPI: New enrollments (range) | Students with `enrollment_status='active'` enrolled in range | `enrollments-range` |
-| 2 | KPI: Withdrawals (range) | Students with `enrollment_status='withdrawn'`, withdrawal_date in range | `withdrawals-range` |
-| 3 | KPI: Active enrolled (AY) | All `enrollment_status IN ('active','conditional')` for current AY | `active-enrolled` |
-| 4 | KPI: Docs expiring ≤60d | Applicants with at least one expiring doc | `expiring-docs` |
-| 5 | Pipeline Stage Sankey (rebuilt) | Applicants flowing through clicked stage | `students-by-pipeline-stage` |
-| 6 | Document Backlog Chart | Applicants with that doc-slot in that status | `backlog-by-document` |
-| 7 | Level Distribution Chart | Students at clicked level | `students-by-level` |
-| 8 | Expiring Documents Panel | Already drills via row link; **adopt CSV button only** | `expiring-docs` (CSV) |
-| 9 | **NEW** — Class-assignment readiness card | Active students without a `section_id` | `class-assignment-readiness` |
+| #   | Surface                                   | Drill content                                                           | Slug                         |
+| --- | ----------------------------------------- | ----------------------------------------------------------------------- | ---------------------------- |
+| 1   | KPI: New enrollments (range)              | Students with `enrollment_status='active'` enrolled in range            | `enrollments-range`          |
+| 2   | KPI: Withdrawals (range)                  | Students with `enrollment_status='withdrawn'`, withdrawal_date in range | `withdrawals-range`          |
+| 3   | KPI: Active enrolled (AY)                 | All `enrollment_status IN ('active','conditional')` for current AY      | `active-enrolled`            |
+| 4   | KPI: Docs expiring ≤60d                   | Applicants with at least one expiring doc                               | `expiring-docs`              |
+| 5   | Pipeline Stage Sankey (rebuilt)           | Applicants flowing through clicked stage                                | `students-by-pipeline-stage` |
+| 6   | Document Backlog Chart                    | Applicants with that doc-slot in that status                            | `backlog-by-document`        |
+| 7   | Level Distribution Chart                  | Students at clicked level                                               | `students-by-level`          |
+| 8   | Expiring Documents Panel                  | Already drills via row link; **adopt CSV button only**                  | `expiring-docs` (CSV)        |
+| 9   | **NEW** — Class-assignment readiness card | Active students without a `section_id`                                  | `class-assignment-readiness` |
 
 ### 3.2 P-Files (8 targets + 1 NEW card)
 
-| # | Surface | Drill content | Slug |
-|---|---|---|---|
-| 1 | Summary Card: Total docs | All applicant × slot rows | `all-docs` |
-| 2 | Summary Card: Complete | Slots in `On file` status | `complete-docs` |
-| 3 | Summary Card: Expired | Slots in `Expired` status | `expired-docs` |
-| 4 | Summary Card: Missing | Slots in `Missing` status | `missing-docs` |
-| 5 | Slot Status Donut | Slots in clicked status | `slot-by-status` |
-| 6 | Top Missing Panel | Slots of clicked slot-key, status=Missing | `missing-by-slot` |
-| 7 | Completion by Level Chart | Applicants at clicked level | `level-applicants` |
-| 8 | Completeness Table | Already drills via row link; **adopt CSV button** | `completeness` (CSV) |
-| 9 | **NEW** — Revisions activity heatmap | Click a calendar cell → revisions on that day | `revisions-on-day` |
+| #   | Surface                              | Drill content                                     | Slug                 |
+| --- | ------------------------------------ | ------------------------------------------------- | -------------------- |
+| 1   | Summary Card: Total docs             | All applicant × slot rows                         | `all-docs`           |
+| 2   | Summary Card: Complete               | Slots in `On file` status                         | `complete-docs`      |
+| 3   | Summary Card: Expired                | Slots in `Expired` status                         | `expired-docs`       |
+| 4   | Summary Card: Missing                | Slots in `Missing` status                         | `missing-docs`       |
+| 5   | Slot Status Donut                    | Slots in clicked status                           | `slot-by-status`     |
+| 6   | Top Missing Panel                    | Slots of clicked slot-key, status=Missing         | `missing-by-slot`    |
+| 7   | Completion by Level Chart            | Applicants at clicked level                       | `level-applicants`   |
+| 8   | Completeness Table                   | Already drills via row link; **adopt CSV button** | `completeness` (CSV) |
+| 9   | **NEW** — Revisions activity heatmap | Click a calendar cell → revisions on that day     | `revisions-on-day`   |
 
 ### 3.3 SIS Admin (4 targets + 1 NEW card)
 
-| # | Surface | Drill content | Slug |
-|---|---|---|---|
-| 1 | Audit by Module bar chart | Audit events with that module prefix; **range-aware** (from/to threaded through API) | `audit-events` |
-| 2 | System health: Approver coverage panel | List of approver assignments per flow + gaps | `approver-coverage` |
-| 3 | System health: Current AY indicator | List of all AYs (current + historical) with status | `academic-years` |
-| 4 | **NEW** — Activity by actor card | Top users by audit-event count over range; click row → audit events for that actor | `activity-by-actor` |
+| #   | Surface                                | Drill content                                                                        | Slug                |
+| --- | -------------------------------------- | ------------------------------------------------------------------------------------ | ------------------- |
+| 1   | Audit by Module bar chart              | Audit events with that module prefix; **range-aware** (from/to threaded through API) | `audit-events`      |
+| 2   | System health: Approver coverage panel | List of approver assignments per flow + gaps                                         | `approver-coverage` |
+| 3   | System health: Current AY indicator    | List of all AYs (current + historical) with status                                   | `academic-years`    |
+| 4   | **NEW** — Activity by actor card       | Top users by audit-event count over range; click row → audit events for that actor   | `activity-by-actor` |
 
 **Total: 23 drill targets across 3 modules + 3 new cards.**
 
@@ -130,11 +131,13 @@ Single shape. The audit table is already structured cleanly.
 ## 5. Chart polish — Pipeline Stage Sankey rebuild
 
 Current `components/sis/pipeline-stage-chart.tsx` is a horizontal bar of stage counts. Survey rated it WEAK because:
+
 - 10 categories (not_started + 9 canonical stages) is too many for horizontal bars to feel proportional
 - The data has implicit temporal ordering (Inquiry → Submitted → … → Enrolled) that bars don't preserve
 - Bars don't show drop-off between stages
 
 **Rebuild as Sankey diagram** using recharts' built-in `Sankey` component:
+
 - Nodes = pipeline stages
 - Links = quantity flowing from earlier stage to next stage
 - Width-encoded ribbons make drop-off visceral (a thick ribbon thinning between stages = where applicants stall)
@@ -178,6 +181,7 @@ Privacy gate: `school_admin`/`admin`/`superadmin` only — same as audit-by-modu
 ## 6. Architecture
 
 Reuses the Sprint 22 + 23 infrastructure:
+
 - `components/dashboard/drill-down-sheet.tsx` — universal toolkit
 - `components/dashboard/drill-sheet-skeleton.tsx` — placeholder
 - `MetricCard.drillSheet` slot
@@ -187,12 +191,14 @@ Reuses the Sprint 22 + 23 infrastructure:
 ### 6.1 Per-module file shape
 
 For each module:
+
 - `lib/<module>/drill.ts` — row shape + `buildDrillRows` (or per-row-kind loaders) + `applyTargetFilter` + `defaultColumnsForTarget` + `drillHeaderForTarget`
 - `app/api/<module>/drill/[target]/route.ts` — unified GET, JSON+CSV with UTF-8 BOM
 - `components/<module>/drills/<module>-drill-sheet.tsx` — target-aware sheet
 - `components/<module>/drills/chart-drill-cards.tsx` — per-target `'use client'` wrappers
 
 Directory placement:
+
 - Records: `lib/sis/drill.ts` (Records lives at `lib/sis/*` per KD #42)
 - P-Files: `lib/p-files/drill.ts`
 - SIS Admin: append to `lib/sis/drill.ts` — the audit-events drill is small, doesn't need its own module. The `audit-events` target lives alongside Records targets in the SIS drill module.
@@ -200,6 +206,7 @@ Directory placement:
 ### 6.2 Pre-fetch contract (per KD #56 update from Sprint 23)
 
 Per-module pre-fetch strategy:
+
 - **Records**: ~500-1000 enrolled students (bounded). KEEP full pre-fetch — payload modest. `buildAllRowSets()` returns `{ records: RecordsDrillRow[] }`.
 - **P-Files**: ~1000 applicants × ~10 slots = ~10,000 doc rows. Threshold case. **Lazy-fetch** like Markbook — return rolled-up shapes (slot status counts, level rollups) from `buildAllRowSets()`; raw doc rows lazy-fetch on drill open.
 - **SIS Admin**: audit_log can be enormous (every mutation logged). **Lazy-fetch** — audit drill always fetches on first open via API, never pre-fetched at page level.
@@ -207,23 +214,25 @@ Per-module pre-fetch strategy:
 ### 6.3 API routes
 
 Three new routes:
+
 - `app/api/records/drill/[target]/route.ts`
 - `app/api/p-files/drill/[target]/route.ts`
 - `app/api/sis-admin/drill/[target]/route.ts` (just for audit-events to keep concerns separate from Records, even though both consume `lib/sis/drill.ts`)
 
 ## 7. Auth + role gating
 
-| Module | Allowed roles | Notes |
-|---|---|---|
-| Records | `registrar`, `school_admin`, `admin`, `superadmin` | Records is registrar+ surface (KD #42) |
-| P-Files | `p-file`, `school_admin`, `admin`, `superadmin` | Same as P-Files page access (KD #31) |
-| SIS Admin audit | `school_admin`, `admin`, `superadmin` | Matches `/sis` access |
+| Module          | Allowed roles                                      | Notes                                  |
+| --------------- | -------------------------------------------------- | -------------------------------------- |
+| Records         | `registrar`, `school_admin`, `admin`, `superadmin` | Records is registrar+ surface (KD #42) |
+| P-Files         | `p-file`, `school_admin`, `admin`, `superadmin`    | Same as P-Files page access (KD #31)   |
+| SIS Admin audit | `school_admin`, `admin`, `superadmin`              | Matches `/sis` access                  |
 
 No teacher row-scoping for any of these (Records + P-Files + SIS Admin are not teacher-facing dashboards). Simpler than Markbook + Evaluation.
 
 ## 8. Cache strategy
 
 Same as Sprints 22+23:
+
 - `unstable_cache` per call with module-scoped tag
 - 60s revalidate for drill rows
 - AY-scoped cache keys (scope/range filtering applied post-cache, per KD #56)
@@ -232,6 +241,7 @@ Same as Sprints 22+23:
 ## 9. Files to create/touch
 
 ### New (~17 files)
+
 - `lib/sis/drill.ts` — RecordsDrillRow + AuditDrillRow + AcademicYearDrillRow + ApproverAssignmentDrillRow + ActivityActorDrillRow, builders, filters
 - `lib/p-files/drill.ts` — PFilesDrillRow + RevisionDrillRow, builders, filters
 - `app/api/records/drill/[target]/route.ts`
@@ -250,6 +260,7 @@ Same as Sprints 22+23:
 - `components/p-files/revisions-heatmap-card.tsx` — NEW P-Files card
 
 ### Extended (~6 files)
+
 - `app/(records)/records/page.tsx` — wire 8 drill slots + new class-assignment card; replace pipeline-stage-chart with sankey
 - `app/(p-files)/p-files/page.tsx` — wire 8 drill slots + new revisions-heatmap card
 - `app/(sis)/sis/page.tsx` — wire audit + activity-by-actor drills + system-health click-throughs

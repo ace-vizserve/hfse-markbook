@@ -2,7 +2,10 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { requireRole } from '@/lib/auth/require-role';
 import { createServiceClient } from '@/lib/supabase/service';
 import { logAction } from '@/lib/audit/log-action';
-import { getApproverEmailList, getRegistrarEmailList } from '@/lib/auth/staff-list';
+import {
+  getApproverEmailList,
+  getRegistrarEmailList,
+} from '@/lib/auth/staff-list';
 import {
   ChangeRequestFormSchema,
   type ChangeRequestField,
@@ -29,7 +32,12 @@ import { requireCurrentAyCode } from '@/lib/academic-year';
 //
 // Teachers always get only their own rows. school_admin/superadmin/registrar see all.
 export async function GET(request: NextRequest) {
-  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'superadmin']);
+  const auth = await requireRole([
+    'teacher',
+    'registrar',
+    'school_admin',
+    'superadmin',
+  ]);
   if ('error' in auth) return auth.error;
 
   const url = new URL(request.url);
@@ -46,7 +54,7 @@ export async function GET(request: NextRequest) {
        reviewed_by, reviewed_by_email, reviewed_at, decision_note,
        applied_by, applied_at,
        primary_approver_id, secondary_approver_id,
-       approved_at, reminder_sent_at, rejection_undone_at`,
+       approved_at, reminder_sent_at, rejection_undone_at`
     )
     .order('requested_at', { ascending: false });
 
@@ -58,7 +66,7 @@ export async function GET(request: NextRequest) {
     // the broadcast-style "anyone school_admin+ sees it" behavior so
     // pre-feature pending requests don't strand.
     query = query.or(
-      `primary_approver_id.eq.${auth.user.id},secondary_approver_id.eq.${auth.user.id},and(primary_approver_id.is.null,secondary_approver_id.is.null)`,
+      `primary_approver_id.eq.${auth.user.id},secondary_approver_id.eq.${auth.user.id},and(primary_approver_id.is.null,secondary_approver_id.is.null)`
     );
   }
   if (status) {
@@ -89,7 +97,7 @@ export async function GET(request: NextRequest) {
       r.status === 'approved' &&
       r.approved_at != null &&
       Date.now() - Date.parse(r.approved_at) > THREE_DAYS_MS &&
-      r.reminder_sent_at == null,
+      r.reminder_sent_at == null
   );
   if (reminderCandidates.length > 0) {
     const candidateIds = reminderCandidates.map((r) => r.id);
@@ -109,21 +117,23 @@ export async function GET(request: NextRequest) {
     } else {
       void (async () => {
         try {
-          const summaries: ApprovedStaleSummary[] = reminderCandidates.map((r) => ({
-            id: r.id,
-            student_label: null,
-            field_changed: r.field_changed,
-            approved_at: r.approved_at as string,
-            grading_sheet_id: r.grading_sheet_id,
-          }));
+          const summaries: ApprovedStaleSummary[] = reminderCandidates.map(
+            (r) => ({
+              id: r.id,
+              student_label: null,
+              field_changed: r.field_changed,
+              approved_at: r.approved_at as string,
+              grading_sheet_id: r.grading_sheet_id,
+            })
+          );
           // Hydrate student labels in parallel — best-effort. If a label
           // lookup fails, leave it null and the email renders "(student)".
           const labelResults = await Promise.all(
             reminderCandidates.map((r) =>
               fetchLabels(service, r.grading_sheet_id, r.grade_entry_id).catch(
-                () => ({ student_label: null, sheet_label: null }),
-              ),
-            ),
+                () => ({ student_label: null, sheet_label: null })
+              )
+            )
           );
           labelResults.forEach((labels, i) => {
             summaries[i].student_label = labels.student_label;
@@ -144,7 +154,12 @@ export async function GET(request: NextRequest) {
 // Teachers file a new request against a locked sheet they are assigned to.
 // school_admin+ can also file one (shouldn't need to, but not blocked).
 export async function POST(request: NextRequest) {
-  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'superadmin']);
+  const auth = await requireRole([
+    'teacher',
+    'registrar',
+    'school_admin',
+    'superadmin',
+  ]);
   if ('error' in auth) return auth.error;
 
   const raw = await request.json().catch(() => null);
@@ -153,7 +168,7 @@ export async function POST(request: NextRequest) {
     const issue = parsed.error.issues[0];
     return NextResponse.json(
       { error: issue?.message ?? 'invalid body' },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const body = parsed.data;
@@ -169,7 +184,9 @@ export async function POST(request: NextRequest) {
       .single(),
     service
       .from('grade_entries')
-      .select('id, grading_sheet_id, ww_scores, pt_scores, qa_score, letter_grade, is_na')
+      .select(
+        'id, grading_sheet_id, ww_scores, pt_scores, qa_score, letter_grade, is_na'
+      )
       .eq('id', body.grade_entry_id)
       .single(),
   ]);
@@ -198,24 +215,30 @@ export async function POST(request: NextRequest) {
   if (entry.grading_sheet_id !== sheet.id) {
     return NextResponse.json(
       { error: 'entry does not belong to sheet' },
-      { status: 400 },
+      { status: 400 }
     );
   }
   if (!sheet.is_locked) {
     return NextResponse.json(
-      { error: 'sheet is not locked — edit directly instead of filing a request' },
-      { status: 400 },
+      {
+        error:
+          'sheet is not locked — edit directly instead of filing a request',
+      },
+      { status: 400 }
     );
   }
 
   // Teachers must be assigned to this section + subject to file a request.
   if (auth.role === 'teacher') {
     const cookieClient = await createClient();
-    const assignments = await loadAssignmentsForUser(cookieClient, auth.user.id);
+    const assignments = await loadAssignmentsForUser(
+      cookieClient,
+      auth.user.id
+    );
     if (!isSubjectTeacher(assignments, sheet.section_id, sheet.subject_id)) {
       return NextResponse.json(
         { error: 'not assigned to this sheet' },
-        { status: 403 },
+        { status: 403 }
       );
     }
   }
@@ -229,14 +252,17 @@ export async function POST(request: NextRequest) {
     body.secondary_approver_id === auth.user.id
   ) {
     return NextResponse.json(
-      { error: 'You cannot designate yourself as an approver on your own request.' },
-      { status: 400 },
+      {
+        error:
+          'You cannot designate yourself as an approver on your own request.',
+      },
+      { status: 400 }
     );
   }
   if (body.primary_approver_id === body.secondary_approver_id) {
     return NextResponse.json(
       { error: 'Primary and secondary approvers must be different people.' },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const approvers = await listApproversForFlow('markbook.change_request');
@@ -244,18 +270,22 @@ export async function POST(request: NextRequest) {
   if (!approverIds.has(body.primary_approver_id)) {
     return NextResponse.json(
       { error: 'Primary approver is not assigned to this flow.' },
-      { status: 400 },
+      { status: 400 }
     );
   }
   if (!approverIds.has(body.secondary_approver_id)) {
     return NextResponse.json(
       { error: 'Secondary approver is not assigned to this flow.' },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
   // Snapshot the current value from the entry for the requested field/slot.
-  const currentValue = snapshotCurrentValue(entry, body.field_changed, body.slot_index);
+  const currentValue = snapshotCurrentValue(
+    entry,
+    body.field_changed,
+    body.slot_index
+  );
 
   // Server-side spurious-request guard. The client also disables Submit
   // when proposed === current, but file requests can be POSTed by other
@@ -267,7 +297,7 @@ export async function POST(request: NextRequest) {
         error:
           'The proposed value is the same as the current value. Edit the proposed value before filing the request.',
       },
-      { status: 422 },
+      { status: 422 }
     );
   }
 
@@ -287,7 +317,7 @@ export async function POST(request: NextRequest) {
     if (sectionErr || !sectionRow) {
       return NextResponse.json(
         { error: 'Could not resolve the section for this sheet.' },
-        { status: 500 },
+        { status: 500 }
       );
     }
     const { data: configRow } = await service
@@ -313,7 +343,7 @@ export async function POST(request: NextRequest) {
           {
             error: `${fieldLabel} slot ${body.slot_index + 1} doesn't exist for this subject. The maximum is ${max} slot${max === 1 ? '' : 's'}.`,
           },
-          { status: 422 },
+          { status: 422 }
         );
       }
     }
@@ -355,7 +385,7 @@ export async function POST(request: NextRequest) {
   if (insertError || !inserted) {
     return NextResponse.json(
       { error: insertError?.message ?? 'insert failed' },
-      { status: 500 },
+      { status: 500 }
     );
   }
 
@@ -386,7 +416,7 @@ export async function POST(request: NextRequest) {
   const designated = approvers.filter(
     (a) =>
       a.user_id === body.primary_approver_id ||
-      a.user_id === body.secondary_approver_id,
+      a.user_id === body.secondary_approver_id
   );
   const approverEmails = designated.map((a) => a.email).filter(Boolean);
 
@@ -406,7 +436,11 @@ export async function POST(request: NextRequest) {
   // notification_status (sent / partial / failed) without blocking the POST.
   void (async () => {
     try {
-      const { student_label, sheet_label } = await fetchLabels(service, sheet.id, entry.id);
+      const { student_label, sheet_label } = await fetchLabels(
+        service,
+        sheet.id,
+        entry.id
+      );
       const { sent, failed } = await notifyRequestFiled(
         {
           id: inserted.id,
@@ -421,7 +455,7 @@ export async function POST(request: NextRequest) {
           student_label,
           sheet_label,
         },
-        approverEmails,
+        approverEmails
       );
       // (0, 0) means RESEND_API_KEY was unset OR there were no recipients —
       // the pre-flight already wrote 'failed' for the no-recipients case;
@@ -443,9 +477,9 @@ export async function POST(request: NextRequest) {
           (e) => {
             console.error(
               '[change-request POST] notification_status update failed',
-              e,
+              e
             );
-          },
+          }
         );
     } catch (e) {
       console.error('[change-requests] notify filed failed', e);
@@ -462,16 +496,16 @@ export async function POST(request: NextRequest) {
           (innerErr) => {
             console.error(
               '[change-request POST] notification_status failed-write also failed',
-              innerErr,
+              innerErr
             );
-          },
+          }
         );
     }
   })();
 
   return NextResponse.json(
     { request: inserted, warning: notificationWarning },
-    { status: 201 },
+    { status: 201 }
   );
 }
 
@@ -484,7 +518,7 @@ function snapshotCurrentValue(
     is_na: boolean;
   },
   field: ChangeRequestField,
-  slotIndex: number | null,
+  slotIndex: number | null
 ): string | null {
   switch (field) {
     case 'ww_scores': {
@@ -520,7 +554,7 @@ function snapshotCurrentValue(
 function canonicallyEqual(
   field: ChangeRequestField,
   proposed: string,
-  current: string | null,
+  current: string | null
 ): boolean {
   if (field === 'ww_scores' || field === 'pt_scores' || field === 'qa_score') {
     const p = proposed.trim();
@@ -545,13 +579,13 @@ function canonicallyEqual(
 // Both delegate to the 5-min cached helpers in lib/auth/staff-list.ts so
 // auth.admin.listUsers() is called at most once per 5-minute window.
 export async function fetchApproverEmails(
-  _service: ReturnType<typeof createServiceClient>,
+  _service: ReturnType<typeof createServiceClient>
 ): Promise<string[]> {
   return getApproverEmailList();
 }
 
 export async function fetchRegistrarEmails(
-  _service: ReturnType<typeof createServiceClient>,
+  _service: ReturnType<typeof createServiceClient>
 ): Promise<string[]> {
   return getRegistrarEmailList();
 }
@@ -559,7 +593,7 @@ export async function fetchRegistrarEmails(
 export async function fetchLabels(
   service: ReturnType<typeof createServiceClient>,
   sheetId: string,
-  entryId: string,
+  entryId: string
 ): Promise<{ student_label: string | null; sheet_label: string | null }> {
   const [sheetRes, entryRes] = await Promise.all([
     service
@@ -567,31 +601,27 @@ export async function fetchLabels(
       .select(
         `term:terms(label),
          section:sections(name, level:levels(label)),
-         subject:subjects(name)`,
+         subject:subjects(name)`
       )
       .eq('id', sheetId)
       .single(),
     service
       .from('grade_entries')
       .select(
-        'section_student:section_students(student:students(student_number, first_name, last_name))',
+        'section_student:section_students(student:students(student_number, first_name, last_name))'
       )
       .eq('id', entryId)
       .single(),
   ]);
 
-  const sheetData = sheetRes.data as
-    | {
-        term: { label: string | null } | { label: string | null }[] | null;
-        section:
-          | {
-              name: string | null;
-              level: { label: string | null } | { label: string | null }[] | null;
-            }
-          | null;
-        subject: { name: string | null } | { name: string | null }[] | null;
-      }
-    | null;
+  const sheetData = sheetRes.data as {
+    term: { label: string | null } | { label: string | null }[] | null;
+    section: {
+      name: string | null;
+      level: { label: string | null } | { label: string | null }[] | null;
+    } | null;
+    subject: { name: string | null } | { name: string | null }[] | null;
+  } | null;
   const term = sheetData
     ? Array.isArray(sheetData.term)
       ? sheetData.term[0]
@@ -619,9 +649,9 @@ export async function fetchLabels(
     last_name: string | null;
   };
   type SectionStudentRef = { student: StudentRef | StudentRef[] | null };
-  const entryData = entryRes.data as
-    | { section_student: SectionStudentRef | SectionStudentRef[] | null }
-    | null;
+  const entryData = entryRes.data as {
+    section_student: SectionStudentRef | SectionStudentRef[] | null;
+  } | null;
   const sectionStudent = entryData
     ? Array.isArray(entryData.section_student)
       ? entryData.section_student[0]

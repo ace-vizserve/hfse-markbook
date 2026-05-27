@@ -25,7 +25,11 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
-export function RecentMarkbookActivity({ rows }: { rows: RecentMarkbookActivityRow[] }) {
+export function RecentMarkbookActivity({
+  rows,
+}: {
+  rows: RecentMarkbookActivityRow[];
+}) {
   const empty = rows.length === 0;
 
   return (
@@ -47,9 +51,12 @@ export function RecentMarkbookActivity({ rows }: { rows: RecentMarkbookActivityR
         {empty ? (
           <div className="flex h-[200px] flex-col items-center justify-center gap-2 text-center">
             <Activity className="size-6 text-muted-foreground/60" />
-            <p className="text-sm font-medium text-foreground">No recent activity</p>
+            <p className="text-sm font-medium text-foreground">
+              No recent activity
+            </p>
             <p className="max-w-xs text-xs text-muted-foreground">
-              Sheet locks, grade edits, publications, and change-request transitions appear here.
+              Sheet locks, grade edits, publications, and change-request
+              transitions appear here.
             </p>
           </div>
         ) : (
@@ -58,7 +65,9 @@ export function RecentMarkbookActivity({ rows }: { rows: RecentMarkbookActivityR
               const { Icon, label, tint } = describeAction(r.action);
               return (
                 <li key={r.id} className="flex items-start gap-3 px-5 py-3">
-                  <div className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${tint}`}>
+                  <div
+                    className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${tint}`}
+                  >
                     <Icon className="size-3.5" />
                   </div>
                   <div className="min-w-0 flex-1 space-y-0.5">
@@ -98,26 +107,105 @@ export function RecentMarkbookActivity({ rows }: { rows: RecentMarkbookActivityR
   );
 }
 
-const ACTION_MAP: Record<string, { label: string; Icon: LucideIcon; tint: string }> = {
-  'sheet.create': { label: 'Grading sheet created', Icon: ClipboardList, tint: 'bg-accent text-brand-indigo-deep' },
-  'sheet.lock': { label: 'Sheet locked', Icon: Lock, tint: 'bg-brand-mint/30 text-ink' },
-  'sheet.unlock': { label: 'Sheet unlocked', Icon: Unlock, tint: 'bg-brand-amber/30 text-ink' },
-  'entry.update': { label: 'Grade entry updated', Icon: Pencil, tint: 'bg-accent text-brand-indigo-deep' },
-  'totals.update': { label: 'Sheet totals updated', Icon: Pencil, tint: 'bg-accent text-brand-indigo-deep' },
-  'student.sync': { label: 'Students synced', Icon: Users, tint: 'bg-accent text-brand-indigo-deep' },
-  'student.add': { label: 'Student added manually', Icon: UserPlus, tint: 'bg-accent text-brand-indigo-deep' },
-  'assignment.create': { label: 'Teacher assigned', Icon: UserPlus, tint: 'bg-accent text-brand-indigo-deep' },
-  'assignment.delete': { label: 'Assignment removed', Icon: Users, tint: 'bg-muted text-muted-foreground' },
-  'attendance.update': { label: 'Attendance updated', Icon: Pencil, tint: 'bg-accent text-brand-indigo-deep' },
-  'comment.update': { label: 'Adviser comment updated', Icon: Pencil, tint: 'bg-gradient-to-b from-accent to-accent/60 text-brand-indigo-deep' },
-  'publication.create': { label: 'Report cards published', Icon: FileCheck2, tint: 'bg-gradient-to-b from-brand-mint/35 to-brand-mint/15 text-ink' },
-  'publication.delete': { label: 'Publication window removed', Icon: FileCheck2, tint: 'bg-gradient-to-b from-muted to-muted/60 text-muted-foreground' },
-  'grade_change_requested': { label: 'Change request filed', Icon: MessageSquareWarning, tint: 'bg-gradient-to-b from-brand-amber/35 to-brand-amber/15 text-ink' },
-  'grade_change_approved': { label: 'Change request approved', Icon: Check, tint: 'bg-gradient-to-b from-brand-mint/35 to-brand-mint/15 text-ink' },
-  'grade_change_rejected': { label: 'Change request rejected', Icon: MessageSquareWarning, tint: 'bg-gradient-to-b from-destructive/15 to-destructive/5 text-destructive' },
-  'grade_change_cancelled': { label: 'Change request cancelled', Icon: MessageSquareWarning, tint: 'bg-gradient-to-b from-muted to-muted/60 text-muted-foreground' },
-  'grade_change_applied': { label: 'Change request applied', Icon: Check, tint: 'bg-gradient-to-b from-brand-mint/35 to-brand-mint/15 text-ink' },
-  'grade_correction': { label: 'Data-entry correction', Icon: Pencil, tint: 'bg-gradient-to-b from-accent to-accent/60 text-brand-indigo-deep' },
+const ACTION_MAP: Record<
+  string,
+  { label: string; Icon: LucideIcon; tint: string }
+> = {
+  'sheet.create': {
+    label: 'Grading sheet created',
+    Icon: ClipboardList,
+    tint: 'bg-accent text-brand-indigo-deep',
+  },
+  'sheet.lock': {
+    label: 'Sheet locked',
+    Icon: Lock,
+    tint: 'bg-brand-mint/30 text-ink',
+  },
+  'sheet.unlock': {
+    label: 'Sheet unlocked',
+    Icon: Unlock,
+    tint: 'bg-brand-amber/30 text-ink',
+  },
+  'entry.update': {
+    label: 'Grade entry updated',
+    Icon: Pencil,
+    tint: 'bg-accent text-brand-indigo-deep',
+  },
+  'totals.update': {
+    label: 'Sheet totals updated',
+    Icon: Pencil,
+    tint: 'bg-accent text-brand-indigo-deep',
+  },
+  'student.sync': {
+    label: 'Students synced',
+    Icon: Users,
+    tint: 'bg-accent text-brand-indigo-deep',
+  },
+  'student.add': {
+    label: 'Student added manually',
+    Icon: UserPlus,
+    tint: 'bg-accent text-brand-indigo-deep',
+  },
+  'assignment.create': {
+    label: 'Teacher assigned',
+    Icon: UserPlus,
+    tint: 'bg-accent text-brand-indigo-deep',
+  },
+  'assignment.delete': {
+    label: 'Assignment removed',
+    Icon: Users,
+    tint: 'bg-muted text-muted-foreground',
+  },
+  'attendance.update': {
+    label: 'Attendance updated',
+    Icon: Pencil,
+    tint: 'bg-accent text-brand-indigo-deep',
+  },
+  'comment.update': {
+    label: 'Adviser comment updated',
+    Icon: Pencil,
+    tint: 'bg-gradient-to-b from-accent to-accent/60 text-brand-indigo-deep',
+  },
+  'publication.create': {
+    label: 'Report cards published',
+    Icon: FileCheck2,
+    tint: 'bg-gradient-to-b from-brand-mint/35 to-brand-mint/15 text-ink',
+  },
+  'publication.delete': {
+    label: 'Publication window removed',
+    Icon: FileCheck2,
+    tint: 'bg-gradient-to-b from-muted to-muted/60 text-muted-foreground',
+  },
+  grade_change_requested: {
+    label: 'Change request filed',
+    Icon: MessageSquareWarning,
+    tint: 'bg-gradient-to-b from-brand-amber/35 to-brand-amber/15 text-ink',
+  },
+  grade_change_approved: {
+    label: 'Change request approved',
+    Icon: Check,
+    tint: 'bg-gradient-to-b from-brand-mint/35 to-brand-mint/15 text-ink',
+  },
+  grade_change_rejected: {
+    label: 'Change request rejected',
+    Icon: MessageSquareWarning,
+    tint: 'bg-gradient-to-b from-destructive/15 to-destructive/5 text-destructive',
+  },
+  grade_change_cancelled: {
+    label: 'Change request cancelled',
+    Icon: MessageSquareWarning,
+    tint: 'bg-gradient-to-b from-muted to-muted/60 text-muted-foreground',
+  },
+  grade_change_applied: {
+    label: 'Change request applied',
+    Icon: Check,
+    tint: 'bg-gradient-to-b from-brand-mint/35 to-brand-mint/15 text-ink',
+  },
+  grade_correction: {
+    label: 'Data-entry correction',
+    Icon: Pencil,
+    tint: 'bg-gradient-to-b from-accent to-accent/60 text-brand-indigo-deep',
+  },
 };
 
 function describeAction(action: string) {
@@ -142,5 +230,8 @@ function formatRelative(iso: string): string {
   if (diffHr < 24) return `${diffHr}h ago`;
   const diffDay = Math.round(diffHr / 24);
   if (diffDay < 7) return `${diffDay}d ago`;
-  return new Date(iso).toLocaleDateString('en-SG', { month: 'short', day: 'numeric' });
+  return new Date(iso).toLocaleDateString('en-SG', {
+    month: 'short',
+    day: 'numeric',
+  });
 }

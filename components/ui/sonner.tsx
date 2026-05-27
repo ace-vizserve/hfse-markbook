@@ -34,7 +34,8 @@ function normalizeOpts(opts?: ToastOpts): Omit<SileoOptions, 'title' | 'type'> {
   if (!opts) return {};
   const { action, button, ...rest } = opts;
   const resolvedButton =
-    button ?? (action ? { title: action.label, onClick: action.onClick } : undefined);
+    button ??
+    (action ? { title: action.label, onClick: action.onClick } : undefined);
   return resolvedButton ? { ...rest, button: resolvedButton } : rest;
 }
 
@@ -66,7 +67,9 @@ export const toast = {
       typeof msgs.success === 'string'
         ? { title: msgs.success }
         : typeof msgs.success === 'function'
-          ? (data: T) => ({ title: String((msgs.success as (d: T) => string)(data)) })
+          ? (data: T) => ({
+              title: String((msgs.success as (d: T) => string)(data)),
+            })
           : msgs.success;
 
     const error =

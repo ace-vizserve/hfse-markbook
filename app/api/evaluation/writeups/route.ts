@@ -35,7 +35,7 @@ export async function PATCH(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const { termId, sectionId, studentId, writeup, submit } = parsed.data;
@@ -56,7 +56,7 @@ export async function PATCH(request: NextRequest) {
     if (!assignment) {
       return NextResponse.json(
         { error: 'You are not the form class adviser for this section.' },
-        { status: 403 },
+        { status: 403 }
       );
     }
   }
@@ -69,13 +69,15 @@ export async function PATCH(request: NextRequest) {
     .eq('student_id', studentId)
     .maybeSingle();
 
-  const nextWriteup = writeupProvided ? (writeup ?? null) : (existing?.writeup ?? null);
+  const nextWriteup = writeupProvided
+    ? (writeup ?? null)
+    : (existing?.writeup ?? null);
   const wasSubmitted = existing?.submitted ?? false;
   const nextSubmitted = submit === true ? true : wasSubmitted;
   const nextSubmittedAt =
     submit === true && !wasSubmitted
       ? new Date().toISOString()
-      : existing?.submitted_at ?? null;
+      : (existing?.submitted_at ?? null);
 
   const row = {
     term_id: termId,
@@ -96,11 +98,12 @@ export async function PATCH(request: NextRequest) {
   if (upsertErr || !saved) {
     return NextResponse.json(
       { error: upsertErr?.message ?? 'save failed' },
-      { status: 500 },
+      { status: 500 }
     );
   }
 
-  const textChanged = writeupProvided && (existing?.writeup ?? null) !== nextWriteup;
+  const textChanged =
+    writeupProvided && (existing?.writeup ?? null) !== nextWriteup;
   const submitFlipped = submit === true && !wasSubmitted;
 
   if (textChanged) {

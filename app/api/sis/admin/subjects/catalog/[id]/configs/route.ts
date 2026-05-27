@@ -17,7 +17,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 // dropped so the action is recoverable if needed.
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireRole(['school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -33,17 +33,20 @@ export async function DELETE(
     .select('id, code, name')
     .eq('id', subjectId)
     .maybeSingle();
-  if (subjErr) return NextResponse.json({ error: subjErr.message }, { status: 500 });
-  if (!subjectRow) return NextResponse.json({ error: 'subject not found' }, { status: 404 });
+  if (subjErr)
+    return NextResponse.json({ error: subjErr.message }, { status: 500 });
+  if (!subjectRow)
+    return NextResponse.json({ error: 'subject not found' }, { status: 404 });
   const subject = subjectRow as { id: string; code: string; name: string };
 
   const { data: configs, error: cfgErr } = await service
     .from('template_subject_configs')
     .select(
-      'id, level_id, ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots, qa_max, level:levels(code, label)',
+      'id, level_id, ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots, qa_max, level:levels(code, label)'
     )
     .eq('subject_id', subjectId);
-  if (cfgErr) return NextResponse.json({ error: cfgErr.message }, { status: 500 });
+  if (cfgErr)
+    return NextResponse.json({ error: cfgErr.message }, { status: 500 });
   const configList = (configs ?? []) as Array<{
     id: string;
     level_id: string;
@@ -53,7 +56,10 @@ export async function DELETE(
     ww_max_slots: number;
     pt_max_slots: number;
     qa_max: number;
-    level: { code: string; label: string } | { code: string; label: string }[] | null;
+    level:
+      | { code: string; label: string }
+      | { code: string; label: string }[]
+      | null;
   }>;
 
   if (configList.length === 0) {
@@ -64,7 +70,8 @@ export async function DELETE(
     .from('template_subject_configs')
     .delete()
     .eq('subject_id', subjectId);
-  if (deleteErr) return NextResponse.json({ error: deleteErr.message }, { status: 500 });
+  if (deleteErr)
+    return NextResponse.json({ error: deleteErr.message }, { status: 500 });
 
   const droppedConfigs = configList.map((c) => {
     const lvl = Array.isArray(c.level) ? c.level[0] : c.level;

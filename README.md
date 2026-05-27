@@ -139,12 +139,12 @@ Open `http://localhost:3000`. You'll be redirected to `/login`.
 
 ## Scripts
 
-| Command | Purpose |
-|---|---|
-| `npm run dev` | Dev server (Turbopack) |
+| Command         | Purpose                                                                                                   |
+| --------------- | --------------------------------------------------------------------------------------------------------- |
+| `npm run dev`   | Dev server (Turbopack)                                                                                    |
 | `npm run build` | Production build — also runs the `quarterly.ts` self-test at module load; a failing test aborts the build |
-| `npm run start` | Serve a production build locally |
-| `npm run lint` | ESLint |
+| `npm run start` | Serve a production build locally                                                                          |
+| `npm run lint`  | ESLint                                                                                                    |
 
 ## Next.js 16 gotchas
 
@@ -163,21 +163,21 @@ Full deploy checklist (git init, Vercel project creation, Supabase redirect URLs
 
 ## Reference docs
 
-| Doc | Read when… |
-|---|---|
-| `CLAUDE.md` | Every task — contract for what ships |
-| `docs/sprints/development-plan.md` | Status snapshot + current sprint |
-| `docs/context/01-project-overview.md` | Onboarding |
-| `docs/context/02-grading-system.md` | Grade computation or formula |
-| `docs/context/03-workflow-and-roles.md` | Permissions, locking, workflow |
-| `docs/context/04-database-schema.md` | DB tables / queries |
-| `docs/context/05-report-card.md` | Report card UI / PDF |
-| `docs/context/06-admissions-integration.md` | Admissions sync |
-| `docs/context/07-api-routes.md` | API contracts |
-| `docs/context/09-design-system.md` | Any UI work — tokens, components, forbidden patterns |
-| `docs/context/10-parent-portal.md` | Parent portal handoff + admissions DDL reference |
-| `docs/context/11-performance-patterns.md` | Any new page — auth / cache / parallel / loading checklist |
-| `docs/context/12-p-files-module.md` | P-Files module — document types, upload flow, revisions |
-| `docs/context/13-sis-module.md` | Records module — profile / family / stage / discount / validation |
-| `docs/context/14-modules-overview.md` | Cross-module work — architecture hub, data contract |
-| `docs/context/15-markbook-module.md` | Grading / report-card / attendance — module scope doc |
+| Doc                                         | Read when…                                                        |
+| ------------------------------------------- | ----------------------------------------------------------------- |
+| `CLAUDE.md`                                 | Every task — contract for what ships                              |
+| `docs/sprints/development-plan.md`          | Status snapshot + current sprint                                  |
+| `docs/context/01-project-overview.md`       | Onboarding                                                        |
+| `docs/context/02-grading-system.md`         | Grade computation or formula                                      |
+| `docs/context/03-workflow-and-roles.md`     | Permissions, locking, workflow                                    |
+| `docs/context/04-database-schema.md`        | DB tables / queries                                               |
+| `docs/context/05-report-card.md`            | Report card UI / PDF                                              |
+| `docs/context/06-admissions-integration.md` | Admissions sync                                                   |
+| `docs/context/07-api-routes.md`             | API contracts                                                     |
+| `docs/context/09-design-system.md`          | Any UI work — tokens, components, forbidden patterns              |
+| `docs/context/10-parent-portal.md`          | Parent portal handoff + admissions DDL reference                  |
+| `docs/context/11-performance-patterns.md`   | Any new page — auth / cache / parallel / loading checklist        |
+| `docs/context/12-p-files-module.md`         | P-Files module — document types, upload flow, revisions           |
+| `docs/context/13-sis-module.md`             | Records module — profile / family / stage / discount / validation |
+| `docs/context/14-modules-overview.md`       | Cross-module work — architecture hub, data contract               |
+| `docs/context/15-markbook-module.md`        | Grading / report-card / attendance — module scope doc             |

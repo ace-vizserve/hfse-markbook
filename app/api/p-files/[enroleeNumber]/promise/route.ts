@@ -1,14 +1,19 @@
-import { revalidateTag } from "next/cache";
-import { NextResponse, type NextRequest } from "next/server";
+import { revalidateTag } from 'next/cache';
+import { NextResponse, type NextRequest } from 'next/server';
 
-import { requireRole } from "@/lib/auth/require-role";
-import { requireCurrentAyCode } from "@/lib/academic-year";
-import { logAction, type AuditAction } from "@/lib/audit/log-action";
-import { createServiceClient } from "@/lib/supabase/service";
-import { DOCUMENT_SLOTS } from "@/lib/p-files/document-config";
-import { prefixFor, ENROLLED_STATUSES, ADMISSIONS_FUNNEL_STATUSES, resolveModule } from "@/lib/p-files/_shared";
-import { PromiseSchema } from "@/lib/schemas/p-files";
-import { invalidateDrillTags } from "@/lib/cache/invalidate-drill-tags";
+import { requireRole } from '@/lib/auth/require-role';
+import { requireCurrentAyCode } from '@/lib/academic-year';
+import { logAction, type AuditAction } from '@/lib/audit/log-action';
+import { createServiceClient } from '@/lib/supabase/service';
+import { DOCUMENT_SLOTS } from '@/lib/p-files/document-config';
+import {
+  prefixFor,
+  ENROLLED_STATUSES,
+  ADMISSIONS_FUNNEL_STATUSES,
+  resolveModule,
+} from '@/lib/p-files/_shared';
+import { PromiseSchema } from '@/lib/schemas/p-files';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 
 // PATCH /api/p-files/[enroleeNumber]/promise
 // Body: {
@@ -40,19 +45,22 @@ function isFutureWithinHorizon(iso: string): boolean {
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ enroleeNumber: string }> },
+  { params }: { params: Promise<{ enroleeNumber: string }> }
 ) {
   const { enroleeNumber } = await params;
   if (!enroleeNumber.trim()) {
-    return NextResponse.json({ error: "Missing enroleeNumber" }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Missing enroleeNumber' },
+      { status: 400 }
+    );
   }
 
   const body = await request.json().catch(() => null);
   const parsed = PromiseSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid request body", details: parsed.error.flatten() },
-      { status: 400 },
+      { error: 'Invalid request body', details: parsed.error.flatten() },
+      { status: 400 }
     );
   }
 
@@ -62,22 +70,29 @@ export async function PATCH(
 
   const slot = DOCUMENT_SLOTS.find((s) => s.key === slotKey);
   if (!slot) {
-    return NextResponse.json({ error: `invalid slotKey: ${slotKey}` }, { status: 400 });
+    return NextResponse.json(
+      { error: `invalid slotKey: ${slotKey}` },
+      { status: 400 }
+    );
   }
   if (!isFutureWithinHorizon(promisedUntil)) {
     return NextResponse.json(
-      { error: `promisedUntil must be a YYYY-MM-DD date in the future (≤ ${MAX_PROMISE_HORIZON_DAYS} days).` },
-      { status: 400 },
+      {
+        error: `promisedUntil must be a YYYY-MM-DD date in the future (≤ ${MAX_PROMISE_HORIZON_DAYS} days).`,
+      },
+      { status: 400 }
     );
   }
 
   // Per-module role gate.
   const allowedRoles =
-    moduleKey === "admissions"
-      ? ["admissions", "registrar", "school_admin", "superadmin"]
-      : ["p-file", "superadmin"];
-  const auth = await requireRole(allowedRoles as import("@/lib/auth/roles").Role[]);
-  if ("error" in auth) return auth.error;
+    moduleKey === 'admissions'
+      ? ['admissions', 'registrar', 'school_admin', 'superadmin']
+      : ['p-file', 'superadmin'];
+  const auth = await requireRole(
+    allowedRoles as import('@/lib/auth/roles').Role[]
+  );
+  if ('error' in auth) return auth.error;
 
   const service = createServiceClient();
   const ayCode = await requireCurrentAyCode(service);
@@ -87,86 +102,106 @@ export async function PATCH(
     service
       .from(`${prefix}_enrolment_status`)
       .select('"applicationStatus"')
-      .eq("enroleeNumber", enroleeNumber)
+      .eq('enroleeNumber', enroleeNumber)
       .maybeSingle(),
     service
       .from(`${prefix}_enrolment_documents`)
       .select(`"${slotKey}","${slotKey}Status"`)
-      .eq("enroleeNumber", enroleeNumber)
+      .eq('enroleeNumber', enroleeNumber)
       .maybeSingle(),
   ]);
 
   if (!statusRes.data) {
-    return NextResponse.json({ error: "Student status row not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: 'Student status row not found' },
+      { status: 404 }
+    );
   }
-  const applicationStatus = (statusRes.data as { applicationStatus: string | null }).applicationStatus;
+  const applicationStatus = (
+    statusRes.data as { applicationStatus: string | null }
+  ).applicationStatus;
   const allowedStatusList =
-    moduleKey === "admissions" ? ADMISSIONS_FUNNEL_STATUSES : ENROLLED_STATUSES;
-  if (!applicationStatus || !(allowedStatusList as ReadonlyArray<string>).includes(applicationStatus)) {
+    moduleKey === 'admissions' ? ADMISSIONS_FUNNEL_STATUSES : ENROLLED_STATUSES;
+  if (
+    !applicationStatus ||
+    !(allowedStatusList as ReadonlyArray<string>).includes(applicationStatus)
+  ) {
     const message =
-      moduleKey === "admissions"
-        ? "Promises can only be recorded for applicants in the active funnel (Submitted / Ongoing Verification / Processing)."
-        : "Promises can only be recorded for enrolled students.";
+      moduleKey === 'admissions'
+        ? 'Promises can only be recorded for applicants in the active funnel (Submitted / Ongoing Verification / Processing).'
+        : 'Promises can only be recorded for enrolled students.';
     return NextResponse.json({ error: message }, { status: 422 });
   }
   if (!docsRes.data) {
-    return NextResponse.json({ error: "Document row not found for this enrolee" }, { status: 404 });
+    return NextResponse.json(
+      { error: 'Document row not found for this enrolee' },
+      { status: 404 }
+    );
   }
 
   const docRow = docsRes.data as unknown as Record<string, unknown>;
-  const priorStatus = ((docRow[`${slotKey}Status`] as string | null) ?? null)?.toLowerCase() ?? "";
+  const priorStatus =
+    ((docRow[`${slotKey}Status`] as string | null) ?? null)?.toLowerCase() ??
+    '';
   const priorUrl = (docRow[slotKey] as string | null) ?? null;
 
   // Only allow promises against expired / rejected / missing slots —
   // never overwrite a Valid / Uploaded / To follow slot.
-  const allowed = priorStatus === "expired" || priorStatus === "rejected" || (!priorUrl && !priorStatus);
+  const allowed =
+    priorStatus === 'expired' ||
+    priorStatus === 'rejected' ||
+    (!priorUrl && !priorStatus);
   if (!allowed) {
     return NextResponse.json(
       {
         error:
-          "Promises can only be recorded for slots that are expired, rejected, or missing. Use the existing status workflow otherwise.",
+          'Promises can only be recorded for slots that are expired, rejected, or missing. Use the existing status workflow otherwise.',
         priorStatus: priorStatus || null,
       },
-      { status: 422 },
+      { status: 422 }
     );
   }
 
   const { error: upErr } = await service
     .from(`${prefix}_enrolment_documents`)
-    .update({ [`${slotKey}Status`]: "To follow" })
-    .eq("enroleeNumber", enroleeNumber);
+    .update({ [`${slotKey}Status`]: 'To follow' })
+    .eq('enroleeNumber', enroleeNumber);
   if (upErr) {
-    console.error("[p-files promise] status update failed:", upErr.message);
+    console.error('[p-files promise] status update failed:', upErr.message);
     return NextResponse.json({ error: upErr.message }, { status: 500 });
   }
 
-  const { error: insErr } = await service.from("p_file_outreach").insert({
+  const { error: insErr } = await service.from('p_file_outreach').insert({
     ay_code: ayCode,
     enrolee_number: enroleeNumber,
     slot_key: slotKey,
-    kind: "promise",
+    kind: 'promise',
     promised_until: promisedUntil,
     note,
     created_by_user_id: auth.user.id,
     created_by_email: auth.user.email ?? null,
   });
   if (insErr) {
-    console.error("[p-files promise] outreach insert failed:", insErr.message);
+    console.error('[p-files promise] outreach insert failed:', insErr.message);
     // Status was already flipped — don't revert. Fail loud so the UI
     // knows the badge won't render but the chase strip count is correct.
     return NextResponse.json(
-      { error: `Promise recorded as 'To follow' but tracking insert failed: ${insErr.message}` },
-      { status: 500 },
+      {
+        error: `Promise recorded as 'To follow' but tracking insert failed: ${insErr.message}`,
+      },
+      { status: 500 }
     );
   }
 
   const action: AuditAction =
-    moduleKey === "admissions" ? "admissions.mark.promised" : "pfile.mark.promised";
+    moduleKey === 'admissions'
+      ? 'admissions.mark.promised'
+      : 'pfile.mark.promised';
   await logAction({
     service,
     actor: { id: auth.user.id, email: auth.user.email ?? null },
     action,
-    entityType: "enrolment_document",
+    entityType: 'enrolment_document',
     entityId: `${enroleeNumber}:${slotKey}`,
     context: {
       ay_code: ayCode,
@@ -188,6 +223,6 @@ export async function PATCH(
     enroleeNumber,
     slotKey,
     promisedUntil,
-    newStatus: "To follow",
+    newStatus: 'To follow',
   });
 }

@@ -9,7 +9,11 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 
-export default async function AttendanceLayout({ children }: { children: React.ReactNode }) {
+export default async function AttendanceLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
 
@@ -31,7 +35,12 @@ export default async function AttendanceLayout({ children }: { children: React.R
 
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
-      <ModuleSidebar module="attendance" role={role} email={email} userId={id} />
+      <ModuleSidebar
+        module="attendance"
+        role={role}
+        email={email}
+        userId={id}
+      />
       <SidebarInset>
         <AyBanner />
         <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/85 px-4 backdrop-blur-md">

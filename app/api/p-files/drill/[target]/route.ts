@@ -26,15 +26,11 @@ const VALID_TARGETS: PFilesDrillTarget[] = [
   'revisions-on-day',
 ];
 
-const ALLOWED_ROLES = [
-  'p-file',
-  'school_admin',
-  'superadmin',
-] as const;
+const ALLOWED_ROLES = ['p-file', 'school_admin', 'superadmin'] as const;
 
 export async function GET(
   req: Request,
-  ctx: { params: Promise<{ target: string }> },
+  ctx: { params: Promise<{ target: string }> }
 ) {
   const guard = await requireRole([...ALLOWED_ROLES]);
   if ('error' in guard) return guard.error;
@@ -81,14 +77,22 @@ export async function GET(
   });
   res.headers.set(
     'Cache-Control',
-    'private, max-age=60, stale-while-revalidate=300',
+    'private, max-age=60, stale-while-revalidate=300'
   );
   return res;
 }
 
-function pickColumns(target: PFilesDrillTarget, columnsParam: string | null): DrillColumnKey[] {
+function pickColumns(
+  target: PFilesDrillTarget,
+  columnsParam: string | null
+): DrillColumnKey[] {
   if (!columnsParam) return defaultColumnsForTarget(target);
-  const requested = columnsParam.split(',').map((c) => c.trim()).filter((c): c is DrillColumnKey => (ALL_DRILL_COLUMNS as string[]).includes(c));
+  const requested = columnsParam
+    .split(',')
+    .map((c) => c.trim())
+    .filter((c): c is DrillColumnKey =>
+      (ALL_DRILL_COLUMNS as string[]).includes(c)
+    );
   return requested.length > 0 ? requested : defaultColumnsForTarget(target);
 }
 
@@ -97,7 +101,7 @@ function csvResponse(
   target: PFilesDrillTarget,
   segment: string | null,
   ayCode: string,
-  columnsParam: string | null,
+  columnsParam: string | null
 ): Response {
   const columns = pickColumns(target, columnsParam);
   const headers = columns.map((c) => DRILL_COLUMN_LABELS[c] ?? c);
@@ -116,18 +120,30 @@ function csvResponse(
 
 function csvCell(row: PFilesDrillRow, key: DrillColumnKey): string | number {
   switch (key) {
-    case 'fullName': return row.fullName;
-    case 'enroleeNumber': return row.enroleeNumber;
-    case 'level': return row.level ?? '';
-    case 'slotLabel': return row.slotLabel;
-    case 'status': return row.status;
-    case 'expiryDate': return row.expiryDate?.slice(0, 10) ?? '';
-    case 'daysToExpiry': return row.daysToExpiry ?? '';
-    case 'revisionCount': return row.revisionCount;
-    case 'lastRevisionAt': return row.lastRevisionAt?.slice(0, 10) ?? '';
+    case 'fullName':
+      return row.fullName;
+    case 'enroleeNumber':
+      return row.enroleeNumber;
+    case 'level':
+      return row.level ?? '';
+    case 'slotLabel':
+      return row.slotLabel;
+    case 'status':
+      return row.status;
+    case 'expiryDate':
+      return row.expiryDate?.slice(0, 10) ?? '';
+    case 'daysToExpiry':
+      return row.daysToExpiry ?? '';
+    case 'revisionCount':
+      return row.revisionCount;
+    case 'lastRevisionAt':
+      return row.lastRevisionAt?.slice(0, 10) ?? '';
   }
 }
 
 function slug(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }

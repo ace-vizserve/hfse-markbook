@@ -20,7 +20,7 @@ export async function PATCH(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -29,15 +29,16 @@ export async function PATCH(request: NextRequest) {
   const { data: before, error: loadErr } = await service
     .from('school_config')
     .select(
-      'principal_name, ceo_name, pei_registration_number, default_publish_window_days, default_compassionate_allowance_per_year, default_vl_allowance_per_term, subject_award_bronze_min, subject_award_silver_min, subject_award_gold_min, subject_award_max, organization_name, address_line_1, address_line_2, phone_number, website_url, contact_email, pei_registration_start_date, pei_registration_end_date, logo_url',
+      'principal_name, ceo_name, pei_registration_number, default_publish_window_days, default_compassionate_allowance_per_year, default_vl_allowance_per_term, subject_award_bronze_min, subject_award_silver_min, subject_award_gold_min, subject_award_max, organization_name, address_line_1, address_line_2, phone_number, website_url, contact_email, pei_registration_start_date, pei_registration_end_date, logo_url'
     )
     .eq('id', 1)
     .maybeSingle();
-  if (loadErr) return NextResponse.json({ error: loadErr.message }, { status: 500 });
+  if (loadErr)
+    return NextResponse.json({ error: loadErr.message }, { status: 500 });
   if (!before) {
     return NextResponse.json(
       { error: 'school_config singleton row missing — re-run migration 022' },
-      { status: 500 },
+      { status: 500 }
     );
   }
 
@@ -51,7 +52,10 @@ export async function PATCH(request: NextRequest) {
     ['ceoName', 'ceo_name'],
     ['peiRegistrationNumber', 'pei_registration_number'],
     ['defaultPublishWindowDays', 'default_publish_window_days'],
-    ['defaultCompassionateAllowancePerYear', 'default_compassionate_allowance_per_year'],
+    [
+      'defaultCompassionateAllowancePerYear',
+      'default_compassionate_allowance_per_year',
+    ],
     ['defaultVlAllowancePerTerm', 'default_vl_allowance_per_term'],
     ['subjectAwardBronzeMin', 'subject_award_bronze_min'],
     ['subjectAwardSilverMin', 'subject_award_silver_min'],
@@ -73,13 +77,16 @@ export async function PATCH(request: NextRequest) {
   // migration 049, but client-side validation gives a friendlier error.
   const merged = {
     bronze: (parsed.data.subjectAwardBronzeMin ??
-      (before as { subject_award_bronze_min: number | null }).subject_award_bronze_min ??
+      (before as { subject_award_bronze_min: number | null })
+        .subject_award_bronze_min ??
       88.5) as number,
     silver: (parsed.data.subjectAwardSilverMin ??
-      (before as { subject_award_silver_min: number | null }).subject_award_silver_min ??
+      (before as { subject_award_silver_min: number | null })
+        .subject_award_silver_min ??
       91.5) as number,
     gold: (parsed.data.subjectAwardGoldMin ??
-      (before as { subject_award_gold_min: number | null }).subject_award_gold_min ??
+      (before as { subject_award_gold_min: number | null })
+        .subject_award_gold_min ??
       95.5) as number,
     max: (parsed.data.subjectAwardMax ??
       (before as { subject_award_max: number | null }).subject_award_max ??
@@ -97,7 +104,7 @@ export async function PATCH(request: NextRequest) {
         error:
           'Award thresholds must be strictly increasing — bronze < silver < gold ≤ max.',
       },
-      { status: 400 },
+      { status: 400 }
     );
   }
   for (const [k, col] of keys) {
@@ -110,7 +117,8 @@ export async function PATCH(request: NextRequest) {
     .from('school_config')
     .update(updates)
     .eq('id', 1);
-  if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 });
+  if (updateErr)
+    return NextResponse.json({ error: updateErr.message }, { status: 500 });
 
   // Audit: record only the fields that actually changed to keep context tight.
   const diff: Record<string, { before: unknown; after: unknown }> = {};

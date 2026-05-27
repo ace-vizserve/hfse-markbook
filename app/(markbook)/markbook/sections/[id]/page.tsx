@@ -1,9 +1,16 @@
-import { SectionAttendanceSummary } from "@/components/markbook/section-attendance-summary";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PageShell } from "@/components/ui/page-shell";
-import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { SectionAttendanceSummary } from '@/components/markbook/section-attendance-summary';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardAction,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { PageShell } from '@/components/ui/page-shell';
+import { createClient, getSessionUser } from '@/lib/supabase/server';
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -14,18 +21,23 @@ import {
   UserCheck,
   UserCog,
   UserMinus,
-} from "lucide-react";
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import { ManualAddStudent } from "./manual-add";
-import { RosterTable, type RosterRow } from "./roster-table";
+} from 'lucide-react';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { ManualAddStudent } from './manual-add';
+import { RosterTable, type RosterRow } from './roster-table';
 
-type LevelLite = { id: string; code: string; label: string; level_type: "primary" | "secondary" };
+type LevelLite = {
+  id: string;
+  code: string;
+  label: string;
+  level_type: 'primary' | 'secondary';
+};
 
 type EnrolmentRow = {
   id: string;
   index_number: number;
-  enrollment_status: "active" | "late_enrollee" | "withdrawn";
+  enrollment_status: 'active' | 'late_enrollee' | 'withdrawn';
   enrollment_date: string | null;
   withdrawal_date: string | null;
   bus_no: string | null;
@@ -39,57 +51,72 @@ type EnrolmentRow = {
   } | null;
 };
 
-export default async function SectionRosterPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function SectionRosterPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
   const supabase = await createClient();
   const sessionUser = await getSessionUser();
   const canManage =
-    sessionUser?.role === "registrar" || sessionUser?.role === "school_admin" || sessionUser?.role === "superadmin";
+    sessionUser?.role === 'registrar' ||
+    sessionUser?.role === 'school_admin' ||
+    sessionUser?.role === 'superadmin';
 
   const { data: section } = await supabase
-    .from("sections")
-    .select("id, name, academic_year_id, level:levels(id, code, label, level_type), academic_year:academic_years(ay_code)")
-    .eq("id", id)
+    .from('sections')
+    .select(
+      'id, name, academic_year_id, level:levels(id, code, label, level_type), academic_year:academic_years(ay_code)'
+    )
+    .eq('id', id)
     .single();
   if (!section) notFound();
 
   // Parallel fetch — roster, current term, and grading-sheet count are all
   // independent once the section row is resolved.
-  const [
-    { data: rows },
-    { data: currentTerm },
-    { count: gradingSheetsCount },
-  ] = await Promise.all([
-    supabase
-      .from("section_students")
-      .select(
-        "id, index_number, enrollment_status, enrollment_date, withdrawal_date, bus_no, classroom_officer_role, student:students(id, student_number, last_name, first_name, middle_name)",
-      )
-      .eq("section_id", id)
-      .order("index_number"),
-    // Current term for this section's AY — drives the attendance summary card.
-    supabase
-      .from("terms")
-      .select("id, label")
-      .eq("academic_year_id", section.academic_year_id)
-      .eq("is_current", true)
-      .maybeSingle(),
-    // Count grading sheets — drives the "Grading sheets" stat card.
-    supabase
-      .from("grading_sheets")
-      .select("id", { count: "exact", head: true })
-      .eq("section_id", id),
-  ]);
+  const [{ data: rows }, { data: currentTerm }, { count: gradingSheetsCount }] =
+    await Promise.all([
+      supabase
+        .from('section_students')
+        .select(
+          'id, index_number, enrollment_status, enrollment_date, withdrawal_date, bus_no, classroom_officer_role, student:students(id, student_number, last_name, first_name, middle_name)'
+        )
+        .eq('section_id', id)
+        .order('index_number'),
+      // Current term for this section's AY — drives the attendance summary card.
+      supabase
+        .from('terms')
+        .select('id, label')
+        .eq('academic_year_id', section.academic_year_id)
+        .eq('is_current', true)
+        .maybeSingle(),
+      // Count grading sheets — drives the "Grading sheets" stat card.
+      supabase
+        .from('grading_sheets')
+        .select('id', { count: 'exact', head: true })
+        .eq('section_id', id),
+    ]);
 
-  const levelFromSection = (Array.isArray(section.level) ? section.level[0] : section.level) as LevelLite | null;
-  const ayNode = Array.isArray(section.academic_year) ? section.academic_year[0] : section.academic_year;
+  const levelFromSection = (
+    Array.isArray(section.level) ? section.level[0] : section.level
+  ) as LevelLite | null;
+  const ayNode = Array.isArray(section.academic_year)
+    ? section.academic_year[0]
+    : section.academic_year;
   const sectionAyCode = (ayNode as { ay_code: string } | null)?.ay_code ?? '';
 
   const enrolments = (rows ?? []) as unknown as EnrolmentRow[];
   const level = levelFromSection;
-  const activeCount = enrolments.filter((e) => e.enrollment_status === "active").length;
-  const lateCount = enrolments.filter((e) => e.enrollment_status === "late_enrollee").length;
-  const withdrawnCount = enrolments.filter((e) => e.enrollment_status === "withdrawn").length;
+  const activeCount = enrolments.filter(
+    (e) => e.enrollment_status === 'active'
+  ).length;
+  const lateCount = enrolments.filter(
+    (e) => e.enrollment_status === 'late_enrollee'
+  ).length;
+  const withdrawnCount = enrolments.filter(
+    (e) => e.enrollment_status === 'withdrawn'
+  ).length;
   const onRosterCount = activeCount + lateCount;
   const nextIndex = Math.max(0, ...enrolments.map((e) => e.index_number)) + 1;
 
@@ -99,8 +126,10 @@ export default async function SectionRosterPage({ params }: { params: Promise<{ 
       id: e.id,
       student_id: s?.id ?? null,
       index_number: e.index_number,
-      student_number: s?.student_number ?? "",
-      student_name: s ? [s.last_name, s.first_name, s.middle_name].filter(Boolean).join(", ") : "(missing student)",
+      student_number: s?.student_number ?? '',
+      student_name: s
+        ? [s.last_name, s.first_name, s.middle_name].filter(Boolean).join(', ')
+        : '(missing student)',
       enrollment_status: e.enrollment_status,
       bus_no: e.bus_no,
       classroom_officer_role: e.classroom_officer_role,
@@ -111,7 +140,8 @@ export default async function SectionRosterPage({ params }: { params: Promise<{ 
     <PageShell>
       <Link
         href="/markbook/sections"
-        className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
+        className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
         <ArrowLeft className="h-3.5 w-3.5" />
         Back to sections
       </Link>
@@ -129,14 +159,17 @@ export default async function SectionRosterPage({ params }: { params: Promise<{ 
             {level && (
               <Badge
                 variant="outline"
-                className="h-7 border-border bg-white px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground">
+                className="h-7 border-border bg-white px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground"
+              >
                 {level.label}
               </Badge>
             )}
           </div>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
             {onRosterCount} on the roster
-            {withdrawnCount > 0 && ` · ${withdrawnCount} withdrawn (kept for audit)`}.
+            {withdrawnCount > 0 &&
+              ` · ${withdrawnCount} withdrawn (kept for audit)`}
+            .
           </p>
         </div>
       </header>
@@ -155,14 +188,16 @@ export default async function SectionRosterPage({ params }: { params: Promise<{ 
             description="Late enrollees"
             value={lateCount}
             icon={Clock}
-            footerTitle={lateCount === 0 ? "None" : "Started after term began"}
+            footerTitle={lateCount === 0 ? 'None' : 'Started after term began'}
             footerDetail="Pre-enrolment scores marked N/A"
           />
           <StatCard
             description="Withdrawn"
             value={withdrawnCount}
             icon={UserMinus}
-            footerTitle={withdrawnCount === 0 ? "None this year" : "Retained for audit"}
+            footerTitle={
+              withdrawnCount === 0 ? 'None this year' : 'Retained for audit'
+            }
             footerDetail="Kept in the roster permanently"
           />
           <LinkStatCard
@@ -215,12 +250,20 @@ export default async function SectionRosterPage({ params }: { params: Promise<{ 
             <ArrowUpRight className="h-3 w-3" />
           </Link>
         </Button>
-        <ManualAddStudent sectionId={section.id} nextIndex={nextIndex} ayCode={sectionAyCode} />
+        <ManualAddStudent
+          sectionId={section.id}
+          nextIndex={nextIndex}
+          ayCode={sectionAyCode}
+        />
       </div>
 
       {/* Attendance summary — reads the Attendance module's rollup. */}
       {currentTerm && (
-        <SectionAttendanceSummary sectionId={section.id} termId={currentTerm.id} termLabel={currentTerm.label} />
+        <SectionAttendanceSummary
+          sectionId={section.id}
+          termId={currentTerm.id}
+          termLabel={currentTerm.label}
+        />
       )}
 
       {/* Roster */}
@@ -228,7 +271,9 @@ export default async function SectionRosterPage({ params }: { params: Promise<{ 
         <div className="flex items-baseline justify-between">
           <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             Roster
-            <span className="ml-2 font-mono text-[10px] text-muted-foreground">{enrolments.length}</span>
+            <span className="ml-2 font-mono text-[10px] text-muted-foreground">
+              {enrolments.length}
+            </span>
           </h2>
         </div>
         <RosterTable data={rosterRows} sectionId={section.id} />
@@ -257,7 +302,7 @@ function StatCard({
           {description}
         </CardDescription>
         <CardTitle className="font-serif text-[32px] font-semibold leading-none tabular-nums text-foreground @[240px]/card:text-[38px]">
-          {value.toLocaleString("en-SG")}
+          {value.toLocaleString('en-SG')}
         </CardTitle>
         <CardAction>
           <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
@@ -293,14 +338,17 @@ function LinkStatCard({
   href: string;
 }) {
   return (
-    <Link href={href} className="group block transition-all hover:-translate-y-0.5 focus-visible:outline-none">
+    <Link
+      href={href}
+      className="group block transition-all hover:-translate-y-0.5 focus-visible:outline-none"
+    >
       <Card className="@container/card h-full transition-all group-hover:border-brand-indigo/40 group-hover:shadow-md group-focus-visible:ring-2 group-focus-visible:ring-brand-indigo/40">
         <CardHeader>
           <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
             {description}
           </CardDescription>
           <CardTitle className="font-serif text-[32px] font-semibold leading-none tabular-nums text-foreground @[240px]/card:text-[38px]">
-            {value.toLocaleString("en-SG")}
+            {value.toLocaleString('en-SG')}
           </CardTitle>
           <CardAction>
             <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">

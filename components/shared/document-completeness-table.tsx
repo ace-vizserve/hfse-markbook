@@ -15,7 +15,13 @@ import {
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import {
@@ -33,10 +39,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { BulkNotifyDialog, type BulkNotifyItem } from '@/components/p-files/bulk-notify-dialog';
+import {
+  BulkNotifyDialog,
+  type BulkNotifyItem,
+} from '@/components/p-files/bulk-notify-dialog';
 import type { AdmissionsCompleteness } from '@/lib/admissions/dashboard';
 import type { StudentCompleteness } from '@/lib/p-files/queries';
-import { DOCUMENT_SLOTS, type DocumentStatus } from '@/lib/p-files/document-config';
+import {
+  DOCUMENT_SLOTS,
+  type DocumentStatus,
+} from '@/lib/p-files/document-config';
 import { TABLE_COPY } from '@/lib/copy/data-table';
 
 // ─── Module discriminator ─────────────────────────────────────────────────────
@@ -46,7 +58,12 @@ type Module = 'p-files' | 'admissions';
 // ─── Status filter types ──────────────────────────────────────────────────────
 
 /** Admissions chase: 4 actionable statuses + 'all'. */
-export type AdmissionsStatusFilter = 'all' | 'to-follow' | 'rejected' | 'uploaded' | 'expired';
+export type AdmissionsStatusFilter =
+  | 'all'
+  | 'to-follow'
+  | 'rejected'
+  | 'uploaded'
+  | 'expired';
 /** P-Files renewal: only 'expired' + 'all'. */
 export type PFilesStatusFilter = 'all' | 'expired';
 
@@ -55,20 +72,39 @@ export type PFilesStatusFilter = 'all' | 'expired';
 function StatusDot({ status }: { status: DocumentStatus }) {
   switch (status) {
     case 'valid':
-      return <span className="inline-block size-2.5 rounded-full bg-brand-mint" title="On file" />;
+      return (
+        <span
+          className="inline-block size-2.5 rounded-full bg-brand-mint"
+          title="On file"
+        />
+      );
     case 'uploaded':
       return (
-        <span className="inline-block size-2.5 rounded-full bg-brand-amber" title="Pending review" />
+        <span
+          className="inline-block size-2.5 rounded-full bg-brand-amber"
+          title="Pending review"
+        />
       );
     case 'rejected':
       return (
-        <span className="inline-block size-2.5 rounded-full bg-destructive" title="Rejected" />
+        <span
+          className="inline-block size-2.5 rounded-full bg-destructive"
+          title="Rejected"
+        />
       );
     case 'to-follow':
-      return <span className="inline-block size-2.5 rounded-full bg-primary" title="To follow" />;
+      return (
+        <span
+          className="inline-block size-2.5 rounded-full bg-primary"
+          title="To follow"
+        />
+      );
     case 'expired':
       return (
-        <span className="inline-block size-2.5 rounded-full bg-destructive" title="Expired" />
+        <span
+          className="inline-block size-2.5 rounded-full bg-destructive"
+          title="Expired"
+        />
       );
     case 'missing':
       return (
@@ -78,7 +114,12 @@ function StatusDot({ status }: { status: DocumentStatus }) {
         />
       );
     case 'na':
-      return <span className="inline-block size-2.5 rounded-full bg-muted" title="N/A" />;
+      return (
+        <span
+          className="inline-block size-2.5 rounded-full bg-muted"
+          title="N/A"
+        />
+      );
   }
 }
 
@@ -120,7 +161,9 @@ function abbreviateSlotLabel(label: string): string {
 
 // ─── BulkNotifyItem builders (module-specific) ────────────────────────────────
 
-function admissionsBulkTargets(student: AdmissionsCompleteness): BulkNotifyItem[] {
+function admissionsBulkTargets(
+  student: AdmissionsCompleteness
+): BulkNotifyItem[] {
   const slotMeta = new Map(DOCUMENT_SLOTS.map((s) => [s.key, s]));
   const out: BulkNotifyItem[] = [];
   for (const slot of student.slots) {
@@ -143,7 +186,7 @@ function admissionsBulkTargets(student: AdmissionsCompleteness): BulkNotifyItem[
 
 function pfilesBulkTargets(
   student: StudentCompleteness,
-  windowDays: number | null,
+  windowDays: number | null
 ): BulkNotifyItem[] {
   const slotMeta = new Map(DOCUMENT_SLOTS.map((s) => [s.key, s]));
   const todayMs = Date.now();
@@ -187,7 +230,12 @@ type CommonRow = {
   toFollow?: number;
   rejected?: number;
   uploaded?: number;
-  slots: { key: string; label: string; status: DocumentStatus; expiryDate: string | null }[];
+  slots: {
+    key: string;
+    label: string;
+    status: DocumentStatus;
+    expiryDate: string | null;
+  }[];
 };
 
 // ─── Module-discriminated overloads ──────────────────────────────────────────
@@ -216,11 +264,14 @@ type Props = AdmissionsProps | PFilesProps;
 
 export function DocumentCompletenessTable(props: Props) {
   const { module, students, ayCode, bulkRemindEnabled = false } = props;
-  const bulkRemindWindowDays = 'bulkRemindWindowDays' in props ? (props.bulkRemindWindowDays ?? null) : null;
+  const bulkRemindWindowDays =
+    'bulkRemindWindowDays' in props
+      ? (props.bulkRemindWindowDays ?? null)
+      : null;
 
   // Status filter — typed loosely internally since the valid options differ
   const [statusFilter, setStatusFilter] = React.useState<string>(
-    props.initialStatusFilter ?? 'all',
+    props.initialStatusFilter ?? 'all'
   );
   const [search, setSearch] = React.useState('');
   const [levelFilter, setLevelFilter] = React.useState('all');
@@ -234,8 +285,13 @@ export function DocumentCompletenessTable(props: Props) {
   const querySuffix = ayCode ? `?ay=${encodeURIComponent(ayCode)}` : '';
 
   const levels = React.useMemo(
-    () => [...new Set(students.map((s) => s.level).filter((l): l is string => !!l))].sort(),
-    [students],
+    () =>
+      [
+        ...new Set(
+          students.map((s) => s.level).filter((l): l is string => !!l)
+        ),
+      ].sort(),
+    [students]
   );
 
   // Section list is only relevant for P-Files
@@ -244,8 +300,12 @@ export function DocumentCompletenessTable(props: Props) {
     const base =
       levelFilter === 'all'
         ? (students as StudentCompleteness[])
-        : (students as StudentCompleteness[]).filter((s) => s.level === levelFilter);
-    return [...new Set(base.map((s) => s.section).filter((s): s is string => !!s))].sort();
+        : (students as StudentCompleteness[]).filter(
+            (s) => s.level === levelFilter
+          );
+    return [
+      ...new Set(base.map((s) => s.section).filter((s): s is string => !!s)),
+    ].sort();
   }, [module, students, levelFilter]);
 
   const filtered = React.useMemo(() => {
@@ -260,11 +320,20 @@ export function DocumentCompletenessTable(props: Props) {
           `${s.fullName} ${s.studentNumber ?? ''} ${s.enroleeNumber}`.toLowerCase();
         if (!haystack.includes(needle)) return false;
       }
-      if (statusFilter === 'to-follow' && ((s as AdmissionsCompleteness).toFollow ?? 0) === 0)
+      if (
+        statusFilter === 'to-follow' &&
+        ((s as AdmissionsCompleteness).toFollow ?? 0) === 0
+      )
         return false;
-      if (statusFilter === 'rejected' && ((s as AdmissionsCompleteness).rejected ?? 0) === 0)
+      if (
+        statusFilter === 'rejected' &&
+        ((s as AdmissionsCompleteness).rejected ?? 0) === 0
+      )
         return false;
-      if (statusFilter === 'uploaded' && ((s as AdmissionsCompleteness).uploaded ?? 0) === 0)
+      if (
+        statusFilter === 'uploaded' &&
+        ((s as AdmissionsCompleteness).uploaded ?? 0) === 0
+      )
         return false;
       if (statusFilter === 'expired' && s.expired === 0) return false;
       return true;
@@ -287,11 +356,19 @@ export function DocumentCompletenessTable(props: Props) {
   }, [filtered]);
 
   const pageCount = Math.max(Math.ceil(filtered.length / pageSize), 1);
-  const paged = filtered.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
+  const paged = filtered.slice(
+    pageIndex * pageSize,
+    (pageIndex + 1) * pageSize
+  );
 
-  const pageIds = React.useMemo(() => paged.map((s) => s.enroleeNumber), [paged]);
-  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
-  const somePageSelected = !allPageSelected && pageIds.some((id) => selected.has(id));
+  const pageIds = React.useMemo(
+    () => paged.map((s) => s.enroleeNumber),
+    [paged]
+  );
+  const allPageSelected =
+    pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+  const somePageSelected =
+    !allPageSelected && pageIds.some((id) => selected.has(id));
 
   function togglePage(checked: boolean) {
     setSelected((prev) => {
@@ -314,14 +391,17 @@ export function DocumentCompletenessTable(props: Props) {
   }
 
   const bulkItems = React.useMemo(() => {
-    if (!bulkRemindEnabled || selected.size === 0) return [] as BulkNotifyItem[];
+    if (!bulkRemindEnabled || selected.size === 0)
+      return [] as BulkNotifyItem[];
     const out: BulkNotifyItem[] = [];
     for (const s of filtered) {
       if (!selected.has(s.enroleeNumber)) continue;
       if (module === 'admissions') {
         out.push(...admissionsBulkTargets(s as AdmissionsCompleteness));
       } else {
-        out.push(...pfilesBulkTargets(s as StudentCompleteness, bulkRemindWindowDays));
+        out.push(
+          ...pfilesBulkTargets(s as StudentCompleteness, bulkRemindWindowDays)
+        );
       }
     }
     return out;
@@ -351,7 +431,9 @@ export function DocumentCompletenessTable(props: Props) {
       : 'No students match the current filters.';
   const countLabel = module === 'admissions' ? 'applicant' : 'student';
   const cardTitle =
-    module === 'admissions' ? 'Applicant Document Completeness' : 'Document Completeness';
+    module === 'admissions'
+      ? 'Applicant Document Completeness'
+      : 'Document Completeness';
   const cardDescription =
     module === 'admissions'
       ? 'Pre-enrolment scope — Submitted / Ongoing Verification / Processing. Click a row to view the application.'
@@ -424,10 +506,7 @@ export function DocumentCompletenessTable(props: Props) {
           )}
 
           {/* Status filter */}
-          <Select
-            value={statusFilter}
-            onValueChange={setStatusFilter}
-          >
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="h-9 w-[180px]">
               <SelectValue />
             </SelectTrigger>
@@ -435,13 +514,23 @@ export function DocumentCompletenessTable(props: Props) {
               <SelectItem value="all">All statuses</SelectItem>
               {module === 'admissions' ? (
                 <>
-                  <SelectItem value="to-follow">{TABLE_COPY.awaitingParentReply}</SelectItem>
-                  <SelectItem value="rejected">{TABLE_COPY.sentBackToParent}</SelectItem>
-                  <SelectItem value="uploaded">{TABLE_COPY.awaitingValidation}</SelectItem>
-                  <SelectItem value="expired">{TABLE_COPY.lapsedReupload}</SelectItem>
+                  <SelectItem value="to-follow">
+                    {TABLE_COPY.awaitingParentReply}
+                  </SelectItem>
+                  <SelectItem value="rejected">
+                    {TABLE_COPY.sentBackToParent}
+                  </SelectItem>
+                  <SelectItem value="uploaded">
+                    {TABLE_COPY.awaitingValidation}
+                  </SelectItem>
+                  <SelectItem value="expired">
+                    {TABLE_COPY.lapsedReupload}
+                  </SelectItem>
                 </>
               ) : (
-                <SelectItem value="expired">{TABLE_COPY.lapsedReupload}</SelectItem>
+                <SelectItem value="expired">
+                  {TABLE_COPY.lapsedReupload}
+                </SelectItem>
               )}
             </SelectContent>
           </Select>
@@ -478,20 +567,30 @@ export function DocumentCompletenessTable(props: Props) {
                     <Checkbox
                       aria-label="Select all on this page"
                       checked={
-                        allPageSelected ? true : somePageSelected ? 'indeterminate' : false
+                        allPageSelected
+                          ? true
+                          : somePageSelected
+                            ? 'indeterminate'
+                            : false
                       }
                       onCheckedChange={(v) => togglePage(v === true)}
                     />
                   </TableHead>
                 )}
-                <TableHead className="sticky left-0 bg-muted/40 px-4">{identifierLabel}</TableHead>
+                <TableHead className="sticky left-0 bg-muted/40 px-4">
+                  {identifierLabel}
+                </TableHead>
                 <TableHead className="whitespace-nowrap px-2">Level</TableHead>
 
                 {/* 4th column: applicationStatus (admissions) vs Section (p-files) */}
                 {module === 'admissions' ? (
-                  <TableHead className="whitespace-nowrap px-2">Status</TableHead>
+                  <TableHead className="whitespace-nowrap px-2">
+                    Status
+                  </TableHead>
                 ) : (
-                  <TableHead className="whitespace-nowrap px-2">Section</TableHead>
+                  <TableHead className="whitespace-nowrap px-2">
+                    Section
+                  </TableHead>
                 )}
 
                 {slotHeaders.map((h) => (
@@ -522,20 +621,27 @@ export function DocumentCompletenessTable(props: Props) {
               ) : (
                 paged.map((s) => {
                   const rowPct = pct(s.total, s.complete);
-                  const slotMap = new Map(s.slots.map((sl) => [sl.key, sl.status]));
+                  const slotMap = new Map(
+                    s.slots.map((sl) => [sl.key, sl.status])
+                  );
                   const isSelected = selected.has(s.enroleeNumber);
 
                   // Identifier link: KD #81 — linkified primary identifier
                   const href = actionHref(s.enroleeNumber);
 
                   return (
-                    <TableRow key={s.enroleeNumber} data-selected={isSelected || undefined}>
+                    <TableRow
+                      key={s.enroleeNumber}
+                      data-selected={isSelected || undefined}
+                    >
                       {bulkRemindEnabled && (
                         <TableCell className="px-2">
                           <Checkbox
                             aria-label={`Select ${s.fullName}`}
                             checked={isSelected}
-                            onCheckedChange={(v) => toggleRow(s.enroleeNumber, v === true)}
+                            onCheckedChange={(v) =>
+                              toggleRow(s.enroleeNumber, v === true)
+                            }
                           />
                         </TableCell>
                       )}
@@ -560,7 +666,8 @@ export function DocumentCompletenessTable(props: Props) {
                       {/* 4th col: applicationStatus vs section */}
                       {module === 'admissions' ? (
                         <TableCell className="whitespace-nowrap px-2 text-xs text-muted-foreground">
-                          {(s as AdmissionsCompleteness).applicationStatus ?? '—'}
+                          {(s as AdmissionsCompleteness).applicationStatus ??
+                            '—'}
                         </TableCell>
                       ) : (
                         <TableCell className="whitespace-nowrap px-2 text-xs text-muted-foreground">
@@ -575,7 +682,9 @@ export function DocumentCompletenessTable(props: Props) {
                             {status ? (
                               <StatusDot status={status} />
                             ) : (
-                              <span className="text-[10px] text-muted-foreground">—</span>
+                              <span className="text-[10px] text-muted-foreground">
+                                —
+                              </span>
                             )}
                           </TableCell>
                         );
@@ -609,7 +718,8 @@ export function DocumentCompletenessTable(props: Props) {
       {/* Pagination */}
       <div className="flex flex-col-reverse items-start gap-3 border-t border-border px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="font-mono text-[11px] tabular-nums text-muted-foreground">
-          {filtered.length} {filtered.length === 1 ? countLabel : `${countLabel}s`}
+          {filtered.length}{' '}
+          {filtered.length === 1 ? countLabel : `${countLabel}s`}
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
@@ -663,7 +773,9 @@ export function DocumentCompletenessTable(props: Props) {
               variant="outline"
               size="icon"
               className="size-8"
-              onClick={() => setPageIndex((p) => Math.min(pageCount - 1, p + 1))}
+              onClick={() =>
+                setPageIndex((p) => Math.min(pageCount - 1, p + 1))
+              }
               disabled={pageIndex >= pageCount - 1}
             >
               <ChevronRight className="h-4 w-4" />
@@ -687,15 +799,21 @@ export function DocumentCompletenessTable(props: Props) {
           <div className="flex items-center gap-3">
             <Mail className="size-4 text-brand-amber" />
             <span className="text-sm">
-              {selected.size} {selected.size === 1 ? countLabel : `${countLabel}s`} selected
+              {selected.size}{' '}
+              {selected.size === 1 ? countLabel : `${countLabel}s`} selected
               {' · '}
               <span className="font-mono text-[11px] text-muted-foreground">
-                {bulkItems.length} reminder{bulkItems.length === 1 ? '' : 's'} queued
+                {bulkItems.length} reminder{bulkItems.length === 1 ? '' : 's'}{' '}
+                queued
               </span>
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelected(new Set())}
+            >
               Clear
             </Button>
             <Button

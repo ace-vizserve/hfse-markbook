@@ -14,23 +14,23 @@
 
 ## File structure
 
-| Path | Action | Responsibility |
-|------|--------|----------------|
-| `lib/audit/log-action.ts` | Modify | Add `'sis.documents.auto-expire'` to `AuditAction`; widen `actor.id` to `string \| null` for system actions |
-| `lib/sis/freshen-document-statuses.ts` | Create | `freshenAyDocuments(ayCode)` — parallel UPDATEs, 60s `unstable_cache`, audit on flip |
-| `app/(admissions)/admissions/page.tsx` | Modify | One-line `await freshenAyDocuments(selectedAy)` |
-| `app/(records)/records/page.tsx` | Modify | Same |
-| `app/(p-files)/p-files/page.tsx` | Modify | Same |
-| `app/(admissions)/admissions/applications/[enroleeNumber]/page.tsx` | Modify | Same |
-| `app/(records)/records/students/[studentNumber]/page.tsx` | Modify | Same |
-| `app/(records)/records/students/by-enrolee/[enroleeNumber]/page.tsx` | Modify | Same |
-| `app/(p-files)/p-files/[enroleeNumber]/page.tsx` | Modify | Same |
-| `lib/sis/process.ts` | Modify | Extend `scanDocStatusForActionFlags` with `hasExpiringSoon` |
-| `lib/sis/document-chase-queue.ts` | Modify | Export `EXPIRING_SOON_THRESHOLD_DAYS = 30`; widen SELECT to include expiry columns; add `expiringSoon` count |
-| `components/sis/document-chase-queue-strip.tsx` | Modify | 4th tile `awaiting-expiring-documents`; grid widens to 4 columns; total includes `expiringSoon` |
-| `lib/sis/drill.ts` | Modify | New target `'awaiting-expiring-documents'`; row fields `expiringSlots[]` + `daysLeft`; switch case; column-key extensions; default-columns + header |
-| `components/sis/drills/lifecycle-drill-sheet.tsx` | Modify | Column renderers for `expiringSlots` + `daysLeft` |
-| `app/api/sis/drill/[target]/route.ts` | Modify | CSV-cell cases for `expiringSlots` + `daysLeft` |
+| Path                                                                 | Action | Responsibility                                                                                                                                      |
+| -------------------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/audit/log-action.ts`                                            | Modify | Add `'sis.documents.auto-expire'` to `AuditAction`; widen `actor.id` to `string \| null` for system actions                                         |
+| `lib/sis/freshen-document-statuses.ts`                               | Create | `freshenAyDocuments(ayCode)` — parallel UPDATEs, 60s `unstable_cache`, audit on flip                                                                |
+| `app/(admissions)/admissions/page.tsx`                               | Modify | One-line `await freshenAyDocuments(selectedAy)`                                                                                                     |
+| `app/(records)/records/page.tsx`                                     | Modify | Same                                                                                                                                                |
+| `app/(p-files)/p-files/page.tsx`                                     | Modify | Same                                                                                                                                                |
+| `app/(admissions)/admissions/applications/[enroleeNumber]/page.tsx`  | Modify | Same                                                                                                                                                |
+| `app/(records)/records/students/[studentNumber]/page.tsx`            | Modify | Same                                                                                                                                                |
+| `app/(records)/records/students/by-enrolee/[enroleeNumber]/page.tsx` | Modify | Same                                                                                                                                                |
+| `app/(p-files)/p-files/[enroleeNumber]/page.tsx`                     | Modify | Same                                                                                                                                                |
+| `lib/sis/process.ts`                                                 | Modify | Extend `scanDocStatusForActionFlags` with `hasExpiringSoon`                                                                                         |
+| `lib/sis/document-chase-queue.ts`                                    | Modify | Export `EXPIRING_SOON_THRESHOLD_DAYS = 30`; widen SELECT to include expiry columns; add `expiringSoon` count                                        |
+| `components/sis/document-chase-queue-strip.tsx`                      | Modify | 4th tile `awaiting-expiring-documents`; grid widens to 4 columns; total includes `expiringSoon`                                                     |
+| `lib/sis/drill.ts`                                                   | Modify | New target `'awaiting-expiring-documents'`; row fields `expiringSlots[]` + `daysLeft`; switch case; column-key extensions; default-columns + header |
+| `components/sis/drills/lifecycle-drill-sheet.tsx`                    | Modify | Column renderers for `expiringSlots` + `daysLeft`                                                                                                   |
+| `app/api/sis/drill/[target]/route.ts`                                | Modify | CSV-cell cases for `expiringSlots` + `daysLeft`                                                                                                     |
 
 15 files total. **No DB migration. No new dependency. No new env var. No new API route.**
 
@@ -43,6 +43,7 @@
 **Goal:** Add the new audit action enum entry and widen `actor.id` to `string | null` so system actions can pass `null` (the audit_log schema already permits null actor_id per migration 006).
 
 **Files:**
+
 - Modify: `lib/audit/log-action.ts`
 
 - [ ] **Step 1: Add `'sis.documents.auto-expire'` to the `AuditAction` enum**
@@ -73,7 +74,9 @@ Change to:
 ```ts
 type LogActionParams = {
   service: SupabaseClient;
-  actor: Pick<User, 'id' | 'email'> | { id: string | null; email: string | null };
+  actor:
+    | Pick<User, 'id' | 'email'>
+    | { id: string | null; email: string | null };
   action: AuditAction;
   entityType: AuditEntityType;
   entityId?: string | null;
@@ -110,6 +113,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Goal:** The auto-flip helper. Wraps `unstable_cache` (60s TTL, tag `sis:${ayCode}`) around an internal `freshenAyDocumentsUncached` that runs 8 parallel `UPDATE`s and audits one batched row when flips happened.
 
 **Files:**
+
 - Create: `lib/sis/freshen-document-statuses.ts`
 
 - [ ] **Step 1: Write the file**
@@ -153,7 +157,9 @@ function prefixFor(ayCode: string): string {
   return `ay${ayCode.replace(/^AY/i, '').toLowerCase()}`;
 }
 
-async function freshenAyDocumentsUncached(ayCode: string): Promise<FreshenResult> {
+async function freshenAyDocumentsUncached(
+  ayCode: string
+): Promise<FreshenResult> {
   const result: FreshenResult = {
     flippedCount: 0,
     flippedBySlot: {},
@@ -182,13 +188,16 @@ async function freshenAyDocumentsUncached(ayCode: string): Promise<FreshenResult
         if (error) {
           console.warn(
             `[sis/freshen-documents] flip failed for ${slot.key} in ${ayCode}:`,
-            error.message,
+            error.message
           );
-          return { slotKey: slot.key, flipped: [] as Array<{ enroleeNumber: string | null }> };
+          return {
+            slotKey: slot.key,
+            flipped: [] as Array<{ enroleeNumber: string | null }>,
+          };
         }
 
         return { slotKey: slot.key, flipped: data ?? [] };
-      }),
+      })
     );
 
     for (const { slotKey, flipped } of slotResults) {
@@ -204,7 +213,7 @@ async function freshenAyDocumentsUncached(ayCode: string): Promise<FreshenResult
     // Catch-all: never break a page render because freshen failed.
     console.warn(
       `[sis/freshen-documents] unexpected failure for ${ayCode}:`,
-      e instanceof Error ? e.message : String(e),
+      e instanceof Error ? e.message : String(e)
     );
     return result;
   }
@@ -230,7 +239,7 @@ async function freshenAyDocumentsUncached(ayCode: string): Promise<FreshenResult
     } catch (e) {
       console.warn(
         `[sis/freshen-documents] audit log failed for ${ayCode}:`,
-        e instanceof Error ? e.message : String(e),
+        e instanceof Error ? e.message : String(e)
       );
     }
   }
@@ -245,7 +254,7 @@ export function freshenAyDocuments(ayCode: string): Promise<FreshenResult> {
     {
       revalidate: CACHE_TTL_SECONDS,
       tags: ['sis', `sis:${ayCode}`],
-    },
+    }
   )();
 }
 ```
@@ -281,6 +290,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Goal:** Add a single `await freshenAyDocuments(selectedAy)` call at the top of the admissions dashboard RSC, after `selectedAy` is resolved and before the existing `Promise.all([...])` data fetches.
 
 **Files:**
+
 - Modify: `app/(admissions)/admissions/page.tsx`
 
 - [ ] **Step 1: Add the import**
@@ -288,7 +298,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 In `app/(admissions)/admissions/page.tsx`, find the existing `import { ... } from "@/lib/sis/...";` block. Add:
 
 ```ts
-import { freshenAyDocuments } from "@/lib/sis/freshen-document-statuses";
+import { freshenAyDocuments } from '@/lib/sis/freshen-document-statuses';
 ```
 
 Place it alphabetically alongside the other `lib/sis/...` imports.
@@ -300,10 +310,10 @@ Find the line where `selectedAy` is resolved (around line 87 — the `const sele
 Insert this line BEFORE the `await Promise.all` (and after any sequential `await` calls that don't depend on doc statuses, e.g. `getDashboardWindows`):
 
 ```ts
-  // Auto-flip any expired-but-still-Valid doc statuses for this AY before
-  // the dashboard reads the column. Cached 60s; existing PATCH routes
-  // invalidate via the sis:${ayCode} tag.
-  await freshenAyDocuments(selectedAy);
+// Auto-flip any expired-but-still-Valid doc statuses for this AY before
+// the dashboard reads the column. Cached 60s; existing PATCH routes
+// invalidate via the sis:${ayCode} tag.
+await freshenAyDocuments(selectedAy);
 ```
 
 The result is unused; the side effect (DB UPDATE if applicable) is what matters.
@@ -333,6 +343,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Goal:** Same one-line freshen at the top of the records dashboard RSC.
 
 **Files:**
+
 - Modify: `app/(records)/records/page.tsx`
 
 - [ ] **Step 1: Add the import**
@@ -340,7 +351,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 In `app/(records)/records/page.tsx`, alongside the other `@/lib/sis/...` imports, add:
 
 ```ts
-import { freshenAyDocuments } from "@/lib/sis/freshen-document-statuses";
+import { freshenAyDocuments } from '@/lib/sis/freshen-document-statuses';
 ```
 
 - [ ] **Step 2: Insert the freshen call**
@@ -348,8 +359,8 @@ import { freshenAyDocuments } from "@/lib/sis/freshen-document-statuses";
 Find the `const selectedAy = ...` assignment. Locate the `await Promise.all([...])` invocation that follows it. Insert before the `Promise.all`:
 
 ```ts
-  // Auto-flip any expired-but-still-Valid doc statuses for this AY.
-  await freshenAyDocuments(selectedAy);
+// Auto-flip any expired-but-still-Valid doc statuses for this AY.
+await freshenAyDocuments(selectedAy);
 ```
 
 - [ ] **Step 3: Verify the build**
@@ -376,6 +387,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Goal:** Same one-line freshen at the top of the P-Files dashboard RSC.
 
 **Files:**
+
 - Modify: `app/(p-files)/p-files/page.tsx`
 
 - [ ] **Step 1: Add the import**
@@ -383,7 +395,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 In `app/(p-files)/p-files/page.tsx`, alongside the other `@/lib/sis/...` imports, add:
 
 ```ts
-import { freshenAyDocuments } from "@/lib/sis/freshen-document-statuses";
+import { freshenAyDocuments } from '@/lib/sis/freshen-document-statuses';
 ```
 
 - [ ] **Step 2: Insert the freshen call**
@@ -391,8 +403,8 @@ import { freshenAyDocuments } from "@/lib/sis/freshen-document-statuses";
 Find the `const selectedAy = ...` assignment. Insert before the `Promise.all([...])`:
 
 ```ts
-  // Auto-flip any expired-but-still-Valid doc statuses for this AY.
-  await freshenAyDocuments(selectedAy);
+// Auto-flip any expired-but-still-Valid doc statuses for this AY.
+await freshenAyDocuments(selectedAy);
 ```
 
 - [ ] **Step 3: Verify the build**
@@ -418,6 +430,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Goal:** Same call on the applicant detail RSC. Covers direct-link case (admin opens email link to a student profile without first opening any dashboard).
 
 **Files:**
+
 - Modify: `app/(admissions)/admissions/applications/[enroleeNumber]/page.tsx`
 
 - [ ] **Step 1: Add the import**
@@ -425,7 +438,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 In `app/(admissions)/admissions/applications/[enroleeNumber]/page.tsx`, add:
 
 ```ts
-import { freshenAyDocuments } from "@/lib/sis/freshen-document-statuses";
+import { freshenAyDocuments } from '@/lib/sis/freshen-document-statuses';
 ```
 
 alongside the other `@/lib/sis/...` imports.
@@ -435,7 +448,7 @@ alongside the other `@/lib/sis/...` imports.
 Find where the AY code is resolved on this page (the page must determine which AY's documents row to display — search for `ayCode` or similar). The applicant detail page resolves AY from the student's primary record; once you have the AY code in scope, insert before the data-fetch `Promise.all`:
 
 ```ts
-  await freshenAyDocuments(ayCode);  // or whatever the local variable is named
+await freshenAyDocuments(ayCode); // or whatever the local variable is named
 ```
 
 If the variable is named differently (e.g. `selectedAy`, `studentAy`, or just `ay`), adjust to match the local scope. The function signature is `freshenAyDocuments(ayCode: string)` — pass whatever resolves to the AY string.
@@ -466,6 +479,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Goal:** Same call on the records student-by-studentNumber detail page.
 
 **Files:**
+
 - Modify: `app/(records)/records/students/[studentNumber]/page.tsx`
 
 - [ ] **Step 1: Add the import**
@@ -473,7 +487,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 In `app/(records)/records/students/[studentNumber]/page.tsx`, add:
 
 ```ts
-import { freshenAyDocuments } from "@/lib/sis/freshen-document-statuses";
+import { freshenAyDocuments } from '@/lib/sis/freshen-document-statuses';
 ```
 
 - [ ] **Step 2: Insert the freshen call**
@@ -481,7 +495,7 @@ import { freshenAyDocuments } from "@/lib/sis/freshen-document-statuses";
 Once the AY code is resolved in this page's scope, insert before the doc-reading data fetches:
 
 ```ts
-  await freshenAyDocuments(ayCode);  // adjust local variable name
+await freshenAyDocuments(ayCode); // adjust local variable name
 ```
 
 - [ ] **Step 3: Verify the build**
@@ -507,12 +521,13 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Goal:** Same call on the records student-by-enroleeNumber detail page.
 
 **Files:**
+
 - Modify: `app/(records)/records/students/by-enrolee/[enroleeNumber]/page.tsx`
 
 - [ ] **Step 1: Add the import**
 
 ```ts
-import { freshenAyDocuments } from "@/lib/sis/freshen-document-statuses";
+import { freshenAyDocuments } from '@/lib/sis/freshen-document-statuses';
 ```
 
 - [ ] **Step 2: Insert the freshen call**
@@ -520,7 +535,7 @@ import { freshenAyDocuments } from "@/lib/sis/freshen-document-statuses";
 Once the AY code is resolved, insert:
 
 ```ts
-  await freshenAyDocuments(ayCode);
+await freshenAyDocuments(ayCode);
 ```
 
 - [ ] **Step 3: Verify the build**
@@ -546,12 +561,13 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Goal:** Same call on the P-Files student detail page.
 
 **Files:**
+
 - Modify: `app/(p-files)/p-files/[enroleeNumber]/page.tsx`
 
 - [ ] **Step 1: Add the import**
 
 ```ts
-import { freshenAyDocuments } from "@/lib/sis/freshen-document-statuses";
+import { freshenAyDocuments } from '@/lib/sis/freshen-document-statuses';
 ```
 
 - [ ] **Step 2: Insert the freshen call**
@@ -559,7 +575,7 @@ import { freshenAyDocuments } from "@/lib/sis/freshen-document-statuses";
 Once the AY code is resolved, insert:
 
 ```ts
-  await freshenAyDocuments(ayCode);
+await freshenAyDocuments(ayCode);
 ```
 
 - [ ] **Step 3: Verify the build**
@@ -587,6 +603,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Goal:** The shared scan helper from the previous "To follow" sprint gets a 4th boolean flag — `hasExpiringSoon` — that is true when at least one slot has `<slot>Status === 'Valid'` AND `<slot>Expiry` is between today (inclusive) and today+30 days (inclusive).
 
 **Files:**
+
 - Modify: `lib/sis/process.ts`
 
 - [ ] **Step 1: Export `EXPIRING_SOON_THRESHOLD_DAYS` constant**
@@ -634,7 +651,7 @@ In `lib/sis/process.ts`, find the `scanDocStatusForActionFlags` function. Replac
 
 ```ts
 export function scanDocStatusForActionFlags(
-  docs: Record<string, string | null> | undefined,
+  docs: Record<string, string | null> | undefined
 ): DocStatusActionFlags {
   const out: DocStatusActionFlags = {
     hasRevalidation: false,
@@ -715,6 +732,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Goal:** The chase-queue loader gains a 4th counter — `expiringSoon` — that is incremented per row whose `hasExpiringSoon` flag is true. Also widens the SELECT to include the 8 expiring slots' `*Expiry` columns so the helper has the data it needs.
 
 **Files:**
+
 - Modify: `lib/sis/document-chase-queue.ts`
 
 - [ ] **Step 1: Extend the return type**
@@ -840,6 +858,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Goal:** The chase strip gains an "Expiring soon" tile (severity warn, lucide icon `CalendarClock`). Grid widens from 3 columns to 4. The `valueByTarget` map maps the new target key to the new count.
 
 **Files:**
+
 - Modify: `components/sis/document-chase-queue-strip.tsx`
 
 - [ ] **Step 1: Update the lucide imports**
@@ -853,7 +872,12 @@ import { AlertTriangle, FileWarning, MailQuestion } from 'lucide-react';
 Change to:
 
 ```ts
-import { AlertTriangle, CalendarClock, FileWarning, MailQuestion } from 'lucide-react';
+import {
+  AlertTriangle,
+  CalendarClock,
+  FileWarning,
+  MailQuestion,
+} from 'lucide-react';
 ```
 
 - [ ] **Step 2: Add the 4th tile to the `TILES` array**
@@ -877,43 +901,46 @@ The full `TILES` array is now 4 entries.
 Find the lines:
 
 ```ts
-  const total = counts.promised + counts.validation + counts.revalidation;
+const total = counts.promised + counts.validation + counts.revalidation;
 
-  if (total === 0) return null;
+if (total === 0) return null;
 
-  const valueByTarget: Record<LifecycleDrillTarget, number | undefined> = {
-    'awaiting-fee-payment': undefined,
-    'awaiting-document-revalidation': counts.revalidation,
-    'awaiting-document-validation': counts.validation,
-    'awaiting-promised-documents': counts.promised,
-    'awaiting-assessment-schedule': undefined,
-    'awaiting-contract-signature': undefined,
-    'missing-class-assignment': undefined,
-    'ungated-to-enroll': undefined,
-    'new-applications': undefined,
-  };
+const valueByTarget: Record<LifecycleDrillTarget, number | undefined> = {
+  'awaiting-fee-payment': undefined,
+  'awaiting-document-revalidation': counts.revalidation,
+  'awaiting-document-validation': counts.validation,
+  'awaiting-promised-documents': counts.promised,
+  'awaiting-assessment-schedule': undefined,
+  'awaiting-contract-signature': undefined,
+  'missing-class-assignment': undefined,
+  'ungated-to-enroll': undefined,
+  'new-applications': undefined,
+};
 ```
 
 Change to:
 
 ```ts
-  const total =
-    counts.promised + counts.validation + counts.revalidation + counts.expiringSoon;
+const total =
+  counts.promised +
+  counts.validation +
+  counts.revalidation +
+  counts.expiringSoon;
 
-  if (total === 0) return null;
+if (total === 0) return null;
 
-  const valueByTarget: Record<LifecycleDrillTarget, number | undefined> = {
-    'awaiting-fee-payment': undefined,
-    'awaiting-document-revalidation': counts.revalidation,
-    'awaiting-document-validation': counts.validation,
-    'awaiting-promised-documents': counts.promised,
-    'awaiting-expiring-documents': counts.expiringSoon,
-    'awaiting-assessment-schedule': undefined,
-    'awaiting-contract-signature': undefined,
-    'missing-class-assignment': undefined,
-    'ungated-to-enroll': undefined,
-    'new-applications': undefined,
-  };
+const valueByTarget: Record<LifecycleDrillTarget, number | undefined> = {
+  'awaiting-fee-payment': undefined,
+  'awaiting-document-revalidation': counts.revalidation,
+  'awaiting-document-validation': counts.validation,
+  'awaiting-promised-documents': counts.promised,
+  'awaiting-expiring-documents': counts.expiringSoon,
+  'awaiting-assessment-schedule': undefined,
+  'awaiting-contract-signature': undefined,
+  'missing-class-assignment': undefined,
+  'ungated-to-enroll': undefined,
+  'new-applications': undefined,
+};
 ```
 
 (Note: the literal `'awaiting-expiring-documents'` in the type-key position will fail TS exhaustiveness until Task 13 extends the `LifecycleDrillTarget` union. Tasks 12 + 13 are tightly coupled — do them together if the build fails between them.)
@@ -938,8 +965,9 @@ This collapses gracefully on tablet (2 columns) and lays out flat on desktop (4 
 
 Run: `npx next build`
 Expected: TypeScript may complain about `'awaiting-expiring-documents'` not being a valid `LifecycleDrillTarget` literal. **That's expected — Task 13 extends the union.** Proceed to Task 13 immediately and re-build then. If the TS error blocks the strip build entirely, you can either:
-  - (a) Continue to Task 13 first, then come back and finalize this task's commit when both are done.
-  - (b) Use `as LifecycleDrillTarget` cast as a temporary bridge — but Task 13 will remove the need.
+
+- (a) Continue to Task 13 first, then come back and finalize this task's commit when both are done.
+- (b) Use `as LifecycleDrillTarget` cast as a temporary bridge — but Task 13 will remove the need.
 
 - [ ] **Step 6: Commit (after Task 13 if exhaustiveness blocked the build)**
 
@@ -961,6 +989,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Goal:** Extend `lib/sis/drill.ts` end-to-end to register the new drill target. Mirrors the pattern of the 3 existing doc-chase drill targets (revalidation, validation, promised).
 
 **Files:**
+
 - Modify: `lib/sis/drill.ts`
 
 - [ ] **Step 1: Add `EXPIRING_SOON_THRESHOLD_DAYS` import**
@@ -1104,8 +1133,8 @@ Find:
 export type LifecycleDrillColumnKey =
   | 'enroleeNumber'
   // ...
-  | 'promisedSlots'
-  // ...
+  | 'promisedSlots';
+// ...
 ```
 
 Insert `| 'expiringSlots'` and `| 'daysLeft'` directly after `| 'promisedSlots'`:
@@ -1190,6 +1219,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 **Goal:** The lifecycle drill sheet renders the new `expiringSlots` and `daysLeft` columns. The drill API route's CSV exporter handles them in its `csvCell` switch.
 
 **Files:**
+
 - Modify: `components/sis/drills/lifecycle-drill-sheet.tsx`
 - Modify: `app/api/sis/drill/[target]/route.ts`
 

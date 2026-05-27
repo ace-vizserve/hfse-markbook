@@ -27,13 +27,29 @@ type PublicationStatus = ReportCardsRosterRow['publication_status'];
 function PublicationStatusBadge({ status }: { status: PublicationStatus }) {
   switch (status) {
     case 'published':
-      return <StatusBadge tone="healthy" icon={CheckCircle2}>Published</StatusBadge>;
+      return (
+        <StatusBadge tone="healthy" icon={CheckCircle2}>
+          Published
+        </StatusBadge>
+      );
     case 'scheduled':
-      return <StatusBadge tone="warning" icon={CalendarClock}>Scheduled</StatusBadge>;
+      return (
+        <StatusBadge tone="warning" icon={CalendarClock}>
+          Scheduled
+        </StatusBadge>
+      );
     case 'closed':
-      return <StatusBadge tone="locked" icon={Lock}>Closed</StatusBadge>;
+      return (
+        <StatusBadge tone="locked" icon={Lock}>
+          Closed
+        </StatusBadge>
+      );
     default:
-      return <StatusBadge tone="muted" icon={Clock}>Awaiting publication</StatusBadge>;
+      return (
+        <StatusBadge tone="muted" icon={Clock}>
+          Awaiting publication
+        </StatusBadge>
+      );
   }
 }
 
@@ -42,27 +58,37 @@ const COLUMNS: ColumnDef<ReportCardsRosterRow>[] = [
     accessorKey: 'index_number',
     header: ({ column }) => <SortableHeader column={column}>#</SortableHeader>,
     cell: ({ row }) => (
-      <span className="font-mono tabular-nums text-muted-foreground">{row.original.index_number}</span>
+      <span className="font-mono tabular-nums text-muted-foreground">
+        {row.original.index_number}
+      </span>
     ),
   },
   {
     accessorKey: 'student_number',
     header: 'Student number',
     cell: ({ row }) => (
-      <span className="font-mono tabular-nums">{row.original.student_number || '—'}</span>
+      <span className="font-mono tabular-nums">
+        {row.original.student_number || '—'}
+      </span>
     ),
   },
   {
     accessorKey: 'name',
-    header: ({ column }) => <SortableHeader column={column}>Name</SortableHeader>,
+    header: ({ column }) => (
+      <SortableHeader column={column}>Name</SortableHeader>
+    ),
     cell: ({ row }) => {
       if (row.original.withdrawn) {
         return (
-          <span className="font-medium line-through text-muted-foreground">{row.original.name}</span>
+          <span className="font-medium line-through text-muted-foreground">
+            {row.original.name}
+          </span>
         );
       }
       return (
-        <IdentifierLink href={`/markbook/report-cards/${row.original.student_id}`}>
+        <IdentifierLink
+          href={`/markbook/report-cards/${row.original.student_id}`}
+        >
           {row.original.name}
         </IdentifierLink>
       );
@@ -71,7 +97,9 @@ const COLUMNS: ColumnDef<ReportCardsRosterRow>[] = [
   {
     accessorKey: 'publication_status',
     header: 'Publication',
-    cell: ({ row }) => <PublicationStatusBadge status={row.original.publication_status} />,
+    cell: ({ row }) => (
+      <PublicationStatusBadge status={row.original.publication_status} />
+    ),
     filterFn: (row, id, value) => {
       if (!value || (Array.isArray(value) && value.length === 0)) return true;
       return Array.isArray(value)
@@ -96,11 +124,16 @@ const STATUS_TABS: StatusTabConfig<ReportCardsRosterRow>[] = [
   {
     value: 'awaiting',
     label: 'Awaiting publication',
-    predicate: (r) => r.publication_status === 'none' || r.publication_status === 'scheduled',
+    predicate: (r) =>
+      r.publication_status === 'none' || r.publication_status === 'scheduled',
   },
 ];
 
-export function ReportCardsRosterTable({ data }: { data: ReportCardsRosterRow[] }) {
+export function ReportCardsRosterTable({
+  data,
+}: {
+  data: ReportCardsRosterRow[];
+}) {
   return (
     <DataTable<ReportCardsRosterRow>
       data={data}

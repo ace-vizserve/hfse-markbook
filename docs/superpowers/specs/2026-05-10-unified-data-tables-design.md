@@ -129,8 +129,8 @@ type DataTableProps<TRow> = {
   facets?: Array<{
     columnId: string;
     label: string;
-    valueOptions?: string[];      // override faceted unique values (curated lists)
-    showUnassigned?: boolean;     // append "(unassigned)" pseudo
+    valueOptions?: string[]; // override faceted unique values (curated lists)
+    showUnassigned?: boolean; // append "(unassigned)" pseudo
   }>;
 
   statusTabs?: Array<{
@@ -138,27 +138,27 @@ type DataTableProps<TRow> = {
     label: string;
     predicate: (row: TRow) => boolean;
     isDefault?: boolean;
-    countOverride?: (rows: TRow[]) => number;  // when count differs from predicate match
+    countOverride?: (rows: TRow[]) => number; // when count differs from predicate match
   }>;
 
   meScope?: {
     userId: string | null;
-    label: string;                 // "My sheets" / "My requests"
+    label: string; // "My sheets" / "My requests"
     icon?: LucideIcon;
     predicate: (row: TRow, userId: string) => boolean;
   };
 
   // Toolbar escape hatches
-  toolbarLeading?: ReactNode;      // custom controls prepended to toolbar
-  toolbarTrailing?: ReactNode;     // custom controls appended to toolbar (before column toggle)
+  toolbarLeading?: ReactNode; // custom controls prepended to toolbar
+  toolbarTrailing?: ReactNode; // custom controls appended to toolbar (before column toggle)
 
   // Sort
   initialSort?: SortingState;
 
   // Pagination
-  pageSize?: number;               // default 20
-  pageSizeOptions?: number[];      // default [10, 20, 50, 100]
-  hidePagination?: boolean;        // for tables capped to small row counts
+  pageSize?: number; // default 20
+  pageSizeOptions?: number[]; // default [10, 20, 50, 100]
+  hidePagination?: boolean; // for tables capped to small row counts
 
   // Selection + bulk
   selection?: {
@@ -175,18 +175,21 @@ type DataTableProps<TRow> = {
   // CSV export
   csv?: {
     filename: string;
-    columns?: Array<{ header: string; accessor: (row: TRow) => string | number | null }>;
+    columns?: Array<{
+      header: string;
+      accessor: (row: TRow) => string | number | null;
+    }>;
     // If omitted, derives from visible columns + their accessor keys
   };
 
   // URL state
   url?: {
     enabled: boolean;
-    namespace?: string;            // for multi-table pages (rare)
+    namespace?: string; // for multi-table pages (rare)
     paramKeys?: {
-      search?: string;             // default 'q'
-      status?: string;             // default 'status'
-      mine?: string;               // default 'mine'
+      search?: string; // default 'q'
+      status?: string; // default 'status'
+      mine?: string; // default 'mine'
       // facets default to facet.columnId
     };
   };
@@ -194,14 +197,14 @@ type DataTableProps<TRow> = {
   // Empty states
   emptyState?: {
     icon?: LucideIcon;
-    title: string;                 // serif
+    title: string; // serif
     body?: string;
     cta?: { label: string; href?: string; onClick?: () => void };
   };
   emptyFilteredState?: { title: string; body?: string };
 
   initialColumnVisibility?: VisibilityState;
-  stickyHeader?: boolean;          // default false
+  stickyHeader?: boolean; // default false
 };
 ```
 
@@ -224,12 +227,7 @@ Replaces `stp-cohort-table.tsx` / `promised-cohort-table.tsx` / `pass-expiry-coh
 type CohortKind = 'stp' | 'promised' | 'pass-expiry' | 'medical';
 type CohortScope = 'enrolled' | 'funnel';
 
-<CohortTable
-  kind="stp"
-  scope="enrolled"
-  ayCode={ayCode}
-  rows={rows}
-/>
+<CohortTable kind="stp" scope="enrolled" ayCode={ayCode} rows={rows} />;
 ```
 
 Internal implementation:
@@ -250,11 +248,11 @@ Replaces the line-for-line clone pair (`components/admissions/completeness-table
 
 ```tsx
 <DocumentCompletenessTable
-  module="p-files"                  // or "admissions"
+  module="p-files" // or "admissions"
   rows={rows}
-  slotKeys={slotKeysForRow}         // function (row) => SlotKey[] for KD #61 / #69 conditional gating
+  slotKeys={slotKeysForRow} // function (row) => SlotKey[] for KD #61 / #69 conditional gating
   bulkRemindEnabled={isOperational} // page-level role gate (KD #74)
-  bulkRemindWindowDays={30}         // p-files only — undefined means "expired only"
+  bulkRemindWindowDays={30} // p-files only — undefined means "expired only"
   initialStatusFilter={searchParams.status}
 />
 ```
@@ -296,21 +294,21 @@ Encodes the design system §9.3 recipes once. Baseline `h-6 px-2 font-mono text-
 
 `lib/copy/data-table.ts` — single source for user-visible strings that previously leaked dev jargon. Initial entries:
 
-| Key | Plain-English | Replaces |
-| --- | --- | --- |
-| `awaitingParentReply` | "Awaiting parent reply" | "Has To follow" |
-| `sentBackToParent` | "Sent back to parent" | "Has rejected" |
-| `lapsedReupload` | "Lapsed (re-upload needed)" | "Has expired" |
-| `awaitingValidation` | "Awaiting validation" | "Pending review" / "Uploaded" |
-| `termSummary` | "Term summary" + tooltip "Older format, no longer written" | "Term summary (legacy)" |
-| `schoolAdmin` | "School admin" | `school_admin` |
-| `rowsFromAdmissions` | "Rows from admissions" | "Source rows" |
-| `newSectionAssignments` | "New section assignments" | "Section × student inserts" |
-| `markedAsWithdrawn` | "Marked as withdrawn" | "Set to withdrawn" |
-| `discountCodesFooter` | "These codes apply to the {label} enrolment portal." | `<code>ay{YY}_discount_codes</code>` |
-| `createGradingSheets` | "Create grading sheets for this AY" | "Generate sheets" |
-| `setAsCurrentAy` | "Set as current AY" | "Switch active" |
-| `copyTeacherAssignments` | "Copy teacher assignments from prior AY" | "Copy teachers" |
+| Key                      | Plain-English                                              | Replaces                             |
+| ------------------------ | ---------------------------------------------------------- | ------------------------------------ |
+| `awaitingParentReply`    | "Awaiting parent reply"                                    | "Has To follow"                      |
+| `sentBackToParent`       | "Sent back to parent"                                      | "Has rejected"                       |
+| `lapsedReupload`         | "Lapsed (re-upload needed)"                                | "Has expired"                        |
+| `awaitingValidation`     | "Awaiting validation"                                      | "Pending review" / "Uploaded"        |
+| `termSummary`            | "Term summary" + tooltip "Older format, no longer written" | "Term summary (legacy)"              |
+| `schoolAdmin`            | "School admin"                                             | `school_admin`                       |
+| `rowsFromAdmissions`     | "Rows from admissions"                                     | "Source rows"                        |
+| `newSectionAssignments`  | "New section assignments"                                  | "Section × student inserts"          |
+| `markedAsWithdrawn`      | "Marked as withdrawn"                                      | "Set to withdrawn"                   |
+| `discountCodesFooter`    | "These codes apply to the {label} enrolment portal."       | `<code>ay{YY}_discount_codes</code>` |
+| `createGradingSheets`    | "Create grading sheets for this AY"                        | "Generate sheets"                    |
+| `setAsCurrentAy`         | "Set as current AY"                                        | "Switch active"                      |
+| `copyTeacherAssignments` | "Copy teacher assignments from prior AY"                   | "Copy teachers"                      |
 
 Slot-header truncations (`M/PP`, `F/Pass`, `S/Pass`) keep their compact form on the table cells but gain a `<Tooltip>` showing the full label on hover. Legend strip stays.
 
@@ -318,14 +316,14 @@ Slot-header truncations (`M/PP`, `F/Pass`, `S/Pass`) keep their compact form on 
 
 When `url.enabled`, the shell writes these params (debounced 300ms for search, immediate for everything else):
 
-| Param | Source | Format |
-| --- | --- | --- |
-| `q` | search box | string |
-| `status` | status tab | string (only when ≠ default tab) |
-| `mine` | "My X" toggle | `1` or absent |
-| `<facet.columnId>` | each faceted filter | comma-joined values |
-| `page` | pagination | number (only when > 1) |
-| `pageSize` | rows-per-page | number (only when ≠ default) |
+| Param              | Source              | Format                           |
+| ------------------ | ------------------- | -------------------------------- |
+| `q`                | search box          | string                           |
+| `status`           | status tab          | string (only when ≠ default tab) |
+| `mine`             | "My X" toggle       | `1` or absent                    |
+| `<facet.columnId>` | each faceted filter | comma-joined values              |
+| `page`             | pagination          | number (only when > 1)           |
+| `pageSize`         | rows-per-page       | number (only when ≠ default)     |
 
 Multi-table pages (sync-students wizard) pass `url.namespace='preview'` to prefix every key.
 
@@ -337,17 +335,17 @@ Page-level scope params (`?ay=`, `?section_id=`, `?term_id=`, `?sheet_id=`, `?re
 
 Every in-scope table's primary identifier column uses `<IdentifierLink>`. Per-module destination map (per KD #81):
 
-| Module | Identifier column | Destination |
-| --- | --- | --- |
-| Markbook entry rows | studentName | `/records/students/[studentNumber]` |
-| Markbook sheet/CR rows | section | `/markbook/grading?section=[sectionId]` |
-| Attendance entry / top-absent / compassionate | studentName | `/attendance/students/[studentNumber]` |
-| Attendance section-summary | sectionName | `/attendance/[sectionId]` |
-| Evaluation writeup | studentName | `/records/students/[studentNumber]` |
-| Admissions | enroleeFullName | `/admissions/applications/[enroleeNumber]` |
-| Records | studentName | `/records/students/[studentNumber]` (with `/records/students/by-enrolee/[enroleeNumber]` fallback) |
-| P-Files | enroleeFullName | `/p-files/[enroleeNumber]` |
-| Lifecycle | enroleeFullName | stage-conditional: Enrolled→Records, else Admissions |
+| Module                                        | Identifier column | Destination                                                                                        |
+| --------------------------------------------- | ----------------- | -------------------------------------------------------------------------------------------------- |
+| Markbook entry rows                           | studentName       | `/records/students/[studentNumber]`                                                                |
+| Markbook sheet/CR rows                        | section           | `/markbook/grading?section=[sectionId]`                                                            |
+| Attendance entry / top-absent / compassionate | studentName       | `/attendance/students/[studentNumber]`                                                             |
+| Attendance section-summary                    | sectionName       | `/attendance/[sectionId]`                                                                          |
+| Evaluation writeup                            | studentName       | `/records/students/[studentNumber]`                                                                |
+| Admissions                                    | enroleeFullName   | `/admissions/applications/[enroleeNumber]`                                                         |
+| Records                                       | studentName       | `/records/students/[studentNumber]` (with `/records/students/by-enrolee/[enroleeNumber]` fallback) |
+| P-Files                                       | enroleeFullName   | `/p-files/[enroleeNumber]`                                                                         |
+| Lifecycle                                     | enroleeFullName   | stage-conditional: Enrolled→Records, else Admissions                                               |
 
 Audit-log tables also linkify the entity (where `entity_type + entity_id` is present). New behavior: when `action='attendance.daily.update'` with `entity_type='section'`, the row gets a deep-link to `/attendance/{section_id}?date={date}`. Same pattern extended to all `attendance.*` actions and reused across Markbook audit log entity references.
 
@@ -714,15 +712,16 @@ Promote from bare static table → managed by `<DataTable>` (matches Markbook au
 
 Three worktrees, one per module group. Each worktree's work is planned via `feature-dev:code-architect`, implemented by a general-purpose agent on the worktree, then reviewed by `feature-dev:code-reviewer` before merging back to main (per user's stated review preference).
 
-| Worktree | Tables (count) | Estimated wall time |
-| --- | --- | --- |
-| `markbook-tables` | 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8 — 7 surfaces | ~1 day |
-| `records-sis-admin-tables` | 5.9, 5.10, 5.11, 5.12, 5.13, 5.14, 5.15, 5.16 — 8 surfaces | ~1 day |
-| `admissions-attendance-tables` | 5.22, 5.24 (cohorts + completeness tables already migrated in Phase 1) — 2 surfaces | ~0.5 day |
+| Worktree                       | Tables (count)                                                                      | Estimated wall time |
+| ------------------------------ | ----------------------------------------------------------------------------------- | ------------------- |
+| `markbook-tables`              | 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8 — 7 surfaces                                      | ~1 day              |
+| `records-sis-admin-tables`     | 5.9, 5.10, 5.11, 5.12, 5.13, 5.14, 5.15, 5.16 — 8 surfaces                          | ~1 day              |
+| `admissions-attendance-tables` | 5.22, 5.24 (cohorts + completeness tables already migrated in Phase 1) — 2 surfaces | ~0.5 day            |
 
 Phase 0 + 1 cover 7 surfaces (5.1 + 5.17–5.20 + 5.21 + 5.23). Phase 2 covers the remaining 17. Total: 24 surfaces, matching §3.
 
 Each worktree:
+
 - Starts fresh from main after Phase 0 + Phase 1 land.
 - Migrates its tables one at a time, committing per table.
 - Runs `npx next build` after each table.
@@ -804,4 +803,4 @@ Next available KD number is **#84** (see `.claude/rules/key-decisions.md` quick 
 
 Proposed KD #84 entry (to be added when implementation lands, not now):
 
-> **KD #84.** Unified `<DataTable>` shell + extracted primitives consolidate the previously-scattered toolbar / pagination / bulk-action / status-badge / linkified-identifier patterns. Shell at `components/ui/data-table/index.tsx`; building blocks (sortable-header / facet-dropdown / filter-chip / pagination / bulk-action-footer / empty-state / csv) in the same folder. `<StatusBadge>` at `components/ui/status-badge.tsx` with 4 domain wrappers. `<IdentifierLink>` at `components/ui/identifier-link.tsx` applying KD #81 styling consistently. Two consolidation wrappers: `<CohortTable kind>` (4 cohort kinds → 1 file) and `<DocumentCompletenessTable module>` (admissions + p-files clones → 1 file). Plain-English copy registry at `lib/copy/data-table.ts`. KD #15 (TanStack canonical) stays valid; the shell is the canonical *consumer* of TanStack now.
+> **KD #84.** Unified `<DataTable>` shell + extracted primitives consolidate the previously-scattered toolbar / pagination / bulk-action / status-badge / linkified-identifier patterns. Shell at `components/ui/data-table/index.tsx`; building blocks (sortable-header / facet-dropdown / filter-chip / pagination / bulk-action-footer / empty-state / csv) in the same folder. `<StatusBadge>` at `components/ui/status-badge.tsx` with 4 domain wrappers. `<IdentifierLink>` at `components/ui/identifier-link.tsx` applying KD #81 styling consistently. Two consolidation wrappers: `<CohortTable kind>` (4 cohort kinds → 1 file) and `<DocumentCompletenessTable module>` (admissions + p-files clones → 1 file). Plain-English copy registry at `lib/copy/data-table.ts`. KD #15 (TanStack canonical) stays valid; the shell is the canonical _consumer_ of TanStack now.

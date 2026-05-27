@@ -12,7 +12,11 @@ import {
 import { cn } from '@/lib/utils';
 import type { SectionStaffingCoverage } from '@/lib/sis/dashboard';
 
-export function HubSectionStaffingCard({ coverage }: { coverage: SectionStaffingCoverage }) {
+export function HubSectionStaffingCard({
+  coverage,
+}: {
+  coverage: SectionStaffingCoverage;
+}) {
   const { total, withAdviser } = coverage;
   const missing = total - withAdviser;
   const pct = total > 0 ? Math.round((withAdviser / total) * 100) : 100;
@@ -34,7 +38,7 @@ export function HubSectionStaffingCard({ coverage }: { coverage: SectionStaffing
                 'flex size-9 items-center justify-center rounded-xl text-white shadow-brand-tile',
                 isFull
                   ? 'bg-gradient-to-br from-brand-mint to-chart-5'
-                  : 'bg-gradient-to-br from-brand-amber to-brand-amber/70',
+                  : 'bg-gradient-to-br from-brand-amber to-brand-amber/70'
               )}
             >
               <Users className="size-4" />
@@ -46,12 +50,14 @@ export function HubSectionStaffingCard({ coverage }: { coverage: SectionStaffing
         <div className="flex items-baseline justify-between">
           <span className="font-mono text-3xl font-bold tabular-nums text-foreground">
             {withAdviser}
-            <span className="ml-1 text-base font-normal text-muted-foreground">/ {total}</span>
+            <span className="ml-1 text-base font-normal text-muted-foreground">
+              / {total}
+            </span>
           </span>
           <span
             className={cn(
               'font-mono text-sm font-semibold tabular-nums',
-              isFull ? 'text-brand-mint' : 'text-brand-amber',
+              isFull ? 'text-brand-mint' : 'text-brand-amber'
             )}
           >
             {pct}%
@@ -63,7 +69,7 @@ export function HubSectionStaffingCard({ coverage }: { coverage: SectionStaffing
               'h-full rounded-full transition-all',
               isFull
                 ? 'bg-gradient-to-r from-brand-mint to-chart-5'
-                : 'bg-gradient-to-r from-brand-amber to-brand-amber/60',
+                : 'bg-gradient-to-r from-brand-amber to-brand-amber/60'
             )}
             style={{ width: `${pct}%` }}
           />

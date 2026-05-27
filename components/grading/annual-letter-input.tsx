@@ -1,15 +1,19 @@
-"use client";
+'use client';
 
-import { Pencil } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
+import { Pencil } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
 // Inline popover for editing grade_entries.annual_letter_grade (KD #100).
 // Registrar/school_admin/superadmin only — the server route enforces this.
@@ -30,14 +34,15 @@ export function AnnualLetterInput({
   readOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(initialValue ?? "");
-  const [note, setNote] = useState("");
-  const [saved, setSaved] = useState(initialValue ?? "");
+  const [draft, setDraft] = useState(initialValue ?? '');
+  const [note, setNote] = useState('');
+  const [saved, setSaved] = useState(initialValue ?? '');
   const [saving, setSaving] = useState(false);
 
   const displayValue = saved.trim() || derivedLetter;
   const isOverride = !!saved.trim();
-  const overrideDiffersFromDerived = isOverride && saved.trim() !== (derivedLetter ?? "");
+  const overrideDiffersFromDerived =
+    isOverride && saved.trim() !== (derivedLetter ?? '');
 
   async function handleSave() {
     const trimmed = draft.trim();
@@ -47,24 +52,27 @@ export function AnnualLetterInput({
     }
     setSaving(true);
     try {
-      const res = await fetch(`/api/grading-sheets/${sheetId}/entries/${entryId}/annual-letter`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          annual_letter_grade: trimmed || null,
-          correction_note: note.trim() || null,
-        }),
-      });
+      const res = await fetch(
+        `/api/grading-sheets/${sheetId}/entries/${entryId}/annual-letter`,
+        {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            annual_letter_grade: trimmed || null,
+            correction_note: note.trim() || null,
+          }),
+        }
+      );
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        toast.error((body as { error?: string })?.error ?? "Failed to save");
+        toast.error((body as { error?: string })?.error ?? 'Failed to save');
         return;
       }
       setSaved(trimmed);
-      setNote("");
+      setNote('');
       setOpen(false);
     } catch {
-      toast.error("Failed to save");
+      toast.error('Failed to save');
     } finally {
       setSaving(false);
     }
@@ -73,7 +81,7 @@ export function AnnualLetterInput({
   function handleOpenChange(next: boolean) {
     if (next) {
       setDraft(saved);
-      setNote("");
+      setNote('');
     }
     setOpen(next);
   }
@@ -82,10 +90,11 @@ export function AnnualLetterInput({
     return (
       <span
         className={cn(
-          "inline-flex h-7 w-16 items-center justify-center font-mono text-[11px] tabular-nums",
-          displayValue ? "text-foreground font-medium" : "text-muted-foreground",
-        )}>
-        {displayValue ?? "—"}
+          'inline-flex h-7 w-16 items-center justify-center font-mono text-[11px] tabular-nums',
+          displayValue ? 'text-foreground font-medium' : 'text-muted-foreground'
+        )}
+      >
+        {displayValue ?? '—'}
       </span>
     );
   }
@@ -96,14 +105,15 @@ export function AnnualLetterInput({
         <button
           type="button"
           className={cn(
-            "flex h-7 w-16 items-center justify-center gap-1 rounded border font-mono text-[11px] tabular-nums transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            'flex h-7 w-16 items-center justify-center gap-1 rounded border font-mono text-[11px] tabular-nums transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
             overrideDiffersFromDerived
-              ? "border-brand-amber/60 text-brand-amber"
+              ? 'border-brand-amber/60 text-brand-amber'
               : isOverride
-                ? "border-border text-foreground"
-                : "border-border text-muted-foreground",
-          )}>
-          <span>{displayValue ?? "—"}</span>
+                ? 'border-border text-foreground'
+                : 'border-border text-muted-foreground'
+          )}
+        >
+          <span>{displayValue ?? '—'}</span>
           <Pencil className="h-2.5 w-2.5 shrink-0 opacity-50" />
         </button>
       </PopoverTrigger>
@@ -115,7 +125,10 @@ export function AnnualLetterInput({
             </Label>
             {derivedLetter && (
               <p className="text-xs text-muted-foreground">
-                Auto-derived: <span className="font-mono font-medium text-foreground">{derivedLetter}</span>
+                Auto-derived:{' '}
+                <span className="font-mono font-medium text-foreground">
+                  {derivedLetter}
+                </span>
               </p>
             )}
           </div>
@@ -128,19 +141,22 @@ export function AnnualLetterInput({
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") {
+                if (e.key === 'Enter') {
                   e.preventDefault();
                   handleSave();
                 }
               }}
-              placeholder={derivedLetter ?? "e.g. A"}
+              placeholder={derivedLetter ?? 'e.g. A'}
               className="h-7 font-mono text-center text-[11px]"
             />
-            <p className="text-[10px] text-muted-foreground">Leave blank to use the auto-derived letter</p>
+            <p className="text-[10px] text-muted-foreground">
+              Leave blank to use the auto-derived letter
+            </p>
           </div>
           <div className="rounded-md border border-brand-amber/40 bg-brand-amber/10 px-3 py-2 text-[11px] leading-relaxed text-brand-amber">
-            This updates the student&rsquo;s year-end Final Grade on the report card. The change will be logged and all
-            school admins and superadmins will be notified.
+            This updates the student&rsquo;s year-end Final Grade on the report
+            card. The change will be logged and all school admins and
+            superadmins will be notified.
           </div>
           <div className="space-y-1">
             <Label htmlFor={`note-${entryId}`} className="text-xs">
@@ -156,11 +172,21 @@ export function AnnualLetterInput({
             />
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setOpen(false)}
+            >
               Cancel
             </Button>
-            <Button type="button" size="sm" onClick={handleSave} disabled={saving || !note.trim()}>
-              {saving ? "Saving…" : "Save"}
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleSave}
+              disabled={saving || !note.trim()}
+            >
+              {saving ? 'Saving…' : 'Save'}
             </Button>
           </div>
         </div>

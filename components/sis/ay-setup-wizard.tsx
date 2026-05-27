@@ -1,7 +1,13 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, Plus } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  Loader2,
+  Plus,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
@@ -52,7 +58,11 @@ type Props = {
 
 type Step = 'identity' | 'review' | 'follow-up';
 
-const BLANK: CreateAyInput = { ay_code: '', label: '', accepting_applications: false };
+const BLANK: CreateAyInput = {
+  ay_code: '',
+  label: '',
+  accepting_applications: false,
+};
 
 function AySetupWizard({ preview, children }: Props) {
   const router = useRouter();
@@ -90,7 +100,9 @@ function AySetupWizard({ preview, children }: Props) {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? 'Failed to create AY');
       if (body.alreadyExisted) {
-        toast.info(`${values.ay_code} is already fully set up — nothing to do.`);
+        toast.info(
+          `${values.ay_code} is already fully set up — nothing to do.`
+        );
         handleOpenChange(false);
         router.refresh();
         return;
@@ -102,7 +114,9 @@ function AySetupWizard({ preview, children }: Props) {
       // their existing admissions data wasn't disturbed.
       const ayExisted = body.summary?.ay_existed === true;
       toast.success(
-        ayExisted ? `${values.ay_code} setup completed` : `${values.ay_code} created`,
+        ayExisted
+          ? `${values.ay_code} setup completed`
+          : `${values.ay_code} created`
       );
       setCreatedAyCode(values.ay_code);
       setStep('follow-up');
@@ -120,7 +134,9 @@ function AySetupWizard({ preview, children }: Props) {
   }
 
   const ayCode = form.watch('ay_code')?.trim().toUpperCase() || '';
-  const aySlug = /^AY\d{4}$/.test(ayCode) ? `ay${ayCode.slice(2).toLowerCase()}` : 'ay____';
+  const aySlug = /^AY\d{4}$/.test(ayCode)
+    ? `ay${ayCode.slice(2).toLowerCase()}`
+    : 'ay____';
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -136,7 +152,10 @@ function AySetupWizard({ preview, children }: Props) {
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onStep1Submit)} className="space-y-4">
+              <form
+                onSubmit={form.handleSubmit(onStep1Submit)}
+                className="space-y-4"
+              >
                 <FormField
                   control={form.control}
                   name="ay_code"
@@ -149,12 +168,17 @@ function AySetupWizard({ preview, children }: Props) {
                           autoComplete="off"
                           autoCapitalize="characters"
                           {...field}
-                          onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                          onChange={(e) =>
+                            field.onChange(e.target.value.toUpperCase())
+                          }
                         />
                       </FormControl>
                       <FormDescription>
-                        Format <code className="rounded bg-muted px-1 py-0.5 text-[11px]">AY</code> followed
-                        by four digits. Must be unique.
+                        Format{' '}
+                        <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+                          AY
+                        </code>{' '}
+                        followed by four digits. Must be unique.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -189,16 +213,22 @@ function AySetupWizard({ preview, children }: Props) {
                           Open this AY for early-bird applications now
                         </FormLabel>
                         <FormDescription className="text-[12px] leading-snug">
-                          Surfaces in the Admissions sidebar as &quot;Upcoming AY applications&quot; and lets the parent
-                          portal submit applications for this AY. Leave off if you&apos;re staging the AY ahead of
-                          opening early-bird — you can flip the switch later from the AY list.
+                          Surfaces in the Admissions sidebar as &quot;Upcoming
+                          AY applications&quot; and lets the parent portal
+                          submit applications for this AY. Leave off if
+                          you&apos;re staging the AY ahead of opening early-bird
+                          — you can flip the switch later from the AY list.
                         </FormDescription>
                       </div>
                     </FormItem>
                   )}
                 />
                 <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleOpenChange(false)}
+                  >
                     Cancel
                   </Button>
                   <Button type="submit">
@@ -280,7 +310,12 @@ function AySetupWizard({ preview, children }: Props) {
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setStep('identity')} disabled={submitting}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setStep('identity')}
+                disabled={submitting}
+              >
                 <ArrowLeft className="mr-1 size-4" /> Back
               </Button>
               <Button type="button" onClick={onCommit} disabled={submitting}>
@@ -307,10 +342,14 @@ function AySetupWizard({ preview, children }: Props) {
             <div className="space-y-3 py-2 text-sm">
               <p className="text-xs leading-relaxed text-muted-foreground">
                 When you&apos;re ready to make {createdAyCode} the live AY (the
-                one every module defaults to), use <strong>Switch active</strong>
+                one every module defaults to), use{' '}
+                <strong>Switch active</strong>
                 on its row. The new AY starts as{' '}
-                <code className="rounded bg-muted px-1 py-0.5">is_current=false</code>{' '}
-                so nothing changes for existing users until you explicitly flip it.
+                <code className="rounded bg-muted px-1 py-0.5">
+                  is_current=false
+                </code>{' '}
+                so nothing changes for existing users until you explicitly flip
+                it.
               </p>
             </div>
             <DialogFooter>

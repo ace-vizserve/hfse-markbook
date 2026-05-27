@@ -10,11 +10,12 @@ import type {
 } from './comparison-bar-chart.client';
 
 const ComparisonBarChartImpl = dynamic(
-  () => import('./comparison-bar-chart.client').then((m) => m.ComparisonBarChart),
+  () =>
+    import('./comparison-bar-chart.client').then((m) => m.ComparisonBarChart),
   {
     ssr: false,
     loading: () => <ChartSkeleton kind="comparison-bar" />,
-  },
+  }
 );
 
 export function ComparisonBarChart(props: ComparisonBarChartProps) {

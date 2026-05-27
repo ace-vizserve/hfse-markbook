@@ -61,7 +61,7 @@ async function loadDailyRowsUncached(ayCode: string): Promise<DailyRow[]> {
       .from('section_students')
       .select('id')
       .in('section_id', sectionIds)
-      .range(from, to),
+      .range(from, to)
   );
   const studentRowIds = ss.map((r) => r.id);
   if (studentRowIds.length === 0) return [];
@@ -81,7 +81,7 @@ async function loadDailyRowsUncached(ayCode: string): Promise<DailyRow[]> {
         .from('attendance_daily')
         .select('date, status, ex_reason, section_student_id')
         .in('section_student_id', chunk)
-        .range(from, to),
+        .range(from, to)
     );
     all.push(...rows);
   }
@@ -92,7 +92,7 @@ function loadDailyRows(ayCode: string): Promise<DailyRow[]> {
   return unstable_cache(
     () => loadDailyRowsUncached(ayCode),
     ['attendance', 'daily-raw', ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tag(ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tag(ayCode) }
   )();
 }
 
@@ -122,20 +122,39 @@ function kpisFor(rows: DailyRow[]): AttendanceKpis {
     nc = 0;
   for (const r of rows) {
     switch (r.status) {
-      case 'P': present += 1; break;
-      case 'L': late += 1; break;
-      case 'EX': excused += 1; break;
-      case 'A': absent += 1; break;
-      case 'NC': nc += 1; break;
+      case 'P':
+        present += 1;
+        break;
+      case 'L':
+        late += 1;
+        break;
+      case 'EX':
+        excused += 1;
+        break;
+      case 'A':
+        absent += 1;
+        break;
+      case 'NC':
+        nc += 1;
+        break;
     }
   }
   const encoded = present + late + excused + absent;
-  const attendancePct = encoded > 0 ? ((present + late + excused) / encoded) * 100 : 0;
-  return { attendancePct, encodedDays: encoded, present, late, excused, absent, nc };
+  const attendancePct =
+    encoded > 0 ? ((present + late + excused) / encoded) * 100 : 0;
+  return {
+    attendancePct,
+    encodedDays: encoded,
+    present,
+    late,
+    excused,
+    absent,
+    nc,
+  };
 }
 
 async function loadAttendanceKpisRangeUncached(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<AttendanceKpis>> {
   const rows = await loadDailyRows(input.ayCode);
   const current = kpisFor(slice(rows, input.from, input.to));
@@ -159,12 +178,20 @@ async function loadAttendanceKpisRangeUncached(
 }
 
 export function getAttendanceKpisRange(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<AttendanceKpis>> {
   return unstable_cache(
     loadAttendanceKpisRangeUncached,
-    ['attendance', 'kpis-range', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
-    { revalidate: CACHE_TTL_SECONDS, tags: tag(input.ayCode) },
+    [
+      'attendance',
+      'kpis-range',
+      input.ayCode,
+      input.from,
+      input.to,
+      input.cmpFrom ?? '',
+      input.cmpTo ?? '',
+    ],
+    { revalidate: CACHE_TTL_SECONDS, tags: tag(input.ayCode) }
   )(input);
 }
 
@@ -172,13 +199,21 @@ export function getAttendanceKpisRange(
 
 export type DailyAttendancePoint = { x: string; y: number };
 
-function dailyPctSeries(rows: DailyRow[], from: string, to: string): DailyAttendancePoint[] {
+function dailyPctSeries(
+  rows: DailyRow[],
+  from: string,
+  to: string
+): DailyAttendancePoint[] {
   const fromDate = parseLocalDate(from);
   if (!fromDate) return [];
   const length = daysInRange({ from, to });
   const labels: string[] = [];
   for (let i = 0; i < length; i += 1) {
-    const d = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate() + i);
+    const d = new Date(
+      fromDate.getFullYear(),
+      fromDate.getMonth(),
+      fromDate.getDate() + i
+    );
     labels.push(toISODate(d));
   }
   const byDate = new Map<string, { encoded: number; attended: number }>();
@@ -188,7 +223,8 @@ function dailyPctSeries(rows: DailyRow[], from: string, to: string): DailyAttend
     const bucket = byDate.get(r.date)!;
     if (r.status === 'NC') continue;
     bucket.encoded += 1;
-    if (r.status === 'P' || r.status === 'L' || r.status === 'EX') bucket.attended += 1;
+    if (r.status === 'P' || r.status === 'L' || r.status === 'EX')
+      bucket.attended += 1;
   }
   return labels.map((x) => {
     const b = byDate.get(x)!;
@@ -197,10 +233,14 @@ function dailyPctSeries(rows: DailyRow[], from: string, to: string): DailyAttend
 }
 
 async function loadDailyAttendanceRangeUncached(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<DailyAttendancePoint[]>> {
   const rows = await loadDailyRows(input.ayCode);
-  const current = dailyPctSeries(slice(rows, input.from, input.to), input.from, input.to);
+  const current = dailyPctSeries(
+    slice(rows, input.from, input.to),
+    input.from,
+    input.to
+  );
   if (input.cmpFrom == null || input.cmpTo == null) {
     return {
       current,
@@ -210,11 +250,19 @@ async function loadDailyAttendanceRangeUncached(
       comparisonRange: null,
     };
   }
-  const comparison = dailyPctSeries(slice(rows, input.cmpFrom, input.cmpTo), input.cmpFrom, input.cmpTo);
+  const comparison = dailyPctSeries(
+    slice(rows, input.cmpFrom, input.cmpTo),
+    input.cmpFrom,
+    input.cmpTo
+  );
   const currentAvg =
-    current.length > 0 ? current.reduce((s, p) => s + p.y, 0) / current.length : 0;
+    current.length > 0
+      ? current.reduce((s, p) => s + p.y, 0) / current.length
+      : 0;
   const comparisonAvg =
-    comparison.length > 0 ? comparison.reduce((s, p) => s + p.y, 0) / comparison.length : 0;
+    comparison.length > 0
+      ? comparison.reduce((s, p) => s + p.y, 0) / comparison.length
+      : 0;
   return {
     current,
     comparison,
@@ -225,12 +273,20 @@ async function loadDailyAttendanceRangeUncached(
 }
 
 export function getDailyAttendanceRange(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<DailyAttendancePoint[]>> {
   return unstable_cache(
     loadDailyAttendanceRangeUncached,
-    ['attendance', 'daily-pct', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
-    { revalidate: CACHE_TTL_SECONDS, tags: tag(input.ayCode) },
+    [
+      'attendance',
+      'daily-pct',
+      input.ayCode,
+      input.from,
+      input.to,
+      input.cmpFrom ?? '',
+      input.cmpTo ?? '',
+    ],
+    { revalidate: CACHE_TTL_SECONDS, tags: tag(input.ayCode) }
   )(input);
 }
 
@@ -238,9 +294,13 @@ export function getDailyAttendanceRange(
 
 export type ExReasonMix = { name: string; value: number };
 
-async function loadExReasonMixRangeUncached(input: RangeInput): Promise<ExReasonMix[]> {
+async function loadExReasonMixRangeUncached(
+  input: RangeInput
+): Promise<ExReasonMix[]> {
   const rows = await loadDailyRows(input.ayCode);
-  const windowed = slice(rows, input.from, input.to).filter((r) => r.status === 'EX');
+  const windowed = slice(rows, input.from, input.to).filter(
+    (r) => r.status === 'EX'
+  );
   const counts: Record<string, number> = {};
   for (const r of windowed) {
     const key = r.ex_reason || 'Other';
@@ -253,14 +313,17 @@ async function loadExReasonMixRangeUncached(input: RangeInput): Promise<ExReason
     vacation: 'Vacation leave',
     Other: 'Other',
   };
-  return Object.entries(counts).map(([k, v]) => ({ name: LABEL[k] ?? k, value: v }));
+  return Object.entries(counts).map(([k, v]) => ({
+    name: LABEL[k] ?? k,
+    value: v,
+  }));
 }
 
 export function getExReasonMixRange(input: RangeInput): Promise<ExReasonMix[]> {
   return unstable_cache(
     loadExReasonMixRangeUncached,
     ['attendance', 'ex-reason-mix', input.ayCode, input.from, input.to],
-    { revalidate: CACHE_TTL_SECONDS, tags: tag(input.ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tag(input.ayCode) }
   )(input);
 }
 
@@ -276,14 +339,17 @@ export type TopAbsentRow = {
 
 async function loadTopAbsentRangeUncached(
   input: RangeInput,
-  limit: number,
+  limit: number
 ): Promise<TopAbsentRow[]> {
   const rows = await loadDailyRows(input.ayCode);
   const windowed = slice(rows, input.from, input.to);
   const counts = new Map<string, { absences: number; lates: number }>();
   for (const r of windowed) {
     if (r.status !== 'A' && r.status !== 'L') continue;
-    const bucket = counts.get(r.section_student_id) ?? { absences: 0, lates: 0 };
+    const bucket = counts.get(r.section_student_id) ?? {
+      absences: 0,
+      lates: 0,
+    };
     if (r.status === 'A') bucket.absences += 1;
     else bucket.lates += 1;
     counts.set(r.section_student_id, bucket);
@@ -295,7 +361,7 @@ async function loadTopAbsentRangeUncached(
   const { data } = await service
     .from('section_students')
     .select(
-      'id, section:sections(name), student:students(first_name, last_name, student_number)',
+      'id, section:sections(name), student:students(first_name, last_name, student_number)'
     )
     .in('id', ids);
 
@@ -303,15 +369,25 @@ async function loadTopAbsentRangeUncached(
     id: string;
     section: { name: string } | { name: string }[] | null;
     student:
-      | { first_name: string | null; last_name: string | null; student_number: string | null }
-      | { first_name: string | null; last_name: string | null; student_number: string | null }[]
+      | {
+          first_name: string | null;
+          last_name: string | null;
+          student_number: string | null;
+        }
+      | {
+          first_name: string | null;
+          last_name: string | null;
+          student_number: string | null;
+        }[]
       | null;
   };
   const out: TopAbsentRow[] = [];
   for (const row of (data ?? []) as Joined[]) {
     const section = Array.isArray(row.section) ? row.section[0] : row.section;
     const student = Array.isArray(row.student) ? row.student[0] : row.student;
-    const name = `${student?.first_name ?? ''} ${student?.last_name ?? ''}`.trim() || (student?.student_number ?? row.id);
+    const name =
+      `${student?.first_name ?? ''} ${student?.last_name ?? ''}`.trim() ||
+      (student?.student_number ?? row.id);
     const bucket = counts.get(row.id)!;
     out.push({
       sectionStudentId: row.id,
@@ -327,12 +403,19 @@ async function loadTopAbsentRangeUncached(
 
 export function getTopAbsentRange(
   input: RangeInput,
-  limit = 10,
+  limit = 10
 ): Promise<TopAbsentRow[]> {
   return unstable_cache(
     () => loadTopAbsentRangeUncached(input, limit),
-    ['attendance', 'top-absent', input.ayCode, input.from, input.to, String(limit)],
-    { revalidate: CACHE_TTL_SECONDS, tags: tag(input.ayCode) },
+    [
+      'attendance',
+      'top-absent',
+      input.ayCode,
+      input.from,
+      input.to,
+      String(limit),
+    ],
+    { revalidate: CACHE_TTL_SECONDS, tags: tag(input.ayCode) }
   )();
 }
 
@@ -341,7 +424,7 @@ export function getTopAbsentRange(
 export type DayTypePoint = { name: string; value: number };
 
 async function loadDayTypeDistributionRangeUncached(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<DayTypePoint[]> {
   const service = createServiceClient();
   // Resolve the AY's term ids first. school_calendar rows are scoped via
@@ -384,16 +467,19 @@ async function loadDayTypeDistributionRangeUncached(
     school_holiday: 'School holiday',
     no_class: 'No class',
   };
-  return Object.entries(counts).map(([k, v]) => ({ name: LABEL[k] ?? k, value: v }));
+  return Object.entries(counts).map(([k, v]) => ({
+    name: LABEL[k] ?? k,
+    value: v,
+  }));
 }
 
 export function getDayTypeDistributionRange(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<DayTypePoint[]> {
   return unstable_cache(
     loadDayTypeDistributionRangeUncached,
     ['attendance', 'day-type', input.ayCode, input.from, input.to],
-    { revalidate: CACHE_TTL_SECONDS, tags: tag(input.ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tag(input.ayCode) }
   )(input);
 }
 
@@ -419,12 +505,14 @@ export type AttendancePriorityInput = {
 };
 
 async function loadAttendancePriorityUncached(
-  input: AttendancePriorityInput,
+  input: AttendancePriorityInput
 ): Promise<PriorityPayload> {
   const service = createServiceClient();
 
   // Today's date in Asia/Singapore (matches HFSE operating TZ). ISO date.
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Singapore' });
+  const today = new Date().toLocaleDateString('en-CA', {
+    timeZone: 'Asia/Singapore',
+  });
 
   // Resolve current AY id so we can scope sections + the calendar lookup.
   const { data: ayRow } = await service
@@ -437,7 +525,11 @@ async function loadAttendancePriorityUncached(
     return {
       eyebrow: 'Priority · today',
       title: 'No academic year configured',
-      headline: { value: 0, label: 'set up AY in /sis/ay-setup', severity: 'info' },
+      headline: {
+        value: 0,
+        label: 'set up AY in /sis/ay-setup',
+        severity: 'info',
+      },
       chips: [],
       iconKey: 'alert',
     };
@@ -489,7 +581,10 @@ async function loadAttendancePriorityUncached(
           : 'No school today',
       headline: {
         value: 0,
-        label: overQuota.length > 0 ? 'attendance not required' : 'attendance not required',
+        label:
+          overQuota.length > 0
+            ? 'attendance not required'
+            : 'attendance not required',
         severity: overQuota.length > 0 ? 'warn' : 'good',
       },
       chips: compassionateChips,
@@ -516,7 +611,10 @@ async function loadAttendancePriorityUncached(
       .select('id, section_id')
       .in('section_id', sectionIds);
     const ssToSection = new Map<string, string>();
-    for (const row of (ssRows ?? []) as Array<{ id: string; section_id: string }>) {
+    for (const row of (ssRows ?? []) as Array<{
+      id: string;
+      section_id: string;
+    }>) {
       ssToSection.set(row.id, row.section_id);
     }
     const ssIds = Array.from(ssToSection.keys());
@@ -524,14 +622,17 @@ async function loadAttendancePriorityUncached(
     if (ssIds.length > 0) {
       // Chunk to respect URL length limits (mirrors loadDailyRowsUncached).
       const chunks: string[][] = [];
-      for (let i = 0; i < ssIds.length; i += 1000) chunks.push(ssIds.slice(i, i + 1000));
+      for (let i = 0; i < ssIds.length; i += 1000)
+        chunks.push(ssIds.slice(i, i + 1000));
       for (const chunk of chunks) {
         const { data } = await service
           .from('attendance_daily')
           .select('section_student_id')
           .eq('date', today)
           .in('section_student_id', chunk);
-        for (const row of (data ?? []) as Array<{ section_student_id: string }>) {
+        for (const row of (data ?? []) as Array<{
+          section_student_id: string;
+        }>) {
           const secId = ssToSection.get(row.section_student_id);
           if (secId) markedSectionIds.add(secId);
         }
@@ -571,18 +672,23 @@ async function loadAttendancePriorityUncached(
           : 'Sections still need to mark attendance today',
     headline: {
       value: total,
-      label: total === 0 ? 'all sections marked' : `of ${sections.length} sections still pending`,
+      label:
+        total === 0
+          ? 'all sections marked'
+          : `of ${sections.length} sections still pending`,
       severity,
     },
     chips: [...topUnmarkedChips, ...compassionateChips],
     cta:
-      total > 0 ? { label: 'Open section picker', href: '/attendance/sections' } : undefined,
+      total > 0
+        ? { label: 'Open section picker', href: '/attendance/sections' }
+        : undefined,
     iconKey: 'alert',
   };
 }
 
 export function getAttendancePriority(
-  input: AttendancePriorityInput,
+  input: AttendancePriorityInput
 ): Promise<PriorityPayload> {
   // Cache key includes today's UTC date so it rolls over at UTC midnight
   // (8am SGT). Operational data — 60s revalidate keeps the panel fresh
@@ -595,6 +701,6 @@ export function getAttendancePriority(
       input.ayCode,
       new Date().toISOString().slice(0, 10),
     ],
-    { tags: tag(input.ayCode), revalidate: 60 },
+    { tags: tag(input.ayCode), revalidate: 60 }
   )(input);
 }

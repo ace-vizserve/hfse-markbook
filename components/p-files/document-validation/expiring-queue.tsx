@@ -7,7 +7,10 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
-import type { FacetConfig, StatusTabConfig } from '@/components/ui/data-table/types';
+import type {
+  FacetConfig,
+  StatusTabConfig,
+} from '@/components/ui/data-table/types';
 import { IdentifierLink } from '@/components/ui/identifier-link';
 import { SortableHeader } from '@/components/ui/data-table/sortable-header';
 import type { PFileValidationRow } from '@/lib/p-files/document-validation';
@@ -31,19 +34,21 @@ export function ExpiringQueue({ rows }: Props) {
 
   const filtered = React.useMemo(
     () => rows.filter((r) => (r.daysUntilExpiry ?? 9999) <= window),
-    [rows, window],
+    [rows, window]
   );
 
   const rowKey = React.useCallback(
     (r: PFileValidationRow) => `${r.enroleeNumber}::${r.slotKey}`,
-    [],
+    []
   );
 
   const columns = React.useMemo<ColumnDef<PFileValidationRow>[]>(
     () => [
       {
         accessorKey: 'fullName',
-        header: ({ column }) => <SortableHeader column={column}>Student</SortableHeader>,
+        header: ({ column }) => (
+          <SortableHeader column={column}>Student</SortableHeader>
+        ),
         cell: ({ row }) => (
           <div className="space-y-0.5">
             <IdentifierLink
@@ -59,7 +64,9 @@ export function ExpiringQueue({ rows }: Props) {
       },
       {
         accessorKey: 'slotLabel',
-        header: ({ column }) => <SortableHeader column={column}>Document</SortableHeader>,
+        header: ({ column }) => (
+          <SortableHeader column={column}>Document</SortableHeader>
+        ),
         cell: ({ row }) => (
           <Badge variant="secondary">{row.original.slotLabel}</Badge>
         ),
@@ -68,7 +75,10 @@ export function ExpiringQueue({ rows }: Props) {
         accessorKey: 'owner',
         header: 'Owner',
         cell: ({ row }) => (
-          <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-wider">
+          <Badge
+            variant="outline"
+            className="font-mono text-[10px] uppercase tracking-wider"
+          >
             {row.original.owner}
           </Badge>
         ),
@@ -76,7 +86,9 @@ export function ExpiringQueue({ rows }: Props) {
       },
       {
         accessorKey: 'levelApplied',
-        header: ({ column }) => <SortableHeader column={column}>Level</SortableHeader>,
+        header: ({ column }) => (
+          <SortableHeader column={column}>Level</SortableHeader>
+        ),
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
             {row.original.levelApplied ?? '—'}
@@ -86,7 +98,9 @@ export function ExpiringQueue({ rows }: Props) {
       },
       {
         accessorKey: 'daysUntilExpiry',
-        header: ({ column }) => <SortableHeader column={column}>Expires in</SortableHeader>,
+        header: ({ column }) => (
+          <SortableHeader column={column}>Expires in</SortableHeader>
+        ),
         cell: ({ row }) => {
           const days = row.original.daysUntilExpiry;
           const iso = row.original.expiryDateIso;
@@ -99,10 +113,17 @@ export function ExpiringQueue({ rows }: Props) {
             : '—';
           return (
             <div className="space-y-0.5">
-              <span className={cn('font-mono text-xs tabular-nums', expiryTone(days))}>
+              <span
+                className={cn(
+                  'font-mono text-xs tabular-nums',
+                  expiryTone(days)
+                )}
+              >
                 {days !== null ? (days === 0 ? 'Today' : `${days}d`) : '—'}
               </span>
-              <div className="font-mono text-[10px] text-muted-foreground">{label}</div>
+              <div className="font-mono text-[10px] text-muted-foreground">
+                {label}
+              </div>
             </div>
           );
         },
@@ -126,14 +147,16 @@ export function ExpiringQueue({ rows }: Props) {
         header: '',
         cell: ({ row }) => (
           <Button size="sm" variant="outline" asChild>
-            <Link href={`/p-files/${encodeURIComponent(row.original.enroleeNumber)}`}>
+            <Link
+              href={`/p-files/${encodeURIComponent(row.original.enroleeNumber)}`}
+            >
               View profile
             </Link>
           </Button>
         ),
       },
     ],
-    [],
+    []
   );
 
   const facets: FacetConfig[] = React.useMemo(
@@ -142,7 +165,7 @@ export function ExpiringQueue({ rows }: Props) {
       { columnId: 'owner', label: 'Owner' },
       { columnId: 'levelApplied', label: 'Level' },
     ],
-    [],
+    []
   );
 
   const statusTabs: StatusTabConfig<PFileValidationRow>[] = React.useMemo(
@@ -164,7 +187,7 @@ export function ExpiringQueue({ rows }: Props) {
         predicate: (r) => r.owner === 'Guardian',
       },
     ],
-    [],
+    []
   );
 
   const windowFilter = (
@@ -178,7 +201,7 @@ export function ExpiringQueue({ rows }: Props) {
             'rounded px-2.5 py-1 text-xs font-medium transition',
             window === w
               ? 'bg-accent text-accent-foreground'
-              : 'text-muted-foreground hover:bg-accent/60',
+              : 'text-muted-foreground hover:bg-accent/60'
           )}
         >
           ≤{w}d

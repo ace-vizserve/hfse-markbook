@@ -45,6 +45,6 @@ export async function POST() {
       error:
         'Topup disabled while admissions seeder is being validated. Use the Reset + Switch flow to re-seed.',
     }),
-    { status: 410, headers: { 'content-type': 'application/json' } },
+    { status: 410, headers: { 'content-type': 'application/json' } }
   );
 }

@@ -16,7 +16,7 @@ const Textarea = React.forwardRef<
         'focus-visible:border-brand-indigo/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-indigo/20 focus-visible:shadow-sm',
         'aria-[invalid=true]:border-destructive/60 aria-[invalid=true]:focus-visible:ring-2 aria-[invalid=true]:focus-visible:ring-destructive/30',
         'disabled:cursor-not-allowed disabled:bg-muted/60 disabled:opacity-70',
-        className,
+        className
       )}
       {...props}
     />

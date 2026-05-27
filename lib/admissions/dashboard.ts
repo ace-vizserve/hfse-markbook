@@ -102,23 +102,32 @@ async function loadJoinedRowsUncached(ayCode: string): Promise<JoinedRow[]> {
 
   const supabase = createAdmissionsClient();
 
-  type P<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
+  type P<T> = PromiseLike<{
+    data: T[] | null;
+    error: { message: string } | null;
+  }>;
 
   let apps: AppLite[];
   let statuses: StatusLite[];
   try {
     [apps, statuses] = await Promise.all([
-      fetchAllPages<AppLite>((from, to) =>
-        supabase
-          .from(appsTable)
-          .select('enroleeNumber, enroleeFullName, firstName, lastName, levelApplied, created_at, howDidYouKnowAboutHFSEIS, studentNumber, motherEmail, fatherEmail')
-          .range(from, to) as unknown as P<AppLite>,
+      fetchAllPages<AppLite>(
+        (from, to) =>
+          supabase
+            .from(appsTable)
+            .select(
+              'enroleeNumber, enroleeFullName, firstName, lastName, levelApplied, created_at, howDidYouKnowAboutHFSEIS, studentNumber, motherEmail, fatherEmail'
+            )
+            .range(from, to) as unknown as P<AppLite>
       ),
-      fetchAllPages<StatusLite>((from, to) =>
-        supabase
-          .from(statusTable)
-          .select('enroleeNumber, applicationStatus, applicationUpdatedDate, classLevel, levelApplied, assessmentGradeMath, assessmentGradeEnglish')
-          .range(from, to) as unknown as P<StatusLite>,
+      fetchAllPages<StatusLite>(
+        (from, to) =>
+          supabase
+            .from(statusTable)
+            .select(
+              'enroleeNumber, applicationStatus, applicationUpdatedDate, classLevel, levelApplied, assessmentGradeMath, assessmentGradeEnglish'
+            )
+            .range(from, to) as unknown as P<StatusLite>
       ),
     ]);
   } catch (err) {
@@ -158,7 +167,7 @@ function loadJoinedRows(ayCode: string): Promise<JoinedRow[]> {
   return unstable_cache(
     () => loadJoinedRowsUncached(ayCode),
     ['admissions-joined', ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tag(ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tag(ayCode) }
   )();
 }
 
@@ -196,7 +205,9 @@ export type TimeToEnrollment = {
   sampleSize: number;
 };
 
-export async function getAverageTimeToEnrollment(ayCode: string): Promise<TimeToEnrollment> {
+export async function getAverageTimeToEnrollment(
+  ayCode: string
+): Promise<TimeToEnrollment> {
   const rows = await loadJoinedRows(ayCode);
   let total = 0;
   let n = 0;
@@ -228,7 +239,9 @@ export type FunnelStage = {
 // Funnel counts are cumulative: every enrolled application also passed
 // through verification and processing, so we count a status as having reached
 // every earlier stage. That's how the spec funnel reads in practice.
-export async function getConversionFunnel(ayCode: string): Promise<FunnelStage[]> {
+export async function getConversionFunnel(
+  ayCode: string
+): Promise<FunnelStage[]> {
   const counts = await getPipelineCounts(ayCode);
   const stages = [
     {
@@ -250,15 +263,21 @@ export async function getConversionFunnel(ayCode: string): Promise<FunnelStage[]
     },
     {
       stage: 'Processing',
-      count: counts.Processing + counts.Enrolled + counts['Enrolled (Conditional)'],
+      count:
+        counts.Processing + counts.Enrolled + counts['Enrolled (Conditional)'],
     },
-    { stage: 'Enrolled', count: counts.Enrolled + counts['Enrolled (Conditional)'] },
+    {
+      stage: 'Enrolled',
+      count: counts.Enrolled + counts['Enrolled (Conditional)'],
+    },
   ];
   const out: FunnelStage[] = [];
   for (let i = 0; i < stages.length; i++) {
     const prev = i === 0 ? stages[i].count : stages[i - 1].count;
     const dropOffPct =
-      prev > 0 && i > 0 ? Math.round(((prev - stages[i].count) / prev) * 100) : 0;
+      prev > 0 && i > 0
+        ? Math.round(((prev - stages[i].count) / prev) * 100)
+        : 0;
     out.push({ ...stages[i], dropOffPct });
   }
   return out;
@@ -285,7 +304,9 @@ export type OutdatedRow = {
 const INACTIVE_STATUSES = new Set(['Enrolled', 'Cancelled', 'Withdrawn']);
 const STALE_DAY_THRESHOLD = 7;
 
-export async function getOutdatedApplications(ayCode: string): Promise<OutdatedRow[]> {
+export async function getOutdatedApplications(
+  ayCode: string
+): Promise<OutdatedRow[]> {
   const rows = await loadJoinedRows(ayCode);
   const today = new Date();
   const out: OutdatedRow[] = [];
@@ -295,7 +316,9 @@ export async function getOutdatedApplications(ayCode: string): Promise<OutdatedR
     if (INACTIVE_STATUSES.has(status)) continue;
 
     const created = r.created_at ? Date.parse(r.created_at) : NaN;
-    const updated = r.applicationUpdatedDate ? Date.parse(r.applicationUpdatedDate) : NaN;
+    const updated = r.applicationUpdatedDate
+      ? Date.parse(r.applicationUpdatedDate)
+      : NaN;
 
     const daysSinceUpdate = Number.isNaN(updated)
       ? null
@@ -306,7 +329,8 @@ export async function getOutdatedApplications(ayCode: string): Promise<OutdatedR
 
     // Spec-faithful freshness cutoff: keep rows where applicationUpdatedDate
     // is NULL (most urgent) or ≥ 7 days old. Fresh rows are dropped.
-    if (daysSinceUpdate !== null && daysSinceUpdate < STALE_DAY_THRESHOLD) continue;
+    if (daysSinceUpdate !== null && daysSinceUpdate < STALE_DAY_THRESHOLD)
+      continue;
 
     out.push({
       enroleeNumber: r.enroleeNumber,
@@ -347,7 +371,9 @@ export type AssessmentOutcomes = {
 // the AY2026 onboarding notes). Grades are stored as strings that may be
 // numeric ("72"), letter ("B+"), or blank. Letter grades follow the standard
 // A/B/C = pass, D/F = fail convention.
-function classifyAssessment(raw: string | number | null): 'pass' | 'fail' | 'unknown' {
+function classifyAssessment(
+  raw: string | number | null
+): 'pass' | 'fail' | 'unknown' {
   if (raw === null || raw === undefined) return 'unknown';
   if (typeof raw === 'number') return raw >= 60 ? 'pass' : 'fail';
   const s = String(raw).trim();
@@ -360,7 +386,9 @@ function classifyAssessment(raw: string | number | null): 'pass' | 'fail' | 'unk
   return 'unknown';
 }
 
-export async function getAssessmentOutcomes(ayCode: string): Promise<AssessmentOutcomes> {
+export async function getAssessmentOutcomes(
+  ayCode: string
+): Promise<AssessmentOutcomes> {
   const rows = await loadJoinedRows(ayCode);
   const out: AssessmentOutcomes = {
     mathPass: 0,
@@ -374,7 +402,11 @@ export async function getAssessmentOutcomes(ayCode: string): Promise<AssessmentO
   // rate down with assessments they never completed. Donut should reflect
   // the active funnel + enrolled cohort only.
   for (const r of rows) {
-    if (r.applicationStatus === 'Cancelled' || r.applicationStatus === 'Withdrawn') continue;
+    if (
+      r.applicationStatus === 'Cancelled' ||
+      r.applicationStatus === 'Withdrawn'
+    )
+      continue;
     const m = classifyAssessment(r.assessmentGradeMath);
     const e = classifyAssessment(r.assessmentGradeEnglish);
     if (m === 'pass') out.mathPass += 1;
@@ -392,18 +424,27 @@ export type ReferralSource = {
   count: number;
 };
 
-export async function getReferralSourceBreakdown(ayCode: string): Promise<ReferralSource[]> {
+export async function getReferralSourceBreakdown(
+  ayCode: string
+): Promise<ReferralSource[]> {
   const rows = await loadJoinedRows(ayCode);
   const counts = new Map<string, number>();
   // Skip terminal statuses — referral attribution should reflect the funnel
   // marketing actually drove forward, not all-time inquiry inputs.
   for (const r of rows) {
-    if (r.applicationStatus === 'Cancelled' || r.applicationStatus === 'Withdrawn') continue;
+    if (
+      r.applicationStatus === 'Cancelled' ||
+      r.applicationStatus === 'Withdrawn'
+    )
+      continue;
     const raw = (r.howDidYouKnowAboutHFSEIS ?? '').trim();
     const key = raw || 'Not specified';
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
-  const all = Array.from(counts.entries()).map(([source, count]) => ({ source, count }));
+  const all = Array.from(counts.entries()).map(([source, count]) => ({
+    source,
+    count,
+  }));
   all.sort((a, b) => b.count - a.count);
   const TOP = 8;
   if (all.length <= TOP) return all;
@@ -435,7 +476,11 @@ function inRange(iso: string | null, from: string, to: string): boolean {
   return d >= from && d <= to;
 }
 
-function computeRangeKpis(rows: JoinedRow[], from: string, to: string): AdmissionsRangeKpis {
+function computeRangeKpis(
+  rows: JoinedRow[],
+  from: string,
+  to: string
+): AdmissionsRangeKpis {
   let applications = 0;
   let enrolled = 0;
   let totalDays = 0;
@@ -450,7 +495,8 @@ function computeRangeKpis(rows: JoinedRow[], from: string, to: string): Admissio
     if (!inRange(r.created_at, from, to)) continue;
     applications += 1;
     const isEnrolled =
-      r.applicationStatus === 'Enrolled' || r.applicationStatus === 'Enrolled (Conditional)';
+      r.applicationStatus === 'Enrolled' ||
+      r.applicationStatus === 'Enrolled (Conditional)';
     if (isEnrolled) {
       enrolled += 1;
       if (r.created_at && r.applicationUpdatedDate) {
@@ -474,7 +520,7 @@ function computeRangeKpis(rows: JoinedRow[], from: string, to: string): Admissio
 }
 
 async function loadAdmissionsKpisRangeUncached(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<AdmissionsRangeKpis>> {
   const rows = await loadJoinedRows(input.ayCode);
   const current = computeRangeKpis(rows, input.from, input.to);
@@ -491,32 +537,51 @@ async function loadAdmissionsKpisRangeUncached(
   return {
     current,
     comparison,
-    delta: computeDelta(current.applicationsInRange, comparison.applicationsInRange),
+    delta: computeDelta(
+      current.applicationsInRange,
+      comparison.applicationsInRange
+    ),
     range: { from: input.from, to: input.to },
     comparisonRange: { from: input.cmpFrom, to: input.cmpTo },
   };
 }
 
 export function getAdmissionsKpisRange(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<AdmissionsRangeKpis>> {
   return unstable_cache(
     loadAdmissionsKpisRangeUncached,
-    ['admissions', 'kpis-range', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
-    { tags: tag(input.ayCode), revalidate: CACHE_TTL_SECONDS },
+    [
+      'admissions',
+      'kpis-range',
+      input.ayCode,
+      input.from,
+      input.to,
+      input.cmpFrom ?? '',
+      input.cmpTo ?? '',
+    ],
+    { tags: tag(input.ayCode), revalidate: CACHE_TTL_SECONDS }
   )(input);
 }
 
 // Applications-per-day velocity.
 
-function bucketByDay(dates: (string | null)[], from: string, to: string): VelocityPoint[] {
+function bucketByDay(
+  dates: (string | null)[],
+  from: string,
+  to: string
+): VelocityPoint[] {
   const fromDate = parseLocalDate(from);
   const toDate = parseLocalDate(to);
   if (!fromDate || !toDate) return [];
   const length = daysInRange({ from, to });
   const labels: string[] = [];
   for (let i = 0; i < length; i += 1) {
-    const d = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate() + i);
+    const d = new Date(
+      fromDate.getFullYear(),
+      fromDate.getMonth(),
+      fromDate.getDate() + i
+    );
     labels.push(toISODate(d));
   }
   // Pre-build label→index Map once; replaces per-row Array.indexOf which was
@@ -535,7 +600,7 @@ function bucketByDay(dates: (string | null)[], from: string, to: string): Veloci
 }
 
 async function loadApplicationsVelocityRangeUncached(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<VelocityPoint[]>> {
   const rows = await loadJoinedRows(input.ayCode);
   const createdDates = rows.map((r) => r.created_at);
@@ -562,12 +627,20 @@ async function loadApplicationsVelocityRangeUncached(
 }
 
 export function getApplicationsVelocityRange(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<VelocityPoint[]>> {
   return unstable_cache(
     loadApplicationsVelocityRangeUncached,
-    ['admissions', 'apps-velocity', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
-    { tags: tag(input.ayCode), revalidate: CACHE_TTL_SECONDS },
+    [
+      'admissions',
+      'apps-velocity',
+      input.ayCode,
+      input.from,
+      input.to,
+      input.cmpFrom ?? '',
+      input.cmpTo ?? '',
+    ],
+    { tags: tag(input.ayCode), revalidate: CACHE_TTL_SECONDS }
   )(input);
 }
 
@@ -590,7 +663,9 @@ const HISTOGRAM_BUCKETS = [
   { label: '>180d', lo: 181, hi: null as number | null },
 ] as const;
 
-async function loadTimeToEnrollHistogramUncached(ayCode: string): Promise<TimeToEnrollBucket[]> {
+async function loadTimeToEnrollHistogramUncached(
+  ayCode: string
+): Promise<TimeToEnrollBucket[]> {
   const rows = await loadJoinedRows(ayCode);
   const buckets: TimeToEnrollBucket[] = HISTOGRAM_BUCKETS.map((b) => ({
     label: b.label,
@@ -600,7 +675,8 @@ async function loadTimeToEnrollHistogramUncached(ayCode: string): Promise<TimeTo
   }));
   for (const r of rows) {
     const isEnrolled =
-      r.applicationStatus === 'Enrolled' || r.applicationStatus === 'Enrolled (Conditional)';
+      r.applicationStatus === 'Enrolled' ||
+      r.applicationStatus === 'Enrolled (Conditional)';
     if (!isEnrolled) continue;
     if (!r.created_at || !r.applicationUpdatedDate) continue;
     const start = Date.parse(r.created_at);
@@ -608,18 +684,20 @@ async function loadTimeToEnrollHistogramUncached(ayCode: string): Promise<TimeTo
     if (Number.isNaN(start) || Number.isNaN(end) || end < start) continue;
     const days = Math.round((end - start) / 86_400_000);
     const idx = buckets.findIndex(
-      (b) => days >= b.loDays && (b.hiDays === null || days <= b.hiDays),
+      (b) => days >= b.loDays && (b.hiDays === null || days <= b.hiDays)
     );
     if (idx >= 0) buckets[idx].count += 1;
   }
   return buckets;
 }
 
-export function getTimeToEnrollHistogram(ayCode: string): Promise<TimeToEnrollBucket[]> {
+export function getTimeToEnrollHistogram(
+  ayCode: string
+): Promise<TimeToEnrollBucket[]> {
   return unstable_cache(
     () => loadTimeToEnrollHistogramUncached(ayCode),
     ['admissions', 'time-to-enroll-histogram', ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tag(ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tag(ayCode) }
   )();
 }
 
@@ -647,7 +725,7 @@ const CANONICAL_LEVEL_INDEX: Record<string, number> = CANONICAL_LEVELS.reduce(
     acc[lvl] = i;
     return acc;
   },
-  {} as Record<string, number>,
+  {} as Record<string, number>
 );
 
 function compareLevels(a: string, b: string): number {
@@ -689,23 +767,29 @@ export type ApplicationsByLevelRow = {
 
 export type ApplicationsByLevelResult = RangeResult<ApplicationsByLevelRow[]>;
 
-function bucketByLevel(rows: JoinedRow[], from: string, to: string): ApplicationsByLevelRow[] {
+function bucketByLevel(
+  rows: JoinedRow[],
+  from: string,
+  to: string
+): ApplicationsByLevelRow[] {
   const counts = new Map<string, number>();
   for (const r of rows) {
     if (!inRange(r.created_at, from, to)) continue;
     const lvl = resolveLevel(r);
     counts.set(lvl, (counts.get(lvl) ?? 0) + 1);
   }
-  const out: ApplicationsByLevelRow[] = Array.from(counts.entries()).map(([level, count]) => ({
-    level,
-    count,
-  }));
+  const out: ApplicationsByLevelRow[] = Array.from(counts.entries()).map(
+    ([level, count]) => ({
+      level,
+      count,
+    })
+  );
   out.sort((a, b) => compareLevels(a.level, b.level));
   return out;
 }
 
 async function loadApplicationsByLevelRangeUncached(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<ApplicationsByLevelResult> {
   const rows = await loadJoinedRows(input.ayCode);
   const current = bucketByLevel(rows, input.from, input.to);
@@ -731,12 +815,20 @@ async function loadApplicationsByLevelRangeUncached(
 }
 
 export function getApplicationsByLevelRange(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<ApplicationsByLevelResult> {
   return unstable_cache(
     loadApplicationsByLevelRangeUncached,
-    ['admissions', 'apps-by-level', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
-    { tags: tag(input.ayCode), revalidate: CACHE_TTL_SECONDS },
+    [
+      'admissions',
+      'apps-by-level',
+      input.ayCode,
+      input.from,
+      input.to,
+      input.cmpFrom ?? '',
+      input.cmpTo ?? '',
+    ],
+    { tags: tag(input.ayCode), revalidate: CACHE_TTL_SECONDS }
   )(input);
 }
 
@@ -785,7 +877,7 @@ function countPresentDocs(d: DocCompletionDocRow | undefined): number {
 }
 
 async function loadDocumentCompletionByLevelUncached(
-  ayCode: string,
+  ayCode: string
 ): Promise<DocCompletionResult> {
   const prefix = prefixFor(ayCode);
   const docsTable = `${prefix}_enrolment_documents`;
@@ -803,7 +895,7 @@ async function loadDocumentCompletionByLevelUncached(
     // whole dashboard card. Mirrors the drill.ts non-fatal-docs convention.
     console.warn(
       '[admissions-dashboard] doc completion fetch failed (non-fatal):',
-      docsRes.error.message,
+      docsRes.error.message
     );
   }
 
@@ -813,7 +905,12 @@ async function loadDocumentCompletionByLevelUncached(
     if (d.enroleeNumber) docsByEnrolee.set(d.enroleeNumber, d);
   }
 
-  type Bucket = { total: number; complete: number; partial: number; missing: number };
+  type Bucket = {
+    total: number;
+    complete: number;
+    partial: number;
+    missing: number;
+  };
   const byLevel = new Map<string, Bucket>();
   for (const r of joinedRows) {
     if (!r.enroleeNumber) continue;
@@ -821,9 +918,18 @@ async function loadDocumentCompletionByLevelUncached(
     // uploaded inflate the "missing" bucket and tank the per-level
     // completion %. The donut should reflect funnel + enrolled cohort
     // upload progress, not all-time inquiry submissions.
-    if (r.applicationStatus === 'Cancelled' || r.applicationStatus === 'Withdrawn') continue;
+    if (
+      r.applicationStatus === 'Cancelled' ||
+      r.applicationStatus === 'Withdrawn'
+    )
+      continue;
     const level = resolveLevel(r);
-    const bucket = byLevel.get(level) ?? { total: 0, complete: 0, partial: 0, missing: 0 };
+    const bucket = byLevel.get(level) ?? {
+      total: 0,
+      complete: 0,
+      partial: 0,
+      missing: 0,
+    };
     bucket.total += 1;
     const present = countPresentDocs(docsByEnrolee.get(r.enroleeNumber));
     if (present === CORE_DOC_STATUS_COLUMNS.length) bucket.complete += 1;
@@ -832,23 +938,28 @@ async function loadDocumentCompletionByLevelUncached(
     byLevel.set(level, bucket);
   }
 
-  const out: DocCompletionResult = Array.from(byLevel.entries()).map(([level, b]) => ({
-    level,
-    total: b.total,
-    complete: b.complete,
-    partial: b.partial,
-    missing: b.missing,
-    percentComplete: b.total > 0 ? Math.round((b.complete / b.total) * 100) : 0,
-  }));
+  const out: DocCompletionResult = Array.from(byLevel.entries()).map(
+    ([level, b]) => ({
+      level,
+      total: b.total,
+      complete: b.complete,
+      partial: b.partial,
+      missing: b.missing,
+      percentComplete:
+        b.total > 0 ? Math.round((b.complete / b.total) * 100) : 0,
+    })
+  );
   out.sort((a, b) => compareLevels(a.level, b.level));
   return out;
 }
 
-export function getDocumentCompletionByLevel(ayCode: string): Promise<DocCompletionResult> {
+export function getDocumentCompletionByLevel(
+  ayCode: string
+): Promise<DocCompletionResult> {
   return unstable_cache(
     () => loadDocumentCompletionByLevelUncached(ayCode),
     ['admissions', 'doc-completion-by-level', ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tag(ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tag(ayCode) }
   )();
 }
 
@@ -874,7 +985,12 @@ export function getDocumentCompletionByLevel(ayCode: string): Promise<DocComplet
 // admissions data also flush these reads.
 // ──────────────────────────────────────────────────────────────────────────
 
-export type AdmissionsChaseStatusFilter = 'all' | 'to-follow' | 'rejected' | 'uploaded' | 'expired';
+export type AdmissionsChaseStatusFilter =
+  | 'all'
+  | 'to-follow'
+  | 'rejected'
+  | 'uploaded'
+  | 'expired';
 
 const ADMISSIONS_CHASE_STATUSES: ReadonlySet<string> = new Set([
   'Submitted',
@@ -919,11 +1035,15 @@ export type AdmissionsChaseSummary = {
 
 async function loadAdmissionsCompletenessForChaseUncached(
   ayCode: string,
-  statusFilter: AdmissionsChaseStatusFilter,
-): Promise<{ students: AdmissionsCompleteness[]; summary: AdmissionsChaseSummary }> {
+  statusFilter: AdmissionsChaseStatusFilter
+): Promise<{
+  students: AdmissionsCompleteness[];
+  summary: AdmissionsChaseSummary;
+}> {
   // Lazy-import p-files config to avoid circular collisions if this module
   // is ever re-imported from p-files queries.
-  const { DOCUMENT_SLOTS: PFILES_SLOTS, resolveStatus } = await import('@/lib/p-files/document-config');
+  const { DOCUMENT_SLOTS: PFILES_SLOTS, resolveStatus } =
+    await import('@/lib/p-files/document-config');
 
   const prefix = prefixFor(ayCode);
   const supabase = createAdmissionsClient();
@@ -932,28 +1052,30 @@ async function loadAdmissionsCompletenessForChaseUncached(
     supabase
       .from(`${prefix}_enrolment_applications`)
       .select(
-        '"enroleeNumber", "studentNumber", "firstName", "lastName", "fatherEmail", "guardianEmail", "stpApplicationType", "created_at"',
+        '"enroleeNumber", "studentNumber", "firstName", "lastName", "fatherEmail", "guardianEmail", "stpApplicationType", "created_at"'
       ),
     supabase
       .from(`${prefix}_enrolment_status`)
-      .select('"enroleeNumber", "applicationStatus", "classLevel", "classSection"'),
-    supabase
-      .from(`${prefix}_enrolment_documents`)
       .select(
-        PFILES_SLOTS.flatMap((s) => {
-          const cols = ['"enroleeNumber"', `"${s.key}Status"`, `"${s.key}"`];
-          if (s.expires) cols.push(`"${s.key}Expiry"`);
-          return cols;
-        })
-          .filter((c, i, a) => a.indexOf(c) === i)
-          .join(', '),
+        '"enroleeNumber", "applicationStatus", "classLevel", "classSection"'
       ),
+    supabase.from(`${prefix}_enrolment_documents`).select(
+      PFILES_SLOTS.flatMap((s) => {
+        const cols = ['"enroleeNumber"', `"${s.key}Status"`, `"${s.key}"`];
+        if (s.expires) cols.push(`"${s.key}Expiry"`);
+        return cols;
+      })
+        .filter((c, i, a) => a.indexOf(c) === i)
+        .join(', ')
+    ),
   ]);
 
   if (appsRes.error || statusRes.error || docsRes.error) {
     console.error(
       '[admissions] getAdmissionsCompletenessForChase fetch failed:',
-      appsRes.error?.message ?? statusRes.error?.message ?? docsRes.error?.message,
+      appsRes.error?.message ??
+        statusRes.error?.message ??
+        docsRes.error?.message
     );
     return {
       students: [],
@@ -991,8 +1113,10 @@ async function loadAdmissionsCompletenessForChaseUncached(
     const enroleeNumber = (a.enroleeNumber as string | null) ?? '';
     if (!enroleeNumber) continue;
     const statusRow = statusByEnrolee.get(enroleeNumber);
-    const applicationStatus = (statusRow?.applicationStatus as string | null) ?? null;
-    if (!applicationStatus || !ADMISSIONS_CHASE_STATUSES.has(applicationStatus)) continue;
+    const applicationStatus =
+      (statusRow?.applicationStatus as string | null) ?? null;
+    if (!applicationStatus || !ADMISSIONS_CHASE_STATUSES.has(applicationStatus))
+      continue;
 
     const docRow = docsByEnrolee.get(enroleeNumber);
     const firstName = (a.firstName as string | null) ?? '';
@@ -1009,13 +1133,17 @@ async function loadAdmissionsCompletenessForChaseUncached(
     // surface the documents the parent is actually expected to upload.
     const applicableSlots = PFILES_SLOTS.filter((slot) => {
       if (!slot.conditional) return true;
-      const gate = a[slot.conditional as keyof AppRow] as string | null | undefined;
+      const gate = a[slot.conditional as keyof AppRow] as
+        | string
+        | null
+        | undefined;
       return !!gate && String(gate).trim().length > 0;
     });
 
     const slots = applicableSlots.map((slot) => {
       const url = (docRow?.[slot.key] as string | null) ?? null;
-      const rawStatus = (docRow?.[`${slot.key}Status`] as string | null) ?? null;
+      const rawStatus =
+        (docRow?.[`${slot.key}Status`] as string | null) ?? null;
       const expiryDate = slot.expires
         ? ((docRow?.[`${slot.key}Expiry`] as string | null) ?? null)
         : null;
@@ -1052,10 +1180,14 @@ async function loadAdmissionsCompletenessForChaseUncached(
   // dropdown to flip between filters, but pre-filtering at the helper
   // keeps the focused-view payload smaller + cache-key-distinct).
   let visible = students;
-  if (statusFilter === 'to-follow') visible = students.filter((s) => s.toFollow > 0);
-  else if (statusFilter === 'rejected') visible = students.filter((s) => s.rejected > 0);
-  else if (statusFilter === 'uploaded') visible = students.filter((s) => s.uploaded > 0);
-  else if (statusFilter === 'expired') visible = students.filter((s) => s.expired > 0);
+  if (statusFilter === 'to-follow')
+    visible = students.filter((s) => s.toFollow > 0);
+  else if (statusFilter === 'rejected')
+    visible = students.filter((s) => s.rejected > 0);
+  else if (statusFilter === 'uploaded')
+    visible = students.filter((s) => s.uploaded > 0);
+  else if (statusFilter === 'expired')
+    visible = students.filter((s) => s.expired > 0);
 
   // Sort: highest chase pressure first. Chase = parent-action-required
   // signals (toFollow + rejected + expired). Uploaded is awaiting-validation
@@ -1066,8 +1198,12 @@ async function loadAdmissionsCompletenessForChaseUncached(
     const aPressure = a.toFollow + a.rejected + a.expired;
     const bPressure = b.toFollow + b.rejected + b.expired;
     if (aPressure !== bPressure) return bPressure - aPressure;
-    const aDate = a.submittedDate ? Date.parse(a.submittedDate) : Number.POSITIVE_INFINITY;
-    const bDate = b.submittedDate ? Date.parse(b.submittedDate) : Number.POSITIVE_INFINITY;
+    const aDate = a.submittedDate
+      ? Date.parse(a.submittedDate)
+      : Number.POSITIVE_INFINITY;
+    const bDate = b.submittedDate
+      ? Date.parse(b.submittedDate)
+      : Number.POSITIVE_INFINITY;
     if (aDate !== bDate) return aDate - bDate;
     return a.fullName.localeCompare(b.fullName);
   });
@@ -1085,11 +1221,14 @@ async function loadAdmissionsCompletenessForChaseUncached(
 
 export function getAdmissionsCompletenessForChase(
   ayCode: string,
-  statusFilter: AdmissionsChaseStatusFilter = 'all',
-): Promise<{ students: AdmissionsCompleteness[]; summary: AdmissionsChaseSummary }> {
+  statusFilter: AdmissionsChaseStatusFilter = 'all'
+): Promise<{
+  students: AdmissionsCompleteness[];
+  summary: AdmissionsChaseSummary;
+}> {
   return unstable_cache(
     () => loadAdmissionsCompletenessForChaseUncached(ayCode, statusFilter),
     ['admissions', 'completeness-chase', ayCode, statusFilter],
-    { revalidate: CACHE_TTL_SECONDS, tags: tag(ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tag(ayCode) }
   )();
 }

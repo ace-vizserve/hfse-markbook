@@ -55,7 +55,10 @@ export function AySwitchActiveDialog({
       const res = await fetch('/api/sis/ay-setup', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ target_ay_code: targetAyCode, confirm_code: targetAyCode }),
+        body: JSON.stringify({
+          target_ay_code: targetAyCode,
+          confirm_code: targetAyCode,
+        }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? 'Failed to switch AY');
@@ -81,26 +84,33 @@ export function AySwitchActiveDialog({
       {children && <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>}
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Switch active AY to {targetAyCode}?</AlertDialogTitle>
+          <AlertDialogTitle>
+            Switch active AY to {targetAyCode}?
+          </AlertDialogTitle>
           <AlertDialogDescription>
             {currentAyCode && currentAyCode !== targetAyCode ? (
               <>
-                The current AY is <strong>{currentAyCode}</strong>. After this switch, every page in
-                the SIS and the parent portal will show <strong>{targetAyCode}</strong>.
+                The current AY is <strong>{currentAyCode}</strong>. After this
+                switch, every page in the SIS and the parent portal will show{' '}
+                <strong>{targetAyCode}</strong>.
               </>
             ) : (
               <>
-                After this switch, every page in the SIS and the parent portal will show{' '}
-                <strong>{targetAyCode}</strong>.
+                After this switch, every page in the SIS and the parent portal
+                will show <strong>{targetAyCode}</strong>.
               </>
             )}{' '}
-            You can switch back later, but this changes the live AY everyone sees.
+            You can switch back later, but this changes the live AY everyone
+            sees.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="space-y-2">
           <Label htmlFor="confirm-switch" className="text-xs font-medium">
-            Type <code className="rounded bg-muted px-1 py-0.5 text-[11px]">{targetAyCode}</code> to
-            confirm.
+            Type{' '}
+            <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+              {targetAyCode}
+            </code>{' '}
+            to confirm.
           </Label>
           <Input
             id="confirm-switch"
@@ -112,7 +122,10 @@ export function AySwitchActiveDialog({
         </div>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={submitting}>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={handleConfirm} disabled={!canSubmit || submitting}>
+          <AlertDialogAction
+            onClick={handleConfirm}
+            disabled={!canSubmit || submitting}
+          >
             {submitting && <Loader2 className="mr-1 size-4 animate-spin" />}
             Switch active
           </AlertDialogAction>

@@ -17,7 +17,7 @@ The playbook for making pages feel fast in this app. Apply to every new feature.
 ## 2. Server-component data fetching
 
 - **Default to parallel.** Two sequential `await supabase.from(...)` calls in a page is a bug. Use `Promise.all([...])`. Dependent queries run in waves — fetch IDs first, then the dependent counts in a single second-wave `Promise.all`. References: `app/(dashboard)/page.tsx::loadStatsUncached`, `app/(dashboard)/grading/[id]/page.tsx` (sheet fetch → `Promise.all([changeRequests, entries])`).
-- **Combine count + rows in one query** when both are needed: `.select('id', { count: 'exact' })` returns the rows *and* the exact count in a single round-trip. Don't issue a separate `head: true` count query next to a rows query against the same table.
+- **Combine count + rows in one query** when both are needed: `.select('id', { count: 'exact' })` returns the rows _and_ the exact count in a single round-trip. Don't issue a separate `head: true` count query next to a rows query against the same table.
 - **Avoid `select('*')` on wide tables.** When the caller only needs a subset of columns (status, expiry, etc.), enumerate them. The `ay{YY}_enrolment_documents` dashboard query lists exactly the columns needed per slot instead of selecting all document-URL text fields. Reference: `lib/p-files/queries.ts::loadRawDataUncached`.
 - **Filter at the DB, not in JS.** If searchParams carry a filter the DB can apply, push it there before fetching 500 rows to filter down to 5. Reference: `app/(dashboard)/admin/audit-log/page.tsx` pushes `sheet_id` and `action` into `.contains()` / `.eq()` before capping to 500 rows.
 - **Scope wide-table fetches to an id set you've already derived.** Fetch the sheet list first (RLS-scoped), then pass those IDs into an `.in('grading_sheet_id', sheetIds)` filter on the blanks query — don't re-scan the full `grade_entries` table. Reference: `app/(dashboard)/grading/page.tsx`.
@@ -48,7 +48,7 @@ The playbook for making pages feel fast in this app. Apply to every new feature.
 ## 5. Client-side rendering & state
 
 - **Don't put mutable state in `useCallback` dependency arrays if a ref will do.** `ScoreEntryGrid::patchEntry` used to depend on `rows`, which meant every successful save recreated the callback, which changed the `onCommit` prop on 50×11 = 550 cells and re-rendered the whole grid. Fix: `const rowsRef = useRef(rows); rowsRef.current = rows;` and read `rowsRef.current.find(...)` inside the callback, with `rows` removed from the dep array. The state update path (`setRows(current => ...)` functional form) already works fine. Reference: `components/grading/score-entry-grid.tsx`.
-- **Rule of thumb:** if a callback only *reads* a piece of state to compose a toast or log message (not as part of the update itself), a ref is correct. If it uses the value to decide what to write, use the functional setter.
+- **Rule of thumb:** if a callback only _reads_ a piece of state to compose a toast or log message (not as part of the update itself), a ref is correct. If it uses the value to decide what to write, use the functional setter.
 
 ## 6. Client-side data (TanStack Query)
 
@@ -70,6 +70,6 @@ Before marking any new page or feature done, walk through:
 - [ ] No `new Date(...)` allocations inside sort comparators — compare ISO strings directly.
 - [ ] `loading.tsx` added for any new route segment with real server-side fetching.
 - [ ] Mutating API routes that touch cached data call `revalidateTag(...)` (when freshness matters more than the TTL).
-- [ ] Any shared query pipeline (used by a page *and* an API route) has exactly one canonical implementation.
+- [ ] Any shared query pipeline (used by a page _and_ an API route) has exactly one canonical implementation.
 - [ ] Per-cell autosave, optimistic updates, or retry logic? Consider TanStack Query; otherwise stay on raw state.
-- [ ] `useCallback`/`useMemo` dependencies reviewed — mutable state only in deps if the callback's *write* depends on it; otherwise read via `useRef`.
+- [ ] `useCallback`/`useMemo` dependencies reviewed — mutable state only in deps if the callback's _write_ depends on it; otherwise read via `useRef`.

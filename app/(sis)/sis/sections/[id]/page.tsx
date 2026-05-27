@@ -1,6 +1,12 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft, ArrowUpRight, UserCheck, UserMinus, Users } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  UserCheck,
+  UserMinus,
+  Users,
+} from 'lucide-react';
 
 import { createClient, getSessionUser } from '@/lib/supabase/server';
 import { createAdmissionsClient } from '@/lib/supabase/admissions';
@@ -27,8 +33,15 @@ import {
 } from '@/components/sis/section-roster-table';
 import type { SiblingSection } from '@/components/sis/section-transfer-dialog';
 
-type LevelLite = { id: string; code: string; label: string; level_type: 'primary' | 'secondary' };
-type EnrolmentLite = { enrollment_status: 'active' | 'late_enrollee' | 'withdrawn' };
+type LevelLite = {
+  id: string;
+  code: string;
+  label: string;
+  level_type: 'primary' | 'secondary';
+};
+type EnrolmentLite = {
+  enrollment_status: 'active' | 'late_enrollee' | 'withdrawn';
+};
 
 const MAX_PER_SECTION = 50;
 
@@ -63,24 +76,36 @@ export default async function SisSectionDetailPage({
 
   const { data: section } = await supabase
     .from('sections')
-    .select('id, name, academic_year_id, level:levels(id, code, label, level_type), academic_year:academic_years(ay_code, label)')
+    .select(
+      'id, name, academic_year_id, level:levels(id, code, label, level_type), academic_year:academic_years(ay_code, label)'
+    )
     .eq('id', id)
     .single();
   if (!section) notFound();
 
   // Synchronous derivations from the already-resolved section row.
-  const level = (Array.isArray(section.level) ? section.level[0] : section.level) as LevelLite | null;
-  const ay = (Array.isArray(section.academic_year) ? section.academic_year[0] : section.academic_year) as
-    | { ay_code: string; label: string }
-    | null;
+  const level = (
+    Array.isArray(section.level) ? section.level[0] : section.level
+  ) as LevelLite | null;
+  const ay = (
+    Array.isArray(section.academic_year)
+      ? section.academic_year[0]
+      : section.academic_year
+  ) as { ay_code: string; label: string } | null;
 
   // Roster, subject configs, sibling section list, teacher list, and
   // assignments are all independent after section resolves — run in parallel.
-  const [{ data: rows }, { data: configs }, { data: rawSibRows }, teacherList, { data: rawAssignments }] = await Promise.all([
+  const [
+    { data: rows },
+    { data: configs },
+    { data: rawSibRows },
+    teacherList,
+    { data: rawAssignments },
+  ] = await Promise.all([
     supabase
       .from('section_students')
       .select(
-        'id, index_number, enrollment_status, bus_no, classroom_officer_role, student:students(id, student_number, last_name, first_name, middle_name)',
+        'id, index_number, enrollment_status, bus_no, classroom_officer_role, student:students(id, student_number, last_name, first_name, middle_name)'
       )
       .eq('section_id', id)
       .order('index_number', { ascending: true }),
@@ -113,14 +138,32 @@ export default async function SisSectionDetailPage({
     bus_no: string | null;
     classroom_officer_role: string | null;
     student:
-      | { id: string; student_number: string; last_name: string; first_name: string; middle_name: string | null }
-      | { id: string; student_number: string; last_name: string; first_name: string; middle_name: string | null }[]
+      | {
+          id: string;
+          student_number: string;
+          last_name: string;
+          first_name: string;
+          middle_name: string | null;
+        }
+      | {
+          id: string;
+          student_number: string;
+          last_name: string;
+          first_name: string;
+          middle_name: string | null;
+        }[]
       | null;
   };
   const enrolments = (rows ?? []) as RosterFetchRow[];
-  const activeCount = enrolments.filter((e) => e.enrollment_status === 'active').length;
-  const lateCount = enrolments.filter((e) => e.enrollment_status === 'late_enrollee').length;
-  const withdrawnCount = enrolments.filter((e) => e.enrollment_status === 'withdrawn').length;
+  const activeCount = enrolments.filter(
+    (e) => e.enrollment_status === 'active'
+  ).length;
+  const lateCount = enrolments.filter(
+    (e) => e.enrollment_status === 'late_enrollee'
+  ).length;
+  const withdrawnCount = enrolments.filter(
+    (e) => e.enrollment_status === 'withdrawn'
+  ).length;
   const onRosterCount = activeCount + lateCount;
 
   type CfgRow = {
@@ -132,13 +175,30 @@ export default async function SisSectionDetailPage({
   const levelSubjects = ((configs ?? []) as CfgRow[])
     .map((c) => (Array.isArray(c.subject) ? c.subject[0] : c.subject))
     .filter(
-      (s): s is { id: string; code: string; name: string; is_examinable: boolean } => !!s,
+      (
+        s
+      ): s is {
+        id: string;
+        code: string;
+        name: string;
+        is_examinable: boolean;
+      } => !!s
     )
     .sort((a, b) => a.name.localeCompare(b.name));
 
   // Map StaffMember.name → display_name to match the Teacher type in the component.
-  const initialTeachers = teacherList.map((t) => ({ id: t.id, email: t.email, display_name: t.name }));
-  type AssignmentRow = { id: string; teacher_user_id: string; section_id: string; subject_id: string | null; role: 'form_adviser' | 'subject_teacher' };
+  const initialTeachers = teacherList.map((t) => ({
+    id: t.id,
+    email: t.email,
+    display_name: t.name,
+  }));
+  type AssignmentRow = {
+    id: string;
+    teacher_user_id: string;
+    section_id: string;
+    subject_id: string | null;
+    role: 'form_adviser' | 'subject_teacher';
+  };
   const initialAssignments = (rawAssignments ?? []) as AssignmentRow[];
 
   // Sibling active-count query is sequential — it depends on rawSibRows.
@@ -158,7 +218,12 @@ export default async function SisSectionDetailPage({
     siblings = sibList
       .map((s) => {
         const c = counts.get(s.id) ?? 0;
-        return { id: s.id, name: s.name, activeCount: c, isAtCapacity: c >= MAX_PER_SECTION };
+        return {
+          id: s.id,
+          name: s.name,
+          activeCount: c,
+          isAtCapacity: c >= MAX_PER_SECTION,
+        };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
   }
@@ -195,13 +260,21 @@ export default async function SisSectionDetailPage({
         .from(`ay${year}_enrolment_applications`)
         .select('enroleeNumber, studentNumber')
         .in('studentNumber', studentNumbers);
-      for (const a of (appRows ?? []) as Array<{ enroleeNumber: string; studentNumber: string }>) {
-        if (a.studentNumber) enroleeByStudentNumber.set(a.studentNumber, a.enroleeNumber);
+      for (const a of (appRows ?? []) as Array<{
+        enroleeNumber: string;
+        studentNumber: string;
+      }>) {
+        if (a.studentNumber)
+          enroleeByStudentNumber.set(a.studentNumber, a.enroleeNumber);
       }
     }
   }
 
-  function composeName(last: string, first: string, middle: string | null): string {
+  function composeName(
+    last: string,
+    first: string,
+    middle: string | null
+  ): string {
     const m = middle?.trim() ? ` ${middle.trim().charAt(0)}.` : '';
     return `${last}, ${first}${m}`.trim();
   }
@@ -255,16 +328,22 @@ export default async function SisSectionDetailPage({
           </div>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
             {onRosterCount} on the roster
-            {withdrawnCount > 0 && ` · ${withdrawnCount} withdrawn (kept for audit)`}.
+            {withdrawnCount > 0 &&
+              ` · ${withdrawnCount} withdrawn (kept for audit)`}
+            .
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <SectionRenameDialog
-              sectionId={section.id}
-              currentName={section.name}
-            />
+            sectionId={section.id}
+            currentName={section.name}
+          />
           <GenerateSheetsDialog
-            scope={{ kind: 'section', sectionId: section.id, sectionLabel: section.name }}
+            scope={{
+              kind: 'section',
+              sectionId: section.id,
+              sectionLabel: section.name,
+            }}
           />
           <Button asChild size="sm" variant="outline" className="gap-1.5">
             <Link href={`/markbook/sections/${section.id}`}>
@@ -302,14 +381,18 @@ export default async function SisSectionDetailPage({
                 description="Late enrollees"
                 value={lateCount}
                 icon={Users}
-                footerTitle={lateCount === 0 ? 'None' : 'Started after term began'}
+                footerTitle={
+                  lateCount === 0 ? 'None' : 'Started after term began'
+                }
                 footerDetail="Pre-enrolment scores marked N/A"
               />
               <StatCard
                 description="Withdrawn"
                 value={withdrawnCount}
                 icon={UserMinus}
-                footerTitle={withdrawnCount === 0 ? 'None this year' : 'Retained for audit'}
+                footerTitle={
+                  withdrawnCount === 0 ? 'None this year' : 'Retained for audit'
+                }
                 footerDetail="Kept in the roster permanently"
               />
             </div>

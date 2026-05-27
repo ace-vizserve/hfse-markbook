@@ -47,7 +47,12 @@ export type CompareGridProps<T> = {
 
 type Bucket = 'best' | 'good' | 'neutral' | 'bad' | 'worst';
 
-function bucketOf(value: number, min: number, max: number, lowerIsBetter: boolean): Bucket {
+function bucketOf(
+  value: number,
+  min: number,
+  max: number,
+  lowerIsBetter: boolean
+): Bucket {
   if (max === min) return 'neutral';
   // Normalise to 0..1 where 1 = "best direction"
   const ratio = lowerIsBetter
@@ -64,10 +69,14 @@ const BUCKET_CLASS: Record<Bucket, string> = {
   good: 'bg-gradient-to-b from-brand-mint/10 to-brand-mint/0 text-foreground',
   neutral: 'text-muted-foreground',
   bad: 'bg-gradient-to-b from-destructive/10 to-destructive/0 text-foreground',
-  worst: 'bg-gradient-to-b from-destructive/20 to-destructive/5 text-destructive font-semibold',
+  worst:
+    'bg-gradient-to-b from-destructive/20 to-destructive/5 text-destructive font-semibold',
 };
 
-function formatValue(v: number | null, fmt: CompareGridMetric<unknown>['format']): string {
+function formatValue(
+  v: number | null,
+  fmt: CompareGridMetric<unknown>['format']
+): string {
   if (v === null) return '—';
   if (fmt === 'percent') return `${Math.round(v)}%`;
   if (fmt === 'days') return `${Math.round(v)}d`;
@@ -84,7 +93,7 @@ function formatDelta(
   baseline: number | null,
   fmt: CompareGridMetric<unknown>['format'],
   lowerIsBetter: boolean,
-  isBaseline: boolean,
+  isBaseline: boolean
 ): { text: string; tone: 'good' | 'bad' | 'neutral' } | null {
   if (isBaseline) return null;
   if (value === null || baseline === null) return null;
@@ -124,7 +133,10 @@ function cellSubLabel(cell: CompareCellResult<unknown>['cell']): string {
     // Format YYYY-MM as "Mon YY" — keep it short for the header
     const [y, m] = cell.month.split('-');
     const date = new Date(Number(y), Number(m) - 1, 1);
-    return date.toLocaleDateString('en-SG', { month: 'short', year: '2-digit' });
+    return date.toLocaleDateString('en-SG', {
+      month: 'short',
+      year: '2-digit',
+    });
   }
   // Fallback: strip "AY9999 · " prefix from label
   const idx = cell.label.indexOf('·');
@@ -135,7 +147,7 @@ function cellSubLabel(cell: CompareCellResult<unknown>['cell']): string {
  * Group cells by AY (preserving order) for the spanning top header row.
  */
 function groupByAy<T>(
-  cells: CompareCellResult<T>[],
+  cells: CompareCellResult<T>[]
 ): Array<{ ayCode: string; startIdx: number; span: number }> {
   const groups: Array<{ ayCode: string; startIdx: number; span: number }> = [];
   for (let i = 0; i < cells.length; i++) {
@@ -150,7 +162,12 @@ function groupByAy<T>(
   return groups;
 }
 
-export function CompareGrid<T>({ cells, metrics, title, description }: CompareGridProps<T>) {
+export function CompareGrid<T>({
+  cells,
+  metrics,
+  title,
+  description,
+}: CompareGridProps<T>) {
   const ayGroups = groupByAy(cells);
   const baselineIdx = 0;
 
@@ -181,10 +198,7 @@ export function CompareGrid<T>({ cells, metrics, title, description }: CompareGr
             <TableHeader>
               {/* Top row: AY-spanning headers */}
               <TableRow className="hover:bg-transparent">
-                <TableHead
-                  rowSpan={2}
-                  className="bg-muted/30 align-bottom"
-                >
+                <TableHead rowSpan={2} className="bg-muted/30 align-bottom">
                   Metric
                 </TableHead>
                 {ayGroups.map((g) => (
@@ -204,7 +218,7 @@ export function CompareGrid<T>({ cells, metrics, title, description }: CompareGr
                     key={`${c.cell.ayCode}-${cellSubLabel(c.cell)}-${i}`}
                     className={cn(
                       'h-9 border-l border-hairline bg-muted/20 text-center text-muted-foreground',
-                      i === baselineIdx && 'text-foreground',
+                      i === baselineIdx && 'text-foreground'
                     )}
                     title={
                       i === baselineIdx
@@ -254,23 +268,25 @@ export function CompareGrid<T>({ cells, metrics, title, description }: CompareGr
                         baselineValue,
                         metric.format,
                         lowerIsBetter,
-                        i === baselineIdx,
+                        i === baselineIdx
                       );
                       return (
                         <TableCell
                           key={`${c.cell.label}-${i}`}
                           className={cn(
                             'border-l border-hairline text-right align-middle font-mono tabular-nums transition-colors',
-                            BUCKET_CLASS[bucket],
+                            BUCKET_CLASS[bucket]
                           )}
-                          title={v === null ? 'No data for this period' : undefined}
+                          title={
+                            v === null ? 'No data for this period' : undefined
+                          }
                         >
                           <div>{formatValue(v, metric.format)}</div>
                           {delta && (
                             <div
                               className={cn(
                                 'mt-0.5 text-[10px] font-normal tracking-tight',
-                                DELTA_TONE[delta.tone],
+                                DELTA_TONE[delta.tone]
                               )}
                             >
                               {delta.text}
@@ -288,8 +304,8 @@ export function CompareGrid<T>({ cells, metrics, title, description }: CompareGr
         <p className="mt-3 px-1 text-[11px] text-muted-foreground">
           Cells are shaded by relative magnitude within each row. Mint = best
           direction; red = worst. <span className="font-mono">↓</span> on the
-          metric label means lower is better. Δ values are measured against
-          the leftmost <span className="font-mono">BASE</span> cell.
+          metric label means lower is better. Δ values are measured against the
+          leftmost <span className="font-mono">BASE</span> cell.
         </p>
       </CardContent>
     </Card>

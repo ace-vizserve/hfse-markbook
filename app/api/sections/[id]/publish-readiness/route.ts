@@ -8,7 +8,7 @@ import { getSchoolConfig } from '@/lib/sis/school-config';
 // Registrar+ only.
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -30,14 +30,21 @@ export async function GET(
   if (!rawTerm) {
     return NextResponse.json({ error: 'term not found' }, { status: 404 });
   }
-  const term = rawTerm as { id: string; term_number: number; academic_year_id: string; virtue_theme: string | null };
+  const term = rawTerm as {
+    id: string;
+    term_number: number;
+    academic_year_id: string;
+    virtue_theme: string | null;
+  };
   const isT4 = term.term_number === 4;
 
   // 2+3) Active students and grading sheets are independent — fetch in parallel.
   const [{ data: enrolments }, { data: sheets }] = await Promise.all([
     service
       .from('section_students')
-      .select('id, index_number, enrollment_status, student:students(id, student_number, last_name, first_name)')
+      .select(
+        'id, index_number, enrollment_status, student:students(id, student_number, last_name, first_name)'
+      )
       .eq('section_id', sectionId)
       .in('enrollment_status', ['active', 'late_enrollee'])
       .order('index_number'),
@@ -57,50 +64,67 @@ export async function GET(
       name: s ? `${s.last_name}, ${s.first_name}` : '(unknown)',
     };
   });
-  type SlotMeta = { label?: string | null; date?: string | null; page?: string | null };
+  type SlotMeta = {
+    label?: string | null;
+    date?: string | null;
+    page?: string | null;
+  };
   const sheetList = (sheets ?? []).map((sh) => {
     const subj = Array.isArray(sh.subject) ? sh.subject[0] : sh.subject;
     return {
       id: sh.id,
       is_locked: sh.is_locked,
       subject_name: subj?.name ?? '(unknown)',
-      slot_labels: sh.slot_labels as { ww?: (SlotMeta | null)[]; pt?: (SlotMeta | null)[] } | null,
+      slot_labels: sh.slot_labels as {
+        ww?: (SlotMeta | null)[];
+        pt?: (SlotMeta | null)[];
+      } | null,
     };
   });
   const unlockedSheets = sheetList.filter((s) => !s.is_locked);
 
   // 4+5) Write-ups, attendance, and slot-date check all depend on prior results — fetch in parallel.
-  const studentIds = activeStudents.map((s) => s.studentId).filter((id): id is string => !!id);
+  const studentIds = activeStudents
+    .map((s) => s.studentId)
+    .filter((id): id is string => !!id);
   const sectionStudentIds = activeStudents.map((s) => s.sectionStudentId);
   const sheetIds = sheetList.map((s) => s.id);
 
-  const [{ data: writeupRows }, { data: attendanceRows }, { data: scoreRows }] = await Promise.all([
-    studentIds.length > 0
-      ? service
-          .from('evaluation_writeups')
-          .select('student_id, writeup, submitted')
-          .eq('term_id', termId)
-          .eq('section_id', sectionId)
-          .in('student_id', studentIds)
-      : Promise.resolve({ data: [] as unknown[] }),
-    sectionStudentIds.length > 0
-      ? service
-          .from('attendance_records')
-          .select('section_student_id, school_days, days_present, days_late')
-          .eq('term_id', termId)
-          .in('section_student_id', sectionStudentIds)
-      : Promise.resolve({ data: [] as unknown[] }),
-    sheetIds.length > 0
-      ? service
-          .from('grade_entries')
-          .select('grading_sheet_id, ww_scores, pt_scores')
-          .in('grading_sheet_id', sheetIds)
-      : Promise.resolve({ data: [] as unknown[] }),
-  ]);
+  const [{ data: writeupRows }, { data: attendanceRows }, { data: scoreRows }] =
+    await Promise.all([
+      studentIds.length > 0
+        ? service
+            .from('evaluation_writeups')
+            .select('student_id, writeup, submitted')
+            .eq('term_id', termId)
+            .eq('section_id', sectionId)
+            .in('student_id', studentIds)
+        : Promise.resolve({ data: [] as unknown[] }),
+      sectionStudentIds.length > 0
+        ? service
+            .from('attendance_records')
+            .select('section_student_id, school_days, days_present, days_late')
+            .eq('term_id', termId)
+            .in('section_student_id', sectionStudentIds)
+        : Promise.resolve({ data: [] as unknown[] }),
+      sheetIds.length > 0
+        ? service
+            .from('grade_entries')
+            .select('grading_sheet_id, ww_scores, pt_scores')
+            .in('grading_sheet_id', sheetIds)
+        : Promise.resolve({ data: [] as unknown[] }),
+    ]);
 
-  type WriteupLite = { student_id: string; writeup: string | null; submitted: boolean };
+  type WriteupLite = {
+    student_id: string;
+    writeup: string | null;
+    submitted: boolean;
+  };
   const writeupsByStudent = new Map<string, WriteupLite>(
-    (writeupRows ?? []).map((w) => [(w as WriteupLite).student_id, w as WriteupLite]),
+    (writeupRows ?? []).map((w) => [
+      (w as WriteupLite).student_id,
+      w as WriteupLite,
+    ])
   );
   const missingEvaluations = activeStudents.filter((s) => {
     if (!s.studentId) return true;
@@ -111,25 +135,41 @@ export async function GET(
     if (!s.studentId) return false;
     return writeupsByStudent.get(s.studentId)?.submitted === true;
   }).length;
-  const draftedCount = activeStudents.length - missingEvaluations.length - submittedCount;
+  const draftedCount =
+    activeStudents.length - missingEvaluations.length - submittedCount;
 
   const attendanceBySSId = new Map(
     (attendanceRows ?? []).map((a) => {
-      const row = a as { section_student_id: string; school_days: number | null; days_present: number | null; days_late: number | null };
+      const row = a as {
+        section_student_id: string;
+        school_days: number | null;
+        days_present: number | null;
+        days_late: number | null;
+      };
       return [row.section_student_id, row];
-    }),
+    })
   );
   const missingAttendance = activeStudents.filter((s) => {
     const rec = attendanceBySSId.get(s.sectionStudentId);
-    return !rec || rec.school_days == null || rec.days_present == null || rec.days_late == null;
+    return (
+      !rec ||
+      rec.school_days == null ||
+      rec.days_present == null ||
+      rec.days_late == null
+    );
   });
 
   // 6) Slot activity-date check: sheets where a scored WW/PT slot has no administered date.
   //    Soft warning only — does not block publishing (KD #28).
-  type ScoreRow = { grading_sheet_id: string; ww_scores: (number | null)[] | null; pt_scores: (number | null)[] | null };
+  type ScoreRow = {
+    grading_sheet_id: string;
+    ww_scores: (number | null)[] | null;
+    pt_scores: (number | null)[] | null;
+  };
   const entriesBySheet = new Map<string, ScoreRow[]>();
   for (const e of (scoreRows ?? []) as ScoreRow[]) {
-    if (!entriesBySheet.has(e.grading_sheet_id)) entriesBySheet.set(e.grading_sheet_id, []);
+    if (!entriesBySheet.has(e.grading_sheet_id))
+      entriesBySheet.set(e.grading_sheet_id, []);
     entriesBySheet.get(e.grading_sheet_id)!.push(e);
   }
   const sheetsWithUndatedScores: { subject_name: string }[] = [];
@@ -140,16 +180,21 @@ export async function GET(
     for (let i = 0; i < (sh.slot_labels.ww?.length ?? 0) && !found; i++) {
       const slot = sh.slot_labels.ww?.[i];
       if (!slot?.label || slot.date) continue; // unused or already dated
-      if (entries.some((e) => e.ww_scores != null && e.ww_scores[i] != null)) found = true;
+      if (entries.some((e) => e.ww_scores != null && e.ww_scores[i] != null))
+        found = true;
     }
     for (let i = 0; i < (sh.slot_labels.pt?.length ?? 0) && !found; i++) {
       const slot = sh.slot_labels.pt?.[i];
       if (!slot?.label || slot.date) continue;
-      if (entries.some((e) => e.pt_scores != null && e.pt_scores[i] != null)) found = true;
+      if (entries.some((e) => e.pt_scores != null && e.pt_scores[i] != null))
+        found = true;
     }
     if (found) sheetsWithUndatedScores.push({ subject_name: sh.subject_name });
   }
-  const slotDates = { sheets_missing_count: sheetsWithUndatedScores.length, sheets: sheetsWithUndatedScores };
+  const slotDates = {
+    sheets_missing_count: sheetsWithUndatedScores.length,
+    sheets: sheetsWithUndatedScores,
+  };
 
   // 7) T4-specific: all four terms locked + annual grades present
   let t4Readiness = null;
@@ -168,30 +213,37 @@ export async function GET(
       letter_grade: string | null;
       is_na: boolean;
       annual_letter_grade: string | null;
-      grading_sheet: {
-        id: string;
-        term_id: string;
-        subject: { id: string; name: string; is_examinable: boolean };
-      } | {
-        id: string;
-        term_id: string;
-        subject: { id: string; name: string; is_examinable: boolean };
-      }[];
+      grading_sheet:
+        | {
+            id: string;
+            term_id: string;
+            subject: { id: string; name: string; is_examinable: boolean };
+          }
+        | {
+            id: string;
+            term_id: string;
+            subject: { id: string; name: string; is_examinable: boolean };
+          }[];
     };
 
-    const [{ data: allSheets }, { data: rawEntries }, schoolConfig] = await Promise.all([
-      service
-        .from('grading_sheets')
-        .select('id, term_id, is_locked, subject:subjects(id, name, is_examinable)')
-        .eq('section_id', sectionId)
-        .in('term_id', termIds),
-      service
-        .from('grade_entries')
-        .select('student_id, quarterly_grade, letter_grade, is_na, annual_letter_grade, grading_sheet:grading_sheets!inner(id, term_id, subject:subjects!inner(id, name, is_examinable))')
-        .eq('grading_sheet.section_id', sectionId)
-        .in('grading_sheet.term_id', termIds),
-      getSchoolConfig(),
-    ]);
+    const [{ data: allSheets }, { data: rawEntries }, schoolConfig] =
+      await Promise.all([
+        service
+          .from('grading_sheets')
+          .select(
+            'id, term_id, is_locked, subject:subjects(id, name, is_examinable)'
+          )
+          .eq('section_id', sectionId)
+          .in('term_id', termIds),
+        service
+          .from('grade_entries')
+          .select(
+            'student_id, quarterly_grade, letter_grade, is_na, annual_letter_grade, grading_sheet:grading_sheets!inner(id, term_id, subject:subjects!inner(id, name, is_examinable))'
+          )
+          .eq('grading_sheet.section_id', sectionId)
+          .in('grading_sheet.term_id', termIds),
+        getSchoolConfig(),
+      ]);
 
     const entries = (rawEntries ?? []) as unknown as EntryRow[];
 
@@ -229,7 +281,9 @@ export async function GET(
     // students with zero entry rows at all are caught and not silently skipped.
     const gradeMap = new Map<string, Map<string, (number | null)[]>>();
     for (const e of entries) {
-      const gs = Array.isArray(e.grading_sheet) ? e.grading_sheet[0] : e.grading_sheet;
+      const gs = Array.isArray(e.grading_sheet)
+        ? e.grading_sheet[0]
+        : e.grading_sheet;
       if (!gs) continue;
       const subj = Array.isArray(gs.subject) ? gs.subject[0] : gs.subject;
       if (!subj?.is_examinable) continue;
@@ -244,11 +298,20 @@ export async function GET(
       subjMap.get(subjKey)![termObj.term_number - 1] = e.quarterly_grade;
     }
 
-    const missingAnnual: { student_name: string; subject_name: string; missing_terms: number[] }[] = [];
+    const missingAnnual: {
+      student_name: string;
+      subject_name: string;
+      missing_terms: number[];
+    }[] = [];
     for (const s of activeStudents) {
       if (!s.studentId) continue;
       for (const subjName of examinableSubjectNames) {
-        const grades = gradeMap.get(s.studentId)?.get(subjName) ?? [null, null, null, null];
+        const grades = gradeMap.get(s.studentId)?.get(subjName) ?? [
+          null,
+          null,
+          null,
+          null,
+        ];
         const missing = grades
           .map((g, i) => (g == null ? i + 1 : null))
           .filter((t): t is number => t !== null);
@@ -269,7 +332,9 @@ export async function GET(
     type NonExamKey = string; // `${studentId}::${subjName}`
     const nonExamHasData = new Map<NonExamKey, boolean>();
     for (const e of entries) {
-      const gs = Array.isArray(e.grading_sheet) ? e.grading_sheet[0] : e.grading_sheet;
+      const gs = Array.isArray(e.grading_sheet)
+        ? e.grading_sheet[0]
+        : e.grading_sheet;
       if (!gs) continue;
       const subj = Array.isArray(gs.subject) ? gs.subject[0] : gs.subject;
       if (!subj || subj.is_examinable) continue;
@@ -297,9 +362,12 @@ export async function GET(
     // Letterhead: principalName, ceoName, peiRegistrationNumber must all be non-empty
     // (KD #101). Empty values produce blank signature lines on the T4 final card.
     const letterheadMissing: string[] = [];
-    if (!schoolConfig.principalName.trim()) letterheadMissing.push('Principal name');
-    if (!schoolConfig.ceoName.trim()) letterheadMissing.push('CEO / Founder name');
-    if (!schoolConfig.peiRegistrationNumber.trim()) letterheadMissing.push('PEI registration number');
+    if (!schoolConfig.principalName.trim())
+      letterheadMissing.push('Principal name');
+    if (!schoolConfig.ceoName.trim())
+      letterheadMissing.push('CEO / Founder name');
+    if (!schoolConfig.peiRegistrationNumber.trim())
+      letterheadMissing.push('PEI registration number');
 
     t4Readiness = {
       all_terms_locked: unlockedByTerm.length === 0,
@@ -337,12 +405,18 @@ export async function GET(
       total_active: activeStudents.length,
       submitted: submittedCount,
       drafted: draftedCount,
-      missing: missingEvaluations.map((s) => ({ name: s.name, index: s.indexNumber })),
+      missing: missingEvaluations.map((s) => ({
+        name: s.name,
+        index: s.indexNumber,
+      })),
     },
     attendance: {
       total_active: activeStudents.length,
       complete: activeStudents.length - missingAttendance.length,
-      missing: missingAttendance.map((s) => ({ name: s.name, index: s.indexNumber })),
+      missing: missingAttendance.map((s) => ({
+        name: s.name,
+        index: s.indexNumber,
+      })),
     },
     slot_dates: slotDates,
     t4_readiness: t4Readiness,

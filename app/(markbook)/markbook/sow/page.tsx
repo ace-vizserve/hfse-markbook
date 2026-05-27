@@ -19,7 +19,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-const STATUS_BADGE: Record<SowStatusKind, { label: string; className: string }> = {
+const STATUS_BADGE: Record<
+  SowStatusKind,
+  { label: string; className: string }
+> = {
   empty: {
     label: 'Not started',
     className: 'border border-border text-muted-foreground',
@@ -39,7 +42,11 @@ const STATUS_BADGE: Record<SowStatusKind, { label: string; className: string }> 
 export default async function SowIndexPage() {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
-  if (!['teacher', 'registrar', 'school_admin', 'superadmin'].includes(sessionUser.role ?? '')) {
+  if (
+    !['teacher', 'registrar', 'school_admin', 'superadmin'].includes(
+      sessionUser.role ?? ''
+    )
+  ) {
     redirect('/markbook');
   }
 
@@ -47,8 +54,12 @@ export default async function SowIndexPage() {
   const currentAy = await getCurrentAcademicYear(service);
   const ayCode = currentAy?.ay_code ?? '';
 
-  const isRegistrarPlus = ['registrar', 'school_admin', 'superadmin'].includes(sessionUser.role ?? '');
-  const items = ayCode ? await listTeacherSowItems(sessionUser.id, ayCode, isRegistrarPlus) : [];
+  const isRegistrarPlus = ['registrar', 'school_admin', 'superadmin'].includes(
+    sessionUser.role ?? ''
+  );
+  const items = ayCode
+    ? await listTeacherSowItems(sessionUser.id, ayCode, isRegistrarPlus)
+    : [];
 
   const grouped = groupByLevel(items);
 
@@ -67,7 +78,9 @@ export default async function SowIndexPage() {
           </h1>
         </div>
         <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-          Author and maintain your SOW for each section and subject. WW/PT labels and evaluation topics flow into grading sheets and evaluation checklists when you sync.
+          Author and maintain your SOW for each section and subject. WW/PT
+          labels and evaluation topics flow into grading sheets and evaluation
+          checklists when you sync.
         </p>
       </header>
 
@@ -106,8 +119,12 @@ export default async function SowIndexPage() {
                     const badge = STATUS_BADGE[item.status];
                     const editorHref = `/markbook/sow/${item.section_id}/${item.subject_id}/${item.term_id}`;
                     return (
-                      <TableRow key={`${item.section_id}:${item.subject_id}:${item.term_id}`}>
-                        <TableCell className="font-medium">{item.section_name}</TableCell>
+                      <TableRow
+                        key={`${item.section_id}:${item.subject_id}:${item.term_id}`}
+                      >
+                        <TableCell className="font-medium">
+                          {item.section_name}
+                        </TableCell>
                         <TableCell className="text-sm">
                           <span className="font-mono text-[10px] text-muted-foreground">
                             {item.subject_code}
@@ -121,21 +138,29 @@ export default async function SowIndexPage() {
                           {item.ww_count > 0 ? (
                             <Badge variant="secondary">{item.ww_count}</Badge>
                           ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
+                            <span className="text-xs text-muted-foreground">
+                              —
+                            </span>
                           )}
                         </TableCell>
                         <TableCell className="text-center">
                           {item.pt_count > 0 ? (
                             <Badge variant="secondary">{item.pt_count}</Badge>
                           ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
+                            <span className="text-xs text-muted-foreground">
+                              —
+                            </span>
                           )}
                         </TableCell>
                         <TableCell className="text-center">
                           {item.topic_count > 0 ? (
-                            <Badge variant="secondary">{item.topic_count}</Badge>
+                            <Badge variant="secondary">
+                              {item.topic_count}
+                            </Badge>
                           ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
+                            <span className="text-xs text-muted-foreground">
+                              —
+                            </span>
                           )}
                         </TableCell>
                         <TableCell>
@@ -147,7 +172,11 @@ export default async function SowIndexPage() {
                         </TableCell>
                         <TableCell>
                           <Link href={editorHref}>
-                            <Button variant="outline" size="sm" className="h-7 text-xs">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                            >
                               {item.status === 'empty' ? 'Start SOW' : 'Edit'}
                             </Button>
                           </Link>

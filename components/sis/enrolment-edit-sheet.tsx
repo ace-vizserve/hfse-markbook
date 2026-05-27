@@ -45,7 +45,12 @@ import {
   type EnrollmentStatus,
 } from '@/lib/schemas/enrolment';
 
-type MidTermPayload = { termNumber: number; termLabel: string; sectionId: string; sectionStudentId: string };
+type MidTermPayload = {
+  termNumber: number;
+  termLabel: string;
+  sectionId: string;
+  sectionStudentId: string;
+};
 
 export function EnrolmentEditSheet({
   sectionId,
@@ -70,12 +75,16 @@ export function EnrolmentEditSheet({
   const [open, setOpen] = useState(false);
   const [busNo, setBusNo] = useState(initial.bus_no ?? '');
   const [officer, setOfficer] = useState(initial.classroom_officer_role ?? '');
-  const [status, setStatus] = useState<EnrollmentStatus>(initial.enrollment_status);
+  const [status, setStatus] = useState<EnrollmentStatus>(
+    initial.enrollment_status
+  );
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
   const [confirmReEnrol, setConfirmReEnrol] = useState(false);
-  const [pendingMidTerm, setPendingMidTerm] = useState<MidTermPayload | null>(null);
+  const [pendingMidTerm, setPendingMidTerm] = useState<MidTermPayload | null>(
+    null
+  );
   const [markAsLate, setMarkAsLate] = useState(true);
   const [applyingLate, setApplyingLate] = useState(false);
 
@@ -127,29 +136,37 @@ export function EnrolmentEditSheet({
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify(body),
-        },
+        }
       );
       const resBody = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(resBody?.error ?? 'save failed');
 
-      const lateTerm = (resBody as { lateEnrolleeTerm?: { termLabel: string } | null })
-        .lateEnrolleeTerm;
-      const admissionsCascade = (resBody as {
-        admissionsCascade?: { enroleeNumber: string; ayCode: string } | null;
-      }).admissionsCascade;
+      const lateTerm = (
+        resBody as { lateEnrolleeTerm?: { termLabel: string } | null }
+      ).lateEnrolleeTerm;
+      const admissionsCascade = (
+        resBody as {
+          admissionsCascade?: { enroleeNumber: string; ayCode: string } | null;
+        }
+      ).admissionsCascade;
       const reEnrolment = (resBody as { reEnrolment?: boolean }).reEnrolment;
 
-      const midTermPayload = (resBody as { midTermEnrolment?: MidTermPayload | null })
-        .midTermEnrolment ?? null;
+      const midTermPayload =
+        (resBody as { midTermEnrolment?: MidTermPayload | null })
+          .midTermEnrolment ?? null;
 
       if (reEnrolment) {
         toast.success(`Restored ${studentName} to active enrolment`);
       } else if (lateTerm?.termLabel) {
-        toast.success(`Tagged ${studentName} as late enrollee · ${lateTerm.termLabel}`);
+        toast.success(
+          `Tagged ${studentName} as late enrollee · ${lateTerm.termLabel}`
+        );
       } else if (status === 'late_enrollee') {
         toast.success(`Tagged ${studentName} as late enrollee · between terms`);
       } else if (admissionsCascade) {
-        toast.success(`Withdrew ${studentName} · admissions also marked Withdrawn`);
+        toast.success(
+          `Withdrew ${studentName} · admissions also marked Withdrawn`
+        );
       } else {
         toast.success(`Updated ${studentName}`);
       }
@@ -179,7 +196,8 @@ export function EnrolmentEditSheet({
               Edit enrolment
             </SheetTitle>
             <SheetDescription className="text-sm text-muted-foreground">
-              <span className="font-mono tabular-nums">#{indexNumber}</span> · {studentName}
+              <span className="font-mono tabular-nums">#{indexNumber}</span> ·{' '}
+              {studentName}
             </SheetDescription>
           </SheetHeader>
 
@@ -195,7 +213,8 @@ export function EnrolmentEditSheet({
                   maxLength={40}
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Shown on the attendance sheet header. Leave blank if not applicable.
+                  Shown on the attendance sheet header. Leave blank if not
+                  applicable.
                 </p>
               </div>
 
@@ -208,12 +227,17 @@ export function EnrolmentEditSheet({
                   placeholder="e.g. HAPI HAUS"
                   maxLength={80}
                 />
-                <p className="text-[11px] text-muted-foreground">Display-only. No reporting impact.</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Display-only. No reporting impact.
+                </p>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="status">Enrolment status</Label>
-                <Select value={status} onValueChange={(v) => setStatus(v as EnrollmentStatus)}>
+                <Select
+                  value={status}
+                  onValueChange={(v) => setStatus(v as EnrollmentStatus)}
+                >
                   <SelectTrigger id="status" className="h-10">
                     <SelectValue />
                   </SelectTrigger>
@@ -226,8 +250,9 @@ export function EnrolmentEditSheet({
                   </SelectContent>
                 </Select>
                 <p className="text-[11px] text-muted-foreground">
-                  Withdrawing sets the withdrawal date to today. Restoring to Active reverses
-                  the admissions withdrawal. Pre-enrolment / post-withdrawal scores stay as N/A.
+                  Withdrawing sets the withdrawal date to today. Restoring to
+                  Active reverses the admissions withdrawal. Pre-enrolment /
+                  post-withdrawal scores stay as N/A.
                 </p>
               </div>
             </div>
@@ -238,8 +263,17 @@ export function EnrolmentEditSheet({
                   Cancel
                 </Button>
               </SheetClose>
-              <Button type="submit" size="sm" disabled={saving} className="gap-1.5">
-                {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+              <Button
+                type="submit"
+                size="sm"
+                disabled={saving}
+                className="gap-1.5"
+              >
+                {saving ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Save className="size-3.5" />
+                )}
                 {saving ? 'Saving…' : 'Save'}
               </Button>
             </SheetFooter>
@@ -253,25 +287,32 @@ export function EnrolmentEditSheet({
           <AlertDialogHeader>
             <AlertDialogTitle>Withdraw {studentName}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes them from the section roster and marks them as Withdrawn in
-              admissions. Their grades, attendance, and history remain on file. To move
-              them to another section instead, cancel and use the Move action.
+              This removes them from the section roster and marks them as
+              Withdrawn in admissions. Their grades, attendance, and history
+              remain on file. To move them to another section instead, cancel
+              and use the Move action.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="px-6 pb-2 space-y-1.5">
             <Label htmlFor="withdrawReason" className="text-sm font-medium">
-              Reason <span className="text-muted-foreground font-normal">(optional)</span>
+              Reason{' '}
+              <span className="text-muted-foreground font-normal">
+                (optional)
+              </span>
             </Label>
             <Textarea
               id="withdrawReason"
               value={reason}
-              onChange={(e) => setReason(e.target.value.slice(0, WITHDRAWAL_REASON_MAX))}
+              onChange={(e) =>
+                setReason(e.target.value.slice(0, WITHDRAWAL_REASON_MAX))
+              }
               placeholder="e.g. Family relocation to another country"
               rows={3}
               className="resize-none text-sm"
             />
             <p className="text-[11px] text-muted-foreground">
-              {reason.length} / {WITHDRAWAL_REASON_MAX} · Optional. Captured in the movements log for future reference.
+              {reason.length} / {WITHDRAWAL_REASON_MAX} · Optional. Captured in
+              the movements log for future reference.
             </p>
           </div>
           <AlertDialogFooter>
@@ -292,8 +333,9 @@ export function EnrolmentEditSheet({
           <AlertDialogHeader>
             <AlertDialogTitle>Restore {studentName}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This restores the student to active enrolment and reverses the admissions
-              withdrawal. Their grades and attendance history remain unchanged. Continue?
+              This restores the student to active enrolment and reverses the
+              admissions withdrawal. Their grades and attendance history remain
+              unchanged. Continue?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -321,9 +363,10 @@ export function EnrolmentEditSheet({
           <AlertDialogHeader>
             <AlertDialogTitle>Enrolling mid-year</AlertDialogTitle>
             <AlertDialogDescription>
-              Today falls in <strong>{pendingMidTerm?.termLabel}</strong>. Most students who
-              rejoin in {pendingMidTerm?.termLabel} are marked as late enrollees so the system
-              knows to skip assessments that happened before they came back.
+              Today falls in <strong>{pendingMidTerm?.termLabel}</strong>. Most
+              students who rejoin in {pendingMidTerm?.termLabel} are marked as
+              late enrollees so the system knows to skip assessments that
+              happened before they came back.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="px-6 pb-2">
@@ -336,7 +379,8 @@ export function EnrolmentEditSheet({
               <span>
                 Mark as <strong>late enrollee</strong>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
-                  Assessments dated before today will be marked N/A on the student&apos;s grading sheets.
+                  Assessments dated before today will be marked N/A on the
+                  student&apos;s grading sheets.
                 </span>
               </span>
             </label>
@@ -368,13 +412,22 @@ export function EnrolmentEditSheet({
                     {
                       method: 'PATCH',
                       headers: { 'content-type': 'application/json' },
-                      body: JSON.stringify({ enrollment_status: 'late_enrollee' }),
-                    },
+                      body: JSON.stringify({
+                        enrollment_status: 'late_enrollee',
+                      }),
+                    }
                   );
-                  if (!res.ok) throw new Error('Failed to mark as late enrollee');
-                  toast.success(`Marked ${studentName} as late enrollee · ${pendingMidTerm.termLabel}`);
+                  if (!res.ok)
+                    throw new Error('Failed to mark as late enrollee');
+                  toast.success(
+                    `Marked ${studentName} as late enrollee · ${pendingMidTerm.termLabel}`
+                  );
                 } catch (e) {
-                  toast.error(e instanceof Error ? e.message : 'Could not mark as late enrollee');
+                  toast.error(
+                    e instanceof Error
+                      ? e.message
+                      : 'Could not mark as late enrollee'
+                  );
                 } finally {
                   setApplyingLate(false);
                   setPendingMidTerm(null);

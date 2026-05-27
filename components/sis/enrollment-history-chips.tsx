@@ -25,18 +25,27 @@ export function EnrollmentHistoryChips({
         <CalendarRange className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1 space-y-2">
           <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Enrollment history · {sorted.length} year{sorted.length === 1 ? '' : 's'}
+            Enrollment history · {sorted.length} year
+            {sorted.length === 1 ? '' : 's'}
           </p>
           <div className="flex flex-wrap items-center gap-2">
             {sorted.map((entry) => {
               const isCurrent = entry.ayCode === currentAyCode;
-              const summary = [entry.level, entry.section].filter(Boolean).join(' · ') || '—';
+              const summary =
+                [entry.level, entry.section].filter(Boolean).join(' · ') || '—';
               // KD #81: Enrolled entries route to Records; non-enrolled to Admissions.
               const isEnrolled =
-                entry.status === 'Enrolled' || entry.status === 'Enrolled (Conditional)';
+                entry.status === 'Enrolled' ||
+                entry.status === 'Enrolled (Conditional)';
               const chipHref = isEnrolled
-                ? { pathname: `/records/students/by-enrolee/${entry.enroleeNumber}`, query: { ay: entry.ayCode } }
-                : { pathname: `/admissions/applications/${entry.enroleeNumber}`, query: { ay: entry.ayCode } };
+                ? {
+                    pathname: `/records/students/by-enrolee/${entry.enroleeNumber}`,
+                    query: { ay: entry.ayCode },
+                  }
+                : {
+                    pathname: `/admissions/applications/${entry.enroleeNumber}`,
+                    query: { ay: entry.ayCode },
+                  };
               return (
                 <Link
                   key={`${entry.ayCode}:${entry.enroleeNumber}`}
@@ -45,14 +54,14 @@ export function EnrollmentHistoryChips({
                     'group inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 transition-all',
                     isCurrent
                       ? 'border-brand-indigo bg-brand-indigo/5 text-brand-indigo-deep'
-                      : 'border-hairline bg-background text-foreground hover:border-brand-indigo/40 hover:bg-muted/60',
+                      : 'border-hairline bg-background text-foreground hover:border-brand-indigo/40 hover:bg-muted/60'
                   )}
                 >
                   <Badge
                     variant="outline"
                     className={cn(
                       'font-mono text-[10px] uppercase tracking-wider',
-                      isCurrent && 'border-brand-indigo/50 bg-background',
+                      isCurrent && 'border-brand-indigo/50 bg-background'
                     )}
                   >
                     {entry.ayCode}

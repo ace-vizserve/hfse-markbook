@@ -13,8 +13,16 @@ import {
 
 import { AySwitcher } from '@/components/admissions/ay-switcher';
 import { CrossAySearch } from '@/components/sis/cross-ay-search';
-import { StudentDataTable, type StatusBucketDef } from '@/components/sis/student-data-table';
-import { Alert, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert';
+import {
+  StudentDataTable,
+  type StatusBucketDef,
+} from '@/components/sis/student-data-table';
+import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
+  AlertTitle,
+} from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -57,12 +65,15 @@ export default async function RecordsStudentsPage({
   if (!currentAy) {
     return (
       <PageShell>
-        <div className="text-sm text-destructive">No current academic year configured.</div>
+        <div className="text-sm text-destructive">
+          No current academic year configured.
+        </div>
       </PageShell>
     );
   }
 
-  const selectedAy = ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
+  const selectedAy =
+    ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
   const isCurrentAy = selectedAy === currentAy.ay_code;
 
   const [allStudents, unsyncedCount] = await Promise.all([
@@ -75,7 +86,7 @@ export default async function RecordsStudentsPage({
   // Pre-enrolment applications live on /admissions/applications.
   const ENROLLED = new Set(['Enrolled', 'Enrolled (Conditional)']);
   const students = allStudents.filter((s) =>
-    ENROLLED.has((s.applicationStatus ?? '').trim()),
+    ENROLLED.has((s.applicationStatus ?? '').trim())
   );
 
   // Merge enrollment_status from section_students so the Late enrollee tab works,
@@ -89,18 +100,29 @@ export default async function RecordsStudentsPage({
     const { data: ssRows } = await service
       .from('section_students')
       .select('enrolee_number, enrollment_status')
-      .in('enrolee_number', students.map((s) => s.enroleeNumber));
+      .in(
+        'enrolee_number',
+        students.map((s) => s.enroleeNumber)
+      );
     for (const r of ssRows ?? []) {
       if (!r.enrolee_number) continue;
       if (r.enrollment_status !== 'withdrawn') {
-        enrollmentStatusMap.set(r.enrolee_number, r.enrollment_status as string);
+        enrollmentStatusMap.set(
+          r.enrolee_number,
+          r.enrollment_status as string
+        );
       }
     }
     // Truly withdrawn = has a withdrawn row, no active/late_enrollee row
     const withdrawnSet = new Set(
       (ssRows ?? [])
-        .filter((r) => r.enrollment_status === 'withdrawn' && r.enrolee_number && !enrollmentStatusMap.has(r.enrolee_number!))
-        .map((r) => r.enrolee_number),
+        .filter(
+          (r) =>
+            r.enrollment_status === 'withdrawn' &&
+            r.enrolee_number &&
+            !enrollmentStatusMap.has(r.enrolee_number!)
+        )
+        .map((r) => r.enrolee_number)
     );
     withdrawnFromSections = withdrawnSet.size;
   }
@@ -110,13 +132,21 @@ export default async function RecordsStudentsPage({
     enrollmentStatus: enrollmentStatusMap.get(s.enroleeNumber) ?? null,
   }));
 
-  const activeCount = studentsWithStatus.filter((s) => s.enrollmentStatus === 'active').length;
-  const lateEnrolleeCount = studentsWithStatus.filter((s) => s.enrollmentStatus === 'late_enrollee').length;
+  const activeCount = studentsWithStatus.filter(
+    (s) => s.enrollmentStatus === 'active'
+  ).length;
+  const lateEnrolleeCount = studentsWithStatus.filter(
+    (s) => s.enrollmentStatus === 'late_enrollee'
+  ).length;
 
   const RECORDS_STATUS_BUCKETS: StatusBucketDef[] = [
     { key: 'all', label: 'All' },
     { key: 'active', label: 'Active', enrollmentStatuses: ['active'] },
-    { key: 'late_enrollee', label: 'Late enrollee', enrollmentStatuses: ['late_enrollee'] },
+    {
+      key: 'late_enrollee',
+      label: 'Late enrollee',
+      enrollmentStatuses: ['late_enrollee'],
+    },
   ];
 
   return (
@@ -139,9 +169,9 @@ export default async function RecordsStudentsPage({
             Student records.
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            Enrolled students only. Click a row to open the cross-year permanent record
-            (grades, attendance, and class-placement history across every AY). Pre-
-            enrolment applications are on the Admissions module.
+            Enrolled students only. Click a row to open the cross-year permanent
+            record (grades, attendance, and class-placement history across every
+            AY). Pre- enrolment applications are on the Admissions module.
           </p>
         </div>
         <div className="flex flex-col items-start gap-2 md:items-end">
@@ -182,10 +212,16 @@ export default async function RecordsStudentsPage({
             {unsyncedCount === 1 ? '' : 's'} not in this list
           </AlertTitle>
           <AlertDescription>
-            They&rsquo;re enrolled in admissions but don&rsquo;t yet have a class section,
-            so they&rsquo;re stranded outside grading and attendance.
+            They&rsquo;re enrolled in admissions but don&rsquo;t yet have a
+            class section, so they&rsquo;re stranded outside grading and
+            attendance.
           </AlertDescription>
-          <Button asChild size="sm" variant="outline" className="col-start-2 mt-2 w-fit">
+          <Button
+            asChild
+            size="sm"
+            variant="outline"
+            className="col-start-2 mt-2 w-fit"
+          >
             <Link href="/records/unsynced">Review queue</Link>
           </Button>
         </Alert>
@@ -240,8 +276,9 @@ export default async function RecordsStudentsPage({
           <CrossAySearch />
         </CardContent>
         <CardFooter className="text-xs text-muted-foreground">
-          Matches on student number, name, or enrolee number across every AY this school
-          has records for. Tap a result to open that AY&apos;s record.
+          Matches on student number, name, or enrolee number across every AY
+          this school has records for. Tap a result to open that AY&apos;s
+          record.
         </CardFooter>
       </Card>
 
@@ -275,7 +312,9 @@ export default async function RecordsStudentsPage({
         <Table2 className="size-3" strokeWidth={2.25} />
         <span>{selectedAy}</span>
         <span className="text-border">·</span>
-        <span>{studentsWithStatus.length.toLocaleString('en-SG')} students</span>
+        <span>
+          {studentsWithStatus.length.toLocaleString('en-SG')} students
+        </span>
         <span className="text-border">·</span>
         <span>Refreshes every 10 minutes</span>
       </div>
@@ -309,7 +348,9 @@ function SummaryStat({
           </div>
         </CardAction>
       </CardHeader>
-      <CardFooter className="text-xs text-muted-foreground">{footnote}</CardFooter>
+      <CardFooter className="text-xs text-muted-foreground">
+        {footnote}
+      </CardFooter>
     </Card>
   );
 }

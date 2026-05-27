@@ -1,8 +1,13 @@
-"use client";
+'use client';
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardTitle,
+} from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -10,11 +15,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import type { Role } from "@/lib/auth/roles";
-import type { AyReadiness, ReadinessStep, ReadinessStepId } from "@/lib/sis/readiness";
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import type { Role } from '@/lib/auth/roles';
+import type {
+  AyReadiness,
+  ReadinessStep,
+  ReadinessStepId,
+} from '@/lib/sis/readiness';
 import {
   ArrowUpRight,
   CalendarCog,
@@ -26,9 +35,9 @@ import {
   Minus,
   TableProperties,
   type LucideIcon,
-} from "lucide-react";
-import Link from "next/link";
-import { useState } from "react";
+} from 'lucide-react';
+import Link from 'next/link';
+import { useState } from 'react';
 
 type Props = {
   readiness: AyReadiness;
@@ -36,18 +45,20 @@ type Props = {
 };
 
 const STEP_ICONS: Record<ReadinessStepId, LucideIcon> = {
-  "ay-setup": CalendarCog,
+  'ay-setup': CalendarCog,
   calendar: CalendarDays,
   sections: LayoutGrid,
-  "grading-sheets": TableProperties,
+  'grading-sheets': TableProperties,
 };
 
 export function AyReadinessPill({ readiness, role }: Props) {
   const [open, setOpen] = useState(false);
 
-  if (role !== "school_admin" && role !== "superadmin") return null;
+  if (role !== 'school_admin' && role !== 'superadmin') return null;
   const done = readiness.complete === readiness.total;
-  const pct  = done ? 100 : Math.round((readiness.complete / readiness.total) * 100);
+  const pct = done
+    ? 100
+    : Math.round((readiness.complete / readiness.total) * 100);
 
   return (
     <>
@@ -56,7 +67,8 @@ export function AyReadinessPill({ readiness, role }: Props) {
         type="button"
         onClick={() => setOpen(true)}
         className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-indigo/40"
-        aria-label="Open year setup readiness">
+        aria-label="Open year setup readiness"
+      >
         <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
           <ClipboardCheck className="size-4" />
         </div>
@@ -70,7 +82,7 @@ export function AyReadinessPill({ readiness, role }: Props) {
             </p>
           ) : (
             <p className="mt-0.5 font-serif text-sm font-semibold leading-tight text-foreground">
-              {readiness.complete}{" "}
+              {readiness.complete}{' '}
               <span className="font-sans text-[13px] font-normal text-muted-foreground">
                 of {readiness.total} complete
               </span>
@@ -79,11 +91,11 @@ export function AyReadinessPill({ readiness, role }: Props) {
           <div className="mt-1.5 h-1 w-28 overflow-hidden rounded-full bg-muted">
             <div
               className={[
-                "h-full rounded-full transition-all duration-500",
+                'h-full rounded-full transition-all duration-500',
                 done
-                  ? "bg-brand-mint"
-                  : "bg-gradient-to-r from-brand-indigo to-brand-mint",
-              ].join(" ")}
+                  ? 'bg-brand-mint'
+                  : 'bg-gradient-to-r from-brand-indigo to-brand-mint',
+              ].join(' ')}
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -103,11 +115,18 @@ export function AyReadinessPill({ readiness, role }: Props) {
               <DialogTitle className="font-serif text-xl font-semibold leading-tight tracking-tight text-foreground">
                 Year Setup Readiness
               </DialogTitle>
-              <Badge variant={readiness.complete === readiness.total ? "success" : "warning"} className="h-6">
+              <Badge
+                variant={
+                  readiness.complete === readiness.total ? 'success' : 'warning'
+                }
+                className="h-6"
+              >
                 {readiness.complete} / {readiness.total}
               </Badge>
             </div>
-            <DialogDescription>Steps can be completed in any order.</DialogDescription>
+            <DialogDescription>
+              Steps can be completed in any order.
+            </DialogDescription>
           </DialogHeader>
 
           {/* Step rows */}
@@ -131,7 +150,9 @@ export function AyReadinessPill({ readiness, role }: Props) {
             <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               {readiness.complete} of {readiness.total} steps complete
             </span>
-            <span className="text-[11px] text-muted-foreground">Steps can be completed in any order</span>
+            <span className="text-[11px] text-muted-foreground">
+              Steps can be completed in any order
+            </span>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -148,33 +169,45 @@ function ReadinessRow({
   icon: LucideIcon;
   onNavigate: () => void;
 }) {
-  const isDone = step.status === "done";
-  const isPartial = step.status === "partial";
+  const isDone = step.status === 'done';
+  const isPartial = step.status === 'partial';
 
   const tileClass = isDone
-    ? "bg-gradient-to-br from-brand-mint to-brand-sky shadow-brand-tile-mint"
+    ? 'bg-gradient-to-br from-brand-mint to-brand-sky shadow-brand-tile-mint'
     : isPartial
-      ? "bg-gradient-to-br from-brand-amber to-brand-amber/80 shadow-brand-tile-amber"
-      : "border border-hairline bg-muted/60";
+      ? 'bg-gradient-to-br from-brand-amber to-brand-amber/80 shadow-brand-tile-amber'
+      : 'border border-hairline bg-muted/60';
 
   const pct =
-    step.fraction && step.fraction.total > 0 ? Math.round((step.fraction.done / step.fraction.total) * 100) : 0;
+    step.fraction && step.fraction.total > 0
+      ? Math.round((step.fraction.done / step.fraction.total) * 100)
+      : 0;
 
-  const fractionColor = isDone ? "text-brand-mint" : isPartial ? "text-brand-amber" : "text-muted-foreground";
-  const barColor = isDone ? "bg-brand-mint" : isPartial ? "bg-brand-amber" : "bg-muted-foreground/30";
+  const fractionColor = isDone
+    ? 'text-brand-mint'
+    : isPartial
+      ? 'text-brand-amber'
+      : 'text-muted-foreground';
+  const barColor = isDone
+    ? 'bg-brand-mint'
+    : isPartial
+      ? 'bg-brand-amber'
+      : 'bg-muted-foreground/30';
 
   return (
     <Card className="gap-0 py-0 shadow-none ring-1 ring-inset ring-border/40">
       <CardContent className="flex items-start gap-3 p-3.5">
         {/* Status icon tile */}
-        <div className={`flex size-9 shrink-0 items-center justify-center rounded-xl ${tileClass}`}>
+        <div
+          className={`flex size-9 shrink-0 items-center justify-center rounded-xl ${tileClass}`}
+        >
           {isDone ? (
             <CheckCircle2 className="size-4 text-white" />
           ) : isPartial ? (
             <Icon className="size-4 text-white" />
           ) : (
             <span className="font-mono text-[11px] font-bold text-muted-foreground">
-              {String(step.step).padStart(2, "0")}
+              {String(step.step).padStart(2, '0')}
             </span>
           )}
         </div>
@@ -188,7 +221,10 @@ function ReadinessRow({
             <CardTitle className="font-serif text-[15px] font-semibold leading-tight tracking-tight text-foreground">
               {step.label}
             </CardTitle>
-            <Badge variant={isDone ? "success" : isPartial ? "warning" : "secondary"} className="h-5">
+            <Badge
+              variant={isDone ? 'success' : isPartial ? 'warning' : 'secondary'}
+              className="h-5"
+            >
               {isDone ? (
                 <>
                   <CheckCircle2 />
@@ -200,7 +236,7 @@ function ReadinessRow({
                   In progress
                 </>
               ) : (
-                "Not started"
+                'Not started'
               )}
             </Badge>
           </div>
@@ -209,19 +245,31 @@ function ReadinessRow({
           {step.fraction && step.fraction.total > 0 && (
             <div className="flex items-center gap-2 pt-0.5">
               <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
-                <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+                <div
+                  className={`h-full rounded-full transition-all ${barColor}`}
+                  style={{ width: `${pct}%` }}
+                />
               </div>
-              <span className={`shrink-0 font-mono text-[10px] font-semibold ${fractionColor}`}>
+              <span
+                className={`shrink-0 font-mono text-[10px] font-semibold ${fractionColor}`}
+              >
                 {step.fraction.done}/{step.fraction.total}
               </span>
             </div>
           )}
 
-          <CardDescription className="text-[11px] leading-relaxed">{step.description}</CardDescription>
+          <CardDescription className="text-[11px] leading-relaxed">
+            {step.description}
+          </CardDescription>
         </div>
 
         {/* Action */}
-        <Button variant="outline" size="sm" className="mt-0.5 shrink-0 gap-1" asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-0.5 shrink-0 gap-1"
+          asChild
+        >
           <Link href={step.href} onClick={onNavigate}>
             Open
             <ArrowUpRight className="size-3.5" />

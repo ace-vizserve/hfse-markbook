@@ -14,7 +14,10 @@ export default function Loading() {
 
       <div className="space-y-6">
         {Array.from({ length: 1 }).map((_, i) => (
-          <div key={i} className="space-y-2 rounded-xl border border-hairline bg-white p-0">
+          <div
+            key={i}
+            className="space-y-2 rounded-xl border border-hairline bg-white p-0"
+          >
             <div className="space-y-2 border-b border-hairline bg-muted/40 px-6 py-4">
               <Skeleton className="h-5 w-56" />
               <Skeleton className="h-3 w-[24rem] max-w-full" />

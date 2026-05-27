@@ -66,38 +66,53 @@ function tag(ayCode: string): string[] {
 }
 
 type AppRow = Record<string, unknown> & { enroleeNumber: string | null };
-type StatusRow = { enroleeNumber: string | null; applicationStatus: string | null };
+type StatusRow = {
+  enroleeNumber: string | null;
+  applicationStatus: string | null;
+};
 
 async function loadFeedbackUncached(ayCode: string): Promise<FeedbackResult> {
   const prefix = prefixFor(ayCode);
   const supabase = createServiceClient();
 
   const [apps, statuses] = await Promise.all([
-    fetchAllPages<AppRow>((from, to) =>
-      supabase
-        .from(`${prefix}_enrolment_applications`)
-        .select(FEEDBACK_APP_COLUMNS.join(', '))
-        .range(from, to) as unknown as PromiseLike<{ data: AppRow[] | null; error: { message: string } | null }>,
+    fetchAllPages<AppRow>(
+      (from, to) =>
+        supabase
+          .from(`${prefix}_enrolment_applications`)
+          .select(FEEDBACK_APP_COLUMNS.join(', '))
+          .range(from, to) as unknown as PromiseLike<{
+          data: AppRow[] | null;
+          error: { message: string } | null;
+        }>
     ),
-    fetchAllPages<StatusRow>((from, to) =>
-      supabase
-        .from(`${prefix}_enrolment_status`)
-        .select('enroleeNumber, applicationStatus')
-        .range(from, to) as unknown as PromiseLike<{ data: StatusRow[] | null; error: { message: string } | null }>,
+    fetchAllPages<StatusRow>(
+      (from, to) =>
+        supabase
+          .from(`${prefix}_enrolment_status`)
+          .select('enroleeNumber, applicationStatus')
+          .range(from, to) as unknown as PromiseLike<{
+          data: StatusRow[] | null;
+          error: { message: string } | null;
+        }>
     ),
   ]);
 
   const statusByEnrolee = new Map<string, string | null>();
   for (const s of statuses) {
-    if (s.enroleeNumber) statusByEnrolee.set(s.enroleeNumber, s.applicationStatus);
+    if (s.enroleeNumber)
+      statusByEnrolee.set(s.enroleeNumber, s.applicationStatus);
   }
 
   const rows: FeedbackRow[] = [];
   for (const app of apps) {
     if (!app.enroleeNumber) continue;
-    const rating = typeof app.feedbackRating === 'number' ? app.feedbackRating : null;
+    const rating =
+      typeof app.feedbackRating === 'number' ? app.feedbackRating : null;
     const submittedAt =
-      typeof app.feedbackSubmittedAt === 'string' ? app.feedbackSubmittedAt.trim() || null : null;
+      typeof app.feedbackSubmittedAt === 'string'
+        ? app.feedbackSubmittedAt.trim() || null
+        : null;
     // Only rows where at least one feedback field is set
     if (rating === null && !submittedAt) continue;
 
@@ -116,8 +131,12 @@ async function loadFeedbackUncached(ayCode: string): Promise<FeedbackResult> {
 
   // Most recent submission first, no-date at end
   rows.sort((a, b) => {
-    const aMs = a.feedbackSubmittedAt ? Date.parse(a.feedbackSubmittedAt) : -Infinity;
-    const bMs = b.feedbackSubmittedAt ? Date.parse(b.feedbackSubmittedAt) : -Infinity;
+    const aMs = a.feedbackSubmittedAt
+      ? Date.parse(a.feedbackSubmittedAt)
+      : -Infinity;
+    const bMs = b.feedbackSubmittedAt
+      ? Date.parse(b.feedbackSubmittedAt)
+      : -Infinity;
     return bMs - aMs;
   });
 
@@ -125,7 +144,9 @@ async function loadFeedbackUncached(ayCode: string): Promise<FeedbackResult> {
   const avgRating =
     ratingRows.length > 0
       ? Math.round(
-          (ratingRows.reduce((s, r) => s + (r.feedbackRating ?? 0), 0) / ratingRows.length) * 10,
+          (ratingRows.reduce((s, r) => s + (r.feedbackRating ?? 0), 0) /
+            ratingRows.length) *
+            10
         ) / 10
       : null;
   const consentCount = rows.filter((r) => r.feedbackConsent === true).length;
@@ -136,7 +157,9 @@ async function loadFeedbackUncached(ayCode: string): Promise<FeedbackResult> {
     ratingCount: ratingRows.length,
     consentCount,
     consentRate:
-      ratingRows.length > 0 ? Math.round((consentCount / ratingRows.length) * 100) : null,
+      ratingRows.length > 0
+        ? Math.round((consentCount / ratingRows.length) * 100)
+        : null,
   };
 
   return { rows, stats };
@@ -146,7 +169,7 @@ export function getAdmissionsFeedback(ayCode: string): Promise<FeedbackResult> {
   return unstable_cache(
     () => loadFeedbackUncached(ayCode),
     ['sis', 'admissions', 'feedback', ayCode],
-    { tags: tag(ayCode), revalidate: 60 },
+    { tags: tag(ayCode), revalidate: 60 }
   )();
 }
 
@@ -166,30 +189,45 @@ const PRE_COURSE_STAT_COLUMNS = [
   'preCourseAcknowledgedAt',
 ];
 
-const FUNNEL_STATUSES = new Set(['Submitted', 'Ongoing Verification', 'Processing']);
+const FUNNEL_STATUSES = new Set([
+  'Submitted',
+  'Ongoing Verification',
+  'Processing',
+]);
 
-async function loadPreCourseStatsUncached(ayCode: string): Promise<PreCourseStats> {
+async function loadPreCourseStatsUncached(
+  ayCode: string
+): Promise<PreCourseStats> {
   const prefix = prefixFor(ayCode);
   const supabase = createServiceClient();
 
   const [apps, statuses] = await Promise.all([
-    fetchAllPages<AppRow>((from, to) =>
-      supabase
-        .from(`${prefix}_enrolment_applications`)
-        .select(PRE_COURSE_STAT_COLUMNS.join(', '))
-        .range(from, to) as unknown as PromiseLike<{ data: AppRow[] | null; error: { message: string } | null }>,
+    fetchAllPages<AppRow>(
+      (from, to) =>
+        supabase
+          .from(`${prefix}_enrolment_applications`)
+          .select(PRE_COURSE_STAT_COLUMNS.join(', '))
+          .range(from, to) as unknown as PromiseLike<{
+          data: AppRow[] | null;
+          error: { message: string } | null;
+        }>
     ),
-    fetchAllPages<StatusRow>((from, to) =>
-      supabase
-        .from(`${prefix}_enrolment_status`)
-        .select('enroleeNumber, applicationStatus')
-        .range(from, to) as unknown as PromiseLike<{ data: StatusRow[] | null; error: { message: string } | null }>,
+    fetchAllPages<StatusRow>(
+      (from, to) =>
+        supabase
+          .from(`${prefix}_enrolment_status`)
+          .select('enroleeNumber, applicationStatus')
+          .range(from, to) as unknown as PromiseLike<{
+          data: StatusRow[] | null;
+          error: { message: string } | null;
+        }>
     ),
   ]);
 
   const statusByEnrolee = new Map<string, string | null>();
   for (const s of statuses) {
-    if (s.enroleeNumber) statusByEnrolee.set(s.enroleeNumber, s.applicationStatus);
+    if (s.enroleeNumber)
+      statusByEnrolee.set(s.enroleeNumber, s.applicationStatus);
   }
 
   let total = 0;
@@ -203,7 +241,10 @@ async function loadPreCourseStatsUncached(ayCode: string): Promise<PreCourseStat
     if (!FUNNEL_STATUSES.has(appStatus)) continue;
 
     total++;
-    const answer = typeof app.preCourseAnswer === 'string' ? app.preCourseAnswer.trim() : null;
+    const answer =
+      typeof app.preCourseAnswer === 'string'
+        ? app.preCourseAnswer.trim()
+        : null;
     const acknowledgedAt =
       typeof app.preCourseAcknowledgedAt === 'string'
         ? app.preCourseAcknowledgedAt.trim() || null
@@ -231,6 +272,6 @@ export function getPreCourseStats(ayCode: string): Promise<PreCourseStats> {
   return unstable_cache(
     () => loadPreCourseStatsUncached(ayCode),
     ['sis', 'admissions', 'pre-course-stats', ayCode],
-    { tags: tag(ayCode), revalidate: 60 },
+    { tags: tag(ayCode), revalidate: 60 }
   )();
 }

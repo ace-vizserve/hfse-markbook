@@ -43,5 +43,7 @@ export default async function LegacyEnroleeRedirect({
   // the right destination. Thread `?ay=` so the AY-scoped lookup hits
   // the right table.
   const qs = ay ? `?ay=${encodeURIComponent(ay)}` : '';
-  redirect(`/admissions/applications/${encodeURIComponent(enroleeNumber)}${qs}`);
+  redirect(
+    `/admissions/applications/${encodeURIComponent(enroleeNumber)}${qs}`
+  );
 }

@@ -48,15 +48,24 @@ export async function GET(request: Request) {
 
   // 1. Verify Bearer token.
   const authHeader = request.headers.get('authorization') ?? '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  const token = authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7).trim()
+    : '';
   if (!token) {
-    return NextResponse.json({ error: 'missing Bearer token' }, { status: 401, headers: cors });
+    return NextResponse.json(
+      { error: 'missing Bearer token' },
+      { status: 401, headers: cors }
+    );
   }
 
   const service = createServiceClient();
-  const { data: userData, error: authError } = await service.auth.getUser(token);
+  const { data: userData, error: authError } =
+    await service.auth.getUser(token);
   if (authError || !userData.user?.email) {
-    return NextResponse.json({ error: 'invalid or expired token' }, { status: 401, headers: cors });
+    return NextResponse.json(
+      { error: 'invalid or expired token' },
+      { status: 401, headers: cors }
+    );
   }
   const email = userData.user.email.trim().toLowerCase();
 
@@ -77,7 +86,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ students: [] }, { headers: cors });
   }
 
-  const studentNumbers = admissionsRows.map((r) => r.student_number).filter(Boolean);
+  const studentNumbers = admissionsRows
+    .map((r) => r.student_number)
+    .filter(Boolean);
 
   // 3. Resolve student_numbers → grading students.
   const { data: studentRows } = await service
@@ -98,8 +109,13 @@ export async function GET(request: Request) {
   // 4. Find section enrolments for those students.
   const { data: enrolments } = await service
     .from('section_students')
-    .select('id, student_id, section:sections!inner(id, name, academic_year_id, level:levels(label))')
-    .in('student_id', students.map((s) => s.id));
+    .select(
+      'id, student_id, section:sections!inner(id, name, academic_year_id, level:levels(label))'
+    )
+    .in(
+      'student_id',
+      students.map((s) => s.id)
+    );
   type EnrolRow = {
     id: string;
     student_id: string;
@@ -110,10 +126,14 @@ export async function GET(request: Request) {
       level: { label: string } | { label: string }[] | null;
     } | null;
   };
-  const enrs = ((enrolments ?? []) as unknown as EnrolRow[]).filter((e) => !!e.section);
+  const enrs = ((enrolments ?? []) as unknown as EnrolRow[]).filter(
+    (e) => !!e.section
+  );
 
   // 5. Fetch AY codes + terms for section AYs.
-  const ayIds = Array.from(new Set(enrs.map((e) => e.section!.academic_year_id)));
+  const ayIds = Array.from(
+    new Set(enrs.map((e) => e.section!.academic_year_id))
+  );
   const [ayRes, termRes] = await Promise.all([
     ayIds.length > 0
       ? service.from('academic_years').select('id, ay_code').in('id', ayIds)
@@ -127,20 +147,27 @@ export async function GET(request: Request) {
       : Promise.resolve({ data: [] }),
   ]);
   const ayCodeById = new Map(
-    ((ayRes.data ?? []) as Array<{ id: string; ay_code: string }>).map((r) => [r.id, r.ay_code]),
+    ((ayRes.data ?? []) as Array<{ id: string; ay_code: string }>).map((r) => [
+      r.id,
+      r.ay_code,
+    ])
   );
   const termLabelById = new Map(
-    ((termRes.data ?? []) as Array<{ id: string; label: string }>).map((t) => [t.id, t.label]),
+    ((termRes.data ?? []) as Array<{ id: string; label: string }>).map((t) => [
+      t.id,
+      t.label,
+    ])
   );
 
   // 6. Fetch publication windows for enrolled sections.
   const sectionIds = Array.from(new Set(enrs.map((e) => e.section!.id)));
-  const { data: pubs } = sectionIds.length > 0
-    ? await service
-        .from('report_card_publications')
-        .select('id, section_id, term_id, publish_from, publish_until')
-        .in('section_id', sectionIds)
-    : { data: [] };
+  const { data: pubs } =
+    sectionIds.length > 0
+      ? await service
+          .from('report_card_publications')
+          .select('id, section_id, term_id, publish_from, publish_until')
+          .in('section_id', sectionIds)
+      : { data: [] };
   type PubRow = {
     id: string;
     section_id: string;
@@ -168,7 +195,9 @@ export async function GET(request: Request) {
   };
 
   const termNumberById = new Map(
-    ((termRes.data ?? []) as Array<{ id: string; term_number: number }>).map((t) => [t.id, t.term_number]),
+    ((termRes.data ?? []) as Array<{ id: string; term_number: number }>).map(
+      (t) => [t.id, t.term_number]
+    )
   );
 
   const result: StudentResult[] = students.flatMap((s) =>
@@ -198,13 +227,15 @@ export async function GET(request: Request) {
           {
             student_id: s.id,
             student_number: s.student_number,
-            full_name: [s.last_name, s.first_name, s.middle_name].filter(Boolean).join(', '),
+            full_name: [s.last_name, s.first_name, s.middle_name]
+              .filter(Boolean)
+              .join(', '),
             class_label: `${level?.label ?? ''} ${enr.section.name}`.trim(),
             ay_code: ayCodeById.get(enr.section.academic_year_id) ?? '',
             publications: activePubs,
           },
         ];
-      }),
+      })
   );
 
   return NextResponse.json({ students: result }, { headers: cors });

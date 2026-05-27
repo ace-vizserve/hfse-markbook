@@ -1,7 +1,13 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PageShell } from "@/components/ui/page-shell";
-import { getSessionUser } from "@/lib/supabase/server";
-import { ChangePasswordForm } from "./change-password-form";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { PageShell } from '@/components/ui/page-shell';
+import { getSessionUser } from '@/lib/supabase/server';
+import { ChangePasswordForm } from './change-password-form';
 
 export default async function AccountPage() {
   const sessionUser = await getSessionUser();
@@ -28,17 +34,23 @@ export default async function AccountPage() {
           <CardTitle className="font-serif text-lg font-semibold tracking-tight text-foreground">
             Signed-in identity
           </CardTitle>
-          <CardDescription>Read-only. Ask your school admin to change your email or role.</CardDescription>
+          <CardDescription>
+            Read-only. Ask your school admin to change your email or role.
+          </CardDescription>
         </CardHeader>
         <CardContent className="border-t border-border p-0">
           <dl className="divide-y divide-border">
             <div className="flex items-center justify-between px-6 py-4">
               <dt className="text-sm text-muted-foreground">Email</dt>
-              <dd className="text-sm font-medium text-foreground">{sessionUser?.email ?? "—"}</dd>
+              <dd className="text-sm font-medium text-foreground">
+                {sessionUser?.email ?? '—'}
+              </dd>
             </div>
             <div className="flex items-center justify-between px-6 py-4">
               <dt className="text-sm text-muted-foreground">Role</dt>
-              <dd className="text-sm font-bold uppercase font-mono text-primary">{role ?? "no role"}</dd>
+              <dd className="text-sm font-bold uppercase font-mono text-primary">
+                {role ?? 'no role'}
+              </dd>
             </div>
           </dl>
         </CardContent>
@@ -50,7 +62,8 @@ export default async function AccountPage() {
             Change password
           </CardTitle>
           <CardDescription>
-            Use a strong password you don&apos;t use anywhere else. Minimum 8 characters.
+            Use a strong password you don&apos;t use anywhere else. Minimum 8
+            characters.
           </CardDescription>
         </CardHeader>
         <CardContent>

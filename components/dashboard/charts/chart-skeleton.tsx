@@ -2,7 +2,13 @@
 
 import { cn } from '@/lib/utils';
 
-export type ChartKind = 'trend' | 'comparison-bar' | 'donut' | 'multi-trend' | 'multi-bar' | 'sparkline';
+export type ChartKind =
+  | 'trend'
+  | 'comparison-bar'
+  | 'donut'
+  | 'multi-trend'
+  | 'multi-bar'
+  | 'sparkline';
 
 // Heights match each chart's default <ResponsiveContainer height={...}> so the
 // skeleton stays layout-stable while recharts loads in a separate chunk.
@@ -15,16 +21,36 @@ const HEIGHT_BY_KIND: Record<ChartKind, string> = {
   sparkline: 'h-10',
 };
 
-export function ChartSkeleton({ kind, className }: { kind: ChartKind; className?: string }) {
+export function ChartSkeleton({
+  kind,
+  className,
+}: {
+  kind: ChartKind;
+  className?: string;
+}) {
   const heightClass = HEIGHT_BY_KIND[kind];
 
   if (kind === 'sparkline') {
-    return <div className={cn('w-full animate-pulse rounded bg-muted/40', heightClass, className)} />;
+    return (
+      <div
+        className={cn(
+          'w-full animate-pulse rounded bg-muted/40',
+          heightClass,
+          className
+        )}
+      />
+    );
   }
 
   if (kind === 'donut') {
     return (
-      <div className={cn('flex items-center justify-center', heightClass, className)}>
+      <div
+        className={cn(
+          'flex items-center justify-center',
+          heightClass,
+          className
+        )}
+      >
         <div className="size-40 animate-pulse rounded-full bg-muted/60" />
       </div>
     );

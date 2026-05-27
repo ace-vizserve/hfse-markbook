@@ -6,7 +6,7 @@ import type { GradingSnapshot } from '@/lib/sync/students';
 
 export async function loadGradingSnapshot(
   supabase: SupabaseClient,
-  ayCode: string,
+  ayCode: string
 ): Promise<GradingSnapshot> {
   const { data: ay, error: ayErr } = await supabase
     .from('academic_years')
@@ -21,14 +21,16 @@ export async function loadGradingSnapshot(
       .from('sections')
       .select('id, level_id, name')
       .eq('academic_year_id', ay.id),
-    supabase.from('students').select('id, student_number, last_name, first_name, middle_name'),
+    supabase
+      .from('students')
+      .select('id, student_number, last_name, first_name, middle_name'),
   ]);
 
   if (levelsRes.error) throw new Error(levelsRes.error.message);
   if (sectionsRes.error) throw new Error(sectionsRes.error.message);
   if (studentsRes.error) throw new Error(studentsRes.error.message);
 
-  const sectionIds = (sectionsRes.data ?? []).map(s => s.id);
+  const sectionIds = (sectionsRes.data ?? []).map((s) => s.id);
   let enrollments: GradingSnapshot['enrollments'] = [];
   if (sectionIds.length > 0) {
     const { data, error } = await supabase

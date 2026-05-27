@@ -54,17 +54,36 @@ export function SheetProgressChart({
         {empty ? (
           <div className="flex h-[340px] flex-col items-center justify-center gap-2 text-center">
             <Lock className="size-6 text-muted-foreground/60" />
-            <p className="text-sm font-medium text-foreground">No grading sheets yet</p>
+            <p className="text-sm font-medium text-foreground">
+              No grading sheets yet
+            </p>
             <p className="max-w-xs text-xs text-muted-foreground">
               Bars appear once registrar creates sheets for this academic year.
             </p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={340}>
-            <BarChart data={data} margin={{ top: 16, right: 16, bottom: 8, left: 0 }}>
-              <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis dataKey="termLabel" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} />
-              <YAxis stroke="var(--muted-foreground)" fontSize={12} allowDecimals={false} tickLine={false} />
+            <BarChart
+              data={data}
+              margin={{ top: 16, right: 16, bottom: 8, left: 0 }}
+            >
+              <CartesianGrid
+                vertical={false}
+                stroke="var(--border)"
+                strokeDasharray="3 3"
+              />
+              <XAxis
+                dataKey="termLabel"
+                stroke="var(--muted-foreground)"
+                fontSize={12}
+                tickLine={false}
+              />
+              <YAxis
+                stroke="var(--muted-foreground)"
+                fontSize={12}
+                allowDecimals={false}
+                tickLine={false}
+              />
               <Tooltip
                 cursor={{ fill: 'var(--accent)' }}
                 contentStyle={{
@@ -75,7 +94,12 @@ export function SheetProgressChart({
                   fontSize: 12,
                 }}
               />
-              <Legend content={chartLegendContent({ locked: 'chart-5', open: 'chart-3' })} />
+              <Legend
+                content={chartLegendContent({
+                  locked: 'chart-5',
+                  open: 'chart-3',
+                })}
+              />
               <Bar
                 dataKey="locked"
                 name="Locked"
@@ -83,11 +107,11 @@ export function SheetProgressChart({
                 fill="var(--chart-5)"
                 onClick={
                   onSegmentClick
-                    ? ((d: unknown) => {
+                    ? (((d: unknown) => {
                         const p = d as { payload?: { termLabel?: string } };
                         const lbl = p?.payload?.termLabel;
                         if (lbl) onSegmentClick(`${lbl} · Locked`);
-                      }) as never
+                      }) as never)
                     : undefined
                 }
                 style={onSegmentClick ? { cursor: 'pointer' } : undefined}
@@ -99,11 +123,11 @@ export function SheetProgressChart({
                 fill="var(--chart-3)"
                 onClick={
                   onSegmentClick
-                    ? ((d: unknown) => {
+                    ? (((d: unknown) => {
                         const p = d as { payload?: { termLabel?: string } };
                         const lbl = p?.payload?.termLabel;
                         if (lbl) onSegmentClick(`${lbl} · Open`);
-                      }) as never
+                      }) as never)
                     : undefined
                 }
                 style={onSegmentClick ? { cursor: 'pointer' } : undefined}

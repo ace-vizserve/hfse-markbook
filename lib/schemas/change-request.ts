@@ -55,10 +55,7 @@ export const ChangeRequestFormSchema = z
     }),
     slot_index: z.number().int().min(0).max(4).nullable(),
     current_value: z.string().nullable(),
-    proposed_value: z
-      .string()
-      .trim()
-      .min(1, 'Proposed value is required'),
+    proposed_value: z.string().trim().min(1, 'Proposed value is required'),
     reason_category: z.enum(REASON_CATEGORIES, {
       message: 'Pick a reason',
     }),
@@ -72,22 +69,19 @@ export const ChangeRequestFormSchema = z
   })
   .refine(
     (data) =>
-      (data.field_changed === 'ww_scores' || data.field_changed === 'pt_scores')
+      data.field_changed === 'ww_scores' || data.field_changed === 'pt_scores'
         ? data.slot_index !== null
         : data.slot_index === null,
     {
       message:
         'Slot index is required for WW/PT fields and must be empty otherwise',
       path: ['slot_index'],
-    },
+    }
   )
-  .refine(
-    (data) => data.primary_approver_id !== data.secondary_approver_id,
-    {
-      message: 'Primary and secondary approvers must be different people',
-      path: ['secondary_approver_id'],
-    },
-  );
+  .refine((data) => data.primary_approver_id !== data.secondary_approver_id, {
+    message: 'Primary and secondary approvers must be different people',
+    path: ['secondary_approver_id'],
+  });
 
 export type ChangeRequestFormInput = z.infer<typeof ChangeRequestFormSchema>;
 
@@ -104,7 +98,9 @@ export const ChangeRequestActionSchema = z
     {
       message: 'A decision note is required when rejecting a request',
       path: ['decision_note'],
-    },
+    }
   );
 
-export type ChangeRequestActionInput = z.infer<typeof ChangeRequestActionSchema>;
+export type ChangeRequestActionInput = z.infer<
+  typeof ChangeRequestActionSchema
+>;

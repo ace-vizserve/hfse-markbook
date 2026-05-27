@@ -30,13 +30,17 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const { targetTermId, dayTypeRows, events, markTentative } = parsed.data;
 
   if (dayTypeRows.length === 0 && events.length === 0) {
-    return NextResponse.json({ ok: true, dayTypeRowsCopied: 0, eventsCopied: 0 });
+    return NextResponse.json({
+      ok: true,
+      dayTypeRowsCopied: 0,
+      eventsCopied: 0,
+    });
   }
 
   const service = createServiceClient();
@@ -49,7 +53,10 @@ export async function POST(request: NextRequest) {
     .eq('id', targetTermId)
     .maybeSingle();
   if (termErr || !term) {
-    return NextResponse.json({ error: 'unknown targetTermId' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'unknown targetTermId' },
+      { status: 400 }
+    );
   }
 
   let dayTypeRowsCopied = 0;
@@ -73,7 +80,7 @@ export async function POST(request: NextRequest) {
     if (upsertErr) {
       return NextResponse.json(
         { error: `school_calendar upsert failed: ${upsertErr.message}` },
-        { status: 500 },
+        { status: 500 }
       );
     }
     dayTypeRowsCopied = count ?? rows.length;
@@ -99,7 +106,7 @@ export async function POST(request: NextRequest) {
     if (insertErr) {
       return NextResponse.json(
         { error: `calendar_events insert failed: ${insertErr.message}` },
-        { status: 500 },
+        { status: 500 }
       );
     }
     eventsCopied = count ?? rows.length;

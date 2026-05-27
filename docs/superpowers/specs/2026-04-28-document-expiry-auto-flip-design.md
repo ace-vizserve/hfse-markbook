@@ -63,7 +63,9 @@ function prefixFor(ayCode: string): string {
   return `ay${ayCode.replace(/^AY/i, '').toLowerCase()}`;
 }
 
-async function freshenAyDocumentsUncached(ayCode: string): Promise<FreshenResult> {
+async function freshenAyDocumentsUncached(
+  ayCode: string
+): Promise<FreshenResult> {
   const result: FreshenResult = {
     flippedCount: 0,
     flippedBySlot: {},
@@ -93,13 +95,16 @@ async function freshenAyDocumentsUncached(ayCode: string): Promise<FreshenResult
         if (error) {
           console.warn(
             `[sis/freshen-documents] flip failed for ${slot.key} in ${ayCode}:`,
-            error.message,
+            error.message
           );
-          return { slotKey: slot.key, flipped: [] as Array<{ enroleeNumber: string | null }> };
+          return {
+            slotKey: slot.key,
+            flipped: [] as Array<{ enroleeNumber: string | null }>,
+          };
         }
 
         return { slotKey: slot.key, flipped: data ?? [] };
-      }),
+      })
     );
 
     for (const { slotKey, flipped } of slotResults) {
@@ -115,7 +120,7 @@ async function freshenAyDocumentsUncached(ayCode: string): Promise<FreshenResult
     // Catch-all: never break a page render because freshen failed.
     console.warn(
       `[sis/freshen-documents] unexpected failure for ${ayCode}:`,
-      e instanceof Error ? e.message : String(e),
+      e instanceof Error ? e.message : String(e)
     );
     return result;
   }
@@ -143,7 +148,7 @@ async function freshenAyDocumentsUncached(ayCode: string): Promise<FreshenResult
     } catch (e) {
       console.warn(
         `[sis/freshen-documents] audit log failed for ${ayCode}:`,
-        e instanceof Error ? e.message : String(e),
+        e instanceof Error ? e.message : String(e)
       );
     }
   }
@@ -167,12 +172,13 @@ export function freshenAyDocuments(ayCode: string): Promise<FreshenResult> {
     {
       revalidate: CACHE_TTL_SECONDS,
       tags: ['sis', `sis:${ayCode}`],
-    },
+    }
   )();
 }
 ```
 
 Properties:
+
 - **Wrapped in `unstable_cache`** (KD #46 cache-wrapper pattern: hoist the `loadX_Uncached` body, compose `unstable_cache` per call).
 - **60-second TTL.** First page render in any 60s window per AY runs the freshen; subsequent renders within that window cost ~0ms (cache hit). Steady-state DB load is bounded to one freshen-per-minute-per-AY at most.
 - **Tag-invalidated by `sis:${ayCode}`.** Every existing PATCH route that touches an AY's documents (e.g., `/api/sis/students/[enroleeNumber]/documents` manual edits, the residence-history editor, etc.) already calls `revalidateTag('sis:${ayCode}')` — so an edit naturally invalidates the freshen cache, the next page render runs a fresh freshen.
@@ -197,12 +203,12 @@ export type AuditAction =
 
 **(b) Allow a null actor for system actions.**
 
-The `audit_log` schema (migration 006) already permits `actor_id` to be null with the inline comment *"null for system actions"*. The `logAction` TypeScript signature is currently `actor: { id: string; email: string | null }`, which forbids null. Widen it:
+The `audit_log` schema (migration 006) already permits `actor_id` to be null with the inline comment _"null for system actions"_. The `logAction` TypeScript signature is currently `actor: { id: string; email: string | null }`, which forbids null. Widen it:
 
 ```ts
 type LogActionParams = {
   service: SupabaseClient;
-  actor: { id: string | null; email: string | null };  // CHANGED — id may be null for system actions
+  actor: { id: string | null; email: string | null }; // CHANGED — id may be null for system actions
   action: AuditAction;
   entityType: AuditEntityType;
   entityId?: string | null;
@@ -218,15 +224,15 @@ The `actor_email` column is `not null`, so `'(system:freshen)'` is the chosen se
 
 Seven pages call `await freshenAyDocuments(selectedAy)` at the top of their RSC, before the existing `Promise.all([...])` data fetches:
 
-| # | Page | RSC file | Why it needs freshen |
-|---|------|----------|----------------------|
-| 1 | `/admissions` | `app/(admissions)/admissions/page.tsx` | Chase strip + lifecycle widget |
-| 2 | `/records` | `app/(records)/records/page.tsx` | Chase strip + lifecycle widget |
-| 3 | `/p-files` | `app/(p-files)/p-files/page.tsx` | Chase strip + PriorityPanel |
-| 4 | `/admissions/applications/[enroleeNumber]` | `app/(admissions)/admissions/applications/[enroleeNumber]/page.tsx` | Per-applicant timeline + docs tab |
-| 5 | `/records/students/[studentNumber]` | `app/(records)/records/students/[studentNumber]/page.tsx` | Records detail by studentNumber |
-| 6 | `/records/students/by-enrolee/[enroleeNumber]` | `app/(records)/records/students/by-enrolee/[enroleeNumber]/page.tsx` | Records detail by enroleeNumber |
-| 7 | `/p-files/[enroleeNumber]` | `app/(p-files)/p-files/[enroleeNumber]/page.tsx` | P-File student detail |
+| #   | Page                                           | RSC file                                                             | Why it needs freshen              |
+| --- | ---------------------------------------------- | -------------------------------------------------------------------- | --------------------------------- |
+| 1   | `/admissions`                                  | `app/(admissions)/admissions/page.tsx`                               | Chase strip + lifecycle widget    |
+| 2   | `/records`                                     | `app/(records)/records/page.tsx`                                     | Chase strip + lifecycle widget    |
+| 3   | `/p-files`                                     | `app/(p-files)/p-files/page.tsx`                                     | Chase strip + PriorityPanel       |
+| 4   | `/admissions/applications/[enroleeNumber]`     | `app/(admissions)/admissions/applications/[enroleeNumber]/page.tsx`  | Per-applicant timeline + docs tab |
+| 5   | `/records/students/[studentNumber]`            | `app/(records)/records/students/[studentNumber]/page.tsx`            | Records detail by studentNumber   |
+| 6   | `/records/students/by-enrolee/[enroleeNumber]` | `app/(records)/records/students/by-enrolee/[enroleeNumber]/page.tsx` | Records detail by enroleeNumber   |
+| 7   | `/p-files/[enroleeNumber]`                     | `app/(p-files)/p-files/[enroleeNumber]/page.tsx`                     | P-File student detail             |
 
 Each page edit is one line:
 
@@ -312,11 +318,13 @@ Manual happy-path on AY9999 (test mode, KD #52):
 ### 8. Files touched
 
 **Reactive auto-flip (sections 1-7):**
+
 - **Create:** `lib/sis/freshen-document-statuses.ts`
 - **Modify:** `lib/audit/log-action.ts` — add `'sis.documents.auto-expire'` to the `AuditAction` enum and widen `actor.id` to `string | null`.
 - **Modify:** 7 page RSCs (one-line `await freshenAyDocuments(selectedAy)` each).
 
 **Proactive expiring-soon drill (section 10):**
+
 - **Modify:** `lib/sis/process.ts` — extend `scanDocStatusForActionFlags` to optionally compute `hasExpiringSoon` (looks for `slot.expiryCol` on the row, computes days-until-expiry, returns true when 0 ≤ daysLeft ≤ 30).
 - **Modify:** `lib/sis/document-chase-queue.ts` — extend `DocumentChaseQueueCounts` with `expiringSoon: number`; widen the SELECT to include the 8 expiring slots' `*Expiry` columns.
 - **Modify:** `components/sis/document-chase-queue-strip.tsx` — add a 4th tile `'awaiting-expiring-documents'` in the `TILES` array; severity `warn`; lucide icon `CalendarClock` (or similar). The chip rendering already uses `valueByTarget` keyed on the drill target — extend that map.
@@ -355,15 +363,14 @@ export type DocStatusActionFlags = {
   hasRevalidation: boolean;
   hasValidation: boolean;
   hasPromised: boolean;
-  hasExpiringSoon: boolean;   // NEW
+  hasExpiringSoon: boolean; // NEW
 };
 
 export function scanDocStatusForActionFlags(
   docs: Record<string, string | null> | undefined,
-  options?: { todayMs?: number; expiringSoonThresholdDays?: number },
+  options?: { todayMs?: number; expiringSoonThresholdDays?: number }
 ): DocStatusActionFlags {
   // existing logic for revalidation/validation/promised flags …
-
   // NEW: walk slots that have an expiryCol; if status is 'Valid' and
   // expiry parses to a date in [todayMs, todayMs + thresholdDays * 86_400_000],
   // set hasExpiringSoon and break.
@@ -379,7 +386,7 @@ export type DocumentChaseQueueCounts = {
   promised: number;
   validation: number;
   revalidation: number;
-  expiringSoon: number;   // NEW — count of students with >=1 slot expiring within 30 days
+  expiringSoon: number; // NEW — count of students with >=1 slot expiring within 30 days
 };
 
 // In loadChaseQueueUncached:
@@ -408,6 +415,7 @@ Add a 4th tile to the `TILES` array, after the existing 3:
 ```
 
 `valueByTarget` map in the same file gains the new key:
+
 ```ts
 'awaiting-expiring-documents': counts.expiringSoon,
 ```
@@ -507,6 +515,7 @@ case 'daysLeft':
 Add CSV-cell cases for `'expiringSlots'` (joins `';'` like the other slot fields) and `'daysLeft'` (returns the number or empty string).
 
 **Requirements:**
+
 - Drill works on the seeded AY9999 test environment — the seeder's `passportExpiry` rows include a few within-30-days dates already (per `lib/sis/seeder/populated.ts` — it generates a spread of expiry dates including some near-future ones for realistic chase data).
 - Reactive auto-flip and proactive expiring-soon are visually distinct: the chase strip's 4 tiles read left-to-right as the doc lifecycle (revalidation = bad, validation = warn, promised = warn, expiring-soon = warn).
 - The drill UI is identical to the 3 existing doc-chase drills (same `<LifecycleDrillSheet>` toolkit per KD #56) — only the title, columns, and chip color differ.

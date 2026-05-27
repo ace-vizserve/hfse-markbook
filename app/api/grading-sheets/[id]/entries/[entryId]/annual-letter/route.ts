@@ -12,7 +12,7 @@ import { notifyAnnualLetterChanged } from '@/lib/notifications/email-annual-lett
 // registrar metadata, not a per-term grade; no approval_reference required.
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string; entryId: string }> },
+  { params }: { params: Promise<{ id: string; entryId: string }> }
 ) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -28,16 +28,21 @@ export async function PATCH(
   }
 
   const newValue =
-    typeof body.annual_letter_grade === 'string' && body.annual_letter_grade.trim() !== ''
+    typeof body.annual_letter_grade === 'string' &&
+    body.annual_letter_grade.trim() !== ''
       ? body.annual_letter_grade.trim()
       : null;
   const correctionNote =
-    typeof body.correction_note === 'string' && body.correction_note.trim() !== ''
+    typeof body.correction_note === 'string' &&
+    body.correction_note.trim() !== ''
       ? body.correction_note.trim()
       : null;
 
   if (!correctionNote) {
-    return NextResponse.json({ error: 'correction_note is required' }, { status: 422 });
+    return NextResponse.json(
+      { error: 'correction_note is required' },
+      { status: 422 }
+    );
   }
 
   const service = createServiceClient();
@@ -45,22 +50,26 @@ export async function PATCH(
   const [sheetRes, entryRes] = await Promise.all([
     service
       .from('grading_sheets')
-      .select(`
+      .select(
+        `
         id,
         term:terms(term_number),
         subject:subjects(is_examinable, subject_code),
         section:sections(academic_year_id, section_name)
-      `)
+      `
+      )
       .eq('id', sheetId)
       .single(),
     service
       .from('grade_entries')
-      .select(`
+      .select(
+        `
         id, grading_sheet_id, annual_letter_grade,
         section_student:section_students(
           student:students(first_name, last_name)
         )
-      `)
+      `
+      )
       .eq('id', entryId)
       .single(),
   ]);
@@ -75,32 +84,55 @@ export async function PATCH(
   type SheetRow = {
     id: string;
     term: { term_number: number } | { term_number: number }[] | null;
-    subject: { is_examinable: boolean; subject_code: string } | { is_examinable: boolean; subject_code: string }[] | null;
-    section: { academic_year_id: string; section_name: string } | { academic_year_id: string; section_name: string }[] | null;
+    subject:
+      | { is_examinable: boolean; subject_code: string }
+      | { is_examinable: boolean; subject_code: string }[]
+      | null;
+    section:
+      | { academic_year_id: string; section_name: string }
+      | { academic_year_id: string; section_name: string }[]
+      | null;
   };
   type EntryRow = {
     id: string;
     grading_sheet_id: string;
     annual_letter_grade: string | null;
-    section_student: {
-      student: { first_name: string; last_name: string } | { first_name: string; last_name: string }[] | null;
-    } | { student: unknown }[] | null;
+    section_student:
+      | {
+          student:
+            | { first_name: string; last_name: string }
+            | { first_name: string; last_name: string }[]
+            | null;
+        }
+      | { student: unknown }[]
+      | null;
   };
   const sheet = sheetRes.data as unknown as SheetRow;
   const entry = entryRes.data as unknown as EntryRow;
 
   if (entry.grading_sheet_id !== sheetId) {
-    return NextResponse.json({ error: 'entry does not belong to sheet' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'entry does not belong to sheet' },
+      { status: 400 }
+    );
   }
 
-  const subjectData = (Array.isArray(sheet.subject) ? sheet.subject[0] : sheet.subject) as { is_examinable: boolean; subject_code: string } | null;
+  const subjectData = (
+    Array.isArray(sheet.subject) ? sheet.subject[0] : sheet.subject
+  ) as { is_examinable: boolean; subject_code: string } | null;
   if (!subjectData) {
-    return NextResponse.json({ error: 'subject not found on sheet' }, { status: 404 });
+    return NextResponse.json(
+      { error: 'subject not found on sheet' },
+      { status: 404 }
+    );
   }
   if (subjectData.is_examinable) {
     return NextResponse.json(
-      { error: 'annual_letter_grade is only applicable to non-examinable subjects' },
-      { status: 422 },
+      {
+        error:
+          'annual_letter_grade is only applicable to non-examinable subjects',
+      },
+      { status: 422 }
     );
   }
 
@@ -110,24 +142,44 @@ export async function PATCH(
     .eq('id', entryId);
 
   if (updateError) {
-    return NextResponse.json({ error: 'update failed', detail: updateError.message }, { status: 500 });
+    return NextResponse.json(
+      { error: 'update failed', detail: updateError.message },
+      { status: 500 }
+    );
   }
 
   // Resolve context for audit log, notifications, and cache invalidation.
-  const sectionData = (Array.isArray(sheet.section) ? sheet.section[0] : sheet.section) as { academic_year_id: string; section_name: string } | null;
-  const termData = (Array.isArray(sheet.term) ? sheet.term[0] : sheet.term) as { term_number: number } | null;
-  const sectionStudentData = Array.isArray(entry.section_student) ? entry.section_student[0] : entry.section_student;
-  const studentData = sectionStudentData && 'student' in sectionStudentData
-    ? (Array.isArray((sectionStudentData as { student: unknown }).student)
-        ? ((sectionStudentData as { student: { first_name: string; last_name: string }[] }).student[0])
-        : (sectionStudentData as { student: { first_name: string; last_name: string } | null }).student)
-    : null;
+  const sectionData = (
+    Array.isArray(sheet.section) ? sheet.section[0] : sheet.section
+  ) as { academic_year_id: string; section_name: string } | null;
+  const termData = (Array.isArray(sheet.term) ? sheet.term[0] : sheet.term) as {
+    term_number: number;
+  } | null;
+  const sectionStudentData = Array.isArray(entry.section_student)
+    ? entry.section_student[0]
+    : entry.section_student;
+  const studentData =
+    sectionStudentData && 'student' in sectionStudentData
+      ? Array.isArray((sectionStudentData as { student: unknown }).student)
+        ? (
+            sectionStudentData as {
+              student: { first_name: string; last_name: string }[];
+            }
+          ).student[0]
+        : (
+            sectionStudentData as {
+              student: { first_name: string; last_name: string } | null;
+            }
+          ).student
+      : null;
 
   const studentName = studentData
     ? `${studentData.last_name}, ${studentData.first_name}`
     : '(unknown student)';
   const sectionName = sectionData?.section_name ?? '(unknown section)';
-  const termLabel = termData ? `Term ${termData.term_number}` : '(unknown term)';
+  const termLabel = termData
+    ? `Term ${termData.term_number}`
+    : '(unknown term)';
 
   let ayCode: string | null = null;
   if (sectionData?.academic_year_id) {
@@ -165,11 +217,18 @@ export async function PATCH(
   // Notify all school_admin + superadmin users except the actor (best-effort).
   void (async () => {
     try {
-      const { data: { users } = { users: [] } } = await service.auth.admin.listUsers({ perPage: 200 });
+      const { data: { users } = { users: [] } } =
+        await service.auth.admin.listUsers({ perPage: 200 });
       const recipients = users
         .filter((u) => {
-          const role = (u.app_metadata as Record<string, unknown>)?.role as string | undefined;
-          return (role === 'school_admin' || role === 'superadmin') && u.email && u.email !== auth.user.email;
+          const role = (u.app_metadata as Record<string, unknown>)?.role as
+            | string
+            | undefined;
+          return (
+            (role === 'school_admin' || role === 'superadmin') &&
+            u.email &&
+            u.email !== auth.user.email
+          );
         })
         .map((u) => u.email as string);
       if (recipients.length > 0) {
@@ -184,7 +243,7 @@ export async function PATCH(
             reason: correctionNote,
             actorEmail: auth.user.email ?? '(unknown)',
           },
-          recipients,
+          recipients
         );
       }
     } catch (e) {

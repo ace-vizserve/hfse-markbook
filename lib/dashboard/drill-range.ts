@@ -31,7 +31,7 @@ export function applyDateRangeFilter<T>(
   rows: T[],
   input: DrillRangeFilter,
   dateAccessor: (row: T) => string | null | undefined,
-  options: Options = {},
+  options: Options = {}
 ): T[] {
   const { includeMissingDate = true } = options;
 

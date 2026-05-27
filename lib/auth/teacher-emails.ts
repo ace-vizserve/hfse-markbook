@@ -33,6 +33,6 @@ export function getTeacherEmailMap(): Promise<Array<[string, string]>> {
       }
     },
     ['teacher-emails-map'],
-    { revalidate: 300, tags: ['teacher-emails'] },
+    { revalidate: 300, tags: ['teacher-emails'] }
   )();
 }

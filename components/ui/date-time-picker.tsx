@@ -44,10 +44,10 @@ export function DateTimePicker({
 
   // Local time representation used by the calendar + time input.
   const [draftDate, setDraftDate] = React.useState<Date | undefined>(
-    parsed ?? undefined,
+    parsed ?? undefined
   );
   const [draftTime, setDraftTime] = React.useState<string>(
-    parsed ? toLocalTime(parsed) : '09:00',
+    parsed ? toLocalTime(parsed) : '09:00'
   );
 
   // Sync draft state when the controlled value changes externally.
@@ -80,7 +80,7 @@ export function DateTimePicker({
           className={cn(
             'h-10 w-full justify-start gap-2 font-normal',
             !parsed && 'text-ink-5',
-            className,
+            className
           )}
         >
           <CalendarIcon className="h-4 w-4 text-ink-4" />

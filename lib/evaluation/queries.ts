@@ -36,7 +36,9 @@ export type EvaluationRosterStudent = {
 // Fetches the term-level config (virtue theme + window open state) for a
 // single term. `virtueTheme` lives on `terms`; `isOpen`+`openedAt` live on
 // `evaluation_terms` (null if Joann has never opened the window).
-export async function getEvaluationTermConfig(termId: string): Promise<EvaluationTermConfig | null> {
+export async function getEvaluationTermConfig(
+  termId: string
+): Promise<EvaluationTermConfig | null> {
   const service = createServiceClient();
 
   const { data: term, error: termErr } = await service
@@ -58,14 +60,14 @@ export async function getEvaluationTermConfig(termId: string): Promise<Evaluatio
 // Excludes withdrawn students.
 export async function getSectionRoster(
   sectionId: string,
-  termId: string,
+  termId: string
 ): Promise<EvaluationRosterStudent[]> {
   const service = createServiceClient();
 
   const { data: enrolments, error } = await service
     .from('section_students')
     .select(
-      'id, index_number, enrollment_status, student:students(id, student_number, last_name, first_name, middle_name)',
+      'id, index_number, enrollment_status, student:students(id, student_number, last_name, first_name, middle_name)'
     )
     .eq('section_id', sectionId)
     .neq('enrollment_status', 'withdrawn')
@@ -84,7 +86,9 @@ export async function getSectionRoster(
   if (studentIds.length > 0) {
     const { data: writeups } = await service
       .from('evaluation_writeups')
-      .select('id, term_id, section_id, student_id, writeup, submitted, submitted_at')
+      .select(
+        'id, term_id, section_id, student_id, writeup, submitted, submitted_at'
+      )
       .eq('term_id', termId)
       .in('student_id', studentIds);
     for (const w of (writeups ?? []) as EvaluationWriteupRow[]) {
@@ -94,8 +98,20 @@ export async function getSectionRoster(
 
   return enrolments.map((r) => {
     const s = r.student as
-      | { id: string; student_number: string; last_name: string; first_name: string; middle_name: string | null }
-      | { id: string; student_number: string; last_name: string; first_name: string; middle_name: string | null }[]
+      | {
+          id: string;
+          student_number: string;
+          last_name: string;
+          first_name: string;
+          middle_name: string | null;
+        }
+      | {
+          id: string;
+          student_number: string;
+          last_name: string;
+          first_name: string;
+          middle_name: string | null;
+        }[]
       | null;
     const stu = Array.isArray(s) ? s[0] : s;
     const studentId = stu?.id ?? '';
@@ -106,9 +122,12 @@ export async function getSectionRoster(
       index_number: r.index_number as number,
       student_number: stu?.student_number ?? '',
       student_name: stu
-        ? [stu.last_name, stu.first_name, stu.middle_name].filter(Boolean).join(', ')
+        ? [stu.last_name, stu.first_name, stu.middle_name]
+            .filter(Boolean)
+            .join(', ')
         : '(missing student)',
-      enrollment_status: r.enrollment_status as EvaluationRosterStudent['enrollment_status'],
+      enrollment_status:
+        r.enrollment_status as EvaluationRosterStudent['enrollment_status'],
       writeup: w?.writeup ?? null,
       submitted: w?.submitted ?? false,
       submitted_at: w?.submitted_at ?? null,
@@ -126,7 +145,7 @@ export type SectionWriteupProgress = {
 
 export async function getWriteupProgressByTerm(
   termId: string,
-  sectionIds: string[],
+  sectionIds: string[]
 ): Promise<Record<string, SectionWriteupProgress>> {
   const out: Record<string, SectionWriteupProgress> = {};
   if (sectionIds.length === 0) return out;
@@ -169,7 +188,9 @@ export async function getWriteupProgressByTerm(
 
 // Which sections does this user advise? Returns the section_id set. For
 // teachers, scoped to `teacher_assignments.role='form_adviser'`.
-export async function listFormAdviserSectionIds(userId: string): Promise<Set<string>> {
+export async function listFormAdviserSectionIds(
+  userId: string
+): Promise<Set<string>> {
   const service = createServiceClient();
   const { data } = await service
     .from('teacher_assignments')
@@ -181,7 +202,9 @@ export async function listFormAdviserSectionIds(userId: string): Promise<Set<str
 
 // Which sections does this user teach a subject in? Returns the section_id set.
 // Scoped to `teacher_assignments.role='subject_teacher'`.
-export async function listSubjectTeacherSectionIds(userId: string): Promise<Set<string>> {
+export async function listSubjectTeacherSectionIds(
+  userId: string
+): Promise<Set<string>> {
   const service = createServiceClient();
   const { data } = await service
     .from('teacher_assignments')
@@ -196,7 +219,7 @@ export async function listSubjectTeacherSectionIds(userId: string): Promise<Set<
 // Topics are scoped per section (migration 061 / KD #110).
 export async function getChecklistTopicCountByTerm(
   termId: string,
-  sections: Array<{ id: string }>,
+  sections: Array<{ id: string }>
 ): Promise<Record<string, number>> {
   const out: Record<string, number> = {};
   if (sections.length === 0) return out;

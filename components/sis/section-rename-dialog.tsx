@@ -26,7 +26,10 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { SectionUpdateSchema, type SectionUpdateInput } from '@/lib/schemas/section';
+import {
+  SectionUpdateSchema,
+  type SectionUpdateInput,
+} from '@/lib/schemas/section';
 
 export function SectionRenameDialog({
   sectionId,
@@ -85,7 +88,8 @@ export function SectionRenameDialog({
           <DialogTitle>Rename section</DialogTitle>
           <DialogDescription>
             Update the section name. Level and academic year stay the same.
-            Existing rosters, grading sheets, and report cards follow automatically.
+            Existing rosters, grading sheets, and report cards follow
+            automatically.
           </DialogDescription>
         </DialogHeader>
 
@@ -106,7 +110,11 @@ export function SectionRenameDialog({
             />
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={busy} className="gap-1.5">

@@ -27,8 +27,12 @@ export function PtcRosterClient({
   roster: RosterStudent[];
   initialFeedback: Map<string, string>;
 }) {
-  const [feedback, setFeedback] = useState<Map<string, string>>(() => new Map(initialFeedback));
-  const [status, setStatus] = useState<Map<string, 'idle' | 'saving' | 'saved'>>(() => new Map());
+  const [feedback, setFeedback] = useState<Map<string, string>>(
+    () => new Map(initialFeedback)
+  );
+  const [status, setStatus] = useState<
+    Map<string, 'idle' | 'saving' | 'saved'>
+  >(() => new Map());
 
   const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -73,7 +77,7 @@ export function PtcRosterClient({
         toast.error(e instanceof Error ? e.message : 'save failed');
       }
     },
-    [termId, sectionId],
+    [termId, sectionId]
   );
 
   function handleChange(studentId: string, next: string) {
@@ -105,7 +109,10 @@ export function PtcRosterClient({
         const text = feedback.get(s.student_id) ?? '';
         const st = status.get(s.student_id) ?? 'idle';
         return (
-          <li key={s.student_id} className="grid grid-cols-1 gap-3 px-5 py-4 md:grid-cols-[240px_1fr]">
+          <li
+            key={s.student_id}
+            className="grid grid-cols-1 gap-3 px-5 py-4 md:grid-cols-[240px_1fr]"
+          >
             <div className="min-w-0">
               <div className="flex items-baseline gap-2">
                 <span className="font-mono text-[11px] font-semibold tabular-nums text-muted-foreground">

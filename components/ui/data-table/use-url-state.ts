@@ -33,7 +33,12 @@ export function useUrlState(config: UrlStateConfig) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const { enabled, namespace, paramKeys, debounceMs = DEFAULT_DEBOUNCE } = config;
+  const {
+    enabled,
+    namespace,
+    paramKeys,
+    debounceMs = DEFAULT_DEBOUNCE,
+  } = config;
   const searchKey = key(paramKeys?.search ?? 'q', namespace);
   const statusKey = key(paramKeys?.status ?? 'status', namespace);
   const mineKey = key(paramKeys?.mine ?? 'mine', namespace);
@@ -42,10 +47,19 @@ export function useUrlState(config: UrlStateConfig) {
   const read = useCallback((): UrlStateSnapshot => {
     if (!enabled || !params) return { facets: {} };
     const facets: Record<string, string[]> = {};
-    const reservedKeys = new Set([searchKey, statusKey, mineKey, key('page', namespace), key('pageSize', namespace)]);
+    const reservedKeys = new Set([
+      searchKey,
+      statusKey,
+      mineKey,
+      key('page', namespace),
+      key('pageSize', namespace),
+    ]);
     params.forEach((value, k) => {
       if (reservedKeys.has(k)) return;
-      const stripped = namespace && k.startsWith(`${namespace}.`) ? k.slice(namespace.length + 1) : k;
+      const stripped =
+        namespace && k.startsWith(`${namespace}.`)
+          ? k.slice(namespace.length + 1)
+          : k;
       if (!namespace || k.startsWith(`${namespace}.`)) {
         facets[stripped] = value.split(',').filter(Boolean);
       }
@@ -55,13 +69,20 @@ export function useUrlState(config: UrlStateConfig) {
       status: params.get(statusKey) ?? undefined,
       mine: params.get(mineKey) === '1' || undefined,
       facets,
-      page: params.get(key('page', namespace)) ? Number(params.get(key('page', namespace))) : undefined,
-      pageSize: params.get(key('pageSize', namespace)) ? Number(params.get(key('pageSize', namespace))) : undefined,
+      page: params.get(key('page', namespace))
+        ? Number(params.get(key('page', namespace)))
+        : undefined,
+      pageSize: params.get(key('pageSize', namespace))
+        ? Number(params.get(key('pageSize', namespace)))
+        : undefined,
     };
   }, [enabled, params, searchKey, statusKey, mineKey, namespace]);
 
   const write = useCallback(
-    (snapshot: UrlStateSnapshot, { debounce = false }: { debounce?: boolean } = {}) => {
+    (
+      snapshot: UrlStateSnapshot,
+      { debounce = false }: { debounce?: boolean } = {}
+    ) => {
       if (!enabled) return;
       const apply = () => {
         const next = new URLSearchParams(params?.toString() ?? '');
@@ -72,9 +93,21 @@ export function useUrlState(config: UrlStateConfig) {
         set(searchKey, snapshot.search);
         set(statusKey, snapshot.status);
         set(mineKey, snapshot.mine ? '1' : undefined);
-        set(key('page', namespace), snapshot.page && snapshot.page > 1 ? String(snapshot.page) : undefined);
-        set(key('pageSize', namespace), snapshot.pageSize ? String(snapshot.pageSize) : undefined);
-        const reserved = new Set([searchKey, statusKey, mineKey, key('page', namespace), key('pageSize', namespace)]);
+        set(
+          key('page', namespace),
+          snapshot.page && snapshot.page > 1 ? String(snapshot.page) : undefined
+        );
+        set(
+          key('pageSize', namespace),
+          snapshot.pageSize ? String(snapshot.pageSize) : undefined
+        );
+        const reserved = new Set([
+          searchKey,
+          statusKey,
+          mineKey,
+          key('page', namespace),
+          key('pageSize', namespace),
+        ]);
         for (const k of Array.from(next.keys())) {
           if (reserved.has(k)) continue;
           if (namespace && !k.startsWith(`${namespace}.`)) continue;
@@ -94,12 +127,25 @@ export function useUrlState(config: UrlStateConfig) {
         apply();
       }
     },
-    [enabled, params, pathname, router, searchKey, statusKey, mineKey, namespace, debounceMs],
+    [
+      enabled,
+      params,
+      pathname,
+      router,
+      searchKey,
+      statusKey,
+      mineKey,
+      namespace,
+      debounceMs,
+    ]
   );
 
-  useEffect(() => () => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    },
+    []
+  );
 
   return { read, write };
 }

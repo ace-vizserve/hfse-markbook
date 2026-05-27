@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -38,7 +38,9 @@ export async function POST(request: Request) {
   const service = createServiceClient();
 
   try {
-    const result = await switchEnvironment(service, target, { ayCode: ay_code });
+    const result = await switchEnvironment(service, target, {
+      ayCode: ay_code,
+    });
 
     // Resolve the destination AY id for audit.entity_id.
     const { current } = await listEnvironmentAys(service);
@@ -86,7 +88,8 @@ export async function POST(request: Request) {
       admissions: result.admissions,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'environment switch failed';
+    const message =
+      err instanceof Error ? err.message : 'environment switch failed';
     console.error('[environment POST] failed:', message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -138,7 +141,8 @@ export async function DELETE() {
       rpcSummary: result.rpcSummary,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'test env reset failed';
+    const message =
+      err instanceof Error ? err.message : 'test env reset failed';
     console.error('[environment DELETE] failed:', message);
     return NextResponse.json({ error: message }, { status: 500 });
   }

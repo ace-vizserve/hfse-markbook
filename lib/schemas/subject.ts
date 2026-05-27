@@ -16,8 +16,15 @@ export const SubjectCreateSchema = z.object({
     .trim()
     .min(1, 'Code required')
     .max(32, 'Keep code under 32 chars')
-    .regex(/^[A-Z0-9_-]+$/, 'Code must be uppercase letters, digits, underscore, or hyphen'),
-  name: z.string().trim().min(1, 'Name required').max(128, 'Keep name under 128 chars'),
+    .regex(
+      /^[A-Z0-9_-]+$/,
+      'Code must be uppercase letters, digits, underscore, or hyphen'
+    ),
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Name required')
+    .max(128, 'Keep name under 128 chars'),
   is_examinable: z.boolean(),
 });
 export type SubjectCreateInput = z.infer<typeof SubjectCreateSchema>;

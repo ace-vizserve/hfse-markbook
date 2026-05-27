@@ -57,7 +57,9 @@ export function GenerateSheetsDialog({
     setBusy(true);
     try {
       const body =
-        scope.kind === 'ay' ? { ay_id: scope.ayId } : { section_id: scope.sectionId };
+        scope.kind === 'ay'
+          ? { ay_id: scope.ayId }
+          : { section_id: scope.sectionId };
       const res = await fetch('/api/grading-sheets/bulk-create', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -73,17 +75,17 @@ export function GenerateSheetsDialog({
 
       if (inserted > 0) {
         toast.success(
-          `Generated ${inserted.toLocaleString('en-SG')} sheet${inserted === 1 ? '' : 's'} for ${label}.`,
+          `Generated ${inserted.toLocaleString('en-SG')} sheet${inserted === 1 ? '' : 's'} for ${label}.`
         );
       } else if (blockedCount === 0) {
         toast.info(
-          `${label} is already fully configured — every sheet has totals + every roster row has an entry.`,
+          `${label} is already fully configured — every sheet has totals + every roster row has an entry.`
         );
       }
 
       if (blockedCount > 0) {
         toast.warning(
-          `${blockedCount} scope${blockedCount === 1 ? '' : 's'} skipped — no approved SOW: ${blockedSubjects.slice(0, 3).join(', ')}${blockedSubjects.length > 3 ? ` +${blockedSubjects.length - 3} more` : ''}.`,
+          `${blockedCount} scope${blockedCount === 1 ? '' : 's'} skipped — no approved SOW: ${blockedSubjects.slice(0, 3).join(', ')}${blockedSubjects.length > 3 ? ` +${blockedSubjects.length - 3} more` : ''}.`
         );
       }
 
@@ -103,8 +105,18 @@ export function GenerateSheetsDialog({
       : `Create one grading sheet per (subject × term) for ${scopeLabel}. Safe to re-run — already-created sheets are untouched.`;
 
   const defaultTrigger = (
-    <Button type="button" size="sm" variant="outline" className="h-7 text-xs" disabled={busy}>
-      {busy ? <Loader2 className="mr-1 size-3 animate-spin" /> : <FilePlus2 className="mr-1 size-3" />}
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      className="h-7 text-xs"
+      disabled={busy}
+    >
+      {busy ? (
+        <Loader2 className="mr-1 size-3 animate-spin" />
+      ) : (
+        <FilePlus2 className="mr-1 size-3" />
+      )}
       Generate sheets
     </Button>
   );
@@ -112,11 +124,15 @@ export function GenerateSheetsDialog({
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       {(children || !isControlled) && (
-        <AlertDialogTrigger asChild>{children ?? defaultTrigger}</AlertDialogTrigger>
+        <AlertDialogTrigger asChild>
+          {children ?? defaultTrigger}
+        </AlertDialogTrigger>
       )}
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Generate grading sheets for {scopeLabel}?</AlertDialogTitle>
+          <AlertDialogTitle>
+            Generate grading sheets for {scopeLabel}?
+          </AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

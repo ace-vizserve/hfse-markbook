@@ -90,7 +90,11 @@ const MEDICAL_CSV: CsvSpec = {
     r.foodAllergyDetails ?? '',
     r.otherMedicalConditions ?? '',
     r.dietaryRestrictions ?? '',
-    r.paracetamolConsent === true ? 'Yes' : r.paracetamolConsent === false ? 'No' : '',
+    r.paracetamolConsent === true
+      ? 'Yes'
+      : r.paracetamolConsent === false
+        ? 'No'
+        : '',
   ],
 };
 
@@ -143,11 +147,12 @@ const PROMISED_CSV: CsvSpec = {
       .map((s) =>
         s.promisedUntil
           ? `${s.label}: ${s.promisedUntil.slice(0, 10)}`
-          : `${s.label}: (no date)`,
+          : `${s.label}: (no date)`
       )
       .join('; ');
     const earliestNote =
-      slots.find((s) => s.promisedUntil === r.earliestPromisedUntil)?.note ?? '';
+      slots.find((s) => s.promisedUntil === r.earliestPromisedUntil)?.note ??
+      '';
     return [
       r.enroleeNumber,
       r.studentNumber ?? '',
@@ -205,7 +210,7 @@ const CSV_BY_COHORT: Record<CohortKey, CsvSpec> = {
 
 export async function GET(
   req: Request,
-  ctx: { params: Promise<{ cohort: string }> },
+  ctx: { params: Promise<{ cohort: string }> }
 ) {
   const guard = await requireRole([...ALLOWED_ROLES]);
   if ('error' in guard) return guard.error;
@@ -231,7 +236,10 @@ export async function GET(
     .eq('ay_code', ayCode)
     .maybeSingle();
   if (!ayRow) {
-    return NextResponse.json({ error: 'academic year not found' }, { status: 404 });
+    return NextResponse.json(
+      { error: 'academic year not found' },
+      { status: 404 }
+    );
   }
 
   const scope = url.searchParams.get('scope');
@@ -258,6 +266,10 @@ export async function GET(
 
   return NextResponse.json(
     { rows, total: rows.length, cohort, ayCode, scope },
-    { headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' } },
+    {
+      headers: {
+        'Cache-Control': 'private, max-age=60, stale-while-revalidate=300',
+      },
+    }
   );
 }

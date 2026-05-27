@@ -1,10 +1,16 @@
-"use client";
+'use client';
 
-import { CalendarDays, Loader2 } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useTransition } from "react";
+import { CalendarDays, Loader2 } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useTransition } from 'react';
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type TermOption = {
   id: string;
@@ -13,14 +19,20 @@ type TermOption = {
   is_current: boolean;
 };
 
-export function TermSwitcher({ current, options }: { current: string; options: readonly TermOption[] }) {
+export function TermSwitcher({
+  current,
+  options,
+}: {
+  current: string;
+  options: readonly TermOption[];
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
 
   function onChange(termId: string) {
     const next = new URLSearchParams(searchParams.toString());
-    next.set("term_id", termId);
+    next.set('term_id', termId);
     startTransition(() => {
       router.push(`?${next.toString()}`, { scroll: false });
       router.refresh();
@@ -48,7 +60,7 @@ export function TermSwitcher({ current, options }: { current: string; options: r
           options.map((t) => (
             <SelectItem key={t.id} value={t.id}>
               {t.label}
-              {t.is_current ? " (current)" : ""}
+              {t.is_current ? ' (current)' : ''}
             </SelectItem>
           ))
         )}

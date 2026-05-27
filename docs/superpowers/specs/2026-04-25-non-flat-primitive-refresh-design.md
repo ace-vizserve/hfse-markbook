@@ -11,13 +11,13 @@ Finish the non-flat refresh started in the 25th pass so every shadcn primitive r
 
 ## 2. Architecture — three-tier primitive system
 
-| Tier | Primitives | Rest state | Interaction state |
-|---|---|---|---|
-| **T1 chip / CTA** | `Button` default+destructive, `Badge` success+blocked, `Tabs` default active chip | Brand gradient + `shadow-button` / `shadow-brand-tile` + hairline | Hover lift (`-translate-y-0.5` + `shadow-button-hover`), active press |
-| **T1 content surface** | `Alert`, `Dialog` body, `Sheet` body, `Popover` content, `DropdownMenu` content, `Tooltip` content, `Sonner` toast | Solid semantic tint (`bg-<role>/5`) + `ring-1 ring-inset ring-<role>/20` + `shadow-md` / `shadow-lg` | Hover tint bump where clickable |
-| **T2 fillable** | `Input`, `Textarea`, `Select` trigger, `Checkbox` | Hairline ring + inset `shadow-input` | Hover: darker hairline on triggers; Focus: `ring-2 ring-brand-indigo/20` + brand border; Checked: brand gradient fill + `shadow-brand-tile` |
+| Tier                   | Primitives                                                                                                         | Rest state                                                                                           | Interaction state                                                                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **T1 chip / CTA**      | `Button` default+destructive, `Badge` success+blocked, `Tabs` default active chip                                  | Brand gradient + `shadow-button` / `shadow-brand-tile` + hairline                                    | Hover lift (`-translate-y-0.5` + `shadow-button-hover`), active press                                                                       |
+| **T1 content surface** | `Alert`, `Dialog` body, `Sheet` body, `Popover` content, `DropdownMenu` content, `Tooltip` content, `Sonner` toast | Solid semantic tint (`bg-<role>/5`) + `ring-1 ring-inset ring-<role>/20` + `shadow-md` / `shadow-lg` | Hover tint bump where clickable                                                                                                             |
+| **T2 fillable**        | `Input`, `Textarea`, `Select` trigger, `Checkbox`                                                                  | Hairline ring + inset `shadow-input`                                                                 | Hover: darker hairline on triggers; Focus: `ring-2 ring-brand-indigo/20` + brand border; Checked: brand gradient fill + `shadow-brand-tile` |
 
-**Binding rule:** T1 gradient is pill/chip-scoped. T1 content surfaces never get a gradient background — they use solid tint + ring + shadow. T2 fillables never get gradients anywhere *except* a checked/on state.
+**Binding rule:** T1 gradient is pill/chip-scoped. T1 content surfaces never get a gradient background — they use solid tint + ring + shadow. T2 fillables never get gradients anywhere _except_ a checked/on state.
 
 ## 3. T1 content surfaces
 
@@ -90,9 +90,16 @@ One small shared component. Renders a non-flat chip:
 
 ```tsx
 <span className="inline-flex items-center gap-2 rounded-md border border-hairline bg-background px-2 py-1 text-xs text-foreground shadow-xs">
-  <span aria-hidden className={`h-4 w-[3px] rounded-sm bg-gradient-to-b ${stripeGradient}`} />
+  <span
+    aria-hidden
+    className={`h-4 w-[3px] rounded-sm bg-gradient-to-b ${stripeGradient}`}
+  />
   <span>{label}</span>
-  {count !== undefined && <span className="font-mono text-[11px] tabular-nums text-muted-foreground">{count}</span>}
+  {count !== undefined && (
+    <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
+      {count}
+    </span>
+  )}
 </span>
 ```
 
@@ -108,6 +115,7 @@ Companion export: `chartLegendContent({ palette })` — render-prop callback com
 ### 5.2 Migration targets
 
 **Shape A — chart-series legends (recharts `<Legend>`)** — replace `<Legend wrapperStyle={...}>` with `<Legend content={chartLegendContent(...)} />`:
+
 - `components/admissions/assessment-outcomes-chart.tsx`
 - `components/dashboard/charts/comparison-bar-chart.tsx`
 - `components/dashboard/charts/trend-chart.tsx`
@@ -118,9 +126,11 @@ Companion export: `chartLegendContent({ palette })` — render-prop callback com
 - `app/(p-files)/p-files/page.tsx`
 
 **Shape B — status-key legends (already crafted, leave alone):**
+
 - `components/attendance/wide-grid.tsx::StatusLegendItem` (P/L/EX/A/NC grid-matching squares).
 
 **Shape C — hand-rolled chip/dot legends** — migrate to `ChartLegendChip`:
+
 - `components/attendance/wide-grid.tsx::LegendDot` (day-type keys).
 - `components/attendance/calendar-admin-client.tsx` legend section.
 - `components/admissions/outdated-applications-table.tsx::LegendItem` (staleness tiers — all three tiers use `ChartLegendChip` with severity-ramped color stripes rather than adding `Badge variant="warning"`).
@@ -180,14 +190,14 @@ Discrete commits, bisectable:
 
 ## 8. Migration policy for pre-existing call sites
 
-| Pattern | Policy |
-|---|---|
-| `<Alert>` default/destructive using shadcn flat box | Auto-inherits new treatment — nothing to edit |
-| Hand-rolled §9.4 status panels (~3–5 sites) | **Touch-on-touch.** Migrate to `<Alert variant>` when the file is next edited |
-| §9.3 `Badge` wash recipes (~25 sites) | **Stay as washes.** No sweep (dual-tier status vocabulary preserved) |
-| Legend chips / top-of-page single-state pills | **Swept in step 4** (Shape A + C migrations) |
-| `Popover` / `DropdownMenu` / `Tooltip` / `Sonner` | Auto-inherits — nothing to edit |
-| `Input` / `Textarea` / `Select` / `Checkbox` | Auto-inherits — nothing to edit |
+| Pattern                                             | Policy                                                                        |
+| --------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `<Alert>` default/destructive using shadcn flat box | Auto-inherits new treatment — nothing to edit                                 |
+| Hand-rolled §9.4 status panels (~3–5 sites)         | **Touch-on-touch.** Migrate to `<Alert variant>` when the file is next edited |
+| §9.3 `Badge` wash recipes (~25 sites)               | **Stay as washes.** No sweep (dual-tier status vocabulary preserved)          |
+| Legend chips / top-of-page single-state pills       | **Swept in step 4** (Shape A + C migrations)                                  |
+| `Popover` / `DropdownMenu` / `Tooltip` / `Sonner`   | Auto-inherits — nothing to edit                                               |
+| `Input` / `Textarea` / `Select` / `Checkbox`        | Auto-inherits — nothing to edit                                               |
 
 ## 9. Explicitly out of scope
 
@@ -203,7 +213,7 @@ Discrete commits, bisectable:
 
 - Every step: `npx next build` clean + browser smoke on an affected page.
 - Step 1: §11 grep-and-verify on every new/changed shadow token (non-negotiable).
-- Step 4: visual audit on one chart page — confirm new legend chip reads as a *key* (users can glance-map chip to chart series).
+- Step 4: visual audit on one chart page — confirm new legend chip reads as a _key_ (users can glance-map chip to chart series).
 
 ## 11. Non-goals & why
 

@@ -32,7 +32,7 @@ type AnyRow =
 
 export async function GET(
   req: Request,
-  ctx: { params: Promise<{ target: string }> },
+  ctx: { params: Promise<{ target: string }> }
 ) {
   const guard = await requireRole([...ALLOWED_ROLES]);
   if ('error' in guard) return guard.error;
@@ -104,15 +104,26 @@ export async function GET(
   }
 
   return NextResponse.json(
-    { rows, total: rows.length, target: effectiveTarget, segment, eyebrow, title },
-    { headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=300' } },
+    {
+      rows,
+      total: rows.length,
+      target: effectiveTarget,
+      segment,
+      eyebrow,
+      title,
+    },
+    {
+      headers: {
+        'Cache-Control': 'private, max-age=60, stale-while-revalidate=300',
+      },
+    }
   );
 }
 
 function csvResponse(
   rows: AnyRow[],
   target: SisAdminDrillTarget,
-  segment: string | null,
+  segment: string | null
 ): Response {
   let headers: string[] = [];
   let body: (string | number)[][] = [];
@@ -157,7 +168,10 @@ function csvResponse(
   }
   const csv = buildCsv(headers, body);
   const segmentSlug = segment
-    ? `-${segment.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}`
+    ? `-${segment
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')}`
     : '';
   const today = new Date().toISOString().slice(0, 10);
   const filename = `drill-sis-admin-${target}${segmentSlug}-${today}.csv`;

@@ -17,13 +17,20 @@ export default async function ReportCardPreview({
 }) {
   const { studentId } = await params;
   const { term: termParam } = await searchParams;
-  const [supabase, sessionUser] = await Promise.all([createClient(), getSessionUser()]);
+  const [supabase, sessionUser] = await Promise.all([
+    createClient(),
+    getSessionUser(),
+  ]);
   const role = sessionUser?.role ?? null;
-  const canManage = role === 'registrar' || role === 'school_admin' || role === 'superadmin';
+  const canManage =
+    role === 'registrar' || role === 'school_admin' || role === 'superadmin';
 
   const result = await buildReportCard(supabase, studentId);
   if (!result.ok) {
-    if (result.error.kind === 'student_not_found' || result.error.kind === 'level_not_found') {
+    if (
+      result.error.kind === 'student_not_found' ||
+      result.error.kind === 'level_not_found'
+    ) {
       notFound();
     }
     if (result.error.kind === 'no_current_ay') {
@@ -32,7 +39,8 @@ export default async function ReportCardPreview({
     if (result.error.kind === 'not_enrolled_this_ay') {
       return (
         <div className="text-sm text-muted-foreground">
-          Student is not enrolled in the current academic year ({result.error.ayLabel}).
+          Student is not enrolled in the current academic year (
+          {result.error.ayLabel}).
         </div>
       );
     }
@@ -53,7 +61,7 @@ export default async function ReportCardPreview({
   const viewingTermNumber = (
     [1, 2, 3, 4].includes(parsedTerm)
       ? parsedTerm
-      : currentTermRow?.term_number ?? 1
+      : (currentTermRow?.term_number ?? 1)
   ) as 1 | 2 | 3 | 4;
   const isFinal = viewingTermNumber === 4;
 
@@ -93,7 +101,7 @@ export default async function ReportCardPreview({
               'rounded-md px-4 py-1.5 font-mono text-xs font-semibold uppercase tracking-wider transition-colors',
               !isFinal
                 ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
+                : 'text-muted-foreground hover:text-foreground'
             )}
           >
             Interim (T1–T3)
@@ -104,17 +112,24 @@ export default async function ReportCardPreview({
               'rounded-md px-4 py-1.5 font-mono text-xs font-semibold uppercase tracking-wider transition-colors',
               isFinal
                 ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
+                : 'text-muted-foreground hover:text-foreground'
             )}
           >
             Final (T4)
           </Link>
         </div>
 
-        <PublicationStatus sectionId={payload.section.id} terms={payload.terms} />
+        <PublicationStatus
+          sectionId={payload.section.id}
+          terms={payload.terms}
+        />
       </div>
 
-      <ReportCardDocument payload={payload} viewingTermNumber={viewingTermNumber} canManage={canManage} />
+      <ReportCardDocument
+        payload={payload}
+        viewingTermNumber={viewingTermNumber}
+        canManage={canManage}
+      />
     </div>
   );
 }

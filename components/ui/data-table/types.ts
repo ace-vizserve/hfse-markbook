@@ -1,4 +1,8 @@
-import type { ColumnDef, SortingState, VisibilityState } from '@tanstack/react-table';
+import type {
+  ColumnDef,
+  SortingState,
+  VisibilityState,
+} from '@tanstack/react-table';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { BulkAction } from './bulk-action-footer';
@@ -37,7 +41,10 @@ export type MeScopeConfig<TRow> = {
 
 export type CsvConfig<TRow> = {
   filename: string;
-  columns?: Array<{ header: string; accessor: (row: TRow) => string | number | null }>;
+  columns?: Array<{
+    header: string;
+    accessor: (row: TRow) => string | number | null;
+  }>;
 };
 
 export type UrlStateConfig = {

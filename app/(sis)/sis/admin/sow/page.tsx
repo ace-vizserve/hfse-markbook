@@ -6,7 +6,12 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { PageShell } from '@/components/ui/page-shell';
 import { SowReviewTable } from '@/components/sis/sow-review-table';
 
-type TermRow = { id: string; academic_year_id: string; label: string; term_number: number };
+type TermRow = {
+  id: string;
+  academic_year_id: string;
+  label: string;
+  term_number: number;
+};
 
 export default async function SowReviewPage({
   searchParams,
@@ -19,32 +24,41 @@ export default async function SowReviewPage({
 }) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
-  if (sessionUser.role !== 'school_admin' && sessionUser.role !== 'superadmin') {
+  if (
+    sessionUser.role !== 'school_admin' &&
+    sessionUser.role !== 'superadmin'
+  ) {
     redirect('/sis');
   }
 
   const sp = await searchParams;
   const service = createServiceClient();
 
-  const [
-    { data: aysRaw },
-    { data: termsRaw },
-    { data: subjectsRaw },
-  ] = await Promise.all([
-    service
-      .from('academic_years')
-      .select('id, ay_code, label, is_current')
-      .order('ay_code', { ascending: false }),
-    service
-      .from('terms')
-      .select('id, academic_year_id, label, term_number')
-      .order('term_number'),
-    service.from('subjects').select('id, code, name').order('name'),
-  ]);
+  const [{ data: aysRaw }, { data: termsRaw }, { data: subjectsRaw }] =
+    await Promise.all([
+      service
+        .from('academic_years')
+        .select('id, ay_code, label, is_current')
+        .order('ay_code', { ascending: false }),
+      service
+        .from('terms')
+        .select('id, academic_year_id, label, term_number')
+        .order('term_number'),
+      service.from('subjects').select('id, code, name').order('name'),
+    ]);
 
-  const ays = (aysRaw ?? []) as { id: string; ay_code: string; label: string; is_current: boolean }[];
+  const ays = (aysRaw ?? []) as {
+    id: string;
+    ay_code: string;
+    label: string;
+    is_current: boolean;
+  }[];
   const terms = (termsRaw ?? []) as TermRow[];
-  const subjects = (subjectsRaw ?? []) as { id: string; code: string; name: string }[];
+  const subjects = (subjectsRaw ?? []) as {
+    id: string;
+    code: string;
+    name: string;
+  }[];
 
   const currentAy = ays.find((a) => a.is_current) ?? ays[0];
   const selectedAyCode = sp.ayCode ?? currentAy?.ay_code ?? '';
@@ -71,7 +85,8 @@ export default async function SowReviewPage({
             </h1>
           </div>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            Spot-check teacher-authored SOW entries. Teachers author and maintain their own SOW at Markbook → Scheme of Work.
+            Spot-check teacher-authored SOW entries. Teachers author and
+            maintain their own SOW at Markbook → Scheme of Work.
           </p>
         </div>
       </header>

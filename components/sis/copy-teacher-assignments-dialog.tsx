@@ -77,7 +77,7 @@ export function CopyTeacherAssignmentsDialog({
         source_total: Number(body.source_total ?? 0),
       });
       toast.success(
-        `Copied ${body.copied ?? 0} teacher assignment${(body.copied ?? 0) === 1 ? '' : 's'} from ${sourceAy}.`,
+        `Copied ${body.copied ?? 0} teacher assignment${(body.copied ?? 0) === 1 ? '' : 's'} from ${sourceAy}.`
       );
       router.refresh();
     } catch (e) {
@@ -109,9 +109,11 @@ export function CopyTeacherAssignmentsDialog({
             Copy teachers to {targetAyCode}
           </DialogTitle>
           <DialogDescription>
-            Carries <strong>teacher_assignments</strong> from a prior AY into {targetAyCode},
-            matching sections by <code className="font-mono text-[12px]">(level, name)</code>.
-            Retired sections are skipped. Existing assignments on the target are left untouched.
+            Carries <strong>teacher_assignments</strong> from a prior AY into{' '}
+            {targetAyCode}, matching sections by{' '}
+            <code className="font-mono text-[12px]">(level, name)</code>.
+            Retired sections are skipped. Existing assignments on the target are
+            left untouched.
           </DialogDescription>
         </DialogHeader>
 
@@ -123,7 +125,11 @@ export function CopyTeacherAssignmentsDialog({
           <div className="space-y-3">
             <div className="grid gap-2">
               <Label htmlFor="sourceAy">Source AY</Label>
-              <Select value={sourceAy} onValueChange={setSourceAy} disabled={submitting}>
+              <Select
+                value={sourceAy}
+                onValueChange={setSourceAy}
+                disabled={submitting}
+              >
                 <SelectTrigger id="sourceAy" className="h-10">
                   <SelectValue />
                 </SelectTrigger>
@@ -146,20 +152,39 @@ export function CopyTeacherAssignmentsDialog({
             {result && (
               <div className="space-y-1 rounded-xl border border-border bg-card p-4 text-[12px]">
                 <ResultRow label="Source rows" value={result.source_total} />
-                <ResultRow label="Copied" value={result.copied} tone="primary" />
-                <ResultRow label="Skipped (no matching section)" value={result.skipped_no_section} />
-                <ResultRow label="Skipped (already existed)" value={result.skipped_already_existed} />
+                <ResultRow
+                  label="Copied"
+                  value={result.copied}
+                  tone="primary"
+                />
+                <ResultRow
+                  label="Skipped (no matching section)"
+                  value={result.skipped_no_section}
+                />
+                <ResultRow
+                  label="Skipped (already existed)"
+                  value={result.skipped_already_existed}
+                />
               </div>
             )}
           </div>
         )}
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={submitting}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={submitting}
+          >
             {result ? 'Done' : 'Cancel'}
           </Button>
           {!result && (
-            <Button type="button" onClick={commit} disabled={submitting || disabled}>
+            <Button
+              type="button"
+              onClick={commit}
+              disabled={submitting || disabled}
+            >
               {submitting ? (
                 <>
                   <Loader2 className="size-3.5 animate-spin" />
@@ -191,7 +216,9 @@ function ResultRow({
       <span
         className={
           'font-mono tabular-nums ' +
-          (tone === 'primary' ? 'font-semibold text-foreground' : 'text-foreground')
+          (tone === 'primary'
+            ? 'font-semibold text-foreground'
+            : 'text-foreground')
         }
       >
         {value.toLocaleString('en-SG')}

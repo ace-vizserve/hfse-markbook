@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import { Users } from "lucide-react";
-import type { ColumnDef, SortingState } from "@tanstack/react-table";
+import * as React from 'react';
+import { Users } from 'lucide-react';
+import type { ColumnDef, SortingState } from '@tanstack/react-table';
 
-import { DataTable } from "@/components/ui/data-table";
-import { EnrollmentStatusBadge } from "@/components/ui/enrollment-status-badge";
-import { IdentifierLink } from "@/components/ui/identifier-link";
-import { ApplicationStatusBadge } from "@/components/ui/application-status-badge";
-import type { EnrollmentStatus } from "@/components/ui/enrollment-status-badge";
-import type { StudentListRow } from "@/lib/sis/queries";
+import { DataTable } from '@/components/ui/data-table';
+import { EnrollmentStatusBadge } from '@/components/ui/enrollment-status-badge';
+import { IdentifierLink } from '@/components/ui/identifier-link';
+import { ApplicationStatusBadge } from '@/components/ui/application-status-badge';
+import type { EnrollmentStatus } from '@/components/ui/enrollment-status-badge';
+import type { StudentListRow } from '@/lib/sis/queries';
 
 // ─── Bucket types ───────────────────────────────────────────────────────────
 
@@ -33,17 +33,30 @@ export type StatusBucketDef = {
 };
 
 const DEFAULT_STATUS_BUCKETS: StatusBucketDef[] = [
-  { key: "all", label: "All" },
-  { key: "enrolled", label: "Enrolled", statuses: ["Enrolled", "Enrolled (Conditional)"] },
-  { key: "pipeline", label: "Pipeline", statuses: ["Submitted", "Ongoing Verification", "Processing"] },
-  { key: "withdrawn", label: "Withdrawn", statuses: ["Withdrawn", "Cancelled"] },
+  { key: 'all', label: 'All' },
+  {
+    key: 'enrolled',
+    label: 'Enrolled',
+    statuses: ['Enrolled', 'Enrolled (Conditional)'],
+  },
+  {
+    key: 'pipeline',
+    label: 'Pipeline',
+    statuses: ['Submitted', 'Ongoing Verification', 'Processing'],
+  },
+  {
+    key: 'withdrawn',
+    label: 'Withdrawn',
+    statuses: ['Withdrawn', 'Cancelled'],
+  },
 ];
 
 function bucketMatchesRow(def: StatusBucketDef, row: StudentListRow): boolean {
   if (def.predicate) return def.predicate(row);
-  if (def.enrollmentStatuses) return def.enrollmentStatuses.includes((row.enrollmentStatus ?? "").trim());
+  if (def.enrollmentStatuses)
+    return def.enrollmentStatuses.includes((row.enrollmentStatus ?? '').trim());
   if (!def.statuses) return true;
-  return def.statuses.includes((row.applicationStatus ?? "").trim());
+  return def.statuses.includes((row.applicationStatus ?? '').trim());
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -51,14 +64,18 @@ function bucketMatchesRow(def: StatusBucketDef, row: StudentListRow): boolean {
 export function studentDisplayName(row: StudentListRow): string {
   if (row.enroleeFullName) return row.enroleeFullName;
   const parts = [row.lastName, row.firstName, row.middleName].filter(Boolean);
-  return parts.length ? parts.join(" ") : "(no name on file)";
+  return parts.length ? parts.join(' ') : '(no name on file)';
 }
 
 function formatDate(iso: string | null): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("en-SG", { day: "2-digit", month: "short", year: "numeric" });
+  return d.toLocaleDateString('en-SG', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -75,8 +92,8 @@ function formatDate(iso: string | null): string | null {
 export function StudentDataTable({
   data,
   ayCode,
-  linkBase = "/admissions/applications",
-  linkAttribute = "enroleeNumber",
+  linkBase = '/admissions/applications',
+  linkAttribute = 'enroleeNumber',
   linkQuery,
   defaultSorting,
   showSubmittedColumn = false,
@@ -85,16 +102,16 @@ export function StudentDataTable({
   data: StudentListRow[];
   ayCode?: string;
   linkBase?: string;
-  linkAttribute?: "enroleeNumber" | "studentNumber";
+  linkAttribute?: 'enroleeNumber' | 'studentNumber';
   linkQuery?: Record<string, string>;
   defaultSorting?: SortingState;
   showSubmittedColumn?: boolean;
   statusBuckets?: StatusBucketDef[];
 }) {
   const querySuffix = React.useMemo(() => {
-    if (!linkQuery) return "";
+    if (!linkQuery) return '';
     const entries = Object.entries(linkQuery).filter(([, v]) => v);
-    if (entries.length === 0) return "";
+    if (entries.length === 0) return '';
     const params = new URLSearchParams(entries);
     return `?${params.toString()}`;
   }, [linkQuery]);
@@ -103,11 +120,11 @@ export function StudentDataTable({
     () => [
       {
         accessorFn: (row) => studentDisplayName(row),
-        id: "name",
-        header: "Name",
+        id: 'name',
+        header: 'Name',
         cell: ({ row }) => {
           const linkId =
-            linkAttribute === "studentNumber"
+            linkAttribute === 'studentNumber'
               ? (row.original.studentNumber ?? row.original.enroleeNumber)
               : row.original.enroleeNumber;
           return (
@@ -116,8 +133,10 @@ export function StudentDataTable({
                 <IdentifierLink href={`${linkBase}/${linkId}${querySuffix}`}>
                   {studentDisplayName(row.original)}
                 </IdentifierLink>
-                {row.original.enrollmentStatus === "late_enrollee" && (
-                  <EnrollmentStatusBadge status={"late_enrollee" as EnrollmentStatus} />
+                {row.original.enrollmentStatus === 'late_enrollee' && (
+                  <EnrollmentStatusBadge
+                    status={'late_enrollee' as EnrollmentStatus}
+                  />
                 )}
               </div>
               <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
@@ -129,12 +148,14 @@ export function StudentDataTable({
         enableHiding: false,
       },
       {
-        accessorKey: "studentNumber",
-        id: "studentNumber",
-        header: "Student ID",
+        accessorKey: 'studentNumber',
+        id: 'studentNumber',
+        header: 'Student ID',
         cell: ({ row }) =>
           row.original.studentNumber ? (
-            <span className="font-mono text-xs tabular-nums text-foreground">{row.original.studentNumber}</span>
+            <span className="font-mono text-xs tabular-nums text-foreground">
+              {row.original.studentNumber}
+            </span>
           ) : (
             <span className="text-muted-foreground">—</span>
           ),
@@ -142,34 +163,41 @@ export function StudentDataTable({
       {
         // Applicant Number is hidden-by-default — Hard Rule #4 risk.
         // Available via column visibility toggle, NOT removed.
-        accessorKey: "enroleeNumber",
-        id: "enroleeNumber",
-        header: "Applicant Number",
+        accessorKey: 'enroleeNumber',
+        id: 'enroleeNumber',
+        header: 'Applicant Number',
         cell: ({ row }) => (
-          <span className="font-mono text-xs tabular-nums text-muted-foreground">{row.original.enroleeNumber}</span>
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            {row.original.enroleeNumber}
+          </span>
         ),
       },
       {
-        accessorFn: (row) => row.classLevel ?? row.levelApplied ?? "",
-        id: "level",
-        header: "Level",
+        accessorFn: (row) => row.classLevel ?? row.levelApplied ?? '',
+        id: 'level',
+        header: 'Level',
         cell: ({ row }) => {
           const lvl = row.original.classLevel ?? row.original.levelApplied;
           return lvl ? (
-            <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">{lvl}</span>
+            <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+              {lvl}
+            </span>
           ) : (
             <span className="text-muted-foreground">—</span>
           );
         },
         filterFn: (row, id, value) => {
-          if (!value || (Array.isArray(value) && value.length === 0)) return true;
-          return Array.isArray(value) ? value.includes(row.getValue(id)) : row.getValue(id) === value;
+          if (!value || (Array.isArray(value) && value.length === 0))
+            return true;
+          return Array.isArray(value)
+            ? value.includes(row.getValue(id))
+            : row.getValue(id) === value;
         },
       },
       {
-        accessorKey: "classSection",
-        id: "section",
-        header: "Section",
+        accessorKey: 'classSection',
+        id: 'section',
+        header: 'Section',
         cell: ({ row }) =>
           row.original.classSection ? (
             <span className="text-foreground">{row.original.classSection}</span>
@@ -177,28 +205,35 @@ export function StudentDataTable({
             <span className="text-muted-foreground">—</span>
           ),
         filterFn: (row, id, value) => {
-          if (!value || (Array.isArray(value) && value.length === 0)) return true;
-          return Array.isArray(value) ? value.includes(row.getValue(id)) : row.getValue(id) === value;
+          if (!value || (Array.isArray(value) && value.length === 0))
+            return true;
+          return Array.isArray(value)
+            ? value.includes(row.getValue(id))
+            : row.getValue(id) === value;
         },
       },
       {
-        accessorKey: "applicationStatus",
-        id: "applicationStatus",
-        header: "Status",
-        cell: ({ row }) => <ApplicationStatusBadge status={row.original.applicationStatus} />,
+        accessorKey: 'applicationStatus',
+        id: 'applicationStatus',
+        header: 'Status',
+        cell: ({ row }) => (
+          <ApplicationStatusBadge status={row.original.applicationStatus} />
+        ),
         enableHiding: false,
       },
       ...(showSubmittedColumn
         ? [
             {
-              accessorKey: "created_at",
-              id: "submitted",
-              sortingFn: "datetime",
-              header: "Submitted",
+              accessorKey: 'created_at',
+              id: 'submitted',
+              sortingFn: 'datetime',
+              header: 'Submitted',
               cell: ({ row }) => {
                 const formatted = formatDate(row.original.created_at);
                 return formatted ? (
-                  <span className="font-mono text-[11px] tabular-nums text-foreground">{formatted}</span>
+                  <span className="font-mono text-[11px] tabular-nums text-foreground">
+                    {formatted}
+                  </span>
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 );
@@ -208,20 +243,24 @@ export function StudentDataTable({
         : []),
       {
         // Last updated — hidden-by-default, sortable
-        accessorKey: "applicationUpdatedDate",
-        id: "lastUpdated",
-        header: "Last updated",
+        accessorKey: 'applicationUpdatedDate',
+        id: 'lastUpdated',
+        header: 'Last updated',
         cell: ({ row }) => {
-          const formatted = formatDate(row.original.applicationUpdatedDate ?? null);
+          const formatted = formatDate(
+            row.original.applicationUpdatedDate ?? null
+          );
           return formatted ? (
-            <span className="font-mono text-[11px] tabular-nums text-foreground">{formatted}</span>
+            <span className="font-mono text-[11px] tabular-nums text-foreground">
+              {formatted}
+            </span>
           ) : (
             <span className="text-muted-foreground">—</span>
           );
         },
       },
     ],
-    [linkBase, linkAttribute, querySuffix, showSubmittedColumn],
+    [linkBase, linkAttribute, querySuffix, showSubmittedColumn]
   );
 
   const statusTabs = React.useMemo(
@@ -232,7 +271,7 @@ export function StudentDataTable({
         isDefault: def.key === statusBuckets[0]?.key,
         predicate: (row: StudentListRow) => bucketMatchesRow(def, row),
       })),
-    [statusBuckets],
+    [statusBuckets]
   );
 
   const initialColumnVisibility = React.useMemo(
@@ -240,7 +279,7 @@ export function StudentDataTable({
       enroleeNumber: false,
       lastUpdated: false,
     }),
-    [],
+    []
   );
 
   return (
@@ -250,35 +289,35 @@ export function StudentDataTable({
       getRowId={(row) => row.enroleeNumber}
       searchKeys={[
         (row) => studentDisplayName(row),
-        "studentNumber",
-        "enroleeNumber",
-        "classSection",
-        "classLevel",
-        "levelApplied",
+        'studentNumber',
+        'enroleeNumber',
+        'classSection',
+        'classLevel',
+        'levelApplied',
       ]}
       searchPlaceholder="Search name, student #, enrolee #, section…"
       facets={[
-        { columnId: "level", label: "Level" },
-        { columnId: "section", label: "Section" },
+        { columnId: 'level', label: 'Level' },
+        { columnId: 'section', label: 'Section' },
       ]}
       statusTabs={statusTabs}
       initialSort={
         defaultSorting ?? [
-          { id: "level", desc: false },
-          { id: "section", desc: false },
+          { id: 'level', desc: false },
+          { id: 'section', desc: false },
         ]
       }
       initialColumnVisibility={initialColumnVisibility}
       pageSize={25}
-      csv={{ filename: `students-${ayCode ?? "export"}.csv` }}
+      csv={{ filename: `students-${ayCode ?? 'export'}.csv` }}
       emptyState={{
         icon: Users,
-        title: "No students in view.",
-        body: "Adjust the filters above or search across academic years for a returning student.",
+        title: 'No students in view.',
+        body: 'Adjust the filters above or search across academic years for a returning student.',
       }}
       emptyFilteredState={{
-        title: "No students match.",
-        body: "Try clearing filters or adjusting the search.",
+        title: 'No students match.',
+        body: 'Try clearing filters or adjusting the search.',
       }}
     />
   );

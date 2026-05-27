@@ -56,7 +56,8 @@ async function loadWriteupsUncached(ayCode: string): Promise<{
     .eq('ay_code', ayCode)
     .maybeSingle();
   const ayId = ayRow?.id as string | undefined;
-  if (!ayId) return { writeups: [], termIdsByNumber: new Map(), totalStudents: 0 };
+  if (!ayId)
+    return { writeups: [], termIdsByNumber: new Map(), totalStudents: 0 };
 
   const { data: termRows } = await service
     .from('terms')
@@ -65,10 +66,14 @@ async function loadWriteupsUncached(ayCode: string): Promise<{
     .neq('term_number', 4);
   const termIds = (termRows ?? []).map((r) => r.id as string);
   const termIdsByNumber = new Map<number, string>();
-  for (const row of (termRows ?? []) as Array<{ id: string; term_number: number }>) {
+  for (const row of (termRows ?? []) as Array<{
+    id: string;
+    term_number: number;
+  }>) {
     termIdsByNumber.set(row.term_number, row.id);
   }
-  if (termIds.length === 0) return { writeups: [], termIdsByNumber, totalStudents: 0 };
+  if (termIds.length === 0)
+    return { writeups: [], termIdsByNumber, totalStudents: 0 };
 
   const { data: sectionRows } = await service
     .from('sections')
@@ -87,7 +92,9 @@ async function loadWriteupsUncached(ayCode: string): Promise<{
 
   const { data: rows } = await service
     .from('evaluation_writeups')
-    .select('id, student_id, section_id, term_id, submitted, submitted_at, created_at, updated_at')
+    .select(
+      'id, student_id, section_id, term_id, submitted, submitted_at, created_at, updated_at'
+    )
     .in('term_id', termIds);
 
   return {
@@ -101,7 +108,7 @@ function loadWriteups(ayCode: string) {
   return unstable_cache(
     () => loadWriteupsUncached(ayCode),
     ['evaluation', 'writeups-raw', ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tag(ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tag(ayCode) }
   )();
 }
 
@@ -130,7 +137,7 @@ function kpisFrom(
   from: string,
   to: string,
   totalStudents: number,
-  termCount: number,
+  termCount: number
 ): EvaluationKpis {
   const inRange = writeups.filter((w) => {
     const ref = w.submitted_at ?? w.updated_at ?? w.created_at;
@@ -164,11 +171,19 @@ function kpisFrom(
 }
 
 async function loadEvaluationKpisRangeUncached(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<EvaluationKpis>> {
-  const { writeups, termIdsByNumber, totalStudents } = await loadWriteups(input.ayCode);
+  const { writeups, termIdsByNumber, totalStudents } = await loadWriteups(
+    input.ayCode
+  );
   const termCount = termIdsByNumber.size || 3;
-  const current = kpisFrom(writeups, input.from, input.to, totalStudents, termCount);
+  const current = kpisFrom(
+    writeups,
+    input.from,
+    input.to,
+    totalStudents,
+    termCount
+  );
   if (input.cmpFrom == null || input.cmpTo == null) {
     return {
       current,
@@ -178,7 +193,13 @@ async function loadEvaluationKpisRangeUncached(
       comparisonRange: null,
     };
   }
-  const comparison = kpisFrom(writeups, input.cmpFrom, input.cmpTo, totalStudents, termCount);
+  const comparison = kpisFrom(
+    writeups,
+    input.cmpFrom,
+    input.cmpTo,
+    totalStudents,
+    termCount
+  );
   return {
     current,
     comparison,
@@ -189,24 +210,40 @@ async function loadEvaluationKpisRangeUncached(
 }
 
 export function getEvaluationKpisRange(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<EvaluationKpis>> {
   return unstable_cache(
     loadEvaluationKpisRangeUncached,
-    ['evaluation', 'kpis-range', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
-    { revalidate: CACHE_TTL_SECONDS, tags: tag(input.ayCode) },
+    [
+      'evaluation',
+      'kpis-range',
+      input.ayCode,
+      input.from,
+      input.to,
+      input.cmpFrom ?? '',
+      input.cmpTo ?? '',
+    ],
+    { revalidate: CACHE_TTL_SECONDS, tags: tag(input.ayCode) }
   )(input);
 }
 
 // Submission velocity — daily counts of new submissions.
 
-function bucketByDay(dates: (string | null)[], from: string, to: string): VelocityPoint[] {
+function bucketByDay(
+  dates: (string | null)[],
+  from: string,
+  to: string
+): VelocityPoint[] {
   const fromDate = parseLocalDate(from);
   if (!fromDate) return [];
   const length = daysInRange({ from, to });
   const labels: string[] = [];
   for (let i = 0; i < length; i += 1) {
-    const d = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate() + i);
+    const d = new Date(
+      fromDate.getFullYear(),
+      fromDate.getMonth(),
+      fromDate.getDate() + i
+    );
     labels.push(toISODate(d));
   }
   const buckets = new Array(length).fill(0) as number[];
@@ -220,10 +257,12 @@ function bucketByDay(dates: (string | null)[], from: string, to: string): Veloci
 }
 
 async function loadSubmissionVelocityRangeUncached(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<VelocityPoint[]>> {
   const { writeups } = await loadWriteups(input.ayCode);
-  const submittedAtDates = writeups.filter((w) => w.submitted).map((w) => w.submitted_at);
+  const submittedAtDates = writeups
+    .filter((w) => w.submitted)
+    .map((w) => w.submitted_at);
   const current = bucketByDay(submittedAtDates, input.from, input.to);
   if (input.cmpFrom == null || input.cmpTo == null) {
     return {
@@ -247,12 +286,20 @@ async function loadSubmissionVelocityRangeUncached(
 }
 
 export function getSubmissionVelocityRange(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<VelocityPoint[]>> {
   return unstable_cache(
     loadSubmissionVelocityRangeUncached,
-    ['evaluation', 'velocity', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
-    { revalidate: CACHE_TTL_SECONDS, tags: tag(input.ayCode) },
+    [
+      'evaluation',
+      'velocity',
+      input.ayCode,
+      input.from,
+      input.to,
+      input.cmpFrom ?? '',
+      input.cmpTo ?? '',
+    ],
+    { revalidate: CACHE_TTL_SECONDS, tags: tag(input.ayCode) }
   )(input);
 }
 
@@ -277,7 +324,7 @@ type ActiveTerm = { id: string; term_number: number; label: string };
 
 async function resolveActiveWriteupTerm(
   service: ReturnType<typeof createServiceClient>,
-  ayCode: string,
+  ayCode: string
 ): Promise<ActiveTerm | null> {
   const { data: ayRow } = await service
     .from('academic_years')
@@ -307,14 +354,19 @@ async function resolveActiveWriteupTerm(
   const today = sgToday();
   const current = terms.find((t) => t.is_current === true);
   const containingToday = terms.find(
-    (t) => t.start_date && t.end_date && t.start_date <= today && t.end_date >= today,
+    (t) =>
+      t.start_date && t.end_date && t.start_date <= today && t.end_date >= today
   );
   const lastFinished = [...terms]
     .filter((t) => t.end_date && t.end_date < today)
     .sort((a, b) => (a.end_date! < b.end_date! ? 1 : -1))[0];
   const picked = current ?? containingToday ?? lastFinished ?? terms[0];
   if (!picked) return null;
-  return { id: picked.id, term_number: picked.term_number, label: picked.label };
+  return {
+    id: picked.id,
+    term_number: picked.term_number,
+    label: picked.label,
+  };
 }
 
 // Format a PTC date range as a plain-English label.
@@ -325,10 +377,14 @@ function formatPtcRangeLabel(startIso: string, endIso: string): string {
     const end = new Date(`${endIso}T00:00:00+08:00`);
     const sameDay = startIso === endIso;
     if (sameDay) {
-      return start.toLocaleDateString('en-SG', { day: 'numeric', month: 'short' });
+      return start.toLocaleDateString('en-SG', {
+        day: 'numeric',
+        month: 'short',
+      });
     }
     const sameMonth =
-      start.getUTCMonth() === end.getUTCMonth() && start.getUTCFullYear() === end.getUTCFullYear();
+      start.getUTCMonth() === end.getUTCMonth() &&
+      start.getUTCFullYear() === end.getUTCFullYear();
     if (sameMonth) {
       return `${start.toLocaleDateString('en-SG', { day: 'numeric' })}–${end.toLocaleDateString('en-SG', { day: 'numeric', month: 'short' })}`;
     }
@@ -353,14 +409,21 @@ export type EvaluationTeacherPriorityInput = {
 };
 
 async function loadEvaluationTeacherPriorityUncached(
-  input: EvaluationTeacherPriorityInput,
+  input: EvaluationTeacherPriorityInput
 ): Promise<PriorityPayload> {
   const service = createServiceClient();
 
   // 1. Resolve teacher's form_adviser sections.
-  const assignments = await loadAssignmentsForUser(service, input.teacherUserId);
+  const assignments = await loadAssignmentsForUser(
+    service,
+    input.teacherUserId
+  );
   const adviserSectionIds = Array.from(
-    new Set(assignments.filter((a) => a.role === 'form_adviser').map((a) => a.section_id)),
+    new Set(
+      assignments
+        .filter((a) => a.role === 'form_adviser')
+        .map((a) => a.section_id)
+    )
   );
 
   if (adviserSectionIds.length === 0) {
@@ -420,14 +483,19 @@ async function loadEvaluationTeacherPriorityUncached(
           .eq('section_id', sectionId)
           .eq('term_id', currentTerm.id)
           .eq('submitted', true),
-        service.from('sections').select('name').eq('id', sectionId).maybeSingle(),
+        service
+          .from('sections')
+          .select('name')
+          .eq('id', sectionId)
+          .maybeSingle(),
       ]);
       const expected = enrolledRes.count ?? 0;
       const submitted = writeupsRes.count ?? 0;
       const pending = Math.max(0, expected - submitted);
-      const sectionName = (sectionRes.data as { name: string } | null)?.name ?? 'Section';
+      const sectionName =
+        (sectionRes.data as { name: string } | null)?.name ?? 'Section';
       return { sectionId, sectionName, pending };
-    }),
+    })
   );
 
   const totalPending = perSection.reduce((sum, s) => sum + s.pending, 0);
@@ -447,10 +515,13 @@ async function loadEvaluationTeacherPriorityUncached(
   // discussion meeting is within 30 days and writeups still aren't done.
   // Tentative dates skip the escalation; they show in the label but don't
   // change panel severity.
-  const ptcUrgent = !ptcIsTentative && ptcDays != null && ptcDays >= 0 && ptcDays <= 30;
+  const ptcUrgent =
+    !ptcIsTentative && ptcDays != null && ptcDays >= 0 && ptcDays <= 30;
   const ptcOverdue = !ptcIsTentative && ptcDays != null && ptcDays < 0;
   const baseTitle =
-    totalPending === 0 ? 'All writeups submitted' : 'Writeups still need your input';
+    totalPending === 0
+      ? 'All writeups submitted'
+      : 'Writeups still need your input';
   const title =
     ptcUrgent && totalPending > 0
       ? `${ptcLabel} — finalise writeups`
@@ -490,19 +561,19 @@ async function loadEvaluationTeacherPriorityUncached(
 }
 
 export function getEvaluationTeacherPriority(
-  input: EvaluationTeacherPriorityInput,
+  input: EvaluationTeacherPriorityInput
 ): Promise<PriorityPayload> {
   return unstable_cache(
     loadEvaluationTeacherPriorityUncached,
     ['evaluation', 'teacher-priority', input.ayCode, input.teacherUserId],
-    { tags: tag(input.ayCode), revalidate: 60 },
+    { tags: tag(input.ayCode), revalidate: 60 }
   )(input);
 }
 
 export type EvaluationRegistrarPriorityInput = { ayCode: string };
 
 async function loadEvaluationRegistrarPriorityUncached(
-  input: EvaluationRegistrarPriorityInput,
+  input: EvaluationRegistrarPriorityInput
 ): Promise<PriorityPayload> {
   const service = createServiceClient();
 
@@ -531,7 +602,8 @@ async function loadEvaluationRegistrarPriorityUncached(
   // Tentative dates: registrar sees the line in the label so they remember
   // it's coming, but the panel doesn't escalate to "bad" severity until the
   // date is locked in.
-  const ptcUrgent = !ptcIsTentative && ptcDays != null && ptcDays >= 0 && ptcDays <= 30;
+  const ptcUrgent =
+    !ptcIsTentative && ptcDays != null && ptcDays >= 0 && ptcDays <= 30;
   const ptcOverdue = !ptcIsTentative && ptcDays != null && ptcDays < 0;
 
   // All sections in current AY → expected vs submitted writeups.
@@ -558,8 +630,12 @@ async function loadEvaluationRegistrarPriorityUncached(
       ]);
       const expected = enrolledRes.count ?? 0;
       const submitted = submittedRes.count ?? 0;
-      return { sectionId: s.id, sectionName: s.name, pending: Math.max(0, expected - submitted) };
-    }),
+      return {
+        sectionId: s.id,
+        sectionName: s.name,
+        pending: Math.max(0, expected - submitted),
+      };
+    })
   );
 
   const totalPending = perSection.reduce((sum, s) => sum + s.pending, 0);
@@ -576,7 +652,9 @@ async function loadEvaluationRegistrarPriorityUncached(
     }));
 
   const baseRegTitle =
-    totalPending === 0 ? 'All writeups submitted' : 'Writeups still pending school-wide';
+    totalPending === 0
+      ? 'All writeups submitted'
+      : 'Writeups still pending school-wide';
   const regTitle =
     ptcUrgent && totalPending > 0
       ? `${ptcLabel} — chase pending writeups`
@@ -616,12 +694,12 @@ async function loadEvaluationRegistrarPriorityUncached(
 }
 
 export function getEvaluationRegistrarPriority(
-  input: EvaluationRegistrarPriorityInput,
+  input: EvaluationRegistrarPriorityInput
 ): Promise<PriorityPayload> {
   return unstable_cache(
     loadEvaluationRegistrarPriorityUncached,
     ['evaluation', 'registrar-priority', input.ayCode],
-    { tags: tag(input.ayCode), revalidate: 60 },
+    { tags: tag(input.ayCode), revalidate: 60 }
   )(input);
 }
 
@@ -644,7 +722,7 @@ export type EvaluationRatingCompleteness = {
 };
 
 async function loadEvaluationRatingCompletenessRangeUncached(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<EvaluationRatingCompleteness>> {
   const service = createServiceClient();
   const zero: EvaluationRatingCompleteness = { pct: 0, rated: 0, total: 0 };
@@ -656,7 +734,13 @@ async function loadEvaluationRatingCompletenessRangeUncached(
     .maybeSingle();
   const ayId = (ayRow as { id: string } | null)?.id ?? null;
   if (!ayId) {
-    return { current: zero, comparison: null, delta: null, range: { from: input.from, to: input.to }, comparisonRange: null };
+    return {
+      current: zero,
+      comparison: null,
+      delta: null,
+      range: { from: input.from, to: input.to },
+      comparisonRange: null,
+    };
   }
 
   // Sections + active students — AY-scoped, same for both range and comparison.
@@ -665,19 +749,23 @@ async function loadEvaluationRatingCompletenessRangeUncached(
     .select('id')
     .eq('academic_year_id', ayId);
   const sectionIds = (sectionRows ?? []).map((s) => (s as { id: string }).id);
-  const { data: ssRows } = sectionIds.length > 0
-    ? await service
-        .from('section_students')
-        .select('section_id')
-        .in('section_id', sectionIds)
-        .eq('enrollment_status', 'active')
-    : { data: [] };
+  const { data: ssRows } =
+    sectionIds.length > 0
+      ? await service
+          .from('section_students')
+          .select('section_id')
+          .in('section_id', sectionIds)
+          .eq('enrollment_status', 'active')
+      : { data: [] };
 
   // Count active students per section — used to compute the total possible
   // rating slots (items × students) for completeness percentage.
   const studentCountBySection = new Map<string, number>();
   for (const row of (ssRows ?? []) as Array<{ section_id: string }>) {
-    studentCountBySection.set(row.section_id, (studentCountBySection.get(row.section_id) ?? 0) + 1);
+    studentCountBySection.set(
+      row.section_id,
+      (studentCountBySection.get(row.section_id) ?? 0) + 1
+    );
   }
 
   // Find T1–T3 terms overlapping a date window.
@@ -694,7 +782,9 @@ async function loadEvaluationRatingCompletenessRangeUncached(
 
   // Compute completeness for a set of term IDs.
   // total = sum of (active students in each item's section) across all items.
-  async function computeForTerms(termIds: string[]): Promise<EvaluationRatingCompleteness> {
+  async function computeForTerms(
+    termIds: string[]
+  ): Promise<EvaluationRatingCompleteness> {
     if (!termIds.length) return zero;
     const [ratedRes, itemsRes] = await Promise.all([
       service
@@ -724,7 +814,13 @@ async function loadEvaluationRatingCompletenessRangeUncached(
 
   const current = await computeForTerms(rangeTermIds);
   if (input.cmpFrom == null || input.cmpTo == null) {
-    return { current, comparison: null, delta: null, range: { from: input.from, to: input.to }, comparisonRange: null };
+    return {
+      current,
+      comparison: null,
+      delta: null,
+      range: { from: input.from, to: input.to },
+      comparisonRange: null,
+    };
   }
   const comparison = await computeForTerms(cmpTermIds);
   return {
@@ -737,12 +833,23 @@ async function loadEvaluationRatingCompletenessRangeUncached(
 }
 
 export function getEvaluationRatingCompletenessRange(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<EvaluationRatingCompleteness>> {
   return unstable_cache(
     loadEvaluationRatingCompletenessRangeUncached,
-    ['evaluation', 'rating-completeness', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
-    { revalidate: CACHE_TTL_SECONDS, tags: [...tag(input.ayCode), `evaluation-drill:${input.ayCode}`] },
+    [
+      'evaluation',
+      'rating-completeness',
+      input.ayCode,
+      input.from,
+      input.to,
+      input.cmpFrom ?? '',
+      input.cmpTo ?? '',
+    ],
+    {
+      revalidate: CACHE_TTL_SECONDS,
+      tags: [...tag(input.ayCode), `evaluation-drill:${input.ayCode}`],
+    }
   )(input);
 }
 
@@ -753,7 +860,7 @@ export type EvaluationPtcCompleteness = {
 };
 
 async function loadEvaluationPtcFeedbackCompletenessRangeUncached(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<EvaluationPtcCompleteness>> {
   const service = createServiceClient();
   const zero: EvaluationPtcCompleteness = { pct: 0, recorded: 0, total: 0 };
@@ -765,19 +872,29 @@ async function loadEvaluationPtcFeedbackCompletenessRangeUncached(
     .maybeSingle();
   const ayId = (ayRow as { id: string } | null)?.id ?? null;
   if (!ayId) {
-    return { current: zero, comparison: null, delta: null, range: { from: input.from, to: input.to }, comparisonRange: null };
+    return {
+      current: zero,
+      comparison: null,
+      delta: null,
+      range: { from: input.from, to: input.to },
+      comparisonRange: null,
+    };
   }
 
   // Total active students — AY-scoped denominator (shared by both windows).
-  const { data: sections } = await service.from('sections').select('id').eq('academic_year_id', ayId);
+  const { data: sections } = await service
+    .from('sections')
+    .select('id')
+    .eq('academic_year_id', ayId);
   const sectionIds = (sections ?? []).map((s) => s.id as string);
-  const { count: activeStudents } = sectionIds.length > 0
-    ? await service
-        .from('section_students')
-        .select('id', { count: 'exact', head: true })
-        .in('section_id', sectionIds)
-        .eq('enrollment_status', 'active')
-    : { count: 0 };
+  const { count: activeStudents } =
+    sectionIds.length > 0
+      ? await service
+          .from('section_students')
+          .select('id', { count: 'exact', head: true })
+          .in('section_id', sectionIds)
+          .eq('enrollment_status', 'active')
+      : { count: 0 };
   const students = activeStudents ?? 0;
 
   async function termsForWindow(from: string, to: string): Promise<string[]> {
@@ -791,7 +908,9 @@ async function loadEvaluationPtcFeedbackCompletenessRangeUncached(
     return (data ?? []).map((r) => r.id as string);
   }
 
-  async function computeForTerms(termIds: string[]): Promise<EvaluationPtcCompleteness> {
+  async function computeForTerms(
+    termIds: string[]
+  ): Promise<EvaluationPtcCompleteness> {
     if (!termIds.length) return zero;
     const { count: recorded } = await service
       .from('evaluation_ptc_feedback')
@@ -813,7 +932,13 @@ async function loadEvaluationPtcFeedbackCompletenessRangeUncached(
 
   const current = await computeForTerms(rangeTermIds);
   if (input.cmpFrom == null || input.cmpTo == null) {
-    return { current, comparison: null, delta: null, range: { from: input.from, to: input.to }, comparisonRange: null };
+    return {
+      current,
+      comparison: null,
+      delta: null,
+      range: { from: input.from, to: input.to },
+      comparisonRange: null,
+    };
   }
   const comparison = await computeForTerms(cmpTermIds);
   return {
@@ -826,11 +951,22 @@ async function loadEvaluationPtcFeedbackCompletenessRangeUncached(
 }
 
 export function getEvaluationPtcFeedbackCompletenessRange(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<EvaluationPtcCompleteness>> {
   return unstable_cache(
     loadEvaluationPtcFeedbackCompletenessRangeUncached,
-    ['evaluation', 'ptc-completeness', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
-    { revalidate: CACHE_TTL_SECONDS, tags: [...tag(input.ayCode), `evaluation-drill:${input.ayCode}`] },
+    [
+      'evaluation',
+      'ptc-completeness',
+      input.ayCode,
+      input.from,
+      input.to,
+      input.cmpFrom ?? '',
+      input.cmpTo ?? '',
+    ],
+    {
+      revalidate: CACHE_TTL_SECONDS,
+      tags: [...tag(input.ayCode), `evaluation-drill:${input.ayCode}`],
+    }
   )(input);
 }

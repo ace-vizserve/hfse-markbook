@@ -26,7 +26,7 @@ const SCHEMAS = {
 // 400'd by the per-slot zod schema.
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ enroleeNumber: string; parent: string }> },
+  { params }: { params: Promise<{ enroleeNumber: string; parent: string }> }
 ) {
   // Per KD #74: admissions is the operational writer; school_admin is read-only oversight.
   const auth = await requireRole(['admissions', 'registrar', 'superadmin']);
@@ -34,17 +34,26 @@ export async function PATCH(
 
   const { enroleeNumber, parent: rawParent } = await params;
   if (!enroleeNumber.trim()) {
-    return NextResponse.json({ error: 'Missing enroleeNumber' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Missing enroleeNumber' },
+      { status: 400 }
+    );
   }
   if (!(PARENT_SLOTS as readonly string[]).includes(rawParent)) {
-    return NextResponse.json({ error: `Unknown parent slot: ${rawParent}` }, { status: 400 });
+    return NextResponse.json(
+      { error: `Unknown parent slot: ${rawParent}` },
+      { status: 400 }
+    );
   }
   const parent = rawParent as ParentSlot;
 
   const url = new URL(request.url);
   const ayCode = (url.searchParams.get('ay') ?? '').trim();
   if (!/^AY\d{4}$/i.test(ayCode)) {
-    return NextResponse.json({ error: 'Invalid or missing ay query param' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid or missing ay query param' },
+      { status: 400 }
+    );
   }
 
   const body = await request.json().catch(() => null);
@@ -52,7 +61,7 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const update = parsed.data as Record<string, unknown>;
@@ -72,10 +81,16 @@ export async function PATCH(
     .maybeSingle();
   if (beforeErr) {
     console.error('[sis family PATCH] pre-fetch failed:', beforeErr.message);
-    return NextResponse.json({ error: 'Application lookup failed' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Application lookup failed' },
+      { status: 500 }
+    );
   }
   if (!before) {
-    return NextResponse.json({ error: 'No application row for this enrolee in this AY' }, { status: 404 });
+    return NextResponse.json(
+      { error: 'No application row for this enrolee in this AY' },
+      { status: 404 }
+    );
   }
 
   const { error: upErr } = await supabase

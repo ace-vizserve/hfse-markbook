@@ -85,7 +85,7 @@ export async function StudentAttendanceTab({
   const { data: ssRows } = await service
     .from('section_students')
     .select(
-      'id, section_id, sections!inner(id, name, academic_year_id, level:levels(code, label))',
+      'id, section_id, sections!inner(id, name, academic_year_id, level:levels(code, label))'
     )
     .eq('student_id', studentRow.id)
     .eq('sections.academic_year_id', currentAy.id);
@@ -93,17 +93,25 @@ export async function StudentAttendanceTab({
   type SsRow = {
     id: string;
     section_id: string;
-    sections: {
-      id: string;
-      name: string;
-      academic_year_id: string;
-      level: { code: string; label: string } | Array<{ code: string; label: string }> | null;
-    } | Array<{
-      id: string;
-      name: string;
-      academic_year_id: string;
-      level: { code: string; label: string } | Array<{ code: string; label: string }> | null;
-    }>;
+    sections:
+      | {
+          id: string;
+          name: string;
+          academic_year_id: string;
+          level:
+            | { code: string; label: string }
+            | Array<{ code: string; label: string }>
+            | null;
+        }
+      | Array<{
+          id: string;
+          name: string;
+          academic_year_id: string;
+          level:
+            | { code: string; label: string }
+            | Array<{ code: string; label: string }>
+            | null;
+        }>;
   };
   const enrolments = ((ssRows ?? []) as SsRow[]).map((r) => {
     const s = Array.isArray(r.sections) ? r.sections[0] : r.sections;
@@ -137,7 +145,7 @@ export async function StudentAttendanceTab({
       const summary = summarise(daily);
       const grouped = groupByMonth(daily);
       return { ...e, daily, monthly, summary, grouped };
-    }),
+    })
   );
 
   // Compassionate-leave quota — AY-wide, per student (not per enrolment).
@@ -171,7 +179,11 @@ export async function StudentAttendanceTab({
             <div className="flex flex-wrap items-center gap-2 text-[11px]">
               <SummaryChip label="Present" value={s.summary.present} tone="P" />
               <SummaryChip label="Late" value={s.summary.late} tone="L" />
-              <SummaryChip label="Excused" value={s.summary.excused} tone="EX" />
+              <SummaryChip
+                label="Excused"
+                value={s.summary.excused}
+                tone="EX"
+              />
               <SummaryChip label="Absent" value={s.summary.absent} tone="A" />
               <span className="rounded-full border border-transparent bg-gradient-to-b from-brand-indigo to-brand-indigo-deep px-2.5 py-1 font-mono tabular-nums text-white shadow-sm">
                 {s.summary.pct != null ? `${s.summary.pct.toFixed(1)}%` : '—'}
@@ -214,7 +226,9 @@ export async function StudentAttendanceTab({
                             STATUS_TONE[e.status]
                           }
                         >
-                          <span className="tabular-nums">{e.date.slice(-2)}</span>
+                          <span className="tabular-nums">
+                            {e.date.slice(-2)}
+                          </span>
                           <span>·</span>
                           <span>{e.status}</span>
                         </span>
@@ -262,12 +276,24 @@ function MonthlyBreakdownTable({
         <tbody>
           {rows.map((r) => (
             <tr key={r.month} className="border-t border-border">
-              <td className="px-3 py-1.5 font-medium text-foreground">{r.label}</td>
-              <td className="px-2 py-1.5 text-right font-mono tabular-nums">{r.schoolDays}</td>
-              <td className="px-2 py-1.5 text-right font-mono tabular-nums">{r.present}</td>
-              <td className="px-2 py-1.5 text-right font-mono tabular-nums">{r.late}</td>
-              <td className="px-2 py-1.5 text-right font-mono tabular-nums">{r.excused}</td>
-              <td className="px-2 py-1.5 text-right font-mono tabular-nums">{r.absent}</td>
+              <td className="px-3 py-1.5 font-medium text-foreground">
+                {r.label}
+              </td>
+              <td className="px-2 py-1.5 text-right font-mono tabular-nums">
+                {r.schoolDays}
+              </td>
+              <td className="px-2 py-1.5 text-right font-mono tabular-nums">
+                {r.present}
+              </td>
+              <td className="px-2 py-1.5 text-right font-mono tabular-nums">
+                {r.late}
+              </td>
+              <td className="px-2 py-1.5 text-right font-mono tabular-nums">
+                {r.excused}
+              </td>
+              <td className="px-2 py-1.5 text-right font-mono tabular-nums">
+                {r.absent}
+              </td>
               <td className="px-3 py-1.5 text-right font-mono font-semibold tabular-nums">
                 {r.pct != null ? `${r.pct.toFixed(1)}%` : '—'}
               </td>
@@ -286,7 +312,9 @@ function EmptyState({ title, body }: { title: string; body: string }) {
         <div className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
           <CalendarCheck className="size-5" />
         </div>
-        <div className="font-serif text-lg font-semibold text-foreground">{title}</div>
+        <div className="font-serif text-lg font-semibold text-foreground">
+          {title}
+        </div>
         <p className="max-w-md text-sm text-muted-foreground">{body}</p>
       </CardContent>
     </Card>
@@ -305,7 +333,10 @@ function SummaryChip({
   return (
     <Badge
       variant="outline"
-      className={'gap-1.5 border px-2.5 py-1 font-mono text-[11px] tabular-nums ' + STATUS_TONE[tone]}
+      className={
+        'gap-1.5 border px-2.5 py-1 font-mono text-[11px] tabular-nums ' +
+        STATUS_TONE[tone]
+      }
     >
       <span>{label}</span>
       <span className="font-semibold">{value}</span>
@@ -338,16 +369,23 @@ function summarise(rows: Array<{ status: AttendanceStatus }>) {
 }
 
 function groupByMonth(
-  rows: Array<{ id: string; date: string; status: AttendanceStatus }>,
-): Array<[string, Array<{ id: string; date: string; status: AttendanceStatus }>]> {
+  rows: Array<{ id: string; date: string; status: AttendanceStatus }>
+): Array<
+  [string, Array<{ id: string; date: string; status: AttendanceStatus }>]
+> {
   // Rows arrive sorted date desc by the query — keep that order inside groups.
-  const map = new Map<string, Array<{ id: string; date: string; status: AttendanceStatus }>>();
+  const map = new Map<
+    string,
+    Array<{ id: string; date: string; status: AttendanceStatus }>
+  >();
   for (const r of rows) {
     const key = r.date.slice(0, 7); // yyyy-MM
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(r);
   }
-  const entries = Array.from(map.entries()).sort(([a], [b]) => (a < b ? 1 : -1));
+  const entries = Array.from(map.entries()).sort(([a], [b]) =>
+    a < b ? 1 : -1
+  );
   return entries.map(([ym, list]) => {
     const [y, m] = ym.split('-');
     const d = new Date(Number(y), Number(m) - 1, 1);

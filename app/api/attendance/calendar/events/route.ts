@@ -24,10 +24,11 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
-  const { termId, startDate, endDate, label, category, audience, tentative } = parsed.data;
+  const { termId, startDate, endDate, label, category, audience, tentative } =
+    parsed.data;
 
   const service = createServiceClient();
   const { data, error } = await service
@@ -45,7 +46,10 @@ export async function POST(request: NextRequest) {
     .select('id')
     .single();
   if (error || !data) {
-    return NextResponse.json({ error: error?.message ?? 'insert failed' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message ?? 'insert failed' },
+      { status: 500 }
+    );
   }
 
   await logAction({
@@ -54,7 +58,15 @@ export async function POST(request: NextRequest) {
     action: 'attendance.event.create',
     entityType: 'calendar_event',
     entityId: data.id,
-    context: { termId, startDate, endDate, label, category, audience, tentative },
+    context: {
+      termId,
+      startDate,
+      endDate,
+      label,
+      category,
+      audience,
+      tentative,
+    },
   });
 
   // Calendar events are shared infrastructure: attendance reads day-type
@@ -85,7 +97,7 @@ export async function PATCH(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const { id, ...fields } = parsed.data;
@@ -104,7 +116,10 @@ export async function PATCH(request: NextRequest) {
   }
 
   const service = createServiceClient();
-  const { error } = await service.from('calendar_events').update(patch).eq('id', id);
+  const { error } = await service
+    .from('calendar_events')
+    .update(patch)
+    .eq('id', id);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

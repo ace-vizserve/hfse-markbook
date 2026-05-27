@@ -19,7 +19,7 @@ const Checkbox = React.forwardRef<
       'data-[state=checked]:border-transparent data-[state=checked]:bg-gradient-to-br data-[state=checked]:from-brand-indigo data-[state=checked]:to-brand-navy data-[state=checked]:text-white data-[state=checked]:shadow-brand-tile',
       'data-[state=indeterminate]:border-transparent data-[state=indeterminate]:bg-gradient-to-br data-[state=indeterminate]:from-brand-indigo data-[state=indeterminate]:to-brand-navy data-[state=indeterminate]:text-white data-[state=indeterminate]:shadow-brand-tile',
       'disabled:cursor-not-allowed disabled:opacity-60',
-      className,
+      className
     )}
     {...props}
   >

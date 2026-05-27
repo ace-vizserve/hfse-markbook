@@ -70,7 +70,7 @@ type PopulatedSummary = {
 function describeTestSwitch(
   structure: StructureSummary,
   seed: SeedSummary,
-  populated: PopulatedSummary,
+  populated: PopulatedSummary
 ): string {
   const parts: string[] = [];
   if (structure) {
@@ -82,10 +82,16 @@ function describeTestSwitch(
       grading_sheets_created,
     } = structure;
     if (sections_inserted > 0) parts.push(`${sections_inserted} sections`);
-    if (subject_configs_inserted > 0) parts.push(`${subject_configs_inserted} subject configs`);
-    if (terms_updated > 0) parts.push(`${terms_updated} term${terms_updated === 1 ? '' : 's'} dated`);
-    if (calendar_days_inserted > 0) parts.push(`${calendar_days_inserted} calendar days`);
-    if (grading_sheets_created > 0) parts.push(`${grading_sheets_created} grading sheets`);
+    if (subject_configs_inserted > 0)
+      parts.push(`${subject_configs_inserted} subject configs`);
+    if (terms_updated > 0)
+      parts.push(
+        `${terms_updated} term${terms_updated === 1 ? '' : 's'} dated`
+      );
+    if (calendar_days_inserted > 0)
+      parts.push(`${calendar_days_inserted} calendar days`);
+    if (grading_sheets_created > 0)
+      parts.push(`${grading_sheets_created} grading sheets`);
   }
   if (seed && seed.students_inserted > 0) {
     parts.push(`${seed.students_inserted} students`);
@@ -103,10 +109,11 @@ function describeTestSwitch(
       discount_codes_inserted,
       publications_inserted,
     } = populated;
-    if (grade_entries_inserted > 0) parts.push(`${grade_entries_inserted} grade entries`);
+    if (grade_entries_inserted > 0)
+      parts.push(`${grade_entries_inserted} grade entries`);
     if (attendance_daily_inserted > 0) {
       parts.push(
-        `${attendance_daily_inserted} daily attendance (${attendance_rollups_built} rollups)`,
+        `${attendance_daily_inserted} daily attendance (${attendance_rollups_built} rollups)`
       );
     }
     if (teacher_form_adviser_assignments > 0) {
@@ -115,13 +122,17 @@ function describeTestSwitch(
     if (teacher_subject_assignments > 0) {
       parts.push(`${teacher_subject_assignments} subject teachers`);
     }
-    if (evaluation_writeups_inserted > 0) parts.push(`${evaluation_writeups_inserted} writeups`);
+    if (evaluation_writeups_inserted > 0)
+      parts.push(`${evaluation_writeups_inserted} writeups`);
     if (enrolled_applications_inserted > 0) {
       parts.push(`${enrolled_applications_inserted} enrolled records`);
     }
-    if (admissions_apps_inserted > 0) parts.push(`${admissions_apps_inserted} applications`);
-    if (discount_codes_inserted > 0) parts.push(`${discount_codes_inserted} discount codes`);
-    if (publications_inserted > 0) parts.push(`${publications_inserted} publication window`);
+    if (admissions_apps_inserted > 0)
+      parts.push(`${admissions_apps_inserted} applications`);
+    if (discount_codes_inserted > 0)
+      parts.push(`${discount_codes_inserted} discount codes`);
+    if (publications_inserted > 0)
+      parts.push(`${publications_inserted} publication window`);
   }
   if (parts.length === 0) return 'Already fully seeded.';
   return `Seeded ${parts.join(' + ')}.`;
@@ -149,12 +160,16 @@ export function EnvironmentCard({
   // there are 2+ prod AYs; the single-AY case skips the picker and just sends
   // the implicit default. The dropdown is rendered inside the Production
   // tile (visible only when ≥2 options exist).
-  const [pickedProdAy, setPickedProdAy] = useState<string | null>(defaultProdAyCode);
+  const [pickedProdAy, setPickedProdAy] = useState<string | null>(
+    defaultProdAyCode
+  );
 
   async function resetTestEnv() {
     setResetting(true);
     try {
-      const res = await fetch('/api/sis/admin/environment', { method: 'DELETE' });
+      const res = await fetch('/api/sis/admin/environment', {
+        method: 'DELETE',
+      });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? 'Reset failed');
       const d = body.deleted as Record<string, number> | undefined;
@@ -168,7 +183,9 @@ export function EnvironmentCard({
             d.admissions_rows,
           ].reduce((a, b) => a + (b ?? 0), 0)
         : 0;
-      toast.success(`Test environment reset. ${totals.toLocaleString('en-SG')} rows cleared + AY dropped.`);
+      toast.success(
+        `Test environment reset. ${totals.toLocaleString('en-SG')} rows cleared + AY dropped.`
+      );
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Reset failed');
@@ -184,7 +201,11 @@ export function EnvironmentCard({
       // For the production target, send the picked AY when 2+ options exist
       // so the server doesn't fall back to its default-pick heuristic. The
       // single-AY case omits ay_code and lets the lib pick.
-      if (target === 'production' && prodAyOptions.length >= 2 && pickedProdAy) {
+      if (
+        target === 'production' &&
+        prodAyOptions.length >= 2 &&
+        pickedProdAy
+      ) {
         payload.ay_code = pickedProdAy;
       }
       const res = await fetch('/api/sis/admin/environment', {
@@ -207,7 +228,9 @@ export function EnvironmentCard({
       }
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Environment switch failed');
+      toast.error(
+        err instanceof Error ? err.message : 'Environment switch failed'
+      );
     } finally {
       setSubmitting(null);
     }
@@ -242,8 +265,12 @@ export function EnvironmentCard({
                   <SelectContent>
                     {prodAyOptions.map((p) => (
                       <SelectItem key={p.ayCode} value={p.ayCode}>
-                        <span className="font-mono text-xs tabular-nums">{p.ayCode}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">{p.label}</span>
+                        <span className="font-mono text-xs tabular-nums">
+                          {p.ayCode}
+                        </span>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {p.label}
+                        </span>
                         {p.isCurrent && (
                           <span className="ml-2 font-mono text-[9px] uppercase tracking-[0.12em] text-brand-mint">
                             · last current
@@ -254,8 +281,8 @@ export function EnvironmentCard({
                   </SelectContent>
                 </Select>
                 <p className="text-[11px] leading-relaxed text-muted-foreground">
-                  More than one production AY exists. Pick which one becomes
-                  the active operational year — typically the calendar year
+                  More than one production AY exists. Pick which one becomes the
+                  active operational year — typically the calendar year
                   you&apos;re currently teaching against.
                 </p>
               </div>
@@ -287,10 +314,11 @@ export function EnvironmentCard({
               Reset Test environment
             </div>
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Deletes every row in the Test AY (grades, attendance, evaluations, applications,
-              seeded students) and drops the AY9999 admissions tables. Switches to Production
-              first if Test is currently active. Irreversible — use only when you want a clean
-              slate for the next switch-to-Test.
+              Deletes every row in the Test AY (grades, attendance, evaluations,
+              applications, seeded students) and drops the AY9999 admissions
+              tables. Switches to Production first if Test is currently active.
+              Irreversible — use only when you want a clean slate for the next
+              switch-to-Test.
             </p>
           </div>
         </div>
@@ -313,9 +341,10 @@ export function EnvironmentCard({
                 Delete the Test environment?
               </AlertDialogTitle>
               <AlertDialogDescription>
-                Every grade entry, attendance mark, evaluation write-up, application, publication,
-                and seeded test student in AY9999 will be permanently deleted. The test year&apos;s
-                admissions data is also wiped. Production data is untouched. This cannot be undone.
+                Every grade entry, attendance mark, evaluation write-up,
+                application, publication, and seeded test student in AY9999 will
+                be permanently deleted. The test year&apos;s admissions data is
+                also wiped. Production data is untouched. This cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -400,7 +429,9 @@ function EnvironmentOption({
         ) : null}
       </div>
 
-      <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
+      <p className="text-sm leading-relaxed text-muted-foreground">
+        {description}
+      </p>
 
       {extras}
 
@@ -420,27 +451,33 @@ function EnvironmentOption({
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center gap-2">
                 {target === 'test' && (
-                  <AlertTriangle className="size-4 text-brand-amber" aria-hidden="true" />
+                  <AlertTriangle
+                    className="size-4 text-brand-amber"
+                    aria-hidden="true"
+                  />
                 )}
                 Switch to {title} environment?
               </AlertDialogTitle>
               <AlertDialogDescription>
                 {target === 'test' ? (
                   <>
-                    Every module will start reading and writing the Test environment. If this is
-                    the first time, fake student data is seeded automatically. Live production
-                    data is not touched.
+                    Every module will start reading and writing the Test
+                    environment. If this is the first time, fake student data is
+                    seeded automatically. Live production data is not touched.
                   </>
                 ) : (
                   <>
-                    Every module will return to the live Production environment. Test data stays
-                    intact and is reused the next time you switch to Test.
+                    Every module will return to the live Production environment.
+                    Test data stays intact and is reused the next time you
+                    switch to Test.
                   </>
                 )}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={submitting}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={submitting}>
+                Cancel
+              </AlertDialogCancel>
               <AlertDialogAction
                 variant={target === 'test' ? 'warning' : 'default'}
                 onClick={onSwitch}

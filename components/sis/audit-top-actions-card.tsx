@@ -38,11 +38,11 @@ const ACTION_LABELS: Record<string, string> = {
   'sheet.lock_overdue_batch': 'Sheets auto-locked (overdue)',
   'publication.create': 'Report card published',
   'publication.delete': 'Publication removed',
-  'grade_change_requested': 'Grade change requested',
-  'grade_change_approved': 'Grade change approved',
-  'grade_change_rejected': 'Grade change rejected',
-  'grade_change_applied': 'Grade change applied',
-  'grade_change_undo_rejection': 'Rejection undone',
+  grade_change_requested: 'Grade change requested',
+  grade_change_approved: 'Grade change approved',
+  grade_change_rejected: 'Grade change rejected',
+  grade_change_applied: 'Grade change applied',
+  grade_change_undo_rejection: 'Rejection undone',
   'grade_entry.annual_letter.update': 'Annual letter grade set',
   'user.login': 'Staff sign-in',
   'parent.session.issued': 'Parent session started',
@@ -72,7 +72,11 @@ function labelFor(action: string): string {
   return ACTION_LABELS[action] ?? action;
 }
 
-export function AuditTopActionsCard({ actions }: { actions: TopAuditAction[] }) {
+export function AuditTopActionsCard({
+  actions,
+}: {
+  actions: TopAuditAction[];
+}) {
   const max = actions[0]?.count ?? 1;
 
   return (

@@ -78,7 +78,14 @@ export type PriorityPanelProps = {
 };
 
 export function PriorityPanel({ payload }: PriorityPanelProps) {
-  const { eyebrow = 'Priority', title, headline, chips, cta, iconKey } = payload;
+  const {
+    eyebrow = 'Priority',
+    title,
+    headline,
+    chips,
+    cta,
+    iconKey,
+  } = payload;
   const Icon = iconKey ? ICON_BY_KEY[iconKey] : undefined;
   const isEmpty = headline.value === 0 && chips.length === 0;
   const headlineSeverity = headline.severity ?? 'info';

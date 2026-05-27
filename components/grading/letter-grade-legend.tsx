@@ -10,16 +10,22 @@ export function LetterGradeLegend() {
         <div className="space-y-1">
           {LEGEND_LEFT.map(({ code, desc, range }) => (
             <div key={code} className="flex items-baseline gap-2 text-xs">
-              <span className="w-6 shrink-0 font-mono font-semibold text-foreground">{code}</span>
+              <span className="w-6 shrink-0 font-mono font-semibold text-foreground">
+                {code}
+              </span>
               <span className="text-muted-foreground">{desc}</span>
-              <span className="ml-auto shrink-0 font-mono text-[10px] text-muted-foreground/70">({range})</span>
+              <span className="ml-auto shrink-0 font-mono text-[10px] text-muted-foreground/70">
+                ({range})
+              </span>
             </div>
           ))}
         </div>
         <div className="space-y-1">
           {LEGEND_RIGHT.map(({ code, desc }) => (
             <div key={code} className="flex items-baseline gap-2 text-xs">
-              <span className="w-6 shrink-0 font-mono font-semibold text-foreground">{code}</span>
+              <span className="w-6 shrink-0 font-mono font-semibold text-foreground">
+                {code}
+              </span>
               <span className="text-muted-foreground">{desc}</span>
             </div>
           ))}

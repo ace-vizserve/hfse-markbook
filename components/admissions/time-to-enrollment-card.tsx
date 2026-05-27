@@ -21,7 +21,9 @@ export function TimeToEnrollmentCard({ data }: { data: TimeToEnrollment }) {
         <CardTitle className="flex items-baseline gap-2 font-serif text-[32px] font-semibold leading-none tabular-nums text-foreground @[240px]/card:text-[38px]">
           {hasData ? data.avgDays : '—'}
           {hasData && (
-            <span className="font-sans text-sm font-medium text-muted-foreground">days</span>
+            <span className="font-sans text-sm font-medium text-muted-foreground">
+              days
+            </span>
           )}
         </CardTitle>
         <CardAction>

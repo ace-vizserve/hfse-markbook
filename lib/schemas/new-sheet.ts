@@ -9,14 +9,23 @@ export const NewSheetSchema = z.object({
     .int('Must be a whole number')
     .min(0, 'Cannot be negative')
     .max(5, 'Max 5 slots per project rules'),
-  ww_each: z.number().int('Must be a whole number').min(1, 'Must be at least 1'),
+  ww_each: z
+    .number()
+    .int('Must be a whole number')
+    .min(1, 'Must be at least 1'),
   pt_slots: z
     .number()
     .int('Must be a whole number')
     .min(0, 'Cannot be negative')
     .max(5, 'Max 5 slots per project rules'),
-  pt_each: z.number().int('Must be a whole number').min(1, 'Must be at least 1'),
-  qa_total: z.number().int('Must be a whole number').min(1, 'Must be at least 1'),
+  pt_each: z
+    .number()
+    .int('Must be a whole number')
+    .min(1, 'Must be at least 1'),
+  qa_total: z
+    .number()
+    .int('Must be a whole number')
+    .min(1, 'Must be at least 1'),
   teacher_name: z.string().trim().optional(),
 });
 

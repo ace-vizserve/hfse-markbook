@@ -140,7 +140,9 @@ export function MasterfileToolbar({
             <div className="flex items-center gap-2">
               <Users className="size-4 text-muted-foreground" />
               <SelectValue
-                placeholder={sections.length === 0 ? 'No classes' : 'All classes'}
+                placeholder={
+                  sections.length === 0 ? 'No classes' : 'All classes'
+                }
               />
             </div>
           </SelectTrigger>

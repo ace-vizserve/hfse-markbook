@@ -15,16 +15,24 @@ const PatchSchema = z.object({
 // Auth: subject teacher assigned to item's section+subject, or registrar+.
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'superadmin']);
+  const auth = await requireRole([
+    'teacher',
+    'registrar',
+    'school_admin',
+    'superadmin',
+  ]);
   if ('error' in auth) return auth.error;
 
   const { id } = await params;
   const body = await request.json().catch(() => null);
   const parsed = PatchSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid request', issues: parsed.error.issues }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid request', issues: parsed.error.issues },
+      { status: 400 }
+    );
   }
   if (!parsed.data.item_text && parsed.data.sort_order === undefined) {
     return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
@@ -39,7 +47,8 @@ export async function PATCH(
     .eq('id', id)
     .maybeSingle();
 
-  if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  if (!existing)
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   // Auth gate: teacher must be a subject_teacher for this section+subject.
   if (auth.role === 'teacher') {
@@ -51,7 +60,8 @@ export async function PATCH(
       .eq('subject_id', (existing as { subject_id: string }).subject_id)
       .eq('role', 'subject_teacher')
       .maybeSingle();
-    if (!assignment) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!assignment)
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const patch = parsed.data;
@@ -60,11 +70,15 @@ export async function PATCH(
     .update(patch)
     .eq('id', id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
 
   const textChanged = patch.item_text !== undefined;
   const orderChanged = patch.sort_order !== undefined;
-  const action = orderChanged && !textChanged ? 'evaluation.checklist_item.reorder' : 'evaluation.checklist_item.update';
+  const action =
+    orderChanged && !textChanged
+      ? 'evaluation.checklist_item.reorder'
+      : 'evaluation.checklist_item.update';
 
   await logAction({
     service,
@@ -75,8 +89,12 @@ export async function PATCH(
     context: {
       itemId: id,
       before: {
-        ...(textChanged && { itemText: (existing as { item_text: string }).item_text }),
-        ...(orderChanged && { sort_order: (existing as { sort_order: number }).sort_order }),
+        ...(textChanged && {
+          itemText: (existing as { item_text: string }).item_text,
+        }),
+        ...(orderChanged && {
+          sort_order: (existing as { sort_order: number }).sort_order,
+        }),
       },
       after: {
         ...(textChanged && { itemText: patch.item_text }),
@@ -92,9 +110,14 @@ export async function PATCH(
 // Auth: subject teacher assigned to item's section+subject, or registrar+.
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'superadmin']);
+  const auth = await requireRole([
+    'teacher',
+    'registrar',
+    'school_admin',
+    'superadmin',
+  ]);
   if ('error' in auth) return auth.error;
 
   const { id } = await params;
@@ -106,7 +129,8 @@ export async function DELETE(
     .eq('id', id)
     .maybeSingle();
 
-  if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  if (!existing)
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   if (auth.role === 'teacher') {
     const { data: assignment } = await service
@@ -117,11 +141,16 @@ export async function DELETE(
       .eq('subject_id', (existing as { subject_id: string }).subject_id)
       .eq('role', 'subject_teacher')
       .maybeSingle();
-    if (!assignment) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!assignment)
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { error } = await service.from('evaluation_checklist_items').delete().eq('id', id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const { error } = await service
+    .from('evaluation_checklist_items')
+    .delete()
+    .eq('id', id);
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
 
   await logAction({
     service,

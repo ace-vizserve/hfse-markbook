@@ -3,12 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import type { ColumnDef } from '@tanstack/react-table';
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Clock,
-  FileX,
-} from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, FileX } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -95,10 +90,13 @@ function StatusBadge({ status }: { status: PFilesDrillRow['status'] }) {
 function ExpiryCell({ days }: { days: number | null }) {
   if (days === null) return <span className="text-muted-foreground">—</span>;
   const tone =
-    days < 0 ? 'text-destructive' :
-    days <= 14 ? 'text-destructive' :
-    days <= 60 ? 'text-foreground' :
-    'text-muted-foreground';
+    days < 0
+      ? 'text-destructive'
+      : days <= 14
+        ? 'text-destructive'
+        : days <= 60
+          ? 'text-foreground'
+          : 'text-muted-foreground';
   return (
     <span className={`font-mono text-sm tabular-nums ${tone}`}>
       {days < 0 ? `Expired ${-days}d` : `${days}d`}
@@ -110,12 +108,18 @@ function formatDate(iso: string | null): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-SG', { year: 'numeric', month: 'short', day: 'numeric' });
+  return d.toLocaleDateString('en-SG', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 // ─── Column factory ─────────────────────────────────────────────────────────
 
-function buildColumns(visible: DrillColumnKey[]): ColumnDef<PFilesDrillRow, unknown>[] {
+function buildColumns(
+  visible: DrillColumnKey[]
+): ColumnDef<PFilesDrillRow, unknown>[] {
   const cols: ColumnDef<PFilesDrillRow, unknown>[] = [];
   for (const key of visible) {
     switch (key) {
@@ -144,7 +148,11 @@ function buildColumns(visible: DrillColumnKey[]): ColumnDef<PFilesDrillRow, unkn
           id: 'enroleeNumber',
           accessorKey: 'enroleeNumber',
           header: DRILL_COLUMN_LABELS.enroleeNumber,
-          cell: ({ row }) => <span className="font-mono text-xs">{row.original.enroleeNumber}</span>,
+          cell: ({ row }) => (
+            <span className="font-mono text-xs">
+              {row.original.enroleeNumber}
+            </span>
+          ),
         });
         break;
       case 'level':
@@ -152,8 +160,13 @@ function buildColumns(visible: DrillColumnKey[]): ColumnDef<PFilesDrillRow, unkn
           id: 'level',
           accessorKey: 'level',
           header: DRILL_COLUMN_LABELS.level,
-          cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.level ?? '—'}</span>,
-          sortingFn: (a, b) => compareLevelLabels(a.original.level, b.original.level),
+          cell: ({ row }) => (
+            <span className="text-sm text-muted-foreground">
+              {row.original.level ?? '—'}
+            </span>
+          ),
+          sortingFn: (a, b) =>
+            compareLevelLabels(a.original.level, b.original.level),
         });
         break;
       case 'slotLabel':
@@ -161,7 +174,9 @@ function buildColumns(visible: DrillColumnKey[]): ColumnDef<PFilesDrillRow, unkn
           id: 'slotLabel',
           accessorKey: 'slotLabel',
           header: DRILL_COLUMN_LABELS.slotLabel,
-          cell: ({ row }) => <span className="text-sm">{row.original.slotLabel}</span>,
+          cell: ({ row }) => (
+            <span className="text-sm">{row.original.slotLabel}</span>
+          ),
         });
         break;
       case 'status':
@@ -177,7 +192,11 @@ function buildColumns(visible: DrillColumnKey[]): ColumnDef<PFilesDrillRow, unkn
           id: 'expiryDate',
           accessorKey: 'expiryDate',
           header: DRILL_COLUMN_LABELS.expiryDate,
-          cell: ({ row }) => <span className="text-sm tabular-nums text-muted-foreground">{formatDate(row.original.expiryDate)}</span>,
+          cell: ({ row }) => (
+            <span className="text-sm tabular-nums text-muted-foreground">
+              {formatDate(row.original.expiryDate)}
+            </span>
+          ),
         });
         break;
       case 'daysToExpiry':
@@ -201,7 +220,11 @@ function buildColumns(visible: DrillColumnKey[]): ColumnDef<PFilesDrillRow, unkn
           id: 'revisionCount',
           accessorKey: 'revisionCount',
           header: DRILL_COLUMN_LABELS.revisionCount,
-          cell: ({ row }) => <span className="font-mono text-sm tabular-nums">{row.original.revisionCount}</span>,
+          cell: ({ row }) => (
+            <span className="font-mono text-sm tabular-nums">
+              {row.original.revisionCount}
+            </span>
+          ),
         });
         break;
       case 'lastRevisionAt':
@@ -209,7 +232,11 @@ function buildColumns(visible: DrillColumnKey[]): ColumnDef<PFilesDrillRow, unkn
           id: 'lastRevisionAt',
           accessorKey: 'lastRevisionAt',
           header: DRILL_COLUMN_LABELS.lastRevisionAt,
-          cell: ({ row }) => <span className="text-sm tabular-nums text-muted-foreground">{formatDate(row.original.lastRevisionAt)}</span>,
+          cell: ({ row }) => (
+            <span className="text-sm tabular-nums text-muted-foreground">
+              {formatDate(row.original.lastRevisionAt)}
+            </span>
+          ),
         });
         break;
     }
@@ -220,14 +247,8 @@ function buildColumns(visible: DrillColumnKey[]): ColumnDef<PFilesDrillRow, unkn
 // ─── Main component ─────────────────────────────────────────────────────────
 
 export function PFilesDrillSheet(props: PFilesDrillSheetProps) {
-  const {
-    target,
-    segment,
-    ayCode,
-    initialFrom,
-    initialTo,
-    initialRows,
-  } = props;
+  const { target, segment, ayCode, initialFrom, initialTo, initialRows } =
+    props;
 
   const seedRows = initialRows ?? [];
 
@@ -237,9 +258,9 @@ export function PFilesDrillSheet(props: PFilesDrillSheetProps) {
   const [selectedLevels, setSelectedLevels] = React.useState<string[]>([]);
   const [groupBy, setGroupBy] = React.useState<DrillDownGroupBy>('none');
   const [density, setDensity] = React.useState<DrillDownDensity>('comfortable');
-  const [visibleColumnKeys, setVisibleColumnKeys] = React.useState<DrillColumnKey[]>(
-    () => defaultColumnsForTarget(target),
-  );
+  const [visibleColumnKeys, setVisibleColumnKeys] = React.useState<
+    DrillColumnKey[]
+  >(() => defaultColumnsForTarget(target));
 
   const skipNextFetchRef = React.useRef(seedRows.length > 0);
 
@@ -255,13 +276,18 @@ export function PFilesDrillSheet(props: PFilesDrillSheetProps) {
     if (initialTo) params.set('to', initialTo);
     if (segment) params.set('segment', segment);
     fetch(`/api/p-files/drill/${target}?${params.toString()}`)
-      .then((r) => { if (!r.ok) throw new Error('drill_fetch_failed'); return r.json(); })
+      .then((r) => {
+        if (!r.ok) throw new Error('drill_fetch_failed');
+        return r.json();
+      })
       .then((data: { rows: PFilesDrillRow[] }) => {
         if (!cancelled) {
           setRows(data.rows ?? []);
         }
       })
-      .catch(() => { if (!cancelled) toast.error('Failed to load drill data'); })
+      .catch(() => {
+        if (!cancelled) toast.error('Failed to load drill data');
+      })
       .finally(() => {
         if (!cancelled) {
           React.startTransition(() => {
@@ -269,7 +295,9 @@ export function PFilesDrillSheet(props: PFilesDrillSheetProps) {
           });
         }
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [target, segment, ayCode, initialFrom, initialTo]);
 
   // Filter options derived from unfiltered rows
@@ -289,21 +317,30 @@ export function PFilesDrillSheet(props: PFilesDrillSheetProps) {
 
   // Single-pass status + level filter
   const preFiltered = React.useMemo(() => {
-    if (selectedStatuses.length === 0 && selectedLevels.length === 0) return rows;
+    if (selectedStatuses.length === 0 && selectedLevels.length === 0)
+      return rows;
     const statusSet = new Set(selectedStatuses);
     const levelSet = new Set(selectedLevels);
     return rows.filter((r) => {
       if (selectedStatuses.length > 0 && !statusSet.has(r.status)) return false;
-      if (selectedLevels.length > 0 && !levelSet.has(r.level ?? 'Unknown')) return false;
+      if (selectedLevels.length > 0 && !levelSet.has(r.level ?? 'Unknown'))
+        return false;
       return true;
     });
   }, [rows, selectedStatuses, selectedLevels]);
 
-  const columns = React.useMemo(() => buildColumns(visibleColumnKeys), [visibleColumnKeys]);
+  const columns = React.useMemo(
+    () => buildColumns(visibleColumnKeys),
+    [visibleColumnKeys]
+  );
 
   const columnOptions = React.useMemo(
-    () => ALL_DRILL_COLUMNS.map((k) => ({ key: k, label: DRILL_COLUMN_LABELS[k] ?? k })),
-    [],
+    () =>
+      ALL_DRILL_COLUMNS.map((k) => ({
+        key: k,
+        label: DRILL_COLUMN_LABELS[k] ?? k,
+      })),
+    []
   );
 
   const groupAccessor = React.useCallback(
@@ -314,7 +351,7 @@ export function PFilesDrillSheet(props: PFilesDrillSheetProps) {
       if (groupBy === 'stage') return row.slotLabel; // re-use 'stage' UI for slot grouping
       return null;
     },
-    [groupBy],
+    [groupBy]
   );
 
   const header = drillHeaderForTarget(target, segment ?? null);
@@ -327,7 +364,8 @@ export function PFilesDrillSheet(props: PFilesDrillSheetProps) {
   if (initialFrom) csvParams.set('from', initialFrom);
   if (initialTo) csvParams.set('to', initialTo);
   if (segment) csvParams.set('segment', segment);
-  if (visibleColumnKeys.length) csvParams.set('columns', visibleColumnKeys.join(','));
+  if (visibleColumnKeys.length)
+    csvParams.set('columns', visibleColumnKeys.join(','));
   const csvHref = `/api/p-files/drill/${target}?${csvParams.toString()}`;
 
   return (

@@ -14,25 +14,29 @@ export async function POST(request: NextRequest) {
   const auth = await requireRole(['school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
-  const body = (await request.json().catch(() => null)) as
-    | { sourceAyCode?: string; targetAyCode?: string }
-    | null;
+  const body = (await request.json().catch(() => null)) as {
+    sourceAyCode?: string;
+    targetAyCode?: string;
+  } | null;
   const sourceAyCode = body?.sourceAyCode?.trim().toUpperCase();
   const targetAyCode = body?.targetAyCode?.trim().toUpperCase();
   if (!sourceAyCode || !targetAyCode) {
     return NextResponse.json(
       { error: 'sourceAyCode and targetAyCode are required' },
-      { status: 400 },
+      { status: 400 }
     );
   }
   if (sourceAyCode === targetAyCode) {
     return NextResponse.json(
       { error: 'Source and target AY must differ' },
-      { status: 400 },
+      { status: 400 }
     );
   }
   if (!/^AY\d{4}$/.test(sourceAyCode) || !/^AY\d{4}$/.test(targetAyCode)) {
-    return NextResponse.json({ error: 'AY codes must match AY####' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'AY codes must match AY####' },
+      { status: 400 }
+    );
   }
 
   const service = createServiceClient();
@@ -42,14 +46,15 @@ export async function POST(request: NextRequest) {
     .from('academic_years')
     .select('id, ay_code')
     .in('ay_code', [sourceAyCode, targetAyCode]);
-  if (lookupErr) return NextResponse.json({ error: lookupErr.message }, { status: 500 });
+  if (lookupErr)
+    return NextResponse.json({ error: lookupErr.message }, { status: 500 });
 
-  const sourceRow = (rows ?? []).find((r) => (r as { ay_code: string }).ay_code === sourceAyCode) as
-    | { id: string }
-    | undefined;
-  const targetRow = (rows ?? []).find((r) => (r as { ay_code: string }).ay_code === targetAyCode) as
-    | { id: string }
-    | undefined;
+  const sourceRow = (rows ?? []).find(
+    (r) => (r as { ay_code: string }).ay_code === sourceAyCode
+  ) as { id: string } | undefined;
+  const targetRow = (rows ?? []).find(
+    (r) => (r as { ay_code: string }).ay_code === targetAyCode
+  ) as { id: string } | undefined;
   if (!sourceRow || !targetRow) {
     return NextResponse.json({ error: 'Unknown AY code' }, { status: 404 });
   }
@@ -58,7 +63,8 @@ export async function POST(request: NextRequest) {
     p_source_ay: sourceRow.id,
     p_target_ay: targetRow.id,
   });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
 
   const result = (data ?? {}) as {
     copied?: number;

@@ -41,9 +41,12 @@ export function ReferralSourceChart({
         {empty ? (
           <div className="flex h-[220px] flex-col items-center justify-center gap-2 text-center">
             <Megaphone className="size-6 text-muted-foreground/60" />
-            <p className="text-sm font-medium text-foreground">No referral data</p>
+            <p className="text-sm font-medium text-foreground">
+              No referral data
+            </p>
             <p className="max-w-xs text-xs text-muted-foreground">
-              The referral field on the enrolment form is empty for all applicants in this AY.
+              The referral field on the enrolment form is empty for all
+              applicants in this AY.
             </p>
           </div>
         ) : (

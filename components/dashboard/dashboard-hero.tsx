@@ -46,7 +46,9 @@ export function DashboardHero({
       </div>
       {(badges?.length || actions) && (
         <div className="flex flex-wrap items-center gap-2">
-          {badges?.map((b, i) => <HeroBadgeChip key={i} badge={b} />)}
+          {badges?.map((b, i) => (
+            <HeroBadgeChip key={i} badge={b} />
+          ))}
           {actions}
         </div>
       )}
@@ -61,7 +63,7 @@ function HeroBadgeChip({ badge }: { badge: HeroBadge }) {
     tone === 'mint' && 'border-brand-mint bg-brand-mint/30 text-ink',
     tone === 'amber' && 'border-brand-amber bg-brand-amber-light text-ink',
     tone === 'muted' && 'border-border bg-white text-muted-foreground',
-    tone === 'default' && 'border-border bg-white text-foreground',
+    tone === 'default' && 'border-border bg-white text-foreground'
   );
   return (
     <Badge variant="outline" className={className}>

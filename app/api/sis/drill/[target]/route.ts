@@ -29,7 +29,7 @@ const ALLOWED_ROLES = [
 
 export async function GET(
   req: Request,
-  ctx: { params: Promise<{ target: string }> },
+  ctx: { params: Promise<{ target: string }> }
 ) {
   const guard = await requireRole([...ALLOWED_ROLES]);
   if ('error' in guard) return guard.error;
@@ -65,35 +65,35 @@ export async function GET(
   });
   res.headers.set(
     'Cache-Control',
-    'private, max-age=60, stale-while-revalidate=300',
+    'private, max-age=60, stale-while-revalidate=300'
   );
   return res;
 }
 
 function pickColumns(
   target: LifecycleDrillTarget,
-  columnsParam: string | null,
+  columnsParam: string | null
 ): LifecycleDrillColumnKey[] {
   if (!columnsParam) return defaultColumnsForLifecycleTarget(target);
   const requested = columnsParam
     .split(',')
     .map((c) => c.trim())
     .filter((c): c is LifecycleDrillColumnKey =>
-      (ALL_LIFECYCLE_DRILL_COLUMNS as string[]).includes(c),
+      (ALL_LIFECYCLE_DRILL_COLUMNS as string[]).includes(c)
     );
-  return requested.length > 0 ? requested : defaultColumnsForLifecycleTarget(target);
+  return requested.length > 0
+    ? requested
+    : defaultColumnsForLifecycleTarget(target);
 }
 
 function csvResponse(
   rows: LifecycleDrillRow[],
   target: LifecycleDrillTarget,
   ayCode: string,
-  columnsParam: string | null,
+  columnsParam: string | null
 ): Response {
   const columns = pickColumns(target, columnsParam);
-  const headers = columns.map(
-    (c) => LIFECYCLE_DRILL_COLUMN_LABELS[c] ?? c,
-  );
+  const headers = columns.map((c) => LIFECYCLE_DRILL_COLUMN_LABELS[c] ?? c);
   const body = rows.map((r) => columns.map((c) => csvCell(r, c)));
   const csv = buildCsv(headers, body);
   const today = new Date().toISOString().slice(0, 10);
@@ -106,28 +106,52 @@ function csvResponse(
   });
 }
 
-function csvCell(row: LifecycleDrillRow, key: LifecycleDrillColumnKey): string | number {
+function csvCell(
+  row: LifecycleDrillRow,
+  key: LifecycleDrillColumnKey
+): string | number {
   switch (key) {
-    case 'enroleeNumber': return row.enroleeNumber;
-    case 'studentNumber': return row.studentNumber ?? '';
-    case 'enroleeFullName': return row.enroleeFullName ?? '';
-    case 'levelApplied': return row.levelApplied ?? '';
-    case 'applicationStatus': return row.applicationStatus ?? '';
-    case 'applicationUpdatedDate': return row.applicationUpdatedDate?.slice(0, 10) ?? '';
-    case 'daysSinceUpdate': return row.daysSinceUpdate ?? '';
-    case 'feeStatus': return row.feeStatus ?? '';
-    case 'feeInvoice': return row.feeInvoice ?? '';
-    case 'feePaymentDate': return row.feePaymentDate?.slice(0, 10) ?? '';
-    case 'documentStatus': return row.documentStatus ?? '';
-    case 'rejectedSlots': return (row.rejectedSlots ?? []).join('; ');
-    case 'expiredSlots': return (row.expiredSlots ?? []).join('; ');
-    case 'uploadedSlots': return (row.uploadedSlots ?? []).join('; ');
-    case 'promisedSlots': return (row.promisedSlots ?? []).join('; ');
-    case 'expiringSlots': return (row.expiringSlots ?? []).join('; ');
-    case 'daysLeft': return row.daysLeft ?? '';
-    case 'assessmentStatus': return row.assessmentStatus ?? '';
-    case 'assessmentSchedule': return row.assessmentSchedule?.slice(0, 10) ?? '';
-    case 'contractStatus': return row.contractStatus ?? '';
-    case 'classSection': return row.classSection ?? '';
+    case 'enroleeNumber':
+      return row.enroleeNumber;
+    case 'studentNumber':
+      return row.studentNumber ?? '';
+    case 'enroleeFullName':
+      return row.enroleeFullName ?? '';
+    case 'levelApplied':
+      return row.levelApplied ?? '';
+    case 'applicationStatus':
+      return row.applicationStatus ?? '';
+    case 'applicationUpdatedDate':
+      return row.applicationUpdatedDate?.slice(0, 10) ?? '';
+    case 'daysSinceUpdate':
+      return row.daysSinceUpdate ?? '';
+    case 'feeStatus':
+      return row.feeStatus ?? '';
+    case 'feeInvoice':
+      return row.feeInvoice ?? '';
+    case 'feePaymentDate':
+      return row.feePaymentDate?.slice(0, 10) ?? '';
+    case 'documentStatus':
+      return row.documentStatus ?? '';
+    case 'rejectedSlots':
+      return (row.rejectedSlots ?? []).join('; ');
+    case 'expiredSlots':
+      return (row.expiredSlots ?? []).join('; ');
+    case 'uploadedSlots':
+      return (row.uploadedSlots ?? []).join('; ');
+    case 'promisedSlots':
+      return (row.promisedSlots ?? []).join('; ');
+    case 'expiringSlots':
+      return (row.expiringSlots ?? []).join('; ');
+    case 'daysLeft':
+      return row.daysLeft ?? '';
+    case 'assessmentStatus':
+      return row.assessmentStatus ?? '';
+    case 'assessmentSchedule':
+      return row.assessmentSchedule?.slice(0, 10) ?? '';
+    case 'contractStatus':
+      return row.contractStatus ?? '';
+    case 'classSection':
+      return row.classSection ?? '';
   }
 }

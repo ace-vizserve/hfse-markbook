@@ -11,15 +11,22 @@ type FilterChipProps = {
   className?: string;
 };
 
-export function FilterChip({ label, value, onClear, className }: FilterChipProps) {
+export function FilterChip({
+  label,
+  value,
+  onClear,
+  className,
+}: FilterChipProps) {
   return (
     <span
       className={cn(
         'inline-flex h-7 items-center gap-1.5 rounded-full border border-border bg-muted/40 pl-2 pr-1 text-xs',
-        className,
+        className
       )}
     >
-      <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">{label}</span>
+      <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
+        {label}
+      </span>
       <span className="text-foreground">{value}</span>
       <Button
         variant="ghost"

@@ -159,7 +159,7 @@ Use this pattern when the tab needs to be deep-linkable. Pure client-state tabs 
 
 ### Level / group container card (`app/(dashboard)/admin/sections/page.tsx`)
 
-When you need to group items (e.g. sections by level) and make the grouping *visually distinct* from surrounding stat cards:
+When you need to group items (e.g. sections by level) and make the grouping _visually distinct_ from surrounding stat cards:
 
 ```tsx
 <Card className="@container/card gap-0 py-0">
@@ -171,9 +171,7 @@ When you need to group items (e.g. sections by level) and make the grouping *vis
   <div className="flex flex-wrap gap-x-6 gap-y-2 border-b border-border bg-muted/30 px-6 py-3">
     {/* MetaBlock strip: small stats */}
   </div>
-  <ul className="divide-y divide-border">
-    {/* row per item */}
-  </ul>
+  <ul className="divide-y divide-border">{/* row per item */}</ul>
 </Card>
 ```
 
@@ -183,29 +181,30 @@ The `gap-0 py-0` lets children render edge-to-edge; the muted meta strip and div
 
 ## 9. Semantic color discipline
 
-This is a corporate trust product — **color is how users read state, action, and severity at a glance**. Every button, badge, and status panel must be colored by *purpose*, never by aesthetic preference. If two elements with different meanings look the same, the page has failed.
+This is a corporate trust product — **color is how users read state, action, and severity at a glance**. Every button, badge, and status panel must be colored by _purpose_, never by aesthetic preference. If two elements with different meanings look the same, the page has failed.
 
 ### 9.1 The semantic palette
 
-| Role | Token | When to use | Reads as |
-|---|---|---|---|
-| **Primary** | `bg-primary` / `text-primary` / `from-brand-indigo` | The one CTA per view, active nav, focus rings, brand tiles, primary metric headlines | "Do this. This is the path forward." |
-| **Destructive** | `bg-destructive` / `text-destructive` / `border-destructive/*` | Actions that are hard to undo, commit state, delete, lock, block | "Careful — this is final." |
-| **Mint (success/open)** | `bg-brand-mint/30` / `border-brand-mint` / `text-ink` | Healthy status (Open, Active, Available, Published) | "All clear." |
-| **Accent (info/config)** | `bg-accent` / `text-brand-indigo-deep` / `border-brand-indigo-soft` | Informational panels, configuration actions, approval-required states | "Heads up — here's context." |
-| **Muted** | `bg-muted` / `text-muted-foreground` | Neutral surfaces, table headers, secondary text, withdrawn/archived rows | "Background. Deprioritized." |
+| Role                     | Token                                                               | When to use                                                                          | Reads as                             |
+| ------------------------ | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------ |
+| **Primary**              | `bg-primary` / `text-primary` / `from-brand-indigo`                 | The one CTA per view, active nav, focus rings, brand tiles, primary metric headlines | "Do this. This is the path forward." |
+| **Destructive**          | `bg-destructive` / `text-destructive` / `border-destructive/*`      | Actions that are hard to undo, commit state, delete, lock, block                     | "Careful — this is final."           |
+| **Mint (success/open)**  | `bg-brand-mint/30` / `border-brand-mint` / `text-ink`               | Healthy status (Open, Active, Available, Published)                                  | "All clear."                         |
+| **Accent (info/config)** | `bg-accent` / `text-brand-indigo-deep` / `border-brand-indigo-soft` | Informational panels, configuration actions, approval-required states                | "Heads up — here's context."         |
+| **Muted**                | `bg-muted` / `text-muted-foreground`                                | Neutral surfaces, table headers, secondary text, withdrawn/archived rows             | "Background. Deprioritized."         |
 
 ### 9.2 Buttons — colored by purpose, not by aesthetic
 
-| Variant | Intent | Use for |
-|---|---|---|
-| `default` (indigo gradient) | **Primary path forward** | Save, Submit, Create, the one CTA per view, Unlock (restoring the happy path) |
-| `destructive` (solid red) | **Commit / hard-to-undo** | Lock sheet, Delete, Withdraw, Purge |
-| `outline` (indigo wash) | **Configuration / editing** | Edit totals & slots, column toggles, secondary navigation triggers |
-| `ghost` | **Tertiary / inline** | Clear filters, close icons, "change" inline triggers |
-| `link` | **Inline navigation** | "View audit log →", breadcrumbs |
+| Variant                     | Intent                      | Use for                                                                       |
+| --------------------------- | --------------------------- | ----------------------------------------------------------------------------- |
+| `default` (indigo gradient) | **Primary path forward**    | Save, Submit, Create, the one CTA per view, Unlock (restoring the happy path) |
+| `destructive` (solid red)   | **Commit / hard-to-undo**   | Lock sheet, Delete, Withdraw, Purge                                           |
+| `outline` (indigo wash)     | **Configuration / editing** | Edit totals & slots, column toggles, secondary navigation triggers            |
+| `ghost`                     | **Tertiary / inline**       | Clear filters, close icons, "change" inline triggers                          |
+| `link`                      | **Inline navigation**       | "View audit log →", breadcrumbs                                               |
 
 **Rules:**
+
 - Exactly **one `default` button** per view. Two primary CTAs = no primary CTA.
 - **Never** use `outline` for a destructive action. **Never** use `default` for a destructive action. Lock and Delete must be `destructive`, always.
 - Don't override `variant` colors with per-instance `className` to express semantics — if the treatment is reusable, promote it to the variant in `components/ui/button.tsx`.
@@ -241,8 +240,12 @@ Don't use the default `<Alert>` for high-visibility status. Build a bordered sta
     <Lock className="size-4" />
   </div>
   <div className="flex-1 space-y-1.5">
-    <p className="font-serif text-base font-semibold text-foreground">Title states the condition</p>
-    <p className="text-sm text-muted-foreground">Body explains what the user can do.</p>
+    <p className="font-serif text-base font-semibold text-foreground">
+      Title states the condition
+    </p>
+    <p className="text-sm text-muted-foreground">
+      Body explains what the user can do.
+    </p>
   </div>
 </div>
 ```
@@ -268,17 +271,18 @@ A legend is a **key**. Its visual must match the thing it documents — pixel-id
 
 ### 10.1 Two legend shapes — pick by what you're documenting
 
-| What you're documenting | Use | Component |
-|---|---|---|
-| Recharts series, donut slice, stacked bar segment | **Gradient pill** | `ChartLegendChip` (or `chartLegendContent(palette)` factory for recharts `<Legend content={…}>`) |
+| What you're documenting                                                                                    | Use                                                            | Component                                                                                                                                                                                                              |
+| ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Recharts series, donut slice, stacked bar segment                                                          | **Gradient pill**                                              | `ChartLegendChip` (or `chartLegendContent(palette)` factory for recharts `<Legend content={…}>`)                                                                                                                       |
 | **Cells / column headers in a table or grid** — including dense data-entry grids with native form controls | **Gradient pill, rendered both in the cell AND in the legend** | `ChartLegendChip` in the legend; for cells either render `ChartLegendChip` directly (calendar pattern) or apply the same gradient classes inline so the cell wash matches the chip pixel-for-pixel (wide-grid pattern) |
-| Last resort — when the surface genuinely cannot render gradient pills | **Tinted swatch** matching the cell wash exactly | Bespoke `*LegendItem` helper that pulls its tint from the **same map** the cells use |
+| Last resort — when the surface genuinely cannot render gradient pills                                      | **Tinted swatch** matching the cell wash exactly               | Bespoke `*LegendItem` helper that pulls its tint from the **same map** the cells use                                                                                                                                   |
 
 **Default to the gradient-pill pattern.** It's the brand voice (matches the rest of `ChartLegendChip` usage across the SIS) and it elevates the legend from "a flat colored square" to a real chip. The flat-swatch fallback exists only because some surfaces (e.g. printed report cards, screenshot exports) can't render gradients reliably. Don't reach for it on a normal screen.
 
 Never mix the two for one visualization. A wash-tinted column header documented by a gradient pill is the most common bug; a gradient series documented by a solid swatch is the inverse. Both break the key.
 
 Reference implementations:
+
 - **Calendar pattern** (gradient pill IN the cell + IN the legend): `components/attendance/calendar-admin-client.tsx` — cell chips use `ChartLegendChip` directly, legend strip uses the same `ChartLegendChip`, both keyed on the same `DAY_TYPE_LEGEND_COLOR` map
 - **Wide-grid pattern** (gradient classes inline in the cell + `ChartLegendChip` in the legend): `components/attendance/wide-grid.tsx` — cells apply `STATUS_CHIP_GRADIENT[status]` directly to the wrapping div (so the native `<select>` stays interactive), column headers render a small `ChartLegendChip`, legend uses `ChartLegendChip` keyed on the same `STATUS_CHIP_COLOR` and `DAY_TYPE_CHIP_COLOR` maps
 
@@ -297,8 +301,16 @@ const DAY_TYPE_HEADER_BG: Record<DayType, string> = {
 function DayTypeLegendItem({ dayType }: { dayType: DayType }) {
   return (
     <span className="inline-flex items-center gap-2">
-      <span className={'inline-flex size-7 rounded-md shadow-input ' + DAY_TYPE_HEADER_BG[dayType]} aria-hidden />
-      <span className="text-[12px] font-medium text-foreground">{DAY_TYPE_LABELS[dayType]}</span>
+      <span
+        className={
+          'inline-flex size-7 rounded-md shadow-input ' +
+          DAY_TYPE_HEADER_BG[dayType]
+        }
+        aria-hidden
+      />
+      <span className="text-[12px] font-medium text-foreground">
+        {DAY_TYPE_LABELS[dayType]}
+      </span>
     </span>
   );
 }
@@ -318,12 +330,14 @@ If the cell's color map is exported, the legend imports it. If it's not, hoist i
 When using gradient pills for a recharts visualization, the palette mapping (data key → `ChartLegendChipColor`) is per-chart and lives next to the chart. Don't sprinkle ad-hoc string colors:
 
 ```tsx
-<Legend content={chartLegendContent({
-  applied: 'chart-1',
-  interviewed: 'chart-2',
-  offered: 'chart-3',
-  enrolled: 'fresh',
-})} />
+<Legend
+  content={chartLegendContent({
+    applied: 'chart-1',
+    interviewed: 'chart-2',
+    offered: 'chart-3',
+    enrolled: 'fresh',
+  })}
+/>
 ```
 
 ### 10.4 Where legends live
@@ -342,4 +356,3 @@ When using gradient pills for a recharts visualization, the palette mapping (dat
 If every answer is yes, the legend is a true key. If any answer is no, the user has to translate — fix it before shipping.
 
 ---
-

@@ -44,7 +44,7 @@ type SectionRow = {
 export async function seedTestAy(
   service: SupabaseClient,
   ayId: string,
-  ayCode: string,
+  ayCode: string
 ): Promise<SeedResult> {
   // Pull every section in this AY with its level code (for the
   // student_number slug). `levels.code` is e.g. 'P1' or 'S2'.
@@ -55,7 +55,9 @@ export async function seedTestAy(
     .order('name');
 
   if (sectionsErr || !sectionRows) {
-    throw new Error(`seed: failed to list sections — ${sectionsErr?.message ?? 'no data'}`);
+    throw new Error(
+      `seed: failed to list sections — ${sectionsErr?.message ?? 'no data'}`
+    );
   }
 
   const sections = sectionRows as unknown as SectionRow[];
@@ -68,12 +70,17 @@ export async function seedTestAy(
   const { data: existingEnrol, error: enrolErr } = await service
     .from('section_students')
     .select('section_id')
-    .in('section_id', sections.map((s) => s.id));
+    .in(
+      'section_id',
+      sections.map((s) => s.id)
+    );
   if (enrolErr) {
-    throw new Error(`seed: failed to check existing enrolments — ${enrolErr.message}`);
+    throw new Error(
+      `seed: failed to check existing enrolments — ${enrolErr.message}`
+    );
   }
   const occupiedSectionIds = new Set(
-    (existingEnrol ?? []).map((r) => (r as { section_id: string }).section_id),
+    (existingEnrol ?? []).map((r) => (r as { section_id: string }).section_id)
   );
   const emptySections = sections.filter((s) => !occupiedSectionIds.has(s.id));
 
@@ -121,17 +128,22 @@ export async function seedTestAy(
   // on conflict with ignoreDuplicates so a partial re-run doesn't 23505.
   const { data: insertedStudents, error: insertErr } = await service
     .from('students')
-    .upsert(studentInserts, { onConflict: 'student_number', ignoreDuplicates: false })
+    .upsert(studentInserts, {
+      onConflict: 'student_number',
+      ignoreDuplicates: false,
+    })
     .select('id, student_number');
   if (insertErr || !insertedStudents) {
-    throw new Error(`seed: students insert failed — ${insertErr?.message ?? 'no data'}`);
+    throw new Error(
+      `seed: students insert failed — ${insertErr?.message ?? 'no data'}`
+    );
   }
 
   const idByNumber = new Map(
     insertedStudents.map((r) => [
       (r as { student_number: string }).student_number,
       (r as { id: string }).id,
-    ]),
+    ])
   );
 
   const enrolInserts = enrolPlans.map((e) => ({
@@ -146,7 +158,9 @@ export async function seedTestAy(
     .from('section_students')
     .insert(enrolInserts);
   if (enrolInsertErr) {
-    throw new Error(`seed: section_students insert failed — ${enrolInsertErr.message}`);
+    throw new Error(
+      `seed: section_students insert failed — ${enrolInsertErr.message}`
+    );
   }
 
   return {

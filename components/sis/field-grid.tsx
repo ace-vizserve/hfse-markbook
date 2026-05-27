@@ -26,7 +26,9 @@ export type FieldSection = {
 const EMPTY_PLACEHOLDER = '—';
 
 function isEmpty(v: FieldValue): boolean {
-  return v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
+  return (
+    v === null || v === undefined || (typeof v === 'string' && v.trim() === '')
+  );
 }
 
 function formatDate(v: FieldValue): string {
@@ -43,7 +45,11 @@ function formatDate(v: FieldValue): string {
   }
   const t = Date.parse(s);
   if (Number.isNaN(t)) return s;
-  return new Date(t).toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' });
+  return new Date(t).toLocaleDateString('en-SG', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 function renderValue(f: Field): React.ReactNode {
@@ -74,14 +80,18 @@ export function FieldGrid({
   return (
     <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
       {visible.map((f, i) => {
-        const empty = !f.asDate && typeof f.value !== 'boolean' && isEmpty(f.value);
+        const empty =
+          !f.asDate && typeof f.value !== 'boolean' && isEmpty(f.value);
         const dim = dimEmpty && empty;
         return (
-          <div key={`${f.label}-${i}`} className={cn('min-w-0 space-y-0.5', f.wide && 'sm:col-span-2')}>
+          <div
+            key={`${f.label}-${i}`}
+            className={cn('min-w-0 space-y-0.5', f.wide && 'sm:col-span-2')}
+          >
             <dt
               className={cn(
                 'font-mono text-[10px] font-semibold uppercase tracking-[0.12em]',
-                dim ? 'text-muted-foreground/60' : 'text-muted-foreground',
+                dim ? 'text-muted-foreground/60' : 'text-muted-foreground'
               )}
             >
               {f.label}
@@ -94,7 +104,7 @@ export function FieldGrid({
                   : empty
                     ? 'text-muted-foreground'
                     : 'text-foreground',
-                f.multiline && 'whitespace-pre-line',
+                f.multiline && 'whitespace-pre-line'
               )}
             >
               {renderValue(f)}
@@ -112,7 +122,7 @@ function FieldSectionsCard({ sections }: { sections: FieldSection[] }) {
       {sections.map((s) => {
         if (s.hideIfAllEmpty) {
           const allEmpty = s.fields.every(
-            (f) => typeof f.value !== 'boolean' && !f.asDate && isEmpty(f.value),
+            (f) => typeof f.value !== 'boolean' && !f.asDate && isEmpty(f.value)
           );
           if (allEmpty) return null;
         }

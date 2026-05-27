@@ -46,7 +46,8 @@ export function ImportAttendanceForm({
   termOptions: TermOption[];
   ayCode: string;
 }) {
-  const defaultTerm = termOptions.find((t) => t.isCurrent)?.value ?? termOptions[0]?.value ?? '';
+  const defaultTerm =
+    termOptions.find((t) => t.isCurrent)?.value ?? termOptions[0]?.value ?? '';
   const [termId, setTermId] = useState(defaultTerm);
   const [dryRun, setDryRun] = useState(true);
   const [file, setFile] = useState<File | null>(null);
@@ -79,7 +80,7 @@ export function ImportAttendanceForm({
       const body: ImportResponse | { error: string } = await res.json();
       if (!res.ok) {
         throw new Error(
-          'error' in body ? body.error : `upload failed (${res.status})`,
+          'error' in body ? body.error : `upload failed (${res.status})`
         );
       }
       const ok = body as ImportResponse;
@@ -89,13 +90,13 @@ export function ImportAttendanceForm({
         toast.warning(
           `${ok.dryRun ? 'Parse' : 'Import'} finished with ${totalErrors} sheet-level issue${
             totalErrors === 1 ? '' : 's'
-          } — review the report below.`,
+          } — review the report below.`
         );
       } else {
         toast.success(
           ok.dryRun
             ? `Dry run OK: ${ok.totalDailyWritten.toLocaleString('en-SG')} rows parsed across ${ok.sections} sheet${ok.sections === 1 ? '' : 's'}`
-            : `Imported ${ok.totalDailyWritten.toLocaleString('en-SG')} rows across ${ok.sections} sheet${ok.sections === 1 ? '' : 's'}`,
+            : `Imported ${ok.totalDailyWritten.toLocaleString('en-SG')} rows across ${ok.sections} sheet${ok.sections === 1 ? '' : 's'}`
         );
       }
     } catch (e) {
@@ -117,7 +118,11 @@ export function ImportAttendanceForm({
               </span>
             )}
           </Label>
-          <Select value={termId} onValueChange={setTermId} disabled={submitting}>
+          <Select
+            value={termId}
+            onValueChange={setTermId}
+            disabled={submitting}
+          >
             <SelectTrigger id="termId" className="h-10 w-full">
               <SelectValue placeholder="Select a term" />
             </SelectTrigger>
@@ -166,14 +171,19 @@ export function ImportAttendanceForm({
             Dry run — parse &amp; report without writing
           </Label>
           <p className="text-[11px] text-muted-foreground">
-            Leave this on for the first pass so you can confirm sheet→section matches and spot
-            unmatched students before any rows land in the ledger.
+            Leave this on for the first pass so you can confirm sheet→section
+            matches and spot unmatched students before any rows land in the
+            ledger.
           </p>
         </div>
       </div>
 
       <div className="flex justify-end">
-        <Button type="submit" disabled={submitting || !file || !termId} className="gap-2">
+        <Button
+          type="submit"
+          disabled={submitting || !file || !termId}
+          className="gap-2"
+        >
           {submitting ? (
             <Loader2 className="size-4 animate-spin" />
           ) : (
@@ -182,8 +192,8 @@ export function ImportAttendanceForm({
           {submitting
             ? 'Working…'
             : dryRun
-            ? 'Run dry parse'
-            : 'Import to ledger'}
+              ? 'Run dry parse'
+              : 'Import to ledger'}
         </Button>
       </div>
 
@@ -196,7 +206,10 @@ function ImportReport({ result }: { result: ImportResponse }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-6 rounded-xl border border-border bg-card p-5">
-        <ReportStat label="Sheets" value={result.sections.toLocaleString('en-SG')} />
+        <ReportStat
+          label="Sheets"
+          value={result.sections.toLocaleString('en-SG')}
+        />
         <ReportStat
           label="Students matched"
           value={result.totalStudentsMatched.toLocaleString('en-SG')}
@@ -236,12 +249,8 @@ function ImportReport({ result }: { result: ImportResponse }) {
                 )}
               </div>
               <div className="flex items-center gap-4 font-mono text-[11px] tabular-nums text-muted-foreground">
-                <span>
-                  {r.studentsMatched.toLocaleString('en-SG')} matched
-                </span>
-                <span>
-                  {r.dateColumns.toLocaleString('en-SG')} dates
-                </span>
+                <span>{r.studentsMatched.toLocaleString('en-SG')} matched</span>
+                <span>{r.dateColumns.toLocaleString('en-SG')} dates</span>
                 <span className="text-foreground">
                   {r.dailyRowsWritten.toLocaleString('en-SG')} rows
                 </span>
@@ -255,7 +264,9 @@ function ImportReport({ result }: { result: ImportResponse }) {
                 <ul className="space-y-0.5 text-muted-foreground">
                   {r.studentsUnmatched.slice(0, 10).map((u, idx) => (
                     <li key={idx}>
-                      <span className="font-mono text-foreground">{String(u.indexNumber ?? '—')}</span>{' '}
+                      <span className="font-mono text-foreground">
+                        {String(u.indexNumber ?? '—')}
+                      </span>{' '}
                       — {String(u.fullName ?? '—')}
                     </li>
                   ))}

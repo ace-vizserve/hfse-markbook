@@ -6,9 +6,9 @@ The report card is the final deliverable — a printable PDF generated per stude
 
 There are two separate report card templates:
 
-| Template | Covers | File Reference |
-|----------|--------|---------------|
-| Primary (P1–P6) | Terms 1–3, or Term 4 separately | `AY2025_Final_Report_Book_Primary.xlsx` |
+| Template            | Covers                          | File Reference                            |
+| ------------------- | ------------------------------- | ----------------------------------------- |
+| Primary (P1–P6)     | Terms 1–3, or Term 4 separately | `AY2025_Final_Report_Book_Primary.xlsx`   |
 | Secondary (Sec 1–4) | Terms 1–3, or Term 4 separately | `AY2025_Final_Report_Book_Secondary.xlsx` |
 
 Secondary also has a separate Economics variant for Sec 4.
@@ -18,49 +18,54 @@ Secondary also has a separate Economics variant for Sec 4.
 ## Report Card Sections
 
 ### 1. Header
+
 - School name: **HFSE International School**
 - Academic Year label (e.g., "Academic Year 2025")
 - Title: "Student Progress Report"
 
 ### 2. Student Info Block
-| Field | Source |
-|-------|--------|
-| Student Name | `students.last_name + first_name` |
-| Course | From section config (level label) |
-| Class | Section name |
-| Form Class Adviser | Section adviser name |
+
+| Field              | Source                            |
+| ------------------ | --------------------------------- |
+| Student Name       | `students.last_name + first_name` |
+| Course             | From section config (level label) |
+| Class              | Section name                      |
+| Form Class Adviser | Section adviser name              |
 
 ### 3. Academic Grades Table
 
 #### Primary Subjects (T1–T3 columns)
-| Subject | Term 1 | Term 2 | Term 3 |
-|---------|--------|--------|--------|
-| English | numeric | numeric | numeric |
-| Mathematics | numeric | numeric | numeric |
-| Mother Tongue | numeric | numeric | numeric |
-| Science | numeric | numeric | numeric |
-| Social Studies | numeric | numeric | numeric |
-| Music Education | letter (A/B/C/IP) | letter | letter |
-| Arts Education | letter | letter | letter |
-| Physical Education | letter | letter | letter |
-| Health Education | letter | letter | letter |
-| Christian Living | UG | UG | UG |
+
+| Subject            | Term 1            | Term 2  | Term 3  |
+| ------------------ | ----------------- | ------- | ------- |
+| English            | numeric           | numeric | numeric |
+| Mathematics        | numeric           | numeric | numeric |
+| Mother Tongue      | numeric           | numeric | numeric |
+| Science            | numeric           | numeric | numeric |
+| Social Studies     | numeric           | numeric | numeric |
+| Music Education    | letter (A/B/C/IP) | letter  | letter  |
+| Arts Education     | letter            | letter  | letter  |
+| Physical Education | letter            | letter  | letter  |
+| Health Education   | letter            | letter  | letter  |
+| Christian Living   | UG                | UG      | UG      |
 
 #### Secondary Subjects (Sec 1–2, T1–T3 columns)
-| Subject | Term 1 | Term 2 | Term 3 |
-|---------|--------|--------|--------|
-| English | numeric | numeric | numeric |
-| Mathematics | numeric | numeric | numeric |
-| Science | numeric | numeric | numeric |
-| Mother Tongue | numeric | numeric | numeric |
-| History | numeric | numeric | numeric |
-| Literature | numeric | numeric | numeric |
-| Contemporary Art | letter | letter | letter |
-| Physical Education and Health | letter | letter | letter |
-| Pastoral Ministry and Personal Development | UG | UG | UG |
-| Co-curricular Activities (CCA) | letter | letter | letter |
+
+| Subject                                    | Term 1  | Term 2  | Term 3  |
+| ------------------------------------------ | ------- | ------- | ------- |
+| English                                    | numeric | numeric | numeric |
+| Mathematics                                | numeric | numeric | numeric |
+| Science                                    | numeric | numeric | numeric |
+| Mother Tongue                              | numeric | numeric | numeric |
+| History                                    | numeric | numeric | numeric |
+| Literature                                 | numeric | numeric | numeric |
+| Contemporary Art                           | letter  | letter  | letter  |
+| Physical Education and Health              | letter  | letter  | letter  |
+| Pastoral Ministry and Personal Development | UG      | UG      | UG      |
+| Co-curricular Activities (CCA)             | letter  | letter  | letter  |
 
 #### Secondary Subjects (Sec 3–4, T1–T3 columns)
+
 Same as Sec 1–2 except **History** is replaced by **Humanities**, and Sec 4 has an additional **Economics** subject.
 
 ### 4. Grading Legend
@@ -96,19 +101,22 @@ The T4 (final-year) template adds two pieces the interim T1–T3 template doesn'
 The T4 card has no Form Class Adviser comment (KD #49) — only the interim T1–T3 cards include the FCA narrative block.
 
 ### 5. School Attendance Table
-| Row | Term 1 | Term 2 | Term 3 |
-|-----|--------|--------|--------|
-| Number of School Days | int | int | int |
-| Number of Days Present | int | int | int |
-| Number of Days Late | int | int | int |
+
+| Row                    | Term 1 | Term 2 | Term 3 |
+| ---------------------- | ------ | ------ | ------ |
+| Number of School Days  | int    | int    | int    |
+| Number of Days Present | int    | int    | int    |
+| Number of Days Late    | int    | int    | int    |
 
 Source: `attendance_records` table.
 
 ### 6. Form Class Adviser's Comments
+
 Free-text block. Source: `evaluation_writeups` table (KD #49; see `19-evaluation-module.md`).
 Label includes the term's HFSE Virtue theme (e.g., "Commitment, Discipline, Integrity").
 
 ### 7. Footer
+
 - Parent's Signature line
 - PEI Registration No: 201541283N
 
@@ -141,12 +149,14 @@ Both formulas + the canonical 7-step compute chain are documented in `02-grading
 The report card PDF is generated by a separate Python microservice.
 
 ### Endpoint
+
 ```
 POST https://{pdf-service-url}/generate-pdf
 Content-Type: application/json
 ```
 
 ### Request Payload
+
 ```json
 {
   "template": "primary",
@@ -170,7 +180,12 @@ Content-Type: application/json
   ],
   "attendance": [
     { "term": "T1", "school_days": 47, "days_present": 47, "days_late": 0 },
-    { "term": "T2", "school_days": null, "days_present": null, "days_late": null }
+    {
+      "term": "T2",
+      "school_days": null,
+      "days_present": null,
+      "days_late": null
+    }
   ],
   "comment": "Jacob is a smart student. He is very active in class.",
   "academic_year": "2025"
@@ -178,14 +193,17 @@ Content-Type: application/json
 ```
 
 ### Response
+
 - `200 OK` with `Content-Type: application/pdf` — PDF binary
 - `422 Unprocessable Entity` — validation error with details
 
 ### Tech Stack
+
 - **Framework:** FastAPI
 - **PDF rendering:** WeasyPrint
 - **Template engine:** Jinja2 (HTML → PDF)
 - **Deployment:** Render or Railway (free tier)
 
 ### Cold Start Consideration
+
 Render free tier spins down after 15 minutes of inactivity. First request after idle may take 30–50 seconds. Next.js should implement a keep-warm ping every 10 minutes if this is unacceptable in production.

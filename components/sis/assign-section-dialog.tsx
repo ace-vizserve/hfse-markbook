@@ -68,9 +68,9 @@ export function AssignSectionDialog({
           (a, b) =>
             Number(a.isAtCapacity) - Number(b.isAtCapacity) ||
             a.activeCount - b.activeCount ||
-            a.name.localeCompare(b.name),
+            a.name.localeCompare(b.name)
         ),
-    [availableSections],
+    [availableSections]
   );
 
   async function submit() {
@@ -83,23 +83,27 @@ export function AssignSectionDialog({
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ sectionId: selectedId }),
-        },
+        }
       );
       const body = (await res.json().catch(() => ({}))) as {
         error?: string;
         sectionName?: string;
       };
       if (!res.ok) {
-        toast.error(body.error ?? `Couldn't assign the section (${res.status}).`);
+        toast.error(
+          body.error ?? `Couldn't assign the section (${res.status}).`
+        );
         return;
       }
       toast.success(
-        `Assigned ${studentName} to ${body.sectionName ?? 'their new section'}. Grading access is now active.`,
+        `Assigned ${studentName} to ${body.sectionName ?? 'their new section'}. Grading access is now active.`
       );
       onOpenChange(false);
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't assign the section.");
+      toast.error(
+        err instanceof Error ? err.message : "Couldn't assign the section."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -118,13 +122,14 @@ export function AssignSectionDialog({
           <DialogDescription>
             {levelApplied ? (
               <>
-                Pick a section for <strong>{studentName}</strong> at <strong>{levelApplied}</strong>. Once
-                assigned, the grading roster will pick them up automatically.
+                Pick a section for <strong>{studentName}</strong> at{' '}
+                <strong>{levelApplied}</strong>. Once assigned, the grading
+                roster will pick them up automatically.
               </>
             ) : (
               <>
-                Pick a section for <strong>{studentName}</strong>. Once assigned, the grading roster will
-                pick them up automatically.
+                Pick a section for <strong>{studentName}</strong>. Once
+                assigned, the grading roster will pick them up automatically.
               </>
             )}
           </DialogDescription>
@@ -133,7 +138,8 @@ export function AssignSectionDialog({
         <div className="space-y-2 py-2">
           {!hasOptions ? (
             <p className="rounded-lg border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
-              No sections available for {levelApplied ?? 'this level'} in {ayCode}. Create a section in{' '}
+              No sections available for {levelApplied ?? 'this level'} in{' '}
+              {ayCode}. Create a section in{' '}
               <span className="font-mono text-xs">/sis/sections</span> first.
             </p>
           ) : (

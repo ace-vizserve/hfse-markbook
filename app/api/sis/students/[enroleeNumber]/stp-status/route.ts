@@ -29,7 +29,7 @@ const StpStatusBodySchema = z.object({
 
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ enroleeNumber: string }> },
+  { params }: { params: Promise<{ enroleeNumber: string }> }
 ) {
   // Per KD #74: admissions is the operational writer; school_admin is read-only oversight.
   const auth = await requireRole(['admissions', 'registrar', 'superadmin']);
@@ -37,21 +37,30 @@ export async function PATCH(
 
   const { enroleeNumber } = await params;
   if (!enroleeNumber.trim()) {
-    return NextResponse.json({ error: 'Missing enroleeNumber' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Missing enroleeNumber' },
+      { status: 400 }
+    );
   }
 
   const url = new URL(request.url);
   const ayCode = (url.searchParams.get('ay') ?? '').trim();
   if (!/^AY\d{4}$/i.test(ayCode)) {
-    return NextResponse.json({ error: 'Invalid or missing ay query param' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid or missing ay query param' },
+      { status: 400 }
+    );
   }
 
   const body = await request.json().catch(() => null);
   const parsed = StpStatusBodySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Pick one of: Pending / Submitted / Approved / Rejected.', details: parsed.error.flatten() },
-      { status: 400 },
+      {
+        error: 'Pick one of: Pending / Submitted / Approved / Rejected.',
+        details: parsed.error.flatten(),
+      },
+      { status: 400 }
     );
   }
   const next = parsed.data.stpApplicationStatus;
@@ -69,9 +78,13 @@ export async function PATCH(
     return NextResponse.json({ error: beforeErr.message }, { status: 500 });
   }
   if (!beforeRow) {
-    return NextResponse.json({ error: 'No status row for this enrolee in this AY' }, { status: 404 });
+    return NextResponse.json(
+      { error: 'No status row for this enrolee in this AY' },
+      { status: 404 }
+    );
   }
-  const before = (beforeRow as { stpApplicationStatus: string | null }).stpApplicationStatus;
+  const before = (beforeRow as { stpApplicationStatus: string | null })
+    .stpApplicationStatus;
 
   if ((before ?? null) === (next ?? null)) {
     return NextResponse.json({ ok: true, changed: false });

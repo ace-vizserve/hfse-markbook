@@ -16,7 +16,7 @@ function Command({
       data-slot="command"
       className={cn(
         'flex h-full w-full flex-col overflow-hidden rounded-md bg-popover text-popover-foreground',
-        className,
+        className
       )}
       {...props}
     />
@@ -40,7 +40,8 @@ function CommandDialog({
     <Dialog {...props}>
       <DialogContent
         showCloseButton={showCloseButton}
-        className={cn('overflow-hidden p-0 sm:max-w-2xl', className)}>
+        className={cn('overflow-hidden p-0 sm:max-w-2xl', className)}
+      >
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <Command className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.14em] [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]]:px-1 [&_[cmdk-input-wrapper]_svg]:size-4 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2.5 [&_[cmdk-item]_svg]:size-4">
           {children}
@@ -58,13 +59,14 @@ function CommandInput({
     <div
       data-slot="command-input-wrapper"
       className="flex h-12 items-center gap-2 border-b border-hairline px-3"
-      cmdk-input-wrapper="">
+      cmdk-input-wrapper=""
+    >
       <SearchIcon className="size-4 shrink-0 text-muted-foreground" />
       <CommandPrimitive.Input
         data-slot="command-input"
         className={cn(
           'flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50',
-          className,
+          className
         )}
         {...props}
       />
@@ -81,7 +83,7 @@ function CommandList({
       data-slot="command-list"
       className={cn(
         'max-h-[420px] scroll-py-2 overflow-x-hidden overflow-y-auto',
-        className,
+        className
       )}
       {...props}
     />
@@ -89,7 +91,7 @@ function CommandList({
 }
 
 function CommandEmpty(
-  props: React.ComponentProps<typeof CommandPrimitive.Empty>,
+  props: React.ComponentProps<typeof CommandPrimitive.Empty>
 ) {
   return (
     <CommandPrimitive.Empty
@@ -109,7 +111,7 @@ function CommandGroup({
       data-slot="command-group"
       className={cn(
         'overflow-hidden p-1 text-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5',
-        className,
+        className
       )}
       {...props}
     />
@@ -138,7 +140,7 @@ function CommandItem({
       data-slot="command-item"
       className={cn(
         "relative flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='text-'])]:text-muted-foreground [&_svg:not([class*='size-'])]:size-4",
-        className,
+        className
       )}
       {...props}
     />
@@ -154,7 +156,7 @@ function CommandShortcut({
       data-slot="command-shortcut"
       className={cn(
         'ml-auto font-mono text-[10px] tracking-[0.12em] text-muted-foreground',
-        className,
+        className
       )}
       {...props}
     />

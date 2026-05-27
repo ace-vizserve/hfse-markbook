@@ -40,7 +40,7 @@ export function UndoRejectionButton({ requestId }: Props) {
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ action: 'undo_rejection' }),
-        },
+        }
       );
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
@@ -57,7 +57,7 @@ export function UndoRejectionButton({ requestId }: Props) {
       router.refresh();
     } catch (e) {
       toast.error(
-        e instanceof Error ? e.message : 'Could not undo the decline.',
+        e instanceof Error ? e.message : 'Could not undo the decline.'
       );
     } finally {
       setBusy(false);

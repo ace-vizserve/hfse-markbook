@@ -26,7 +26,10 @@ const CATEGORY_LABELS: Record<string, string> = {
 function formatEventDate(startDate: string, endDate: string | null): string {
   try {
     const start = new Date(startDate);
-    const startFmt = start.toLocaleString('en-SG', { month: 'short', day: 'numeric' });
+    const startFmt = start.toLocaleString('en-SG', {
+      month: 'short',
+      day: 'numeric',
+    });
     if (!endDate || endDate === startDate) return startFmt;
     const end = new Date(endDate);
     if (end.getMonth() === start.getMonth()) {
@@ -38,7 +41,11 @@ function formatEventDate(startDate: string, endDate: string | null): string {
   }
 }
 
-export function HubUpcomingEventsCard({ events }: { events: UpcomingCalendarEvent[] }) {
+export function HubUpcomingEventsCard({
+  events,
+}: {
+  events: UpcomingCalendarEvent[];
+}) {
   return (
     <Card>
       <CardHeader>
@@ -64,7 +71,10 @@ export function HubUpcomingEventsCard({ events }: { events: UpcomingCalendarEven
         ) : (
           <ul className="divide-y divide-hairline">
             {events.map((event) => (
-              <li key={event.id} className="flex items-start gap-3.5 px-5 py-3.5">
+              <li
+                key={event.id}
+                className="flex items-start gap-3.5 px-5 py-3.5"
+              >
                 <div className="mt-[7px] flex size-2 shrink-0 rounded-full bg-brand-indigo/50" />
                 <div className="min-w-0 flex-1">
                   <p className="font-serif text-[14px] font-semibold leading-snug text-foreground">

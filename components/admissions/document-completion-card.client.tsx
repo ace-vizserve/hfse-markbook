@@ -47,7 +47,7 @@ export function DocumentCompletionCard({
         partial: row.partial,
         missing: row.missing,
       })),
-    [data],
+    [data]
   );
 
   const empty = data.length === 0;
@@ -83,7 +83,9 @@ export function DocumentCompletionCard({
           {empty ? (
             <div className="flex h-[260px] flex-col items-center justify-center gap-2 text-center">
               <FileCheck2 className="size-6 text-muted-foreground/60" />
-              <p className="text-sm font-medium text-foreground">No document data</p>
+              <p className="text-sm font-medium text-foreground">
+                No document data
+              </p>
               <p className="max-w-xs text-xs text-muted-foreground">
                 Document completion appears once applicants have uploaded files.
               </p>

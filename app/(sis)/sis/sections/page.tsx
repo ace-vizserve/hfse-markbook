@@ -23,7 +23,12 @@ import {
 import { PageShell } from '@/components/ui/page-shell';
 import { compareLevelLabels } from '@/lib/sis/levels';
 
-type LevelLite = { id: string; code: string; label: string; level_type: 'primary' | 'secondary' };
+type LevelLite = {
+  id: string;
+  code: string;
+  label: string;
+  level_type: 'primary' | 'secondary';
+};
 type SectionCard = {
   id: string;
   name: string;
@@ -58,7 +63,13 @@ export default async function SisSectionsListPage() {
         .from('sections')
         .select('id, name, level:levels(id, code, label, level_type)')
         .eq('academic_year_id', ay.id)
-    : { data: [] as Array<{ id: string; name: string; level: LevelLite | LevelLite[] | null }> };
+    : {
+        data: [] as Array<{
+          id: string;
+          name: string;
+          level: LevelLite | LevelLite[] | null;
+        }>,
+      };
 
   // Level catalogue for the "New section" dialog.
   const { data: levelRows } = await supabase
@@ -86,7 +97,7 @@ export default async function SisSectionsListPage() {
   }
 
   const getLevel = (l: LevelLite | LevelLite[] | null): LevelLite | null =>
-    Array.isArray(l) ? l[0] ?? null : l;
+    Array.isArray(l) ? (l[0] ?? null) : l;
 
   const cards: SectionCard[] = (sections ?? []).map((s) => {
     const lvl = getLevel(s.level as LevelLite | LevelLite[] | null);
@@ -111,7 +122,7 @@ export default async function SisSectionsListPage() {
   // localeCompare gave alphabetical order ("Primary Five" before "Primary
   // One"), which read wrong on the page.
   const sortedLevels = Array.from(grouped.entries()).sort(([a], [b]) =>
-    compareLevelLabels(a, b),
+    compareLevelLabels(a, b)
   );
   // Sort sections within each level alphabetically (Diamond before Pearl).
   for (const [, sects] of sortedLevels) {
@@ -142,8 +153,9 @@ export default async function SisSectionsListPage() {
             Sections & advisers.
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            Every section for the current academic year. Structural config lives here; day-to-day
-            roster / grading / attendance for each section are in the Markbook module.
+            Every section for the current academic year. Structural config lives
+            here; day-to-day roster / grading / attendance for each section are
+            in the Markbook module.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -155,7 +167,10 @@ export default async function SisSectionsListPage() {
               {ay.ay_code}
             </Badge>
           )}
-          <NewSectionButton levels={levelOptions} ayCode={ay?.ay_code ?? null} />
+          <NewSectionButton
+            levels={levelOptions}
+            ayCode={ay?.ay_code ?? null}
+          />
         </div>
       </header>
 
@@ -180,7 +195,9 @@ export default async function SisSectionsListPage() {
             description="Withdrawn"
             value={totalWithdrawn}
             icon={UserX}
-            footerTitle={totalWithdrawn === 0 ? 'None this year' : 'Still on the roster'}
+            footerTitle={
+              totalWithdrawn === 0 ? 'None this year' : 'Still on the roster'
+            }
             footerDetail="Kept for audit trail"
           />
         </div>
@@ -194,8 +211,8 @@ export default async function SisSectionsListPage() {
               No sections yet
             </div>
             <div className="text-sm text-muted-foreground">
-              Click &ldquo;New section&rdquo; above, or create a new AY via AY Setup to copy
-              sections forward from the prior year.
+              Click &ldquo;New section&rdquo; above, or create a new AY via AY
+              Setup to copy sections forward from the prior year.
             </div>
           </CardContent>
         </Card>

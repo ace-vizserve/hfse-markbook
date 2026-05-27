@@ -18,12 +18,12 @@ export type DailyEntryRow = {
   id: string;
   sectionStudentId: string;
   termId: string;
-  date: string;           // yyyy-MM-dd
+  date: string; // yyyy-MM-dd
   status: AttendanceStatus;
   exReason: ExReason | null;
   periodId: string | null;
   recordedBy: string | null;
-  recordedAt: string;     // ISO 8601 UTC
+  recordedAt: string; // ISO 8601 UTC
 };
 
 export type RollupRow = {
@@ -101,7 +101,7 @@ function normalizeRollup(row: RollupRaw): RollupRow {
 export async function getDailyForSection(
   sectionId: string,
   termId: string,
-  opts?: { fromDate?: string; toDate?: string },
+  opts?: { fromDate?: string; toDate?: string }
 ): Promise<DailyEntryRow[]> {
   const service = createServiceClient();
 
@@ -111,7 +111,10 @@ export async function getDailyForSection(
     .select('id')
     .eq('section_id', sectionId);
   if (enrErr) {
-    console.error('[attendance] getDailyForSection enrolments failed:', enrErr.message);
+    console.error(
+      '[attendance] getDailyForSection enrolments failed:',
+      enrErr.message
+    );
     return [];
   }
   const enrolmentIds = (enrolments ?? []).map((e) => e.id as string);
@@ -120,7 +123,9 @@ export async function getDailyForSection(
   // Step 2: pull daily rows.
   let query = service
     .from('attendance_daily')
-    .select('id, section_student_id, term_id, date, status, ex_reason, period_id, recorded_by, recorded_at')
+    .select(
+      'id, section_student_id, term_id, date, status, ex_reason, period_id, recorded_by, recorded_at'
+    )
     .eq('term_id', termId)
     .in('section_student_id', enrolmentIds)
     .order('recorded_at', { ascending: false });
@@ -130,7 +135,10 @@ export async function getDailyForSection(
 
   const { data, error } = await query;
   if (error) {
-    console.error('[attendance] getDailyForSection fetch failed:', error.message);
+    console.error(
+      '[attendance] getDailyForSection fetch failed:',
+      error.message
+    );
     return [];
   }
 
@@ -152,13 +160,15 @@ export async function getDailyForSection(
 
 export async function getDailyForStudent(
   sectionStudentId: string,
-  termId?: string,
+  termId?: string
 ): Promise<DailyEntryRow[]> {
   const service = createServiceClient();
 
   let query = service
     .from('attendance_daily')
-    .select('id, section_student_id, term_id, date, status, ex_reason, period_id, recorded_by, recorded_at')
+    .select(
+      'id, section_student_id, term_id, date, status, ex_reason, period_id, recorded_by, recorded_at'
+    )
     .eq('section_student_id', sectionStudentId)
     .order('date', { ascending: false })
     .order('recorded_at', { ascending: false });
@@ -167,7 +177,10 @@ export async function getDailyForStudent(
 
   const { data, error } = await query;
   if (error) {
-    console.error('[attendance] getDailyForStudent fetch failed:', error.message);
+    console.error(
+      '[attendance] getDailyForStudent fetch failed:',
+      error.message
+    );
     return [];
   }
 
@@ -189,7 +202,7 @@ export async function getDailyForStudent(
 
 async function getRollupForSection(
   sectionId: string,
-  termId: string,
+  termId: string
 ): Promise<RollupRow[]> {
   const service = createServiceClient();
 
@@ -198,7 +211,10 @@ async function getRollupForSection(
     .select('id')
     .eq('section_id', sectionId);
   if (enrErr) {
-    console.error('[attendance] getRollupForSection enrolments failed:', enrErr.message);
+    console.error(
+      '[attendance] getRollupForSection enrolments failed:',
+      enrErr.message
+    );
     return [];
   }
   const enrolmentIds = (enrolments ?? []).map((e) => e.id as string);
@@ -207,12 +223,15 @@ async function getRollupForSection(
   const { data, error } = await service
     .from('attendance_records')
     .select(
-      'section_student_id, term_id, school_days, days_present, days_late, days_excused, days_absent, attendance_pct',
+      'section_student_id, term_id, school_days, days_present, days_late, days_excused, days_absent, attendance_pct'
     )
     .eq('term_id', termId)
     .in('section_student_id', enrolmentIds);
   if (error) {
-    console.error('[attendance] getRollupForSection fetch failed:', error.message);
+    console.error(
+      '[attendance] getRollupForSection fetch failed:',
+      error.message
+    );
     return [];
   }
 
@@ -224,7 +243,7 @@ export type SectionAttendanceSummary = {
   sectionId: string;
   termId: string;
   studentCount: number;
-  schoolDays: number;             // max across students (handles NC variance)
+  schoolDays: number; // max across students (handles NC variance)
   averageAttendancePct: number | null;
   totalDaysPresent: number;
   totalDaysLate: number;
@@ -235,7 +254,7 @@ export type SectionAttendanceSummary = {
 
 export async function getSectionAttendanceSummary(
   sectionId: string,
-  termId: string,
+  termId: string
 ): Promise<SectionAttendanceSummary> {
   const rollups = await getRollupForSection(sectionId, termId);
   if (rollups.length === 0) {
@@ -271,14 +290,16 @@ export async function getSectionAttendanceSummary(
     totalAbsent += r.daysAbsent;
     totalExcused += r.daysExcused;
     maxDays = Math.max(maxDays, r.schoolDays);
-    if (r.daysAbsent === 0 && r.daysLate === 0 && r.schoolDays > 0) perfect += 1;
+    if (r.daysAbsent === 0 && r.daysLate === 0 && r.schoolDays > 0)
+      perfect += 1;
   }
   return {
     sectionId,
     termId,
     studentCount: rollups.length,
     schoolDays: maxDays,
-    averageAttendancePct: pctCount > 0 ? Math.round((sumPct / pctCount) * 100) / 100 : null,
+    averageAttendancePct:
+      pctCount > 0 ? Math.round((sumPct / pctCount) * 100) / 100 : null,
     totalDaysPresent: totalPresent,
     totalDaysLate: totalLate,
     totalDaysAbsent: totalAbsent,
@@ -292,10 +313,10 @@ export async function getSectionAttendanceSummary(
 // ─────────────────────────────────────────────────────────────────────────
 
 export type MonthlyBreakdownRow = {
-  month: string;          // yyyy-MM
-  label: string;          // "January 2026"
+  month: string; // yyyy-MM
+  label: string; // "January 2026"
   schoolDays: number;
-  present: number;        // P + L + EX (matches rollup semantics)
+  present: number; // P + L + EX (matches rollup semantics)
   late: number;
   excused: number;
   absent: number;
@@ -318,12 +339,15 @@ export type MonthlyBreakdownRow = {
 // rows happen to exist).
 export async function getMonthlyBreakdown(
   sectionStudentId: string,
-  termId?: string,
+  termId?: string
 ): Promise<MonthlyBreakdownRow[]> {
   const daily = await getDailyForStudent(sectionStudentId, termId);
   if (daily.length === 0) return [];
 
-  const byMonth = new Map<string, { P: number; L: number; EX: number; A: number; NC: number }>();
+  const byMonth = new Map<
+    string,
+    { P: number; L: number; EX: number; A: number; NC: number }
+  >();
   for (const r of daily) {
     const key = r.date.slice(0, 7); // yyyy-MM
     if (!byMonth.has(key)) {
@@ -365,7 +389,8 @@ export async function getMonthlyBreakdown(
     const calendarDays = calByMonth.get(month) ?? 0;
     const recordsBasedDays = present + counts.A;
     const schoolDays = calendarDays > 0 ? calendarDays : recordsBasedDays;
-    const pct = schoolDays > 0 ? Math.round((present / schoolDays) * 10000) / 100 : null;
+    const pct =
+      schoolDays > 0 ? Math.round((present / schoolDays) * 10000) / 100 : null;
     const [y, m] = month.split('-');
     const d = new Date(Number(y), Number(m) - 1, 1);
     rows.push({
@@ -396,7 +421,7 @@ export type CompassionateUsage = {
 
 export async function getCompassionateUsage(
   studentId: string,
-  academicYearId: string,
+  academicYearId: string
 ): Promise<CompassionateUsage> {
   const service = createServiceClient();
 
@@ -406,7 +431,8 @@ export async function getCompassionateUsage(
     .select('urgent_compassionate_allowance')
     .eq('id', studentId)
     .maybeSingle();
-  const allowance = (studentRow?.urgent_compassionate_allowance as number | undefined) ?? 5;
+  const allowance =
+    (studentRow?.urgent_compassionate_allowance as number | undefined) ?? 5;
 
   // 2. All section_students rows for this student in the target AY.
   const { data: ssRows } = await service
@@ -433,12 +459,14 @@ export async function getCompassionateUsage(
 // per-student and per-section compassionate-usage helpers.
 async function countLatestCompassionate(
   service: ReturnType<typeof createServiceClient>,
-  sectionStudentIds: string[],
+  sectionStudentIds: string[]
 ): Promise<number> {
   if (sectionStudentIds.length === 0) return 0;
   const { data } = await service
     .from('attendance_daily')
-    .select('section_student_id, date, period_id, status, ex_reason, recorded_at')
+    .select(
+      'section_student_id, date, period_id, status, ex_reason, recorded_at'
+    )
     .in('section_student_id', sectionStudentIds)
     .order('recorded_at', { ascending: false });
 
@@ -468,7 +496,7 @@ async function countLatestCompassionate(
 // size — students + section-students + one walk of `attendance_daily`.
 export async function getCompassionateUsageForSection(
   sectionId: string,
-  academicYearId: string,
+  academicYearId: string
 ): Promise<Map<string, CompassionateUsage>> {
   const service = createServiceClient();
 
@@ -541,7 +569,9 @@ export async function getCompassionateUsageForSection(
   }
   const { data: daily } = await service
     .from('attendance_daily')
-    .select('section_student_id, date, period_id, status, ex_reason, recorded_at')
+    .select(
+      'section_student_id, date, period_id, status, ex_reason, recorded_at'
+    )
     .in('section_student_id', allAyEnrolmentIds)
     .order('recorded_at', { ascending: false });
 
@@ -564,7 +594,7 @@ export async function getCompassionateUsageForSection(
     if (r.status === 'EX' && r.ex_reason === 'compassionate') {
       compassionateBySsId.set(
         r.section_student_id,
-        (compassionateBySsId.get(r.section_student_id) ?? 0) + 1,
+        (compassionateBySsId.get(r.section_student_id) ?? 0) + 1
       );
     }
   }
@@ -583,7 +613,11 @@ export async function getCompassionateUsageForSection(
   for (const [enrolmentId, studentId] of enrolmentToStudent.entries()) {
     const allowance = allowanceByStudent.get(studentId) ?? 5;
     const used = usedByStudent.get(studentId) ?? 0;
-    out.set(enrolmentId, { allowance, used, remaining: Math.max(0, allowance - used) });
+    out.set(enrolmentId, {
+      allowance,
+      used,
+      remaining: Math.max(0, allowance - used),
+    });
   }
   return out;
 }
@@ -603,7 +637,7 @@ export type VacationLeaveUsage = {
 export async function getVacationLeaveUsage(
   studentId: string,
   academicYearId: string,
-  termId: string,
+  termId: string
 ): Promise<VacationLeaveUsage> {
   const service = createServiceClient();
 
@@ -616,7 +650,10 @@ export async function getVacationLeaveUsage(
       .maybeSingle(),
     getSchoolConfig(),
   ]);
-  const override = studentRow?.vacation_leave_allowance_per_term as number | null | undefined;
+  const override = studentRow?.vacation_leave_allowance_per_term as
+    | number
+    | null
+    | undefined;
   const allowance = override ?? schoolConfig.defaultVlAllowancePerTerm;
 
   // 2. AY-wide enrolments for this student.
@@ -646,12 +683,14 @@ export async function getVacationLeaveUsage(
 async function countLatestVacationInTerm(
   service: ReturnType<typeof createServiceClient>,
   sectionStudentIds: string[],
-  termId: string,
+  termId: string
 ): Promise<number> {
   if (sectionStudentIds.length === 0) return 0;
   const { data } = await service
     .from('attendance_daily')
-    .select('section_student_id, date, period_id, status, ex_reason, recorded_at')
+    .select(
+      'section_student_id, date, period_id, status, ex_reason, recorded_at'
+    )
     .in('section_student_id', sectionStudentIds)
     .eq('term_id', termId)
     .order('recorded_at', { ascending: false });
@@ -681,7 +720,7 @@ async function countLatestVacationInTerm(
 export async function getVacationLeaveUsageForSection(
   sectionId: string,
   academicYearId: string,
-  termId: string,
+  termId: string
 ): Promise<Map<string, VacationLeaveUsage>> {
   const service = createServiceClient();
   const schoolConfig = await getSchoolConfig();
@@ -713,7 +752,10 @@ export async function getVacationLeaveUsageForSection(
     enrolmentToStudent.set(r.id, s.id);
     studentIds.add(s.id);
     if (!allowanceByStudent.has(s.id)) {
-      allowanceByStudent.set(s.id, s.vacation_leave_allowance_per_term ?? defaultAllowance);
+      allowanceByStudent.set(
+        s.id,
+        s.vacation_leave_allowance_per_term ?? defaultAllowance
+      );
     }
   }
   if (studentIds.size === 0) return out;
@@ -745,14 +787,21 @@ export async function getVacationLeaveUsageForSection(
       const s = Array.isArray(r.student) ? r.student[0] : r.student;
       if (!s) continue;
       const allowance = allowanceByStudent.get(s.id) ?? defaultAllowance;
-      out.set(r.id, { allowance, usedThisTerm: 0, remainingThisTerm: allowance, termId });
+      out.set(r.id, {
+        allowance,
+        usedThisTerm: 0,
+        remainingThisTerm: allowance,
+        termId,
+      });
     }
     return out;
   }
 
   const { data: daily } = await service
     .from('attendance_daily')
-    .select('section_student_id, date, period_id, status, ex_reason, recorded_at')
+    .select(
+      'section_student_id, date, period_id, status, ex_reason, recorded_at'
+    )
     .in('section_student_id', allAyEnrolmentIds)
     .eq('term_id', termId)
     .order('recorded_at', { ascending: false });
@@ -775,7 +824,7 @@ export async function getVacationLeaveUsageForSection(
     if (r.status === 'EX' && r.ex_reason === 'vacation') {
       vacationBySsId.set(
         r.section_student_id,
-        (vacationBySsId.get(r.section_student_id) ?? 0) + 1,
+        (vacationBySsId.get(r.section_student_id) ?? 0) + 1
       );
     }
   }

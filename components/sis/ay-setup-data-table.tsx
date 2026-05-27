@@ -97,7 +97,9 @@ const columns: ColumnDef<AyTableRow>[] = [
     accessorFn: (row) => row.counts.terms,
     header: 'Terms',
     cell: ({ row }) => (
-      <span className="font-mono text-xs tabular-nums text-right block">{row.original.counts.terms}</span>
+      <span className="font-mono text-xs tabular-nums text-right block">
+        {row.original.counts.terms}
+      </span>
     ),
   },
   {
@@ -105,7 +107,9 @@ const columns: ColumnDef<AyTableRow>[] = [
     accessorFn: (row) => row.counts.sections,
     header: 'Sections',
     cell: ({ row }) => (
-      <span className="font-mono text-xs tabular-nums text-right block">{row.original.counts.sections}</span>
+      <span className="font-mono text-xs tabular-nums text-right block">
+        {row.original.counts.sections}
+      </span>
     ),
   },
   {
@@ -113,7 +117,9 @@ const columns: ColumnDef<AyTableRow>[] = [
     accessorFn: (row) => row.counts.subject_configs,
     header: 'Subject configs',
     cell: ({ row }) => (
-      <span className="font-mono text-xs tabular-nums text-right block">{row.original.counts.subject_configs}</span>
+      <span className="font-mono text-xs tabular-nums text-right block">
+        {row.original.counts.subject_configs}
+      </span>
     ),
   },
   {
@@ -121,7 +127,9 @@ const columns: ColumnDef<AyTableRow>[] = [
     accessorFn: (row) => row.counts.section_students,
     header: 'Students rostered',
     cell: ({ row }) => (
-      <span className="font-mono text-xs tabular-nums text-right block">{row.original.counts.section_students}</span>
+      <span className="font-mono text-xs tabular-nums text-right block">
+        {row.original.counts.section_students}
+      </span>
     ),
   },
   {
@@ -155,9 +163,7 @@ function AyRowActions({ row }: { row: AyTableRow }) {
   const termsWithDates = terms.filter((t) => t.start_date && t.end_date).length;
   const termsTotal = terms.length;
   const datesStatus =
-    termsTotal === 0
-      ? 'No terms'
-      : `${termsWithDates}/${termsTotal} set`;
+    termsTotal === 0 ? 'No terms' : `${termsWithDates}/${termsTotal} set`;
   const datesIncomplete = termsTotal > 0 && termsWithDates < termsTotal;
 
   // Pain-point: a fully-populated row used to show up to 6 controls.
@@ -183,11 +189,17 @@ function AyRowActions({ row }: { row: AyTableRow }) {
         <Button
           size="sm"
           variant={datesIncomplete ? 'warning' : 'outline'}
-          title={datesIncomplete ? `Term dates: ${datesStatus}` : `Term dates (${datesStatus})`}
+          title={
+            datesIncomplete
+              ? `Term dates: ${datesStatus}`
+              : `Term dates (${datesStatus})`
+          }
         >
           <CalendarRange />
           Dates
-          <span className="ml-1 font-mono text-[10px] tabular-nums opacity-80">{datesStatus}</span>
+          <span className="ml-1 font-mono text-[10px] tabular-nums opacity-80">
+            {datesStatus}
+          </span>
         </Button>
       </TermDatesEditor>
 

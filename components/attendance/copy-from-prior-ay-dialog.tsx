@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { CalendarRange, Loader2, Sparkles } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import { toast } from "sonner";
+import { CalendarRange, Loader2, Sparkles } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -15,18 +15,21 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import type { CalendarEventRow, SchoolCalendarRow } from "@/lib/attendance/calendar";
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import type {
+  CalendarEventRow,
+  SchoolCalendarRow,
+} from '@/lib/attendance/calendar';
 import {
   AUDIENCE_LABELS,
   EVENT_CATEGORY_LABELS,
   type Audience,
   type DayType,
   type EventCategory,
-} from "@/lib/schemas/attendance";
+} from '@/lib/schemas/attendance';
 
 // "Copy from prior AY" dialog. Shows a prior-AY's school_calendar
 // overrides (non-school_day rows) AND calendar_events with the new
@@ -52,11 +55,13 @@ function shiftIso(iso: string, targetYear: number): string | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   if (!m) return null;
   let day = Number(m[3]);
-  if (m[2] === "02" && day === 29) {
-    const isLeap = (targetYear % 4 === 0 && targetYear % 100 !== 0) || targetYear % 400 === 0;
+  if (m[2] === '02' && day === 29) {
+    const isLeap =
+      (targetYear % 4 === 0 && targetYear % 100 !== 0) ||
+      targetYear % 400 === 0;
     if (!isLeap) day = 28;
   }
-  return `${targetYear}-${m[2]}-${String(day).padStart(2, "0")}`;
+  return `${targetYear}-${m[2]}-${String(day).padStart(2, '0')}`;
 }
 
 export function CopyFromPriorAyDialog({
@@ -73,11 +78,11 @@ export function CopyFromPriorAyDialog({
 
   // Default every row checked. Tentative defaults true (per Q4 lock —
   // registrar reviews + un-flags). Toggleable batch-wide.
-  const [holidaySelection, setHolidaySelection] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(sourceHolidays.map((h) => [h.id, true])),
-  );
-  const [eventSelection, setEventSelection] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(sourceEvents.map((e) => [e.id, true])),
+  const [holidaySelection, setHolidaySelection] = useState<
+    Record<string, boolean>
+  >(() => Object.fromEntries(sourceHolidays.map((h) => [h.id, true])));
+  const [eventSelection, setEventSelection] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(sourceEvents.map((e) => [e.id, true]))
   );
   const [markTentative, setMarkTentative] = useState(true);
 
@@ -104,19 +109,26 @@ export function CopyFromPriorAyDialog({
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(r);
     }
-    const entries = Array.from(map.entries()).sort(([a], [b]) => (a < b ? -1 : 1));
+    const entries = Array.from(map.entries()).sort(([a], [b]) =>
+      a < b ? -1 : 1
+    );
     return entries.map(([ym, list]) => {
-      const [y, m] = ym.split("-");
-      const label = new Date(Number(y), Number(m) - 1, 1).toLocaleDateString("en-SG", {
-        month: "long",
-        year: "numeric",
-      });
+      const [y, m] = ym.split('-');
+      const label = new Date(Number(y), Number(m) - 1, 1).toLocaleDateString(
+        'en-SG',
+        {
+          month: 'long',
+          year: 'numeric',
+        }
+      );
       return { ym, label, list };
     });
   }, [holidayRows]);
 
-  const holidaySelectedCount = Object.values(holidaySelection).filter(Boolean).length;
-  const eventSelectedCount = Object.values(eventSelection).filter(Boolean).length;
+  const holidaySelectedCount =
+    Object.values(holidaySelection).filter(Boolean).length;
+  const eventSelectedCount =
+    Object.values(eventSelection).filter(Boolean).length;
   const totalSelected = holidaySelectedCount + eventSelectedCount;
   const totalAvailable = sourceHolidays.length + sourceEvents.length;
 
@@ -127,7 +139,9 @@ export function CopyFromPriorAyDialog({
     setEventSelection((s) => ({ ...s, [id]: !s[id] }));
   }
   function setAll(v: boolean) {
-    setHolidaySelection(Object.fromEntries(sourceHolidays.map((h) => [h.id, v])));
+    setHolidaySelection(
+      Object.fromEntries(sourceHolidays.map((h) => [h.id, v]))
+    );
     setEventSelection(Object.fromEntries(sourceEvents.map((e) => [e.id, v])));
   }
 
@@ -141,7 +155,9 @@ export function CopyFromPriorAyDialog({
         label: r.source.label ?? r.source.dayType,
       }));
     const events = eventRows
-      .filter((r) => r.targetStart && r.targetEnd && eventSelection[r.source.id])
+      .filter(
+        (r) => r.targetStart && r.targetEnd && eventSelection[r.source.id]
+      )
       .map((r) => ({
         startDate: r.targetStart!,
         endDate: r.targetEnd!,
@@ -151,15 +167,15 @@ export function CopyFromPriorAyDialog({
       }));
 
     if (dayTypeRows.length === 0 && events.length === 0) {
-      toast.info("Nothing selected — nothing carried over.");
+      toast.info('Nothing selected — nothing carried over.');
       return;
     }
 
     setSaving(true);
     try {
-      const res = await fetch("/api/attendance/calendar/copy-from-prior-ay", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+      const res = await fetch('/api/attendance/calendar/copy-from-prior-ay', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           targetTermId,
           dayTypeRows,
@@ -168,17 +184,19 @@ export function CopyFromPriorAyDialog({
         }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body?.error ?? "save failed");
+      if (!res.ok) throw new Error(body?.error ?? 'save failed');
       const total = (body?.dayTypeRowsCopied ?? 0) + (body?.eventsCopied ?? 0);
       toast.success(
-        `Copied ${total} entr${total === 1 ? "y" : "ies"} to ${targetTermLabel}. ${
-          markTentative ? "Each row is marked tentative — review the dates before locking." : ""
-        }`.trim(),
+        `Copied ${total} entr${total === 1 ? 'y' : 'ies'} to ${targetTermLabel}. ${
+          markTentative
+            ? 'Each row is marked tentative — review the dates before locking.'
+            : ''
+        }`.trim()
       );
       setOpen(false);
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "save failed");
+      toast.error(e instanceof Error ? e.message : 'save failed');
     } finally {
       setSaving(false);
     }
@@ -191,7 +209,8 @@ export function CopyFromPriorAyDialog({
         size="sm"
         disabled
         className="gap-1.5"
-        title={`${sourceAyCode} has no calendar overrides or events on this term — nothing to carry forward.`}>
+        title={`${sourceAyCode} has no calendar overrides or events on this term — nothing to carry forward.`}
+      >
         <CalendarRange className="size-3.5" />
         Copy from {sourceAyCode}
       </Button>
@@ -213,10 +232,12 @@ export function CopyFromPriorAyDialog({
             Copy from prior AY
           </DialogTitle>
           <DialogDescription>
-            Carrying entries from <strong>{sourceAyCode}</strong> into <strong>{targetTermLabel}</strong> (year {targetYear}).
-            Month and day are preserved; the year is shifted to {targetYear}. Fixed-date holidays (National Day,
-            Christmas) land correctly. Moveable ones (CNY, Good Friday, Hari Raya) and any school events will need
-            manual adjustment — review before committing.
+            Carrying entries from <strong>{sourceAyCode}</strong> into{' '}
+            <strong>{targetTermLabel}</strong> (year {targetYear}). Month and
+            day are preserved; the year is shifted to {targetYear}. Fixed-date
+            holidays (National Day, Christmas) land correctly. Moveable ones
+            (CNY, Good Friday, Hari Raya) and any school events will need manual
+            adjustment — review before committing.
           </DialogDescription>
         </DialogHeader>
 
@@ -225,10 +246,20 @@ export function CopyFromPriorAyDialog({
             {totalSelected} of {totalAvailable} selected
           </div>
           <div className="flex gap-1.5">
-            <Button type="button" variant="ghost" size="sm" onClick={() => setAll(true)}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setAll(true)}
+            >
               Select all
             </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setAll(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setAll(false)}
+            >
               Deselect all
             </Button>
           </div>
@@ -237,7 +268,8 @@ export function CopyFromPriorAyDialog({
         <Tabs defaultValue="overrides" className="w-full">
           <TabsList variant="default">
             <TabsTrigger value="overrides">
-              Day-type overrides ({holidaySelectedCount}/{sourceHolidays.length})
+              Day-type overrides ({holidaySelectedCount}/{sourceHolidays.length}
+              )
             </TabsTrigger>
             <TabsTrigger value="events">
               Events ({eventSelectedCount}/{sourceEvents.length})
@@ -258,20 +290,34 @@ export function CopyFromPriorAyDialog({
                     </div>
                     {list.map((r) => {
                       const checked = !!holidaySelection[r.source.id];
-                      const sameDay = r.targetDate && r.source.date.slice(5) === r.targetDate.slice(5);
+                      const sameDay =
+                        r.targetDate &&
+                        r.source.date.slice(5) === r.targetDate.slice(5);
                       return (
                         <label
                           key={r.source.id}
-                          className="flex cursor-pointer items-center gap-3 border-b border-border px-4 py-2 last:border-b-0 hover:bg-muted/30">
-                          <Checkbox checked={checked} onCheckedChange={() => toggleHoliday(r.source.id)} />
+                          className="flex cursor-pointer items-center gap-3 border-b border-border px-4 py-2 last:border-b-0 hover:bg-muted/30"
+                        >
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={() => toggleHoliday(r.source.id)}
+                          />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 font-medium text-foreground">
-                              <span className="truncate">{r.source.label ?? r.source.dayType}</span>
-                              <Badge variant="outline" className="shrink-0 text-[10px]">
+                              <span className="truncate">
+                                {r.source.label ?? r.source.dayType}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className="shrink-0 text-[10px]"
+                              >
                                 {r.source.dayType}
                               </Badge>
-                              {r.source.audience !== "all" && (
-                                <Badge variant="secondary" className="shrink-0 text-[10px]">
+                              {r.source.audience !== 'all' && (
+                                <Badge
+                                  variant="secondary"
+                                  className="shrink-0 text-[10px]"
+                                >
                                   {AUDIENCE_LABELS[r.source.audience]}
                                 </Badge>
                               )}
@@ -279,8 +325,14 @@ export function CopyFromPriorAyDialog({
                             <div className="flex items-center gap-2 font-mono text-[11px] tabular-nums text-muted-foreground">
                               <span>{r.source.date}</span>
                               <span className="text-border">→</span>
-                              <span className={sameDay ? "text-foreground" : "text-amber-700 dark:text-amber-200"}>
-                                {r.targetDate ?? "(bad date)"}
+                              <span
+                                className={
+                                  sameDay
+                                    ? 'text-foreground'
+                                    : 'text-amber-700 dark:text-amber-200'
+                                }
+                              >
+                                {r.targetDate ?? '(bad date)'}
                               </span>
                             </div>
                           </div>
@@ -305,16 +357,26 @@ export function CopyFromPriorAyDialog({
                   return (
                     <label
                       key={r.source.id}
-                      className="flex cursor-pointer items-center gap-3 border-b border-border px-4 py-2 last:border-b-0 hover:bg-muted/30">
-                      <Checkbox checked={checked} onCheckedChange={() => toggleEvent(r.source.id)} />
+                      className="flex cursor-pointer items-center gap-3 border-b border-border px-4 py-2 last:border-b-0 hover:bg-muted/30"
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={() => toggleEvent(r.source.id)}
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 font-medium text-foreground">
                           <span className="truncate">{r.source.label}</span>
-                          <Badge variant="outline" className="shrink-0 text-[10px]">
+                          <Badge
+                            variant="outline"
+                            className="shrink-0 text-[10px]"
+                          >
                             {EVENT_CATEGORY_LABELS[r.source.category]}
                           </Badge>
-                          {r.source.audience !== "all" && (
-                            <Badge variant="secondary" className="shrink-0 text-[10px]">
+                          {r.source.audience !== 'all' && (
+                            <Badge
+                              variant="secondary"
+                              className="shrink-0 text-[10px]"
+                            >
                               {AUDIENCE_LABELS[r.source.audience]}
                             </Badge>
                           )}
@@ -322,12 +384,14 @@ export function CopyFromPriorAyDialog({
                         <div className="flex items-center gap-2 font-mono text-[11px] tabular-nums text-muted-foreground">
                           <span>
                             {r.source.startDate}
-                            {r.source.endDate !== r.source.startDate && ` → ${r.source.endDate}`}
+                            {r.source.endDate !== r.source.startDate &&
+                              ` → ${r.source.endDate}`}
                           </span>
                           <span className="text-border">→</span>
                           <span className="text-amber-700 dark:text-amber-200">
                             {r.targetStart}
-                            {r.targetEnd !== r.targetStart && ` → ${r.targetEnd}`}
+                            {r.targetEnd !== r.targetStart &&
+                              ` → ${r.targetEnd}`}
                           </span>
                         </div>
                       </div>
@@ -345,21 +409,40 @@ export function CopyFromPriorAyDialog({
             onCheckedChange={(v) => setMarkTentative(Boolean(v))}
           />
           <div className="flex-1">
-            <div className="font-medium text-foreground">Mark every copied row as Tentative</div>
+            <div className="font-medium text-foreground">
+              Mark every copied row as Tentative
+            </div>
             <p className="text-[11px] text-muted-foreground">
-              Recommended — review each entry before locking. Tentative rows render with a dashed border in the
-              calendar grid until you confirm them.
+              Recommended — review each entry before locking. Tentative rows
+              render with a dashed border in the calendar grid until you confirm
+              them.
             </p>
           </div>
         </label>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={saving}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setOpen(false)}
+            disabled={saving}
+          >
             Cancel
           </Button>
-          <Button type="button" onClick={commit} disabled={saving || totalSelected === 0} className="gap-1.5">
-            {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
-            {saving ? "Copying…" : `Copy ${totalSelected} entr${totalSelected === 1 ? "y" : "ies"}`}
+          <Button
+            type="button"
+            onClick={commit}
+            disabled={saving || totalSelected === 0}
+            className="gap-1.5"
+          >
+            {saving ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="size-3.5" />
+            )}
+            {saving
+              ? 'Copying…'
+              : `Copy ${totalSelected} entr${totalSelected === 1 ? 'y' : 'ies'}`}
           </Button>
         </DialogFooter>
       </DialogContent>

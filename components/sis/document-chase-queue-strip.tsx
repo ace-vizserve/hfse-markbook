@@ -1,4 +1,9 @@
-import { AlertTriangle, CalendarClock, FileWarning, MailQuestion } from 'lucide-react';
+import {
+  AlertTriangle,
+  CalendarClock,
+  FileWarning,
+  MailQuestion,
+} from 'lucide-react';
 
 import {
   ChartLegendChip,
@@ -84,14 +89,18 @@ const TILES: ChaseTile[] = [
 // Neutral card wash matching MetricCard's pattern — severity is communicated
 // by the gradient icon tile + ChartLegendChip on each card, so the card body
 // itself stays calm and consistent across tiles.
-const TILE_CRAFT = '@container/card bg-gradient-to-t from-primary/5 to-card shadow-xs';
+const TILE_CRAFT =
+  '@container/card bg-gradient-to-t from-primary/5 to-card shadow-xs';
 
 const ICON_TILE_CRAFT: Record<ChaseTile['severity'], string> = {
   bad: 'shadow-brand-tile-destructive bg-gradient-to-br from-destructive to-destructive/70 text-destructive-foreground',
   warn: 'shadow-brand-tile-amber bg-gradient-to-br from-brand-amber to-brand-amber/70 text-ink',
 };
 
-const CHIP_COLOR_BY_SEVERITY: Record<ChaseTile['severity'], ChartLegendChipColor> = {
+const CHIP_COLOR_BY_SEVERITY: Record<
+  ChaseTile['severity'],
+  ChartLegendChipColor
+> = {
   bad: 'very-stale',
   warn: 'stale',
 };
@@ -101,7 +110,11 @@ export async function DocumentChaseQueueStrip({
   lens: moduleKey = 'admissions',
 }: DocumentChaseQueueStripProps) {
   const counts = await getDocumentChaseQueueCounts(ayCode, moduleKey);
-  const total = counts.promised + counts.validation + counts.revalidation + counts.expiringSoon;
+  const total =
+    counts.promised +
+    counts.validation +
+    counts.revalidation +
+    counts.expiringSoon;
 
   if (total === 0) return null;
 
@@ -125,10 +138,15 @@ export async function DocumentChaseQueueStrip({
   const visibleTiles = TILES.filter((tile) => {
     const value = valueByTarget[tile.target] ?? 0;
     if (value === 0) return false;
-    if (moduleKey === 'admissions' && tile.target === 'awaiting-expiring-documents') return false;
+    if (
+      moduleKey === 'admissions' &&
+      tile.target === 'awaiting-expiring-documents'
+    )
+      return false;
     if (
       moduleKey === 'p-files' &&
-      (tile.target === 'awaiting-document-validation' || tile.target === 'awaiting-promised-documents')
+      (tile.target === 'awaiting-document-validation' ||
+        tile.target === 'awaiting-promised-documents')
     ) {
       return false;
     }
@@ -159,10 +177,14 @@ export async function DocumentChaseQueueStrip({
                 className="block w-full text-left"
                 aria-label={`${tile.label}: ${value}`}
               >
-                <Card className={`${TILE_CRAFT} transition-shadow hover:shadow-md`}>
+                <Card
+                  className={`${TILE_CRAFT} transition-shadow hover:shadow-md`}
+                >
                   <CardHeader>
                     <CardAction>
-                      <div className={`flex size-12 items-center justify-center rounded-xl ${ICON_TILE_CRAFT[tile.severity]}`}>
+                      <div
+                        className={`flex size-12 items-center justify-center rounded-xl ${ICON_TILE_CRAFT[tile.severity]}`}
+                      >
                         <Icon className="size-6" aria-hidden />
                       </div>
                     </CardAction>
@@ -178,7 +200,9 @@ export async function DocumentChaseQueueStrip({
                     <div className="mt-2">
                       <ChartLegendChip
                         color={CHIP_COLOR_BY_SEVERITY[tile.severity]}
-                        label={tile.severity === 'bad' ? 'Needs action' : 'Awaiting'}
+                        label={
+                          tile.severity === 'bad' ? 'Needs action' : 'Awaiting'
+                        }
                       />
                     </div>
                   </CardContent>

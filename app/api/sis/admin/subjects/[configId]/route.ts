@@ -16,7 +16,7 @@ import { SubjectConfigUpdateSchema } from '@/lib/schemas/subject-config';
 // constraint `ww_weight + pt_weight + qa_weight = 1.00`.
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ configId: string }> },
+  { params }: { params: Promise<{ configId: string }> }
 ) {
   const auth = await requireRole(['school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -27,23 +27,31 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
-  const { ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots, qa_max } =
-    parsed.data;
+  const {
+    ww_weight,
+    pt_weight,
+    qa_weight,
+    ww_max_slots,
+    pt_max_slots,
+    qa_max,
+  } = parsed.data;
 
   const service = createServiceClient();
 
   const { data: before, error: loadErr } = await service
     .from('subject_configs')
     .select(
-      'id, academic_year_id, subject_id, level_id, ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots, qa_max',
+      'id, academic_year_id, subject_id, level_id, ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots, qa_max'
     )
     .eq('id', configId)
     .maybeSingle();
-  if (loadErr) return NextResponse.json({ error: loadErr.message }, { status: 500 });
-  if (!before) return NextResponse.json({ error: 'config not found' }, { status: 404 });
+  if (loadErr)
+    return NextResponse.json({ error: loadErr.message }, { status: 500 });
+  if (!before)
+    return NextResponse.json({ error: 'config not found' }, { status: 404 });
 
   const ww_dec = (ww_weight / 100).toFixed(2);
   const pt_dec = (pt_weight / 100).toFixed(2);
@@ -60,7 +68,8 @@ export async function PATCH(
       qa_max,
     })
     .eq('id', configId);
-  if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 });
+  if (updateErr)
+    return NextResponse.json({ error: updateErr.message }, { status: 500 });
 
   // Sync all unlocked grading sheets that reference this config. Weights are
   // read at render time (no sync needed), but ww_max_slots / pt_max_slots /
@@ -68,7 +77,7 @@ export async function PATCH(
   // Locked sheets are never touched per Hard Rule #5.
   const { data: syncResult, error: syncErr } = await service.rpc(
     'sync_grading_sheets_from_config',
-    { p_config_id: configId },
+    { p_config_id: configId }
   );
   if (syncErr) {
     // Log and proceed — the config update succeeded; the sync is best-effort.
@@ -101,7 +110,8 @@ export async function PATCH(
         pt_max_slots,
         qa_max,
       },
-      sheets_synced: (syncResult as { updated_sheets?: number } | null)?.updated_sheets ?? 0,
+      sheets_synced:
+        (syncResult as { updated_sheets?: number } | null)?.updated_sheets ?? 0,
     },
   });
 

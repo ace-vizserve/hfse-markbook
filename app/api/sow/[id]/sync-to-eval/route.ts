@@ -11,9 +11,14 @@ import { syncSowTopicsToChecklist } from '@/lib/markbook/sow';
 // Auth: teacher assigned to section, or registrar+.
 export async function POST(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'superadmin']);
+  const auth = await requireRole([
+    'teacher',
+    'registrar',
+    'school_admin',
+    'superadmin',
+  ]);
   if ('error' in auth) return auth.error;
 
   const { id: sowId } = await params;
@@ -26,7 +31,8 @@ export async function POST(
     .eq('id', sowId)
     .maybeSingle();
 
-  if (!sow) return NextResponse.json({ error: 'SOW not found' }, { status: 404 });
+  if (!sow)
+    return NextResponse.json({ error: 'SOW not found' }, { status: 404 });
 
   const { section_id, subject_id, term_id } = sow as {
     section_id: string;
@@ -44,10 +50,16 @@ export async function POST(
       .eq('subject_id', subject_id)
       .eq('role', 'subject_teacher')
       .maybeSingle();
-    if (!assignment) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!assignment)
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const result = await syncSowTopicsToChecklist(sowId, term_id, subject_id, section_id);
+  const result = await syncSowTopicsToChecklist(
+    sowId,
+    term_id,
+    subject_id,
+    section_id
+  );
   if (result.error) {
     return NextResponse.json({ error: result.error }, { status: 500 });
   }
@@ -75,5 +87,9 @@ export async function POST(
     },
   });
 
-  return NextResponse.json({ ok: true, preserved: result.preserved, inserted: result.inserted });
+  return NextResponse.json({
+    ok: true,
+    preserved: result.preserved,
+    inserted: result.inserted,
+  });
 }

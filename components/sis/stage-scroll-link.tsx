@@ -17,7 +17,12 @@ type Props = {
   'aria-label'?: string;
 };
 
-export function StageScrollLink({ targetId, children, className, ...rest }: Props) {
+export function StageScrollLink({
+  targetId,
+  children,
+  className,
+  ...rest
+}: Props) {
   function handleClick(e: React.MouseEvent<HTMLAnchorElement>) {
     e.preventDefault();
     const el = document.getElementById(targetId);
@@ -34,9 +39,10 @@ export function StageScrollLink({ targetId, children, className, ...rest }: Prop
       onClick={handleClick}
       className={cn(
         'rounded-md outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card',
-        className,
+        className
       )}
-      {...rest}>
+      {...rest}
+    >
       {children}
     </a>
   );

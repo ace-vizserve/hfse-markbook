@@ -28,6 +28,7 @@ No new files. Existing helpers (`parseIso`, `formatIso`, `formatHumanDate`, `ban
 The page is currently inside `max-w-6xl` (1152px) which doesn't give the bigger cells room. Scope the widen to just this page.
 
 **Files:**
+
 - Modify: `app/(sis)/sis/calendar/page.tsx`
 
 - [ ] **Step 1: Change the PageShell opener**
@@ -56,6 +57,7 @@ git commit -m "feat(sis-calendar): widen page shell to 1400px for the two-view r
 The current map uses weak washes and flat chip colors. Replace with solid medium tint + inset colored ring (cell) + gradient chip (chip). All Aurora Vault tokens — no Tailwind defaults, no `dark:` branches.
 
 **Files:**
+
 - Modify: `components/attendance/calendar-admin-client.tsx`
 
 - [ ] **Step 1: Replace `DAY_TYPE_STYLES` with the spec §4.1 recipe**
@@ -63,31 +65,36 @@ The current map uses weak washes and flat chip colors. Replace with solid medium
 Locate `const DAY_TYPE_STYLES: Record<DayType, { cell: string; chip: string; blurb: string }>` (around line 79). Replace the whole block with:
 
 ```tsx
-const DAY_TYPE_STYLES: Record<DayType, { cell: string; chip: string; blurb: string }> = {
+const DAY_TYPE_STYLES: Record<
+  DayType,
+  { cell: string; chip: string; blurb: string }
+> = {
   school_day: {
-    cell: "bg-brand-mint/50 text-ink font-semibold shadow-[inset_0_0_0_1px_rgba(34,197,94,0.35)] hover:bg-brand-mint/60",
-    chip: "bg-gradient-to-b from-chart-5 to-chart-3 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]",
-    blurb: "Regular in-school day. Attendance is taken.",
+    cell: 'bg-brand-mint/50 text-ink font-semibold shadow-[inset_0_0_0_1px_rgba(34,197,94,0.35)] hover:bg-brand-mint/60',
+    chip: 'bg-gradient-to-b from-chart-5 to-chart-3 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]',
+    blurb: 'Regular in-school day. Attendance is taken.',
   },
   public_holiday: {
-    cell: "bg-destructive/22 text-ink font-semibold shadow-[inset_0_0_0_1px_rgba(239,68,68,0.45)] hover:bg-destructive/30",
-    chip: "bg-gradient-to-b from-destructive to-destructive/80 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]",
-    blurb: "National / public closure. No attendance taken.",
+    cell: 'bg-destructive/22 text-ink font-semibold shadow-[inset_0_0_0_1px_rgba(239,68,68,0.45)] hover:bg-destructive/30',
+    chip: 'bg-gradient-to-b from-destructive to-destructive/80 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]',
+    blurb: 'National / public closure. No attendance taken.',
   },
   school_holiday: {
-    cell: "bg-brand-amber/35 text-ink font-semibold shadow-[inset_0_0_0_1px_rgba(245,158,11,0.55)] hover:bg-brand-amber/45",
-    chip: "bg-gradient-to-b from-brand-amber to-brand-amber/80 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]",
-    blurb: "School-only closure (staff PD, founder's day). No attendance taken.",
+    cell: 'bg-brand-amber/35 text-ink font-semibold shadow-[inset_0_0_0_1px_rgba(245,158,11,0.55)] hover:bg-brand-amber/45',
+    chip: 'bg-gradient-to-b from-brand-amber to-brand-amber/80 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]',
+    blurb:
+      "School-only closure (staff PD, founder's day). No attendance taken.",
   },
   hbl: {
-    cell: "bg-primary/30 text-ink font-semibold shadow-[inset_0_0_0_1px_rgba(79,70,229,0.4)] hover:bg-primary/40",
-    chip: "bg-gradient-to-b from-brand-indigo to-brand-indigo-deep text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]",
-    blurb: "Home-based learning. Attendance still taken; counts as a school day.",
+    cell: 'bg-primary/30 text-ink font-semibold shadow-[inset_0_0_0_1px_rgba(79,70,229,0.4)] hover:bg-primary/40',
+    chip: 'bg-gradient-to-b from-brand-indigo to-brand-indigo-deep text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]',
+    blurb:
+      'Home-based learning. Attendance still taken; counts as a school day.',
   },
   no_class: {
-    cell: "bg-muted text-muted-foreground font-semibold shadow-[inset_0_0_0_1px_var(--av-hairline-strong)] hover:bg-muted/90",
-    chip: "bg-gradient-to-b from-ink-4 to-ink-3 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]",
-    blurb: "School-wide no class. No attendance taken.",
+    cell: 'bg-muted text-muted-foreground font-semibold shadow-[inset_0_0_0_1px_var(--av-hairline-strong)] hover:bg-muted/90',
+    chip: 'bg-gradient-to-b from-ink-4 to-ink-3 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]',
+    blurb: 'School-wide no class. No attendance taken.',
   },
 };
 ```
@@ -114,6 +121,7 @@ git commit -m "feat(sis-calendar): DAY_TYPE_STYLES → spec §4.1 recipe (solid 
 Introduce `view: 'month' | 'term'` in `CalendarAdminClient` and render the Month/Full-term toggle using `Tabs variant="segmented"` in the existing toolbar.
 
 **Files:**
+
 - Modify: `components/attendance/calendar-admin-client.tsx`
 
 - [ ] **Step 1: Add the Tabs import**
@@ -121,7 +129,7 @@ Introduce `view: 'month' | 'term'` in `CalendarAdminClient` and render the Month
 At the top of the file, add `Tabs`, `TabsList`, `TabsTrigger` to the existing `@/components/ui/tabs` import. If there's no existing tabs import, add a new line after the `Select` import:
 
 ```tsx
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 ```
 
 - [ ] **Step 2: Add view state to `CalendarAdminClient`**
@@ -129,7 +137,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 Locate `export function CalendarAdminClient({...})`. Inside the function body, near the existing `useState` calls (around line 145–157), add:
 
 ```tsx
-const [view, setView] = useState<"month" | "term">("month");
+const [view, setView] = useState<'month' | 'term'>('month');
 ```
 
 Reset this on `switchTerm` — in the existing `function switchTerm(next: string)`, add `setView("month");` right before `setSelectedDates([]);` so that switching terms drops back to month view.
@@ -139,7 +147,7 @@ Reset this on `switchTerm` — in the existing `function switchTerm(next: string
 Find the existing term-selector toolbar row — the `<div className="flex flex-wrap items-end gap-3">` containing the term `Select` (around line 301). In the right-side action cluster (the `<div className="ml-auto flex flex-wrap items-center gap-2">` near line 327), insert the toggle BEFORE the existing `CopyHolidaysDialog` / Multi-select / Add-date-range buttons:
 
 ```tsx
-<Tabs value={view} onValueChange={(v) => setView(v as "month" | "term")}>
+<Tabs value={view} onValueChange={(v) => setView(v as 'month' | 'term')}>
   <TabsList variant="segmented">
     <TabsTrigger value="month">Month</TabsTrigger>
     <TabsTrigger value="term">Full term</TabsTrigger>
@@ -152,26 +160,30 @@ Find the existing term-selector toolbar row — the `<div className="flex flex-w
 Find the existing `{selectedTerm && <MonthView ... />}` block (around line 410). Wrap it with a conditional on `view`:
 
 ```tsx
-{selectedTerm && view === "month" && (
-  <MonthView
-    term={selectedTerm}
-    daysByType={daysByType}
-    multiSelect={multiSelect}
-    selectedDates={selectedDates}
-    onSelectDates={setSelectedDates}
-    onDayClick={(iso) => setDateDialogIso(iso)}
-  />
-)}
-{selectedTerm && view === "term" && (
-  <TermStripView
-    term={selectedTerm}
-    daysByType={daysByType}
-    multiSelect={multiSelect}
-    selectedDates={selectedDates}
-    onSelectDates={setSelectedDates}
-    onDayClick={(iso) => setDateDialogIso(iso)}
-  />
-)}
+{
+  selectedTerm && view === 'month' && (
+    <MonthView
+      term={selectedTerm}
+      daysByType={daysByType}
+      multiSelect={multiSelect}
+      selectedDates={selectedDates}
+      onSelectDates={setSelectedDates}
+      onDayClick={(iso) => setDateDialogIso(iso)}
+    />
+  );
+}
+{
+  selectedTerm && view === 'term' && (
+    <TermStripView
+      term={selectedTerm}
+      daysByType={daysByType}
+      multiSelect={multiSelect}
+      selectedDates={selectedDates}
+      onSelectDates={setSelectedDates}
+      onDayClick={(iso) => setDateDialogIso(iso)}
+    />
+  );
+}
 ```
 
 `TermStripView` is built in Task 6. It'll error-not-defined until then — acceptable interim, fixed before commit.
@@ -213,6 +225,7 @@ git commit -m "feat(sis-calendar): add view state + Tabs segmented toggle (Month
 Rebuild the MonthView card with the spec's eyebrow meta-strip, editorial month caption, weekday header band, 144px cells, serif tabular-nums day numbers. The cell tinting (Task 2) already cascades into here via `modifiersClassNames` so this task is layout + typography only.
 
 **Files:**
+
 - Modify: `components/attendance/calendar-admin-client.tsx`
 
 - [ ] **Step 1: Replace the MonthView `classNames` block**
@@ -251,7 +264,10 @@ className: "[--cell-size:--spacing(36)] w-full",
 Find the `return (<div className="rounded-xl...">...` in MonthView and replace with:
 
 ```tsx
-const monthLabel = month.toLocaleString("en-SG", { month: "long", year: "numeric" });
+const monthLabel = month.toLocaleString('en-SG', {
+  month: 'long',
+  year: 'numeric',
+});
 
 // Count school-day rows already classified for this term (= everything
 // except weekends that has a row in school_calendar).
@@ -267,7 +283,7 @@ const now = new Date();
 const termStart = parseIso(term.startDate);
 const daysSinceStart = Math.max(
   0,
-  Math.floor((now.getTime() - termStart.getTime()) / 86400000),
+  Math.floor((now.getTime() - termStart.getTime()) / 86400000)
 );
 const weekOfTerm = Math.min(13, Math.floor(daysSinceStart / 7) + 1);
 
@@ -330,6 +346,7 @@ git commit -m "feat(sis-calendar): MonthView — editorial layout, 144px cells, 
 Make the in-cell banner chip larger and position it at the bottom-left of the cell. Event labels render as italic mono under the day number (A-view) — add that rendering here too via a `modifiers.eventDay` check passed through.
 
 **Files:**
+
 - Modify: `components/attendance/calendar-admin-client.tsx`
 
 - [ ] **Step 1: Replace DayButtonWithBanner**
@@ -339,7 +356,9 @@ Locate `function DayButtonWithBanner(props: ...)` and replace with:
 ```tsx
 function DayButtonWithBanner(props: React.ComponentProps<typeof DayButton>) {
   const { modifiers, children } = props;
-  const bannerType = bannerTypeFromModifiers(modifiers as Record<string, unknown>);
+  const bannerType = bannerTypeFromModifiers(
+    modifiers as Record<string, unknown>
+  );
   return (
     <CalendarDayButton {...props}>
       <span className="font-serif text-[22px] font-semibold tabular-nums leading-none">
@@ -349,7 +368,9 @@ function DayButtonWithBanner(props: React.ComponentProps<typeof DayButton>) {
       </span>
       {bannerType && (
         <span className="mt-auto self-stretch rounded-md px-2 py-0.5 text-center font-mono text-[9px] font-semibold uppercase leading-tight tracking-[0.14em]">
-          <span className={`inline-block rounded-md px-1.5 py-0.5 ${DAY_TYPE_STYLES[bannerType].chip}`}>
+          <span
+            className={`inline-block rounded-md px-1.5 py-0.5 ${DAY_TYPE_STYLES[bannerType].chip}`}
+          >
             {DAY_TYPE_SHORT_LABEL[bannerType]}
           </span>
         </span>
@@ -381,6 +402,7 @@ git commit -m "feat(sis-calendar): DayButtonWithBanner — bottom-anchored gradi
 Replace the Task 3 stub with the real term strip. 7-column grid of cells with a 56px left rail for W1..W13. Each week row spans the same 7 weekdays as the month view. Uses the same `DAY_TYPE_STYLES[...].cell` recipe for coloring.
 
 **Files:**
+
 - Modify: `components/attendance/calendar-admin-client.tsx`
 
 - [ ] **Step 1: Build the week-grouping helper**
@@ -407,7 +429,7 @@ function buildStripWeeks(
   termStartIso: string,
   termEndIso: string,
   dayTypeByIso: Map<string, DayType>,
-  eventIsos: Set<string>,
+  eventIsos: Set<string>
 ): StripWeek[] {
   const start = parseIso(termStartIso);
   const end = parseIso(termEndIso);
@@ -428,7 +450,8 @@ function buildStripWeeks(
     for (let i = 0; i < 7; i++) {
       const d = new Date(cursor);
       const iso = formatIso(d);
-      const inRange = d.getTime() >= start.getTime() && d.getTime() <= end.getTime();
+      const inRange =
+        d.getTime() >= start.getTime() && d.getTime() <= end.getTime();
       if (!inRange) {
         days.push(null);
       } else {
@@ -475,10 +498,14 @@ function TermStripView({
   // Flatten daysByType into an iso→dayType map for O(1) lookup per cell.
   const dayTypeByIso = useMemo(() => {
     const m = new Map<string, DayType>();
-    (Object.keys(daysByType) as Array<keyof typeof daysByType>).forEach((key) => {
-      if (key === "event") return;
-      daysByType[key as DayType].forEach((d) => m.set(formatIso(d), key as DayType));
-    });
+    (Object.keys(daysByType) as Array<keyof typeof daysByType>).forEach(
+      (key) => {
+        if (key === 'event') return;
+        daysByType[key as DayType].forEach((d) =>
+          m.set(formatIso(d), key as DayType)
+        );
+      }
+    );
     return m;
   }, [daysByType]);
 
@@ -489,13 +516,14 @@ function TermStripView({
   }, [daysByType]);
 
   const weeks = useMemo(
-    () => buildStripWeeks(term.startDate, term.endDate, dayTypeByIso, eventIsoSet),
-    [term.startDate, term.endDate, dayTypeByIso, eventIsoSet],
+    () =>
+      buildStripWeeks(term.startDate, term.endDate, dayTypeByIso, eventIsoSet),
+    [term.startDate, term.endDate, dayTypeByIso, eventIsoSet]
   );
 
   const selectedIsoSet = useMemo(
     () => new Set(selectedDates.map(formatIso)),
-    [selectedDates],
+    [selectedDates]
   );
 
   function toggleSelection(iso: string, d: Date) {
@@ -529,7 +557,7 @@ function TermStripView({
         {/* Weekday header */}
         <div className="mb-1 grid grid-cols-[56px_repeat(7,1fr)] gap-1">
           <div />
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
             <div
               key={d}
               className="rounded-md bg-muted/40 px-2 py-1.5 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5)]"
@@ -553,20 +581,20 @@ function TermStripView({
                   return <div key={idx} className="aspect-[1.2/1] opacity-0" />;
                 }
                 const tintClass = d.isWeekend
-                  ? "bg-background text-hairline-strong shadow-[inset_0_0_0_1px_var(--av-hairline)]"
+                  ? 'bg-background text-hairline-strong shadow-[inset_0_0_0_1px_var(--av-hairline)]'
                   : d.dayType
                     ? DAY_TYPE_STYLES[d.dayType].cell
-                    : "bg-background shadow-[inset_0_0_0_1px_var(--av-hairline)]";
+                    : 'bg-background shadow-[inset_0_0_0_1px_var(--av-hairline)]';
                 const isSelected = selectedIsoSet.has(d.iso);
                 const todayClass = d.isToday
-                  ? "shadow-[inset_0_0_0_2px_var(--av-indigo)]"
-                  : "";
+                  ? 'shadow-[inset_0_0_0_2px_var(--av-indigo)]'
+                  : '';
                 const selectedClass = isSelected
-                  ? "scale-[0.98] ring-2 ring-brand-indigo/40 ring-offset-1 ring-offset-card"
-                  : "";
+                  ? 'scale-[0.98] ring-2 ring-brand-indigo/40 ring-offset-1 ring-offset-card'
+                  : '';
                 const firstOfMonthClass = d.isFirstOfMonth
-                  ? "mt-2 border-t border-hairline/40 pt-2"
-                  : "";
+                  ? 'mt-2 border-t border-hairline/40 pt-2'
+                  : '';
                 const clickable = !d.isWeekend;
 
                 return (
@@ -580,16 +608,17 @@ function TermStripView({
                       else onDayClick(d.iso);
                     }}
                     className={[
-                      "relative aspect-[1.2/1] rounded-md p-1 text-left font-serif text-[13px] font-semibold tabular-nums leading-none transition-all",
+                      'relative aspect-[1.2/1] rounded-md p-1 text-left font-serif text-[13px] font-semibold tabular-nums leading-none transition-all',
                       tintClass,
                       todayClass,
                       selectedClass,
                       firstOfMonthClass,
-                      clickable && "hover:-translate-y-0.5 hover:shadow-md cursor-pointer",
-                      !clickable && "cursor-not-allowed",
+                      clickable &&
+                        'hover:-translate-y-0.5 hover:shadow-md cursor-pointer',
+                      !clickable && 'cursor-not-allowed',
                     ]
                       .filter(Boolean)
-                      .join(" ")}
+                      .join(' ')}
                     title={formatHumanDate(d.iso)}
                   >
                     <span>{d.date.getDate()}</span>
@@ -630,6 +659,7 @@ git commit -m "feat(sis-calendar): TermStripView — 13-week strip with left rai
 Apply the spec §4.2 state modifiers to the MonthView. `CalendarDayButton` already carries the basic gradient selected-state from the primitive work; add the multi-select halo + today's inset 2px ring via `modifiersClassNames`.
 
 **Files:**
+
 - Modify: `components/attendance/calendar-admin-client.tsx`
 
 - [ ] **Step 1: Extend modifiersClassNames in MonthView**
@@ -686,6 +716,7 @@ git commit -m "feat(sis-calendar): MonthView today + multi-select state modifier
 The top-of-page legend strip already migrated to `ChartLegendChip` earlier this session. Verify it reads cleanly with the new cell recipe colors, and add a thin hairline border around it for craft parity with the calendar card.
 
 **Files:**
+
 - Modify: `components/attendance/calendar-admin-client.tsx`
 
 - [ ] **Step 1: Tighten the legend strip styling**
@@ -726,6 +757,7 @@ git commit -m "feat(sis-calendar): legend strip — hairline border + matching i
 Visual smoke across both views + edge cases. No code changes unless a bug surfaces.
 
 **Files:**
+
 - No code changes unless a smoke issue is found.
 
 - [ ] **Step 1: Clean build**
@@ -747,6 +779,7 @@ Expected: `CLEAN` output (or no matches) — the file should have zero Tailwind 
 - [ ] **Step 3: Visual smoke — Month view**
 
 Load `/sis/calendar` in a browser at 1440px. Verify:
+
 - Card carries the ring-inset + shadow-sm craft
 - Eyebrow strip shows `TERM 1 · WEEK N OF 13` left, `NN days classified` right — in mono uppercase
 - Month caption renders serif `text-[30px]`, left-aligned
@@ -761,6 +794,7 @@ Load `/sis/calendar` in a browser at 1440px. Verify:
 - [ ] **Step 4: Visual smoke — Full term view**
 
 Click "Full term" in the toolbar toggle. Verify:
+
 - All 13 weeks stack without scrolling on a 1440 × 900 viewport
 - Left rail shows W1..W13 in mono uppercase
 - Cells ~65–80px wide

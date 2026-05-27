@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const { email, role, displayName, password } = parsed.data;
@@ -39,31 +39,34 @@ export async function POST(request: NextRequest) {
 
   // Pre-check for an existing user to give a clean 409 instead of a 500 from
   // the Auth layer's unique-email constraint.
-  const { data: existing } = await service.auth.admin.listUsers({ perPage: 1000 });
+  const { data: existing } = await service.auth.admin.listUsers({
+    perPage: 1000,
+  });
   const alreadyExists = existing?.users.some(
-    (u) => u.email?.toLowerCase() === email.toLowerCase(),
+    (u) => u.email?.toLowerCase() === email.toLowerCase()
   );
   if (alreadyExists) {
     return NextResponse.json(
       { error: `A user with email ${email} already exists.` },
-      { status: 409 },
+      { status: 409 }
     );
   }
 
   // Single createUser call sets email + password + role (app_metadata) +
   // display_name (user_metadata) atomically. email_confirm: true marks
   // the email as already-verified so the user can sign in on first attempt.
-  const { data: created, error: createErr } = await service.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    app_metadata: { role },
-    user_metadata: displayName ? { display_name: displayName } : undefined,
-  });
+  const { data: created, error: createErr } =
+    await service.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      app_metadata: { role },
+      user_metadata: displayName ? { display_name: displayName } : undefined,
+    });
   if (createErr || !created?.user) {
     return NextResponse.json(
       { error: createErr?.message ?? 'user create failed' },
-      { status: 500 },
+      { status: 500 }
     );
   }
 

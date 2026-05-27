@@ -1,6 +1,10 @@
 import 'server-only';
 
-import { buildCompareCells, type CompareInput, type CompareResult } from '@/lib/dashboard/compare';
+import {
+  buildCompareCells,
+  type CompareInput,
+  type CompareResult,
+} from '@/lib/dashboard/compare';
 
 import { getMarkbookKpisRange, type MarkbookRangeKpis } from './dashboard';
 
@@ -13,7 +17,7 @@ export type MarkbookCompareKpis = MarkbookRangeKpis;
  * compare mode shares cache slots with the operational dashboard.
  */
 export async function getMarkbookCompareKpis(
-  input: CompareInput,
+  input: CompareInput
 ): Promise<CompareResult<MarkbookCompareKpis>> {
   const cells = await buildCompareCells(input);
   if (cells.length === 0) return { cells: [] };
@@ -26,8 +30,8 @@ export async function getMarkbookCompareKpis(
         to: cell.range.to,
         cmpFrom: null,
         cmpTo: null,
-      }),
-    ),
+      })
+    )
   );
 
   return {

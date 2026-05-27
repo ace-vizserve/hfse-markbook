@@ -1,6 +1,12 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, ArrowLeftRight, RotateCcw, UserCheck, UserMinus } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowLeftRight,
+  RotateCcw,
+  UserCheck,
+  UserMinus,
+} from 'lucide-react';
 
 import { getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -44,7 +50,9 @@ export default async function MovementsPage({
     redirect('/');
   }
 
-  const allEvents = await getMovementEvents(currentAy.ay_code, { includeAllAYs });
+  const allEvents = await getMovementEvents(currentAy.ay_code, {
+    includeAllAYs,
+  });
 
   // When a reason search is active, narrow to withdrawn events matching the
   // substring (case-insensitive). KPI counts derive from the same filtered
@@ -55,7 +63,7 @@ export default async function MovementsPage({
           e.kind === 'withdrawn' &&
           ((e as Extract<typeof e, { kind: 'withdrawn' }>).reason ?? '')
             .toLowerCase()
-            .includes(reasonSearch.toLowerCase()),
+            .includes(reasonSearch.toLowerCase())
       )
     : allEvents;
 
@@ -87,7 +95,8 @@ export default async function MovementsPage({
           Enrolment movements.
         </h1>
         <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-          Track every section transfer, withdrawal, and late enrolment in one place.
+          Track every section transfer, withdrawal, and late enrolment in one
+          place.
         </p>
       </header>
 

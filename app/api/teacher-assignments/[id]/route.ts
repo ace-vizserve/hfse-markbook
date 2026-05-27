@@ -7,7 +7,7 @@ import { logAction } from '@/lib/audit/log-action';
 // Removes an assignment. Now audit-logged via the generic audit_log table.
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -22,8 +22,12 @@ export async function DELETE(
     .eq('id', id)
     .maybeSingle();
 
-  const { error } = await service.from('teacher_assignments').delete().eq('id', id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const { error } = await service
+    .from('teacher_assignments')
+    .delete()
+    .eq('id', id);
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
 
   await logAction({
     service,

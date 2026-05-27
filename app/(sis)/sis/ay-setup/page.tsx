@@ -3,7 +3,10 @@ import { redirect } from 'next/navigation';
 import { ArrowLeft, CalendarRange } from 'lucide-react';
 
 import { NewAyButton } from '@/components/sis/ay-setup-wizard';
-import { AySetupDataTable, type AyTableRow } from '@/components/sis/ay-setup-data-table';
+import {
+  AySetupDataTable,
+  type AyTableRow,
+} from '@/components/sis/ay-setup-data-table';
 import { PageShell } from '@/components/ui/page-shell';
 import {
   checkAyEmpty,
@@ -39,7 +42,7 @@ export default async function AySetupPage() {
       ays.map(async (ay) => {
         const res = await checkAyEmpty(ay.ay_code);
         blockersByAy[ay.ay_code] = res.blockers;
-      }),
+      })
     );
   }
 
@@ -74,8 +77,9 @@ export default async function AySetupPage() {
             Academic years.
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            Create new academic years, switch the active AY, and retire empty ones.
-            Creating an AY sets up its terms, sections, subjects, and admissions data all at once.
+            Create new academic years, switch the active AY, and retire empty
+            ones. Creating an AY sets up its terms, sections, subjects, and
+            admissions data all at once.
           </p>
         </div>
         <NewAyButton preview={preview} />
@@ -89,25 +93,28 @@ export default async function AySetupPage() {
         </p>
         <ol className="ml-4 list-decimal space-y-1">
           <li>
-            <strong>Create the new AY</strong> here — sets up terms, sections, subjects, and admissions
-            data all at once. The new AY shows up in the switcher right away across every page.
-            (admin + superadmin)
+            <strong>Create the new AY</strong> here — sets up terms, sections,
+            subjects, and admissions data all at once. The new AY shows up in
+            the switcher right away across every page. (admin + superadmin)
           </li>
           <li>
-            <strong>Verify the parent-portal team</strong> is ready to write to the new admissions
-            tables. The canonical DDL is frozen in{' '}
-            <code className="rounded bg-muted px-1 py-0.5">docs/context/10-parent-portal.md</code>.
+            <strong>Verify the parent-portal team</strong> is ready to write to
+            the new admissions tables. The canonical DDL is frozen in{' '}
+            <code className="rounded bg-muted px-1 py-0.5">
+              docs/context/10-parent-portal.md
+            </code>
+            .
           </li>
           <li>
-            <strong>Switch active</strong> on the new AY when ready. (admin + superadmin)
+            <strong>Switch active</strong> on the new AY when ready. (admin +
+            superadmin)
           </li>
           <li>
-            <strong>Optional:</strong> delete a mis-created AY if it&apos;s still empty. (superadmin
-            only)
+            <strong>Optional:</strong> delete a mis-created AY if it&apos;s
+            still empty. (superadmin only)
           </li>
         </ol>
       </section>
     </PageShell>
   );
 }
-

@@ -60,7 +60,7 @@ export function WriteupRosterClient({
       errorMessage: null,
       dirtyTick: 0,
       lastSavedTick: 0,
-    })),
+    }))
   );
 
   // Timer + in-flight tick maps keyed by student_id. Refs (not state) —
@@ -80,7 +80,9 @@ export function WriteupRosterClient({
   const saveRow = useCallback(
     async (studentId: string, text: string, submit = false) => {
       setRows((prev) =>
-        prev.map((r) => (r.student_id === studentId ? { ...r, status: 'saving' } : r)),
+        prev.map((r) =>
+          r.student_id === studentId ? { ...r, status: 'saving' } : r
+        )
       );
       const tick = Date.now();
       inFlight.current.set(studentId, tick);
@@ -113,18 +115,20 @@ export function WriteupRosterClient({
                   submittedAt: body?.submitted_at ?? r.submittedAt,
                   lastSavedTick: r.dirtyTick,
                 }
-              : r,
-          ),
+              : r
+          )
         );
 
         // Decay the "saved" badge back to idle after a moment.
         setTimeout(() => {
           setRows((prev) =>
             prev.map((r) =>
-              r.student_id === studentId && r.status === 'saved' && r.dirtyTick === r.lastSavedTick
+              r.student_id === studentId &&
+              r.status === 'saved' &&
+              r.dirtyTick === r.lastSavedTick
                 ? { ...r, status: 'idle' }
-                : r,
-            ),
+                : r
+            )
           );
         }, 1500);
 
@@ -144,8 +148,8 @@ export function WriteupRosterClient({
                   status: 'error',
                   errorMessage: e instanceof Error ? e.message : 'save failed',
                 }
-              : r,
-          ),
+              : r
+          )
         );
         toast.error(e instanceof Error ? e.message : 'save failed');
       } finally {
@@ -154,7 +158,7 @@ export function WriteupRosterClient({
         }
       }
     },
-    [termId, sectionId, router],
+    [termId, sectionId, router]
   );
 
   function handleChange(studentId: string, next: string) {
@@ -168,8 +172,8 @@ export function WriteupRosterClient({
               errorMessage: null,
               dirtyTick: r.dirtyTick + 1,
             }
-          : r,
-      ),
+          : r
+      )
     );
     // Debounce per-row.
     const existing = timers.current.get(studentId);
@@ -196,7 +200,9 @@ export function WriteupRosterClient({
 
   const countSummary = useMemo(() => {
     const submitted = rows.filter((r) => r.submitted).length;
-    const drafted = rows.filter((r) => !r.submitted && r.writeup.trim().length > 0).length;
+    const drafted = rows.filter(
+      (r) => !r.submitted && r.writeup.trim().length > 0
+    ).length;
     const empty = rowCount - submitted - drafted;
     return { submitted, drafted, empty };
   }, [rows, rowCount]);
@@ -213,14 +219,21 @@ export function WriteupRosterClient({
     <div className="space-y-4">
       {/* Roster summary */}
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-muted/30 px-4 py-2.5 text-[11px]">
-        <StatusChip label="Submitted" value={countSummary.submitted} tone="success" />
+        <StatusChip
+          label="Submitted"
+          value={countSummary.submitted}
+          tone="success"
+        />
         <StatusChip label="Drafted" value={countSummary.drafted} tone="info" />
         <StatusChip label="Empty" value={countSummary.empty} tone="muted" />
       </div>
 
       <ul className="divide-y divide-border rounded-xl border border-border bg-card">
         {rows.map((r) => (
-          <li key={r.student_id} className="grid grid-cols-1 gap-3 px-5 py-4 md:grid-cols-[260px_1fr_120px]">
+          <li
+            key={r.student_id}
+            className="grid grid-cols-1 gap-3 px-5 py-4 md:grid-cols-[260px_1fr_120px]"
+          >
             {/* Student identity column */}
             <div className="min-w-0">
               <div className="flex items-baseline gap-2">
@@ -269,7 +282,11 @@ export function WriteupRosterClient({
                 type="button"
                 size="sm"
                 variant={r.submitted ? 'outline' : 'default'}
-                disabled={!canEdit || r.status === 'saving' || r.writeup.trim().length === 0}
+                disabled={
+                  !canEdit ||
+                  r.status === 'saving' ||
+                  r.writeup.trim().length === 0
+                }
                 onClick={() => handleSubmit(r.student_id)}
                 className="gap-1.5"
               >
@@ -315,8 +332,15 @@ function StatusChip({
   );
 }
 
-function StatusText({ status, error }: { status: RowStatus; error: string | null }) {
-  if (status === 'saving') return <span className="text-muted-foreground">Saving…</span>;
+function StatusText({
+  status,
+  error,
+}: {
+  status: RowStatus;
+  error: string | null;
+}) {
+  if (status === 'saving')
+    return <span className="text-muted-foreground">Saving…</span>;
   if (status === 'saved')
     return (
       <span className="inline-flex items-center gap-1 text-primary">
@@ -324,10 +348,17 @@ function StatusText({ status, error }: { status: RowStatus; error: string | null
         Saved
       </span>
     );
-  if (status === 'dirty') return <span className="text-muted-foreground">Unsaved</span>;
+  if (status === 'dirty')
+    return <span className="text-muted-foreground">Unsaved</span>;
   if (status === 'error')
-    return <span className="text-destructive">Error: {error ?? 'save failed'}</span>;
-  return <Badge variant="outline" className="h-4 px-1.5 font-mono text-[9px]">Idle</Badge>;
+    return (
+      <span className="text-destructive">Error: {error ?? 'save failed'}</span>
+    );
+  return (
+    <Badge variant="outline" className="h-4 px-1.5 font-mono text-[9px]">
+      Idle
+    </Badge>
+  );
 }
 
 function formatSubmittedAt(iso: string): string {

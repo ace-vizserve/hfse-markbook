@@ -13,7 +13,11 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import type { CompareInput } from '@/lib/dashboard/compare';
 
@@ -48,7 +52,9 @@ export function CompareToolbar({
     const t = new Date();
     for (let i = 0; i < monthLookback; i++) {
       const d = new Date(t.getFullYear(), t.getMonth() - i, 1);
-      out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+      out.push(
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      );
     }
     return out;
   })();
@@ -79,7 +85,10 @@ export function CompareToolbar({
   const cellLabel = (v: string) => {
     if (kind === 'term') return v;
     const [y, m] = v.split('-').map(Number);
-    return new Date(y, m - 1, 1).toLocaleDateString('en-SG', { month: 'short', year: 'numeric' });
+    return new Date(y, m - 1, 1).toLocaleDateString('en-SG', {
+      month: 'short',
+      year: 'numeric',
+    });
   };
 
   return (
@@ -112,12 +121,16 @@ export function CompareToolbar({
                     <CommandItem
                       key={code}
                       value={code}
-                      onSelect={() => setSelectedAys((cur) => toggle(cur, code))}
+                      onSelect={() =>
+                        setSelectedAys((cur) => toggle(cur, code))
+                      }
                     >
                       <span
                         className={cn(
                           'mr-2 size-4 rounded border',
-                          selected ? 'bg-primary border-primary' : 'border-border',
+                          selected
+                            ? 'bg-primary border-primary'
+                            : 'border-border'
                         )}
                       />
                       <span className="font-mono">{code}</span>
@@ -164,7 +177,9 @@ export function CompareToolbar({
                       <span
                         className={cn(
                           'mr-2 size-4 rounded border',
-                          selected ? 'bg-primary border-primary' : 'border-border',
+                          selected
+                            ? 'bg-primary border-primary'
+                            : 'border-border'
                         )}
                       />
                       <span className="font-mono">{cellLabel(v)}</span>

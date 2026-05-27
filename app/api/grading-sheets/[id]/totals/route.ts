@@ -2,7 +2,10 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { requireRole } from '@/lib/auth/require-role';
 import { createServiceClient } from '@/lib/supabase/service';
 import { computeQuarterly } from '@/lib/compute/quarterly';
-import { buildTotalsAuditRows, writeAuditRows } from '@/lib/audit/log-grade-change';
+import {
+  buildTotalsAuditRows,
+  writeAuditRows,
+} from '@/lib/audit/log-grade-change';
 import { logAction, type AuditAction } from '@/lib/audit/log-action';
 import {
   CORRECTION_REASONS,
@@ -24,30 +27,29 @@ import { requireCurrentAyCode } from '@/lib/academic-year';
 // logged as action='grade_correction' on the grading sheet.
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const { id: sheetId } = await params;
-  const body = (await request.json().catch(() => null)) as
-    | {
-        ww_totals?: number[];
-        pt_totals?: number[];
-        qa_total?: number | null;
-        correction_reason?: string;
-        correction_justification?: string;
-        approval_reference?: string; // legacy — rejected
-      }
-    | null;
-  if (!body) return NextResponse.json({ error: 'invalid body' }, { status: 400 });
+  const body = (await request.json().catch(() => null)) as {
+    ww_totals?: number[];
+    pt_totals?: number[];
+    qa_total?: number | null;
+    correction_reason?: string;
+    correction_justification?: string;
+    approval_reference?: string; // legacy — rejected
+  } | null;
+  if (!body)
+    return NextResponse.json({ error: 'invalid body' }, { status: 400 });
   if (body.approval_reference) {
     return NextResponse.json(
       {
         error:
           'approval_reference is no longer accepted — use correction_reason + correction_justification',
       },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -57,34 +59,45 @@ export async function PATCH(
     .from('grading_sheets')
     .select(
       `id, ww_totals, pt_totals, qa_total, is_locked,
-       subject_config:subject_configs(ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots)`,
+       subject_config:subject_configs(ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots)`
     )
     .eq('id', sheetId)
     .single();
   if (sheetErr || !sheet) {
     return NextResponse.json({ error: 'sheet not found' }, { status: 404 });
   }
-  const config = Array.isArray(sheet.subject_config) ? sheet.subject_config[0] : sheet.subject_config;
+  const config = Array.isArray(sheet.subject_config)
+    ? sheet.subject_config[0]
+    : sheet.subject_config;
   if (!config) {
-    return NextResponse.json({ error: 'missing subject_config' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'missing subject_config' },
+      { status: 500 }
+    );
   }
 
   // Sprint 9 — Path B correction metadata for post-lock totals edits.
-  let correctionMeta: { reason: CorrectionReason; justification: string } | null = null;
+  let correctionMeta: {
+    reason: CorrectionReason;
+    justification: string;
+  } | null = null;
   let approval_reference = '';
   if (sheet.is_locked) {
     const reason = body.correction_reason;
-    if (!reason || !(CORRECTION_REASONS as readonly string[]).includes(reason)) {
+    if (
+      !reason ||
+      !(CORRECTION_REASONS as readonly string[]).includes(reason)
+    ) {
       return NextResponse.json(
         { error: 'post-lock totals edits require a valid correction_reason' },
-        { status: 400 },
+        { status: 400 }
       );
     }
     const justification = (body.correction_justification ?? '').trim();
     if (justification.length < 20) {
       return NextResponse.json(
         { error: 'correction_justification must be at least 20 characters' },
-        { status: 400 },
+        { status: 400 }
       );
     }
     correctionMeta = { reason: reason as CorrectionReason, justification };
@@ -105,20 +118,26 @@ export async function PATCH(
   if (after.ww_totals.length > config.ww_max_slots) {
     return NextResponse.json(
       { error: `too many WW slots (max ${config.ww_max_slots})` },
-      { status: 400 },
+      { status: 400 }
     );
   }
   if (after.pt_totals.length > config.pt_max_slots) {
     return NextResponse.json(
       { error: `too many PT slots (max ${config.pt_max_slots})` },
-      { status: 400 },
+      { status: 400 }
     );
   }
-  if (after.ww_totals.some(v => typeof v !== 'number' || v <= 0)) {
-    return NextResponse.json({ error: 'ww_totals must be positive numbers' }, { status: 400 });
+  if (after.ww_totals.some((v) => typeof v !== 'number' || v <= 0)) {
+    return NextResponse.json(
+      { error: 'ww_totals must be positive numbers' },
+      { status: 400 }
+    );
   }
-  if (after.pt_totals.some(v => typeof v !== 'number' || v <= 0)) {
-    return NextResponse.json({ error: 'pt_totals must be positive numbers' }, { status: 400 });
+  if (after.pt_totals.some((v) => typeof v !== 'number' || v <= 0)) {
+    return NextResponse.json(
+      { error: 'pt_totals must be positive numbers' },
+      { status: 400 }
+    );
   }
 
   // Apply totals update.
@@ -131,23 +150,32 @@ export async function PATCH(
       updated_at: new Date().toISOString(),
     })
     .eq('id', sheetId);
-  if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
+  if (upErr)
+    return NextResponse.json({ error: upErr.message }, { status: 500 });
 
   // Recompute every entry's PS / initial / quarterly against the new totals.
   const { data: entries, error: entErr } = await service
     .from('grade_entries')
     .select('id, ww_scores, pt_scores, qa_score')
     .eq('grading_sheet_id', sheetId);
-  if (entErr) return NextResponse.json({ error: entErr.message }, { status: 500 });
+  if (entErr)
+    return NextResponse.json({ error: entErr.message }, { status: 500 });
 
   const pad = (arr: (number | null)[] | null, length: number) => {
     const out: (number | null)[] = new Array(length).fill(null);
-    for (let i = 0; i < Math.min((arr ?? []).length, length); i++) out[i] = (arr ?? [])[i] ?? null;
+    for (let i = 0; i < Math.min((arr ?? []).length, length); i++)
+      out[i] = (arr ?? [])[i] ?? null;
     return out;
   };
   for (const e of entries ?? []) {
-    const ww = pad(e.ww_scores as (number | null)[] | null, after.ww_totals.length);
-    const pt = pad(e.pt_scores as (number | null)[] | null, after.pt_totals.length);
+    const ww = pad(
+      e.ww_scores as (number | null)[] | null,
+      after.ww_totals.length
+    );
+    const pt = pad(
+      e.pt_scores as (number | null)[] | null,
+      after.pt_totals.length
+    );
     const computed = computeQuarterly({
       ww_scores: ww,
       ww_totals: after.ww_totals,
@@ -172,13 +200,16 @@ export async function PATCH(
         updated_at: new Date().toISOString(),
       })
       .eq('id', e.id);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error)
+      return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   // Audit-log the totals change (pre-lock AND post-lock in the new generic
   // audit_log; still also write post-lock to grade_audit_log for backward compat).
   const changed_by = auth.user.email ?? auth.user.id;
-  const actionForAudit: AuditAction = sheet.is_locked ? 'grade_correction' : 'totals.update';
+  const actionForAudit: AuditAction = sheet.is_locked
+    ? 'grade_correction'
+    : 'totals.update';
   const anchor = (entries ?? [])[0]?.id;
   if (anchor) {
     const totalsDiff = buildTotalsAuditRows(before, after, {

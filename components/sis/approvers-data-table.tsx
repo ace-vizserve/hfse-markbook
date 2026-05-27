@@ -12,7 +12,10 @@ import {
   APPROVER_FLOW_LABELS,
   type ApproverFlow,
 } from '@/lib/schemas/approvers';
-import type { AllApproversByFlow, ApproverUser } from '@/lib/sis/approvers/queries';
+import type {
+  AllApproversByFlow,
+  ApproverUser,
+} from '@/lib/sis/approvers/queries';
 
 // ─── Flat row type ────────────────────────────────────────────────────────────
 
@@ -34,7 +37,9 @@ const columns: ColumnDef<ApproverRow>[] = [
           {row.original.display_name ?? row.original.email}
         </div>
         {row.original.display_name && (
-          <div className="font-mono text-[11px] text-muted-foreground">{row.original.email}</div>
+          <div className="font-mono text-[11px] text-muted-foreground">
+            {row.original.email}
+          </div>
         )}
       </div>
     ),
@@ -102,30 +107,39 @@ const columns: ColumnDef<ApproverRow>[] = [
 
 type ApproversDataTableProps = {
   byFlow: AllApproversByFlow;
-  candidatesByFlow: Record<ApproverFlow, Array<{ user_id: string; email: string; role: string }>>;
+  candidatesByFlow: Record<
+    ApproverFlow,
+    Array<{ user_id: string; email: string; role: string }>
+  >;
 };
 
-export function ApproversDataTable({ byFlow, candidatesByFlow }: ApproversDataTableProps) {
+export function ApproversDataTable({
+  byFlow,
+  candidatesByFlow,
+}: ApproversDataTableProps) {
   // Flatten all flow-approver pairs into a single row array.
-  const rows: ApproverRow[] = (Object.entries(byFlow) as [ApproverFlow, ApproverUser[]][]).flatMap(
-    ([flow, users]) =>
-      users.map((u) => ({
-        ...u,
-        flow,
-        flowLabel: APPROVER_FLOW_LABELS[flow],
-      })),
+  const rows: ApproverRow[] = (
+    Object.entries(byFlow) as [ApproverFlow, ApproverUser[]][]
+  ).flatMap(([flow, users]) =>
+    users.map((u) => ({
+      ...u,
+      flow,
+      flowLabel: APPROVER_FLOW_LABELS[flow],
+    }))
   );
 
   // Build flow-label options for the Flow facet.
   const flowOptions = (Object.keys(APPROVER_FLOW_LABELS) as ApproverFlow[]).map(
-    (f) => APPROVER_FLOW_LABELS[f],
+    (f) => APPROVER_FLOW_LABELS[f]
   );
 
   // Role label options.
   const roleOptions = [TABLE_COPY.schoolAdmin];
 
   // Assign button in toolbar — one per flow (only one flow currently).
-  const assignButtons = (Object.keys(APPROVER_FLOW_LABELS) as ApproverFlow[]).map((flow) => (
+  const assignButtons = (
+    Object.keys(APPROVER_FLOW_LABELS) as ApproverFlow[]
+  ).map((flow) => (
     <ApproverAssignDialog
       key={flow}
       flow={flow}
@@ -139,11 +153,7 @@ export function ApproversDataTable({ byFlow, candidatesByFlow }: ApproversDataTa
       data={rows}
       columns={columns}
       getRowId={(row) => row.assignment_id}
-      searchKeys={[
-        (row) => row.display_name ?? '',
-        'email',
-        'flowLabel',
-      ]}
+      searchKeys={[(row) => row.display_name ?? '', 'email', 'flowLabel']}
       searchPlaceholder="Search approver name, email, or flow…"
       facets={[
         {

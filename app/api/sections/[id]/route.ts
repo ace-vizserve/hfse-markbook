@@ -9,7 +9,7 @@ import { SectionUpdateSchema } from '@/lib/schemas/section';
 // Fires `section.rename` audit action only when the name actually changed.
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -24,7 +24,7 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const { name } = parsed.data;
@@ -48,7 +48,12 @@ export async function PATCH(
   }
 
   if (name === before.name) {
-    return NextResponse.json({ ok: true, id: before.id, name: before.name, unchanged: true });
+    return NextResponse.json({
+      ok: true,
+      id: before.id,
+      name: before.name,
+      unchanged: true,
+    });
   }
 
   const { data: updated, error: updateErr } = await service
@@ -62,8 +67,10 @@ export async function PATCH(
     // 23505 = unique_violation (academic_year_id, level_id, name)
     if ((updateErr as { code?: string }).code === '23505') {
       return NextResponse.json(
-        { error: `A section named "${name}" already exists in this level for the current AY.` },
-        { status: 409 },
+        {
+          error: `A section named "${name}" already exists in this level for the current AY.`,
+        },
+        { status: 409 }
       );
     }
     return NextResponse.json({ error: updateErr.message }, { status: 500 });
@@ -75,7 +82,12 @@ export async function PATCH(
     action: 'section.rename',
     entityType: 'section',
     entityId: id,
-    context: { academic_year_id: before.academic_year_id, level_id: before.level_id, from: before.name, to: name },
+    context: {
+      academic_year_id: before.academic_year_id,
+      level_id: before.level_id,
+      from: before.name,
+      to: name,
+    },
   });
 
   return NextResponse.json({ ok: true, id: updated.id, name: updated.name });

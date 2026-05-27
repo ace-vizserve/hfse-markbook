@@ -20,9 +20,10 @@ export async function POST(request: NextRequest) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
-  const body = (await request.json().catch(() => null)) as
-    | { ay_id?: string; section_id?: string }
-    | null;
+  const body = (await request.json().catch(() => null)) as {
+    ay_id?: string;
+    section_id?: string;
+  } | null;
 
   const ayId = body?.ay_id ?? null;
   const sectionId = body?.section_id ?? null;
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
   if (hasAy === hasSection) {
     return NextResponse.json(
       { error: 'Provide exactly one of ay_id or section_id' },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -48,14 +49,17 @@ export async function POST(request: NextRequest) {
       .from('sections')
       .select('id')
       .eq('academic_year_id', ayId);
-    targetSectionIds = ((aySections ?? []) as { id: string }[]).map((s) => s.id);
+    targetSectionIds = ((aySections ?? []) as { id: string }[]).map(
+      (s) => s.id
+    );
   } else {
     const { data: sec } = await service
       .from('sections')
       .select('id, academic_year_id')
       .eq('id', sectionId)
       .single();
-    if (!sec) return NextResponse.json({ error: 'section not found' }, { status: 404 });
+    if (!sec)
+      return NextResponse.json({ error: 'section not found' }, { status: 404 });
     targetSectionIds = [sectionId!];
     resolvedAyId = (sec as { academic_year_id: string }).academic_year_id;
   }
@@ -73,10 +77,13 @@ export async function POST(request: NextRequest) {
       .from('sections')
       .select('id, level_id')
       .in('id', targetSectionIds);
-    if (!sections?.length) return NextResponse.json({ ok: true, inserted: 0, sow_applied: 0 });
+    if (!sections?.length)
+      return NextResponse.json({ ok: true, inserted: 0, sow_applied: 0 });
 
     const levelIds = [
-      ...new Set((sections as { id: string; level_id: string }[]).map((s) => s.level_id)),
+      ...new Set(
+        (sections as { id: string; level_id: string }[]).map((s) => s.level_id)
+      ),
     ];
 
     // 2. Load subject configs + terms in parallel
@@ -94,23 +101,34 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Build flat scope list: one entry per (section × subject × term)
-    const allScopes: { section_id: string; subject_id: string; term_id: string }[] = [];
+    const allScopes: {
+      section_id: string;
+      subject_id: string;
+      term_id: string;
+    }[] = [];
     for (const sec of sections as { id: string; level_id: string }[]) {
-      const secSubjects = (configs as { subject_id: string; level_id: string }[]).filter(
-        (c) => c.level_id === sec.level_id,
-      );
+      const secSubjects = (
+        configs as { subject_id: string; level_id: string }[]
+      ).filter((c) => c.level_id === sec.level_id);
       for (const term of terms as { id: string }[]) {
         for (const cfg of secSubjects) {
-          allScopes.push({ section_id: sec.id, subject_id: cfg.subject_id, term_id: term.id });
+          allScopes.push({
+            section_id: sec.id,
+            subject_id: cfg.subject_id,
+            term_id: term.id,
+          });
         }
       }
     }
 
     // 4. Create sheets for ALL scopes (no gate)
     if (allScopes.length > 0) {
-      const { data: rpcResult } = await service.rpc('create_grading_sheets_for_scopes', {
-        p_scopes: allScopes,
-      });
+      const { data: rpcResult } = await service.rpc(
+        'create_grading_sheets_for_scopes',
+        {
+          p_scopes: allScopes,
+        }
+      );
       inserted = (rpcResult as { inserted?: number } | null)?.inserted ?? 0;
     }
 
@@ -129,9 +147,14 @@ export async function POST(request: NextRequest) {
 
       const sheetByKey = new Map(
         (sheets ?? []).map((s) => {
-          const r = s as { id: string; section_id: string; subject_id: string; term_id: string };
+          const r = s as {
+            id: string;
+            section_id: string;
+            subject_id: string;
+            term_id: string;
+          };
           return [`${r.section_id}:${r.subject_id}:${r.term_id}`, r.id];
-        }),
+        })
       );
 
       // 7. Sync labels for each SOW that has a matching sheet
@@ -147,23 +170,23 @@ export async function POST(request: NextRequest) {
           }[]
         ).map(async (sow) => {
           const sheetId = sheetByKey.get(
-            `${sow.section_id}:${sow.subject_id}:${sow.term_id}`,
+            `${sow.section_id}:${sow.subject_id}:${sow.term_id}`
           );
           if (!sheetId) return;
           const { error } = await mergeGradingSheetSlots(
             service,
             sheetId,
             sow.ww_labels ?? [],
-            sow.pt_labels ?? [],
+            sow.pt_labels ?? []
           );
           if (!error) sowApplied++;
-        }),
+        })
       );
     }
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'internal error' },
-      { status: 500 },
+      { status: 500 }
     );
   }
 

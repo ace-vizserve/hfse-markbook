@@ -1,4 +1,4 @@
-import "server-only";
+import 'server-only';
 
 import { Resend } from 'resend';
 
@@ -25,7 +25,8 @@ function getTransport(): { resend: Resend; from: string } | null {
     console.warn('[notify] skipping annual-letter email: RESEND_API_KEY unset');
     return null;
   }
-  const from = process.env.RESEND_FROM_EMAIL ?? 'HFSE SIS <noreply@hfse.edu.sg>';
+  const from =
+    process.env.RESEND_FROM_EMAIL ?? 'HFSE SIS <noreply@hfse.edu.sg>';
   return { resend: new Resend(apiKey), from };
 }
 
@@ -34,14 +35,20 @@ async function sendAll(
   from: string,
   recipients: string[],
   subject: string,
-  html: string,
+  html: string
 ): Promise<{ sent: number; failed: number }> {
   let sent = 0;
   let failed = 0;
-  const devTo = process.env.NODE_ENV !== 'production' ? 'ace.vizserve@gmail.com' : null;
+  const devTo =
+    process.env.NODE_ENV !== 'production' ? 'ace.vizserve@gmail.com' : null;
   for (const to of recipients) {
     try {
-      const res = await resend.emails.send({ from, to: devTo ?? to, subject, html });
+      const res = await resend.emails.send({
+        from,
+        to: devTo ?? to,
+        subject,
+        html,
+      });
       if (res.error) {
         failed += 1;
         console.error('[notify] resend error for', to, res.error);
@@ -58,7 +65,7 @@ async function sendAll(
 
 export async function notifyAnnualLetterChanged(
   payload: AnnualLetterChangePayload,
-  recipientEmails: string[],
+  recipientEmails: string[]
 ): Promise<{ sent: number; failed: number }> {
   const t = getTransport();
   if (!t || recipientEmails.length === 0) return { sent: 0, failed: 0 };
@@ -81,7 +88,7 @@ export async function notifyAnnualLetterChanged(
         <tr>
           <td style="padding: 6px 12px 6px 0; color: #64748B; width: 140px; vertical-align: top;">${label}</td>
           <td style="padding: 6px 0; color: #1d1c1d;">${escapeHtml(value)}</td>
-        </tr>`,
+        </tr>`
         )
         .join('')}
     </table>

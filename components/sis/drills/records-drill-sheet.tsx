@@ -122,16 +122,23 @@ function StageBadge({ stage }: { stage: string }) {
   return <Badge variant="muted">{stage || '—'}</Badge>;
 }
 
-
 function DocsCell({ complete, total }: { complete: number; total: number }) {
   const pct = total === 0 ? 0 : Math.round((complete / total) * 100);
   let badge: React.ReactNode;
   if (total > 0 && complete === total) {
-    badge = <Badge variant="success">{complete}/{total}</Badge>;
+    badge = (
+      <Badge variant="success">
+        {complete}/{total}
+      </Badge>
+    );
   } else if (complete === 0) {
     badge = <Badge variant="blocked">0/{total}</Badge>;
   } else {
-    badge = <Badge variant="muted">{complete}/{total}</Badge>;
+    badge = (
+      <Badge variant="muted">
+        {complete}/{total}
+      </Badge>
+    );
   }
   const fillClass =
     complete === total && total > 0
@@ -172,7 +179,10 @@ function formatDate(iso: string | null): string {
 // instead of a locally-hardcoded list prevents PEH / preschool ordering
 // drift when new levels are added.
 function compareLevels(a: string, b: string): number {
-  return compareLevelLabels(a === 'Unknown' ? null : a, b === 'Unknown' ? null : b);
+  return compareLevelLabels(
+    a === 'Unknown' ? null : a,
+    b === 'Unknown' ? null : b
+  );
 }
 
 function buildDrillUrl(
@@ -182,7 +192,7 @@ function buildDrillUrl(
   to: string | undefined,
   segment: string | null | undefined,
   format: 'json' | 'csv',
-  visibleColumnKeys?: string[],
+  visibleColumnKeys?: string[]
 ): string {
   const params = new URLSearchParams();
   params.set('ay', ayCode);
@@ -201,7 +211,9 @@ function buildDrillUrl(
 // ─────────────────────────────────────────────────────────────────────────────
 // Column factory
 
-function buildColumnDef(key: DrillColumnKey): ColumnDef<RecordsDrillRow, unknown> {
+function buildColumnDef(
+  key: DrillColumnKey
+): ColumnDef<RecordsDrillRow, unknown> {
   const header = DRILL_COLUMN_LABELS[key];
   switch (key) {
     case 'fullName':
@@ -213,11 +225,12 @@ function buildColumnDef(key: DrillColumnKey): ColumnDef<RecordsDrillRow, unknown
           // KD #81: unsynced rows (sectionId===null) route to the assign-section
           // queue; synced rows use KD #4's studentNumber-stable URL with the
           // enroleeNumber fallback for pre-sync states.
-          const href = row.original.sectionId === null
-            ? `/records/unsynced`
-            : row.original.studentNumber
-              ? `/records/students/${encodeURIComponent(row.original.studentNumber)}`
-              : `/records/students/by-enrolee/${encodeURIComponent(row.original.enroleeNumber)}`;
+          const href =
+            row.original.sectionId === null
+              ? `/records/unsynced`
+              : row.original.studentNumber
+                ? `/records/students/${encodeURIComponent(row.original.studentNumber)}`
+                : `/records/students/by-enrolee/${encodeURIComponent(row.original.enroleeNumber)}`;
           return (
             <div className="space-y-0.5">
               <Link
@@ -394,22 +407,20 @@ export function RecordsDrillSheet({
   // ── State ────────────────────────────────────────────────────────────────
   const [rows, setRows] = React.useState<RecordsDrillRow[]>(initialRows ?? []);
   const [loading, setLoading] = React.useState<boolean>(
-    initialRows === undefined,
+    initialRows === undefined
   );
   const [selectedStatuses, setSelectedStatuses] = React.useState<string[]>([]);
   const [selectedLevels, setSelectedLevels] = React.useState<string[]>([]);
   const [groupBy, setGroupBy] = React.useState<DrillDownGroupBy>('none');
   const [density, setDensity] = React.useState<DrillDownDensity>('comfortable');
-  const [visibleColumnKeys, setVisibleColumnKeys] = React.useState<DrillColumnKey[]>(
-    () => defaultColumnsForTarget(target),
-  );
+  const [visibleColumnKeys, setVisibleColumnKeys] = React.useState<
+    DrillColumnKey[]
+  >(() => defaultColumnsForTarget(target));
 
   // ── Fetch on range change ────────────────────────────────────────────────
   // Skip the first effect run when initialRows is provided — the parent
   // already handed us hydrated rows.
-  const skipNextFetchRef = React.useRef<boolean>(
-    initialRows !== undefined,
-  );
+  const skipNextFetchRef = React.useRef<boolean>(initialRows !== undefined);
 
   React.useEffect(() => {
     if (skipNextFetchRef.current) {
@@ -424,7 +435,7 @@ export function RecordsDrillSheet({
       initialFrom,
       initialTo,
       segment,
-      'json',
+      'json'
     );
     fetch(url, { credentials: 'include' })
       .then(async (res) => {
@@ -451,12 +462,15 @@ export function RecordsDrillSheet({
 
   // ── Pre-filter rows by status + level ───────────────────────────────────
   const preFiltered = React.useMemo<RecordsDrillRow[]>(() => {
-    if (selectedStatuses.length === 0 && selectedLevels.length === 0) return rows;
+    if (selectedStatuses.length === 0 && selectedLevels.length === 0)
+      return rows;
     const statusSet = new Set(selectedStatuses);
     const levelSet = new Set(selectedLevels);
     return rows.filter((r) => {
-      if (selectedStatuses.length > 0 && !statusSet.has(r.enrollmentStatus)) return false;
-      if (selectedLevels.length > 0 && !levelSet.has(r.level ?? 'Unknown')) return false;
+      if (selectedStatuses.length > 0 && !statusSet.has(r.enrollmentStatus))
+        return false;
+      if (selectedLevels.length > 0 && !levelSet.has(r.level ?? 'Unknown'))
+        return false;
       return true;
     });
   }, [rows, selectedStatuses, selectedLevels]);
@@ -477,7 +491,7 @@ export function RecordsDrillSheet({
   // ── Columns ──────────────────────────────────────────────────────────────
   const columns = React.useMemo<ColumnDef<RecordsDrillRow, unknown>[]>(
     () => ALL_DRILL_COLUMNS.map(buildColumnDef),
-    [],
+    []
   );
 
   const columnOptions = React.useMemo(
@@ -486,7 +500,7 @@ export function RecordsDrillSheet({
         key: k,
         label: DRILL_COLUMN_LABELS[k],
       })),
-    [],
+    []
   );
 
   // ── Group accessor ───────────────────────────────────────────────────────
@@ -503,7 +517,7 @@ export function RecordsDrillSheet({
           return null;
       }
     },
-    [groupBy],
+    [groupBy]
   );
 
   // ── Header + CSV ────────────────────────────────────────────────────────
@@ -521,7 +535,7 @@ export function RecordsDrillSheet({
     initialTo,
     segment,
     'csv',
-    visibleColumnKeys,
+    visibleColumnKeys
   );
 
   return (
@@ -546,9 +560,7 @@ export function RecordsDrillSheet({
       onDensityChange={setDensity}
       columnOptions={columnOptions}
       visibleColumnKeys={visibleColumnKeys}
-      onColumnsChange={(next) =>
-        setVisibleColumnKeys(next as DrillColumnKey[])
-      }
+      onColumnsChange={(next) => setVisibleColumnKeys(next as DrillColumnKey[])}
     />
   );
 }

@@ -3,7 +3,14 @@
 import { Mail, ShieldCheck, Users } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 
 type ContactRow = {
   role: 'mother' | 'father' | 'guardian';
@@ -22,14 +29,26 @@ export function FamilyContactCard({
   recipients,
   stpApplicationType,
 }: {
-  family: { motherName: string | null; fatherName: string | null; guardianName: string | null };
-  recipients: { motherEmail: string | null; fatherEmail: string | null; guardianEmail: string | null };
+  family: {
+    motherName: string | null;
+    fatherName: string | null;
+    guardianName: string | null;
+  };
+  recipients: {
+    motherEmail: string | null;
+    fatherEmail: string | null;
+    guardianEmail: string | null;
+  };
   stpApplicationType: string | null;
 }) {
   const allRows: ContactRow[] = [
     { role: 'mother', name: family.motherName, email: recipients.motherEmail },
     { role: 'father', name: family.fatherName, email: recipients.fatherEmail },
-    { role: 'guardian', name: family.guardianName, email: recipients.guardianEmail },
+    {
+      role: 'guardian',
+      name: family.guardianName,
+      email: recipients.guardianEmail,
+    },
   ];
   const rows = allRows.filter((r) => r.name || r.email);
 
@@ -39,7 +58,9 @@ export function FamilyContactCard({
         <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
           Family · contact
         </CardDescription>
-        <CardTitle className="font-serif text-xl">Reminder recipients</CardTitle>
+        <CardTitle className="font-serif text-xl">
+          Reminder recipients
+        </CardTitle>
         <CardAction>
           <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
             <Users className="size-4" />
@@ -50,14 +71,17 @@ export function FamilyContactCard({
       {rows.length === 0 ? (
         <CardContent className="py-5">
           <p className="text-[13px] leading-relaxed text-muted-foreground">
-            No parent or guardian contact on file. Renewal reminders cannot be sent until at least
-            one email is captured in admissions.
+            No parent or guardian contact on file. Renewal reminders cannot be
+            sent until at least one email is captured in admissions.
           </p>
         </CardContent>
       ) : (
         <ul className="divide-y divide-border">
           {rows.map((row) => (
-            <li key={row.role} className="flex items-center justify-between gap-3 px-6 py-3.5">
+            <li
+              key={row.role}
+              className="flex items-center justify-between gap-3 px-6 py-3.5"
+            >
               <div className="min-w-0 space-y-0.5">
                 <div className="flex items-center gap-2">
                   <p className="text-[13px] font-medium text-foreground">
@@ -76,7 +100,9 @@ export function FamilyContactCard({
                     <span className="truncate">{row.email}</span>
                   </p>
                 ) : (
-                  <p className="font-mono text-[11px] text-destructive">No email on file</p>
+                  <p className="font-mono text-[11px] text-destructive">
+                    No email on file
+                  </p>
                 )}
               </div>
             </li>
@@ -93,7 +119,9 @@ export function FamilyContactCard({
             <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-brand-indigo-deep">
               STP Application
             </p>
-            <p className="truncate text-[13px] text-foreground">{stpApplicationType}</p>
+            <p className="truncate text-[13px] text-foreground">
+              {stpApplicationType}
+            </p>
           </div>
         </div>
       )}

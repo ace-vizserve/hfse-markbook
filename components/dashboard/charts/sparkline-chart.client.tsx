@@ -9,11 +9,22 @@ function SparklineChartImpl({ points }: { points: SparkPoint[] }) {
   const gradientId = `spark-${points.length}-${points[0]?.x ?? 'n'}`;
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={points} margin={{ top: 1, right: 1, left: 1, bottom: 1 }}>
+      <AreaChart
+        data={points}
+        margin={{ top: 1, right: 1, left: 1, bottom: 1 }}
+      >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-chart-1)" stopOpacity={0.35} />
-            <stop offset="100%" stopColor="var(--color-chart-1)" stopOpacity={0} />
+            <stop
+              offset="0%"
+              stopColor="var(--color-chart-1)"
+              stopOpacity={0.35}
+            />
+            <stop
+              offset="100%"
+              stopColor="var(--color-chart-1)"
+              stopOpacity={0}
+            />
           </linearGradient>
         </defs>
         <Area

@@ -7,11 +7,11 @@
 
 ## Problem
 
-A document slot at `'To follow'` (parent acknowledged the slot but the file isn't sent yet — KD #60) is silent across every cohort surface today. The two existing document buckets in the lifecycle aggregate widget are *Awaiting document validation* (Uploaded) and *Awaiting document revalidation* (Rejected + Expired); a "promised but not delivered" slot doesn't fit either.
+A document slot at `'To follow'` (parent acknowledged the slot but the file isn't sent yet — KD #60) is silent across every cohort surface today. The two existing document buckets in the lifecycle aggregate widget are _Awaiting document validation_ (Uploaded) and _Awaiting document revalidation_ (Rejected + Expired); a "promised but not delivered" slot doesn't fit either.
 
 In the per-applicant timeline (`lib/sis/process.ts:236-264`), `'To follow'` is currently grouped with `'Valid'` as `settled`. So when admissions opens one student's profile, a slot with an open commitment looks done — even though the parent owes us the actual file.
 
-Net effect: the team has no surface telling them *"these N students promised to send X later, chase them."*
+Net effect: the team has no surface telling them _"these N students promised to send X later, chase them."_
 
 ## Goal
 
@@ -36,11 +36,11 @@ Auto-detection of expiry (`*Status = 'Valid'` + `*Expiry < CURRENT_DATE` → `'E
 
 In `lib/sis/process.ts::loadLifecycleAggregateBuckets` (around line 654-810), add a 3rd document-action bucket alongside the existing two:
 
-| Bucket key                                  | Label                            | Severity | Counts students with ≥1 slot at… |
-| ------------------------------------------- | -------------------------------- | -------- | -------------------------------- |
-| `awaiting-document-revalidation` (existing) | Awaiting document revalidation   | `bad`    | `Rejected` or `Expired`          |
-| `awaiting-document-validation` (existing)   | Awaiting document validation     | `warn`   | `Uploaded`                       |
-| **`awaiting-promised-documents` (new)**     | **Awaiting promised documents**  | `warn`   | `'To follow'`                    |
+| Bucket key                                  | Label                           | Severity | Counts students with ≥1 slot at… |
+| ------------------------------------------- | ------------------------------- | -------- | -------------------------------- |
+| `awaiting-document-revalidation` (existing) | Awaiting document revalidation  | `bad`    | `Rejected` or `Expired`          |
+| `awaiting-document-validation` (existing)   | Awaiting document validation    | `warn`   | `Uploaded`                       |
+| **`awaiting-promised-documents` (new)**     | **Awaiting promised documents** | `warn`   | `'To follow'`                    |
 
 Inserted immediately after `awaiting-document-validation` in the `buckets` array so the three queues read together.
 
@@ -49,59 +49,61 @@ The per-row scan (`process.ts:683-694`) gains a third flag inside the same loop:
 ```ts
 let rowHasRevalidation = false;
 let rowHasValidation = false;
-let rowHasPromised = false;          // new
+let rowHasPromised = false; // new
 for (const slot of DOCUMENT_SLOTS) {
   const v = (docs[slot.statusCol] ?? '').toString().trim();
   if (v === 'Rejected' || v === 'Expired') rowHasRevalidation = true;
   else if (v === 'Uploaded') rowHasValidation = true;
-  else if (v === 'To follow') rowHasPromised = true;     // new
+  else if (v === 'To follow') rowHasPromised = true; // new
   if (rowHasRevalidation && rowHasValidation && rowHasPromised) break;
 }
 if (rowHasRevalidation) awaitingDocRevalidation += 1;
-if (rowHasValidation)   awaitingDocValidation   += 1;
-if (rowHasPromised)     awaitingPromisedDocs    += 1;     // new
+if (rowHasValidation) awaitingDocValidation += 1;
+if (rowHasPromised) awaitingPromisedDocs += 1; // new
 ```
 
-**Overlap is allowed** (consistent with existing pattern): a student with both an `Uploaded` slot and a `'To follow'` slot counts in both validation and promised. Per KD #56's *"orthogonal action queues"* — each is a distinct registrar action.
+**Overlap is allowed** (consistent with existing pattern): a student with both an `Uploaded` slot and a `'To follow'` slot counts in both validation and promised. Per KD #56's _"orthogonal action queues"_ — each is a distinct registrar action.
 
 ### 2. Per-applicant timeline rebucket
 
 In `lib/sis/process.ts:236-264`, `'To follow'` stops being counted as `settled`. New `promised` counter, detail string updates so single-student detail agrees with the cohort flag.
 
 Before:
+
 ```ts
 let needsAction = 0; // null + Pending + Rejected + Expired
-let inFlight = 0;    // Uploaded
-let settled = 0;     // Valid + To follow   ← currently grouped
+let inFlight = 0; // Uploaded
+let settled = 0; // Valid + To follow   ← currently grouped
 let blank = 0;
 ```
 
 After:
+
 ```ts
 let needsAction = 0; // null + Pending + Rejected + Expired
-let inFlight = 0;    // Uploaded
-let promised = 0;    // To follow           ← new
-let settled = 0;     // Valid               ← Valid only now
+let inFlight = 0; // Uploaded
+let promised = 0; // To follow           ← new
+let settled = 0; // Valid               ← Valid only now
 let blank = 0;
 ```
 
 The `formatDetail` helper in the same file drops null entries, so when `promised === 0` the segment is suppressed. Example detail strings:
 
-- *"Status: Processing · 6/16 settled · 2 awaiting validation · 3 promised · 4 needs action"* (some promised)
-- *"Status: Processing · 14/16 settled · 2 awaiting validation"* (no promised — segment omitted)
+- _"Status: Processing · 6/16 settled · 2 awaiting validation · 3 promised · 4 needs action"_ (some promised)
+- _"Status: Processing · 14/16 settled · 2 awaiting validation"_ (no promised — segment omitted)
 
 ### 3. Drill plumbing
 
 In `lib/sis/drill.ts`, one new target. Three additions, all alongside the existing `awaiting-document-validation` patterns:
 
-| Hook                                | Addition                                                                                                              |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `LifecycleDrillTarget` union (line 674) | `\| 'awaiting-promised-documents'`                                                                                |
-| `LIFECYCLE_DRILL_TARGETS` array (line 684) | Add `'awaiting-promised-documents'` after `'awaiting-document-validation'`.                                  |
-| Build switch (≈ line 905)           | New `case` mirroring `awaiting-document-validation`, scanning each row's slots for `'To follow'` into a `promisedSlots: string[]` field on the row. |
-| Row shape                           | Extends the base lifecycle drill row with `promisedSlots: string[]` (same pattern as the existing `uploadedSlots`).   |
-| `defaultColumnsForTarget` (line 1086) | `['enroleeFullName', 'levelApplied', 'promisedSlots', 'applicationStatus', 'daysSinceUpdate']`                      |
-| `lifecycleDrillHeaderForTarget` (line 1140) | `{ eyebrow: 'Drill · Lifecycle', title: 'Awaiting promised documents' }`                                      |
+| Hook                                        | Addition                                                                                                                                            |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LifecycleDrillTarget` union (line 674)     | `\| 'awaiting-promised-documents'`                                                                                                                  |
+| `LIFECYCLE_DRILL_TARGETS` array (line 684)  | Add `'awaiting-promised-documents'` after `'awaiting-document-validation'`.                                                                         |
+| Build switch (≈ line 905)                   | New `case` mirroring `awaiting-document-validation`, scanning each row's slots for `'To follow'` into a `promisedSlots: string[]` field on the row. |
+| Row shape                                   | Extends the base lifecycle drill row with `promisedSlots: string[]` (same pattern as the existing `uploadedSlots`).                                 |
+| `defaultColumnsForTarget` (line 1086)       | `['enroleeFullName', 'levelApplied', 'promisedSlots', 'applicationStatus', 'daysSinceUpdate']`                                                      |
+| `lifecycleDrillHeaderForTarget` (line 1140) | `{ eyebrow: 'Drill · Lifecycle', title: 'Awaiting promised documents' }`                                                                            |
 
 The drill-sheet renderer (`components/sis/drills/lifecycle-drill-sheet.tsx`) already handles `string[]` slot columns generically — the column registry resolves `promisedSlots` like the existing `uploadedSlots` / `rejectedSlots` / `expiredSlots` slot columns. No UI work expected; verify when writing the implementation plan.
 
@@ -128,11 +130,11 @@ The lifecycle aggregate widget (§1) is **untouched** — same counts, deeper co
 
 #### 4c. Per-dashboard mount
 
-| Surface         | Archetype today (KD #57) | Mount position                                                              | Notes                                                                                       |
-| --------------- | ------------------------ | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `/p-files`      | operational              | Inside the existing `PriorityPanel` as a second section, below "Expiring docs" | The panel becomes "Documents needing attention" with two sub-blocks. KD #31 preserved — surface is read-only chase navigation; writes still happen in `/admissions/applications/[enroleeNumber]`. |
-| `/admissions`   | analytical               | New top-of-fold strip above the existing KPI grid                           | Operational accent on an analytical dashboard — see §4d.                                    |
-| `/records`      | analytical               | Same pattern as `/admissions`                                               | Records mirrors admissions content; consistency wins over strict KD #57 adherence here.     |
+| Surface       | Archetype today (KD #57) | Mount position                                                                 | Notes                                                                                                                                                                                             |
+| ------------- | ------------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/p-files`    | operational              | Inside the existing `PriorityPanel` as a second section, below "Expiring docs" | The panel becomes "Documents needing attention" with two sub-blocks. KD #31 preserved — surface is read-only chase navigation; writes still happen in `/admissions/applications/[enroleeNumber]`. |
+| `/admissions` | analytical               | New top-of-fold strip above the existing KPI grid                              | Operational accent on an analytical dashboard — see §4d.                                                                                                                                          |
+| `/records`    | analytical               | Same pattern as `/admissions`                                                  | Records mirrors admissions content; consistency wins over strict KD #57 adherence here.                                                                                                           |
 
 #### 4d. Decision that bends KD #57
 
@@ -148,7 +150,7 @@ KD #57 classifies `/admissions` and `/records` as **analytical**. Adding an oper
 
 Manual happy-path on the seeded AY9999 (the seeder writes 1-2 `'To follow'` slots per "Processing"-stage row at `lib/sis/seeder/populated.ts:1517`):
 
-1. `/records` and `/admissions` lifecycle widget shows 3 doc buckets — *Awaiting promised documents* present with a non-zero count.
+1. `/records` and `/admissions` lifecycle widget shows 3 doc buckets — _Awaiting promised documents_ present with a non-zero count.
 2. Click into the bucket → drill sheet opens, rows list affected students with `promisedSlots` chips column.
 3. Click into one student's profile → timeline "Documents" stage detail shows `promised` count separately from `settled`.
 4. CSV export from the new drill works; UTF-8 BOM intact (KD #56).

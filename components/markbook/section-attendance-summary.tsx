@@ -52,7 +52,11 @@ export async function SectionAttendanceSummary({
       <CardContent>
         <div className="flex flex-wrap items-center gap-6">
           <Stat label="School days" value={summary.schoolDays} />
-          <Stat label="Present" value={summary.totalDaysPresent} tone="default" />
+          <Stat
+            label="Present"
+            value={summary.totalDaysPresent}
+            tone="default"
+          />
           <Stat label="Late" value={summary.totalDaysLate} tone="warn" />
           <Stat label="Excused" value={summary.totalDaysExcused} tone="info" />
           <Stat label="Absent" value={summary.totalDaysAbsent} tone="warn" />
@@ -91,16 +95,22 @@ function Stat({
     tone === 'warn'
       ? 'text-amber-700 dark:text-amber-200'
       : tone === 'info'
-      ? 'text-sky-700 dark:text-sky-200'
-      : 'text-foreground';
+        ? 'text-sky-700 dark:text-sky-200'
+        : 'text-foreground';
   return (
     <div className="flex flex-col">
       <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
         {label}
       </span>
-      <span className={`font-serif text-[20px] font-semibold tabular-nums ${color}`}>
+      <span
+        className={`font-serif text-[20px] font-semibold tabular-nums ${color}`}
+      >
         {value.toLocaleString('en-SG')}
-        {suffix && <span className="ml-1 text-[13px] font-normal text-muted-foreground">{suffix}</span>}
+        {suffix && (
+          <span className="ml-1 text-[13px] font-normal text-muted-foreground">
+            {suffix}
+          </span>
+        )}
       </span>
     </div>
   );

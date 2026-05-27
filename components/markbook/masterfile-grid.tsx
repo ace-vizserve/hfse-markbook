@@ -1,14 +1,23 @@
-"use client";
+'use client';
 
-import { memo, useMemo } from "react";
-import Link from "next/link";
+import { memo, useMemo } from 'react';
+import Link from 'next/link';
 
-import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { AnnualLetterInput } from "@/components/grading/annual-letter-input";
-import type { MasterfilePayload, MasterfileStudentRow, MasterfileSubjectRow } from "@/lib/markbook/masterfile";
-import { cn } from "@/lib/utils";
-import { resolveNonExaminableLetter } from "@/lib/compute/letter-grade";
+import { Badge } from '@/components/ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { AnnualLetterInput } from '@/components/grading/annual-letter-input';
+import type {
+  MasterfilePayload,
+  MasterfileStudentRow,
+  MasterfileSubjectRow,
+} from '@/lib/markbook/masterfile';
+import { cn } from '@/lib/utils';
+import { resolveNonExaminableLetter } from '@/lib/compute/letter-grade';
 
 // HFSE Masterfile grid (KD #95). Wide cross-subject roster mirroring the
 // AY2025 Final Report Book Masterfile sheet.
@@ -28,17 +37,18 @@ import { resolveNonExaminableLetter } from "@/lib/compute/letter-grade";
 export function MasterfileGrid({ payload }: { payload: MasterfilePayload }) {
   const examinableSubjects = useMemo(
     () => payload.subjects.filter((s) => s.isExaminable),
-    [payload.subjects],
+    [payload.subjects]
   );
   const nonExaminableSubjects = useMemo(
     () => payload.subjects.filter((s) => !s.isExaminable),
-    [payload.subjects],
+    [payload.subjects]
   );
 
   if (payload.rows.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border bg-muted/20 p-10 text-center text-sm text-muted-foreground">
-        No students in this view yet. Pick a different class or check that the roster has been synced.
+        No students in this view yet. Pick a different class or check that the
+        roster has been synced.
       </div>
     );
   }
@@ -52,27 +62,32 @@ export function MasterfileGrid({ payload }: { payload: MasterfilePayload }) {
             <tr>
               <th
                 rowSpan={2}
-                className="border-b border-r border-border bg-card px-3 py-2 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                className="border-b border-r border-border bg-card px-3 py-2 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+              >
                 S/N
               </th>
               <th
                 rowSpan={2}
-                className="sticky left-0 z-10 border-b border-r border-border bg-card px-3 py-2 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                className="sticky left-0 z-10 border-b border-r border-border bg-card px-3 py-2 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+              >
                 Student
               </th>
               <th
                 rowSpan={2}
-                className="border-b border-r border-border bg-card px-3 py-2 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                className="border-b border-r border-border bg-card px-3 py-2 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+              >
                 Section
               </th>
               <th
                 rowSpan={2}
-                className="border-b border-r border-border bg-card px-3 py-2 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                className="border-b border-r border-border bg-card px-3 py-2 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+              >
                 Form Class Adviser
               </th>
               <th
                 rowSpan={2}
-                className="border-b border-r border-border bg-card px-3 py-2 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                className="border-b border-r border-border bg-card px-3 py-2 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+              >
                 Status
               </th>
 
@@ -80,7 +95,8 @@ export function MasterfileGrid({ payload }: { payload: MasterfilePayload }) {
                 <th
                   key={sub.id}
                   colSpan={6}
-                  className="border-b border-r border-border bg-primary/5 px-2 py-2 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground">
+                  className="border-b border-r border-border bg-primary/5 px-2 py-2 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground"
+                >
                   {sub.name}
                 </th>
               ))}
@@ -89,25 +105,29 @@ export function MasterfileGrid({ payload }: { payload: MasterfilePayload }) {
                 <th
                   key={sub.id}
                   colSpan={5}
-                  className="border-b border-r border-border bg-muted/30 px-2 py-2 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  className="border-b border-r border-border bg-muted/30 px-2 py-2 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+                >
                   {sub.name}
                 </th>
               ))}
 
               <th
                 colSpan={2}
-                className="border-b border-r border-border bg-primary/10 px-2 py-2 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground">
+                className="border-b border-r border-border bg-primary/10 px-2 py-2 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground"
+              >
                 Overall Award
               </th>
 
               <th
                 colSpan={4}
-                className="border-b border-r border-border bg-muted/30 px-2 py-2 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                className="border-b border-r border-border bg-muted/30 px-2 py-2 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+              >
                 Attendance per term
               </th>
               <th
                 colSpan={3}
-                className="border-b border-border bg-muted/30 px-2 py-2 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                className="border-b border-border bg-muted/30 px-2 py-2 text-center font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+              >
                 Attendance total
               </th>
             </tr>
@@ -118,34 +138,39 @@ export function MasterfileGrid({ payload }: { payload: MasterfilePayload }) {
                   .map((t) => (
                     <th
                       key={`${sub.id}-${t.id}`}
-                      className="border-b border-r border-border bg-primary/5 px-2 py-1 text-center font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                      className="border-b border-r border-border bg-primary/5 px-2 py-1 text-center font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground"
+                    >
                       T{t.termNumber}
                     </th>
                   ))
                   .concat(
                     <th
                       key={`${sub.id}-overall`}
-                      className="border-b border-r border-border bg-primary/10 px-2 py-1 text-center font-mono text-[10px] font-medium uppercase tracking-wider text-foreground">
+                      className="border-b border-r border-border bg-primary/10 px-2 py-1 text-center font-mono text-[10px] font-medium uppercase tracking-wider text-foreground"
+                    >
                       Overall
                     </th>,
                     <th
                       key={`${sub.id}-award`}
-                      className="border-b border-r border-border bg-primary/10 px-2 py-1 text-center font-mono text-[10px] font-medium uppercase tracking-wider text-foreground">
+                      className="border-b border-r border-border bg-primary/10 px-2 py-1 text-center font-mono text-[10px] font-medium uppercase tracking-wider text-foreground"
+                    >
                       Award
-                    </th>,
-                  ),
+                    </th>
+                  )
               )}
               {nonExaminableSubjects.map((sub) => [
                 ...payload.terms.map((t) => (
                   <th
                     key={`${sub.id}-${t.id}`}
-                    className="border-b border-r border-border bg-muted/30 px-2 py-1 text-center font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    className="border-b border-r border-border bg-muted/30 px-2 py-1 text-center font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground"
+                  >
                     T{t.termNumber}
                   </th>
                 )),
                 <th
                   key={`${sub.id}-final`}
-                  className="border-b border-r border-border bg-muted/50 px-2 py-1 text-center font-mono text-[10px] font-medium uppercase tracking-wider text-foreground">
+                  className="border-b border-r border-border bg-muted/50 px-2 py-1 text-center font-mono text-[10px] font-medium uppercase tracking-wider text-foreground"
+                >
                   Final
                 </th>,
               ])}
@@ -158,7 +183,8 @@ export function MasterfileGrid({ payload }: { payload: MasterfilePayload }) {
               {payload.terms.map((t) => (
                 <th
                   key={`att-${t.id}`}
-                  className="border-b border-r border-border bg-muted/30 px-2 py-1 text-center font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  className="border-b border-r border-border bg-muted/30 px-2 py-1 text-center font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground"
+                >
                   T{t.termNumber}
                 </th>
               ))}
@@ -205,7 +231,7 @@ const StudentRowView = memo(function StudentRowView({
   nonExaminableSubjects: Array<{ id: string }>;
   termsCount: number;
 }) {
-  const isWithdrawn = row.enrollmentStatus === "withdrawn";
+  const isWithdrawn = row.enrollmentStatus === 'withdrawn';
   const subjectRowById = useMemo(() => {
     const m = new Map<string, MasterfileSubjectRow>();
     for (const sr of row.subjectRows) m.set(sr.subjectId, sr);
@@ -213,28 +239,29 @@ const StudentRowView = memo(function StudentRowView({
   }, [row.subjectRows]);
 
   const baseCellClass = cn(
-    "border-b border-r border-border px-2 py-1.5 text-center text-sm tabular-nums",
-    isWithdrawn && "text-muted-foreground/70",
+    'border-b border-r border-border px-2 py-1.5 text-center text-sm tabular-nums',
+    isWithdrawn && 'text-muted-foreground/70'
   );
   const fixedCellClass = cn(
-    "border-b border-r border-border px-3 py-2 text-sm",
-    isWithdrawn && "text-muted-foreground/70",
+    'border-b border-r border-border px-3 py-2 text-sm',
+    isWithdrawn && 'text-muted-foreground/70'
   );
 
   const statusLabel =
-    row.enrollmentStatus === "late_enrollee"
-      ? "Late Enrolment"
-      : row.enrollmentStatus === "withdrawn"
-        ? "Withdrawn"
-        : "Active";
+    row.enrollmentStatus === 'late_enrollee'
+      ? 'Late Enrolment'
+      : row.enrollmentStatus === 'withdrawn'
+        ? 'Withdrawn'
+        : 'Active';
 
   return (
-    <tr className={cn(isWithdrawn && "bg-muted/20")}>
+    <tr className={cn(isWithdrawn && 'bg-muted/20')}>
       <td className={fixedCellClass}>{index}</td>
-      <td className={cn(fixedCellClass, "sticky left-0 z-[1] bg-card")}>
+      <td className={cn(fixedCellClass, 'sticky left-0 z-[1] bg-card')}>
         <Link
           href={`/records/students/${encodeURIComponent(row.studentNumber)}`}
-          className="font-medium text-foreground transition-colors hover:text-primary hover:underline underline-offset-4">
+          className="font-medium text-foreground transition-colors hover:text-primary hover:underline underline-offset-4"
+        >
           {row.fullName || row.studentNumber}
         </Link>
         <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
@@ -242,7 +269,9 @@ const StudentRowView = memo(function StudentRowView({
         </div>
       </td>
       <td className={fixedCellClass}>{row.sectionName}</td>
-      <td className={cn(fixedCellClass, "text-muted-foreground")}>{row.formClassAdviser ?? "—"}</td>
+      <td className={cn(fixedCellClass, 'text-muted-foreground')}>
+        {row.formClassAdviser ?? '—'}
+      </td>
       <td className={fixedCellClass}>
         <StatusPill status={row.enrollmentStatus} label={statusLabel} />
       </td>
@@ -252,13 +281,22 @@ const StudentRowView = memo(function StudentRowView({
         const sr = subjectRowById.get(sub.id);
         if (!sr) {
           return (
-            <td key={sub.id} colSpan={termsCount + 2} className={cn(baseCellClass, "text-muted-foreground")}>
+            <td
+              key={sub.id}
+              colSpan={termsCount + 2}
+              className={cn(baseCellClass, 'text-muted-foreground')}
+            >
               —
             </td>
           );
         }
         return (
-          <ExaminableSubjectCells key={sub.id} subjectRow={sr} cellClass={baseCellClass} isWithdrawn={isWithdrawn} />
+          <ExaminableSubjectCells
+            key={sub.id}
+            subjectRow={sr}
+            cellClass={baseCellClass}
+            isWithdrawn={isWithdrawn}
+          />
         );
       })}
 
@@ -267,18 +305,32 @@ const StudentRowView = memo(function StudentRowView({
         const sr = subjectRowById.get(sub.id);
         if (!sr) {
           return (
-            <td key={sub.id} colSpan={termsCount + 1} className={cn(baseCellClass, "text-muted-foreground")}>
+            <td
+              key={sub.id}
+              colSpan={termsCount + 1}
+              className={cn(baseCellClass, 'text-muted-foreground')}
+            >
               —
             </td>
           );
         }
         return [
           ...sr.cells.map((cell, ci) => (
-            <td key={`${sub.id}-${ci}`} className={cn(baseCellClass, "bg-muted/10")}>
-              <NonExaminableCell letter={cell.letter} isNa={cell.isNa} quarterly={cell.quarterly} />
+            <td
+              key={`${sub.id}-${ci}`}
+              className={cn(baseCellClass, 'bg-muted/10')}
+            >
+              <NonExaminableCell
+                letter={cell.letter}
+                isNa={cell.isNa}
+                quarterly={cell.quarterly}
+              />
             </td>
           )),
-          <td key={`${sub.id}-final`} className={cn(baseCellClass, "bg-muted/20 p-1")}>
+          <td
+            key={`${sub.id}-final`}
+            className={cn(baseCellClass, 'bg-muted/20 p-1')}
+          >
             {sr.annualLetterSheetId && sr.annualLetterEntryId ? (
               <AnnualLetterInput
                 sheetId={sr.annualLetterSheetId}
@@ -291,7 +343,9 @@ const StudentRowView = memo(function StudentRowView({
                 <TooltipTrigger asChild>
                   <span className="cursor-help text-muted-foreground">—</span>
                 </TooltipTrigger>
-                <TooltipContent>No T4 entry — the T4 grading sheet may not exist yet.</TooltipContent>
+                <TooltipContent>
+                  No T4 entry — the T4 grading sheet may not exist yet.
+                </TooltipContent>
               </Tooltip>
             )}
           </td>,
@@ -299,24 +353,35 @@ const StudentRowView = memo(function StudentRowView({
       })}
 
       {/* Overall Academic Award */}
-      <td className={cn(baseCellClass, "bg-primary/5 font-medium")}>
-        {row.generalAverage != null ? row.generalAverage.toFixed(1) : "—"}
+      <td className={cn(baseCellClass, 'bg-primary/5 font-medium')}>
+        {row.generalAverage != null ? row.generalAverage.toFixed(1) : '—'}
       </td>
-      <td className={cn(baseCellClass, "bg-primary/5")}>
+      <td className={cn(baseCellClass, 'bg-primary/5')}>
         <OverallAwardBadge label={row.overallAward} />
       </td>
 
       {/* Attendance per term */}
       {row.attendanceByTerm.map((cell) => (
-        <td key={cell.termId} className={cn(baseCellClass, "text-muted-foreground")}>
-          {cell.present != null && cell.schoolDays != null ? `${cell.present}/${cell.schoolDays}` : "—"}
+        <td
+          key={cell.termId}
+          className={cn(baseCellClass, 'text-muted-foreground')}
+        >
+          {cell.present != null && cell.schoolDays != null
+            ? `${cell.present}/${cell.schoolDays}`
+            : '—'}
         </td>
       ))}
 
       {/* Attendance total */}
-      <td className={cn(baseCellClass, "text-muted-foreground")}>{row.attendanceTotal.schoolDays || "—"}</td>
-      <td className={cn(baseCellClass, "text-muted-foreground")}>{row.attendanceTotal.present || "—"}</td>
-      <td className={cn(baseCellClass, "text-muted-foreground")}>{row.attendanceTotal.late || "—"}</td>
+      <td className={cn(baseCellClass, 'text-muted-foreground')}>
+        {row.attendanceTotal.schoolDays || '—'}
+      </td>
+      <td className={cn(baseCellClass, 'text-muted-foreground')}>
+        {row.attendanceTotal.present || '—'}
+      </td>
+      <td className={cn(baseCellClass, 'text-muted-foreground')}>
+        {row.attendanceTotal.late || '—'}
+      </td>
     </tr>
   );
 });
@@ -335,18 +400,22 @@ function ExaminableSubjectCells({
       {subjectRow.cells.map((cell, ci) => (
         <td key={ci} className={cellClass}>
           {cell.isNa ? (
-            <span className="font-mono text-[11px] uppercase text-muted-foreground">N.A.</span>
+            <span className="font-mono text-[11px] uppercase text-muted-foreground">
+              N.A.
+            </span>
           ) : cell.quarterly != null ? (
-            <span className={cn("font-medium", isWithdrawn && "font-normal")}>{cell.quarterly}</span>
+            <span className={cn('font-medium', isWithdrawn && 'font-normal')}>
+              {cell.quarterly}
+            </span>
           ) : (
             <span className="text-muted-foreground">—</span>
           )}
         </td>
       ))}
-      <td className={cn(cellClass, "bg-primary/5 font-medium")}>
-        {subjectRow.overall != null ? subjectRow.overall.toFixed(2) : "—"}
+      <td className={cn(cellClass, 'bg-primary/5 font-medium')}>
+        {subjectRow.overall != null ? subjectRow.overall.toFixed(2) : '—'}
       </td>
-      <td className={cn(cellClass, "bg-primary/5")}>
+      <td className={cn(cellClass, 'bg-primary/5')}>
         <SubjectAwardBadge label={subjectRow.award} />
       </td>
     </>
@@ -362,9 +431,17 @@ function NonExaminableCell({
   isNa: boolean;
   quarterly: number | null;
 }) {
-  const resolved = resolveNonExaminableLetter({ isNa, letterOverride: letter, quarterly });
+  const resolved = resolveNonExaminableLetter({
+    isNa,
+    letterOverride: letter,
+    quarterly,
+  });
   if (resolved === 'NA') {
-    return <span className="font-mono text-[11px] uppercase text-muted-foreground">N.A.</span>;
+    return (
+      <span className="font-mono text-[11px] uppercase text-muted-foreground">
+        N.A.
+      </span>
+    );
   }
   if (resolved) {
     return <span className="font-medium">{resolved}</span>;
@@ -372,47 +449,72 @@ function NonExaminableCell({
   return <span className="text-muted-foreground">—</span>;
 }
 
-
-function SubjectAwardBadge({ label }: { label: MasterfileSubjectRow["award"] }) {
+function SubjectAwardBadge({
+  label,
+}: {
+  label: MasterfileSubjectRow['award'];
+}) {
   if (label == null) return <span className="text-muted-foreground">—</span>;
-  if (label === "Gold")
+  if (label === 'Gold')
     return (
-      <Badge variant="default" className="bg-gradient-to-b from-brand-amber to-brand-amber/80 text-white">
+      <Badge
+        variant="default"
+        className="bg-gradient-to-b from-brand-amber to-brand-amber/80 text-white"
+      >
         Gold
       </Badge>
     );
-  if (label === "Silver")
+  if (label === 'Silver')
     return (
-      <Badge variant="default" className="bg-gradient-to-b from-brand-sky to-brand-indigo text-white">
+      <Badge
+        variant="default"
+        className="bg-gradient-to-b from-brand-sky to-brand-indigo text-white"
+      >
         Silver
       </Badge>
     );
-  if (label === "Bronze")
+  if (label === 'Bronze')
     return (
-      <Badge variant="default" className="bg-gradient-to-b from-brand-mint to-brand-mint/70 text-white">
+      <Badge
+        variant="default"
+        className="bg-gradient-to-b from-brand-mint to-brand-mint/70 text-white"
+      >
         Bronze
       </Badge>
     );
   return <Badge variant="muted">Not eligible</Badge>;
 }
 
-function OverallAwardBadge({ label }: { label: MasterfileStudentRow["overallAward"] }) {
+function OverallAwardBadge({
+  label,
+}: {
+  label: MasterfileStudentRow['overallAward'];
+}) {
   if (label == null) return <span className="text-muted-foreground">—</span>;
-  if (label === "Gold")
+  if (label === 'Gold')
     return (
-      <Badge variant="default" className="bg-gradient-to-b from-brand-amber to-brand-amber/80 text-white">
+      <Badge
+        variant="default"
+        className="bg-gradient-to-b from-brand-amber to-brand-amber/80 text-white"
+      >
         Gold
       </Badge>
     );
-  if (label === "Silver")
+  if (label === 'Silver')
     return (
-      <Badge variant="default" className="bg-gradient-to-b from-brand-sky to-brand-indigo text-white">
+      <Badge
+        variant="default"
+        className="bg-gradient-to-b from-brand-sky to-brand-indigo text-white"
+      >
         Silver
       </Badge>
     );
-  if (label === "Bronze")
+  if (label === 'Bronze')
     return (
-      <Badge variant="default" className="bg-gradient-to-b from-brand-mint to-brand-mint/70 text-white">
+      <Badge
+        variant="default"
+        className="bg-gradient-to-b from-brand-mint to-brand-mint/70 text-white"
+      >
         Bronze
       </Badge>
     );
@@ -424,14 +526,14 @@ function OverallAwardBadge({ label }: { label: MasterfileStudentRow["overallAwar
 }
 
 function StatusPill({ status, label }: { status: string; label: string }) {
-  if (status === "withdrawn") {
+  if (status === 'withdrawn') {
     return (
       <Badge variant="muted" className="text-muted-foreground">
         {label}
       </Badge>
     );
   }
-  if (status === "late_enrollee") {
+  if (status === 'late_enrollee') {
     return <Badge variant="warning">{label}</Badge>;
   }
   return <Badge variant="success">{label}</Badge>;

@@ -23,7 +23,10 @@
  * slug derivation in `create_academic_year` / `delete_academic_year`.
  */
 export function ayCodeToSlug(ayCode: string): string {
-  const m = ayCode.trim().toUpperCase().match(/^AY(\d{4})$/);
+  const m = ayCode
+    .trim()
+    .toUpperCase()
+    .match(/^AY(\d{4})$/);
   if (!m) throw new Error(`Invalid AY code: ${ayCode}`);
   return `ay${m[1]}`;
 }

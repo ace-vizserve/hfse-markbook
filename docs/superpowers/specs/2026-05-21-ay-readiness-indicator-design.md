@@ -13,29 +13,29 @@ Admins setting up a new academic year have no in-product signal for which setup 
 
 ## Design decisions (final)
 
-| Decision | Choice |
-|----------|--------|
-| Trigger style | Bottom-right pill (progress bar + fraction text) |
-| Appears on | All `/sis/*` pages |
-| Visible to | `school_admin` and `superadmin` only — registrar and below never see the pill or dialog |
-| Visibility logic | Completion-driven: appears when any step incomplete, auto-hides when all 5 done. No dismiss. |
-| Step count | 5 (AY Setup, Calendar, SOW, Sections, Grading Sheets) |
-| SOW display | Progress fraction throughout (gray 0%, yellow partial, green 100%) — done only at 100% coverage |
-| Framing | Readiness indicator — not a workflow gate. Steps can be done in any order. |
-| Hub change | "Academic Year" → "Year Setup" section with 5 numbered cards |
-| Sidebar change | "Year Setup" group with numbered step items |
+| Decision         | Choice                                                                                          |
+| ---------------- | ----------------------------------------------------------------------------------------------- |
+| Trigger style    | Bottom-right pill (progress bar + fraction text)                                                |
+| Appears on       | All `/sis/*` pages                                                                              |
+| Visible to       | `school_admin` and `superadmin` only — registrar and below never see the pill or dialog         |
+| Visibility logic | Completion-driven: appears when any step incomplete, auto-hides when all 5 done. No dismiss.    |
+| Step count       | 5 (AY Setup, Calendar, SOW, Sections, Grading Sheets)                                           |
+| SOW display      | Progress fraction throughout (gray 0%, yellow partial, green 100%) — done only at 100% coverage |
+| Framing          | Readiness indicator — not a workflow gate. Steps can be done in any order.                      |
+| Hub change       | "Academic Year" → "Year Setup" section with 5 numbered cards                                    |
+| Sidebar change   | "Year Setup" group with numbered step items                                                     |
 
 ---
 
 ## Completion signals
 
-| Step | Done when |
-|------|-----------|
-| **1 · AY Setup** | `academic_years` row for current AY has `start_date IS NOT NULL AND end_date IS NOT NULL` + ≥1 `terms` row linked to that AY |
+| Step                    | Done when                                                                                                                                                                                                                           |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1 · AY Setup**        | `academic_years` row for current AY has `start_date IS NOT NULL AND end_date IS NOT NULL` + ≥1 `terms` row linked to that AY                                                                                                        |
 | **2 · School Calendar** | Every term in the AY has ≥1 `school_calendar` row: `COUNT(DISTINCT term_id) FROM school_calendar WHERE term_id IN (SELECT id FROM terms WHERE academic_year_id = $ayId)` equals the total term count. One orphaned term = not done. |
-| **3 · Scheme of Work** | 100% of the *required* `(subject_id, level_id, curriculum_track)` combinations (derived from `template_subject_configs JOIN template_sections`) have a published version for this AY. Fraction shown throughout. |
-| **4 · Sections** | ≥1 `sections` row for this AY with `level_id IS NOT NULL`, `curriculum_track IS NOT NULL`, and a `teacher_assignments` row with `role='form_adviser'` for that section |
-| **5 · Grading Sheets** | All sections for this AY have ≥1 `grading_sheets` row. Coverage fraction shown throughout (same color logic as SOW). |
+| **3 · Scheme of Work**  | 100% of the _required_ `(subject_id, level_id, curriculum_track)` combinations (derived from `template_subject_configs JOIN template_sections`) have a published version for this AY. Fraction shown throughout.                    |
+| **4 · Sections**        | ≥1 `sections` row for this AY with `level_id IS NOT NULL`, `curriculum_track IS NOT NULL`, and a `teacher_assignments` row with `role='form_adviser'` for that section                                                              |
+| **5 · Grading Sheets**  | All sections for this AY have ≥1 `grading_sheets` row. Coverage fraction shown throughout (same color logic as SOW).                                                                                                                |
 
 **SOW denominator (required set):**  
 `SELECT COUNT(DISTINCT (tsc.subject_id, ts.level_id, ts.curriculum_track)) FROM template_subject_configs tsc JOIN template_sections ts ON ts.id = tsc.template_section_id WHERE ts.curriculum_track IS NOT NULL`  
@@ -57,24 +57,29 @@ Done = done equals total AND total > 0.
 ### `lib/sis/readiness.ts` — server lib
 
 ```ts
-type ReadinessStepId = 'ay-setup' | 'calendar' | 'sow' | 'sections' | 'grading-sheets'
+type ReadinessStepId =
+  | 'ay-setup'
+  | 'calendar'
+  | 'sow'
+  | 'sections'
+  | 'grading-sheets';
 
 type ReadinessStep = {
-  id: ReadinessStepId
-  step: number           // 1–5
-  label: string
-  description: string    // subtext in the dialog row
-  href: string           // "Open →" destination
-  status: 'done' | 'partial' | 'not_started'
-  fraction?: { done: number; total: number }  // SOW + Grading Sheets
-}
+  id: ReadinessStepId;
+  step: number; // 1–5
+  label: string;
+  description: string; // subtext in the dialog row
+  href: string; // "Open →" destination
+  status: 'done' | 'partial' | 'not_started';
+  fraction?: { done: number; total: number }; // SOW + Grading Sheets
+};
 
 type AyReadiness = {
-  ayCode: string
-  steps: ReadinessStep[]
-  complete: number       // steps with status === 'done'
-  total: 5
-}
+  ayCode: string;
+  steps: ReadinessStep[];
+  complete: number; // steps with status === 'done'
+  total: 5;
+};
 ```
 
 `getAyReadiness(ayCode: string): Promise<AyReadiness>` — single function, runs 5 parallel queries via service client. Wrapped in `unstable_cache` with tag `sis:${ayCode}`, 60s TTL. Existing mutation routes already call `revalidateTag('sis:${ayCode}')`, so readiness invalidates alongside any SIS Admin data change.
@@ -114,13 +119,13 @@ Fetch `getAyReadiness(ayCode)` server-side in the layout. Pass as prop to `<AyRe
 
 Replace the 2-card grid with a 5-card numbered grid. `AdminCard` gets a new optional `step?: number` prop rendered as a large muted mono numeral in the card's top-left (e.g. `01`, `02`).
 
-| # | Card | Route | Allowed roles |
-|---|------|-------|---------------|
-| 1 | AY Setup | `/sis/ay-setup` | school_admin, superadmin |
-| 2 | School Calendar | `/sis/calendar` | school_admin, superadmin |
-| 3 | Scheme of Work | `/sis/admin/sow` | school_admin, superadmin |
-| 4 | Sections | `/sis/sections` | school_admin, superadmin |
-| 5 | Grading Sheets | `/markbook/sections` | registrar, school_admin, superadmin |
+| #   | Card            | Route                | Allowed roles                       |
+| --- | --------------- | -------------------- | ----------------------------------- |
+| 1   | AY Setup        | `/sis/ay-setup`      | school_admin, superadmin            |
+| 2   | School Calendar | `/sis/calendar`      | school_admin, superadmin            |
+| 3   | Scheme of Work  | `/sis/admin/sow`     | school_admin, superadmin            |
+| 4   | Sections        | `/sis/sections`      | school_admin, superadmin            |
+| 5   | Grading Sheets  | `/markbook/sections` | registrar, school_admin, superadmin |
 
 Card 5 (Grading Sheets) is a cross-module link. Description explains this: "Bulk-create grading sheets per section from the Markbook module. Complete once sections are set up."
 

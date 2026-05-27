@@ -71,12 +71,22 @@ const FIXED_HEADERS = new Set(
     'oct / %',
     'nov / %',
     'dec / %',
-  ].map((s) => s.toLowerCase()),
+  ].map((s) => s.toLowerCase())
 );
 
 const MONTH_INDEX: Record<string, number> = {
-  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
-  jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+  jan: 1,
+  feb: 2,
+  mar: 3,
+  apr: 4,
+  may: 5,
+  jun: 6,
+  jul: 7,
+  aug: 8,
+  sep: 9,
+  oct: 10,
+  nov: 11,
+  dec: 12,
 };
 
 // Try to coerce a cell value (Date | number | string) to yyyy-MM-dd.
@@ -132,7 +142,7 @@ function normalizeStatus(raw: unknown): AttendanceStatus | null {
 // Try exact + stripped-prefix match against the section list for the AY.
 function matchSheetToSection(
   sheetName: string,
-  sections: Array<{ id: string; name: string; level_code: string | null }>,
+  sections: Array<{ id: string; name: string; level_code: string | null }>
 ): { id: string; name: string } | null {
   const sheet = sheetName.trim();
   const exact = sections.find((s) => s.name.trim() === sheet);
@@ -171,11 +181,7 @@ type SheetReport = {
 };
 
 export async function POST(request: NextRequest) {
-  const auth = await requireRole([
-    'registrar',
-    'school_admin',
-    'superadmin',
-  ]);
+  const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
   const formData = await request.formData().catch(() => null);
@@ -190,7 +196,7 @@ export async function POST(request: NextRequest) {
   if (file.size > MAX_FILE_SIZE) {
     return NextResponse.json(
       { error: `file exceeds ${MAX_FILE_SIZE / (1024 * 1024)} MB limit` },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -202,7 +208,7 @@ export async function POST(request: NextRequest) {
   if (!config.success) {
     return NextResponse.json(
       { error: 'invalid import config', details: config.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const { termId, sectionId, dryRun } = config.data;
@@ -230,17 +236,21 @@ export async function POST(request: NextRequest) {
   if (sectionsErr) {
     return NextResponse.json(
       { error: `sections lookup failed: ${sectionsErr.message}` },
-      { status: 500 },
+      { status: 500 }
     );
   }
-  const sections = ((sectionsRaw ?? []) as Array<{
-    id: string;
-    name: string;
-    level: { code: string } | { code: string }[] | null;
-  }>).map((s) => ({
+  const sections = (
+    (sectionsRaw ?? []) as Array<{
+      id: string;
+      name: string;
+      level: { code: string } | { code: string }[] | null;
+    }>
+  ).map((s) => ({
     id: s.id,
     name: s.name,
-    level_code: Array.isArray(s.level) ? s.level[0]?.code ?? null : s.level?.code ?? null,
+    level_code: Array.isArray(s.level)
+      ? (s.level[0]?.code ?? null)
+      : (s.level?.code ?? null),
   }));
 
   // Parse workbook.
@@ -250,8 +260,10 @@ export async function POST(request: NextRequest) {
     workbook = XLSX.read(buffer, { cellDates: true, type: 'buffer' });
   } catch (e) {
     return NextResponse.json(
-      { error: `workbook parse failed: ${e instanceof Error ? e.message : String(e)}` },
-      { status: 400 },
+      {
+        error: `workbook parse failed: ${e instanceof Error ? e.message : String(e)}`,
+      },
+      { status: 400 }
     );
   }
 
@@ -303,7 +315,8 @@ export async function POST(request: NextRequest) {
     let fullNameCol = -1;
     for (let c = 0; c < header.length; c += 1) {
       const cell = header[c];
-      const cellLower = typeof cell === 'string' ? cell.trim().toLowerCase() : '';
+      const cellLower =
+        typeof cell === 'string' ? cell.trim().toLowerCase() : '';
       if (cellLower === 'index no' || cellLower === 'index no.') {
         indexNoCol = c;
         continue;

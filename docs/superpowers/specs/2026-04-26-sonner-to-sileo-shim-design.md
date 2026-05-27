@@ -9,6 +9,7 @@
 Replace the `sonner` toast library with the `sileo` npm package while leaving every existing `toast.X(...)` call site (~154 calls across 55 files) and the `<Toaster />` mount in `app/layout.tsx` mechanically untouched.
 
 **Anti-goals:**
+
 - A 55-file codemod.
 - Theming `sileo` into Aurora Vault tokens — explicitly accepted as out of scope per user direction; sileo's "beautiful by default" rendering ships as-is.
 - Visual upgrade. The earlier "redesign sonner.tsx" framing is dropped.
@@ -80,9 +81,13 @@ type SonnerPromiseMessages<T> = {
   error: string | ((err: unknown) => string) | { title: string };
 };
 
-function normalize<T>(value: SonnerPromiseMessages<T>['success'], arg?: T): { title: string } {
+function normalize<T>(
+  value: SonnerPromiseMessages<T>['success'],
+  arg?: T
+): { title: string } {
   if (typeof value === 'string') return { title: value };
-  if (typeof value === 'function') return { title: String((value as (a: T) => string)(arg as T)) };
+  if (typeof value === 'function')
+    return { title: String((value as (a: T) => string)(arg as T)) };
   return value;
 }
 
@@ -106,6 +111,7 @@ export const toast = {
 ```
 
 Type contract notes:
+
 - The two shapes used by every call site in the codebase are `toast.X(string)` and `toast.X(string, { description })`. Both type-check against `show(kind)`'s `(title: string, opts?: ToastOpts)` signature.
 - `toast.promise` is forward-insurance — zero live callers; if a future caller needs richer message shapes, extend `normalize()`.
 
@@ -155,10 +161,10 @@ The path alias must outlive the uninstall — once `sonner` is gone from `node_m
 
 ## 8. Files touched
 
-| File | Change |
-|---|---|
-| `tsconfig.json` | +1 entry in `compilerOptions.paths` |
+| File                       | Change                                           |
+| -------------------------- | ------------------------------------------------ |
+| `tsconfig.json`            | +1 entry in `compilerOptions.paths`              |
 | `components/ui/sonner.tsx` | full rewrite — sonner-shaped facade over `sileo` |
-| `package.json` + lockfile | uninstall `sonner`, install `sileo` |
+| `package.json` + lockfile  | uninstall `sonner`, install `sileo`              |
 
 Total: **3 files** (4 with the lockfile). 55 call sites untouched.

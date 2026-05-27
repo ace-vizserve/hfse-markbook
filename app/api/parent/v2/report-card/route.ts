@@ -52,20 +52,32 @@ export async function GET(request: Request) {
   const termNumber = termNumberRaw ? parseInt(termNumberRaw, 10) : null;
 
   if (!studentId) {
-    return NextResponse.json({ error: 'missing studentId' }, { status: 400, headers: cors });
+    return NextResponse.json(
+      { error: 'missing studentId' },
+      { status: 400, headers: cors }
+    );
   }
 
   // 1. Verify Bearer token.
   const authHeader = request.headers.get('authorization') ?? '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  const token = authHeader.startsWith('Bearer ')
+    ? authHeader.slice(7).trim()
+    : '';
   if (!token) {
-    return NextResponse.json({ error: 'missing Bearer token' }, { status: 401, headers: cors });
+    return NextResponse.json(
+      { error: 'missing Bearer token' },
+      { status: 401, headers: cors }
+    );
   }
 
   const service = createServiceClient();
-  const { data: userData, error: authError } = await service.auth.getUser(token);
+  const { data: userData, error: authError } =
+    await service.auth.getUser(token);
   if (authError || !userData.user?.email) {
-    return NextResponse.json({ error: 'invalid or expired token' }, { status: 401, headers: cors });
+    return NextResponse.json(
+      { error: 'invalid or expired token' },
+      { status: 401, headers: cors }
+    );
   }
   const email = userData.user.email.trim().toLowerCase();
 
@@ -87,15 +99,23 @@ export async function GET(request: Request) {
     .eq('id', studentId)
     .single();
   if (!studentRow) {
-    return NextResponse.json({ error: 'student not found' }, { status: 404, headers: cors });
+    return NextResponse.json(
+      { error: 'student not found' },
+      { status: 404, headers: cors }
+    );
   }
 
   const admissionsRows = await getAllStudentsByParentEmail(email);
   const linked = admissionsRows.some(
-    (r) => r.student_number === (studentRow as { student_number: string }).student_number,
+    (r) =>
+      r.student_number ===
+      (studentRow as { student_number: string }).student_number
   );
   if (!linked) {
-    return NextResponse.json({ error: 'not authorised for this student' }, { status: 403, headers: cors });
+    return NextResponse.json(
+      { error: 'not authorised for this student' },
+      { status: 403, headers: cors }
+    );
   }
 
   // 3. Check that a currently-active publication window exists for the
@@ -108,7 +128,10 @@ export async function GET(request: Request) {
     .limit(1)
     .single();
   if (!enrolment) {
-    return NextResponse.json({ error: 'student is not enrolled' }, { status: 403, headers: cors });
+    return NextResponse.json(
+      { error: 'student is not enrolled' },
+      { status: 403, headers: cors }
+    );
   }
 
   const now = new Date().toISOString();
@@ -125,7 +148,7 @@ export async function GET(request: Request) {
   if (!activePub) {
     return NextResponse.json(
       { error: 'no active publication window for this term' },
-      { status: 403, headers: cors },
+      { status: 403, headers: cors }
     );
   }
 
@@ -133,10 +156,14 @@ export async function GET(request: Request) {
   const result = await buildReportCard(service, studentId);
   if (!result.ok) {
     const status =
-      result.error.kind === 'student_not_found' || result.error.kind === 'level_not_found'
+      result.error.kind === 'student_not_found' ||
+      result.error.kind === 'level_not_found'
         ? 404
         : 422;
-    return NextResponse.json({ error: result.error.kind }, { status, headers: cors });
+    return NextResponse.json(
+      { error: result.error.kind },
+      { status, headers: cors }
+    );
   }
 
   // 5. If a specific term was requested, filter subjects/attendance/comments

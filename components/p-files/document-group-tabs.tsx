@@ -52,7 +52,10 @@ export function DocumentGroupTabs({ groups }: Props) {
           <TabsTrigger key={g.group} value={g.group} className="gap-2">
             {g.label}
             {g.actionableCount > 0 && (
-              <Badge variant="blocked" className="font-mono text-[10px] tabular-nums">
+              <Badge
+                variant="blocked"
+                className="font-mono text-[10px] tabular-nums"
+              >
                 {g.actionableCount}
               </Badge>
             )}
@@ -67,7 +70,8 @@ export function DocumentGroupTabs({ groups }: Props) {
             </Badge>
             {g.actionableCount > 0 && (
               <Badge variant="blocked">
-                {g.actionableCount} need{g.actionableCount === 1 ? 's' : ''} action
+                {g.actionableCount} need{g.actionableCount === 1 ? 's' : ''}{' '}
+                action
               </Badge>
             )}
           </div>

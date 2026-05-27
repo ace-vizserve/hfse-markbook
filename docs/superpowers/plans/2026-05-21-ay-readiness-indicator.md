@@ -14,35 +14,36 @@
 
 ## File Map
 
-| Action | File | Responsibility |
-|--------|------|----------------|
-| **Create** | `lib/sis/readiness.ts` | Types + `getAyReadiness(ayCode)` — 5-query completion engine |
-| **Create** | `components/sis/ay-readiness-pill.tsx` | Floating pill + dialog — single client component file |
-| **Modify** | `lib/auth/roles.ts` | Add `step?: number` to `NavItem`; restructure `SIS_NAV` |
-| **Modify** | `components/module-sidebar/sidebar-nav-item.tsx` | Render step number prefix when `item.step` is set |
-| **Modify** | `app/(sis)/layout.tsx` | Fetch readiness; mount `<AyReadinessPill>` |
-| **Modify** | `app/(sis)/sis/page.tsx` | Replace "Academic Year" section with numbered "Year Setup" section |
+| Action     | File                                             | Responsibility                                                     |
+| ---------- | ------------------------------------------------ | ------------------------------------------------------------------ |
+| **Create** | `lib/sis/readiness.ts`                           | Types + `getAyReadiness(ayCode)` — 5-query completion engine       |
+| **Create** | `components/sis/ay-readiness-pill.tsx`           | Floating pill + dialog — single client component file              |
+| **Modify** | `lib/auth/roles.ts`                              | Add `step?: number` to `NavItem`; restructure `SIS_NAV`            |
+| **Modify** | `components/module-sidebar/sidebar-nav-item.tsx` | Render step number prefix when `item.step` is set                  |
+| **Modify** | `app/(sis)/layout.tsx`                           | Fetch readiness; mount `<AyReadinessPill>`                         |
+| **Modify** | `app/(sis)/sis/page.tsx`                         | Replace "Academic Year" section with numbered "Year Setup" section |
 
 ---
 
 ## Task 1: `lib/sis/readiness.ts` — completion engine
 
 **Files:**
+
 - Create: `lib/sis/readiness.ts`
 
 - [ ] **Step 1.1: Create the file with types**
 
 ```typescript
 // lib/sis/readiness.ts
-import { unstable_cache } from "next/cache";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { createServiceClient } from "@/lib/supabase/service";
+import { unstable_cache } from 'next/cache';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { createServiceClient } from '@/lib/supabase/service';
 
 export type ReadinessStepId =
-  | "ay-setup"
-  | "calendar"
-  | "sections"
-  | "grading-sheets";
+  | 'ay-setup'
+  | 'calendar'
+  | 'sections'
+  | 'grading-sheets';
 
 export type ReadinessStep = {
   id: ReadinessStepId;
@@ -50,7 +51,7 @@ export type ReadinessStep = {
   label: string;
   description: string;
   href: string;
-  status: "done" | "partial" | "not_started";
+  status: 'done' | 'partial' | 'not_started';
   fraction?: { done: number; total: number };
 };
 
@@ -67,132 +68,152 @@ export type AyReadiness = {
 Append to `lib/sis/readiness.ts`:
 
 ```typescript
-async function checkAySetup(db: SupabaseClient, ayId: string): Promise<ReadinessStep> {
-  const base: Omit<ReadinessStep, "status" | "description"> = {
-    id: "ay-setup",
+async function checkAySetup(
+  db: SupabaseClient,
+  ayId: string
+): Promise<ReadinessStep> {
+  const base: Omit<ReadinessStep, 'status' | 'description'> = {
+    id: 'ay-setup',
     step: 1,
-    label: "AY Setup",
-    href: "/sis/ay-setup",
+    label: 'AY Setup',
+    href: '/sis/ay-setup',
   };
 
   const { count } = await db
-    .from("terms")
-    .select("id", { count: "exact", head: true })
-    .eq("academic_year_id", ayId)
-    .not("start_date", "is", null)
-    .not("end_date", "is", null);
+    .from('terms')
+    .select('id', { count: 'exact', head: true })
+    .eq('academic_year_id', ayId)
+    .not('start_date', 'is', null)
+    .not('end_date', 'is', null);
 
   const done = (count ?? 0) > 0;
   return {
     ...base,
-    status: done ? "done" : "not_started",
+    status: done ? 'done' : 'not_started',
     description: done
-      ? "Academic year active with dated terms"
-      : "Create the academic year and define term dates",
+      ? 'Academic year active with dated terms'
+      : 'Create the academic year and define term dates',
   };
 }
 
-async function checkCalendar(db: SupabaseClient, ayId: string): Promise<ReadinessStep> {
-  const base: Omit<ReadinessStep, "status" | "description"> = {
-    id: "calendar",
+async function checkCalendar(
+  db: SupabaseClient,
+  ayId: string
+): Promise<ReadinessStep> {
+  const base: Omit<ReadinessStep, 'status' | 'description'> = {
+    id: 'calendar',
     step: 2,
-    label: "School Calendar",
-    href: "/sis/calendar",
+    label: 'School Calendar',
+    href: '/sis/calendar',
   };
 
   // Total terms for this AY
   const { count: totalTerms } = await db
-    .from("terms")
-    .select("id", { count: "exact", head: true })
-    .eq("academic_year_id", ayId);
+    .from('terms')
+    .select('id', { count: 'exact', head: true })
+    .eq('academic_year_id', ayId);
 
   if (!totalTerms || totalTerms === 0) {
-    return { ...base, status: "not_started", description: "Define AY terms first" };
+    return {
+      ...base,
+      status: 'not_started',
+      description: 'Define AY terms first',
+    };
   }
 
   // Terms that have at least one school_calendar row
   const { data: termIds } = await db
-    .from("terms")
-    .select("id")
-    .eq("academic_year_id", ayId);
+    .from('terms')
+    .select('id')
+    .eq('academic_year_id', ayId);
 
   const ids = (termIds ?? []).map((t) => t.id);
 
   const { data: coveredRows } = await db
-    .from("school_calendar")
-    .select("term_id")
-    .in("term_id", ids);
+    .from('school_calendar')
+    .select('term_id')
+    .in('term_id', ids);
 
   const coveredTerms = new Set((coveredRows ?? []).map((r) => r.term_id)).size;
   const done = coveredTerms === totalTerms;
 
   return {
     ...base,
-    status: done ? "done" : coveredTerms > 0 ? "partial" : "not_started",
+    status: done ? 'done' : coveredTerms > 0 ? 'partial' : 'not_started',
     description: done
-      ? "All terms have calendar coverage"
+      ? 'All terms have calendar coverage'
       : `${coveredTerms} of ${totalTerms} terms have calendar entries`,
   };
 }
 
-async function checkSections(db: SupabaseClient, ayId: string): Promise<ReadinessStep> {
-  const base: Omit<ReadinessStep, "status" | "description"> = {
-    id: "sections",
+async function checkSections(
+  db: SupabaseClient,
+  ayId: string
+): Promise<ReadinessStep> {
+  const base: Omit<ReadinessStep, 'status' | 'description'> = {
+    id: 'sections',
     step: 3,
-    label: "Sections",
-    href: "/sis/sections",
+    label: 'Sections',
+    href: '/sis/sections',
   };
 
   // Sections with level + track set and a form adviser assigned
   const { data: sectionIds } = await db
-    .from("sections")
-    .select("id")
-    .eq("academic_year_id", ayId)
-    .not("level_id", "is", null)
-    .not("curriculum_track", "is", null);
+    .from('sections')
+    .select('id')
+    .eq('academic_year_id', ayId)
+    .not('level_id', 'is', null)
+    .not('curriculum_track', 'is', null);
 
   if (!sectionIds || sectionIds.length === 0) {
-    return { ...base, status: "not_started", description: "No sections created for this AY" };
+    return {
+      ...base,
+      status: 'not_started',
+      description: 'No sections created for this AY',
+    };
   }
 
   const ids = sectionIds.map((s) => s.id);
 
   const { count: advisedCount } = await db
-    .from("teacher_assignments")
-    .select("id", { count: "exact", head: true })
-    .in("section_id", ids)
-    .eq("role", "form_adviser");
+    .from('teacher_assignments')
+    .select('id', { count: 'exact', head: true })
+    .in('section_id', ids)
+    .eq('role', 'form_adviser');
 
   const done = (advisedCount ?? 0) > 0;
   return {
     ...base,
-    status: done ? "done" : "partial",
+    status: done ? 'done' : 'partial',
     description: done
       ? `${sectionIds.length} sections created with form advisers assigned`
       : `${sectionIds.length} sections created — assign form advisers`,
   };
 }
 
-async function checkGradingSheets(db: SupabaseClient, ayId: string): Promise<ReadinessStep> {
-  const base: Omit<ReadinessStep, "status" | "description" | "fraction"> = {
-    id: "grading-sheets",
+async function checkGradingSheets(
+  db: SupabaseClient,
+  ayId: string
+): Promise<ReadinessStep> {
+  const base: Omit<ReadinessStep, 'status' | 'description' | 'fraction'> = {
+    id: 'grading-sheets',
     step: 4,
-    label: "Grading Sheets",
-    href: "/markbook/sections",
+    label: 'Grading Sheets',
+    href: '/markbook/sections',
   };
 
   const { data: allSections } = await db
-    .from("sections")
-    .select("id")
-    .eq("academic_year_id", ayId);
+    .from('sections')
+    .select('id')
+    .eq('academic_year_id', ayId);
 
   const totalSections = (allSections ?? []).length;
 
   if (totalSections === 0) {
     return {
       ...base,
-      status: "not_started",
-      description: "Create sections first",
+      status: 'not_started',
+      description: 'Create sections first',
       fraction: { done: 0, total: 0 },
     };
   }
@@ -200,18 +221,19 @@ async function checkGradingSheets(db: SupabaseClient, ayId: string): Promise<Rea
   const sectionIds = allSections!.map((s) => s.id);
 
   const { data: sheetRows } = await db
-    .from("grading_sheets")
-    .select("section_id")
-    .in("section_id", sectionIds);
+    .from('grading_sheets')
+    .select('section_id')
+    .in('section_id', sectionIds);
 
-  const sectionsWithSheets = new Set((sheetRows ?? []).map((r) => r.section_id)).size;
+  const sectionsWithSheets = new Set((sheetRows ?? []).map((r) => r.section_id))
+    .size;
   const done = sectionsWithSheets === totalSections;
 
   return {
     ...base,
-    status: done ? "done" : sectionsWithSheets > 0 ? "partial" : "not_started",
+    status: done ? 'done' : sectionsWithSheets > 0 ? 'partial' : 'not_started',
     description: done
-      ? "Grading sheets created for all sections"
+      ? 'Grading sheets created for all sections'
       : `${sectionsWithSheets} of ${totalSections} sections have grading sheets`,
     fraction: { done: sectionsWithSheets, total: totalSections },
   };
@@ -225,10 +247,39 @@ Append to `lib/sis/readiness.ts`:
 ```typescript
 function buildAllNotStarted(ayCode: string): AyReadiness {
   const steps: ReadinessStep[] = [
-    { id: "ay-setup", step: 1, label: "AY Setup", href: "/sis/ay-setup", status: "not_started", description: "Create the academic year and define term dates" },
-    { id: "calendar", step: 2, label: "School Calendar", href: "/sis/calendar", status: "not_started", description: "Generate school days for all terms" },
-    { id: "sections", step: 3, label: "Sections", href: "/sis/sections", status: "not_started", description: "Create sections and assign form advisers" },
-    { id: "grading-sheets", step: 4, label: "Grading Sheets", href: "/markbook/sections", status: "not_started", description: "Bulk-create grading sheets in Markbook → Sections", fraction: { done: 0, total: 0 } },
+    {
+      id: 'ay-setup',
+      step: 1,
+      label: 'AY Setup',
+      href: '/sis/ay-setup',
+      status: 'not_started',
+      description: 'Create the academic year and define term dates',
+    },
+    {
+      id: 'calendar',
+      step: 2,
+      label: 'School Calendar',
+      href: '/sis/calendar',
+      status: 'not_started',
+      description: 'Generate school days for all terms',
+    },
+    {
+      id: 'sections',
+      step: 3,
+      label: 'Sections',
+      href: '/sis/sections',
+      status: 'not_started',
+      description: 'Create sections and assign form advisers',
+    },
+    {
+      id: 'grading-sheets',
+      step: 4,
+      label: 'Grading Sheets',
+      href: '/markbook/sections',
+      status: 'not_started',
+      description: 'Bulk-create grading sheets in Markbook → Sections',
+      fraction: { done: 0, total: 0 },
+    },
   ];
   return { ayCode, steps, complete: 0, total: 4 };
 }
@@ -237,9 +288,9 @@ async function getAyReadinessUncached(ayCode: string): Promise<AyReadiness> {
   const db = createServiceClient();
 
   const { data: ay } = await db
-    .from("academic_years")
-    .select("id")
-    .eq("ay_code", ayCode)
+    .from('academic_years')
+    .select('id')
+    .eq('ay_code', ayCode)
     .maybeSingle();
 
   if (!ay) return buildAllNotStarted(ayCode);
@@ -252,7 +303,7 @@ async function getAyReadinessUncached(ayCode: string): Promise<AyReadiness> {
   ]);
 
   const steps = [step1, step2, step3, step4];
-  const complete = steps.filter((s) => s.status === "done").length;
+  const complete = steps.filter((s) => s.status === 'done').length;
   return { ayCode, steps, complete, total: 4 };
 }
 
@@ -260,7 +311,7 @@ export const getAyReadiness = (ayCode: string) =>
   unstable_cache(
     () => getAyReadinessUncached(ayCode),
     [`sis-readiness-${ayCode}`],
-    { tags: [`sis:${ayCode}`], revalidate: 60 },
+    { tags: [`sis:${ayCode}`], revalidate: 60 }
   )();
 ```
 
@@ -284,6 +335,7 @@ git commit -m "feat(sis): AY readiness completion engine with 5-step signals"
 ## Task 2: `NavItem` type + SIS sidebar restructure
 
 **Files:**
+
 - Modify: `lib/auth/roles.ts`
 
 - [ ] **Step 2.1: Add `step` to `NavItem` type**
@@ -317,40 +369,104 @@ Find the `const SIS_NAV` definition. Replace the current `"Academic Year"` secti
 
 ```typescript
 const SIS_NAV: NavSection[] = [
-  { items: [{ href: "/sis", label: "Admin Hub" }] },
+  { items: [{ href: '/sis', label: 'Admin Hub' }] },
   {
-    label: "Year Setup",
+    label: 'Year Setup',
     items: [
-      { step: 1, href: "/sis/ay-setup",      label: "AY Setup",        requiresRoles: ["school_admin", "superadmin"] },
-      { step: 2, href: "/sis/calendar",      label: "School Calendar", requiresRoles: ["school_admin", "superadmin"] },
-      { step: 3, href: "/sis/sections",      label: "Sections",        requiresRoles: ["school_admin", "superadmin"] },
-      { step: 4, href: "/markbook/sections", label: "Grading Sheets",  requiresRoles: ["school_admin", "superadmin"] },
+      {
+        step: 1,
+        href: '/sis/ay-setup',
+        label: 'AY Setup',
+        requiresRoles: ['school_admin', 'superadmin'],
+      },
+      {
+        step: 2,
+        href: '/sis/calendar',
+        label: 'School Calendar',
+        requiresRoles: ['school_admin', 'superadmin'],
+      },
+      {
+        step: 3,
+        href: '/sis/sections',
+        label: 'Sections',
+        requiresRoles: ['school_admin', 'superadmin'],
+      },
+      {
+        step: 4,
+        href: '/markbook/sections',
+        label: 'Grading Sheets',
+        requiresRoles: ['school_admin', 'superadmin'],
+      },
     ],
   },
   {
-    label: "Organisation",
+    label: 'Organisation',
     items: [
-      { href: "/sis/admin/sow",            label: "Scheme of Work",      requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/admin/discount-codes", label: "Discount Codes",      requiresRoles: ["registrar", "school_admin", "superadmin"] },
-      { href: "/sis/admin/subjects",       label: "Subject Weights",     requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/admin/template",       label: "Class Template",      requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/sync-students",        label: "Sync from Admissions",requiresRoles: ["registrar", "school_admin", "superadmin"] },
+      {
+        href: '/sis/admin/sow',
+        label: 'Scheme of Work',
+        requiresRoles: ['school_admin', 'superadmin'],
+      },
+      {
+        href: '/sis/admin/discount-codes',
+        label: 'Discount Codes',
+        requiresRoles: ['registrar', 'school_admin', 'superadmin'],
+      },
+      {
+        href: '/sis/admin/subjects',
+        label: 'Subject Weights',
+        requiresRoles: ['school_admin', 'superadmin'],
+      },
+      {
+        href: '/sis/admin/template',
+        label: 'Class Template',
+        requiresRoles: ['school_admin', 'superadmin'],
+      },
+      {
+        href: '/sis/sync-students',
+        label: 'Sync from Admissions',
+        requiresRoles: ['registrar', 'school_admin', 'superadmin'],
+      },
     ],
   },
   {
-    label: "Access",
+    label: 'Access',
     items: [
-      { href: "/sis/admin/approvers", label: "Approvers", requiresRoles: ["superadmin"] },
-      { href: "/sis/admin/users",     label: "Users",     requiresRoles: ["superadmin"] },
+      {
+        href: '/sis/admin/approvers',
+        label: 'Approvers',
+        requiresRoles: ['superadmin'],
+      },
+      {
+        href: '/sis/admin/users',
+        label: 'Users',
+        requiresRoles: ['superadmin'],
+      },
     ],
   },
   {
-    label: "System",
+    label: 'System',
     items: [
-      { href: "/sis/admin/school-config",        label: "School Config", requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/admin/evaluation-checklists",label: "Evaluation Checklists", requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/admin/settings",             label: "Settings",      requiresRoles: ["superadmin"] },
-      { href: "/sis/audit-log",                  label: "Audit Log",     requiresRoles: ["school_admin", "superadmin"] },
+      {
+        href: '/sis/admin/school-config',
+        label: 'School Config',
+        requiresRoles: ['school_admin', 'superadmin'],
+      },
+      {
+        href: '/sis/admin/evaluation-checklists',
+        label: 'Evaluation Checklists',
+        requiresRoles: ['school_admin', 'superadmin'],
+      },
+      {
+        href: '/sis/admin/settings',
+        label: 'Settings',
+        requiresRoles: ['superadmin'],
+      },
+      {
+        href: '/sis/audit-log',
+        label: 'Audit Log',
+        requiresRoles: ['school_admin', 'superadmin'],
+      },
     ],
   },
 ];
@@ -376,6 +492,7 @@ git commit -m "feat(sis): Year Setup nav group with numbered steps in SIS sideba
 ## Task 3: Step prefix in `SidebarNavItem`
 
 **Files:**
+
 - Modify: `components/module-sidebar/sidebar-nav-item.tsx`
 
 - [ ] **Step 3.1: Render step number when present**
@@ -401,7 +518,7 @@ Replace with:
   <Icon />
   {item.step != null && (
     <span className="w-5 flex-shrink-0 text-right font-mono text-[10px] text-muted-foreground/60 group-data-[collapsible=icon]:hidden">
-      {String(item.step).padStart(2, "0")}
+      {String(item.step).padStart(2, '0')}
     </span>
   )}
   <span>{item.label}</span>
@@ -433,6 +550,7 @@ git commit -m "feat(sis): render step number prefix on sidebar nav items"
 ## Task 4: `<AyReadinessPill>` — floating pill + dialog
 
 **Files:**
+
 - Create: `components/sis/ay-readiness-pill.tsx`
 
 This is a single `"use client"` file containing both the pill trigger and the dialog.
@@ -441,19 +559,19 @@ This is a single `"use client"` file containing both the pill trigger and the di
 
 ```tsx
 // components/sis/ay-readiness-pill.tsx
-"use client";
+'use client';
 
-import { useState } from "react";
-import Link from "next/link";
-import { CheckCircle2, Circle, Clock } from "lucide-react";
+import { useState } from 'react';
+import Link from 'next/link';
+import { CheckCircle2, Circle, Clock } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import type { Role } from "@/lib/auth/roles";
-import type { AyReadiness, ReadinessStep } from "@/lib/sis/readiness";
+} from '@/components/ui/dialog';
+import type { Role } from '@/lib/auth/roles';
+import type { AyReadiness, ReadinessStep } from '@/lib/sis/readiness';
 
 type Props = {
   readiness: AyReadiness;
@@ -464,7 +582,7 @@ export function AyReadinessPill({ readiness, role }: Props) {
   const [open, setOpen] = useState(false);
 
   // Admin-only: registrar and below never see this
-  if (role !== "school_admin" && role !== "superadmin") return null;
+  if (role !== 'school_admin' && role !== 'superadmin') return null;
   // Auto-hide when all 4 steps are done
   if (readiness.complete === readiness.total) return null;
 
@@ -515,7 +633,11 @@ export function AyReadinessPill({ readiness, role }: Props) {
 
           <div className="flex flex-col gap-2 py-2">
             {readiness.steps.map((step) => (
-              <ReadinessRow key={step.id} step={step} onNavigate={() => setOpen(false)} />
+              <ReadinessRow
+                key={step.id}
+                step={step}
+                onNavigate={() => setOpen(false)}
+              />
             ))}
           </div>
 
@@ -538,14 +660,14 @@ function ReadinessRow({
   step: ReadinessStep;
   onNavigate: () => void;
 }) {
-  const isDone = step.status === "done";
-  const isPartial = step.status === "partial";
+  const isDone = step.status === 'done';
+  const isPartial = step.status === 'partial';
 
   const rowBg = isDone
-    ? "bg-success/10 border-success/30"
+    ? 'bg-success/10 border-success/30'
     : isPartial
-      ? "bg-warning/10 border-warning/30"
-      : "bg-background border-border";
+      ? 'bg-warning/10 border-warning/30'
+      : 'bg-background border-border';
 
   const iconEl = isDone ? (
     <CheckCircle2 className="h-5 w-5 text-success" />
@@ -561,16 +683,20 @@ function ReadinessRow({
       : 0;
 
   const barColor = isDone
-    ? "bg-success"
+    ? 'bg-success'
     : isPartial
-      ? "bg-warning"
-      : "bg-muted";
+      ? 'bg-warning'
+      : 'bg-muted';
 
   return (
-    <div className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 ${rowBg}`}>
+    <div
+      className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 ${rowBg}`}
+    >
       <div className="mt-0.5 flex-shrink-0">{iconEl}</div>
       <div className="min-w-0 flex-1">
-        <p className={`text-sm font-semibold ${isDone ? "text-foreground" : isPartial ? "text-foreground" : "text-muted-foreground"}`}>
+        <p
+          className={`text-sm font-semibold ${isDone ? 'text-foreground' : isPartial ? 'text-foreground' : 'text-muted-foreground'}`}
+        >
           {step.label}
         </p>
         {step.fraction && step.fraction.total > 0 && (
@@ -581,12 +707,16 @@ function ReadinessRow({
                 style={{ width: `${pct}%` }}
               />
             </div>
-            <span className={`flex-shrink-0 font-mono text-[10px] font-semibold ${isDone ? "text-success" : isPartial ? "text-warning" : "text-muted-foreground"}`}>
+            <span
+              className={`flex-shrink-0 font-mono text-[10px] font-semibold ${isDone ? 'text-success' : isPartial ? 'text-warning' : 'text-muted-foreground'}`}
+            >
               {step.fraction.done}/{step.fraction.total}
             </span>
           </div>
         )}
-        <p className="mt-0.5 text-[11px] text-muted-foreground">{step.description}</p>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">
+          {step.description}
+        </p>
       </div>
       <Link
         href={step.href}
@@ -620,6 +750,7 @@ git commit -m "feat(sis): AyReadinessPill floating component with 5-step readine
 ## Task 5: Mount pill in SIS layout
 
 **Files:**
+
 - Modify: `app/(sis)/layout.tsx`
 
 - [ ] **Step 5.1: Fetch readiness and mount pill**
@@ -627,20 +758,20 @@ git commit -m "feat(sis): AyReadinessPill floating component with 5-step readine
 Open `app/(sis)/layout.tsx`. The current file ends with:
 
 ```tsx
-  return (
-    <SidebarProvider defaultOpen={defaultOpen}>
-      <ModuleSidebar module="sis" role={role} email={email} userId={id} />
-      <SidebarInset>
-        <AyBanner />
-        <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/85 px-4 backdrop-blur-md">
-          <SidebarTrigger className="-ml-1" />
-        </header>
-        <div className="flex-1 bg-muted px-6 py-8 md:px-10 md:py-10">
-          {children}
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
-  );
+return (
+  <SidebarProvider defaultOpen={defaultOpen}>
+    <ModuleSidebar module="sis" role={role} email={email} userId={id} />
+    <SidebarInset>
+      <AyBanner />
+      <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/85 px-4 backdrop-blur-md">
+        <SidebarTrigger className="-ml-1" />
+      </header>
+      <div className="flex-1 bg-muted px-6 py-8 md:px-10 md:py-10">
+        {children}
+      </div>
+    </SidebarInset>
+  </SidebarProvider>
+);
 ```
 
 Replace the entire file with:
@@ -661,12 +792,20 @@ import { getCurrentAcademicYear } from '@/lib/academic-year';
 import { getAyReadiness } from '@/lib/sis/readiness';
 import { createServiceClient } from '@/lib/supabase/service';
 
-export default async function SisLayout({ children }: { children: React.ReactNode }) {
+export default async function SisLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
 
   const { id, email, role } = sessionUser;
-  if (role !== 'registrar' && role !== 'school_admin' && role !== 'superadmin') {
+  if (
+    role !== 'registrar' &&
+    role !== 'school_admin' &&
+    role !== 'superadmin'
+  ) {
     if (role === 'p-file') redirect('/p-files');
     if (!role) redirect('/parent');
     redirect('/');
@@ -721,6 +860,7 @@ git commit -m "feat(sis): mount AyReadinessPill in SIS layout"
 ## Task 6: Hub "Year Setup" section with numbered cards
 
 **Files:**
+
 - Modify: `app/(sis)/sis/page.tsx`
 
 - [ ] **Step 6.1: Add `step` prop to `AdminCard`**
@@ -771,7 +911,9 @@ Inside `<CardHeader>`, add the step number before `<CardDescription>`:
 Find the `{/* Academic Year — rolls over once a year */}` section block in `page.tsx`. Replace it entirely:
 
 ```tsx
-{/* Year Setup — the 4-step sequence for a new academic year. */}
+{
+  /* Year Setup — the 4-step sequence for a new academic year. */
+}
 <section className="space-y-3">
   <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
     Year Setup
@@ -786,7 +928,7 @@ Find the `{/* Academic Year — rolls over once a year */}` section block in `pa
       description="Create a new academic year, switch the active AY, or retire an empty one. Sets up everything the new year needs — terms, sections, subjects, admissions data."
       cta="Open AY Setup"
       role={role}
-      allowedRoles={["school_admin", "superadmin"]}
+      allowedRoles={['school_admin', 'superadmin']}
     />
     <AdminCard
       step={2}
@@ -797,7 +939,7 @@ Find the `{/* Academic Year — rolls over once a year */}` section block in `pa
       description="Define school days, holidays, and important dates per term. Every weekday is a school day by default; mark holidays and HBL overlays here. Attendance and the parent portal consume this."
       cta="Open school calendar"
       role={role}
-      allowedRoles={["school_admin", "superadmin"]}
+      allowedRoles={['school_admin', 'superadmin']}
     />
     <AdminCard
       step={3}
@@ -808,7 +950,7 @@ Find the `{/* Academic Year — rolls over once a year */}` section block in `pa
       description="Create sections from the master template and assign form advisers and subject teachers. Sections gate grading sheet creation in Markbook."
       cta="Manage sections"
       role={role}
-      allowedRoles={["school_admin", "superadmin"]}
+      allowedRoles={['school_admin', 'superadmin']}
     />
     <AdminCard
       step={4}
@@ -819,10 +961,10 @@ Find the `{/* Academic Year — rolls over once a year */}` section block in `pa
       description="Bulk-create grading sheets per section from Markbook → Sections. Complete once sections are set up."
       cta="Open Markbook sections"
       role={role}
-      allowedRoles={["registrar", "school_admin", "superadmin"]}
+      allowedRoles={['registrar', 'school_admin', 'superadmin']}
     />
   </div>
-</section>
+</section>;
 ```
 
 Note: `ClipboardList` may not be in the existing file's lucide-react import — add it if missing. `BookOpenCheck` is no longer needed (SOW card removed).
@@ -859,6 +1001,7 @@ npx next dev --turbo
 - [ ] **Step 7.2: Sign in as `school_admin` and navigate to `/sis`**
 
 Verify:
+
 - "Year Setup" section appears on the hub with 4 numbered cards (01–04)
 - Grading Sheets card links to `/markbook/sections`
 - Sidebar shows "Year Setup" group with `01`–`04` prefixes on each item
@@ -868,6 +1011,7 @@ Verify:
 - [ ] **Step 7.3: Click the pill**
 
 Verify:
+
 - Dialog opens with correct title + subtitle
 - Grading Sheets row shows a progress bar and `N/M` fraction
 - Done steps show green check; partial show amber; not started show muted circle
@@ -876,6 +1020,7 @@ Verify:
 - [ ] **Step 7.4: Sign in as `registrar`**
 
 Verify:
+
 - Pill does NOT appear
 - Sidebar still shows the Year Setup group (registrar has access to the routes, just not the pill)
 

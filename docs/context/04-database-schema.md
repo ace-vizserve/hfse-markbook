@@ -11,6 +11,7 @@ All SIS-owned tables use UUID primary keys except where noted. `created_at` and 
 ## Core Tables
 
 ### `students`
+
 Synced from admissions. The SIS's canonical student roster (one row per `studentNumber`, Hard Rule #4).
 
 ```sql
@@ -27,6 +28,7 @@ CREATE TABLE students (
 ```
 
 ### `academic_years`
+
 ```sql
 CREATE TABLE academic_years (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -38,6 +40,7 @@ CREATE TABLE academic_years (
 ```
 
 ### `terms`
+
 ```sql
 CREATE TABLE terms (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -53,6 +56,7 @@ CREATE TABLE terms (
 ```
 
 ### `levels`
+
 ```sql
 CREATE TABLE levels (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -68,6 +72,7 @@ CREATE TABLE levels (
 > **Youngstarters today:** preschool levels exist in `levels` but do **not** receive `subject_configs`, grading sheets, or report cards yet — that's deferred until the YS report-card template is designed. Admissions / Records / Attendance accept YS rows; Markbook + Evaluation skip them by `level_type <> 'preschool'`.
 
 ### `sections`
+
 ```sql
 CREATE TABLE sections (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -82,6 +87,7 @@ CREATE TABLE sections (
 ```
 
 ### `section_students`
+
 Student-section enrollment per AY with fixed index numbers.
 
 ```sql
@@ -101,6 +107,7 @@ CREATE TABLE section_students (
 ```
 
 ### `subjects`
+
 ```sql
 CREATE TABLE subjects (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -112,6 +119,7 @@ CREATE TABLE subjects (
 ```
 
 ### `subject_configs`
+
 Per-subject grading configuration per AY. Weights may change each AY.
 
 ```sql
@@ -132,6 +140,7 @@ CREATE TABLE subject_configs (
 ```
 
 ### `grading_sheets`
+
 One per subject + section + term. The primary unit of locking.
 
 ```sql
@@ -157,6 +166,7 @@ CREATE TABLE grading_sheets (
 ```
 
 ### `grade_entries`
+
 One row per student per grading sheet. Stores raw scores as arrays.
 
 ```sql
@@ -185,6 +195,7 @@ CREATE TABLE grade_entries (
 ```
 
 ### `grade_audit_log`
+
 Every change to a grade_entry after the sheet is locked.
 
 ```sql
@@ -220,6 +231,7 @@ CREATE TABLE report_card_comments (
 ```
 
 ### `attendance_records`
+
 Per student per term — synced or manually entered.
 
 ```sql

@@ -15,7 +15,10 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Sheet } from '@/components/ui/sheet';
-import type { LevelCompletionRow, SlotStatusMix } from '@/lib/p-files/dashboard';
+import type {
+  LevelCompletionRow,
+  SlotStatusMix,
+} from '@/lib/p-files/dashboard';
 
 // Per-target client wrappers for P-Files chart cards. Drill sheets lazy-fetch
 // rows via /api/p-files/drill (per spec §6.2 — P-Files row volume is too
@@ -39,7 +42,8 @@ export function SlotStatusDrillCard({
     { name: 'Expired', value: slotMix.missing },
   ];
   // All statuses count toward "tracked" — aligns denominator with 13-slot universe.
-  const total = slotMix.valid + slotMix.missing + slotMix.pending + slotMix.rejected;
+  const total =
+    slotMix.valid + slotMix.missing + slotMix.pending + slotMix.rejected;
   return (
     <Sheet open={!!status} onOpenChange={(o) => !o && setStatus(null)}>
       <Card>
@@ -47,7 +51,9 @@ export function SlotStatusDrillCard({
           <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
             Slot status mix
           </CardDescription>
-          <CardTitle className="font-serif text-xl">Where documents stand</CardTitle>
+          <CardTitle className="font-serif text-xl">
+            Where documents stand
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <DonutChart
@@ -58,10 +64,14 @@ export function SlotStatusDrillCard({
           />
           {total > 0 && (
             <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-[10px] tabular-nums text-muted-foreground">
-              <dt>On file</dt><dd className="text-right">{slotMix.valid}</dd>
-              <dt>Expired / missing</dt><dd className="text-right">{slotMix.missing}</dd>
-              <dt>Awaiting validation</dt><dd className="text-right">{slotMix.pending}</dd>
-              <dt>Rejected</dt><dd className="text-right">{slotMix.rejected}</dd>
+              <dt>On file</dt>
+              <dd className="text-right">{slotMix.valid}</dd>
+              <dt>Expired / missing</dt>
+              <dd className="text-right">{slotMix.missing}</dd>
+              <dt>Awaiting validation</dt>
+              <dd className="text-right">{slotMix.pending}</dd>
+              <dt>Rejected</dt>
+              <dd className="text-right">{slotMix.rejected}</dd>
             </dl>
           )}
         </CardContent>

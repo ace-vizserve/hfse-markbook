@@ -1,11 +1,15 @@
-"use client";
+'use client';
 
-import { Check, ChevronsUpDown, Home } from "lucide-react";
-import Link from "next/link";
+import { Check, ChevronsUpDown, Home } from 'lucide-react';
+import Link from 'next/link';
 
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { isRouteAllowed, type Role } from "@/lib/auth/roles";
-import { MODULE_ORDER, SIDEBAR_REGISTRY } from "@/lib/sidebar/registry";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { isRouteAllowed, type Role } from '@/lib/auth/roles';
+import { MODULE_ORDER, SIDEBAR_REGISTRY } from '@/lib/sidebar/registry';
 
 // Used only by the neutral (dashboard) group (the `/` picker + `/account`)
 // where there is no module sidebar to host the popover. Mirrors the
@@ -17,7 +21,7 @@ type TopbarModuleSwitcherProps = {
 
 export function TopbarModuleSwitcher({ role }: TopbarModuleSwitcherProps) {
   const allowedModules = MODULE_ORDER.filter((m) =>
-    isRouteAllowed(SIDEBAR_REGISTRY[m].primaryHref, role),
+    isRouteAllowed(SIDEBAR_REGISTRY[m].primaryHref, role)
   );
   const canSwitch = allowedModules.length > 1;
 
@@ -39,7 +43,8 @@ export function TopbarModuleSwitcher({ role }: TopbarModuleSwitcherProps) {
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="group flex items-center gap-2.5 rounded-lg px-1.5 py-1 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">
+          className="group flex items-center gap-2.5 rounded-lg px-1.5 py-1 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+        >
           <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
             <Home className="size-3.5" />
           </div>
@@ -68,7 +73,8 @@ export function TopbarModuleSwitcher({ role }: TopbarModuleSwitcherProps) {
               <li key={m}>
                 <Link
                   href={cfg.primaryHref}
-                  className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring">
+                  className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+                >
                   <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
                     <MIcon className="size-3.5" />
                   </div>

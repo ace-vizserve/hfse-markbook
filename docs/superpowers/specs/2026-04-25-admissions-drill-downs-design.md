@@ -17,20 +17,20 @@ This is the pilot module. The pattern proven here is replicated to Markbook / At
 
 Every aggregating surface on `/admissions` becomes a drill trigger. Twelve drill targets:
 
-| # | Surface | Click target | Drill content |
-|---|---|---|---|
-| 1 | MetricCard: Applications (range) | Whole card | Apps created in range |
-| 2 | MetricCard: Enrolled (range) | Whole card | Apps that enrolled in range |
-| 3 | MetricCard: Conversion rate | Whole card | Apps in range with `enrolled? Y/N` flag + days-to-enroll |
-| 4 | MetricCard: Avg time to enroll | Whole card | Apps enrolled in range with days-to-enroll |
-| 5 | Conversion Funnel | Each stage bar | Apps reaching that stage |
-| 6 | Time-to-enroll histogram | Each bucket bar | Apps in that bucket |
-| 7 | Pipeline Stage | Each stage bar | Apps currently at that stage |
-| 8 | Assessment Outcomes | Each outcome bar | Apps with that outcome |
-| 9 | Referral Source | Each source row | Apps from that source |
-| 10 | Outdated Applications (existing list) | Already row-level — gets the new toolkit + CSV |
-| 11 | **NEW** — Applications by level | Each level bar | Apps in that level |
-| 12 | **NEW** — Document completion by level | Each level row | Apps in that level with doc-completeness flag |
+| #   | Surface                                | Click target                                   | Drill content                                            |
+| --- | -------------------------------------- | ---------------------------------------------- | -------------------------------------------------------- |
+| 1   | MetricCard: Applications (range)       | Whole card                                     | Apps created in range                                    |
+| 2   | MetricCard: Enrolled (range)           | Whole card                                     | Apps that enrolled in range                              |
+| 3   | MetricCard: Conversion rate            | Whole card                                     | Apps in range with `enrolled? Y/N` flag + days-to-enroll |
+| 4   | MetricCard: Avg time to enroll         | Whole card                                     | Apps enrolled in range with days-to-enroll               |
+| 5   | Conversion Funnel                      | Each stage bar                                 | Apps reaching that stage                                 |
+| 6   | Time-to-enroll histogram               | Each bucket bar                                | Apps in that bucket                                      |
+| 7   | Pipeline Stage                         | Each stage bar                                 | Apps currently at that stage                             |
+| 8   | Assessment Outcomes                    | Each outcome bar                               | Apps with that outcome                                   |
+| 9   | Referral Source                        | Each source row                                | Apps from that source                                    |
+| 10  | Outdated Applications (existing list)  | Already row-level — gets the new toolkit + CSV |
+| 11  | **NEW** — Applications by level        | Each level bar                                 | Apps in that level                                       |
+| 12  | **NEW** — Document completion by level | Each level row                                 | Apps in that level with doc-completeness flag            |
 
 Targets 11 + 12 close out the deferred backlog items `getApplicationsByLevelRange` + `getDocumentCompletionByLevel`.
 
@@ -40,17 +40,17 @@ Targets 11 + 12 close out the deferred backlog items `getApplicationsByLevelRang
 
 Every drill sheet exposes the same control bar — extending today's `DrillDownSheet`:
 
-| Control | Type | Behavior |
-|---|---|---|
-| Search | `Input` (text) | Free-text fuzzy across name, enroleeNumber, studentNumber. Local state. |
-| Range scope | `Tabs variant="segmented"` | `This range` (default — uses dashboard `?from=&to=`) · `Current AY` · `All time`. Triggers refetch. |
-| Status | Multi-select chip toolbar | Inquiry · Applied · Interviewed · Offered · Accepted · Enrolled · Withdrawn. Local state. |
-| Level | Multi-select chip toolbar | P1..P6 · S1..S4. Local state. |
-| Group by | `Tabs variant="segmented"` | `None` (default) · `Level` · `Status` · `Stage`. Re-renders the table with grouped sections. |
-| Density | Toggle button | `Comfortable` (default) / `Compact` (`py-2` → `py-1`). Local state. |
-| Columns | `DropdownMenu` w/ checkboxes | Shows/hides each column. Local state. Default visible set is per-target. |
-| Sort | Already on `<TableHead>` | Existing — no change. |
-| CSV export | Button | Downloads currently filtered + sorted + visible-only rows. UTF-8 BOM via `lib/csv.ts`. |
+| Control     | Type                         | Behavior                                                                                            |
+| ----------- | ---------------------------- | --------------------------------------------------------------------------------------------------- |
+| Search      | `Input` (text)               | Free-text fuzzy across name, enroleeNumber, studentNumber. Local state.                             |
+| Range scope | `Tabs variant="segmented"`   | `This range` (default — uses dashboard `?from=&to=`) · `Current AY` · `All time`. Triggers refetch. |
+| Status      | Multi-select chip toolbar    | Inquiry · Applied · Interviewed · Offered · Accepted · Enrolled · Withdrawn. Local state.           |
+| Level       | Multi-select chip toolbar    | P1..P6 · S1..S4. Local state.                                                                       |
+| Group by    | `Tabs variant="segmented"`   | `None` (default) · `Level` · `Status` · `Stage`. Re-renders the table with grouped sections.        |
+| Density     | Toggle button                | `Comfortable` (default) / `Compact` (`py-2` → `py-1`). Local state.                                 |
+| Columns     | `DropdownMenu` w/ checkboxes | Shows/hides each column. Local state. Default visible set is per-target.                            |
+| Sort        | Already on `<TableHead>`     | Existing — no change.                                                                               |
+| CSV export  | Button                       | Downloads currently filtered + sorted + visible-only rows. UTF-8 BOM via `lib/csv.ts`.              |
 
 **Filter persistence:** Drill-local React state. Closing sheet resets all controls. Reasoning: URL bloat, dashboard already URL-persistent at the section level.
 
@@ -64,9 +64,9 @@ export type DrillRow = {
   enroleeNumber: string;
   studentNumber: string | null;
   fullName: string;
-  status: string;            // applicationStatus
-  level: string | null;       // classLevel preferred, falls back to levelApplied
-  stage: string | null;       // current pipeline stage (rightmost *UpdatedDate)
+  status: string; // applicationStatus
+  level: string | null; // classLevel preferred, falls back to levelApplied
+  stage: string | null; // current pipeline stage (rightmost *UpdatedDate)
   referralSource: string | null;
   assessmentOutcome: string | null;
   applicationDate: string;
@@ -96,12 +96,14 @@ One shape per row → every drill differs only by which rows it pre-filters and 
 ### 4.3 Library
 
 **New file `lib/admissions/drill.ts`:**
+
 - `DrillRow` type
 - `buildDrillRows(client, { ayCode, scope })` — one fetch, returns `DrillRow[]` enriched with stage + days
 - `applyTargetFilter(rows, target, segment?)` — narrows the row set per target
 - `defaultColumnsForTarget(target)` — returns the default visible-column array
 
 **Extended `lib/admissions/dashboard.ts`:**
+
 - `getApplicationsByLevelRange(rangeInput)` — array of `{ level, count }` per range (closes deferred item)
 - `getDocumentCompletionByLevel(ayCode)` — array of `{ level, complete, partial, missing }` (closes deferred item)
 
@@ -125,6 +127,7 @@ One shape per row → every drill differs only by which rows it pre-filters and 
 ```
 
 `AdmissionsDrillSheet` is a single component. The `target` prop drives:
+
 - which columns to render (`defaultColumnsForTarget`)
 - which filters are visible (e.g., the Stage filter is hidden on stage-specific drills)
 - which CSV endpoint variant to hit
@@ -136,23 +139,27 @@ This collapses 12 would-be drill components to one.
 
 Recharts charts gain `onClick` on the relevant element:
 
-| Chart | Element | Recharts API |
-|---|---|---|
-| `ConversionFunnelChart` | `<Bar onClick={(data) => onSegmentClick(data.stage)}>` | `<Bar onClick>` |
-| `PipelineStageChart` | `<Bar onClick>` | same |
-| `AssessmentOutcomesChart` | `<Bar onClick>` | same |
-| `ReferralSourceChart` | row `<button onClick>` (rows are already JSX, not recharts) | inline |
-| Time-to-enroll histogram (uses `ComparisonBarChart`) | `<Bar onClick>` | extend `ComparisonBarChart` with `onSegmentClick?: (category: string) => void` |
-| ApplicationsByLevel (new) | `<Bar onClick>` | same as ComparisonBarChart |
-| DocumentCompletionByLevel (new) | row `<button onClick>` | inline |
+| Chart                                                | Element                                                     | Recharts API                                                                   |
+| ---------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `ConversionFunnelChart`                              | `<Bar onClick={(data) => onSegmentClick(data.stage)}>`      | `<Bar onClick>`                                                                |
+| `PipelineStageChart`                                 | `<Bar onClick>`                                             | same                                                                           |
+| `AssessmentOutcomesChart`                            | `<Bar onClick>`                                             | same                                                                           |
+| `ReferralSourceChart`                                | row `<button onClick>` (rows are already JSX, not recharts) | inline                                                                         |
+| Time-to-enroll histogram (uses `ComparisonBarChart`) | `<Bar onClick>`                                             | extend `ComparisonBarChart` with `onSegmentClick?: (category: string) => void` |
+| ApplicationsByLevel (new)                            | `<Bar onClick>`                                             | same as ComparisonBarChart                                                     |
+| DocumentCompletionByLevel (new)                      | row `<button onClick>`                                      | inline                                                                         |
 
 The card shell hosts the `<Sheet>`. Pattern:
 
 ```tsx
 const [activeSegment, setActiveSegment] = useState<string | null>(null);
 return (
-  <Sheet open={!!activeSegment} onOpenChange={(o) => !o && setActiveSegment(null)}>
-    <Card>...
+  <Sheet
+    open={!!activeSegment}
+    onOpenChange={(o) => !o && setActiveSegment(null)}
+  >
+    <Card>
+      ...
       <Chart onSegmentClick={setActiveSegment} />
     </Card>
     {activeSegment && (
@@ -168,18 +175,18 @@ The card itself is **not** a `<SheetTrigger>` — only the chart segments are. C
 
 Default visible columns per target (Columns dropdown can toggle others on):
 
-| Target | Default visible |
-|---|---|
-| `applications` | EnroleeNo · Name · Status · Level · App Date · Days Since Update |
-| `enrolled` | EnroleeNo · Name · Level · App Date · Enroll Date · Days to Enroll |
-| `funnel-stage` | EnroleeNo · Name · Stage · Level · Days at Stage · Days Since Update |
-| `pipeline-stage` | EnroleeNo · Name · Stage · Level · Days at Stage |
-| `referral` | EnroleeNo · Name · Source · Status · Level · App Date |
-| `assessment` | EnroleeNo · Name · Outcome · Level · Assessment Date |
-| `time-to-enroll-bucket` | EnroleeNo · Name · Level · App Date · Enroll Date · Days to Enroll |
-| `applications-by-level` | EnroleeNo · Name · Status · Level · App Date |
-| `doc-completion` | EnroleeNo · Name · Level · Missing Docs? · Days Since Update |
-| `outdated` | EnroleeNo · Name · Status · Level · Days Since Update |
+| Target                  | Default visible                                                      |
+| ----------------------- | -------------------------------------------------------------------- |
+| `applications`          | EnroleeNo · Name · Status · Level · App Date · Days Since Update     |
+| `enrolled`              | EnroleeNo · Name · Level · App Date · Enroll Date · Days to Enroll   |
+| `funnel-stage`          | EnroleeNo · Name · Stage · Level · Days at Stage · Days Since Update |
+| `pipeline-stage`        | EnroleeNo · Name · Stage · Level · Days at Stage                     |
+| `referral`              | EnroleeNo · Name · Source · Status · Level · App Date                |
+| `assessment`            | EnroleeNo · Name · Outcome · Level · Assessment Date                 |
+| `time-to-enroll-bucket` | EnroleeNo · Name · Level · App Date · Enroll Date · Days to Enroll   |
+| `applications-by-level` | EnroleeNo · Name · Status · Level · App Date                         |
+| `doc-completion`        | EnroleeNo · Name · Level · Missing Docs? · Days Since Update         |
+| `outdated`              | EnroleeNo · Name · Status · Level · Days Since Update                |
 
 Hidden-by-default columns available for any drill: StudentNumber · Enrollment Date · Referral Source · Assessment Outcome · Days to Enroll. Toggle via Columns dropdown.
 
@@ -196,6 +203,7 @@ Hidden-by-default columns available for any drill: StudentNumber · Enrollment D
 ## 9. Files to touch
 
 ### New
+
 - `lib/admissions/drill.ts` — `DrillRow`, `buildDrillRows`, `applyTargetFilter`, `defaultColumnsForTarget`
 - `app/api/admissions/drill/[target]/route.ts` — unified GET endpoint
 - `components/admissions/drills/admissions-drill-sheet.tsx` — single target-aware sheet body
@@ -203,6 +211,7 @@ Hidden-by-default columns available for any drill: StudentNumber · Enrollment D
 - `components/admissions/document-completion-card.tsx` — new chart card w/ drill
 
 ### Extended
+
 - `components/dashboard/drill-down-sheet.tsx` — adds toolkit (status multi-select, level multi-select, range-scope, group-by, density, column-visibility); existing filename props retained
 - `components/dashboard/charts/comparison-bar-chart.tsx` — adds optional `onSegmentClick(category: string)`
 - `components/admissions/conversion-funnel-chart.tsx` — adds `onSegmentClick`

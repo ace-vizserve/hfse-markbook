@@ -1,6 +1,12 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, CalendarCheck, CalendarDays, Percent, Users } from 'lucide-react';
+import {
+  ArrowLeft,
+  CalendarCheck,
+  CalendarDays,
+  Percent,
+  Users,
+} from 'lucide-react';
 
 import { createClient, getSessionUser } from '@/lib/supabase/server';
 import { Badge } from '@/components/ui/badge';
@@ -72,7 +78,12 @@ export default async function SectionAttendancePage({
     .select('id, label, term_number, is_current')
     .eq('academic_year_id', section.academic_year_id)
     .order('term_number', { ascending: true });
-  type TermRow = { id: string; label: string; term_number: number; is_current: boolean };
+  type TermRow = {
+    id: string;
+    label: string;
+    term_number: number;
+    is_current: boolean;
+  };
   const terms = (termsRaw ?? []) as TermRow[];
   const selectedTermId =
     (sp.term_id && terms.find((t) => t.id === sp.term_id)?.id) ??
@@ -107,7 +118,7 @@ export default async function SectionAttendancePage({
   const { data: enrolmentsRaw } = await supabase
     .from('section_students')
     .select(
-      'id, index_number, enrollment_status, bus_no, classroom_officer_role, student:students(id, student_number, last_name, first_name, middle_name, urgent_compassionate_allowance, vacation_leave_allowance_per_term)',
+      'id, index_number, enrollment_status, bus_no, classroom_officer_role, student:students(id, student_number, last_name, first_name, middle_name, urgent_compassionate_allowance, vacation_leave_allowance_per_term)'
     )
     .eq('section_id', sectionId)
     .order('index_number');
@@ -151,12 +162,24 @@ export default async function SectionAttendancePage({
   // stay scoped to the right cohort.
   const sectionLevelType = levelTypeForAudienceLookup(level?.code ?? null);
   const audienceForEvents = sectionLevelType ?? 'all';
-  const [calendar, events, daily, quotaByEnrolmentId, vlQuotaByEnrolmentId, summary, schoolConfig] = await Promise.all([
+  const [
+    calendar,
+    events,
+    daily,
+    quotaByEnrolmentId,
+    vlQuotaByEnrolmentId,
+    summary,
+    schoolConfig,
+  ] = await Promise.all([
     getDedupedSchoolCalendarForTerm(selectedTermId, sectionLevelType),
     getCalendarEventsForTerm(selectedTermId, audienceForEvents),
     getDailyForSection(sectionId, selectedTermId),
     getCompassionateUsageForSection(sectionId, section.academic_year_id),
-    getVacationLeaveUsageForSection(sectionId, section.academic_year_id, selectedTermId),
+    getVacationLeaveUsageForSection(
+      sectionId,
+      section.academic_year_id,
+      selectedTermId
+    ),
     getSectionAttendanceSummary(sectionId, selectedTermId),
     getSchoolConfig(),
   ]);
@@ -207,8 +230,8 @@ export default async function SectionAttendancePage({
             {section.name}
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            Excel-style attendance sheet for the whole term. Holidays are greyed out. Edits
-            autosave per cell; corrections append a new ledger row.
+            Excel-style attendance sheet for the whole term. Holidays are greyed
+            out. Edits autosave per cell; corrections append a new ledger row.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -285,7 +308,11 @@ export default async function SectionAttendancePage({
             description="Perfect attendance"
             value={summary.perfectAttendanceCount.toLocaleString('en-SG')}
             icon={CalendarCheck}
-            footerTitle={summary.perfectAttendanceCount === 0 ? 'None yet' : 'Zero absences'}
+            footerTitle={
+              summary.perfectAttendanceCount === 0
+                ? 'None yet'
+                : 'Zero absences'
+            }
             footerDetail={`of ${activeCount} students`}
           />
         </div>
@@ -304,8 +331,8 @@ export default async function SectionAttendancePage({
       {/* Adviser name reminder */}
       {!adviserUserId && (
         <Card className="border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">
-          No form adviser assigned to this section yet. Assign one from Markbook &rarr; Sections
-          &rarr; Teachers so the adviser sees this page.
+          No form adviser assigned to this section yet. Assign one from Markbook
+          &rarr; Sections &rarr; Teachers so the adviser sees this page.
         </Card>
       )}
     </PageShell>

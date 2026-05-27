@@ -175,15 +175,18 @@
       "Bash(Sort-Object)",
       "PowerShell(Get-Content *)",
       "Bash(06[0-9]\")",
-      "Bash(npm test *)"
+      "Bash(npm test *)",
+      "Bash(Remove-Item -Recurse -Force \"C:\\\\Users\\\\Ace\\\\OneDrive - HFSE International School\\\\Desktop\\\\hfse-vizserve projects\\\\hfse-markbook\\\\app\\\\\\(parent\\)\")",
+      "Bash(Remove-Item -Recurse -Force \"C:\\\\Users\\\\Ace\\\\OneDrive - HFSE International School\\\\Desktop\\\\hfse-vizserve projects\\\\hfse-markbook\\\\app\\\\\\(parent-handoff\\)\")",
+      "Bash(Remove-Item -Recurse -Force \"C:\\\\Users\\\\Ace\\\\OneDrive - HFSE International School\\\\Desktop\\\\hfse-vizserve projects\\\\hfse-markbook\\\\app\\\\api\\\\parent\\\\handoff\")",
+      "Bash(Remove-Item -Recurse -Force \"C:\\\\Users\\\\Ace\\\\OneDrive - HFSE International School\\\\Desktop\\\\hfse-vizserve projects\\\\hfse-markbook\\\\app\\\\api\\\\parent\\\\exit\")",
+      "Bash(Remove-Item -Recurse -Force \"C:\\\\Users\\\\Ace\\\\OneDrive - HFSE International School\\\\Desktop\\\\hfse-vizserve projects\\\\hfse-markbook\\\\lib\\\\parent\")",
+      "Bash(Remove-Item -Recurse -Force .next)",
+      "Bash(npx prettier *)"
     ],
-    "deny": [
-      "Read(./.env.local)"
-    ]
+    "deny": ["Read(./.env.local)"]
   },
-  "enabledMcpjsonServers": [
-    "shadcn"
-  ],
+  "enabledMcpjsonServers": ["shadcn"],
   "enabledPlugins": {
     "ui-ux-pro-max@ui-ux-pro-max-skill": true,
     "superpowers@claude-plugins-official": true

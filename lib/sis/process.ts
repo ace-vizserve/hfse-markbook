@@ -73,8 +73,8 @@ function tag(ayCode: string): string[] {
  */
 export type DocStatusActionFlags = {
   hasRevalidation: boolean; // any slot at 'Rejected' or 'Expired' (per kindFilter)
-  hasValidation: boolean;   // any slot at 'Uploaded'
-  hasPromised: boolean;     // any slot at 'To follow'
+  hasValidation: boolean; // any slot at 'Uploaded'
+  hasPromised: boolean; // any slot at 'To follow'
   hasExpiringSoon: boolean; // any Valid slot expiring within 30 days
 };
 
@@ -88,7 +88,7 @@ export function scanDocStatusForActionFlags(
     todayMs?: number;
     expiringSoonThresholdDays?: number;
     kindFilter?: DocStatusKindFilter;
-  },
+  }
 ): DocStatusActionFlags {
   const out: DocStatusActionFlags = {
     hasRevalidation: false,
@@ -99,7 +99,8 @@ export function scanDocStatusForActionFlags(
   if (!docs) return out;
 
   const todayMs = options?.todayMs ?? Date.now();
-  const thresholdDays = options?.expiringSoonThresholdDays ?? EXPIRING_SOON_THRESHOLD_DAYS;
+  const thresholdDays =
+    options?.expiringSoonThresholdDays ?? EXPIRING_SOON_THRESHOLD_DAYS;
   const thresholdMs = thresholdDays * 86_400_000;
   const revalidationKind = options?.kindFilter?.revalidation ?? 'both';
 
@@ -127,14 +128,23 @@ export function scanDocStatusForActionFlags(
       const expiryRaw = docs[slot.expiryCol];
       if (expiryRaw) {
         const expiryMs = Date.parse(expiryRaw.toString());
-        if (!Number.isNaN(expiryMs) && expiryMs >= todayMs && expiryMs <= todayMs + thresholdMs) {
+        if (
+          !Number.isNaN(expiryMs) &&
+          expiryMs >= todayMs &&
+          expiryMs <= todayMs + thresholdMs
+        ) {
           out.hasExpiringSoon = true;
         }
       }
     }
 
     // Micro-optimization: early exit when all 4 flags are true
-    if (out.hasRevalidation && out.hasValidation && out.hasPromised && out.hasExpiringSoon) {
+    if (
+      out.hasRevalidation &&
+      out.hasValidation &&
+      out.hasPromised &&
+      out.hasExpiringSoon
+    ) {
       break;
     }
   }
@@ -145,7 +155,11 @@ export function scanDocStatusForActionFlags(
 // ChartLegendChip palette in the timeline component. Distinct from the
 // admissions stage status string ('Finished', 'Pending', etc) — that string
 // stays available in the row's `detail` for the human reader.
-export type StageStatusBucket = 'done' | 'in_progress' | 'blocked' | 'not_started';
+export type StageStatusBucket =
+  | 'done'
+  | 'in_progress'
+  | 'blocked'
+  | 'not_started';
 
 // Down-stream stages that don't live on `ay{YY}_enrolment_status`. Composed
 // from grading/markbook tables and tagged here so the timeline can render the
@@ -205,14 +219,25 @@ export type LifecycleBlockerBucket = {
 // Maps an admissions stage status string onto our 4-tone bucket. "Cancelled"
 // is intentionally rendered as `blocked` so admins see it as needing attention
 // rather than a benign neutral.
-function bucketForAdmissionsStatus(stageKey: StageKey, status: string | null): StageStatusBucket {
+function bucketForAdmissionsStatus(
+  stageKey: StageKey,
+  status: string | null
+): StageStatusBucket {
   const trimmed = (status ?? '').trim();
   if (!trimmed) return 'not_started';
-  if (trimmed === 'Cancelled' || trimmed === 'Withdrawn' || trimmed === 'Rejected') return 'blocked';
+  if (
+    trimmed === 'Cancelled' ||
+    trimmed === 'Withdrawn' ||
+    trimmed === 'Rejected'
+  )
+    return 'blocked';
   const terminal = STAGE_TERMINAL_STATUS[stageKey];
   if (terminal && trimmed === terminal) return 'done';
   // Application stage has its own terminal set (Enrolled / Enrolled (Conditional)).
-  if (stageKey === 'application' && (trimmed === 'Enrolled' || trimmed === 'Enrolled (Conditional)')) {
+  if (
+    stageKey === 'application' &&
+    (trimmed === 'Enrolled' || trimmed === 'Enrolled (Conditional)')
+  ) {
     return 'done';
   }
   // 'Incomplete' on documents/class is a known blocker (admin needs to chase).
@@ -222,7 +247,9 @@ function bucketForAdmissionsStatus(stageKey: StageKey, status: string | null): S
 
 // Format an ISO date to a human "X days ago"-ish detail string. Pure
 // pass-through here — the UI runs toLocaleString.
-function formatDetail(parts: Array<string | null | undefined>): string | undefined {
+function formatDetail(
+  parts: Array<string | null | undefined>
+): string | undefined {
   const filtered = parts.filter((p): p is string => !!p && p.trim().length > 0);
   return filtered.length > 0 ? filtered.join(' · ') : undefined;
 }
@@ -233,7 +260,7 @@ function formatDetail(parts: Array<string | null | undefined>): string | undefin
 
 async function loadStudentLifecycleUncached(
   ayCode: string,
-  enroleeNumber: string,
+  enroleeNumber: string
 ): Promise<StudentLifecycleSnapshot> {
   const prefix = prefixFor(ayCode);
   const supabase = createServiceClient();
@@ -263,10 +290,13 @@ async function loadStudentLifecycleUncached(
     'feePaymentDate',
     'classAY',
     'classLevel',
-    'classSection',
+    'classSection'
   );
 
-  const docColumns = ['enroleeNumber', ...DOCUMENT_SLOTS.map((s) => s.statusCol)];
+  const docColumns = [
+    'enroleeNumber',
+    ...DOCUMENT_SLOTS.map((s) => s.statusCol),
+  ];
 
   // Run apps + status + docs + grading in parallel. The grading lookups depend
   // on studentNumber being known — first we resolve (apps row → studentNumber),
@@ -313,10 +343,13 @@ async function loadStudentLifecycleUncached(
 
   // Withdrawn check — applicationStatus='Withdrawn' wins. Use the aliased
   // `application_updatedAt` field for the "withdrawn on" date.
-  const applicationStatus = (status?.['applicationStatus'] as string | null) ?? null;
+  const applicationStatus =
+    (status?.['applicationStatus'] as string | null) ?? null;
   const isWithdrawn = (applicationStatus ?? '').trim() === 'Withdrawn';
-  const withdrawnDate = (status?.['application_updatedAt'] as string | null) ?? null;
-  const withdrawnReason = (status?.['applicationRemarks'] as string | null) ?? null;
+  const withdrawnDate =
+    (status?.['application_updatedAt'] as string | null) ?? null;
+  const withdrawnReason =
+    (status?.['applicationRemarks'] as string | null) ?? null;
 
   // Build admissions stage rows.
   const rows: LifecycleStageRow[] = [];
@@ -324,7 +357,8 @@ async function loadStudentLifecycleUncached(
     const map = STAGE_COLUMN_MAP[stageKey];
     const stageStatus = (status?.[map.statusCol] as string | null) ?? null;
     const stageRemarks = (status?.[map.remarksCol] as string | null) ?? null;
-    const updatedAt = (status?.[`${stageKey}_updatedAt`] as string | null) ?? null;
+    const updatedAt =
+      (status?.[`${stageKey}_updatedAt`] as string | null) ?? null;
 
     let detail: string | undefined;
     if (stageKey === 'documents') {
@@ -338,12 +372,13 @@ async function loadStudentLifecycleUncached(
       //     no 'Uploaded' intermediate. The expiry date IS the validation.
       // 'Rejected' + 'Expired' both mean parent must re-upload (revalidation).
       let needsAction = 0; // null + Pending + Rejected + Expired
-      let inFlight = 0;    // Uploaded (registrar needs to validate)
-      let promised = 0;    // To follow (parent acknowledged, file not sent)
-      let settled = 0;     // Valid (terminal)
-      let blank = 0;       // null specifically (subset of needsAction)
+      let inFlight = 0; // Uploaded (registrar needs to validate)
+      let promised = 0; // To follow (parent acknowledged, file not sent)
+      let settled = 0; // Valid (terminal)
+      let blank = 0; // null specifically (subset of needsAction)
       for (const slot of DOCUMENT_SLOTS) {
-        const slotStatus = (docs?.[slot.statusCol] ?? null)?.toString().trim() ?? '';
+        const slotStatus =
+          (docs?.[slot.statusCol] ?? null)?.toString().trim() ?? '';
         if (!slotStatus) {
           blank += 1;
           needsAction += 1;
@@ -370,7 +405,8 @@ async function loadStudentLifecycleUncached(
         blank > 0 ? `${blank} blank` : null,
       ]);
     } else if (stageKey === 'assessment') {
-      const schedule = (status?.['assessmentSchedule'] as string | null) ?? null;
+      const schedule =
+        (status?.['assessmentSchedule'] as string | null) ?? null;
       detail = formatDetail([
         stageStatus ? `Status: ${stageStatus}` : null,
         schedule ? `Scheduled ${schedule}` : 'No schedule',
@@ -390,7 +426,8 @@ async function loadStudentLifecycleUncached(
       const classSection = (status?.['classSection'] as string | null) ?? null;
       detail = formatDetail([
         stageStatus ? `Status: ${stageStatus}` : null,
-        [classAY, classLevel, classSection].filter(Boolean).join(' · ') || 'Unassigned',
+        [classAY, classLevel, classSection].filter(Boolean).join(' · ') ||
+          'Unassigned',
       ]);
     } else {
       detail = formatDetail([
@@ -418,7 +455,9 @@ async function loadStudentLifecycleUncached(
     stageKey: 'markbook_sync',
     label: 'Markbook sync',
     bucket: 'not_started',
-    detail: studentNumber ? 'Awaiting enrolment finalisation' : 'No studentNumber yet',
+    detail: studentNumber
+      ? 'Awaiting enrolment finalisation'
+      : 'No studentNumber yet',
   };
   let gradingRow: LifecycleStageRow = {
     stageKey: 'grading',
@@ -475,7 +514,7 @@ async function loadStudentLifecycleUncached(
         const { data: secStudents, error: secErr } = await supabase
           .from('section_students')
           .select(
-            'id, section_id, enrollment_status, enrollment_date, sections!inner(id, name, academic_year_id)',
+            'id, section_id, enrollment_status, enrollment_date, sections!inner(id, name, academic_year_id)'
           )
           .eq('student_id', studentRow.id)
           .eq('sections.academic_year_id', ayId);
@@ -490,7 +529,7 @@ async function loadStudentLifecycleUncached(
           enrollment_date: string | null;
         };
         const enrollments = ((secStudents ?? []) as SectionStudentRow[]).filter(
-          (r) => r.enrollment_status !== 'withdrawn',
+          (r) => r.enrollment_status !== 'withdrawn'
         );
 
         if (enrollments.length > 0) {
@@ -515,7 +554,9 @@ async function loadStudentLifecycleUncached(
             .from('terms')
             .select('id, term_number')
             .eq('academic_year_id', ayId);
-          const termIds = ((termRows ?? []) as Array<{ id: string }>).map((t) => t.id);
+          const termIds = ((termRows ?? []) as Array<{ id: string }>).map(
+            (t) => t.id
+          );
           if (termIds.length > 0) {
             const { data: sheetRows, error: sheetErr } = await supabase
               .from('grading_sheets')
@@ -553,7 +594,11 @@ async function loadStudentLifecycleUncached(
               gradingRow = {
                 stageKey: 'grading',
                 label: 'Grading',
-                bucket: allLocked ? 'done' : someLocked ? 'in_progress' : 'not_started',
+                bucket: allLocked
+                  ? 'done'
+                  : someLocked
+                    ? 'in_progress'
+                    : 'not_started',
                 detail: `${lockedSheets}/${totalSheets} sheet${totalSheets === 1 ? '' : 's'} locked`,
                 updatedAt: lastLockedAt ?? undefined,
               };
@@ -562,7 +607,9 @@ async function loadStudentLifecycleUncached(
             // report_card_publications for these sections.
             const { data: pubRows, error: pubErr } = await supabase
               .from('report_card_publications')
-              .select('section_id, term_id, publish_from, publish_until, updated_at')
+              .select(
+                'section_id, term_id, publish_from, publish_until, updated_at'
+              )
               .in('section_id', sectionIds)
               .in('term_id', termIds);
             if (pubErr) {
@@ -674,7 +721,9 @@ async function loadStudentLifecycleUncached(
     enroleeNumber,
     ayCode,
     applicationStatus,
-    withdrawn: isWithdrawn ? { date: withdrawnDate, reason: withdrawnReason } : null,
+    withdrawn: isWithdrawn
+      ? { date: withdrawnDate, reason: withdrawnReason }
+      : null,
     rows,
     fetchWarnings,
   };
@@ -682,12 +731,12 @@ async function loadStudentLifecycleUncached(
 
 export async function getStudentLifecycle(
   ayCode: string,
-  enroleeNumber: string,
+  enroleeNumber: string
 ): Promise<StudentLifecycleSnapshot> {
   return unstable_cache(
     () => loadStudentLifecycleUncached(ayCode, enroleeNumber),
     ['sis', 'student-lifecycle', ayCode, enroleeNumber],
-    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS },
+    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS }
   )();
 }
 
@@ -696,7 +745,7 @@ export async function getStudentLifecycle(
 // ──────────────────────────────────────────────────────────────────────────
 
 async function loadLifecycleAggregateUncached(
-  ayCode: string,
+  ayCode: string
 ): Promise<LifecycleBlockerBucket[]> {
   const prefix = prefixFor(ayCode);
   const supabase = createServiceClient();
@@ -717,7 +766,10 @@ async function loadLifecycleAggregateUncached(
   // De-dupe (feeStatus + assessmentStatus + contractStatus already overlap with prereq columns).
   const uniqStatusColumns = Array.from(new Set(statusColumns));
 
-  const docColumns = ['enroleeNumber', ...DOCUMENT_SLOTS.map((s) => s.statusCol)];
+  const docColumns = [
+    'enroleeNumber',
+    ...DOCUMENT_SLOTS.map((s) => s.statusCol),
+  ];
 
   // Apps row — pull only the columns that drive bucket predicates today
   // (`stpApplicationType` for the STP completion bucket). Add to this list
@@ -725,26 +777,51 @@ async function loadLifecycleAggregateUncached(
   const appColumns = ['enroleeNumber', 'stpApplicationType'];
 
   const [statusRes, docsRes, appsRes] = await Promise.all([
-    supabase.from(`${prefix}_enrolment_status`).select(uniqStatusColumns.join(', ')),
-    supabase.from(`${prefix}_enrolment_documents`).select(docColumns.join(', ')),
-    supabase.from(`${prefix}_enrolment_applications`).select(appColumns.join(', ')),
+    supabase
+      .from(`${prefix}_enrolment_status`)
+      .select(uniqStatusColumns.join(', ')),
+    supabase
+      .from(`${prefix}_enrolment_documents`)
+      .select(docColumns.join(', ')),
+    supabase
+      .from(`${prefix}_enrolment_applications`)
+      .select(appColumns.join(', ')),
   ]);
 
   if (statusRes.error) {
-    console.warn('[sis/process] aggregate status fetch failed:', statusRes.error.message);
+    console.warn(
+      '[sis/process] aggregate status fetch failed:',
+      statusRes.error.message
+    );
     return [];
   }
   if (appsRes.error) {
-    console.warn('[sis/process] aggregate apps fetch failed:', appsRes.error.message);
+    console.warn(
+      '[sis/process] aggregate apps fetch failed:',
+      appsRes.error.message
+    );
   }
 
-  type StatusRow = Record<string, string | null> & { enroleeNumber: string | null };
-  type DocRow = Record<string, string | null> & { enroleeNumber: string | null };
-  type AppRow = { enroleeNumber: string | null; stpApplicationType: string | null };
+  type StatusRow = Record<string, string | null> & {
+    enroleeNumber: string | null;
+  };
+  type DocRow = Record<string, string | null> & {
+    enroleeNumber: string | null;
+  };
+  type AppRow = {
+    enroleeNumber: string | null;
+    stpApplicationType: string | null;
+  };
 
-  const statusRows = ((statusRes.data ?? []) as unknown as StatusRow[]).filter((r) => !!r.enroleeNumber);
-  const docRows = ((docsRes.data ?? []) as unknown as DocRow[]).filter((r) => !!r.enroleeNumber);
-  const appRows = ((appsRes.data ?? []) as unknown as AppRow[]).filter((r) => !!r.enroleeNumber);
+  const statusRows = ((statusRes.data ?? []) as unknown as StatusRow[]).filter(
+    (r) => !!r.enroleeNumber
+  );
+  const docRows = ((docsRes.data ?? []) as unknown as DocRow[]).filter(
+    (r) => !!r.enroleeNumber
+  );
+  const appRows = ((appsRes.data ?? []) as unknown as AppRow[]).filter(
+    (r) => !!r.enroleeNumber
+  );
 
   const docsByEnrolee = new Map<string, DocRow>();
   for (const d of docRows) {
@@ -756,12 +833,16 @@ async function loadLifecycleAggregateUncached(
   }
   // Hard-coded STP slot keys + status-cols pair so the predicate doesn't
   // re-walk DOCUMENT_SLOTS by string match every iteration.
-  const STP_STATUS_COLS = ['icaPhotoStatus', 'financialSupportDocsStatus', 'vaccinationInformationStatus'];
+  const STP_STATUS_COLS = [
+    'icaPhotoStatus',
+    'financialSupportDocsStatus',
+    'vaccinationInformationStatus',
+  ];
 
   let awaitingFeePayment = 0;
   let awaitingDocRevalidation = 0;
   let awaitingDocValidation = 0;
-  let awaitingPromisedDocs = 0;     // NEW: any slot at 'To follow'
+  let awaitingPromisedDocs = 0; // NEW: any slot at 'To follow'
   let awaitingStpCompletion = 0;
   let awaitingAssessmentSchedule = 0;
   let awaitingContractSignature = 0;
@@ -866,7 +947,8 @@ async function loadLifecycleAggregateUncached(
     {
       key: 'awaiting-fee-payment',
       label: 'Awaiting fee payment',
-      description: 'School fee has not been confirmed — enrolment cannot be finalised until payment is received.',
+      description:
+        'School fee has not been confirmed — enrolment cannot be finalised until payment is received.',
       count: awaitingFeePayment,
       severity: 'warn',
       drillTarget: 'awaiting-fee-payment',
@@ -874,7 +956,8 @@ async function loadLifecycleAggregateUncached(
     {
       key: 'awaiting-document-revalidation',
       label: 'Awaiting document revalidation',
-      description: 'One or more documents were rejected or have expired — the parent needs to re-upload before validation can proceed.',
+      description:
+        'One or more documents were rejected or have expired — the parent needs to re-upload before validation can proceed.',
       count: awaitingDocRevalidation,
       severity: 'bad',
       drillTarget: 'awaiting-document-revalidation',
@@ -882,7 +965,8 @@ async function loadLifecycleAggregateUncached(
     {
       key: 'awaiting-document-validation',
       label: 'Awaiting document validation',
-      description: 'Documents have been uploaded by the parent and are waiting for staff review and approval.',
+      description:
+        'Documents have been uploaded by the parent and are waiting for staff review and approval.',
       count: awaitingDocValidation,
       severity: 'warn',
       drillTarget: 'awaiting-document-validation',
@@ -890,7 +974,8 @@ async function loadLifecycleAggregateUncached(
     {
       key: 'awaiting-promised-documents',
       label: 'Awaiting promised documents',
-      description: 'Parent has committed to submitting these documents but they have not been received yet.',
+      description:
+        'Parent has committed to submitting these documents but they have not been received yet.',
       count: awaitingPromisedDocs,
       severity: 'warn',
       drillTarget: 'awaiting-promised-documents',
@@ -898,7 +983,8 @@ async function loadLifecycleAggregateUncached(
     {
       key: 'awaiting-stp-completion',
       label: 'Awaiting STP completion',
-      description: 'Student Pass application has been submitted to ICA and is still being processed.',
+      description:
+        'Student Pass application has been submitted to ICA and is still being processed.',
       count: awaitingStpCompletion,
       severity: 'warn',
       drillTarget: 'awaiting-stp-completion',
@@ -906,7 +992,8 @@ async function loadLifecycleAggregateUncached(
     {
       key: 'awaiting-assessment-schedule',
       label: 'Awaiting assessment schedule',
-      description: 'Entrance assessment has not yet been booked — a schedule must be set before the application can progress.',
+      description:
+        'Entrance assessment has not yet been booked — a schedule must be set before the application can progress.',
       count: awaitingAssessmentSchedule,
       severity: 'info',
       drillTarget: 'awaiting-assessment-schedule',
@@ -914,7 +1001,8 @@ async function loadLifecycleAggregateUncached(
     {
       key: 'awaiting-contract-signature',
       label: 'Awaiting contract signature',
-      description: 'Enrolment contract has been issued but not yet signed by the parent.',
+      description:
+        'Enrolment contract has been issued but not yet signed by the parent.',
       count: awaitingContractSignature,
       severity: 'info',
       drillTarget: 'awaiting-contract-signature',
@@ -922,7 +1010,8 @@ async function loadLifecycleAggregateUncached(
     {
       key: 'missing-class-assignment',
       label: 'Missing class assignment',
-      description: 'Student has been enrolled but has not been placed in a class section yet — assign one from the enrolment record.',
+      description:
+        'Student has been enrolled but has not been placed in a class section yet — assign one from the enrolment record.',
       count: missingClassAssignment,
       severity: 'bad',
       drillTarget: 'missing-class-assignment',
@@ -930,7 +1019,8 @@ async function loadLifecycleAggregateUncached(
     {
       key: 'ungated-to-enroll',
       label: 'Ready to enrol',
-      description: 'All requirements have been met — enrolment can be finalised for these applicants.',
+      description:
+        'All requirements have been met — enrolment can be finalised for these applicants.',
       count: ungatedToEnroll,
       severity: 'good',
       drillTarget: 'ungated-to-enroll',
@@ -938,7 +1028,8 @@ async function loadLifecycleAggregateUncached(
     {
       key: 'new-applications',
       label: 'New applications',
-      description: 'Recently submitted applications that have not yet been actioned by the admissions team.',
+      description:
+        'Recently submitted applications that have not yet been actioned by the admissions team.',
       count: newApplications,
       severity: 'info',
       drillTarget: 'new-applications',
@@ -949,11 +1040,11 @@ async function loadLifecycleAggregateUncached(
 }
 
 export async function getLifecycleAggregate(
-  ayCode: string,
+  ayCode: string
 ): Promise<LifecycleBlockerBucket[]> {
   return unstable_cache(
     () => loadLifecycleAggregateUncached(ayCode),
     ['sis', 'lifecycle-aggregate', ayCode],
-    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS },
+    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS }
   )();
 }

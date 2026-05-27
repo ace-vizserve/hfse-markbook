@@ -37,7 +37,10 @@ function relativeTime(iso: string): string {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-SG', { month: 'short', day: 'numeric' });
+  return new Date(iso).toLocaleDateString('en-SG', {
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 export type ActivityEvent = {
@@ -78,7 +81,9 @@ export function RecentActivityStrip({ events }: { events: ActivityEvent[] }) {
                 ? 'border-brand-amber/40 bg-gradient-to-b from-brand-amber/15 to-brand-amber/5'
                 : 'border-brand-indigo-soft bg-gradient-to-b from-accent/50 to-accent/20';
             const iconTone =
-              event.kind === 'reminder' ? 'text-brand-amber' : 'text-brand-indigo-deep';
+              event.kind === 'reminder'
+                ? 'text-brand-amber'
+                : 'text-brand-indigo-deep';
             return (
               <li
                 key={`${event.kind}-${event.createdAt}-${i}`}
@@ -88,13 +93,19 @@ export function RecentActivityStrip({ events }: { events: ActivityEvent[] }) {
                 <div className="flex items-center gap-1.5">
                   <Icon className={`size-3 ${iconTone}`} />
                   <span className="truncate font-mono text-[11px] font-semibold uppercase tracking-[0.10em] text-foreground">
-                    {event.kind === 'reminder' ? 'Reminder sent' : 'Promised by parent'}
+                    {event.kind === 'reminder'
+                      ? 'Reminder sent'
+                      : 'Promised by parent'}
                   </span>
                 </div>
-                <p className="truncate text-[12px] text-foreground">{slotLabel}</p>
+                <p className="truncate text-[12px] text-foreground">
+                  {slotLabel}
+                </p>
                 <p className="font-mono text-[10px] tabular-nums text-muted-foreground">
                   {relativeTime(event.createdAt)}
-                  {event.promisedUntil ? ` → ${formatDate(event.promisedUntil)}` : ''}
+                  {event.promisedUntil
+                    ? ` → ${formatDate(event.promisedUntil)}`
+                    : ''}
                 </p>
               </li>
             );

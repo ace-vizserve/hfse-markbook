@@ -17,6 +17,7 @@
 The lazy-fetch tasks (3, 4) need a placeholder. Build it first so both consumers can import.
 
 **Files:**
+
 - Create: `components/dashboard/drill-sheet-skeleton.tsx`
 
 - [ ] **Step 1: Create the skeleton component**
@@ -66,7 +67,10 @@ export function DrillSheetSkeleton({ title = 'Loading…' }: { title?: string })
       <div className="flex-1 overflow-auto px-6 py-4 space-y-3">
         <div className="grid grid-cols-6 gap-3 border-b border-border pb-2">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-3 w-full animate-pulse rounded bg-muted" />
+            <div
+              key={i}
+              className="h-3 w-full animate-pulse rounded bg-muted"
+            />
           ))}
         </div>
         {Array.from({ length: 6 }).map((_, row) => (
@@ -106,6 +110,7 @@ git commit -m "feat(dashboard): add DrillSheetSkeleton primitive for lazy drill 
 Replaces the two unbatched `auth.admin.listUsers({perPage:1000})` calls in Markbook + Evaluation drill loaders. Independent of the lazy-fetch reshape — can land first.
 
 **Files:**
+
 - Create: `lib/auth/teacher-emails.ts`
 - Modify: `lib/markbook/drill.ts` (consume the helper)
 - Modify: `lib/evaluation/drill.ts` (consume the helper)
@@ -146,7 +151,7 @@ export function getTeacherEmailMap(): Promise<Map<string, string>> {
       }
     },
     ['teacher-emails-map'],
-    { revalidate: 300, tags: ['teacher-emails'] },
+    { revalidate: 300, tags: ['teacher-emails'] }
   )();
 }
 ```
@@ -156,6 +161,7 @@ Note: `unstable_cache` doesn't natively support `Map` as a return value (Map ser
 - [ ] **Step 2: Verify cache round-trip behavior**
 
 Add a temporary log inside `getTeacherEmailMap()` after the function body:
+
 ```ts
 // TEMP — remove before commit
 console.log('[teacher-emails] map size:', map.size);
@@ -179,7 +185,9 @@ Open `lib/markbook/drill.ts`. Find the block in `loadEntryRowsUncached` that doe
 ```ts
 let teacherEmailById = new Map<string, string>();
 try {
-  const { data: userList } = await service.auth.admin.listUsers({ perPage: 1000 });
+  const { data: userList } = await service.auth.admin.listUsers({
+    perPage: 1000,
+  });
   if (userList?.users) {
     for (const u of userList.users) {
       if (u.email) teacherEmailById.set(u.id, u.email);
@@ -209,10 +217,13 @@ Open `lib/evaluation/drill.ts`. Find the block in `loadWriteupRowsUncached`:
 ```ts
 let adviserEmailById = new Map<string, string>();
 try {
-  const { data: userList } = await service.auth.admin.listUsers({ perPage: 1000 });
+  const { data: userList } = await service.auth.admin.listUsers({
+    perPage: 1000,
+  });
   if (userList?.users) {
     for (const u of userList.users) {
-      if (u.email && adviserUserIds.includes(u.id)) adviserEmailById.set(u.id, u.email);
+      if (u.email && adviserUserIds.includes(u.id))
+        adviserEmailById.set(u.id, u.email);
     }
   }
 } catch {
@@ -256,6 +267,7 @@ git commit -m "refactor(drills): replace per-loader listUsers calls with shared 
 Drop `entries` from `buildAllRowSets()`; have the drill sheet lazy-fetch when the target needs raw entries.
 
 **Files:**
+
 - Modify: `lib/attendance/drill.ts:buildAllRowSets`
 - Modify: `app/(attendance)/attendance/page.tsx`
 - Modify: `components/attendance/drills/attendance-drill-sheet.tsx`
@@ -362,7 +374,10 @@ React.useEffect(() => {
   if (initialTo) params.set('to', initialTo);
   if (segment) params.set('segment', segment);
   fetch(`/api/attendance/drill/${target}?${params.toString()}`)
-    .then((r) => { if (!r.ok) throw new Error('drill_fetch_failed'); return r.json(); })
+    .then((r) => {
+      if (!r.ok) throw new Error('drill_fetch_failed');
+      return r.json();
+    })
     .then((data: { rows: AttendanceDrillRow[] }) => {
       if (!cancelled) setRows(data.rows ?? []);
     })
@@ -372,7 +387,9 @@ React.useEffect(() => {
     .finally(() => {
       if (!cancelled) setLoading(false);
     });
-  return () => { cancelled = true; };
+  return () => {
+    cancelled = true;
+  };
 }, [target, segment, ayCode, scope, initialFrom, initialTo]);
 ```
 
@@ -403,6 +420,7 @@ Expected: zero errors.
 Run dev server: `npm run dev`. Navigate to `/attendance`. Open each of the four MetricCard drills. Each should show the skeleton briefly, then real rows. Open the EX-reason donut drill (slice click) — same.
 
 Expected behaviors:
+
 - Skeleton appears within ~50ms of click
 - Real rows replace skeleton within 1s on cold cache
 - Subsequent opens of the same drill (within 60s) show no skeleton (cache hit on the API endpoint)
@@ -436,6 +454,7 @@ DrillSheetSkeleton fills the void during the ~200-800ms fetch window."
 Same shape as Task 3, but for Markbook and its three row kinds (entries / sheets / change-requests).
 
 **Files:**
+
 - Modify: `lib/markbook/drill.ts:buildAllRowSets`
 - Modify: `app/(markbook)/markbook/page.tsx`
 - Modify: `components/markbook/drills/markbook-drill-sheet.tsx`
@@ -473,12 +492,16 @@ export async function buildAllRowSets(input: {
   const filteredSheets = applyTeacherFilter(
     applyScopeFilter(sheetsRaw as MarkbookDrillRow[], 'sheet', rangeInput),
     'sheet',
-    input.allowedSectionIds ?? null,
+    input.allowedSectionIds ?? null
   ) as SheetRow[];
   const filteredCrs = applyTeacherFilter(
-    applyScopeFilter(crsRaw as MarkbookDrillRow[], 'change-request', rangeInput),
+    applyScopeFilter(
+      crsRaw as MarkbookDrillRow[],
+      'change-request',
+      rangeInput
+    ),
     'change-request',
-    input.allowedSectionIds ?? null,
+    input.allowedSectionIds ?? null
   ) as ChangeRequestRow[];
   return { sheets: filteredSheets, changeRequests: filteredCrs };
 }
@@ -489,6 +512,7 @@ export async function buildAllRowSets(input: {
 Open `app/(markbook)/markbook/page.tsx`. Find the `MarkbookDrillSheet` calls. Remove every `initialEntries={drillRowSets?.entries}` prop. Keep `initialSheets` and `initialChangeRequests`.
 
 Specifically:
+
 - The "Grades entered" MetricCard `drillSheet` — remove `initialEntries`
 - `GradeDistributionDrillCard` — remove the `initialEntries` prop pass-through if it forwards there
 
@@ -570,6 +594,7 @@ instant-open value still beats the modest payload cost."
 The drill loaders currently cache at scope='all' then filter client-side. Push the scope filter into the cache key so range-scoped requests hit a different cache entry.
 
 **Files:**
+
 - Modify: `lib/admissions/drill.ts:buildDrillRows`
 - Modify: `lib/markbook/drill.ts:loadEntryRows` + `loadSheetRows` + `loadChangeRequestRows`
 
@@ -578,11 +603,13 @@ The drill loaders currently cache at scope='all' then filter client-side. Push t
 Open `lib/admissions/drill.ts`. The current `buildDrillRows` likely:
 
 ```ts
-export async function buildDrillRows(input: DrillRangeInput): Promise<DrillRow[]> {
+export async function buildDrillRows(
+  input: DrillRangeInput
+): Promise<DrillRow[]> {
   const cached = await unstable_cache(
     () => loadDrillRowsUncached({ ayCode: input.ayCode, scope: 'all' }),
     ['admissions-drill', 'rows', input.ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tags(input.ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tags(input.ayCode) }
   )();
   return applyScopeFilter(cached, input);
 }
@@ -591,7 +618,9 @@ export async function buildDrillRows(input: DrillRangeInput): Promise<DrillRow[]
 The cache key only includes `ayCode`. Range and scope variants share the same cache entry but get different filtered results. That's actually correct behavior — but the documentation suggests confusion. Verify by reading the function and adding a clarifying comment:
 
 ```ts
-export async function buildDrillRows(input: DrillRangeInput): Promise<DrillRow[]> {
+export async function buildDrillRows(
+  input: DrillRangeInput
+): Promise<DrillRow[]> {
   // Cache the AY-wide row set once per AY; apply scope (range / ay / all)
   // post-cache. Cheap because applyScopeFilter is a single .filter() over
   // the cached array. We deliberately do NOT include scope/from/to in the
@@ -600,7 +629,7 @@ export async function buildDrillRows(input: DrillRangeInput): Promise<DrillRow[]
   const cached = await unstable_cache(
     () => loadDrillRowsUncached({ ayCode: input.ayCode, scope: 'all' }),
     ['admissions-drill', 'rows', input.ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tags(input.ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tags(input.ayCode) }
   )();
   return applyScopeFilter(cached, input);
 }
@@ -619,7 +648,7 @@ function loadEntryRows(ayCode: string): Promise<GradeEntryRow[]> {
   return unstable_cache(
     () => loadEntryRowsUncached(ayCode),
     ['markbook-drill', 'entry-rows', ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tags(ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tags(ayCode) }
   )();
 }
 ```
@@ -652,6 +681,7 @@ reader doesn't re-flag this."
 Five fixes from the audit; all small and independent.
 
 **Files:**
+
 - Modify: `lib/admissions/dashboard.ts:bucketByDay`
 - Modify: `components/admissions/drills/admissions-drill-sheet.tsx:preFiltered`
 - Modify: `components/markbook/drills/markbook-drill-sheet.tsx:preFiltered`
@@ -664,11 +694,19 @@ Five fixes from the audit; all small and independent.
 Open `lib/admissions/dashboard.ts`. Find `bucketByDay`:
 
 ```ts
-function bucketByDay(dates: (string | null)[], from: string, to: string): VelocityPoint[] {
+function bucketByDay(
+  dates: (string | null)[],
+  from: string,
+  to: string
+): VelocityPoint[] {
   // ...
   const labels: string[] = [];
   for (let i = 0; i < length; i += 1) {
-    const d = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate() + i);
+    const d = new Date(
+      fromDate.getFullYear(),
+      fromDate.getMonth(),
+      fromDate.getDate() + i
+    );
     labels.push(toISODate(d));
   }
   const buckets = new Array(length).fill(0) as number[];
@@ -685,7 +723,11 @@ function bucketByDay(dates: (string | null)[], from: string, to: string): Veloci
 Replace with:
 
 ```ts
-function bucketByDay(dates: (string | null)[], from: string, to: string): VelocityPoint[] {
+function bucketByDay(
+  dates: (string | null)[],
+  from: string,
+  to: string
+): VelocityPoint[] {
   // ...same prefix... up through buckets initialization
   const labelIndex = new Map<string, number>();
   for (let i = 0; i < labels.length; i += 1) labelIndex.set(labels[i], i);
@@ -731,13 +773,18 @@ const preFiltered = React.useMemo(() => {
   return rows.filter((r) => {
     if (selectedStatuses.length > 0) {
       let status: string;
-      if (kind === 'entry') status = (r as GradeEntryRow).isLocked ? 'Locked' : 'Open';
-      else if (kind === 'sheet') status = (r as SheetRow).isLocked ? 'Locked' : 'Open';
+      if (kind === 'entry')
+        status = (r as GradeEntryRow).isLocked ? 'Locked' : 'Open';
+      else if (kind === 'sheet')
+        status = (r as SheetRow).isLocked ? 'Locked' : 'Open';
       else status = (r as ChangeRequestRow).status;
       if (!statusSet.has(status)) return false;
     }
     if (selectedLevels.length > 0 && kind !== 'change-request') {
-      const lvl = (kind === 'entry' ? (r as GradeEntryRow).level : (r as SheetRow).level) ?? 'Unknown';
+      const lvl =
+        (kind === 'entry'
+          ? (r as GradeEntryRow).level
+          : (r as SheetRow).level) ?? 'Unknown';
       if (!levelSet.has(lvl)) return false;
     }
     return true;
@@ -753,13 +800,13 @@ Open `lib/markbook/drill.ts`. Find `loadSheetRowsUncached`. The current implemen
 const { data: pubsData } = await service
   .from('report_card_publications')
   .select('section_id, term_id, ...')
-  .in('term_id', ctx.termIds);  // ← add this
+  .in('term_id', ctx.termIds); // ← add this
 
 // And for grade_entries:
 const { data: entriesData } = await service
   .from('grade_entries')
   .select('grading_sheet_id, qa_score, quarterly_grade, ...')
-  .in('grading_sheet_id', sheetIds);  // sheetIds already term-scoped — fine
+  .in('grading_sheet_id', sheetIds); // sheetIds already term-scoped — fine
 ```
 
 If the current query doesn't have `report_card_publications` or `grade_entries`, this step is a no-op. Re-read the function and confirm.
@@ -796,11 +843,11 @@ Open `lib/attendance/drill.ts`. Find `rollupCompassionate`. Currently it calls `
 ```ts
 async function rollupCompassionate(
   ayCode: string,
-  entries?: AttendanceEntryRow[],
+  entries?: AttendanceEntryRow[]
 ): Promise<CompassionateUsageRow[]> {
   const ctx = await resolveAyContext(ayCode);
   if (!ctx.ayId || ctx.sectionStudents.length === 0) return [];
-  const sourceEntries = entries ?? await loadEntryRows(ayCode);
+  const sourceEntries = entries ?? (await loadEntryRows(ayCode));
   // ... rest unchanged, using sourceEntries
 }
 ```
@@ -846,6 +893,7 @@ git commit -m "perf: tactical drill optimizations across modules
 The Markbook audit suggested missing indexes on critical query columns. Verify before adding.
 
 **Files:**
+
 - Possibly create: `supabase/migrations/028_markbook_drill_indexes.sql`
 
 - [ ] **Step 1: Run index audit query**
@@ -861,6 +909,7 @@ ORDER BY tablename, indexname;
 ```
 
 Record the output. The audit suggested these as potentially missing:
+
 - `grade_entries (grading_sheet_id, created_at)`
 - `grading_sheets (term_id, section_id, is_locked)`
 - `report_card_publications (section_id, term_id)`
@@ -925,6 +974,7 @@ If no migration was needed:
 Two small, independent cleanups.
 
 **Files:**
+
 - Modify: `lib/attendance/dashboard.ts` OR `lib/attendance/queries.ts` (drift cleanup)
 - Modify: `lib/attendance/drill.ts` (canonical re-export)
 - Modify: `lib/admissions/drill.ts:loadDrillRowsUncached`
@@ -950,22 +1000,28 @@ If there's a behavior difference (one excludes withdrawn students, the other inc
 Open `lib/admissions/drill.ts`. The current `loadDrillRowsUncached` always fetches the docs table. Split into:
 
 ```ts
-async function loadCoreRowsUncached(input: DrillRangeInput): Promise<DrillRow[]> {
+async function loadCoreRowsUncached(
+  input: DrillRangeInput
+): Promise<DrillRow[]> {
   // ... existing impl but WITHOUT the docs fetch.
   // Set documentsComplete = 0, documentsTotal = CORE_DOC_STATUS_COLUMNS.length,
   // hasMissingDocs = true (sentinel — caller must enrich if it cares).
 }
 
-async function enrichWithDocs(rows: DrillRow[], ayCode: string): Promise<DrillRow[]> {
+async function enrichWithDocs(
+  rows: DrillRow[],
+  ayCode: string
+): Promise<DrillRow[]> {
   // Fetch docs table (same logic as before); update rows in-place where
   // doc fields are present.
 }
 
 export async function buildDrillRows(
   input: DrillRangeInput,
-  options?: { withDocs?: boolean },
+  options?: { withDocs?: boolean }
 ): Promise<DrillRow[]> {
-  const cached = await unstable_cache(/* same as before, calling loadCoreRowsUncached */)();
+  const cached =
+    await unstable_cache(/* same as before, calling loadCoreRowsUncached */)();
   const scoped = applyScopeFilter(cached, input);
   return options?.withDocs ? enrichWithDocs(scoped, input.ayCode) : scoped;
 }
@@ -1017,6 +1073,7 @@ git commit -m "refactor(drills): cleanup duplicates + split Admissions doc fetch
 ## Task 9: Final verification + KD update + docs sync
 
 **Files:**
+
 - Modify: `.claude/rules/key-decisions.md` (KD #56 wording)
 - Modify: `CLAUDE.md` (29th-pass session-context entry)
 - Modify: `docs/sprints/development-plan.md` (new sprint row)
@@ -1033,6 +1090,7 @@ npx next build
 Both must complete cleanly. If either fails, fix the failure before proceeding.
 
 Browser smoke across all 4 dashboards. For each:
+
 1. Page loads with no console errors
 2. All MetricCard drills open (skeleton on entry-kind for Markbook + Attendance, instant on others)
 3. CSV export still works on at least one drill per module
@@ -1042,12 +1100,14 @@ If anything regresses, stop and debug before docs sync.
 - [ ] **Step 2: Capture before/after measurements**
 
 Open browser devtools → Network tab. Reload `/attendance` and `/markbook` while measuring:
+
 - Initial RSC payload size (look for `__next/data` or the page's HTML response)
 - Time to interactive
 
 Record the numbers. They go into the commit message + dev-plan entry as evidence.
 
 Expected (per spec §9):
+
 - `/attendance` HTML < 500 KB (vs ~30 MB before)
 - `/markbook` HTML < 500 KB (vs ~10 MB before)
 
@@ -1099,6 +1159,7 @@ Done.
 ## Self-review checklist (run after writing the plan)
 
 **Spec coverage**:
+
 - [x] §3.1 Attendance pre-fetch reshape → Task 3
 - [x] §3.2 Markbook pre-fetch reshape → Task 4
 - [x] §3.3 Evaluation keep current → no task needed
@@ -1115,6 +1176,7 @@ Done.
 - [x] §9 Success criteria → Task 9 step 1-2 verification
 
 **Type consistency**:
+
 - `getTeacherEmailMap` returns `Promise<Map<string, string>>` consistently across Tasks 2, 4 callers.
 - `buildAllRowSets` shape changes in Task 3 (drops `entries`) and Task 4 (drops `entries`) — both consumers (page + drill-sheet) updated in same tasks.
 - `rollupCompassionate` signature changes in Task 6 step 6; consumer in `buildAllRowSets` updated in same step.

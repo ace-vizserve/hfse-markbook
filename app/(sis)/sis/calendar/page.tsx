@@ -75,10 +75,15 @@ export default async function SisCalendarPage({
   // hasn't been migrated.
   const today = new Date().toISOString().slice(0, 10);
   const todayTerm = terms.find(
-    (t) => t.start_date && t.end_date && t.start_date <= today && today <= t.end_date,
+    (t) =>
+      t.start_date && t.end_date && t.start_date <= today && today <= t.end_date
   );
   const defaultTermId =
-    sp.term_id ?? todayTerm?.id ?? terms.find((t) => t.is_current)?.id ?? terms[0]?.id ?? '';
+    sp.term_id ??
+    todayTerm?.id ??
+    terms.find((t) => t.is_current)?.id ??
+    terms[0]?.id ??
+    '';
 
   const selectedTerm = terms.find((t) => t.id === defaultTermId) ?? null;
   const selectedTermHasDates =
@@ -92,7 +97,7 @@ export default async function SisCalendarPage({
       selectedTerm.id,
       selectedTerm.start_date as string,
       selectedTerm.end_date as string,
-      sessionUser.id,
+      sessionUser.id
     );
     if (inserted > 0) {
       await logAction({
@@ -120,7 +125,11 @@ export default async function SisCalendarPage({
       : Promise.resolve([]),
     ay && selectedTerm
       ? listPriorAyEntriesForCopy(ay.id, selectedTerm.term_number)
-      : Promise.resolve({ sourceAy: null, holidays: [] as never[], events: [] as never[] }),
+      : Promise.resolve({
+          sourceAy: null,
+          holidays: [] as never[],
+          events: [] as never[],
+        }),
   ]);
   const targetYear = selectedTerm?.start_date
     ? Number(selectedTerm.start_date.slice(0, 4))
@@ -144,10 +153,11 @@ export default async function SisCalendarPage({
           School days &amp; holidays.
         </h1>
         <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-          Configure which dates are school days, which are holidays (greyed out, not encodable),
-          and overlay informational events. The attendance grid uses this to render only the days
-          students can be marked. Filter by Primary or Secondary to manage level-specific overrides
-          alongside the shared (All) baseline.
+          Configure which dates are school days, which are holidays (greyed out,
+          not encodable), and overlay informational events. The attendance grid
+          uses this to render only the days students can be marked. Filter by
+          Primary or Secondary to manage level-specific overrides alongside the
+          shared (All) baseline.
         </p>
       </header>
 
@@ -155,7 +165,9 @@ export default async function SisCalendarPage({
         <Card className="items-center py-12 text-center">
           <CardContent className="flex flex-col items-center gap-3">
             <CalendarDays className="size-6 text-muted-foreground" />
-            <div className="font-serif text-lg font-semibold text-foreground">No terms configured</div>
+            <div className="font-serif text-lg font-semibold text-foreground">
+              No terms configured
+            </div>
             <p className="text-sm text-muted-foreground">
               Seed terms for the current academic year first (AY Setup).
             </p>
@@ -175,10 +187,12 @@ export default async function SisCalendarPage({
             {selectedTerm && !selectedTermHasDates && (
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-900 dark:text-amber-100">
                 <p className="font-medium">
-                  {selectedTerm.label} doesn&apos;t have start &amp; end dates set yet.
+                  {selectedTerm.label} doesn&apos;t have start &amp; end dates
+                  set yet.
                 </p>
                 <p className="mt-1 text-amber-800/80 dark:text-amber-200/80">
-                  The calendar grid can&apos;t render a month view without them. Set the dates in{' '}
+                  The calendar grid can&apos;t render a month view without them.
+                  Set the dates in{' '}
                   <Link
                     href="/sis/ay-setup"
                     className="font-medium text-amber-900 underline underline-offset-2 dark:text-amber-100"

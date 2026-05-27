@@ -13,7 +13,10 @@ import { ApplicationStatusBadge } from '@/components/ui/application-status-badge
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import { IdentifierLink } from '@/components/ui/identifier-link';
-import type { UnsyncedGapReason, UnsyncedStudentRow } from '@/lib/sis/unsynced-students';
+import type {
+  UnsyncedGapReason,
+  UnsyncedStudentRow,
+} from '@/lib/sis/unsynced-students';
 
 // ──────────────────────────────────────────────────────────────────────────
 // Queue surface at /records/unsynced. Lists enrolled students whose
@@ -52,8 +55,14 @@ function fullNameOf(row: UnsyncedStudentRow): string {
   return parts.length ? parts.join(', ') : row.enroleeNumber;
 }
 
-export function UnsyncedStudentsQueue({ rows, ayCode, sectionsByLevel }: Props) {
-  const [dialogRow, setDialogRow] = React.useState<UnsyncedStudentRow | null>(null);
+export function UnsyncedStudentsQueue({
+  rows,
+  ayCode,
+  sectionsByLevel,
+}: Props) {
+  const [dialogRow, setDialogRow] = React.useState<UnsyncedStudentRow | null>(
+    null
+  );
 
   const columns = React.useMemo<ColumnDef<UnsyncedStudentRow>[]>(
     () => [
@@ -66,7 +75,9 @@ export function UnsyncedStudentsQueue({ rows, ayCode, sectionsByLevel }: Props) 
           return (
             <div className="space-y-0.5">
               {studentNumber ? (
-                <IdentifierLink href={`/records/students/${encodeURIComponent(studentNumber)}`}>
+                <IdentifierLink
+                  href={`/records/students/${encodeURIComponent(studentNumber)}`}
+                >
                   {name}
                 </IdentifierLink>
               ) : (
@@ -96,13 +107,17 @@ export function UnsyncedStudentsQueue({ rows, ayCode, sectionsByLevel }: Props) 
       {
         accessorKey: 'applicationStatus',
         header: 'Status',
-        cell: ({ row }) => <ApplicationStatusBadge status={row.original.applicationStatus} />,
+        cell: ({ row }) => (
+          <ApplicationStatusBadge status={row.original.applicationStatus} />
+        ),
       },
       {
         accessorKey: 'gapReason',
         header: "What's missing",
         cell: ({ row }) => (
-          <span className="text-sm text-foreground">{GAP_COPY[row.original.gapReason]}</span>
+          <span className="text-sm text-foreground">
+            {GAP_COPY[row.original.gapReason]}
+          </span>
         ),
       },
       {
@@ -137,7 +152,7 @@ export function UnsyncedStudentsQueue({ rows, ayCode, sectionsByLevel }: Props) 
         },
       },
     ],
-    [ayCode],
+    [ayCode]
   );
 
   return (
@@ -170,7 +185,9 @@ export function UnsyncedStudentsQueue({ rows, ayCode, sectionsByLevel }: Props) 
           ayCode={ayCode}
           levelApplied={dialogRow.levelApplied}
           studentName={fullNameOf(dialogRow)}
-          availableSections={sectionsByLevel[dialogRow.levelApplied ?? ''] ?? []}
+          availableSections={
+            sectionsByLevel[dialogRow.levelApplied ?? ''] ?? []
+          }
           open={true}
           onOpenChange={(open) => {
             if (!open) setDialogRow(null);

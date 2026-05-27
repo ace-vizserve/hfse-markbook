@@ -1,7 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { Clock, Download, ExternalLink, History, Loader2, UserCircle2 } from 'lucide-react';
+import {
+  Clock,
+  Download,
+  ExternalLink,
+  History,
+  Loader2,
+  UserCircle2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -43,10 +50,17 @@ function formatExpiry(date: string | null): string | null {
   });
 }
 
-export function HistoryDialog({ enroleeNumber, slotKey, label, trigger }: HistoryDialogProps) {
+export function HistoryDialog({
+  enroleeNumber,
+  slotKey,
+  label,
+  trigger,
+}: HistoryDialogProps) {
   const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
-  const [revisions, setRevisions] = React.useState<DocumentRevision[] | null>(null);
+  const [revisions, setRevisions] = React.useState<DocumentRevision[] | null>(
+    null
+  );
 
   React.useEffect(() => {
     if (!open) return;
@@ -54,7 +68,9 @@ export function HistoryDialog({ enroleeNumber, slotKey, label, trigger }: Histor
     setLoading(true);
     setRevisions(null);
 
-    fetch(`/api/p-files/${enroleeNumber}/revisions?slotKey=${encodeURIComponent(slotKey)}`)
+    fetch(
+      `/api/p-files/${enroleeNumber}/revisions?slotKey=${encodeURIComponent(slotKey)}`
+    )
       .then(async (res) => {
         const body = await res.json();
         if (!res.ok) throw new Error(body.error ?? 'Failed to load revisions');
@@ -62,7 +78,9 @@ export function HistoryDialog({ enroleeNumber, slotKey, label, trigger }: Histor
       })
       .catch((e) => {
         if (!cancelled) {
-          toast.error(e instanceof Error ? e.message : 'Failed to load revisions');
+          toast.error(
+            e instanceof Error ? e.message : 'Failed to load revisions'
+          );
           setRevisions([]);
         }
       })
@@ -87,9 +105,12 @@ export function HistoryDialog({ enroleeNumber, slotKey, label, trigger }: Histor
       </DialogTrigger>
       <DialogContent className="sm:max-w-xl!">
         <DialogHeader>
-          <DialogTitle className="font-serif tracking-tight">History — {label}</DialogTitle>
+          <DialogTitle className="font-serif tracking-tight">
+            History — {label}
+          </DialogTitle>
           <DialogDescription className="text-[13px] leading-relaxed">
-            Previous uploads for this slot, newest first. The current document on the card is the active version.
+            Previous uploads for this slot, newest first. The current document
+            on the card is the active version.
           </DialogDescription>
         </DialogHeader>
 
@@ -118,7 +139,9 @@ export function HistoryDialog({ enroleeNumber, slotKey, label, trigger }: Histor
                 // bytes may have been overwritten in storage if the parent
                 // portal writes to the canonical path.
                 const fileLink = rev.archivedUrl ?? rev.previousUrl;
-                const fileLinkLabel = rev.archivedUrl ? 'Open' : 'Try previous URL';
+                const fileLinkLabel = rev.archivedUrl
+                  ? 'Open'
+                  : 'Try previous URL';
                 return (
                   <li key={rev.id} className="flex flex-col gap-2 px-4 py-3">
                     <div className="flex items-start justify-between gap-3">
@@ -140,13 +163,23 @@ export function HistoryDialog({ enroleeNumber, slotKey, label, trigger }: Histor
                         </div>
                         {rev.replacedByEmail && (
                           <p className="truncate font-mono text-[10px] text-muted-foreground">
-                            {isParentPortal ? 'By parent' : 'Replaced by'} {rev.replacedByEmail}
+                            {isParentPortal ? 'By parent' : 'Replaced by'}{' '}
+                            {rev.replacedByEmail}
                           </p>
                         )}
                       </div>
                       {fileLink && (
-                        <Button asChild variant="outline" size="sm" className="h-7 shrink-0 gap-1.5 text-xs">
-                          <a href={fileLink} target="_blank" rel="noopener noreferrer">
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          className="h-7 shrink-0 gap-1.5 text-xs"
+                        >
+                          <a
+                            href={fileLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
                             {rev.archivedUrl ? (
                               <Download className="size-3" />
                             ) : (
@@ -160,29 +193,41 @@ export function HistoryDialog({ enroleeNumber, slotKey, label, trigger }: Histor
 
                     {isParentPortal && (
                       <p className="rounded-md border border-brand-amber/30 bg-brand-amber-light/30 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
-                        Parent re-uploaded directly via the enrolment portal — the prior file may
-                        have been overwritten in storage. Metadata (status, expiry, who, when) is
-                        preserved here.
+                        Parent re-uploaded directly via the enrolment portal —
+                        the prior file may have been overwritten in storage.
+                        Metadata (status, expiry, who, when) is preserved here.
                       </p>
                     )}
 
-                    {(rev.passportNumberSnapshot || rev.passTypeSnapshot || expiry) && (
+                    {(rev.passportNumberSnapshot ||
+                      rev.passTypeSnapshot ||
+                      expiry) && (
                       <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[10px] text-muted-foreground">
                         {rev.passportNumberSnapshot && (
                           <span>
-                            <span className="uppercase tracking-wider">Passport</span>{' '}
-                            <span className="text-foreground">{rev.passportNumberSnapshot}</span>
+                            <span className="uppercase tracking-wider">
+                              Passport
+                            </span>{' '}
+                            <span className="text-foreground">
+                              {rev.passportNumberSnapshot}
+                            </span>
                           </span>
                         )}
                         {rev.passTypeSnapshot && (
                           <span>
-                            <span className="uppercase tracking-wider">Pass type</span>{' '}
-                            <span className="text-foreground">{rev.passTypeSnapshot}</span>
+                            <span className="uppercase tracking-wider">
+                              Pass type
+                            </span>{' '}
+                            <span className="text-foreground">
+                              {rev.passTypeSnapshot}
+                            </span>
                           </span>
                         )}
                         {expiry && (
                           <span>
-                            <span className="uppercase tracking-wider">Expiry</span>{' '}
+                            <span className="uppercase tracking-wider">
+                              Expiry
+                            </span>{' '}
                             <span className="text-foreground">{expiry}</span>
                           </span>
                         )}

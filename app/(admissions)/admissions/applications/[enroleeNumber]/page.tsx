@@ -9,22 +9,22 @@ import {
   Mail,
   MessageSquare,
   UserCircle2,
-} from "lucide-react";
-import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
-import { Fragment } from "react";
+} from 'lucide-react';
+import Link from 'next/link';
+import { notFound, redirect } from 'next/navigation';
+import { Fragment } from 'react';
 
-import { DocumentsViewer } from "@/components/sis/documents-viewer";
-import { EnrollmentHistoryChips } from "@/components/sis/enrollment-history-chips";
-import { EnrollmentTab } from "@/components/sis/enrollment-tab";
-import { FamilyTab } from "@/components/sis/family-tab";
-import { ProfileTab } from "@/components/sis/profile-tab";
-import { ApplicationStatusBadge } from "@/components/ui/application-status-badge";
-import { StpApplicationCard } from "@/components/sis/stp-application-card";
-import { StudentLifecycleTimeline } from "@/components/sis/student-lifecycle-timeline";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { DocumentsViewer } from '@/components/sis/documents-viewer';
+import { EnrollmentHistoryChips } from '@/components/sis/enrollment-history-chips';
+import { EnrollmentTab } from '@/components/sis/enrollment-tab';
+import { FamilyTab } from '@/components/sis/family-tab';
+import { ProfileTab } from '@/components/sis/profile-tab';
+import { ApplicationStatusBadge } from '@/components/ui/application-status-badge';
+import { StpApplicationCard } from '@/components/sis/stp-application-card';
+import { StudentLifecycleTimeline } from '@/components/sis/student-lifecycle-timeline';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardAction,
@@ -32,27 +32,32 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { PageShell } from "@/components/ui/page-shell";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getCurrentAcademicYear, listAyCodes } from "@/lib/academic-year";
-import { freshenAyDocuments } from "@/lib/p-files/freshen-document-statuses";
-import { getStudentLifecycle } from "@/lib/sis/process";
+} from '@/components/ui/card';
+import { PageShell } from '@/components/ui/page-shell';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { getCurrentAcademicYear, listAyCodes } from '@/lib/academic-year';
+import { freshenAyDocuments } from '@/lib/p-files/freshen-document-statuses';
+import { getStudentLifecycle } from '@/lib/sis/process';
 import {
   getEnrollmentHistory,
   getSectionIdByLevelAndName,
   getStudentDetail,
-} from "@/lib/sis/queries";
-import { getSessionUser } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/service";
-import { cn } from "@/lib/utils";
+} from '@/lib/sis/queries';
+import { getSessionUser } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
+import { cn } from '@/lib/utils';
 
 // KD #59: SIS-side application stage vocabulary (not the legacy parent-portal values).
-const FUNNEL_STAGES = ["Submitted", "Ongoing Verification", "Processing", "Enrolled"] as const;
-const ENROLLED_STATES = ["Enrolled", "Enrolled (Conditional)"];
+const FUNNEL_STAGES = [
+  'Submitted',
+  'Ongoing Verification',
+  'Processing',
+  'Enrolled',
+] as const;
+const ENROLLED_STATES = ['Enrolled', 'Enrolled (Conditional)'];
 
 function funnelIndexFor(status: string | null): number {
-  const v = (status ?? "").trim();
+  const v = (status ?? '').trim();
   if (!v) return -1;
   // Cancelled / Withdrawn are off-funnel — hide the progress bar.
   if (v === 'Cancelled' || v === 'Withdrawn') return -1;
@@ -69,14 +74,14 @@ export default async function SisStudentDetailPage({
   searchParams: Promise<{ ay?: string; tab?: string }>;
 }) {
   const sessionUser = await getSessionUser();
-  if (!sessionUser) redirect("/login");
+  if (!sessionUser) redirect('/login');
   if (
-    sessionUser.role !== "admissions" &&
-    sessionUser.role !== "registrar" &&
-    sessionUser.role !== "school_admin" &&
-    sessionUser.role !== "superadmin"
+    sessionUser.role !== 'admissions' &&
+    sessionUser.role !== 'registrar' &&
+    sessionUser.role !== 'school_admin' &&
+    sessionUser.role !== 'superadmin'
   ) {
-    redirect("/");
+    redirect('/');
   }
 
   const { enroleeNumber } = await params;
@@ -92,12 +97,15 @@ export default async function SisStudentDetailPage({
   if (!currentAy) {
     return (
       <PageShell>
-        <div className="text-sm text-destructive">No current academic year configured.</div>
+        <div className="text-sm text-destructive">
+          No current academic year configured.
+        </div>
       </PageShell>
     );
   }
 
-  const selectedAy = ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
+  const selectedAy =
+    ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
 
   // Auto-flip + detail fetch run in parallel; both are needed before
   // render and don't share state.
@@ -112,9 +120,15 @@ export default async function SisStudentDetailPage({
   // Enrollment history, section UUID lookup, and lifecycle snapshot are all
   // independent of each other — fetch in parallel after detail resolves.
   const [history, currentSectionId, lifecycleSnapshot] = await Promise.all([
-    application.studentNumber ? getEnrollmentHistory(application.studentNumber) : Promise.resolve([]),
+    application.studentNumber
+      ? getEnrollmentHistory(application.studentNumber)
+      : Promise.resolve([]),
     status?.classLevel && status?.classSection
-      ? getSectionIdByLevelAndName(selectedAy, status.classLevel, status.classSection)
+      ? getSectionIdByLevelAndName(
+          selectedAy,
+          status.classLevel,
+          status.classSection
+        )
       : Promise.resolve(null),
     getStudentLifecycle(selectedAy, enroleeNumber),
   ]);
@@ -126,14 +140,27 @@ export default async function SisStudentDetailPage({
 
   const fullName =
     application.enroleeFullName ??
-    [application.lastName, application.firstName, application.middleName].filter(Boolean).join(" ") ??
-    "(no name on file)";
+    [application.lastName, application.firstName, application.middleName]
+      .filter(Boolean)
+      .join(' ') ??
+    '(no name on file)';
 
   // 'stp' is a historical URL alias — the STP card lives on the documents tab (KD #61 + KD #89).
-  const resolvedTab = tabParam === "stp" ? "documents" : tabParam;
-  const tab = ["profile", "family", "enrollment", "documents", "lifecycle"].includes(resolvedTab ?? "")
-    ? (resolvedTab as "profile" | "family" | "enrollment" | "documents" | "lifecycle")
-    : "profile";
+  const resolvedTab = tabParam === 'stp' ? 'documents' : tabParam;
+  const tab = [
+    'profile',
+    'family',
+    'enrollment',
+    'documents',
+    'lifecycle',
+  ].includes(resolvedTab ?? '')
+    ? (resolvedTab as
+        | 'profile'
+        | 'family'
+        | 'enrollment'
+        | 'documents'
+        | 'lifecycle')
+    : 'profile';
 
   // Document completion for the hero stats strip. Mirrors the DocumentsTab
   // visibility filter — KD #69: father slots required only when fatherEmail
@@ -142,19 +169,22 @@ export default async function SisStudentDetailPage({
   const fatherDocKeys = new Set(['fatherPassport', 'fatherPass']);
   const guardianDocKeys = new Set(['guardianPassport', 'guardianPass']);
   const heroDocuments = documents.filter((d) => {
-    if (fatherDocKeys.has(d.key) && !application.fatherEmail?.trim()) return false;
-    if (guardianDocKeys.has(d.key) && !application.guardianEmail?.trim()) return false;
+    if (fatherDocKeys.has(d.key) && !application.fatherEmail?.trim())
+      return false;
+    if (guardianDocKeys.has(d.key) && !application.guardianEmail?.trim())
+      return false;
     return true;
   });
   const docsTotal = heroDocuments.length;
   const docsOnFile = heroDocuments.filter((d) => !!d.url).length;
-  const { expiringSoon: docsExpiringSoon, expired: docsExpired } = countExpiryBuckets(heroDocuments);
+  const { expiringSoon: docsExpiringSoon, expired: docsExpired } =
+    countExpiryBuckets(heroDocuments);
 
   const funnelIdx = funnelIndexFor(status?.applicationStatus ?? null);
   const currentStageLabel =
     funnelIdx >= 0
       ? FUNNEL_STAGES[funnelIdx]
-      : (status?.applicationStatus ?? "Not staged");
+      : (status?.applicationStatus ?? 'Not staged');
 
   // Most recent activity across all stages, for the "last activity" card.
   const stageUpdates: Array<string | null | undefined> = [
@@ -176,8 +206,12 @@ export default async function SisStudentDetailPage({
   return (
     <PageShell>
       <Link
-        href={{ pathname: "/admissions/applications", query: { ay: selectedAy } }}
-        className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
+        href={{
+          pathname: '/admissions/applications',
+          query: { ay: selectedAy },
+        }}
+        className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
         <ArrowLeft className="h-3.5 w-3.5" />
         Applications · {selectedAy}
       </Link>
@@ -196,26 +230,32 @@ export default async function SisStudentDetailPage({
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <Badge
             variant="outline"
-            className="h-6 border-border bg-white px-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground">
+            className="h-6 border-border bg-white px-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground"
+          >
             Enrolee · {application.enroleeNumber}
           </Badge>
           {application.studentNumber && (
             <Badge
               variant="outline"
-              className="h-6 border-border bg-white px-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground">
+              className="h-6 border-border bg-white px-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-foreground"
+            >
               Student · {application.studentNumber}
             </Badge>
           )}
           {(status?.classLevel || status?.classSection) && (
             <Badge
               variant="outline"
-              className="h-6 border-brand-mint bg-brand-mint/20 px-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-ink">
-              {[status?.classLevel, status?.classSection].filter(Boolean).join(" · ")}
+              className="h-6 border-brand-mint bg-brand-mint/20 px-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-ink"
+            >
+              {[status?.classLevel, status?.classSection]
+                .filter(Boolean)
+                .join(' · ')}
             </Badge>
           )}
           <Badge
             variant="outline"
-            className="h-6 border-border bg-white px-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            className="h-6 border-border bg-white px-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground"
+          >
             {selectedAy}
           </Badge>
         </div>
@@ -224,7 +264,9 @@ export default async function SisStudentDetailPage({
       {/* Funnel progress */}
       {funnelIdx >= 0 && <FunnelProgress currentIndex={funnelIdx} />}
 
-      {history.length > 1 && <EnrollmentHistoryChips history={history} currentAyCode={selectedAy} />}
+      {history.length > 1 && (
+        <EnrollmentHistoryChips history={history} currentAyCode={selectedAy} />
+      )}
 
       {/* At-a-glance stats */}
       <section className="@container/main">
@@ -235,20 +277,25 @@ export default async function SisStudentDetailPage({
             icon={UserCircle2}
             footnote={
               lastActivity
-                ? `Last updated ${new Date(lastActivity).toLocaleDateString("en-SG", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })}`
-                : "No stage updates yet"
+                ? `Last updated ${new Date(lastActivity).toLocaleDateString(
+                    'en-SG',
+                    {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                    }
+                  )}`
+                : 'No stage updates yet'
             }
           />
           <StatCard
             label="Level applied"
-            value={application.levelApplied ?? status?.classLevel ?? "—"}
+            value={application.levelApplied ?? status?.classLevel ?? '—'}
             icon={GraduationCap}
             footnote={
-              status?.classSection ? `Section ${status.classSection}` : (application.classType ?? "No section assigned")
+              status?.classSection
+                ? `Section ${status.classSection}`
+                : (application.classType ?? 'No section assigned')
             }
           />
           <StatCard
@@ -261,22 +308,25 @@ export default async function SisStudentDetailPage({
                 : docsExpiringSoon > 0
                   ? `${docsExpiringSoon} expiring in 60d`
                   : docsOnFile === docsTotal
-                    ? "All slots filled"
-                    : `${docsTotal - docsOnFile} slot${docsTotal - docsOnFile === 1 ? "" : "s"} open`
+                    ? 'All slots filled'
+                    : `${docsTotal - docsOnFile} slot${docsTotal - docsOnFile === 1 ? '' : 's'} open`
             }
           />
           <StatCard
             label="Enrolee type"
-            value={status?.enroleeType ?? "New applicant"}
+            value={status?.enroleeType ?? 'New applicant'}
             icon={ClipboardList}
             footnote={
               status?.enrolmentDate
-                ? `Enrolled ${new Date(status.enrolmentDate).toLocaleDateString("en-SG", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })}`
-                : (application.category ?? "Not classified")
+                ? `Enrolled ${new Date(status.enrolmentDate).toLocaleDateString(
+                    'en-SG',
+                    {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                    }
+                  )}`
+                : (application.category ?? 'Not classified')
             }
           />
         </div>
@@ -300,7 +350,11 @@ export default async function SisStudentDetailPage({
         </TabsContent>
 
         <TabsContent value="family" className="space-y-6">
-          <FamilyTab app={application} ayCode={selectedAy} enroleeNumber={application.enroleeNumber} />
+          <FamilyTab
+            app={application}
+            ayCode={selectedAy}
+            enroleeNumber={application.enroleeNumber}
+          />
         </TabsContent>
 
         <TabsContent value="enrollment" className="space-y-6">
@@ -318,14 +372,19 @@ export default async function SisStudentDetailPage({
           {ENROLLED_STATES.includes(status?.applicationStatus ?? '') && (
             <Alert variant="default" className="border-dashed">
               <FolderArchive className="size-4" />
-              <AlertTitle>This applicant is enrolled — renewals live in P-Files</AlertTitle>
+              <AlertTitle>
+                This applicant is enrolled — renewals live in P-Files
+              </AlertTitle>
               <AlertDescription className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                 <span>
-                  This Documents tab is a view-only record of what was submitted during enrolment.
-                  For expiry tracking, renewals, and follow-up work, open the P-Files record.
+                  This Documents tab is a view-only record of what was submitted
+                  during enrolment. For expiry tracking, renewals, and follow-up
+                  work, open the P-Files record.
                 </span>
                 <Button asChild variant="link" size="sm" className="h-auto p-0">
-                  <Link href={`/p-files/${application.enroleeNumber}?ay=${selectedAy}`}>
+                  <Link
+                    href={`/p-files/${application.enroleeNumber}?ay=${selectedAy}`}
+                  >
                     Open in P-Files
                     <ArrowUpRight className="ml-1 size-3.5" />
                   </Link>
@@ -355,7 +414,10 @@ export default async function SisStudentDetailPage({
         </TabsContent>
 
         <TabsContent value="lifecycle" className="space-y-6">
-          <StudentLifecycleTimeline snapshot={lifecycleSnapshot} history={lifecycleHistory} />
+          <StudentLifecycleTimeline
+            snapshot={lifecycleSnapshot}
+            history={lifecycleHistory}
+          />
         </TabsContent>
       </Tabs>
     </PageShell>
@@ -383,11 +445,14 @@ function countExpiryBuckets(documents: readonly { expiry?: string | null }[]): {
 
 function FunnelProgress({ currentIndex }: { currentIndex: number }) {
   // KD #59: SIS-side application stage vocabulary.
-  const stages: Array<{ label: string; icon: React.ComponentType<{ className?: string }> }> = [
-    { label: "Submitted", icon: Mail },
-    { label: "Ongoing Verification", icon: ClipboardList },
-    { label: "Processing", icon: MessageSquare },
-    { label: "Enrolled", icon: GraduationCap },
+  const stages: Array<{
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }> = [
+    { label: 'Submitted', icon: Mail },
+    { label: 'Ongoing Verification', icon: ClipboardList },
+    { label: 'Processing', icon: MessageSquare },
+    { label: 'Enrolled', icon: GraduationCap },
   ];
 
   return (
@@ -400,17 +465,28 @@ function FunnelProgress({ currentIndex }: { currentIndex: number }) {
           <Fragment key={stage.label}>
             <div
               className={cn(
-                "flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors",
-                past && "border-brand-mint bg-brand-mint/30 text-ink",
-                current && "border-brand-indigo bg-brand-indigo text-white shadow-sm",
-                !past && !current && "border-border bg-muted/40 text-muted-foreground",
-              )}>
-              {past ? <Check className="size-3" /> : <Icon className="size-3" />}
+                'flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors',
+                past && 'border-brand-mint bg-brand-mint/30 text-ink',
+                current &&
+                  'border-brand-indigo bg-brand-indigo text-white shadow-sm',
+                !past &&
+                  !current &&
+                  'border-border bg-muted/40 text-muted-foreground'
+              )}
+            >
+              {past ? (
+                <Check className="size-3" />
+              ) : (
+                <Icon className="size-3" />
+              )}
               {stage.label}
             </div>
             {i < stages.length - 1 && (
               <div
-                className={cn("h-px w-3 shrink-0 sm:w-5", i < currentIndex ? "bg-brand-mint" : "bg-border")}
+                className={cn(
+                  'h-px w-3 shrink-0 sm:w-5',
+                  i < currentIndex ? 'bg-brand-mint' : 'bg-border'
+                )}
                 aria-hidden="true"
               />
             )}
@@ -447,7 +523,9 @@ function StatCard({
           </div>
         </CardAction>
       </CardHeader>
-      <CardFooter className="text-xs text-muted-foreground">{footnote}</CardFooter>
+      <CardFooter className="text-xs text-muted-foreground">
+        {footnote}
+      </CardFooter>
     </Card>
   );
 }

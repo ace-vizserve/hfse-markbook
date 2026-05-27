@@ -1,10 +1,30 @@
-import type { User } from "@supabase/supabase-js";
+import type { User } from '@supabase/supabase-js';
 
-export type Role = "teacher" | "registrar" | "school_admin" | "superadmin" | "p-file" | "admissions";
+export type Role =
+  | 'teacher'
+  | 'registrar'
+  | 'school_admin'
+  | 'superadmin'
+  | 'p-file'
+  | 'admissions';
 
-export const ROLES: Role[] = ["teacher", "registrar", "school_admin", "superadmin", "p-file", "admissions"];
+export const ROLES: Role[] = [
+  'teacher',
+  'registrar',
+  'school_admin',
+  'superadmin',
+  'p-file',
+  'admissions',
+];
 
-export type Module = "markbook" | "p-files" | "records" | "sis" | "attendance" | "evaluation" | "admissions";
+export type Module =
+  | 'markbook'
+  | 'p-files'
+  | 'records'
+  | 'sis'
+  | 'attendance'
+  | 'evaluation'
+  | 'admissions';
 
 export type NavItem = {
   href: string;
@@ -15,17 +35,21 @@ export type NavItem = {
 };
 export type NavSection = { label?: string; items: NavItem[] };
 
-export type SidebarBadgeKey = "changeRequests" | "pendingDocValidation" | "unsyncedStudents" | "pfileAwaitingVerification";
+export type SidebarBadgeKey =
+  | 'changeRequests'
+  | 'pendingDocValidation'
+  | 'unsyncedStudents'
+  | 'pfileAwaitingVerification';
 export type SidebarBadges = Partial<Record<SidebarBadgeKey, number>>;
 
 const PFILES_NAV: NavSection[] = [
   {
     items: [
-      { href: "/p-files", label: "Dashboard" },
+      { href: '/p-files', label: 'Dashboard' },
       {
-        href: "/p-files/compare",
-        label: "Compare",
-        requiresRoles: ["p-file", "school_admin", "superadmin"],
+        href: '/p-files/compare',
+        label: 'Compare',
+        requiresRoles: ['p-file', 'school_admin', 'superadmin'],
       },
     ],
   },
@@ -33,10 +57,8 @@ const PFILES_NAV: NavSection[] = [
     // Quick filters land on the dashboard with a `?status=` preset so the
     // P-Files officer can jump straight to the work queue (oversight role —
     // school_admin — sees the same lists but in read-only mode).
-    label: "Quick filters",
-    items: [
-      { href: "/p-files?status=expired", label: "Expired documents" },
-    ],
+    label: 'Quick filters',
+    items: [{ href: '/p-files?status=expired', label: 'Expired documents' }],
   },
   {
     // Renewal-outreach windows — officer+ only (p-file / school_admin /
@@ -44,22 +66,22 @@ const PFILES_NAV: NavSection[] = [
     // on. school_admin sees the same data in read-only mode (per KD #74 — no
     // bulk-notify CTA). Oversight-only roles (registrar etc.) are not granted
     // these quicklinks.
-    label: "Expiring soon",
+    label: 'Expiring soon',
     items: [
       {
-        href: "/p-files?expiring=30",
-        label: "Within 30 days",
-        requiresRoles: ["p-file", "school_admin", "superadmin"],
+        href: '/p-files?expiring=30',
+        label: 'Within 30 days',
+        requiresRoles: ['p-file', 'school_admin', 'superadmin'],
       },
       {
-        href: "/p-files?expiring=60",
-        label: "Within 60 days",
-        requiresRoles: ["p-file", "school_admin", "superadmin"],
+        href: '/p-files?expiring=60',
+        label: 'Within 60 days',
+        requiresRoles: ['p-file', 'school_admin', 'superadmin'],
       },
       {
-        href: "/p-files?expiring=90",
-        label: "Within 90 days",
-        requiresRoles: ["p-file", "school_admin", "superadmin"],
+        href: '/p-files?expiring=90',
+        label: 'Within 90 days',
+        requiresRoles: ['p-file', 'school_admin', 'superadmin'],
       },
     ],
   },
@@ -69,19 +91,19 @@ const PFILES_NAV: NavSection[] = [
     // Triage mode available to p-file / superadmin; school_admin sees
     // read-only watchlist; the actual validate/notify CTAs are gated by
     // `canWrite` on the detail + completeness rows.
-    label: "Quicklinks",
+    label: 'Quicklinks',
     items: [
       {
-        href: "/p-files/document-validation",
-        label: "Document validation",
-        badgeKey: "pfileAwaitingVerification",
-        requiresRoles: ["p-file", "school_admin", "superadmin"],
+        href: '/p-files/document-validation',
+        label: 'Document validation',
+        badgeKey: 'pfileAwaitingVerification',
+        requiresRoles: ['p-file', 'school_admin', 'superadmin'],
       },
     ],
   },
   {
-    label: "Admin",
-    items: [{ href: "/p-files/audit-log", label: "Audit Log" }],
+    label: 'Admin',
+    items: [{ href: '/p-files/audit-log', label: 'Audit Log' }],
   },
 ];
 
@@ -95,36 +117,36 @@ const PFILES_NAV: NavSection[] = [
 const RECORDS_NAV: NavSection[] = [
   {
     items: [
-      { href: "/records", label: "Dashboard" },
+      { href: '/records', label: 'Dashboard' },
       {
-        href: "/records/compare",
-        label: "Compare",
-        requiresRoles: ["registrar", "school_admin", "superadmin"],
+        href: '/records/compare',
+        label: 'Compare',
+        requiresRoles: ['registrar', 'school_admin', 'superadmin'],
       },
     ],
   },
   {
-    label: "Operations",
+    label: 'Operations',
     items: [
-      { href: "/records/students", label: "Students" },
-      { href: "/records/movements", label: "Movements" },
+      { href: '/records/students', label: 'Students' },
+      { href: '/records/movements', label: 'Movements' },
       // Operational queue for enrolled-but-not-synced students. Per-row
       // sync gates on BOTH studentNumber AND classSection — when either
       // is missing the student is stranded outside grading. The queue
       // surfaces them and offers the assign-section CTA inline. Badge
       // mirrors the row count from `countUnsyncedEnrolledStudents`.
       {
-        href: "/records/unsynced",
-        label: "Students needing setup",
-        badgeKey: "unsyncedStudents",
+        href: '/records/unsynced',
+        label: 'Students needing setup',
+        badgeKey: 'unsyncedStudents',
       },
       // Bulk admissions→SIS sync lives in SIS Admin (2026-04-23). Cross-module
       // link kept here for registrar convenience — they own roster ingest and
       // mostly work out of Records.
       {
-        href: "/sis/sync-students",
-        label: "Sync from Admissions",
-        requiresRoles: ["registrar", "school_admin", "superadmin"],
+        href: '/sis/sync-students',
+        label: 'Sync from Admissions',
+        requiresRoles: ['registrar', 'school_admin', 'superadmin'],
       },
     ],
   },
@@ -132,29 +154,29 @@ const RECORDS_NAV: NavSection[] = [
   // attributes that previously required clicking into each student. Records
   // scope = enrolled students only (per KD #51).
   {
-    label: "Cohorts",
+    label: 'Cohorts',
     items: [
-      { href: "/records/cohorts/stp", label: "STP applications" },
-      { href: "/records/cohorts/medical", label: "Medical alerts" },
-      { href: "/records/cohorts/pass-expiry", label: "Pass expiry" },
+      { href: '/records/cohorts/stp', label: 'STP applications' },
+      { href: '/records/cohorts/medical', label: 'Medical alerts' },
+      { href: '/records/cohorts/pass-expiry', label: 'Pass expiry' },
     ],
   },
   // Cross-module deep-link to the Markbook Masterfile — the registrar's
   // canonical cross-subject student review surface (KD #95). Page lives
   // under /markbook/* but mental model = Records (whole-student outcomes).
   {
-    label: "Reports",
+    label: 'Reports',
     items: [
       {
-        href: "/markbook/masterfile",
-        label: "Masterfile",
-        requiresRoles: ["registrar", "school_admin", "superadmin"],
+        href: '/markbook/masterfile',
+        label: 'Masterfile',
+        requiresRoles: ['registrar', 'school_admin', 'superadmin'],
       },
     ],
   },
   {
-    label: "Admin",
-    items: [{ href: "/records/audit-log", label: "Audit Log" }],
+    label: 'Admin',
+    items: [{ href: '/records/audit-log', label: 'Audit Log' }],
   },
 ];
 
@@ -164,35 +186,35 @@ const RECORDS_NAV: NavSection[] = [
 const ATTENDANCE_NAV: NavSection[] = [
   {
     items: [
-      { href: "/attendance", label: "Dashboard" },
-      { href: "/attendance/sections", label: "Sections" },
+      { href: '/attendance', label: 'Dashboard' },
+      { href: '/attendance/sections', label: 'Sections' },
       {
-        href: "/attendance/compare",
-        label: "Compare",
-        requiresRoles: ["registrar", "school_admin", "superadmin"],
+        href: '/attendance/compare',
+        label: 'Compare',
+        requiresRoles: ['registrar', 'school_admin', 'superadmin'],
       },
     ],
   },
   {
-    label: "Setup",
+    label: 'Setup',
     items: [
       {
         // Cross-module link: the calendar is SIS Admin config, but
         // registrars work out of Attendance and need a one-click path.
-        href: "/sis/calendar",
-        label: "School Calendar",
-        requiresRoles: ["registrar", "school_admin", "superadmin"],
+        href: '/sis/calendar',
+        label: 'School Calendar',
+        requiresRoles: ['registrar', 'school_admin', 'superadmin'],
       },
       {
-        href: "/attendance/import",
-        label: "Import",
-        requiresRoles: ["registrar", "school_admin", "superadmin"],
+        href: '/attendance/import',
+        label: 'Import',
+        requiresRoles: ['registrar', 'school_admin', 'superadmin'],
       },
     ],
   },
   {
-    label: "Admin",
-    items: [{ href: "/attendance/audit-log", label: "Audit Log" }],
+    label: 'Admin',
+    items: [{ href: '/attendance/audit-log', label: 'Audit Log' }],
   },
 ];
 
@@ -202,40 +224,53 @@ const ATTENDANCE_NAV: NavSection[] = [
 const ADMISSIONS_NAV: NavSection[] = [
   {
     items: [
-      { href: "/admissions", label: "Dashboard" },
+      { href: '/admissions', label: 'Dashboard' },
       {
-        href: "/admissions/compare",
-        label: "Compare",
-        requiresRoles: ["admissions", "registrar", "school_admin", "superadmin"],
+        href: '/admissions/compare',
+        label: 'Compare',
+        requiresRoles: [
+          'admissions',
+          'registrar',
+          'school_admin',
+          'superadmin',
+        ],
       },
     ],
   },
   {
-    label: "Pipeline",
+    label: 'Pipeline',
     items: [
-      { href: "/admissions/applications", label: "Applications" },
+      { href: '/admissions/applications', label: 'Applications' },
       // Document validation (KD #70 + KD #71): dedicated triage queue for
       // un-enrolled applicants whose documents are status='Uploaded' and
       // awaiting registrar review. Replaces the legacy
       // `/admissions?status=uploaded` quicklink with a purpose-built page.
       // Badge mirrors the row count from `countPendingDocValidation`.
       {
-        href: "/admissions/document-validation",
-        label: "Document validation",
-        badgeKey: "pendingDocValidation",
+        href: '/admissions/document-validation',
+        label: 'Document validation',
+        badgeKey: 'pendingDocValidation',
       },
       // KD #77: surfaces the parallel pipeline for the AY where
       // accepting_applications=true AND is_current=false. The page itself
       // renders an empty state when no such AY exists, so the entry can
       // safely stay in nav even when early-bird is closed.
-      { href: "/admissions/upcoming/applications", label: "Upcoming AY applications" },
+      {
+        href: '/admissions/upcoming/applications',
+        label: 'Upcoming AY applications',
+      },
       // Discount codes apply to enrolment fees — operationally owned by
       // admissions (they assign codes to applicants). Config lives in SIS
       // Admin; this is the cross-module convenience link.
       {
-        href: "/sis/admin/discount-codes",
-        label: "Discount Codes",
-        requiresRoles: ["admissions", "registrar", "school_admin", "superadmin"],
+        href: '/sis/admin/discount-codes',
+        label: 'Discount Codes',
+        requiresRoles: [
+          'admissions',
+          'registrar',
+          'school_admin',
+          'superadmin',
+        ],
       },
     ],
   },
@@ -247,19 +282,20 @@ const ADMISSIONS_NAV: NavSection[] = [
   // on the Records side only (enrolled scope) — pre-enrolment travel-doc
   // lapses are surfaced via /admissions?status=expired (KD #70).
   {
-    label: "Cohorts",
+    label: 'Cohorts',
     items: [
-      { href: "/admissions/cohorts/stp", label: "STP applications" },
-      { href: "/admissions/cohorts/medical", label: "Medical alerts" },
-      { href: "/admissions/cohorts/promised", label: "Promised follow-ups" },
-      { href: "/admissions/cohorts/pre-course", label: "Pre-Course Counselling" },
+      { href: '/admissions/cohorts/stp', label: 'STP applications' },
+      { href: '/admissions/cohorts/medical', label: 'Medical alerts' },
+      { href: '/admissions/cohorts/promised', label: 'Promised follow-ups' },
+      {
+        href: '/admissions/cohorts/pre-course',
+        label: 'Pre-Course Counselling',
+      },
     ],
   },
   {
-    label: "Analytics",
-    items: [
-      { href: "/admissions/feedback", label: "Application Feedback" },
-    ],
+    label: 'Analytics',
+    items: [{ href: '/admissions/feedback', label: 'Application Feedback' }],
   },
   // History — terminal applicants (Cancelled / Withdrawn) who exited the
   // funnel without ever being classified as Enrolled. Read-only archive;
@@ -267,32 +303,39 @@ const ADMISSIONS_NAV: NavSection[] = [
   // active-funnel page filters these out of the in-flight list, so
   // without this group they are operationally orphaned.
   {
-    label: "History",
-    items: [{ href: "/admissions/applications/closed", label: "Closed applications" }],
+    label: 'History',
+    items: [
+      { href: '/admissions/applications/closed', label: 'Closed applications' },
+    ],
   },
   {
-    label: "Quicklinks",
+    label: 'Quicklinks',
     items: [
       {
-        href: "/records/students",
-        label: "Enrolled students",
-        requiresRoles: ["registrar", "school_admin", "superadmin"],
+        href: '/records/students',
+        label: 'Enrolled students',
+        requiresRoles: ['registrar', 'school_admin', 'superadmin'],
       },
       {
-        href: "/admissions?status=expired",
-        label: "Expired documents",
-        requiresRoles: ["admissions", "registrar", "school_admin", "superadmin"],
+        href: '/admissions?status=expired',
+        label: 'Expired documents',
+        requiresRoles: [
+          'admissions',
+          'registrar',
+          'school_admin',
+          'superadmin',
+        ],
       },
       {
-        href: "/sis/ay-setup",
-        label: "AY Setup",
-        requiresRoles: ["school_admin", "superadmin"],
+        href: '/sis/ay-setup',
+        label: 'AY Setup',
+        requiresRoles: ['school_admin', 'superadmin'],
       },
     ],
   },
   {
-    label: "Admin",
-    items: [{ href: "/admissions/audit-log", label: "Audit Log" }],
+    label: 'Admin',
+    items: [{ href: '/admissions/audit-log', label: 'Audit Log' }],
   },
 ];
 
@@ -304,35 +347,35 @@ const ADMISSIONS_NAV: NavSection[] = [
 const EVALUATION_NAV: NavSection[] = [
   {
     items: [
-      { href: "/evaluation", label: "Dashboard" },
+      { href: '/evaluation', label: 'Dashboard' },
       {
-        href: "/evaluation/compare",
-        label: "Compare",
-        requiresRoles: ["registrar", "school_admin", "superadmin"],
+        href: '/evaluation/compare',
+        label: 'Compare',
+        requiresRoles: ['registrar', 'school_admin', 'superadmin'],
       },
     ],
   },
   {
-    label: "Write-ups",
-    items: [{ href: "/evaluation/sections", label: "All terms" }],
+    label: 'Write-ups',
+    items: [{ href: '/evaluation/sections', label: 'All terms' }],
   },
   {
     // Per-term quicklinks land on the sections picker with `?term=<number>`
     // preselected. T4 has no FCA comment section (KD #49) so it's omitted.
-    label: "Quick filters",
+    label: 'Quick filters',
     items: [
-      { href: "/evaluation/sections?term=1", label: "Term 1 write-ups" },
-      { href: "/evaluation/sections?term=2", label: "Term 2 write-ups" },
-      { href: "/evaluation/sections?term=3", label: "Term 3 write-ups" },
+      { href: '/evaluation/sections?term=1', label: 'Term 1 write-ups' },
+      { href: '/evaluation/sections?term=2', label: 'Term 2 write-ups' },
+      { href: '/evaluation/sections?term=3', label: 'Term 3 write-ups' },
     ],
   },
   {
-    label: "Administration",
+    label: 'Administration',
     items: [
       {
-        href: "/evaluation/audit-log",
-        label: "Audit Log",
-        requiresRoles: ["registrar", "school_admin", "superadmin"],
+        href: '/evaluation/audit-log',
+        label: 'Audit Log',
+        requiresRoles: ['registrar', 'school_admin', 'superadmin'],
       },
     ],
   },
@@ -344,38 +387,90 @@ const EVALUATION_NAV: NavSection[] = [
 // twin was retired and school_admin is now the cross-cutting generalist).
 // Groups mirror the landing-page sections on /sis (page.tsx).
 const SIS_NAV: NavSection[] = [
-  { items: [{ href: "/sis", label: "Admin Hub" }] },
+  { items: [{ href: '/sis', label: 'Admin Hub' }] },
   {
-    label: "Year Setup",
+    label: 'Year Setup',
     items: [
-      { href: "/sis/ay-setup",  label: "AY Setup",        requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/calendar",  label: "School Calendar", requiresRoles: ["registrar", "school_admin", "superadmin"] },
-      { href: "/sis/sections",  label: "Sections",        requiresRoles: ["registrar", "school_admin", "superadmin"] },
+      {
+        href: '/sis/ay-setup',
+        label: 'AY Setup',
+        requiresRoles: ['school_admin', 'superadmin'],
+      },
+      {
+        href: '/sis/calendar',
+        label: 'School Calendar',
+        requiresRoles: ['registrar', 'school_admin', 'superadmin'],
+      },
+      {
+        href: '/sis/sections',
+        label: 'Sections',
+        requiresRoles: ['registrar', 'school_admin', 'superadmin'],
+      },
     ],
   },
   {
-    label: "Organisation",
+    label: 'Organisation',
     items: [
-      { href: "/sis/admin/sow",            label: "Scheme of Work",       requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/admin/discount-codes", label: "Discount Codes",       requiresRoles: ["registrar", "school_admin", "superadmin"] },
-      { href: "/sis/admin/subjects",       label: "Subject Weights",      requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/admin/template",       label: "Class Template",       requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/sync-students",        label: "Sync from Admissions", requiresRoles: ["registrar", "school_admin", "superadmin"] },
+      {
+        href: '/sis/admin/sow',
+        label: 'Scheme of Work',
+        requiresRoles: ['school_admin', 'superadmin'],
+      },
+      {
+        href: '/sis/admin/discount-codes',
+        label: 'Discount Codes',
+        requiresRoles: ['registrar', 'school_admin', 'superadmin'],
+      },
+      {
+        href: '/sis/admin/subjects',
+        label: 'Subject Weights',
+        requiresRoles: ['school_admin', 'superadmin'],
+      },
+      {
+        href: '/sis/admin/template',
+        label: 'Class Template',
+        requiresRoles: ['school_admin', 'superadmin'],
+      },
+      {
+        href: '/sis/sync-students',
+        label: 'Sync from Admissions',
+        requiresRoles: ['registrar', 'school_admin', 'superadmin'],
+      },
     ],
   },
   {
-    label: "Access",
+    label: 'Access',
     items: [
-      { href: "/sis/admin/approvers", label: "Approvers", requiresRoles: ["superadmin"] },
-      { href: "/sis/admin/users",     label: "Users",     requiresRoles: ["superadmin"] },
+      {
+        href: '/sis/admin/approvers',
+        label: 'Approvers',
+        requiresRoles: ['superadmin'],
+      },
+      {
+        href: '/sis/admin/users',
+        label: 'Users',
+        requiresRoles: ['superadmin'],
+      },
     ],
   },
   {
-    label: "System",
+    label: 'System',
     items: [
-      { href: "/sis/admin/school-config",         label: "School Config",         requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/admin/settings",              label: "Settings",              requiresRoles: ["superadmin"] },
-      { href: "/sis/audit-log",                   label: "Audit Log",             requiresRoles: ["school_admin", "superadmin"] },
+      {
+        href: '/sis/admin/school-config',
+        label: 'School Config',
+        requiresRoles: ['school_admin', 'superadmin'],
+      },
+      {
+        href: '/sis/admin/settings',
+        label: 'Settings',
+        requiresRoles: ['superadmin'],
+      },
+      {
+        href: '/sis/audit-log',
+        label: 'Audit Log',
+        requiresRoles: ['school_admin', 'superadmin'],
+      },
     ],
   },
 ];
@@ -387,7 +482,7 @@ const SIS_NAV: NavSection[] = [
 // (access is gated by proxy.ts + ROUTE_ACCESS).
 export const NAV_BY_MODULE: {
   markbook: Partial<Record<Role, NavSection[]>>;
-  "p-files": NavSection[];
+  'p-files': NavSection[];
   records: NavSection[];
   sis: NavSection[];
   attendance: NavSection[];
@@ -396,52 +491,60 @@ export const NAV_BY_MODULE: {
 } = {
   markbook: {
     teacher: [
-      { items: [{ href: "/markbook", label: "Dashboard" }] },
+      { items: [{ href: '/markbook', label: 'Dashboard' }] },
       {
-        label: "Planning",
-        items: [{ href: "/markbook/sow", label: "Scheme of Work" }],
+        label: 'Planning',
+        items: [{ href: '/markbook/sow', label: 'Scheme of Work' }],
       },
       {
-        label: "Grading",
+        label: 'Grading',
         items: [
-          { href: "/markbook/grading", label: "My Sheets" },
-          { href: "/markbook/grading/requests", label: "My Requests", badgeKey: "changeRequests" },
+          { href: '/markbook/grading', label: 'My Sheets' },
+          {
+            href: '/markbook/grading/requests',
+            label: 'My Requests',
+            badgeKey: 'changeRequests',
+          },
         ],
       },
     ],
     registrar: [
       {
         items: [
-          { href: "/markbook", label: "Dashboard" },
-          { href: "/markbook/compare", label: "Compare" },
+          { href: '/markbook', label: 'Dashboard' },
+          { href: '/markbook/compare', label: 'Compare' },
         ],
       },
       {
-        label: "Planning",
-        items: [{ href: "/markbook/sow", label: "Scheme of Work" }],
+        label: 'Planning',
+        items: [{ href: '/markbook/sow', label: 'Scheme of Work' }],
       },
       {
-        label: "Grading",
+        label: 'Grading',
         items: [
-          { href: "/markbook/grading", label: "All Sheets" },
-          { href: "/markbook/grading/new", label: "New Sheet" },
+          { href: '/markbook/grading', label: 'All Sheets' },
+          { href: '/markbook/grading/new', label: 'New Sheet' },
         ],
       },
       {
-        label: "Students",
-        items: [{ href: "/markbook/sections", label: "Sections" }],
+        label: 'Students',
+        items: [{ href: '/markbook/sections', label: 'Sections' }],
       },
       {
         items: [
-          { href: "/markbook/masterfile", label: "Masterfile" },
-          { href: "/markbook/report-cards", label: "Report Cards" },
+          { href: '/markbook/masterfile', label: 'Masterfile' },
+          { href: '/markbook/report-cards', label: 'Report Cards' },
         ],
       },
       {
-        label: "Admin",
+        label: 'Admin',
         items: [
-          { href: "/markbook/change-requests", label: "Change Requests", badgeKey: "changeRequests" },
-          { href: "/markbook/audit-log", label: "Audit Log" },
+          {
+            href: '/markbook/change-requests',
+            label: 'Change Requests',
+            badgeKey: 'changeRequests',
+          },
+          { href: '/markbook/audit-log', label: 'Audit Log' },
         ],
       },
     ],
@@ -451,70 +554,78 @@ export const NAV_BY_MODULE: {
     school_admin: [
       {
         items: [
-          { href: "/markbook", label: "Dashboard" },
-          { href: "/markbook/compare", label: "Compare" },
+          { href: '/markbook', label: 'Dashboard' },
+          { href: '/markbook/compare', label: 'Compare' },
         ],
       },
       {
-        label: "Planning",
-        items: [{ href: "/markbook/sow", label: "Scheme of Work" }],
+        label: 'Planning',
+        items: [{ href: '/markbook/sow', label: 'Scheme of Work' }],
       },
       {
-        label: "Students",
-        items: [{ href: "/markbook/sections", label: "Sections" }],
+        label: 'Students',
+        items: [{ href: '/markbook/sections', label: 'Sections' }],
       },
       {
         items: [
-          { href: "/markbook/masterfile", label: "Masterfile" },
-          { href: "/markbook/report-cards", label: "Report Cards" },
+          { href: '/markbook/masterfile', label: 'Masterfile' },
+          { href: '/markbook/report-cards', label: 'Report Cards' },
         ],
       },
       {
-        label: "Admin",
+        label: 'Admin',
         items: [
-          { href: "/markbook/change-requests", label: "Change Requests", badgeKey: "changeRequests" },
-          { href: "/markbook/audit-log", label: "Audit Log" },
+          {
+            href: '/markbook/change-requests',
+            label: 'Change Requests',
+            badgeKey: 'changeRequests',
+          },
+          { href: '/markbook/audit-log', label: 'Audit Log' },
         ],
       },
     ],
     superadmin: [
       {
         items: [
-          { href: "/markbook", label: "Dashboard" },
-          { href: "/markbook/compare", label: "Compare" },
+          { href: '/markbook', label: 'Dashboard' },
+          { href: '/markbook/compare', label: 'Compare' },
         ],
       },
       {
-        label: "Planning",
-        items: [{ href: "/markbook/sow", label: "Scheme of Work" }],
+        label: 'Planning',
+        items: [{ href: '/markbook/sow', label: 'Scheme of Work' }],
       },
       {
-        label: "Grading",
+        label: 'Grading',
         items: [
-          { href: "/markbook/grading", label: "All Sheets" },
-          { href: "/markbook/grading/new", label: "New Sheet" },
+          { href: '/markbook/grading', label: 'All Sheets' },
+          { href: '/markbook/grading/new', label: 'New Sheet' },
         ],
       },
       {
-        label: "Students",
-        items: [{ href: "/markbook/sections", label: "Sections" }],
+        label: 'Students',
+        items: [{ href: '/markbook/sections', label: 'Sections' }],
       },
       {
         items: [
-          { href: "/markbook/masterfile", label: "Masterfile" },
-          { href: "/markbook/report-cards", label: "Report Cards" },
+          { href: '/markbook/masterfile', label: 'Masterfile' },
+          { href: '/markbook/report-cards', label: 'Report Cards' },
         ],
       },
       {
-        label: "Admin",
+        label: 'Admin',
         items: [
-          { href: "/markbook/change-requests", label: "Change Requests", badgeKey: "changeRequests" },
-          { href: "/markbook/audit-log", label: "Audit Log" },
+          {
+            href: '/markbook/change-requests',
+            label: 'Change Requests',
+            badgeKey: 'changeRequests',
+          },
+          { href: '/markbook/audit-log', label: 'Audit Log' },
         ],
       },
     ],
   },
-  "p-files": PFILES_NAV,
+  'p-files': PFILES_NAV,
   records: RECORDS_NAV,
   sis: SIS_NAV,
   attendance: ATTENDANCE_NAV,
@@ -527,33 +638,75 @@ export const NAV_BY_MODULE: {
 // must appear before the broader `/sis` rule.
 // fallow-ignore-next-line unused-export
 export const ROUTE_ACCESS: Array<{ prefix: string; allowed: Role[] }> = [
-  { prefix: "/sis/admin/approvers", allowed: ["superadmin"] },
-  { prefix: "/sis/admin/subjects", allowed: ["school_admin", "superadmin"] },
-  { prefix: "/sis/admin/template", allowed: ["school_admin", "superadmin"] },
-  { prefix: "/sis/admin/school-config", allowed: ["school_admin", "superadmin"] },
-  { prefix: "/sis/admin/users", allowed: ["superadmin"] },
-  { prefix: "/sis/admin/settings", allowed: ["superadmin"] },
-  { prefix: "/sis/admin/discount-codes", allowed: ["registrar", "school_admin", "superadmin"] },
-  { prefix: "/sis/ay-setup", allowed: ["school_admin", "superadmin"] },
-  { prefix: "/sis/calendar", allowed: ["registrar", "school_admin", "superadmin"] },
-  { prefix: "/sis/sections", allowed: ["registrar", "school_admin", "superadmin"] },
-  { prefix: "/sis/audit-log", allowed: ["school_admin", "superadmin"] },
-  { prefix: "/sis/sync-students", allowed: ["registrar", "school_admin", "superadmin"] },
-  { prefix: "/admin/admissions", allowed: ["registrar", "school_admin", "superadmin"] },
-  { prefix: "/attendance/import", allowed: ["registrar", "school_admin", "superadmin"] },
-  { prefix: "/attendance/calendar", allowed: ["registrar", "school_admin", "superadmin"] },
-  { prefix: "/attendance", allowed: ["teacher", "registrar", "school_admin", "superadmin"] },
-  { prefix: "/evaluation/audit-log", allowed: ["registrar", "school_admin", "superadmin"] },
-  { prefix: "/evaluation", allowed: ["teacher", "registrar", "school_admin", "superadmin"] },
+  { prefix: '/sis/admin/approvers', allowed: ['superadmin'] },
+  { prefix: '/sis/admin/subjects', allowed: ['school_admin', 'superadmin'] },
+  { prefix: '/sis/admin/template', allowed: ['school_admin', 'superadmin'] },
+  {
+    prefix: '/sis/admin/school-config',
+    allowed: ['school_admin', 'superadmin'],
+  },
+  { prefix: '/sis/admin/users', allowed: ['superadmin'] },
+  { prefix: '/sis/admin/settings', allowed: ['superadmin'] },
+  {
+    prefix: '/sis/admin/discount-codes',
+    allowed: ['registrar', 'school_admin', 'superadmin'],
+  },
+  { prefix: '/sis/ay-setup', allowed: ['school_admin', 'superadmin'] },
+  {
+    prefix: '/sis/calendar',
+    allowed: ['registrar', 'school_admin', 'superadmin'],
+  },
+  {
+    prefix: '/sis/sections',
+    allowed: ['registrar', 'school_admin', 'superadmin'],
+  },
+  { prefix: '/sis/audit-log', allowed: ['school_admin', 'superadmin'] },
+  {
+    prefix: '/sis/sync-students',
+    allowed: ['registrar', 'school_admin', 'superadmin'],
+  },
+  {
+    prefix: '/admin/admissions',
+    allowed: ['registrar', 'school_admin', 'superadmin'],
+  },
+  {
+    prefix: '/attendance/import',
+    allowed: ['registrar', 'school_admin', 'superadmin'],
+  },
+  {
+    prefix: '/attendance/calendar',
+    allowed: ['registrar', 'school_admin', 'superadmin'],
+  },
+  {
+    prefix: '/attendance',
+    allowed: ['teacher', 'registrar', 'school_admin', 'superadmin'],
+  },
+  {
+    prefix: '/evaluation/audit-log',
+    allowed: ['registrar', 'school_admin', 'superadmin'],
+  },
+  {
+    prefix: '/evaluation',
+    allowed: ['teacher', 'registrar', 'school_admin', 'superadmin'],
+  },
   // Masterfile is registrar+ only — KD #95 restricts the cross-subject
   // view to operational/oversight roles. Must precede the broader
   // /markbook rule so the longer prefix wins.
-  { prefix: "/markbook/masterfile", allowed: ["registrar", "school_admin", "superadmin"] },
-  { prefix: "/markbook", allowed: ["teacher", "registrar", "school_admin", "superadmin"] },
-  { prefix: "/p-files", allowed: ["p-file", "school_admin", "superadmin"] },
-  { prefix: "/admissions", allowed: ["admissions", "registrar", "school_admin", "superadmin"] },
-  { prefix: "/records", allowed: ["registrar", "school_admin", "superadmin"] },
-  { prefix: "/sis", allowed: ["school_admin", "superadmin"] },
+  {
+    prefix: '/markbook/masterfile',
+    allowed: ['registrar', 'school_admin', 'superadmin'],
+  },
+  {
+    prefix: '/markbook',
+    allowed: ['teacher', 'registrar', 'school_admin', 'superadmin'],
+  },
+  { prefix: '/p-files', allowed: ['p-file', 'school_admin', 'superadmin'] },
+  {
+    prefix: '/admissions',
+    allowed: ['admissions', 'registrar', 'school_admin', 'superadmin'],
+  },
+  { prefix: '/records', allowed: ['registrar', 'school_admin', 'superadmin'] },
+  { prefix: '/sis', allowed: ['school_admin', 'superadmin'] },
 ];
 
 export function getUserRole(user: User | null | undefined): Role | null {
@@ -561,7 +714,9 @@ export function getUserRole(user: User | null | undefined): Role | null {
   return ROLES.includes(raw as Role) ? (raw as Role) : null;
 }
 
-export function getRoleFromClaims(claims: Record<string, unknown> | null | undefined): Role | null {
+export function getRoleFromClaims(
+  claims: Record<string, unknown> | null | undefined
+): Role | null {
   const appMeta = claims?.app_metadata as Record<string, unknown> | undefined;
   const userMeta = claims?.user_metadata as Record<string, unknown> | undefined;
   const raw = appMeta?.role ?? userMeta?.role;
@@ -569,7 +724,9 @@ export function getRoleFromClaims(claims: Record<string, unknown> | null | undef
 }
 
 export function isRouteAllowed(pathname: string, role: Role | null): boolean {
-  const rule = ROUTE_ACCESS.find((r) => pathname === r.prefix || pathname.startsWith(r.prefix + "/"));
+  const rule = ROUTE_ACCESS.find(
+    (r) => pathname === r.prefix || pathname.startsWith(r.prefix + '/')
+  );
   if (!rule) return true;
   return role != null && rule.allowed.includes(role);
 }

@@ -27,7 +27,7 @@ export async function PATCH(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const { termId, sectionId, studentId, checklistItemId, rating } = parsed.data;
@@ -45,7 +45,7 @@ export async function PATCH(request: NextRequest) {
     if (!assignment) {
       return NextResponse.json(
         { error: 'You have no assignment on this section.' },
-        { status: 403 },
+        { status: 403 }
       );
     }
   }
@@ -62,12 +62,15 @@ export async function PATCH(request: NextRequest) {
         created_by: auth.user.id,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: 'term_id,student_id,checklist_item_id' },
+      { onConflict: 'term_id,student_id,checklist_item_id' }
     )
     .select('id')
     .single();
   if (error || !saved) {
-    return NextResponse.json({ error: error?.message ?? 'save failed' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message ?? 'save failed' },
+      { status: 500 }
+    );
   }
 
   await logAction({
@@ -76,7 +79,13 @@ export async function PATCH(request: NextRequest) {
     action: 'evaluation.checklist_response.save',
     entityType: 'evaluation_checklist_response',
     entityId: saved.id,
-    context: { term_id: termId, section_id: sectionId, student_id: studentId, checklist_item_id: checklistItemId, rating: rating ?? null },
+    context: {
+      term_id: termId,
+      section_id: sectionId,
+      student_id: studentId,
+      checklist_item_id: checklistItemId,
+      rating: rating ?? null,
+    },
   });
 
   return NextResponse.json({ ok: true, id: saved.id });

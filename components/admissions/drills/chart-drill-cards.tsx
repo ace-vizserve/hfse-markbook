@@ -108,7 +108,7 @@ export function ReferralDrillCard({
         setSegment(seg);
       }
     },
-    [data],
+    [data]
   );
 
   return (

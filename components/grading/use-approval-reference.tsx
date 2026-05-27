@@ -82,14 +82,19 @@ export function useChangeReference() {
   // Path A state
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [requests, setRequests] = useState<PendingRequest[]>([]);
-  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
+    null
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Path B state
-  const [correctionReason, setCorrectionReason] = useState<CorrectionReason>('typo');
+  const [correctionReason, setCorrectionReason] =
+    useState<CorrectionReason>('typo');
   const [correctionJustification, setCorrectionJustification] = useState('');
 
-  const pending = useRef<((value: ChangeReference | null) => void) | null>(null);
+  const pending = useRef<((value: ChangeReference | null) => void) | null>(
+    null
+  );
 
   const resolve = useCallback((value: ChangeReference | null) => {
     const fn = pending.current;
@@ -112,7 +117,7 @@ export function useChangeReference() {
         pending.current = res;
       });
     },
-    [],
+    []
   );
 
   // Fetch approved-not-yet-applied requests for the sheet whenever the dialog
@@ -124,13 +129,14 @@ export function useChangeReference() {
     (async () => {
       try {
         const res = await fetch(
-          `/api/change-requests?status=approved&sheet_id=${encodeURIComponent(target.sheetId)}`,
+          `/api/change-requests?status=approved&sheet_id=${encodeURIComponent(target.sheetId)}`
         );
         const bodyJson = (await res.json()) as {
           requests?: PendingRequest[];
           error?: string;
         };
-        if (!res.ok) throw new Error(bodyJson.error ?? 'failed to load requests');
+        if (!res.ok)
+          throw new Error(bodyJson.error ?? 'failed to load requests');
         if (cancelled) return;
         const filtered = (bodyJson.requests ?? []).filter((r) => {
           if (r.field_changed !== target.field) return false;
@@ -195,12 +201,16 @@ export function useChangeReference() {
         <DialogHeader>
           <DialogTitle>Post-lock edit</DialogTitle>
           <DialogDescription>
-            This sheet is locked. Apply an approved change request, or log a data-entry
-            correction. Either way the change is recorded on the activity history.
+            This sheet is locked. Apply an approved change request, or log a
+            data-entry correction. Either way the change is recorded on the
+            activity history.
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as 'request' | 'correction')}>
+        <Tabs
+          value={tab}
+          onValueChange={(v) => setTab(v as 'request' | 'correction')}
+        >
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="request">Apply approved request</TabsTrigger>
             <TabsTrigger value="correction">Data entry correction</TabsTrigger>
@@ -214,65 +224,82 @@ export function useChangeReference() {
               </div>
             ) : loadError ? (
               <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <AlertCircle
+                  className="mt-0.5 h-4 w-4 shrink-0"
+                  aria-hidden="true"
+                />
                 <span>{loadError}</span>
               </div>
             ) : requests.length === 0 ? (
               <p className="py-4 text-sm text-muted-foreground">
-                No approved change requests match this cell yet. Ask the teacher to file a
-                request, or use the correction tab if this is a data entry fix.
+                No approved change requests match this cell yet. Ask the teacher
+                to file a request, or use the correction tab if this is a data
+                entry fix.
               </p>
             ) : (
               <ScrollArea className="h-72 pr-1">
-                <div role="radiogroup" aria-label="Approved change requests" className="space-y-2">
-                {requests.map((r) => {
-                  const selected = r.id === selectedRequestId;
-                  return (
-                    <button
-                      key={r.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      onClick={() => setSelectedRequestId(r.id)}
-                      className={`w-full rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                        selected
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border bg-card hover:bg-muted'
-                      }`}>
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className="text-sm font-medium text-foreground">
-                          {r.current_value ?? '(blank)'}{' '}
-                          <span className="text-muted-foreground">→</span>{' '}
-                          <span className="tabular-nums">{r.proposed_value}</span>
-                        </span>
-                        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                          {r.reason_category.replace(/_/g, ' ')}
-                        </span>
-                      </div>
-                      <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                        {r.justification}
-                      </div>
-                      <div className="mt-1.5 text-[11px] text-muted-foreground">
-                        From {r.requested_by_email} · approved by{' '}
-                        {r.reviewed_by_email ?? '(unknown)'}
-                      </div>
-                    </button>
-                  );
-                })}
+                <div
+                  role="radiogroup"
+                  aria-label="Approved change requests"
+                  className="space-y-2"
+                >
+                  {requests.map((r) => {
+                    const selected = r.id === selectedRequestId;
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => setSelectedRequestId(r.id)}
+                        className={`w-full rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                          selected
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border bg-card hover:bg-muted'
+                        }`}
+                      >
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="text-sm font-medium text-foreground">
+                            {r.current_value ?? '(blank)'}{' '}
+                            <span className="text-muted-foreground">→</span>{' '}
+                            <span className="tabular-nums">
+                              {r.proposed_value}
+                            </span>
+                          </span>
+                          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                            {r.reason_category.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                        <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                          {r.justification}
+                        </div>
+                        <div className="mt-1.5 text-[11px] text-muted-foreground">
+                          From {r.requested_by_email} · approved by{' '}
+                          {r.reviewed_by_email ?? '(unknown)'}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </ScrollArea>
             )}
             <p className="text-[11px] text-muted-foreground">
-              The approved value will be filled in for you — no need to retype it.
+              The approved value will be filled in for you — no need to retype
+              it.
             </p>
           </TabsContent>
 
           <TabsContent value="correction" className="space-y-3 pt-3">
             <Field>
-              <FieldLabel htmlFor="correction-reason">Correction type</FieldLabel>
+              <FieldLabel htmlFor="correction-reason">
+                Correction type
+              </FieldLabel>
               <Select
                 value={correctionReason}
-                onValueChange={(v) => setCorrectionReason(v as CorrectionReason)}>
+                onValueChange={(v) =>
+                  setCorrectionReason(v as CorrectionReason)
+                }
+              >
                 <SelectTrigger id="correction-reason" className="h-9">
                   <SelectValue />
                 </SelectTrigger>
@@ -286,7 +313,9 @@ export function useChangeReference() {
               </Select>
             </Field>
             <Field>
-              <FieldLabel htmlFor="correction-justification">Justification</FieldLabel>
+              <FieldLabel htmlFor="correction-justification">
+                Justification
+              </FieldLabel>
               <Textarea
                 id="correction-justification"
                 value={correctionJustification}
@@ -299,7 +328,8 @@ export function useChangeReference() {
               </p>
             </Field>
             <p className="text-[11px] text-muted-foreground">
-              Corrections are flagged separately on the activity history so misuse is easy to spot.
+              Corrections are flagged separately on the activity history so
+              misuse is easy to spot.
             </p>
           </TabsContent>
         </Tabs>
@@ -313,7 +343,10 @@ export function useChangeReference() {
               Apply request
             </Button>
           ) : (
-            <Button onClick={confirmCorrection} disabled={!canConfirmCorrection}>
+            <Button
+              onClick={confirmCorrection}
+              disabled={!canConfirmCorrection}
+            >
               Log correction
             </Button>
           )}

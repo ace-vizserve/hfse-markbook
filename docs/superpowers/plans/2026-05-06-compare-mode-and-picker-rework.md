@@ -29,6 +29,7 @@
 This task lays the foundation for the picker rework. New presets are pure additive type extensions; the cross-AY fallback in `windows.ts` enables the "no active term in current AY" case.
 
 **Files:**
+
 - Modify: `lib/dashboard/range.ts`
 - Modify: `lib/dashboard/windows.ts`
 
@@ -73,8 +74,21 @@ export const PRESET_LABEL: Record<Preset, string> = {
 };
 
 // Preset arrays exported so each module's page RSC picks the right shortlist.
-export const TERM_SCOPED_PRESETS: Preset[] = ['t1', 't2', 't3', 't4', 'thisAY', 'custom'];
-export const FLEXIBLE_PRESETS: Preset[] = ['lastWeek', 'last15d', 'lastMonth', 'thisAY', 'custom'];
+export const TERM_SCOPED_PRESETS: Preset[] = [
+  't1',
+  't2',
+  't3',
+  't4',
+  'thisAY',
+  'custom',
+];
+export const FLEXIBLE_PRESETS: Preset[] = [
+  'lastWeek',
+  'last15d',
+  'lastMonth',
+  'thisAY',
+  'custom',
+];
 ```
 
 - [ ] **Step 2: Extend `TermWindows` type in `lib/dashboard/range.ts`**
@@ -86,7 +100,12 @@ export type TermWindows = {
   thisTerm: DateRange | null;
   lastTerm: DateRange | null;
   /** Per-term-number lookup. null when that term doesn't exist or has no dates. */
-  byNumber: { 1: DateRange | null; 2: DateRange | null; 3: DateRange | null; 4: DateRange | null };
+  byNumber: {
+    1: DateRange | null;
+    2: DateRange | null;
+    3: DateRange | null;
+    4: DateRange | null;
+  };
 };
 ```
 
@@ -98,7 +117,7 @@ Replace the existing `resolvePreset` function (lines 222–245):
 export function resolvePreset(
   preset: Preset,
   windows: { term: TermWindows; ay: AYWindows },
-  today?: Date,
+  today?: Date
 ): DateRange | null {
   switch (preset) {
     case 't1':
@@ -158,7 +177,11 @@ function lastCalendarMonth(today = new Date()): DateRange {
   const t = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   // Last day of prior month = day 0 of current month
   const lastDayPrev = new Date(t.getFullYear(), t.getMonth(), 0);
-  const firstDayPrev = new Date(lastDayPrev.getFullYear(), lastDayPrev.getMonth(), 1);
+  const firstDayPrev = new Date(
+    lastDayPrev.getFullYear(),
+    lastDayPrev.getMonth(),
+    1
+  );
   return { from: toISODate(firstDayPrev), to: toISODate(lastDayPrev) };
 }
 ```
@@ -171,17 +194,28 @@ Replace the existing `detectPreset` function's preset list (lines 256–264) wit
 export function detectPreset(
   range: DateRange,
   windows: { term: TermWindows; ay: AYWindows },
-  today?: Date,
+  today?: Date
 ): Preset {
   const presets: Preset[] = [
-    't1', 't2', 't3', 't4',
-    'lastWeek', 'last15d', 'lastMonth',
-    'last7d', 'last30d', 'last90d',
-    'thisTerm', 'lastTerm', 'thisAY', 'lastAY',
+    't1',
+    't2',
+    't3',
+    't4',
+    'lastWeek',
+    'last15d',
+    'lastMonth',
+    'last7d',
+    'last30d',
+    'last90d',
+    'thisTerm',
+    'lastTerm',
+    'thisAY',
+    'lastAY',
   ];
   for (const p of presets) {
     const candidate = resolvePreset(p, windows, today);
-    if (candidate && candidate.from === range.from && candidate.to === range.to) return p;
+    if (candidate && candidate.from === range.from && candidate.to === range.to)
+      return p;
   }
   return 'custom';
 }
@@ -192,60 +226,78 @@ export function detectPreset(
 In `getDashboardWindows`, replace the `current` resolution and `thisTerm` block (around lines 75–84) with:
 
 ```ts
-  const todayMs = parseLocalDate(today)?.getTime() ?? 0;
+const todayMs = parseLocalDate(today)?.getTime() ?? 0;
 
-  // Resolve "current" term (today-anchored → is_current flag → first term in AY).
-  const current =
-    sortedAy.find((t) => t.start_date! <= today && today <= t.end_date!) ??
-    sortedAy.find((t) => t.is_current) ??
-    sortedAy[0] ??
-    null;
+// Resolve "current" term (today-anchored → is_current flag → first term in AY).
+const current =
+  sortedAy.find((t) => t.start_date! <= today && today <= t.end_date!) ??
+  sortedAy.find((t) => t.is_current) ??
+  sortedAy[0] ??
+  null;
 
-  const thisTermInAy: DateRange | null = current?.start_date && current.end_date
+const thisTermInAy: DateRange | null =
+  current?.start_date && current.end_date
     ? { from: current.start_date, to: current.end_date }
     : null;
 
-  // Active-term fallback: when no term in CURRENT AY contains today and no
-  // is_current flag is set, look across prior AYs for the most recently
-  // finished term. The picker presets stay AY-scoped (T1–T4 of current AY)
-  // but `thisTerm` becomes useful for default-range purposes.
-  const hasTodayInCurrent = sortedAy.some(
-    (t) => t.start_date! <= today && today <= t.end_date!,
-  );
-  let priorAyLastTerm: DateRange | null = null;
-  if (!hasTodayInCurrent) {
-    const priorFinished = terms
-      .filter((t) => t.ay_code !== ayCode && t.start_date && t.end_date && t.end_date! < today)
-      .sort((a, b) => (a.end_date! < b.end_date! ? 1 : -1))[0];
-    if (priorFinished) {
-      priorAyLastTerm = { from: priorFinished.start_date!, to: priorFinished.end_date! };
-    }
+// Active-term fallback: when no term in CURRENT AY contains today and no
+// is_current flag is set, look across prior AYs for the most recently
+// finished term. The picker presets stay AY-scoped (T1–T4 of current AY)
+// but `thisTerm` becomes useful for default-range purposes.
+const hasTodayInCurrent = sortedAy.some(
+  (t) => t.start_date! <= today && today <= t.end_date!
+);
+let priorAyLastTerm: DateRange | null = null;
+if (!hasTodayInCurrent) {
+  const priorFinished = terms
+    .filter(
+      (t) =>
+        t.ay_code !== ayCode &&
+        t.start_date &&
+        t.end_date &&
+        t.end_date! < today
+    )
+    .sort((a, b) => (a.end_date! < b.end_date! ? 1 : -1))[0];
+  if (priorFinished) {
+    priorAyLastTerm = {
+      from: priorFinished.start_date!,
+      to: priorFinished.end_date!,
+    };
   }
+}
 
-  // thisTerm prefers in-AY current term; falls back to prior-AY last term so
-  // dashboards always have a meaningful default range to land on.
-  const thisTerm: DateRange | null = thisTermInAy ?? priorAyLastTerm;
+// thisTerm prefers in-AY current term; falls back to prior-AY last term so
+// dashboards always have a meaningful default range to land on.
+const thisTerm: DateRange | null = thisTermInAy ?? priorAyLastTerm;
 
-  // Banner flag — page RSC renders "showing previous term" hint.
-  const activeTermFallback = !hasTodayInCurrent && priorAyLastTerm !== null;
+// Banner flag — page RSC renders "showing previous term" hint.
+const activeTermFallback = !hasTodayInCurrent && priorAyLastTerm !== null;
 
-  // Per-term-number lookup for T1/T2/T3/T4 presets.
-  const byNumber: TermWindows['byNumber'] = { 1: null, 2: null, 3: null, 4: null };
-  for (const t of sortedAy) {
-    if (t.term_number >= 1 && t.term_number <= 4 && t.start_date && t.end_date) {
-      byNumber[t.term_number as 1 | 2 | 3 | 4] = { from: t.start_date, to: t.end_date };
-    }
+// Per-term-number lookup for T1/T2/T3/T4 presets.
+const byNumber: TermWindows['byNumber'] = {
+  1: null,
+  2: null,
+  3: null,
+  4: null,
+};
+for (const t of sortedAy) {
+  if (t.term_number >= 1 && t.term_number <= 4 && t.start_date && t.end_date) {
+    byNumber[t.term_number as 1 | 2 | 3 | 4] = {
+      from: t.start_date,
+      to: t.end_date,
+    };
   }
+}
 ```
 
 Then update the existing `lastTerm` derivation to use the existing `prior` logic (already correct — leave it), and update the return statement to include `byNumber` + `activeTermFallback`:
 
 ```ts
-  return {
-    term: { thisTerm, lastTerm, byNumber },
-    ay: { thisAY, lastAY },
-    activeTermFallback,
-  };
+return {
+  term: { thisTerm, lastTerm, byNumber },
+  ay: { thisAY, lastAY },
+  activeTermFallback,
+};
 ```
 
 - [ ] **Step 7: Update return type declaration in `lib/dashboard/windows.ts`**
@@ -301,6 +353,7 @@ EOF
 `<DateRangePicker>` already accepts `presets?: Preset[]`. The toolbar needs to forward this prop, then each module's page RSC passes the appropriate array.
 
 **Files:**
+
 - Modify: `components/dashboard/comparison-toolbar.tsx`
 - Modify: `app/(markbook)/markbook/page.tsx`
 - Modify: `app/(attendance)/attendance/page.tsx`
@@ -314,7 +367,13 @@ EOF
 In `components/dashboard/comparison-toolbar.tsx`, extend the props type (around line 27):
 
 ```ts
-import { formatRangeLabel, type AYWindows, type DateRange, type Preset, type TermWindows } from '@/lib/dashboard/range';
+import {
+  formatRangeLabel,
+  type AYWindows,
+  type DateRange,
+  type Preset,
+  type TermWindows,
+} from '@/lib/dashboard/range';
 
 export type ComparisonToolbarProps = {
   ayCode: string;
@@ -336,15 +395,15 @@ export type ComparisonToolbarProps = {
 In the same file, find the `<DateRangePicker>` JSX (around line 159) and add the prop:
 
 ```tsx
-        <DateRangePicker
-          value={range}
-          onChange={onRangeChange}
-          comparison={comparison}
-          onComparisonChange={onComparisonChange}
-          termWindows={termWindows}
-          ayWindows={ayWindows}
-          presets={presets}
-        />
+<DateRangePicker
+  value={range}
+  onChange={onRangeChange}
+  comparison={comparison}
+  onComparisonChange={onComparisonChange}
+  termWindows={termWindows}
+  ayWindows={ayWindows}
+  presets={presets}
+/>
 ```
 
 Also destructure `presets` from props in the function signature.
@@ -393,11 +452,14 @@ In each term-scoped module page RSC (Markbook, Attendance, Evaluation), where wi
 const windows = await getDashboardWindows(ayCode);
 
 // ... in the JSX:
-{windows.activeTermFallback && (
-  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-900 dark:text-amber-100">
-    Active term hasn&apos;t started yet. Showing the previous term&apos;s data as a default — pick a different range above to override.
-  </div>
-)}
+{
+  windows.activeTermFallback && (
+    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-900 dark:text-amber-100">
+      Active term hasn&apos;t started yet. Showing the previous term&apos;s data
+      as a default — pick a different range above to override.
+    </div>
+  );
+}
 ```
 
 Skip this banner on the flexible modules — they don't have a "current term" concept to fall back from.
@@ -410,6 +472,7 @@ Expected: clean compile.
 - [ ] **Step 7: Manual smoke check**
 
 Start dev server (`npm run dev`); visit each module dashboard and verify:
+
 - Markbook / Attendance / Evaluation show **Term 1, Term 2, Term 3, Term 4, This AY, Custom** as picker presets
 - Admissions / Records / P-Files show **Last week, Last 15 days, Last month, This AY, Custom** as picker presets
 - No "Last 7 days / 30 days / 90 days" appears on term-scoped modules
@@ -447,6 +510,7 @@ EOF
 Make `fixtures.ts` year-parametric so AY9999 + AY9998 can share the same seeder pipeline with different `targetYear` values.
 
 **Files:**
+
 - Modify: `lib/sis/seeder/fixtures.ts`
 
 - [ ] **Step 1: Replace `TERM_TEMPLATES` constant with `buildTermTemplates(year)` function**
@@ -504,7 +568,9 @@ export function buildTermTemplates(targetYear: number): TermTemplate[] {
 }
 
 /** Backwards-compat alias — points at current calendar year. Existing callers keep working. */
-export const TERM_TEMPLATES: TermTemplate[] = buildTermTemplates(new Date().getFullYear());
+export const TERM_TEMPLATES: TermTemplate[] = buildTermTemplates(
+  new Date().getFullYear()
+);
 ```
 
 - [ ] **Step 2: Make `CANNED_CALENDAR` year-parametric as `buildCannedCalendar(year)`**
@@ -525,9 +591,21 @@ export type CannedCalendarEntry = {
 export function buildCannedCalendar(targetYear: number): CannedCalendarEntry[] {
   const y = String(targetYear);
   return [
-    { date: `${y}-02-13`, day_type: 'public_holiday', label: 'Chinese New Year (Day 1)' },
-    { date: `${y}-02-14`, day_type: 'public_holiday', label: 'Chinese New Year (Day 2)' },
-    { date: `${y}-03-31`, day_type: 'public_holiday', label: 'Hari Raya Puasa' },
+    {
+      date: `${y}-02-13`,
+      day_type: 'public_holiday',
+      label: 'Chinese New Year (Day 1)',
+    },
+    {
+      date: `${y}-02-14`,
+      day_type: 'public_holiday',
+      label: 'Chinese New Year (Day 2)',
+    },
+    {
+      date: `${y}-03-31`,
+      day_type: 'public_holiday',
+      label: 'Hari Raya Puasa',
+    },
     { date: `${y}-05-01`, day_type: 'public_holiday', label: 'Labour Day' },
     { date: `${y}-06-08`, day_type: 'public_holiday', label: 'Hari Raya Haji' },
     { date: `${y}-08-09`, day_type: 'public_holiday', label: 'National Day' },
@@ -537,7 +615,9 @@ export function buildCannedCalendar(targetYear: number): CannedCalendarEntry[] {
 }
 
 /** Backwards-compat alias. */
-export const CANNED_CALENDAR: CannedCalendarEntry[] = buildCannedCalendar(new Date().getFullYear());
+export const CANNED_CALENDAR: CannedCalendarEntry[] = buildCannedCalendar(
+  new Date().getFullYear()
+);
 ```
 
 - [ ] **Step 3: Make `CANNED_EVENTS` year-parametric as `buildCannedEvents(year)`**
@@ -545,17 +625,31 @@ export const CANNED_CALENDAR: CannedCalendarEntry[] = buildCannedCalendar(new Da
 Find the existing `CANNED_EVENTS` const and replace with the same parametric pattern, using the `targetYear` substitution. Keep the same labels + relative date offsets within the term windows defined by `buildTermTemplates(targetYear)`.
 
 ```ts
-export type CannedEvent = { start_date: string; end_date: string; label: string };
+export type CannedEvent = {
+  start_date: string;
+  end_date: string;
+  label: string;
+};
 
 export function buildCannedEvents(targetYear: number): CannedEvent[] {
   const y = String(targetYear);
   return [
-    { start_date: `${y}-03-23`, end_date: `${y}-03-27`, label: 'Assessment Week' },
-    { start_date: `${y}-09-21`, end_date: `${y}-09-25`, label: 'Mathematics Week' },
+    {
+      start_date: `${y}-03-23`,
+      end_date: `${y}-03-27`,
+      label: 'Assessment Week',
+    },
+    {
+      start_date: `${y}-09-21`,
+      end_date: `${y}-09-25`,
+      label: 'Mathematics Week',
+    },
   ];
 }
 
-export const CANNED_EVENTS: CannedEvent[] = buildCannedEvents(new Date().getFullYear());
+export const CANNED_EVENTS: CannedEvent[] = buildCannedEvents(
+  new Date().getFullYear()
+);
 ```
 
 - [ ] **Step 4: Verify build**
@@ -595,6 +689,7 @@ EOF
 Make the structural seeder accept `targetYear` and force-overwrite term dates for `^AY9` codes. This is necessary so re-running the seeder under new `buildTermTemplates(year)` values actually applies — the existing path only fills blanks.
 
 **Files:**
+
 - Modify: `lib/sis/seeder/structural.ts`
 
 - [ ] **Step 1: Update `ensureTestStructure` signature to accept options**
@@ -624,28 +719,32 @@ export async function ensureTestStructure(
 Find the term-update loop (around lines 167–182). Replace it with:
 
 ```ts
-  for (const tmpl of templates) {
-    const existing = termByNumber.get(tmpl.term_number);
-    if (!existing) continue;
+for (const tmpl of templates) {
+  const existing = termByNumber.get(tmpl.term_number);
+  if (!existing) continue;
 
-    // For test AYs (^AY9 codes), force-overwrite term dates so re-running
-    // the seeder under new TERM_TEMPLATES values applies. For production
-    // AYs (^AY[0-8]), keep the existing fill-blanks behavior so registrar
-    // edits aren't clobbered.
-    const patch: Record<string, unknown> = {};
-    if (forceOverwrite || !existing.start_date) patch.start_date = tmpl.start_date;
-    if (forceOverwrite || !existing.end_date) patch.end_date = tmpl.end_date;
-    if (forceOverwrite || (!existing.virtue_theme && tmpl.virtue_theme))
-      patch.virtue_theme = tmpl.virtue_theme;
-    if (forceOverwrite || !existing.grading_lock_date)
-      patch.grading_lock_date = tmpl.grading_lock_date;
+  // For test AYs (^AY9 codes), force-overwrite term dates so re-running
+  // the seeder under new TERM_TEMPLATES values applies. For production
+  // AYs (^AY[0-8]), keep the existing fill-blanks behavior so registrar
+  // edits aren't clobbered.
+  const patch: Record<string, unknown> = {};
+  if (forceOverwrite || !existing.start_date)
+    patch.start_date = tmpl.start_date;
+  if (forceOverwrite || !existing.end_date) patch.end_date = tmpl.end_date;
+  if (forceOverwrite || (!existing.virtue_theme && tmpl.virtue_theme))
+    patch.virtue_theme = tmpl.virtue_theme;
+  if (forceOverwrite || !existing.grading_lock_date)
+    patch.grading_lock_date = tmpl.grading_lock_date;
 
-    if (Object.keys(patch).length === 0) continue;
+  if (Object.keys(patch).length === 0) continue;
 
-    const { error } = await service.from('terms').update(patch).eq('id', existing.id);
-    if (!error) result.terms_updated += 1;
-    else console.error('[structural seeder] terms update failed:', error.message);
-  }
+  const { error } = await service
+    .from('terms')
+    .update(patch)
+    .eq('id', existing.id);
+  if (!error) result.terms_updated += 1;
+  else console.error('[structural seeder] terms update failed:', error.message);
+}
 ```
 
 - [ ] **Step 3: Replace `CANNED_CALENDAR` references inline**
@@ -690,6 +789,7 @@ EOF
 Add the AY9998 sibling provisioner. `switchEnvironment('test')` will provision both AYs, but `is_current` only flips to AY9999.
 
 **Files:**
+
 - Modify: `lib/sis/environment.ts`
 
 - [ ] **Step 1: Add `PRIOR_TEST_AY_CODE` constant + `ensurePriorTestAy`**
@@ -713,7 +813,9 @@ Add a new `ensurePriorTestAy` function right after `ensureTestAy`:
  * second test AY for compare-mode demos. Never marked `is_current` — it's a
  * passive comparison fixture.
  */
-export async function ensurePriorTestAy(service: SupabaseClient): Promise<AyRow> {
+export async function ensurePriorTestAy(
+  service: SupabaseClient
+): Promise<AyRow> {
   const { data: existing } = await service
     .from('academic_years')
     .select('id, ay_code, label, is_current')
@@ -735,7 +837,9 @@ export async function ensurePriorTestAy(service: SupabaseClient): Promise<AyRow>
     .eq('ay_code', PRIOR_TEST_AY_CODE)
     .single();
   if (reErr || !fresh) {
-    throw new Error(`ensurePriorTestAy: post-RPC read failed — ${reErr?.message ?? 'no row'}`);
+    throw new Error(
+      `ensurePriorTestAy: post-RPC read failed — ${reErr?.message ?? 'no row'}`
+    );
   }
   return fresh as AyRow;
 }
@@ -763,7 +867,8 @@ export async function listEnvironmentAys(service: SupabaseClient): Promise<{
   const rows = data as AyRow[];
   const current = rows.find((r) => r.is_current) ?? null;
   const testAy = rows.find((r) => r.ay_code === TEST_AY_CODE) ?? null;
-  const priorTestAy = rows.find((r) => r.ay_code === PRIOR_TEST_AY_CODE) ?? null;
+  const priorTestAy =
+    rows.find((r) => r.ay_code === PRIOR_TEST_AY_CODE) ?? null;
   const prodAy =
     rows.find((r) => r.ay_code === PROD_AY_CODE && !isTestAyCode(r.ay_code)) ??
     rows.find((r) => !isTestAyCode(r.ay_code)) ??
@@ -777,57 +882,65 @@ export async function listEnvironmentAys(service: SupabaseClient): Promise<{
 Replace the `target === 'test'` branch (around lines 132–176) with:
 
 ```ts
-  if (target === 'test') {
-    const testAy = await ensureTestAy(service);
-    const priorTestAy = await ensurePriorTestAy(service);
-    const flip = await flipIsCurrent(service, testAy.ay_code);
+if (target === 'test') {
+  const testAy = await ensureTestAy(service);
+  const priorTestAy = await ensurePriorTestAy(service);
+  const flip = await flipIsCurrent(service, testAy.ay_code);
 
-    const currentYear = new Date().getFullYear();
+  const currentYear = new Date().getFullYear();
 
-    // 1) Structural config for current-year test AY (AY9999).
-    const structure = await ensureTestStructure(service, {
+  // 1) Structural config for current-year test AY (AY9999).
+  const structure = await ensureTestStructure(
+    service,
+    {
       id: testAy.id,
       ay_code: testAy.ay_code,
-    }, { targetYear: currentYear, forceOverwriteDates: true });
+    },
+    { targetYear: currentYear, forceOverwriteDates: true }
+  );
 
-    // 2) Structural config for prior-year test AY (AY9998).
-    await ensureTestStructure(service, {
+  // 2) Structural config for prior-year test AY (AY9998).
+  await ensureTestStructure(
+    service,
+    {
       id: priorTestAy.id,
       ay_code: priorTestAy.ay_code,
-    }, { targetYear: currentYear - 1, forceOverwriteDates: true });
+    },
+    { targetYear: currentYear - 1, forceOverwriteDates: true }
+  );
 
-    // 3) Student seed for current AY.
-    const { data: sectionRows } = await service
-      .from('sections')
-      .select('id')
-      .eq('academic_year_id', testAy.id);
-    const sectionIds = (sectionRows ?? []).map((r) => (r as { id: string }).id);
-    let seed: SeedResult | null = null;
-    if (sectionIds.length > 0) {
-      const { count } = await service
-        .from('section_students')
-        .select('id', { count: 'exact', head: true })
-        .in('section_id', sectionIds);
-      if ((count ?? 0) === 0) {
-        seed = await seedTestAy(service, testAy.id, testAy.ay_code);
-      }
+  // 3) Student seed for current AY.
+  const { data: sectionRows } = await service
+    .from('sections')
+    .select('id')
+    .eq('academic_year_id', testAy.id);
+  const sectionIds = (sectionRows ?? []).map((r) => (r as { id: string }).id);
+  let seed: SeedResult | null = null;
+  if (sectionIds.length > 0) {
+    const { count } = await service
+      .from('section_students')
+      .select('id', { count: 'exact', head: true })
+      .in('section_id', sectionIds);
+    if ((count ?? 0) === 0) {
+      seed = await seedTestAy(service, testAy.id, testAy.ay_code);
     }
-
-    // 4) Populated layer for AY9999.
-    const populated = await seedPopulated(service, testAy);
-
-    // 5) Prior-year fixture: provision AY9998 students + populated data.
-    await seedPriorYearTestAy(service, priorTestAy);
-
-    return {
-      fromAyCode: flip.fromAyCode,
-      toAyCode: flip.toAyCode,
-      toEnvironment: 'test',
-      seed,
-      structure,
-      populated,
-    };
   }
+
+  // 4) Populated layer for AY9999.
+  const populated = await seedPopulated(service, testAy);
+
+  // 5) Prior-year fixture: provision AY9998 students + populated data.
+  await seedPriorYearTestAy(service, priorTestAy);
+
+  return {
+    fromAyCode: flip.fromAyCode,
+    toAyCode: flip.toAyCode,
+    toEnvironment: 'test',
+    seed,
+    structure,
+    populated,
+  };
+}
 ```
 
 Add the import for `seedPriorYearTestAy` at the top:
@@ -914,6 +1027,7 @@ EOF
 New file. Mirrors `seedPopulated` for AY9998 — students + populated data, all terms in the past so all four are fully closed.
 
 **Files:**
+
 - Create: `lib/sis/seeder/prior-year.ts`
 
 - [ ] **Step 1: Create the file with `seedPriorYearTestAy`**
@@ -940,7 +1054,7 @@ import { seedTestAy } from './students';
  */
 export async function seedPriorYearTestAy(
   service: SupabaseClient,
-  priorTestAy: { id: string; ay_code: string },
+  priorTestAy: { id: string; ay_code: string }
 ): Promise<void> {
   // Students — only seed if AY9998's sections are empty.
   const { data: sectionRows } = await service
@@ -1004,6 +1118,7 @@ EOF
 Inside `seedPopulated`, the three time-bound seeders (grade entries, attendance, evaluation writeups) currently only seed T1. Extend to seed T1 (full + locked) AND T2 (partial up to today, unlocked). T3+T4 stay empty.
 
 **Files:**
+
 - Modify: `lib/sis/seeder/populated.ts`
 
 - [ ] **Step 1: Extend `seedAttendanceSummary` to cover T1+T2**
@@ -1013,19 +1128,21 @@ Find `seedAttendanceSummary` (around line 297). Replace the T1-only term lookup 
 ```ts
 async function seedAttendanceSummary(
   service: SupabaseClient,
-  testAy: { id: string; ay_code: string },
+  testAy: { id: string; ay_code: string }
 ): Promise<{ daily: number; rollups: number }> {
   const { data: termRows } = await service
     .from('terms')
     .select('id, term_number, start_date, end_date')
     .eq('academic_year_id', testAy.id)
     .in('term_number', [1, 2]);
-  const terms = ((termRows ?? []) as Array<{
-    id: string;
-    term_number: number;
-    start_date: string | null;
-    end_date: string | null;
-  }>).filter((t) => t.start_date && t.end_date);
+  const terms = (
+    (termRows ?? []) as Array<{
+      id: string;
+      term_number: number;
+      start_date: string | null;
+      end_date: string | null;
+    }>
+  ).filter((t) => t.start_date && t.end_date);
   if (terms.length === 0) return { daily: 0, rollups: 0 };
 
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -1040,12 +1157,14 @@ async function seedAttendanceSummary(
       .eq('term_id', term.id)
       .in('day_type', ['school_day', 'hbl'])
       .order('date');
-    let schoolDays = ((calendarRows ?? []) as Array<{ date: string; day_type: string }>)
-      .map((r) => r.date);
+    let schoolDays = (
+      (calendarRows ?? []) as Array<{ date: string; day_type: string }>
+    ).map((r) => r.date);
 
     // Temporal split: for AY9999's active T2, only seed dates up to today.
     // T1 (closed) and T3/T4 (future, won't reach this loop) seed fully.
-    const isActiveTerm = term.start_date! <= todayIso && todayIso <= term.end_date!;
+    const isActiveTerm =
+      term.start_date! <= todayIso && todayIso <= term.end_date!;
     if (isActiveTerm) {
       schoolDays = schoolDays.filter((d) => d <= todayIso);
     }
@@ -1066,6 +1185,7 @@ async function seedAttendanceSummary(
 The existing function already targets T1 + first subject of T2. Update it to fill **all subjects of T1 + all subjects of T2 up to today's date relative to T2's window**. Specifically:
 
 For each (sheet, section_student) pair:
+
 - If sheet is in T1: full computed quarterly grade (existing logic).
 - If sheet is in T2 AND today < T2 end: partial entries — populate ww_scores (slot 1) but leave pt_scores empty + qa_score null. This produces sheets that look "in progress".
 - T3/T4: skip entirely (no entries).
@@ -1077,6 +1197,7 @@ The implementer should preserve the existing TDD-style upsert pattern (per-row f
 - [ ] **Step 3: Extend `seedEvaluationWriteups` to cover T1+T2**
 
 Currently seeds 5 writeups per section in T1. Extend to:
+
 - T1: 5 writeups per section, all `submitted: true`, `submitted_at = T1 end_date`.
 - T2: 3 writeups per section, mix of `submitted: true` (2 of them, `submitted_at = today − 7 days`) and `submitted: false` (1 of them, draft only).
 
@@ -1117,6 +1238,7 @@ Expected: clean compile.
 - [ ] **Step 6: Manual smoke verification (after migration)**
 
 Wipe + reseed via `/sis/admin/settings`. Expected outcome:
+
 - `attendance_daily` rows for AY9999 T1 (full) + T2 (only dates ≤ today, ~5 weeks worth)
 - `grade_entries` for AY9999 T1 (every subject × student) + T2 (partial, ww_scores only)
 - All AY9999 T1 grading sheets show `is_locked = true`
@@ -1159,6 +1281,7 @@ EOF
 New shared module for compare-mode primitives. Pure (no Supabase). Consumed by every per-module compare page.
 
 **Files:**
+
 - Create: `lib/dashboard/compare.ts`
 
 - [ ] **Step 1: Create the file with full type contract**
@@ -1184,8 +1307,8 @@ export type CompareInput =
 /** A single (AY × term-or-month) intersection — what gets rendered in one cell. */
 export type CompareCell = {
   ayCode: string;
-  label: string;            // "AY9999 · T1" or "AY9999 · Apr 2026"
-  range: DateRange;         // resolved start/end for the slice
+  label: string; // "AY9999 · T1" or "AY9999 · Apr 2026"
+  range: DateRange; // resolved start/end for the slice
   kind: 'term' | 'month';
   termNumber?: number;
   month?: string;
@@ -1246,7 +1369,7 @@ export function parseCompareParams(params: {
  */
 export async function buildCompareCells(
   input: CompareInput,
-  service?: SupabaseClient,
+  service?: SupabaseClient
 ): Promise<CompareCell[]> {
   const supabase = service ?? createServiceClient();
 
@@ -1264,7 +1387,9 @@ export async function buildCompareCells(
   const termsByAy = new Map<string, Map<number, DateRange>>();
   for (const row of (termsData ?? []) as Row[]) {
     if (!row.start_date || !row.end_date) continue;
-    const ay = Array.isArray(row.academic_years) ? row.academic_years[0] : row.academic_years;
+    const ay = Array.isArray(row.academic_years)
+      ? row.academic_years[0]
+      : row.academic_years;
     if (!ay?.ay_code) continue;
     if (!termsByAy.has(ay.ay_code)) termsByAy.set(ay.ay_code, new Map());
     termsByAy.get(ay.ay_code)!.set(row.term_number, {
@@ -1366,6 +1491,7 @@ EOF
 Client component for the compare-mode sub-routes. Renders two `cmdk`-backed multi-selects (AYs + terms/months) and writes URL params.
 
 **Files:**
+
 - Create: `components/dashboard/compare-toolbar.tsx`
 
 - [ ] **Step 1: Create the toolbar**
@@ -1395,7 +1521,11 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import type { CompareInput } from '@/lib/dashboard/compare';
 
@@ -1407,7 +1537,12 @@ export type CompareToolbarProps = {
   monthLookback?: number;
 };
 
-export function CompareToolbar({ kind, ayCodes, initial, monthLookback = 24 }: CompareToolbarProps) {
+export function CompareToolbar({
+  kind,
+  ayCodes,
+  initial,
+  monthLookback = 24,
+}: CompareToolbarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
@@ -1425,7 +1560,9 @@ export function CompareToolbar({ kind, ayCodes, initial, monthLookback = 24 }: C
     const t = new Date();
     for (let i = 0; i < monthLookback; i++) {
       const d = new Date(t.getFullYear(), t.getMonth() - i, 1);
-      out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+      out.push(
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      );
     }
     return out;
   })();
@@ -1455,10 +1592,15 @@ export function CompareToolbar({ kind, ayCodes, initial, monthLookback = 24 }: C
       {/* AY multi-select */}
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="outline" className="h-10 min-w-[10rem] justify-between gap-2 font-normal">
+          <Button
+            variant="outline"
+            className="h-10 min-w-[10rem] justify-between gap-2 font-normal"
+          >
             <CalendarRange className="size-4 text-muted-foreground" />
             <span className="font-mono text-[12px]">
-              {selectedAys.length === 0 ? 'Pick AYs…' : `${selectedAys.length} AY${selectedAys.length === 1 ? '' : 's'}`}
+              {selectedAys.length === 0
+                ? 'Pick AYs…'
+                : `${selectedAys.length} AY${selectedAys.length === 1 ? '' : 's'}`}
             </span>
             <ChevronsUpDown className="size-4 opacity-50" />
           </Button>
@@ -1472,8 +1614,21 @@ export function CompareToolbar({ kind, ayCodes, initial, monthLookback = 24 }: C
                 {ayCodes.map((code) => {
                   const selected = selectedAys.includes(code);
                   return (
-                    <CommandItem key={code} value={code} onSelect={() => setSelectedAys((cur) => toggle(cur, code))}>
-                      <span className={cn('mr-2 size-4 rounded border', selected ? 'bg-primary border-primary' : 'border-border')} />
+                    <CommandItem
+                      key={code}
+                      value={code}
+                      onSelect={() =>
+                        setSelectedAys((cur) => toggle(cur, code))
+                      }
+                    >
+                      <span
+                        className={cn(
+                          'mr-2 size-4 rounded border',
+                          selected
+                            ? 'bg-primary border-primary'
+                            : 'border-border'
+                        )}
+                      />
                       <span className="font-mono">{code}</span>
                     </CommandItem>
                   );
@@ -1487,10 +1642,15 @@ export function CompareToolbar({ kind, ayCodes, initial, monthLookback = 24 }: C
       {/* Term or Month multi-select */}
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="outline" className="h-10 min-w-[10rem] justify-between gap-2 font-normal">
+          <Button
+            variant="outline"
+            className="h-10 min-w-[10rem] justify-between gap-2 font-normal"
+          >
             <span className="font-mono text-[12px]">
               {selectedCells.length === 0
-                ? kind === 'term' ? 'Pick terms…' : 'Pick months…'
+                ? kind === 'term'
+                  ? 'Pick terms…'
+                  : 'Pick months…'
                 : `${selectedCells.length} ${kind === 'term' ? 'term' : 'month'}${selectedCells.length === 1 ? '' : 's'}`}
             </span>
             <ChevronsUpDown className="size-4 opacity-50" />
@@ -1502,11 +1662,25 @@ export function CompareToolbar({ kind, ayCodes, initial, monthLookback = 24 }: C
             <CommandList>
               <CommandEmpty>No matches.</CommandEmpty>
               <CommandGroup>
-                {(kind === 'term' ? ['T1', 'T2', 'T3', 'T4'] : monthOptions).map((v) => {
+                {(kind === 'term'
+                  ? ['T1', 'T2', 'T3', 'T4']
+                  : monthOptions
+                ).map((v) => {
                   const selected = selectedCells.includes(v);
                   return (
-                    <CommandItem key={v} value={v} onSelect={() => setSelectedCells((cur) => toggle(cur, v))}>
-                      <span className={cn('mr-2 size-4 rounded border', selected ? 'bg-primary border-primary' : 'border-border')} />
+                    <CommandItem
+                      key={v}
+                      value={v}
+                      onSelect={() => setSelectedCells((cur) => toggle(cur, v))}
+                    >
+                      <span
+                        className={cn(
+                          'mr-2 size-4 rounded border',
+                          selected
+                            ? 'bg-primary border-primary'
+                            : 'border-border'
+                        )}
+                      />
                       <span className="font-mono">{v}</span>
                     </CommandItem>
                   );
@@ -1558,6 +1732,7 @@ EOF
 Renders rows = metrics, columns = cells. Generic over the data type T.
 
 **Files:**
+
 - Create: `components/dashboard/compare-grid.tsx`
 
 - [ ] **Step 1: Create the grid component**
@@ -1590,8 +1765,16 @@ export type CompareGridProps<T> = {
   description?: string;
 };
 
-export function CompareGrid<T>({ cells, metrics, title, description }: CompareGridProps<T>) {
-  const formatValue = (v: number | null, fmt: CompareGridMetric<T>['format']): string => {
+export function CompareGrid<T>({
+  cells,
+  metrics,
+  title,
+  description,
+}: CompareGridProps<T>) {
+  const formatValue = (
+    v: number | null,
+    fmt: CompareGridMetric<T>['format']
+  ): string => {
     if (v === null) return '—';
     if (fmt === 'percent') return `${Math.round(v)}%`;
     if (fmt === 'days') return `${Math.round(v)}d`;
@@ -1607,7 +1790,9 @@ export function CompareGrid<T>({ cells, metrics, title, description }: CompareGr
         <CardTitle className="font-serif text-[20px] font-semibold tracking-tight text-foreground">
           {title}
         </CardTitle>
-        {description && <p className="text-[13px] text-muted-foreground">{description}</p>}
+        {description && (
+          <p className="text-[13px] text-muted-foreground">{description}</p>
+        )}
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -1620,7 +1805,8 @@ export function CompareGrid<T>({ cells, metrics, title, description }: CompareGr
                 {cells.map((cell) => (
                   <th
                     key={cell.cell.label}
-                    className="border-b border-l border-hairline bg-muted/30 px-3 py-2 text-left font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground">
+                    className="border-b border-l border-hairline bg-muted/30 px-3 py-2 text-left font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground"
+                  >
                     {cell.cell.label}
                   </th>
                 ))}
@@ -1639,16 +1825,25 @@ export function CompareGrid<T>({ cells, metrics, title, description }: CompareGr
                     </td>
                     {cells.map((cell, i) => {
                       const v = values[i];
-                      const isMax = metric.highlightExtremes && v !== null && v === max && max !== min;
-                      const isMin = metric.highlightExtremes && v !== null && v === min && max !== min;
+                      const isMax =
+                        metric.highlightExtremes &&
+                        v !== null &&
+                        v === max &&
+                        max !== min;
+                      const isMin =
+                        metric.highlightExtremes &&
+                        v !== null &&
+                        v === min &&
+                        max !== min;
                       return (
                         <td
                           key={cell.cell.label}
                           className={cn(
                             'border-b border-l border-hairline px-3 py-2.5 text-right font-mono tabular-nums',
                             isMax && 'bg-brand-mint/10 text-brand-mint-deep',
-                            isMin && 'bg-destructive/10 text-destructive',
-                          )}>
+                            isMin && 'bg-destructive/10 text-destructive'
+                          )}
+                        >
                           {formatValue(v, metric.format)}
                         </td>
                       );
@@ -1697,6 +1892,7 @@ EOF
 Sibling of `<TrendChart>`. Takes `series: Array<{ key, label, color, points }>`.
 
 **Files:**
+
 - Create: `components/dashboard/charts/multi-series-trend-chart.tsx`
 
 - [ ] **Step 1: Create the chart**
@@ -1717,7 +1913,10 @@ import {
 
 import { chartLegendContent } from '@/components/dashboard/chart-legend-chip';
 
-export type MultiSeriesTrendPoint = { x: string; [seriesKey: string]: string | number };
+export type MultiSeriesTrendPoint = {
+  x: string;
+  [seriesKey: string]: string | number;
+};
 
 export type MultiSeriesTrendSeries = {
   key: string;
@@ -1727,7 +1926,9 @@ export type MultiSeriesTrendSeries = {
 
 export type YFormat = 'number' | 'percent' | 'days';
 
-function formatterFor(format: YFormat | undefined): ((n: number) => string) | undefined {
+function formatterFor(
+  format: YFormat | undefined
+): ((n: number) => string) | undefined {
   switch (format) {
     case 'percent':
       return (n) => `${Math.round(n)}%`;
@@ -1759,7 +1960,12 @@ export function MultiSeriesTrendChart({
   return (
     <ResponsiveContainer width="100%" height={height}>
       <AreaChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="2 4" stroke="var(--color-border)" vertical={false} opacity={0.6} />
+        <CartesianGrid
+          strokeDasharray="2 4"
+          stroke="var(--color-border)"
+          vertical={false}
+          opacity={0.6}
+        />
         <XAxis
           dataKey="x"
           tick={{ fontSize: 10, fill: 'var(--color-muted-foreground)' }}
@@ -1776,7 +1982,10 @@ export function MultiSeriesTrendChart({
           width={36}
         />
         <Tooltip
-          cursor={{ stroke: 'var(--color-muted-foreground)', strokeDasharray: '3 3' }}
+          cursor={{
+            stroke: 'var(--color-muted-foreground)',
+            strokeDasharray: '3 3',
+          }}
           contentStyle={{
             background: 'var(--color-popover)',
             border: '1px solid var(--color-border)',
@@ -1843,6 +2052,7 @@ EOF
 Sibling of `<ComparisonBarChart>`. Takes `series: Array<{ key, label, color }>` + `data: Array<{ category: string, [key]: number }>`.
 
 **Files:**
+
 - Create: `components/dashboard/charts/multi-series-comparison-bar-chart.tsx`
 
 - [ ] **Step 1: Create the chart**
@@ -1881,6 +2091,7 @@ EOF
 Per-cell loader fan-out for Markbook compare mode. Reuses the existing per-range loaders inside `lib/markbook/dashboard.ts`.
 
 **Files:**
+
 - Create: `lib/markbook/compare.ts`
 
 - [ ] **Step 1: Create the compare loader**
@@ -1890,13 +2101,14 @@ import 'server-only';
 
 import { unstable_cache } from 'next/cache';
 
-import type { CompareCell, CompareInput, CompareResult } from '@/lib/dashboard/compare';
+import type {
+  CompareCell,
+  CompareInput,
+  CompareResult,
+} from '@/lib/dashboard/compare';
 import { buildCompareCells } from '@/lib/dashboard/compare';
 
-import {
-  getMarkbookKpisRange,
-  type MarkbookRangeKpis,
-} from './dashboard';
+import { getMarkbookKpisRange, type MarkbookRangeKpis } from './dashboard';
 
 export type MarkbookCompareKpis = MarkbookRangeKpis;
 
@@ -1907,7 +2119,7 @@ export type MarkbookCompareKpis = MarkbookRangeKpis;
  * compare mode shares cache slots with the operational dashboard.
  */
 export async function getMarkbookCompareKpis(
-  input: CompareInput,
+  input: CompareInput
 ): Promise<CompareResult<MarkbookCompareKpis>> {
   const cells = await buildCompareCells(input);
   if (cells.length === 0) return { cells: [] };
@@ -1920,8 +2132,8 @@ export async function getMarkbookCompareKpis(
         to: cell.range.to,
         cmpFrom: null,
         cmpTo: null,
-      }),
-    ),
+      })
+    )
   );
 
   return {
@@ -1962,6 +2174,7 @@ EOF
 The first compare-mode page. The other 5 modules follow the same template.
 
 **Files:**
+
 - Create: `app/(markbook)/markbook/compare/page.tsx`
 
 - [ ] **Step 1: Create the RSC**
@@ -1971,10 +2184,16 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
-import { CompareGrid, type CompareGridMetric } from '@/components/dashboard/compare-grid';
+import {
+  CompareGrid,
+  type CompareGridMetric,
+} from '@/components/dashboard/compare-grid';
 import { CompareToolbar } from '@/components/dashboard/compare-toolbar';
 import { PageShell } from '@/components/ui/page-shell';
-import { getMarkbookCompareKpis, type MarkbookCompareKpis } from '@/lib/markbook/compare';
+import {
+  getMarkbookCompareKpis,
+  type MarkbookCompareKpis,
+} from '@/lib/markbook/compare';
 import { listAyCodes } from '@/lib/academic-year';
 import { getSessionUser } from '@/lib/supabase/server';
 import { parseCompareParams } from '@/lib/dashboard/compare';
@@ -2037,7 +2256,8 @@ export default async function MarkbookComparePage({
     <PageShell>
       <Link
         href="/markbook"
-        className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
+        className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
         <ArrowLeft className="h-3.5 w-3.5" />
         Back to Markbook
       </Link>
@@ -2050,8 +2270,9 @@ export default async function MarkbookComparePage({
           Term-on-term, year-on-year.
         </h1>
         <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-          Pick the academic years and terms you want to line up, side by side. Numbers are equivalent
-          slices — T1 of one AY against T1 of another — so you can spot real movement.
+          Pick the academic years and terms you want to line up, side by side.
+          Numbers are equivalent slices — T1 of one AY against T1 of another —
+          so you can spot real movement.
         </p>
       </header>
 
@@ -2116,6 +2337,7 @@ EOF
 Mirrors Task 13 + 14 for Attendance.
 
 **Files:**
+
 - Create: `lib/attendance/compare.ts`
 - Create: `app/(attendance)/attendance/compare/page.tsx`
 
@@ -2126,6 +2348,7 @@ Pattern: same as `lib/markbook/compare.ts`. Loader = `getAttendanceCompareKpis(i
 - [ ] **Step 2: Create `app/(attendance)/attendance/compare/page.tsx`**
 
 Pattern: same as Markbook's compare page. `kind="term"`. Role gate: `['registrar', 'school_admin', 'superadmin']`. Metrics:
+
 - Attendance % (highlightExtremes)
 - Late count
 - Absent count
@@ -2151,6 +2374,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ## Task 16: Evaluation compare loader + page
 
 **Files:**
+
 - Create: `lib/evaluation/compare.ts`
 - Create: `app/(evaluation)/evaluation/compare/page.tsx`
 
@@ -2161,6 +2385,7 @@ Same pattern. Reuses `getEvaluationKpisRange`. `EvaluationKpis` data shape.
 - [ ] **Step 2: Create `app/(evaluation)/evaluation/compare/page.tsx`**
 
 `kind="term"`. Role gate: `['registrar', 'school_admin', 'superadmin']`. Metrics:
+
 - Submission % (highlightExtremes)
 - Submitted count
 - Expected count
@@ -2181,6 +2406,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ## Task 17: Admissions compare loader + page
 
 **Files:**
+
 - Create: `lib/admissions/compare.ts`
 - Create: `app/(admissions)/admissions/compare/page.tsx`
 
@@ -2191,6 +2417,7 @@ Same pattern. Reuses `getAdmissionsKpisRange`. Data shape per cell = `Admissions
 - [ ] **Step 2: Create `app/(admissions)/admissions/compare/page.tsx`**
 
 **`kind="month"`** (this is a flexible module). Role gate: `['admissions', 'registrar', 'school_admin', 'superadmin']`. Metrics:
+
 - Applications received (highlightExtremes)
 - Enrolled in range (highlightExtremes)
 - Conversion %
@@ -2211,6 +2438,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ## Task 18: Records compare loader + page
 
 **Files:**
+
 - Create: `lib/sis/records-compare.ts`
 - Create: `app/(records)/records/compare/page.tsx`
 
@@ -2221,6 +2449,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 - [ ] **Step 2: Create the page**
 
 `kind="month"` (flexible module). Role gate: `['registrar', 'school_admin', 'superadmin']`. Metrics:
+
 - Active enrolled
 - Enrollments in range (highlightExtremes)
 - Withdrawals in range (highlightExtremes)
@@ -2240,6 +2469,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 ## Task 19: P-Files compare loader + page
 
 **Files:**
+
 - Create: `lib/p-files/compare.ts`
 - Create: `app/(p-files)/p-files/compare/page.tsx`
 
@@ -2250,6 +2480,7 @@ Same pattern. Reuses `getPFilesKpisRange`.
 - [ ] **Step 2: Create the page**
 
 `kind="month"`. Role gate: `['p-file', 'school_admin', 'superadmin']` per KD #74. Metrics:
+
 - Revisions in range (highlightExtremes)
 - Expiring ≤30d
 - Expiring ≤60d
@@ -2271,6 +2502,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 Last task — wire compare-mode entries into the per-module sidebar so the registrar can find them, then do a full migration + smoke check.
 
 **Files:**
+
 - Modify: `lib/sidebar/registry.ts` (or `lib/auth/roles.ts` depending on where `SIDEBAR_REGISTRY` actually lives — check during implementation)
 
 - [ ] **Step 1: Add a "Compare" link to each role's sidebar nav for each module**
@@ -2278,6 +2510,7 @@ Last task — wire compare-mode entries into the per-module sidebar so the regis
 Find each module's nav config in `SIDEBAR_REGISTRY`. Add a single new entry per role-tree:
 
 For Markbook (under `registrar`, `school_admin`, `superadmin`):
+
 ```ts
 { href: '/markbook/compare', label: 'Compare' },
 ```
@@ -2292,6 +2525,7 @@ Expected: clean compile.
 - [ ] **Step 3: Run the migration**
 
 In the browser:
+
 1. Navigate to `/sis/admin/settings`
 2. Click destroy test environment
 3. Click switch to test environment
@@ -2300,6 +2534,7 @@ In the browser:
 - [ ] **Step 4: End-to-end smoke check**
 
 Visit each module dashboard and verify:
+
 - AY9999 picker presets match the rule (T1–T4 + thisAY + custom for academic; lastWeek/15d/month + thisAY + custom for flexible).
 - AY9999 dashboard data populated (T1 closed + T2 partial visible across attendance grid, grade entries, evaluation submissions).
 - AY9998 picker shows full data on all 4 terms.
@@ -2339,7 +2574,7 @@ Before declaring this plan complete:
    - KPI grid → Task 10 (used in Tasks 14–19)
    - Seeder Option C → Tasks 3, 4, 5, 6, 7
    - Two test AYs (AY9999 + AY9998) → Tasks 5, 6
-   ✅ all covered.
+     ✅ all covered.
 
 2. **Type consistency:** `CompareInput`, `CompareCell`, `CompareResult<T>`, `CompareGridMetric<T>` — names stable across Tasks 8, 10, 13, 14–19? Yes — defined in Task 8, consumed everywhere downstream.
 

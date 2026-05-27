@@ -36,10 +36,11 @@ export type StructureSeedResult = {
 export async function ensureTestStructure(
   service: SupabaseClient,
   testAy: { id: string; ay_code: string },
-  options?: { targetYear?: number; forceOverwriteDates?: boolean },
+  options?: { targetYear?: number; forceOverwriteDates?: boolean }
 ): Promise<StructureSeedResult> {
   const targetYear = options?.targetYear ?? new Date().getFullYear();
-  const forceOverwrite = options?.forceOverwriteDates ?? /^AY9/.test(testAy.ay_code);
+  const forceOverwrite =
+    options?.forceOverwriteDates ?? /^AY9/.test(testAy.ay_code);
   const templates = buildTermTemplates(targetYear);
   const cannedCalendar = buildCannedCalendar(targetYear);
   const cannedEvents = buildCannedEvents(targetYear);
@@ -69,7 +70,9 @@ export async function ensureTestStructure(
     result.levels_inserted = data?.length ?? 0;
   }
 
-  const { data: levelsRows } = await service.from('levels').select('id, code, level_type');
+  const { data: levelsRows } = await service
+    .from('levels')
+    .select('id, code, level_type');
   const levels = (levelsRows ?? []) as Array<{
     id: string;
     code: string;
@@ -89,12 +92,17 @@ export async function ensureTestStructure(
       .upsert(rows, { onConflict: 'code', ignoreDuplicates: true })
       .select('id, code');
     if (error) {
-      console.error('[structural seeder] subjects upsert failed:', error.message);
+      console.error(
+        '[structural seeder] subjects upsert failed:',
+        error.message
+      );
     }
     result.subjects_inserted = data?.length ?? 0;
   }
 
-  const { data: subjectsRows } = await service.from('subjects').select('id, code');
+  const { data: subjectsRows } = await service
+    .from('subjects')
+    .select('id, code');
   const subjects = (subjectsRows ?? []) as Array<{ id: string; code: string }>;
   const subjectByCode = new Map(subjects.map((s) => [s.code, s]));
 
@@ -114,7 +122,10 @@ export async function ensureTestStructure(
         })
         .select('id');
       if (error) {
-        console.error('[structural seeder] sections upsert failed:', error.message);
+        console.error(
+          '[structural seeder] sections upsert failed:',
+          error.message
+        );
       }
       result.sections_inserted = data?.length ?? 0;
     }
@@ -160,7 +171,10 @@ export async function ensureTestStructure(
         })
         .select('id');
       if (error) {
-        console.error('[structural seeder] subject_configs upsert failed:', error.message);
+        console.error(
+          '[structural seeder] subject_configs upsert failed:',
+          error.message
+        );
       }
       result.subject_configs_inserted = data?.length ?? 0;
     }
@@ -170,7 +184,9 @@ export async function ensureTestStructure(
   // Terms already exist (created by create_academic_year RPC).
   const { data: termsRows } = await service
     .from('terms')
-    .select('id, term_number, start_date, end_date, virtue_theme, grading_lock_date, is_current')
+    .select(
+      'id, term_number, start_date, end_date, virtue_theme, grading_lock_date, is_current'
+    )
     .eq('academic_year_id', testAy.id);
   const terms = (termsRows ?? []) as Array<{
     id: string;
@@ -192,7 +208,8 @@ export async function ensureTestStructure(
     // AYs (^AY[0-8]), keep the existing fill-blanks behavior so registrar
     // edits aren't clobbered.
     const patch: Record<string, unknown> = {};
-    if (forceOverwrite || !existing.start_date) patch.start_date = tmpl.start_date;
+    if (forceOverwrite || !existing.start_date)
+      patch.start_date = tmpl.start_date;
     if (forceOverwrite || !existing.end_date) patch.end_date = tmpl.end_date;
     if (forceOverwrite || (!existing.virtue_theme && tmpl.virtue_theme))
       patch.virtue_theme = tmpl.virtue_theme;
@@ -201,9 +218,13 @@ export async function ensureTestStructure(
 
     if (Object.keys(patch).length === 0) continue;
 
-    const { error } = await service.from('terms').update(patch).eq('id', existing.id);
+    const { error } = await service
+      .from('terms')
+      .update(patch)
+      .eq('id', existing.id);
     if (!error) result.terms_updated += 1;
-    else console.error('[structural seeder] terms update failed:', error.message);
+    else
+      console.error('[structural seeder] terms update failed:', error.message);
   }
 
   // Re-read terms (in case dates were just filled in) — downstream calendar
@@ -212,22 +233,38 @@ export async function ensureTestStructure(
     .from('terms')
     .select('id, term_number, start_date, end_date')
     .eq('academic_year_id', testAy.id);
-  const termsWithDates = ((termsFresh ?? []) as Array<{
-    id: string;
-    term_number: number;
-    start_date: string | null;
-    end_date: string | null;
-  }>).filter((t): t is { id: string; term_number: number; start_date: string; end_date: string } =>
-    !!t.start_date && !!t.end_date,
+  const termsWithDates = (
+    (termsFresh ?? []) as Array<{
+      id: string;
+      term_number: number;
+      start_date: string | null;
+      end_date: string | null;
+    }>
+  ).filter(
+    (
+      t
+    ): t is {
+      id: string;
+      term_number: number;
+      start_date: string;
+      end_date: string;
+    } => !!t.start_date && !!t.end_date
   );
 
   // ---- 6. school_calendar: weekdays + canned holidays ----
   if (termsWithDates.length > 0) {
     // Build the weekday-school_day set first, then overlay canned entries
     // (holidays win when they collide with a weekday).
-    const overlay = new Map<string, { day_type: string; label: string | null; hbl_overlay: boolean }>();
+    const overlay = new Map<
+      string,
+      { day_type: string; label: string | null; hbl_overlay: boolean }
+    >();
     for (const c of cannedCalendar) {
-      overlay.set(c.date, { day_type: c.day_type, label: c.label, hbl_overlay: c.hblOverlay ?? false });
+      overlay.set(c.date, {
+        day_type: c.day_type,
+        label: c.label,
+        hbl_overlay: c.hblOverlay ?? false,
+      });
     }
 
     // Migration 037 widened the unique key from (term_id, date) to
@@ -267,7 +304,9 @@ export async function ensureTestStructure(
             term_id: t.id,
             date: iso,
             day_type: overlayEntry.day_type,
-            is_holiday: overlayEntry.day_type !== 'school_day' && overlayEntry.day_type !== 'hbl',
+            is_holiday:
+              overlayEntry.day_type !== 'school_day' &&
+              overlayEntry.day_type !== 'hbl',
             hbl_overlay: overlayEntry.hbl_overlay,
             label: overlayEntry.label,
             audience: 'all',
@@ -297,7 +336,10 @@ export async function ensureTestStructure(
         })
         .select('id');
       if (error) {
-        console.error('[structural seeder] school_calendar upsert failed:', error.message);
+        console.error(
+          '[structural seeder] school_calendar upsert failed:',
+          error.message
+        );
       }
       result.calendar_days_inserted = data?.length ?? 0;
     }
@@ -317,7 +359,7 @@ export async function ensureTestStructure(
     }> = [];
     for (const ev of cannedEvents) {
       const hostTerm = termsWithDates.find(
-        (t) => ev.start_date >= t.start_date && ev.start_date <= t.end_date,
+        (t) => ev.start_date >= t.start_date && ev.start_date <= t.end_date
       );
       if (!hostTerm) continue;
       eventRows.push({
@@ -338,17 +380,23 @@ export async function ensureTestStructure(
         .select('term_id, start_date, end_date, label')
         .in(
           'term_id',
-          eventRows.map((r) => r.term_id),
+          eventRows.map((r) => r.term_id)
         );
-      const key = (r: { term_id: string; start_date: string; end_date: string; label: string }) =>
-        `${r.term_id}|${r.start_date}|${r.end_date}|${r.label}`;
+      const key = (r: {
+        term_id: string;
+        start_date: string;
+        end_date: string;
+        label: string;
+      }) => `${r.term_id}|${r.start_date}|${r.end_date}|${r.label}`;
       const existingSet = new Set(
-        ((existing ?? []) as Array<{
-          term_id: string;
-          start_date: string;
-          end_date: string;
-          label: string;
-        }>).map((r) => key(r)),
+        (
+          (existing ?? []) as Array<{
+            term_id: string;
+            start_date: string;
+            end_date: string;
+            label: string;
+          }>
+        ).map((r) => key(r))
       );
       const toInsert = eventRows.filter((r) => !existingSet.has(key(r)));
       if (toInsert.length > 0) {
@@ -357,7 +405,10 @@ export async function ensureTestStructure(
           .insert(toInsert)
           .select('id');
         if (error) {
-          console.error('[structural seeder] calendar_events insert failed:', error.message);
+          console.error(
+            '[structural seeder] calendar_events insert failed:',
+            error.message
+          );
         }
         result.calendar_events_inserted = data?.length ?? 0;
       }
@@ -379,7 +430,8 @@ export async function ensureTestStructure(
         principal_name: SCHOOL_CONFIG_DEFAULTS.principal_name,
         ceo_name: SCHOOL_CONFIG_DEFAULTS.ceo_name,
         pei_registration_number: SCHOOL_CONFIG_DEFAULTS.pei_registration_number,
-        default_publish_window_days: SCHOOL_CONFIG_DEFAULTS.default_publish_window_days,
+        default_publish_window_days:
+          SCHOOL_CONFIG_DEFAULTS.default_publish_window_days,
       });
       if (!error) result.school_config_applied = true;
     } else {
@@ -399,8 +451,10 @@ export async function ensureTestStructure(
           .update({
             principal_name: SCHOOL_CONFIG_DEFAULTS.principal_name,
             ceo_name: SCHOOL_CONFIG_DEFAULTS.ceo_name,
-            pei_registration_number: SCHOOL_CONFIG_DEFAULTS.pei_registration_number,
-            default_publish_window_days: SCHOOL_CONFIG_DEFAULTS.default_publish_window_days,
+            pei_registration_number:
+              SCHOOL_CONFIG_DEFAULTS.pei_registration_number,
+            default_publish_window_days:
+              SCHOOL_CONFIG_DEFAULTS.default_publish_window_days,
           })
           .eq('id', 1);
         if (!error) result.school_config_applied = true;
@@ -414,12 +468,16 @@ export async function ensureTestStructure(
   // sheet that's still using the primitive defaults. These totals drive the
   // formula — without them, grade_entries can't compute quarterly_grade.
   {
-    const { data: rpcResult } = await service.rpc('create_grading_sheets_for_ay', {
-      p_ay_id: testAy.id,
-    });
-    const inserted = typeof rpcResult === 'object' && rpcResult && 'inserted' in rpcResult
-      ? Number((rpcResult as { inserted: unknown }).inserted ?? 0)
-      : 0;
+    const { data: rpcResult } = await service.rpc(
+      'create_grading_sheets_for_ay',
+      {
+        p_ay_id: testAy.id,
+      }
+    );
+    const inserted =
+      typeof rpcResult === 'object' && rpcResult && 'inserted' in rpcResult
+        ? Number((rpcResult as { inserted: unknown }).inserted ?? 0)
+        : 0;
     result.grading_sheets_created = inserted;
 
     // Find sheets in this AY that still have default-empty totals. Update
@@ -449,29 +507,35 @@ export async function ensureTestStructure(
         (s) =>
           (s.ww_totals ?? []).length === 0 ||
           (s.pt_totals ?? []).length === 0 ||
-          s.qa_total == null,
+          s.qa_total == null
       );
 
       if (needsUpdate.length > 0) {
         // Pull qa_max per subject_config in one batched query.
-        const configIds = [...new Set(needsUpdate.map((s) => s.subject_config_id))];
+        const configIds = [
+          ...new Set(needsUpdate.map((s) => s.subject_config_id)),
+        ];
         const { data: cfgs } = await service
           .from('subject_configs')
           .select('id, qa_max')
           .in('id', configIds);
         const qaMaxById = new Map(
-          ((cfgs ?? []) as Array<{ id: string; qa_max: number | null }>).map((c) => [
-            c.id,
-            c.qa_max ?? 30,
-          ]),
+          ((cfgs ?? []) as Array<{ id: string; qa_max: number | null }>).map(
+            (c) => [c.id, c.qa_max ?? 30]
+          )
         );
 
         // Default canonical slot totals: 2 WW × 10, 3 PT × 10. Registrar
         // can add/remove slots via the totals editor later.
         for (const sheet of needsUpdate) {
-          const ww = (sheet.ww_totals ?? []).length > 0 ? sheet.ww_totals! : [10, 10];
-          const pt = (sheet.pt_totals ?? []).length > 0 ? sheet.pt_totals! : [10, 10, 10];
-          const qa = sheet.qa_total ?? qaMaxById.get(sheet.subject_config_id) ?? 30;
+          const ww =
+            (sheet.ww_totals ?? []).length > 0 ? sheet.ww_totals! : [10, 10];
+          const pt =
+            (sheet.pt_totals ?? []).length > 0
+              ? sheet.pt_totals!
+              : [10, 10, 10];
+          const qa =
+            sheet.qa_total ?? qaMaxById.get(sheet.subject_config_id) ?? 30;
           const { error } = await service
             .from('grading_sheets')
             .update({ ww_totals: ww, pt_totals: pt, qa_total: qa })

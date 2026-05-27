@@ -12,7 +12,11 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
-export function ChangeRequestPanel({ summary }: { summary: ChangeRequestSummary }) {
+export function ChangeRequestPanel({
+  summary,
+}: {
+  summary: ChangeRequestSummary;
+}) {
   const { byStatus, total, avgDecisionHours, windowDays } = summary;
   const pendingDecision = byStatus.pending + byStatus.approved;
 
@@ -35,9 +39,12 @@ export function ChangeRequestPanel({ summary }: { summary: ChangeRequestSummary 
         {total === 0 ? (
           <div className="flex h-[260px] flex-col items-center justify-center gap-2 text-center">
             <MessageSquareWarning className="size-6 text-muted-foreground/60" />
-            <p className="text-sm font-medium text-foreground">No recent change requests</p>
+            <p className="text-sm font-medium text-foreground">
+              No recent change requests
+            </p>
             <p className="max-w-xs text-xs text-muted-foreground">
-              Post-lock edits filed in the last {windowDays} days will appear here.
+              Post-lock edits filed in the last {windowDays} days will appear
+              here.
             </p>
           </div>
         ) : (
@@ -62,11 +69,36 @@ export function ChangeRequestPanel({ summary }: { summary: ChangeRequestSummary 
             </div>
 
             <div className="space-y-2">
-              <StatusRow label="Pending" count={byStatus.pending} total={total} tint="bg-brand-amber" />
-              <StatusRow label="Approved · awaiting apply" count={byStatus.approved} total={total} tint="bg-chart-1" />
-              <StatusRow label="Applied" count={byStatus.applied} total={total} tint="bg-chart-5" />
-              <StatusRow label="Rejected" count={byStatus.rejected} total={total} tint="bg-destructive" />
-              <StatusRow label="Cancelled" count={byStatus.cancelled} total={total} tint="bg-muted-foreground" />
+              <StatusRow
+                label="Pending"
+                count={byStatus.pending}
+                total={total}
+                tint="bg-brand-amber"
+              />
+              <StatusRow
+                label="Approved · awaiting apply"
+                count={byStatus.approved}
+                total={total}
+                tint="bg-chart-1"
+              />
+              <StatusRow
+                label="Applied"
+                count={byStatus.applied}
+                total={total}
+                tint="bg-chart-5"
+              />
+              <StatusRow
+                label="Rejected"
+                count={byStatus.rejected}
+                total={total}
+                tint="bg-destructive"
+              />
+              <StatusRow
+                label="Cancelled"
+                count={byStatus.cancelled}
+                total={total}
+                tint="bg-muted-foreground"
+              />
             </div>
           </>
         )}
@@ -74,7 +106,10 @@ export function ChangeRequestPanel({ summary }: { summary: ChangeRequestSummary 
       {total > 0 && (
         <CardFooter className="flex items-center justify-between border-t border-border px-6 py-3 text-xs text-muted-foreground">
           <span>
-            <span className="font-semibold text-foreground tabular-nums">{pendingDecision}</span> awaiting action
+            <span className="font-semibold text-foreground tabular-nums">
+              {pendingDecision}
+            </span>{' '}
+            awaiting action
           </span>
           <Link
             href="/markbook/change-requests"

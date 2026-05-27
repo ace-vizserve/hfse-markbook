@@ -17,7 +17,7 @@ if (!process.env.NEXT_PUBLIC_SIS_URL) {
       'Email CTAs in change-request, P-Files, and publication ' +
       'notifications will render as relative URLs that most email ' +
       'clients cannot navigate. Set this to the deployed app origin ' +
-      '(e.g. https://sis.hfse.edu.sg) before the next deployment.',
+      '(e.g. https://sis.hfse.edu.sg) before the next deployment.'
   );
 }
 

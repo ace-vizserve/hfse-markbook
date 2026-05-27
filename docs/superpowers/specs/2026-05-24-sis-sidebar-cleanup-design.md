@@ -35,12 +35,14 @@ All other groups (Configuration, Access, System) are unchanged.
 ### 2. `components/sis/ay-readiness-pill.tsx`
 
 **Remove the early-return guard:**
+
 ```ts
 // REMOVE:
 if (readiness.complete === readiness.total) return null;
 ```
 
 **Add a "done" state** for the pill trigger body when `readiness.complete === readiness.total`:
+
 - Replace `"{N} of {total} complete"` copy with `"All steps complete"`
 - Replace the partial progress bar with a full solid mint bar (`w-full bg-brand-mint`)
 - Pill remains clickable and opens the dialog (so users can navigate to any setup page)
@@ -55,10 +57,10 @@ No changes to the dialog content, the readiness engine (`lib/sis/readiness.ts`),
 
 ## Impact
 
-| Role | Before | After |
-|---|---|---|
-| school_admin / superadmin | Sidebar Year Setup + floating pill | Floating pill only (always visible) |
-| registrar | No Year Setup sidebar items (already gated) | No change |
-| teacher / p-file | No SIS sidebar | No change |
+| Role                      | Before                                      | After                               |
+| ------------------------- | ------------------------------------------- | ----------------------------------- |
+| school_admin / superadmin | Sidebar Year Setup + floating pill          | Floating pill only (always visible) |
+| registrar                 | No Year Setup sidebar items (already gated) | No change                           |
+| teacher / p-file          | No SIS sidebar                              | No change                           |
 
 Setup pages (ay-setup, calendar, sections, markbook/sections, sow) remain fully navigable via the pill dialog. The SOW page also remains in the Configuration group for direct access.

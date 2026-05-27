@@ -33,7 +33,7 @@ export function applyTargetFilterClient(
   rows: MarkbookDrillRow[],
   target: MarkbookDrillTarget,
   segment: string | null | undefined,
-  range: { from?: string; to?: string },
+  range: { from?: string; to?: string }
 ): MarkbookDrillRow[] {
   switch (target) {
     case 'grade-entries':
@@ -47,7 +47,9 @@ export function applyTargetFilterClient(
           return day >= from && day <= to;
         }) as MarkbookDrillRow[];
       }
-      return (rows as SheetRow[]).filter((r) => r.isLocked) as MarkbookDrillRow[];
+      return (rows as SheetRow[]).filter(
+        (r) => r.isLocked
+      ) as MarkbookDrillRow[];
     }
     case 'change-requests': {
       if (!segment) return rows;
@@ -55,18 +57,26 @@ export function applyTargetFilterClient(
         return (rows as ChangeRequestRow[]).filter(
           (r) =>
             r.resolvedAt != null &&
-            (r.status === 'approved' || r.status === 'rejected' || r.status === 'applied'),
+            (r.status === 'approved' ||
+              r.status === 'rejected' ||
+              r.status === 'applied')
         ) as MarkbookDrillRow[];
       }
-      return (rows as ChangeRequestRow[]).filter((r) => r.status === segment) as MarkbookDrillRow[];
+      return (rows as ChangeRequestRow[]).filter(
+        (r) => r.status === segment
+      ) as MarkbookDrillRow[];
     }
     case 'publication-coverage':
       if (!segment) return rows;
       if (segment === 'published') {
-        return (rows as SheetRow[]).filter((r) => r.isPublished) as MarkbookDrillRow[];
+        return (rows as SheetRow[]).filter(
+          (r) => r.isPublished
+        ) as MarkbookDrillRow[];
       }
       if (segment === 'not-published') {
-        return (rows as SheetRow[]).filter((r) => !r.isPublished) as MarkbookDrillRow[];
+        return (rows as SheetRow[]).filter(
+          (r) => !r.isPublished
+        ) as MarkbookDrillRow[];
       }
       return rows;
     case 'grade-bucket-entries': {
@@ -74,7 +84,9 @@ export function applyTargetFilterClient(
       const key =
         segment in GRADE_BUCKET_LABEL ? segment : findBucketByLabel(segment);
       if (!key) return rows;
-      return (rows as GradeEntryRow[]).filter((r) => r.gradeBucket === key) as MarkbookDrillRow[];
+      return (rows as GradeEntryRow[]).filter(
+        (r) => r.gradeBucket === key
+      ) as MarkbookDrillRow[];
     }
     case 'term-sheet-status': {
       if (!segment) return rows;
@@ -94,7 +106,8 @@ export function applyTargetFilterClient(
     case 'term-publication-status': {
       if (!segment) return rows;
       const compact = /^T(\d+)(?::(published|not-published))?$/i.exec(segment);
-      const labelled = /^Term\s+(\d+)\s*[·.\-]\s*(Published|Unpublished)$/i.exec(segment);
+      const labelled =
+        /^Term\s+(\d+)\s*[·.\-]\s*(Published|Unpublished)$/i.exec(segment);
       const m = compact ?? labelled;
       if (!m) return rows;
       const termNumber = Number(m[1]);
@@ -122,15 +135,19 @@ export function applyTargetFilterClient(
     }
     case 'sheet-readiness-section': {
       if (!segment) {
-        return (rows as SheetRow[]).filter((r) => !r.isLocked) as MarkbookDrillRow[];
+        return (rows as SheetRow[]).filter(
+          (r) => !r.isLocked
+        ) as MarkbookDrillRow[];
       }
       return (rows as SheetRow[]).filter(
-        (r) => r.sectionName === segment && !r.isLocked,
+        (r) => r.sectionName === segment && !r.isLocked
       ) as MarkbookDrillRow[];
     }
     case 'teacher-entry-velocity': {
       if (!segment) return rows;
-      return (rows as GradeEntryRow[]).filter((r) => r.enteredBy === segment) as MarkbookDrillRow[];
+      return (rows as GradeEntryRow[]).filter(
+        (r) => r.enteredBy === segment
+      ) as MarkbookDrillRow[];
     }
     default:
       return rows;

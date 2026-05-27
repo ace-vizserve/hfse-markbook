@@ -60,8 +60,8 @@ export function RejectDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Reject {slotLabel}?</AlertDialogTitle>
           <AlertDialogDescription>
-            {studentName} will be notified by email with the reason below. The parent
-            can re-upload after seeing the message.
+            {studentName} will be notified by email with the reason below. The
+            parent can re-upload after seeing the message.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="space-y-2">
@@ -74,7 +74,7 @@ export function RejectDialog({
           <p
             className={cn(
               'text-[11px]',
-              canConfirm ? 'text-brand-mint' : 'text-muted-foreground',
+              canConfirm ? 'text-brand-mint' : 'text-muted-foreground'
             )}
           >
             {reason.trim().length} / {REJECT_MIN_CHARS} min characters

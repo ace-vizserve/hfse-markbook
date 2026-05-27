@@ -67,6 +67,7 @@ Phase 3 (sequential, on main, 1 task)
 ## Task 1: Build `<StatusBadge>` primitive
 
 **Files:**
+
 - Create: `components/ui/status-badge.tsx`
 
 This primitive encodes the design system § 9.3 status recipes once. Tone-tinted gradient + ring-inset on the badge body; mono uppercase text per design system § 7. Replaces 5 scattered status badge implementations.
@@ -85,10 +86,8 @@ const TONE_CLASS: Record<StatusTone, string> = {
     'bg-gradient-to-b from-brand-mint/15 to-brand-mint/5 text-brand-mint ring-inset ring-1 ring-brand-mint/30',
   locked:
     'bg-gradient-to-b from-destructive/15 to-destructive/5 text-destructive ring-inset ring-1 ring-destructive/30',
-  info:
-    'bg-gradient-to-b from-accent/20 to-accent/5 text-accent-foreground ring-inset ring-1 ring-accent/30',
-  muted:
-    'bg-muted text-muted-foreground ring-inset ring-1 ring-border',
+  info: 'bg-gradient-to-b from-accent/20 to-accent/5 text-accent-foreground ring-inset ring-1 ring-accent/30',
+  muted: 'bg-muted text-muted-foreground ring-inset ring-1 ring-border',
   warning:
     'bg-gradient-to-b from-brand-amber/15 to-brand-amber/5 text-brand-amber ring-inset ring-1 ring-brand-amber/30',
 };
@@ -100,13 +99,18 @@ type StatusBadgeProps = {
   children: React.ReactNode;
 };
 
-export function StatusBadge({ tone, icon: Icon, className, children }: StatusBadgeProps) {
+export function StatusBadge({
+  tone,
+  icon: Icon,
+  className,
+  children,
+}: StatusBadgeProps) {
   return (
     <span
       className={cn(
         'inline-flex h-6 items-center gap-1 rounded-full px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]',
         TONE_CLASS[tone],
-        className,
+        className
       )}
     >
       {Icon ? <Icon className="h-3 w-3" aria-hidden /> : null}
@@ -131,6 +135,7 @@ feat(ui): add <StatusBadge> primitive — single source for §9.3 status recipes
 ## Task 2: Build `<ApplicationStatusBadge>` domain wrapper
 
 **Files:**
+
 - Read: any existing `application-status-badge.tsx` to capture current domain mapping
 - Modify or Create: `components/ui/application-status-badge.tsx`
 
@@ -159,20 +164,35 @@ type AppStatus =
   | 'Cancelled'
   | 'Withdrawn';
 
-const STATUS_MAP: Record<AppStatus, { tone: StatusTone; icon?: typeof CheckCircle2; label: string }> = {
+const STATUS_MAP: Record<
+  AppStatus,
+  { tone: StatusTone; icon?: typeof CheckCircle2; label: string }
+> = {
   Submitted: { tone: 'info', icon: Inbox, label: 'Submitted' },
   'Ongoing Verification': { tone: 'info', icon: Clock, label: 'Verifying' },
   Processing: { tone: 'info', icon: Clock, label: 'Processing' },
   Enrolled: { tone: 'healthy', icon: CheckCircle2, label: 'Enrolled' },
-  'Enrolled (Conditional)': { tone: 'warning', icon: CheckCircle2, label: 'Conditional' },
+  'Enrolled (Conditional)': {
+    tone: 'warning',
+    icon: CheckCircle2,
+    label: 'Conditional',
+  },
   Cancelled: { tone: 'muted', icon: X, label: 'Cancelled' },
   Withdrawn: { tone: 'locked', icon: Lock, label: 'Withdrawn' },
 };
 
-export function ApplicationStatusBadge({ status }: { status: AppStatus | string | null }) {
+export function ApplicationStatusBadge({
+  status,
+}: {
+  status: AppStatus | string | null;
+}) {
   const entry = (status && STATUS_MAP[status as AppStatus]) ?? null;
   if (!entry) return <StatusBadge tone="muted">{status ?? '—'}</StatusBadge>;
-  return <StatusBadge tone={entry.tone} icon={entry.icon}>{entry.label}</StatusBadge>;
+  return (
+    <StatusBadge tone={entry.tone} icon={entry.icon}>
+      {entry.label}
+    </StatusBadge>
+  );
 }
 ```
 
@@ -195,6 +215,7 @@ feat(ui): refactor <ApplicationStatusBadge> on top of <StatusBadge>
 ## Task 3: Build `<DiscountCodeStatusBadge>` domain wrapper
 
 **Files:**
+
 - Read: existing usage in `app/(sis)/sis/admin/discount-codes/`
 - Modify or Create: `components/ui/discount-code-status-badge.tsx`
 
@@ -210,18 +231,33 @@ Grep: "DiscountCodeStatusBadge" in components/ app/
 import { CheckCircle2, Clock, X } from 'lucide-react';
 import { StatusBadge, type StatusTone } from '@/components/ui/status-badge';
 
-export type DiscountCodeStatus = 'active' | 'scheduled' | 'expired' | 'inactive';
+export type DiscountCodeStatus =
+  | 'active'
+  | 'scheduled'
+  | 'expired'
+  | 'inactive';
 
-const MAP: Record<DiscountCodeStatus, { tone: StatusTone; icon: typeof CheckCircle2; label: string }> = {
-  active:    { tone: 'healthy', icon: CheckCircle2, label: 'Active' },
-  scheduled: { tone: 'info',    icon: Clock,        label: 'Scheduled' },
-  expired:   { tone: 'muted',   icon: X,            label: 'Expired' },
-  inactive:  { tone: 'muted',   icon: X,            label: 'Inactive' },
+const MAP: Record<
+  DiscountCodeStatus,
+  { tone: StatusTone; icon: typeof CheckCircle2; label: string }
+> = {
+  active: { tone: 'healthy', icon: CheckCircle2, label: 'Active' },
+  scheduled: { tone: 'info', icon: Clock, label: 'Scheduled' },
+  expired: { tone: 'muted', icon: X, label: 'Expired' },
+  inactive: { tone: 'muted', icon: X, label: 'Inactive' },
 };
 
-export function DiscountCodeStatusBadge({ status }: { status: DiscountCodeStatus }) {
+export function DiscountCodeStatusBadge({
+  status,
+}: {
+  status: DiscountCodeStatus;
+}) {
   const entry = MAP[status];
-  return <StatusBadge tone={entry.tone} icon={entry.icon}>{entry.label}</StatusBadge>;
+  return (
+    <StatusBadge tone={entry.tone} icon={entry.icon}>
+      {entry.label}
+    </StatusBadge>
+  );
 }
 ```
 
@@ -240,6 +276,7 @@ feat(ui): refactor <DiscountCodeStatusBadge> on top of <StatusBadge>
 ## Task 4: Build `<DocumentStatusBadge>` domain wrapper (NEW)
 
 **Files:**
+
 - Create: `components/ui/document-status-badge.tsx`
 
 This is **net-new** — consolidates the per-slot dot pills currently inlined as `StatusDot` in admissions + p-files completeness, plus the SlotPill in cohort tables. Encodes KD #60 status workflow.
@@ -252,24 +289,31 @@ import { StatusBadge, type StatusTone } from '@/components/ui/status-badge';
 
 export type DocumentStatus =
   | 'missing'
-  | 'to-follow'      // parent-acknowledged-pending
-  | 'uploaded'       // awaiting validation
+  | 'to-follow' // parent-acknowledged-pending
+  | 'uploaded' // awaiting validation
   | 'valid'
-  | 'rejected'       // sent back to parent
-  | 'expired';       // lapsed, re-upload needed
+  | 'rejected' // sent back to parent
+  | 'expired'; // lapsed, re-upload needed
 
-const MAP: Record<DocumentStatus, { tone: StatusTone; icon: typeof Check; label: string }> = {
-  missing:     { tone: 'muted',   icon: Inbox,       label: 'Missing' },
-  'to-follow': { tone: 'warning', icon: Clock,       label: 'Awaiting parent' },
-  uploaded:    { tone: 'info',    icon: Upload,      label: 'Awaiting review' },
-  valid:       { tone: 'healthy', icon: Check,       label: 'Valid' },
-  rejected:    { tone: 'locked',  icon: X,           label: 'Sent back' },
-  expired:     { tone: 'locked',  icon: FileWarning, label: 'Lapsed' },
+const MAP: Record<
+  DocumentStatus,
+  { tone: StatusTone; icon: typeof Check; label: string }
+> = {
+  missing: { tone: 'muted', icon: Inbox, label: 'Missing' },
+  'to-follow': { tone: 'warning', icon: Clock, label: 'Awaiting parent' },
+  uploaded: { tone: 'info', icon: Upload, label: 'Awaiting review' },
+  valid: { tone: 'healthy', icon: Check, label: 'Valid' },
+  rejected: { tone: 'locked', icon: X, label: 'Sent back' },
+  expired: { tone: 'locked', icon: FileWarning, label: 'Lapsed' },
 };
 
 export function DocumentStatusBadge({ status }: { status: DocumentStatus }) {
   const entry = MAP[status];
-  return <StatusBadge tone={entry.tone} icon={entry.icon}>{entry.label}</StatusBadge>;
+  return (
+    <StatusBadge tone={entry.tone} icon={entry.icon}>
+      {entry.label}
+    </StatusBadge>
+  );
 }
 ```
 
@@ -286,6 +330,7 @@ feat(ui): add <DocumentStatusBadge> for KD #60 document status workflow
 ## Task 5: Build `<EnrollmentStatusBadge>` domain wrapper (NEW)
 
 **Files:**
+
 - Create: `components/ui/enrollment-status-badge.tsx`
 
 Consolidates hand-rolled section-roster variants (active / late_enrollee / withdrawn).
@@ -298,15 +343,26 @@ import { StatusBadge, type StatusTone } from '@/components/ui/status-badge';
 
 export type EnrollmentStatus = 'active' | 'late_enrollee' | 'withdrawn';
 
-const MAP: Record<EnrollmentStatus, { tone: StatusTone; icon: typeof CheckCircle2; label: string }> = {
-  active:        { tone: 'healthy', icon: CheckCircle2, label: 'Active' },
-  late_enrollee: { tone: 'warning', icon: Clock,        label: 'Late' },
-  withdrawn:     { tone: 'locked',  icon: Lock,         label: 'Withdrawn' },
+const MAP: Record<
+  EnrollmentStatus,
+  { tone: StatusTone; icon: typeof CheckCircle2; label: string }
+> = {
+  active: { tone: 'healthy', icon: CheckCircle2, label: 'Active' },
+  late_enrollee: { tone: 'warning', icon: Clock, label: 'Late' },
+  withdrawn: { tone: 'locked', icon: Lock, label: 'Withdrawn' },
 };
 
-export function EnrollmentStatusBadge({ status }: { status: EnrollmentStatus }) {
+export function EnrollmentStatusBadge({
+  status,
+}: {
+  status: EnrollmentStatus;
+}) {
   const entry = MAP[status];
-  return <StatusBadge tone={entry.tone} icon={entry.icon}>{entry.label}</StatusBadge>;
+  return (
+    <StatusBadge tone={entry.tone} icon={entry.icon}>
+      {entry.label}
+    </StatusBadge>
+  );
 }
 ```
 
@@ -323,6 +379,7 @@ feat(ui): add <EnrollmentStatusBadge> for section-roster status pills
 ## Task 6: Build `<IdentifierLink>` primitive
 
 **Files:**
+
 - Create: `components/ui/identifier-link.tsx`
 
 Universalises KD #81 styling so every table's primary identifier column renders identically. Wraps `next/link`; preserves `prefetch={false}` opt-out for high-row-count tables.
@@ -340,14 +397,19 @@ type IdentifierLinkProps = {
   prefetch?: boolean;
 };
 
-export function IdentifierLink({ href, children, className, prefetch }: IdentifierLinkProps) {
+export function IdentifierLink({
+  href,
+  children,
+  className,
+  prefetch,
+}: IdentifierLinkProps) {
   return (
     <Link
       href={href}
       prefetch={prefetch}
       className={cn(
         'font-medium text-foreground transition-colors hover:text-primary hover:underline underline-offset-4',
-        className,
+        className
       )}
     >
       {children}
@@ -369,6 +431,7 @@ feat(ui): add <IdentifierLink> primitive for KD #81 hover styling
 ## Task 7: Build plain-English copy registry
 
 **Files:**
+
 - Create: `lib/copy/data-table.ts`
 
 Single source for user-visible strings that previously leaked dev jargon. Seeded with the 13 entries from spec § 4.6; per-worktree authors extend in Phase 2.
@@ -401,7 +464,8 @@ export const TABLE_COPY = {
   markedAsWithdrawn: 'Marked as withdrawn',
 
   // Discount codes
-  discountCodesFooter: (label: string) => `These codes apply to the ${label} enrolment portal.`,
+  discountCodesFooter: (label: string) =>
+    `These codes apply to the ${label} enrolment portal.`,
 
   // AY setup
   createGradingSheets: 'Create grading sheets for this AY',
@@ -425,6 +489,7 @@ feat(copy): add lib/copy/data-table.ts plain-English registry
 ## Task 8: Build `useUrlState` hook
 
 **Files:**
+
 - Create: `components/ui/data-table/use-url-state.ts`
 
 Sync the shell's filter/sort/pagination state to the URL (debounced 300ms for search, immediate for everything else). Optional `namespace` prefix for multi-table pages (sync-students wizard).
@@ -467,7 +532,12 @@ export function useUrlState(config: UrlStateConfig) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const { enabled, namespace, paramKeys, debounceMs = DEFAULT_DEBOUNCE } = config;
+  const {
+    enabled,
+    namespace,
+    paramKeys,
+    debounceMs = DEFAULT_DEBOUNCE,
+  } = config;
   const searchKey = key(paramKeys?.search ?? 'q', namespace);
   const statusKey = key(paramKeys?.status ?? 'status', namespace);
   const mineKey = key(paramKeys?.mine ?? 'mine', namespace);
@@ -477,8 +547,20 @@ export function useUrlState(config: UrlStateConfig) {
     if (!enabled || !params) return { facets: {} };
     const facets: Record<string, string[]> = {};
     params.forEach((value, k) => {
-      const stripped = namespace && k.startsWith(`${namespace}.`) ? k.slice(namespace.length + 1) : k;
-      if ([searchKey, statusKey, mineKey, key('page', namespace), key('pageSize', namespace)].includes(k)) return;
+      const stripped =
+        namespace && k.startsWith(`${namespace}.`)
+          ? k.slice(namespace.length + 1)
+          : k;
+      if (
+        [
+          searchKey,
+          statusKey,
+          mineKey,
+          key('page', namespace),
+          key('pageSize', namespace),
+        ].includes(k)
+      )
+        return;
       // Anything left, namespaced or not, that isn't a reserved key is a facet
       if (!namespace || k.startsWith(`${namespace}.`)) {
         facets[stripped] = value.split(',').filter(Boolean);
@@ -489,13 +571,20 @@ export function useUrlState(config: UrlStateConfig) {
       status: params.get(statusKey) ?? undefined,
       mine: params.get(mineKey) === '1' || undefined,
       facets,
-      page: params.get(key('page', namespace)) ? Number(params.get(key('page', namespace))) : undefined,
-      pageSize: params.get(key('pageSize', namespace)) ? Number(params.get(key('pageSize', namespace))) : undefined,
+      page: params.get(key('page', namespace))
+        ? Number(params.get(key('page', namespace)))
+        : undefined,
+      pageSize: params.get(key('pageSize', namespace))
+        ? Number(params.get(key('pageSize', namespace)))
+        : undefined,
     };
   }, [enabled, params, searchKey, statusKey, mineKey, namespace]);
 
   const write = useCallback(
-    (snapshot: UrlStateSnapshot, { debounce = false }: { debounce?: boolean } = {}) => {
+    (
+      snapshot: UrlStateSnapshot,
+      { debounce = false }: { debounce?: boolean } = {}
+    ) => {
       if (!enabled) return;
       const apply = () => {
         const next = new URLSearchParams(params?.toString() ?? '');
@@ -506,10 +595,22 @@ export function useUrlState(config: UrlStateConfig) {
         set(searchKey, snapshot.search);
         set(statusKey, snapshot.status);
         set(mineKey, snapshot.mine ? '1' : undefined);
-        set(key('page', namespace), snapshot.page && snapshot.page > 1 ? String(snapshot.page) : undefined);
-        set(key('pageSize', namespace), snapshot.pageSize ? String(snapshot.pageSize) : undefined);
+        set(
+          key('page', namespace),
+          snapshot.page && snapshot.page > 1 ? String(snapshot.page) : undefined
+        );
+        set(
+          key('pageSize', namespace),
+          snapshot.pageSize ? String(snapshot.pageSize) : undefined
+        );
         // Facets: clear any prior facet keys first, then re-add
-        const reserved = new Set([searchKey, statusKey, mineKey, key('page', namespace), key('pageSize', namespace)]);
+        const reserved = new Set([
+          searchKey,
+          statusKey,
+          mineKey,
+          key('page', namespace),
+          key('pageSize', namespace),
+        ]);
         for (const k of Array.from(next.keys())) {
           if (reserved.has(k)) continue;
           if (namespace && !k.startsWith(`${namespace}.`)) continue;
@@ -529,12 +630,25 @@ export function useUrlState(config: UrlStateConfig) {
         apply();
       }
     },
-    [enabled, params, pathname, router, searchKey, statusKey, mineKey, namespace, debounceMs],
+    [
+      enabled,
+      params,
+      pathname,
+      router,
+      searchKey,
+      statusKey,
+      mineKey,
+      namespace,
+      debounceMs,
+    ]
   );
 
-  useEffect(() => () => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    },
+    []
+  );
 
   return { read, write };
 }
@@ -553,6 +667,7 @@ feat(ui): add useUrlState hook for data-table URL sync
 ## Task 9: Build `<SortableHeader>` building block
 
 **Files:**
+
 - Create: `components/ui/data-table/sortable-header.tsx`
 
 Replaces 4 inlined copies. Header wrapper that toggles ascending/descending/none and renders a chevron.
@@ -574,9 +689,15 @@ type SortableHeaderProps<TRow> = {
   align?: 'left' | 'right' | 'center';
 };
 
-export function SortableHeader<TRow>({ column, children, className, align = 'left' }: SortableHeaderProps<TRow>) {
+export function SortableHeader<TRow>({
+  column,
+  children,
+  className,
+  align = 'left',
+}: SortableHeaderProps<TRow>) {
   const sorted = column.getIsSorted();
-  const Icon = sorted === 'asc' ? ArrowUp : sorted === 'desc' ? ArrowDown : ChevronsUpDown;
+  const Icon =
+    sorted === 'asc' ? ArrowUp : sorted === 'desc' ? ArrowDown : ChevronsUpDown;
   return (
     <Button
       variant="ghost"
@@ -585,7 +706,7 @@ export function SortableHeader<TRow>({ column, children, className, align = 'lef
       className={cn(
         '-ml-3 h-7 gap-1 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]',
         align === 'right' && 'ml-0 mr-0',
-        className,
+        className
       )}
     >
       {children}
@@ -608,6 +729,7 @@ feat(ui): add <SortableHeader> data-table primitive
 ## Task 10: Build `<FacetDropdown>` building block
 
 **Files:**
+
 - Create: `components/ui/data-table/facet-dropdown.tsx`
 
 Multi-select w/ checkboxes + count badge + clear-footer. Replaces 2 inlined copies + 1 inline-JSX reimplementation.
@@ -629,7 +751,11 @@ import {
   CommandList,
   CommandSeparator,
 } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 
 type FacetDropdownProps = {
@@ -640,7 +766,13 @@ type FacetDropdownProps = {
   searchable?: boolean;
 };
 
-export function FacetDropdown({ label, options, selected, onChange, searchable = true }: FacetDropdownProps) {
+export function FacetDropdown({
+  label,
+  options,
+  selected,
+  onChange,
+  searchable = true,
+}: FacetDropdownProps) {
   const selectedSet = new Set(selected);
   const toggle = (value: string) => {
     const next = new Set(selectedSet);
@@ -656,7 +788,10 @@ export function FacetDropdown({ label, options, selected, onChange, searchable =
           {selected.length > 0 && (
             <>
               <span className="mx-1 h-4 w-px bg-border" aria-hidden />
-              <Badge variant="secondary" className="rounded-sm px-1 font-mono text-[10px]">
+              <Badge
+                variant="secondary"
+                className="rounded-sm px-1 font-mono text-[10px]"
+              >
                 {selected.length}
               </Badge>
             </>
@@ -673,11 +808,16 @@ export function FacetDropdown({ label, options, selected, onChange, searchable =
               {options.map((opt) => {
                 const isOn = selectedSet.has(opt.value);
                 return (
-                  <CommandItem key={opt.value} onSelect={() => toggle(opt.value)}>
+                  <CommandItem
+                    key={opt.value}
+                    onSelect={() => toggle(opt.value)}
+                  >
                     <span
                       className={cn(
                         'mr-2 flex h-4 w-4 items-center justify-center rounded-sm border',
-                        isOn ? 'bg-primary text-primary-foreground' : 'opacity-50',
+                        isOn
+                          ? 'bg-primary text-primary-foreground'
+                          : 'opacity-50'
                       )}
                     >
                       {isOn && <Check className="h-3 w-3" />}
@@ -691,7 +831,10 @@ export function FacetDropdown({ label, options, selected, onChange, searchable =
               <>
                 <CommandSeparator />
                 <CommandGroup>
-                  <CommandItem onSelect={() => onChange([])} className="justify-center text-xs">
+                  <CommandItem
+                    onSelect={() => onChange([])}
+                    className="justify-center text-xs"
+                  >
                     <X className="mr-1 h-3 w-3" /> Clear
                   </CommandItem>
                 </CommandGroup>
@@ -718,6 +861,7 @@ feat(ui): add <FacetDropdown> data-table primitive
 ## Task 11: Build `<FilterChip>` building block
 
 **Files:**
+
 - Create: `components/ui/data-table/filter-chip.tsx`
 
 Active-filter chip with × dismiss; auto-rendered per active filter in the chip strip below the toolbar.
@@ -738,15 +882,22 @@ type FilterChipProps = {
   className?: string;
 };
 
-export function FilterChip({ label, value, onClear, className }: FilterChipProps) {
+export function FilterChip({
+  label,
+  value,
+  onClear,
+  className,
+}: FilterChipProps) {
   return (
     <span
       className={cn(
         'inline-flex h-7 items-center gap-1.5 rounded-full border border-border bg-muted/40 pl-2 pr-1 text-xs',
-        className,
+        className
       )}
     >
-      <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">{label}</span>
+      <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
+        {label}
+      </span>
       <span className="text-foreground">{value}</span>
       <Button
         variant="ghost"
@@ -775,6 +926,7 @@ feat(ui): add <FilterChip> data-table primitive
 ## Task 12: Build `<DataTablePagination>` building block
 
 **Files:**
+
 - Create: `components/ui/data-table/pagination.tsx`
 
 Page-size Select + page-of-N + chevron quartet. Replaces 6 inlined copies.
@@ -784,17 +936,31 @@ Page-size Select + page-of-N + chevron quartet. Replaces 6 inlined copies.
 ```tsx
 'use client';
 
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from 'lucide-react';
 import { type Table } from '@tanstack/react-table';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type PaginationProps<TRow> = {
   table: Table<TRow>;
   pageSizeOptions?: number[];
 };
 
-export function DataTablePagination<TRow>({ table, pageSizeOptions = [10, 20, 50, 100] }: PaginationProps<TRow>) {
+export function DataTablePagination<TRow>({
+  table,
+  pageSizeOptions = [10, 20, 50, 100],
+}: PaginationProps<TRow>) {
   const pageIndex = table.getState().pagination.pageIndex;
   const pageCount = table.getPageCount();
   const pageSize = table.getState().pagination.pageSize;
@@ -802,13 +968,20 @@ export function DataTablePagination<TRow>({ table, pageSizeOptions = [10, 20, 50
     <div className="flex items-center justify-between gap-4 px-1 py-2 text-xs">
       <div className="flex items-center gap-2 text-muted-foreground">
         <span>Rows per page</span>
-        <Select value={String(pageSize)} onValueChange={(v) => table.setPageSize(Number(v))}>
+        <Select
+          value={String(pageSize)}
+          onValueChange={(v) => table.setPageSize(Number(v))}
+        >
           <SelectTrigger className="h-7 w-[72px] font-mono text-[11px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {pageSizeOptions.map((n) => (
-              <SelectItem key={n} value={String(n)} className="font-mono text-[11px]">
+              <SelectItem
+                key={n}
+                value={String(n)}
+                className="font-mono text-[11px]"
+              >
                 {n}
               </SelectItem>
             ))}
@@ -820,16 +993,40 @@ export function DataTablePagination<TRow>({ table, pageSizeOptions = [10, 20, 50
           Page {pageIndex + 1} of {Math.max(1, pageCount)}
         </span>
         <div className="flex items-center gap-0.5">
-          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => table.setPageIndex(0)} disabled={!table.getCanPreviousPage()}>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => table.setPageIndex(0)}
+            disabled={!table.getCanPreviousPage()}
+          >
             <ChevronsLeft className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
             <ChevronLeft className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
             <ChevronRight className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => table.setPageIndex(pageCount - 1)} disabled={!table.getCanNextPage()}>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => table.setPageIndex(pageCount - 1)}
+            disabled={!table.getCanNextPage()}
+          >
             <ChevronsRight className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -852,6 +1049,7 @@ feat(ui): add <DataTablePagination> data-table primitive
 ## Task 13: Build `<BulkActionFooter>` building block
 
 **Files:**
+
 - Create: `components/ui/data-table/bulk-action-footer.tsx`
 
 Sticky-bottom selection toolbar. Replaces 3 inlined footers (admissions completeness, p-files completeness, promised cohort).
@@ -880,20 +1078,32 @@ type BulkActionFooterProps<TRow> = {
   className?: string;
 };
 
-export function BulkActionFooter<TRow>({ selectedRows, actions, onClear, className }: BulkActionFooterProps<TRow>) {
+export function BulkActionFooter<TRow>({
+  selectedRows,
+  actions,
+  onClear,
+  className,
+}: BulkActionFooterProps<TRow>) {
   if (selectedRows.length === 0) return null;
   return (
     <div
       className={cn(
         'sticky bottom-0 z-20 flex items-center justify-between gap-3 border-t border-border bg-background/95 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-background/80',
-        className,
+        className
       )}
       role="region"
       aria-label="Bulk actions"
     >
       <div className="flex items-center gap-3 text-xs">
-        <span className="font-mono uppercase tracking-[0.1em] text-muted-foreground">{selectedRows.length} selected</span>
-        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onClear}>
+        <span className="font-mono uppercase tracking-[0.1em] text-muted-foreground">
+          {selectedRows.length} selected
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs"
+          onClick={onClear}
+        >
           Clear
         </Button>
       </div>
@@ -932,6 +1142,7 @@ feat(ui): add <BulkActionFooter> data-table primitive
 ## Task 14: Build `<DataTableEmptyState>` building block
 
 **Files:**
+
 - Create: `components/ui/data-table/empty-state.tsx`
 
 Gradient icon tile + serif title + body + optional CTA. Reused for `emptyState` (zero data) and `emptyFilteredState` (filtered to zero).
@@ -954,12 +1165,23 @@ type EmptyStateProps = {
   className?: string;
 };
 
-export function DataTableEmptyState({ icon: Icon = Inbox, title, body, cta, className }: EmptyStateProps) {
+export function DataTableEmptyState({
+  icon: Icon = Inbox,
+  title,
+  body,
+  cta,
+  className,
+}: EmptyStateProps) {
   return (
-    <div className={cn('flex flex-col items-center justify-center gap-3 px-6 py-12 text-center', className)}>
+    <div
+      className={cn(
+        'flex flex-col items-center justify-center gap-3 px-6 py-12 text-center',
+        className
+      )}
+    >
       <span
         className={cn(
-          'inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-b from-accent/20 to-accent/5 text-accent-foreground ring-inset ring-1 ring-accent/30',
+          'inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-b from-accent/20 to-accent/5 text-accent-foreground ring-inset ring-1 ring-accent/30'
         )}
       >
         <Icon className="h-5 w-5" aria-hidden />
@@ -968,8 +1190,8 @@ export function DataTableEmptyState({ icon: Icon = Inbox, title, body, cta, clas
         <p className="font-serif text-base text-foreground">{title}</p>
         {body && <p className="text-sm text-muted-foreground">{body}</p>}
       </div>
-      {cta && (
-        cta.href ? (
+      {cta &&
+        (cta.href ? (
           <Button asChild size="sm" variant="outline">
             <Link href={cta.href}>{cta.label}</Link>
           </Button>
@@ -977,8 +1199,7 @@ export function DataTableEmptyState({ icon: Icon = Inbox, title, body, cta, clas
           <Button size="sm" variant="outline" onClick={cta.onClick}>
             {cta.label}
           </Button>
-        )
-      )}
+        ))}
     </div>
   );
 }
@@ -997,6 +1218,7 @@ feat(ui): add <DataTableEmptyState> data-table primitive
 ## Task 15: Build `csv` export helper
 
 **Files:**
+
 - Create: `components/ui/data-table/csv.ts`
 
 Generalised CSV export with UTF-8 BOM (matches drill CSV pattern from KD #56). Triggered from a toolbar button when `csv` config present.
@@ -1004,17 +1226,27 @@ Generalised CSV export with UTF-8 BOM (matches drill CSV pattern from KD #56). T
 - [ ] **Step 1: Write the helper**
 
 ```ts
-type CsvColumn<TRow> = { header: string; accessor: (row: TRow) => string | number | null };
+type CsvColumn<TRow> = {
+  header: string;
+  accessor: (row: TRow) => string | number | null;
+};
 
-export function exportCsv<TRow>(rows: TRow[], columns: Array<CsvColumn<TRow>>, filename: string) {
+export function exportCsv<TRow>(
+  rows: TRow[],
+  columns: Array<CsvColumn<TRow>>,
+  filename: string
+) {
   const escape = (cell: string | number | null) => {
     if (cell === null || cell === undefined) return '';
     const s = String(cell);
-    if (s.includes('"') || s.includes(',') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`;
+    if (s.includes('"') || s.includes(',') || s.includes('\n'))
+      return `"${s.replace(/"/g, '""')}"`;
     return s;
   };
   const header = columns.map((c) => escape(c.header)).join(',');
-  const body = rows.map((r) => columns.map((c) => escape(c.accessor(r))).join(',')).join('\n');
+  const body = rows
+    .map((r) => columns.map((c) => escape(c.accessor(r))).join(','))
+    .join('\n');
   const csv = '﻿' + header + '\n' + body;
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -1041,6 +1273,7 @@ feat(ui): add csv export helper for data-table
 ## Task 16: Build `<DataTable>` shell
 
 **Files:**
+
 - Create: `components/ui/data-table/types.ts`
 - Create: `components/ui/data-table/index.tsx`
 
@@ -1057,7 +1290,11 @@ Note specifically: search debounce, faceted unique values, "My sheets" toggle, s
 - [ ] **Step 2: Write `components/ui/data-table/types.ts`**
 
 ```ts
-import type { ColumnDef, SortingState, VisibilityState } from '@tanstack/react-table';
+import type {
+  ColumnDef,
+  SortingState,
+  VisibilityState,
+} from '@tanstack/react-table';
 import type { LucideIcon, ReactNode } from 'react';
 import type { BulkAction } from './bulk-action-footer';
 
@@ -1085,7 +1322,10 @@ export type MeScopeConfig<TRow> = {
 
 export type CsvConfig<TRow> = {
   filename: string;
-  columns?: Array<{ header: string; accessor: (row: TRow) => string | number | null }>;
+  columns?: Array<{
+    header: string;
+    accessor: (row: TRow) => string | number | null;
+  }>;
 };
 
 export type UrlStateConfig = {
@@ -1215,14 +1455,21 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
   const urlState = useUrlState(url);
   const initial = url.enabled ? urlState.read() : { facets: {} };
 
-  const defaultStatus = statusTabs?.find((t) => t.isDefault)?.value ?? statusTabs?.[0]?.value;
-  const [statusTab, setStatusTab] = useState<string | undefined>(initial.status ?? defaultStatus);
-  const [mineActive, setMineActive] = useState<boolean>(Boolean(initial.mine && meScope?.userId));
+  const defaultStatus =
+    statusTabs?.find((t) => t.isDefault)?.value ?? statusTabs?.[0]?.value;
+  const [statusTab, setStatusTab] = useState<string | undefined>(
+    initial.status ?? defaultStatus
+  );
+  const [mineActive, setMineActive] = useState<boolean>(
+    Boolean(initial.mine && meScope?.userId)
+  );
   const [search, setSearch] = useState<string>(initial.search ?? '');
   const [sorting, setSorting] = useState<SortingState>(initialSort);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(initialColumnVisibility);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
+    initialColumnVisibility
+  );
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(
-    Object.entries(initial.facets ?? {}).map(([id, value]) => ({ id, value })),
+    Object.entries(initial.facets ?? {}).map(([id, value]) => ({ id, value }))
   );
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
@@ -1245,7 +1492,13 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
     data: tabFilteredData,
     columns,
     getRowId,
-    state: { sorting, columnFilters, columnVisibility, rowSelection, globalFilter: search },
+    state: {
+      sorting,
+      columnFilters,
+      columnVisibility,
+      rowSelection,
+      globalFilter: search,
+    },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
@@ -1256,7 +1509,11 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
     globalFilterFn: (row, _columnId, filterValue) => {
       if (!filterValue || !searchKeys) return true;
       const haystack = searchKeys
-        .map((k) => (typeof k === 'function' ? k(row.original) : String(row.original[k] ?? '')))
+        .map((k) =>
+          typeof k === 'function'
+            ? k(row.original)
+            : String(row.original[k] ?? '')
+        )
         .join(' ')
         .toLowerCase();
       return haystack.includes(String(filterValue).toLowerCase());
@@ -1275,7 +1532,8 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
     const facetsSnapshot: Record<string, string[]> = {};
     for (const f of columnFilters) {
       const v = f.value;
-      if (Array.isArray(v) && v.length > 0) facetsSnapshot[f.id] = v.map(String);
+      if (Array.isArray(v) && v.length > 0)
+        facetsSnapshot[f.id] = v.map(String);
     }
     urlState.write(
       {
@@ -1283,13 +1541,28 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
         status: statusTab !== defaultStatus ? statusTab : undefined,
         mine: mineActive || undefined,
         facets: facetsSnapshot,
-        page: table.getState().pagination.pageIndex > 0 ? table.getState().pagination.pageIndex + 1 : undefined,
-        pageSize: table.getState().pagination.pageSize !== pageSize ? table.getState().pagination.pageSize : undefined,
+        page:
+          table.getState().pagination.pageIndex > 0
+            ? table.getState().pagination.pageIndex + 1
+            : undefined,
+        pageSize:
+          table.getState().pagination.pageSize !== pageSize
+            ? table.getState().pagination.pageSize
+            : undefined,
       },
-      { debounce: false },
+      { debounce: false }
     );
     // search debounce
-  }, [columnFilters, statusTab, mineActive, table, url.enabled, urlState, defaultStatus, pageSize]);
+  }, [
+    columnFilters,
+    statusTab,
+    mineActive,
+    table,
+    url.enabled,
+    urlState,
+    defaultStatus,
+    pageSize,
+  ]);
 
   useEffect(() => {
     if (!url.enabled) return;
@@ -1299,21 +1572,36 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
         status: statusTab !== defaultStatus ? statusTab : undefined,
         mine: mineActive || undefined,
         facets: Object.fromEntries(
-          columnFilters.filter((f) => Array.isArray(f.value) && f.value.length > 0).map((f) => [f.id, (f.value as unknown[]).map(String)]),
+          columnFilters
+            .filter((f) => Array.isArray(f.value) && f.value.length > 0)
+            .map((f) => [f.id, (f.value as unknown[]).map(String)])
         ),
       },
-      { debounce: true },
+      { debounce: true }
     );
-  }, [search, url.enabled, urlState, statusTab, mineActive, defaultStatus, columnFilters]);
+  }, [
+    search,
+    url.enabled,
+    urlState,
+    statusTab,
+    mineActive,
+    defaultStatus,
+    columnFilters,
+  ]);
 
   const totalRows = table.getFilteredRowModel().rows.length;
   const selectedRows = useMemo(
     () => table.getFilteredSelectedRowModel().rows.map((r) => r.original),
-    [rowSelection, table],
+    [rowSelection, table]
   );
 
   const activeChips = useMemo(() => {
-    const chips: Array<{ key: string; label: string; value: string; onClear: () => void }> = [];
+    const chips: Array<{
+      key: string;
+      label: string;
+      value: string;
+      onClear: () => void;
+    }> = [];
     for (const f of columnFilters) {
       const facetCfg = facets.find((fc) => fc.columnId === f.id);
       if (!facetCfg) continue;
@@ -1328,16 +1616,33 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
               prev
                 .map((p) =>
                   p.id === f.id
-                    ? { ...p, value: (p.value as string[]).filter((x) => x !== v) }
-                    : p,
+                    ? {
+                        ...p,
+                        value: (p.value as string[]).filter((x) => x !== v),
+                      }
+                    : p
                 )
-                .filter((p) => !(Array.isArray(p.value) && p.value.length === 0)),
+                .filter(
+                  (p) => !(Array.isArray(p.value) && p.value.length === 0)
+                )
             ),
-        }),
+        })
       );
     }
-    if (search) chips.push({ key: 'q', label: 'Search', value: search, onClear: () => setSearch('') });
-    if (mineActive && meScope) chips.push({ key: 'mine', label: 'Scope', value: meScope.label, onClear: () => setMineActive(false) });
+    if (search)
+      chips.push({
+        key: 'q',
+        label: 'Search',
+        value: search,
+        onClear: () => setSearch(''),
+      });
+    if (mineActive && meScope)
+      chips.push({
+        key: 'mine',
+        label: 'Scope',
+        value: meScope.label,
+        onClear: () => setMineActive(false),
+      });
     return chips;
   }, [columnFilters, facets, search, mineActive, meScope]);
 
@@ -1379,7 +1684,9 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
               .filter((v): v is string => typeof v === 'string')
               .sort()
               .map((v) => ({ value: v, label: v }));
-          const selected = ((columnFilters.find((cf) => cf.id === f.columnId)?.value as string[]) ?? []);
+          const selected =
+            (columnFilters.find((cf) => cf.id === f.columnId)
+              ?.value as string[]) ?? [];
           return (
             <FacetDropdown
               key={f.columnId}
@@ -1389,7 +1696,9 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
               onChange={(next) =>
                 setColumnFilters((prev) => {
                   const without = prev.filter((p) => p.id !== f.columnId);
-                  return next.length ? [...without, { id: f.columnId, value: next }] : without;
+                  return next.length
+                    ? [...without, { id: f.columnId, value: next }]
+                    : without;
                 })
               }
             />
@@ -1409,13 +1718,20 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
                     .getVisibleLeafColumns()
                     .filter((c) => c.id !== 'select')
                     .map((c) => ({
-                      header: typeof c.columnDef.header === 'string' ? c.columnDef.header : c.id,
+                      header:
+                        typeof c.columnDef.header === 'string'
+                          ? c.columnDef.header
+                          : c.id,
                       accessor: (row: TRow) => {
                         const v = (row as Record<string, unknown>)[c.id];
                         return v == null ? null : (v as string | number);
                       },
                     }));
-                exportCsv(table.getFilteredRowModel().rows.map((r) => r.original), cols, csv.filename);
+                exportCsv(
+                  table.getFilteredRowModel().rows.map((r) => r.original),
+                  cols,
+                  csv.filename
+                );
               }}
             >
               <Download className="mr-1 h-3.5 w-3.5" />
@@ -1439,7 +1755,9 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
                     checked={c.getIsVisible()}
                     onCheckedChange={(v) => c.toggleVisibility(Boolean(v))}
                   >
-                    {typeof c.columnDef.header === 'string' ? c.columnDef.header : c.id}
+                    {typeof c.columnDef.header === 'string'
+                      ? c.columnDef.header
+                      : c.id}
                   </DropdownMenuCheckboxItem>
                 ))}
             </DropdownMenuContent>
@@ -1452,11 +1770,15 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
         <Tabs value={statusTab} onValueChange={setStatusTab}>
           <TabsList>
             {statusTabs.map((t) => {
-              const count = t.countOverride ? t.countOverride(data) : data.filter(t.predicate).length;
+              const count = t.countOverride
+                ? t.countOverride(data)
+                : data.filter(t.predicate).length;
               return (
                 <TabsTrigger key={t.value} value={t.value} className="gap-1.5">
                   <span>{t.label}</span>
-                  <span className="rounded-sm bg-muted px-1 font-mono text-[10px] text-muted-foreground">{count}</span>
+                  <span className="rounded-sm bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+                    {count}
+                  </span>
                 </TabsTrigger>
               );
             })}
@@ -1468,7 +1790,12 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
       {activeChips.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
           {activeChips.map((chip) => (
-            <FilterChip key={chip.key} label={chip.label} value={chip.value} onClear={chip.onClear} />
+            <FilterChip
+              key={chip.key}
+              label={chip.label}
+              value={chip.value}
+              onClear={chip.onClear}
+            />
           ))}
           <Button
             variant="ghost"
@@ -1490,12 +1817,19 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
       <div className="overflow-hidden rounded-lg border border-border">
         <div className="overflow-x-auto">
           <Table>
-            <TableHeader className={cn(stickyHeader && 'sticky top-0 z-10 bg-background')}>
+            <TableHeader
+              className={cn(stickyHeader && 'sticky top-0 z-10 bg-background')}
+            >
               {table.getHeaderGroups().map((hg) => (
                 <TableRow key={hg.id}>
                   {hg.headers.map((h) => (
-                    <TableHead key={h.id} className="font-mono text-[10px] uppercase tracking-[0.12em]">
-                      {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
+                    <TableHead
+                      key={h.id}
+                      className="font-mono text-[10px] uppercase tracking-[0.12em]"
+                    >
+                      {h.isPlaceholder
+                        ? null
+                        : flexRender(h.column.columnDef.header, h.getContext())}
                     </TableHead>
                   ))}
                 </TableRow>
@@ -1505,7 +1839,9 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
               {showEmpty ? (
                 <TableRow>
                   <TableCell colSpan={columns.length} className="p-0">
-                    <DataTableEmptyState {...(emptyState ?? { title: 'No data.' })} />
+                    <DataTableEmptyState
+                      {...(emptyState ?? { title: 'No data.' })}
+                    />
                   </TableCell>
                 </TableRow>
               ) : showFilteredEmpty ? (
@@ -1519,9 +1855,14 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
                 </TableRow>
               ) : (
                 table.getRowModel().rows.map((r) => (
-                  <TableRow key={r.id} data-state={r.getIsSelected() && 'selected'}>
+                  <TableRow
+                    key={r.id}
+                    data-state={r.getIsSelected() && 'selected'}
+                  >
                     {r.getVisibleCells().map((c) => (
-                      <TableCell key={c.id}>{flexRender(c.column.columnDef.cell, c.getContext())}</TableCell>
+                      <TableCell key={c.id}>
+                        {flexRender(c.column.columnDef.cell, c.getContext())}
+                      </TableCell>
                     ))}
                   </TableRow>
                 ))
@@ -1532,7 +1873,10 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
 
         {!hidePagination && totalRows > 0 && (
           <div className="border-t border-border bg-muted/20">
-            <DataTablePagination table={table} pageSizeOptions={pageSizeOptions} />
+            <DataTablePagination
+              table={table}
+              pageSizeOptions={pageSizeOptions}
+            />
           </div>
         )}
       </div>
@@ -1574,6 +1918,7 @@ feat(ui): add <DataTable> shell — 1 wrapper consumes TanStack
 ## Task 17: Validation pass — refactor `grading-data-table.tsx` (spec § 5.1)
 
 **Files:**
+
 - Read: `app/(markbook)/markbook/grading/grading-data-table.tsx` (full file)
 - Modify: `app/(markbook)/markbook/grading/grading-data-table.tsx`
 
@@ -1594,20 +1939,27 @@ import { DataTable } from '@/components/ui/data-table';
 import { IdentifierLink } from '@/components/ui/identifier-link';
 // (existing imports for row shape + helpers)
 
-export function GradingDataTable({ rows, currentUserId, ayCode, /* … */ }: Props) {
-  const columns = useMemo<ColumnDef<GradingRow>[]>(() => [
-    /* preserve existing column defs; replace section-name cell with: */
-    {
-      id: 'section',
-      header: 'Section',
-      cell: ({ row }) => (
-        <IdentifierLink href={`/markbook/grading/${row.original.sheetId}`}>
-          {row.original.sectionLabel}
-        </IdentifierLink>
-      ),
-    },
-    /* … rest of columns unchanged */
-  ], []);
+export function GradingDataTable({
+  rows,
+  currentUserId,
+  ayCode /* … */,
+}: Props) {
+  const columns = useMemo<ColumnDef<GradingRow>[]>(
+    () => [
+      /* preserve existing column defs; replace section-name cell with: */
+      {
+        id: 'section',
+        header: 'Section',
+        cell: ({ row }) => (
+          <IdentifierLink href={`/markbook/grading/${row.original.sheetId}`}>
+            {row.original.sectionLabel}
+          </IdentifierLink>
+        ),
+      },
+      /* … rest of columns unchanged */
+    ],
+    []
+  );
 
   return (
     <DataTable
@@ -1627,12 +1979,17 @@ export function GradingDataTable({ rows, currentUserId, ayCode, /* … */ }: Pro
         { value: 'all', label: 'All', predicate: () => true, isDefault: true },
         { value: 'open', label: 'Open', predicate: (r) => !r.isLocked },
         { value: 'locked', label: 'Locked', predicate: (r) => r.isLocked },
-        { value: 'with-blanks', label: 'With blanks', predicate: (r) => r.hasBlanks },
+        {
+          value: 'with-blanks',
+          label: 'With blanks',
+          predicate: (r) => r.hasBlanks,
+        },
       ]}
       meScope={{
         userId: currentUserId,
         label: 'My sheets',
-        predicate: (r, uid) => r.subjectTeacherId === uid || r.formAdviserId === uid,
+        predicate: (r, uid) =>
+          r.subjectTeacherId === uid || r.formAdviserId === uid,
       }}
       pageSize={20}
       csv={{ filename: `grading-sheets-${ayCode}.csv` }}
@@ -1652,6 +2009,7 @@ export function GradingDataTable({ rows, currentUserId, ayCode, /* … */ }: Pro
 `npx next build` clean.
 
 Manual smoke at `/markbook/grading`:
+
 - Load page; default tab "All"; row count matches prior version.
 - Type in search box → results filter; URL gets `?q=…` (debounced).
 - Click "Locked" tab → URL gets `?status=locked`; row count = locked count.
@@ -1685,6 +2043,7 @@ Validation pass for the unified shell. Observable behavior preserved 1:1.
 ## Task 18: Build `<CohortTable kind>` + migrate 4 cohort tables (spec § 5.17–5.20)
 
 **Files:**
+
 - Create: `components/sis/cohorts/cohort-table.tsx`
 - Modify: `app/(records)/records/cohorts/stp/page.tsx` + `app/(records)/records/cohorts/medical/page.tsx` + `app/(records)/records/cohorts/pass-expiry/page.tsx`
 - Modify: `app/(admissions)/admissions/cohorts/stp/page.tsx` + `app/(admissions)/admissions/cohorts/medical/page.tsx` + `app/(admissions)/admissions/cohorts/promised/page.tsx`
@@ -1726,19 +2085,31 @@ type Props<TRow> = {
   /* per-kind row shape narrowed via discriminated union */
 };
 
-function destinationFor(kind: CohortKind, scope: CohortScope, row: any, ayCode: string): string {
-  if (kind === 'promised') return `/admissions/applications/${row.enroleeNumber}?ay=${ayCode}&tab=documents`;
-  if (scope === 'enrolled' && row.studentNumber) return `/records/students/${row.studentNumber}`;
+function destinationFor(
+  kind: CohortKind,
+  scope: CohortScope,
+  row: any,
+  ayCode: string
+): string {
+  if (kind === 'promised')
+    return `/admissions/applications/${row.enroleeNumber}?ay=${ayCode}&tab=documents`;
+  if (scope === 'enrolled' && row.studentNumber)
+    return `/records/students/${row.studentNumber}`;
   return `/admissions/applications/${row.enroleeNumber}?ay=${ayCode}&tab=lifecycle`;
 }
 
-function buildStpColumns(scope: CohortScope, ayCode: string): ColumnDef<StpRow>[] {
+function buildStpColumns(
+  scope: CohortScope,
+  ayCode: string
+): ColumnDef<StpRow>[] {
   return [
     {
       id: 'student',
       header: 'Student',
       cell: ({ row }) => (
-        <IdentifierLink href={destinationFor('stp', scope, row.original, ayCode)}>
+        <IdentifierLink
+          href={destinationFor('stp', scope, row.original, ayCode)}
+        >
           {row.original.fullName}
         </IdentifierLink>
       ),
@@ -1747,31 +2118,48 @@ function buildStpColumns(scope: CohortScope, ayCode: string): ColumnDef<StpRow>[
   ];
 }
 
-function buildPromisedColumns(/* ... */): ColumnDef<PromisedRow>[] { /* ... + Note column */ }
-function buildPassExpiryColumns(/* ... */): ColumnDef<PassExpiryRow>[] { /* ... + parent/guardian holder column */ }
-function buildMedicalColumns(/* ... */): ColumnDef<MedicalRow>[] { /* ... */ }
+function buildPromisedColumns(/* ... */): ColumnDef<PromisedRow>[] {
+  /* ... + Note column */
+}
+function buildPassExpiryColumns(/* ... */): ColumnDef<PassExpiryRow>[] {
+  /* ... + parent/guardian holder column */
+}
+function buildMedicalColumns(/* ... */): ColumnDef<MedicalRow>[] {
+  /* ... */
+}
 
 export function CohortTable<TRow>(props: Props<TRow>) {
   const { kind, scope, ayCode, rows } = props;
   const columns = (() => {
     switch (kind) {
-      case 'stp': return buildStpColumns(scope, ayCode);
-      case 'promised': return buildPromisedColumns(scope, ayCode);
-      case 'pass-expiry': return buildPassExpiryColumns(scope, ayCode);
-      case 'medical': return buildMedicalColumns(scope, ayCode);
+      case 'stp':
+        return buildStpColumns(scope, ayCode);
+      case 'promised':
+        return buildPromisedColumns(scope, ayCode);
+      case 'pass-expiry':
+        return buildPassExpiryColumns(scope, ayCode);
+      case 'medical':
+        return buildMedicalColumns(scope, ayCode);
     }
   })();
 
-  const statusTabs = STATUS_TABS_BY_KIND[kind] /* per-kind tab map */;
+  const statusTabs = STATUS_TABS_BY_KIND[kind]; /* per-kind tab map */
   const facets = FACETS_BY_KIND[kind];
 
   // promised gets selection.enabled=true with bulk-notify; others get selection={undefined}
-  const selection = kind === 'promised' ? {
-    enabled: true,
-    bulkActions: [
-      { key: 'notify', label: 'Notify parents', onTrigger: openBulkNotifyDialog },
-    ],
-  } : undefined;
+  const selection =
+    kind === 'promised'
+      ? {
+          enabled: true,
+          bulkActions: [
+            {
+              key: 'notify',
+              label: 'Notify parents',
+              onTrigger: openBulkNotifyDialog,
+            },
+          ],
+        }
+      : undefined;
 
   return (
     <DataTable
@@ -1814,6 +2202,7 @@ No back-compat shims (project convention).
 `npx next build` clean.
 
 Manual smoke per cohort:
+
 - `/records/cohorts/stp` → loads; identifier links route to `/records/students/[studentNumber]`.
 - `/admissions/cohorts/stp` → loads; identifier links route to `/admissions/applications/[enroleeNumber]?ay={ay}&tab=lifecycle`.
 - `/admissions/cohorts/promised` → loads; bulk-select + Notify parents button works (existing route).
@@ -1831,6 +2220,7 @@ refactor(cohorts): consolidate 4 cohort tables into <CohortTable kind>
 ## Task 19: Build `<DocumentCompletenessTable module>` + migrate 2 completeness tables (spec § 5.21 + 5.23)
 
 **Files:**
+
 - Create: `components/shared/document-completeness-table.tsx`
 - Modify: consumer pages in `app/(admissions)/admissions/` + `app/(p-files)/p-files/`
 - Delete (or thin re-export): `components/admissions/completeness-table.tsx` + `components/p-files/completeness-table.tsx` (only after no other call sites remain)
@@ -1855,8 +2245,15 @@ import { type ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/ui/data-table';
 import { IdentifierLink } from '@/components/ui/identifier-link';
 import { ApplicationStatusBadge } from '@/components/ui/application-status-badge';
-import { DocumentStatusBadge, type DocumentStatus } from '@/components/ui/document-status-badge';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  DocumentStatusBadge,
+  type DocumentStatus,
+} from '@/components/ui/document-status-badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { TABLE_COPY } from '@/lib/copy/data-table';
 // (existing BulkNotifyDialog + slot-key constants + per-slot status resolver)
 
@@ -1867,70 +2264,90 @@ type Props<TRow> = {
   rows: TRow[];
   ayCode: string;
   slotKeys: (row: TRow) => SlotKey[];
-  bulkRemindEnabled?: boolean;       // page-level role gate (KD #74)
-  bulkRemindWindowDays?: number;     // p-files only — undefined = "expired only"
+  bulkRemindEnabled?: boolean; // page-level role gate (KD #74)
+  bulkRemindWindowDays?: number; // p-files only — undefined = "expired only"
   initialStatusFilter?: string;
 };
 
-const STATUS_OPTIONS_BY_MODULE: Record<Module, Array<{ value: string; label: string }>> = {
+const STATUS_OPTIONS_BY_MODULE: Record<
+  Module,
+  Array<{ value: string; label: string }>
+> = {
   admissions: [
     { value: 'to-follow', label: TABLE_COPY.awaitingParentReply },
     { value: 'rejected', label: TABLE_COPY.sentBackToParent },
     { value: 'uploaded', label: TABLE_COPY.awaitingValidation },
     { value: 'expired', label: TABLE_COPY.lapsedReupload },
   ],
-  'p-files': [
-    { value: 'expired', label: TABLE_COPY.lapsedReupload },
-  ],
+  'p-files': [{ value: 'expired', label: TABLE_COPY.lapsedReupload }],
 };
 
 export function DocumentCompletenessTable<TRow>(props: Props<TRow>) {
-  const { module, rows, ayCode, slotKeys, bulkRemindEnabled, bulkRemindWindowDays, initialStatusFilter } = props;
+  const {
+    module,
+    rows,
+    ayCode,
+    slotKeys,
+    bulkRemindEnabled,
+    bulkRemindWindowDays,
+    initialStatusFilter,
+  } = props;
 
-  const columns = useMemo<ColumnDef<TRow>[]>(() => [
-    {
-      id: 'student',
-      header: module === 'p-files' ? 'Student' : 'Applicant',
-      cell: ({ row }) => (
-        <IdentifierLink
-          href={
-            module === 'p-files'
-              ? `/p-files/${row.original.enroleeNumber}?ay=${ayCode}`
-              : `/admissions/applications/${row.original.enroleeNumber}?ay=${ayCode}`
-          }
-        >
-          {row.original.fullName}
-        </IdentifierLink>
-      ),
-    },
-    { id: 'level', header: 'Level', accessorKey: 'level' },
-    ...(module === 'p-files'
-      ? [{ id: 'section', header: 'Section', accessorKey: 'section' }]
-      : [{ id: 'submittedAt', header: 'Submitted', cell: ({ row }) => formatDate(row.original.createdAt) }]),
-    {
-      id: 'appStatus',
-      header: 'Status',
-      cell: ({ row }) => <ApplicationStatusBadge status={row.original.applicationStatus} />,
-    },
-    /* slot dot grid — column per slot key, header gets <Tooltip> wrapping the truncation */
-    ...SLOT_KEY_ORDER.map((slot) => ({
-      id: slot,
-      header: () => (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className="cursor-help">{SLOT_TRUNCATIONS[slot]}</span>
-          </TooltipTrigger>
-          <TooltipContent>{SLOT_FULL_LABELS[slot]}</TooltipContent>
-        </Tooltip>
-      ),
-      cell: ({ row }) => {
-        const allowed = slotKeys(row.original);
-        if (!allowed.includes(slot)) return null;
-        const status = resolveSlotStatus(row.original, slot);
-        return <DocumentStatusBadge status={status as DocumentStatus} />;
+  const columns = useMemo<ColumnDef<TRow>[]>(
+    () => [
+      {
+        id: 'student',
+        header: module === 'p-files' ? 'Student' : 'Applicant',
+        cell: ({ row }) => (
+          <IdentifierLink
+            href={
+              module === 'p-files'
+                ? `/p-files/${row.original.enroleeNumber}?ay=${ayCode}`
+                : `/admissions/applications/${row.original.enroleeNumber}?ay=${ayCode}`
+            }
+          >
+            {row.original.fullName}
+          </IdentifierLink>
+        ),
       },
-    })),
-  ], [module, ayCode, slotKeys]);
+      { id: 'level', header: 'Level', accessorKey: 'level' },
+      ...(module === 'p-files'
+        ? [{ id: 'section', header: 'Section', accessorKey: 'section' }]
+        : [
+            {
+              id: 'submittedAt',
+              header: 'Submitted',
+              cell: ({ row }) => formatDate(row.original.createdAt),
+            },
+          ]),
+      {
+        id: 'appStatus',
+        header: 'Status',
+        cell: ({ row }) => (
+          <ApplicationStatusBadge status={row.original.applicationStatus} />
+        ),
+      },
+      /* slot dot grid — column per slot key, header gets <Tooltip> wrapping the truncation */
+      ...SLOT_KEY_ORDER.map((slot) => ({
+        id: slot,
+        header: () => (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="cursor-help">{SLOT_TRUNCATIONS[slot]}</span>
+            </TooltipTrigger>
+            <TooltipContent>{SLOT_FULL_LABELS[slot]}</TooltipContent>
+          </Tooltip>
+        ),
+        cell: ({ row }) => {
+          const allowed = slotKeys(row.original);
+          if (!allowed.includes(slot)) return null;
+          const status = resolveSlotStatus(row.original, slot);
+          return <DocumentStatusBadge status={status as DocumentStatus} />;
+        },
+      })),
+    ],
+    [module, ayCode, slotKeys]
+  );
 
   return (
     <DataTable
@@ -1940,8 +2357,14 @@ export function DocumentCompletenessTable<TRow>(props: Props<TRow>) {
       searchKeys={['fullName']}
       facets={[
         { columnId: 'level', label: 'Level' },
-        ...(module === 'p-files' ? [{ columnId: 'section', label: 'Section' }] : []),
-        { columnId: 'appStatus', label: 'Status', valueOptions: STATUS_OPTIONS_BY_MODULE[module].map((o) => o.value) },
+        ...(module === 'p-files'
+          ? [{ columnId: 'section', label: 'Section' }]
+          : []),
+        {
+          columnId: 'appStatus',
+          label: 'Status',
+          valueOptions: STATUS_OPTIONS_BY_MODULE[module].map((o) => o.value),
+        },
       ]}
       pageSize={25}
       csv={{ filename: `${module}-completeness-${ayCode}.csv` }}
@@ -1950,13 +2373,25 @@ export function DocumentCompletenessTable<TRow>(props: Props<TRow>) {
         bulkRemindEnabled
           ? {
               enabled: true,
-              bulkActions: [{ key: 'notify', label: 'Notify parents', onTrigger: openBulkNotifyDialog }],
+              bulkActions: [
+                {
+                  key: 'notify',
+                  label: 'Notify parents',
+                  onTrigger: openBulkNotifyDialog,
+                },
+              ],
             }
           : undefined
       }
       emptyState={{
-        title: module === 'p-files' ? 'No expiring documents.' : 'No applicants in the chase queue.',
-        body: module === 'p-files' ? 'Renewal queue clears when every parent has re-uploaded.' : undefined,
+        title:
+          module === 'p-files'
+            ? 'No expiring documents.'
+            : 'No applicants in the chase queue.',
+        body:
+          module === 'p-files'
+            ? 'Renewal queue clears when every parent has re-uploaded.'
+            : undefined,
       }}
       emptyFilteredState={{ title: 'No applicants match the current filters.' }}
     />
@@ -1973,6 +2408,7 @@ export function DocumentCompletenessTable<TRow>(props: Props<TRow>) {
 `npx next build` clean.
 
 Manual smoke:
+
 - `/admissions` (operational view) → completeness table renders; status facet uses plain-English labels; bulk-select + Notify parents works (existing route).
 - `/p-files` (officer view) → completeness table renders with section facet; expiry-date inline display below dot grid for any expired/expiring slot.
 - Identifier links route correctly per module.
@@ -2013,6 +2449,7 @@ Worktree C: ../hfse-admissions-attendance     branch: phase2-admissions-attendan
 ## Task 20: Migrate `change-requests-data-table.tsx` (spec § 5.2)
 
 **Files:**
+
 - Read: `app/(markbook)/markbook/change-requests/change-requests-data-table.tsx`
 - Modify: same file
 
@@ -2025,6 +2462,7 @@ Worktree C: ../hfse-admissions-attendance     branch: phase2-admissions-attendan
 - [ ] **Step 2: Refactor to consume `<DataTable>`**
 
 Configuration:
+
 - `searchKeys` over the actor email + reason text.
 - `facets`: Status, Field changed, Reason category.
 - `statusTabs`: All / Pending / Approved / Applied / Rejected / Cancelled (counts).
@@ -2054,6 +2492,7 @@ tracked in separate ticket (spec §5.2 + §7).
 ## Task 21: Migrate `audit-log-data-table.tsx` (spec § 5.3)
 
 **Files:**
+
 - Read: `app/(markbook)/markbook/audit-log/audit-log-data-table.tsx`
 - Modify: same file
 
@@ -2084,6 +2523,7 @@ refactor(markbook): audit-log-data-table consumes <DataTable>
 ## Task 22: Migrate `all-publications-overview.tsx` (spec § 5.4)
 
 **Files:**
+
 - Read: `components/markbook/all-publications-overview.tsx`
 - Modify: same file
 
@@ -2114,6 +2554,7 @@ refactor(markbook): all-publications-overview consumes <DataTable>
 ## Task 23: Migrate `attendance-readonly-table.tsx` (spec § 5.5)
 
 **Files:**
+
 - Read: `components/markbook/attendance-readonly-table.tsx`
 - Modify: same file
 
@@ -2143,6 +2584,7 @@ refactor(markbook): attendance-readonly-table consumes <DataTable>
 ## Task 24: Migrate `sections/[id]/roster-table.tsx` (spec § 5.6)
 
 **Files:**
+
 - Read: `app/(markbook)/markbook/sections/[id]/roster-table.tsx`
 - Modify: same file
 
@@ -2173,6 +2615,7 @@ refactor(markbook): sections/[id]/roster-table consumes <DataTable>
 ## Task 25: Migrate `report-cards/page.tsx` section detail roster (spec § 5.7)
 
 **Files:**
+
 - Read: `app/(markbook)/markbook/report-cards/page.tsx` (or section-detail page if separate)
 - Modify: same file or its child component
 
@@ -2202,6 +2645,7 @@ refactor(markbook): report-cards section roster consumes <DataTable>
 ## Task 26: Migrate `grading/requests/page.tsx` "My requests" table (spec § 5.8)
 
 **Files:**
+
 - Read: `app/(markbook)/markbook/grading/requests/page.tsx`
 - Modify: same file
 
@@ -2240,6 +2684,7 @@ refactor(markbook): grading/requests "My requests" consumes <DataTable>
 ## Task 27: Migrate `student-data-table.tsx` (spec § 5.9)
 
 **Files:**
+
 - Read: `components/sis/student-data-table.tsx`
 - Modify: same file
 
@@ -2271,6 +2716,7 @@ refactor(records): student-data-table consumes <DataTable>
 ## Task 28: Migrate `movements-table.tsx` (spec § 5.10)
 
 **Files:**
+
 - Read: `components/sis/movements-table.tsx`
 - Modify: same file
 
@@ -2301,6 +2747,7 @@ refactor(records): movements-table consumes <DataTable>
 ## Task 29: Migrate `section-roster-table.tsx` (spec § 5.11)
 
 **Files:**
+
 - Read: `components/sis/section-roster-table.tsx`
 - Modify: same file
 
@@ -2329,6 +2776,7 @@ refactor(sis): section-roster-table consumes <DataTable>
 ## Task 30: Migrate `users-admin-client.tsx` (spec § 5.12)
 
 **Files:**
+
 - Read: `app/(sis)/sis/admin/users/users-admin-client.tsx` (or wherever the current path lives)
 - Modify: same file
 
@@ -2358,6 +2806,7 @@ refactor(sis): users-admin consumes <DataTable>
 ## Task 31: Audit `sync-students/page.tsx` (spec § 5.13)
 
 **Files:**
+
 - Read: `app/(sis)/sis/sync-students/page.tsx`
 - Modify: same file
 
@@ -2384,6 +2833,7 @@ refactor(sis): sync-students adopts <DataTableEmptyState> + plain-English copy
 ## Task 32: Migrate `ay-setup/page.tsx` (spec § 5.14)
 
 **Files:**
+
 - Read: `app/(sis)/sis/ay-setup/page.tsx`
 - Modify: same file
 
@@ -2414,6 +2864,7 @@ refactor(sis): ay-setup consumes <DataTable>
 ## Task 33: Migrate `discount-codes/page.tsx` (spec § 5.15)
 
 **Files:**
+
 - Read: `app/(sis)/sis/admin/discount-codes/page.tsx`
 - Modify: same file (and any client components)
 
@@ -2442,6 +2893,7 @@ refactor(sis): discount-codes consumes <DataTable>
 ## Task 34: Migrate `approvers/page.tsx` (spec § 5.16)
 
 **Files:**
+
 - Read: `app/(sis)/sis/admin/approvers/page.tsx`
 - Modify: same file (and any client components)
 
@@ -2479,6 +2931,7 @@ refactor(sis): approvers consumes <DataTable> with Flow facet
 ## Task 35: Migrate `outdated-applications-table.tsx` (spec § 5.22)
 
 **Files:**
+
 - Read: `components/admissions/outdated-applications-table.tsx`
 - Modify: same file
 
@@ -2509,6 +2962,7 @@ refactor(admissions): outdated-applications consumes <DataTable>
 ## Task 36: Migrate `attendance/audit-log/page.tsx` (spec § 5.24)
 
 **Files:**
+
 - Read: `app/(attendance)/attendance/audit-log/page.tsx`
 - Modify: same file (and any client components)
 
@@ -2570,6 +3024,7 @@ Must compile clean.
 - [ ] **Step 3: Cross-module manual smoke pass**
 
 Walk the registrar's nav exactly once:
+
 1. `/records` — Records dashboard + `<student-data-table>`.
 2. `/records/movements` — Movements with `<Switch>` toggle.
 3. `/records/cohorts/stp` (and medical, pass-expiry) — `<CohortTable>` enrolled scope.
@@ -2591,7 +3046,8 @@ Append after the existing #44 entry:
 
 ```markdown
 ### KD #84
-Unified `<DataTable>` shell + extracted primitives consolidate the previously-scattered toolbar / pagination / bulk-action / status-badge / linkified-identifier patterns. Shell at `components/ui/data-table/index.tsx`; building blocks (sortable-header / facet-dropdown / filter-chip / pagination / bulk-action-footer / empty-state / csv) in the same folder. `<StatusBadge>` at `components/ui/status-badge.tsx` with 4 domain wrappers (`<ApplicationStatusBadge>` / `<DiscountCodeStatusBadge>` / `<DocumentStatusBadge>` / `<EnrollmentStatusBadge>`). `<IdentifierLink>` at `components/ui/identifier-link.tsx` applying KD #81 styling consistently. Two consolidation wrappers: `<CohortTable kind>` (4 cohort kinds → 1 file) and `<DocumentCompletenessTable module>` (admissions + p-files clones → 1 file). Plain-English copy registry at `lib/copy/data-table.ts`. URL state via `use-url-state.ts` hook with optional namespace prefix. KD #15 (TanStack canonical) stays valid; the shell is the canonical *consumer* of TanStack now. Per-row overflow menus + net-new bulk API surface deferred — shell exposes the slots, populate per-table next sprint.
+
+Unified `<DataTable>` shell + extracted primitives consolidate the previously-scattered toolbar / pagination / bulk-action / status-badge / linkified-identifier patterns. Shell at `components/ui/data-table/index.tsx`; building blocks (sortable-header / facet-dropdown / filter-chip / pagination / bulk-action-footer / empty-state / csv) in the same folder. `<StatusBadge>` at `components/ui/status-badge.tsx` with 4 domain wrappers (`<ApplicationStatusBadge>` / `<DiscountCodeStatusBadge>` / `<DocumentStatusBadge>` / `<EnrollmentStatusBadge>`). `<IdentifierLink>` at `components/ui/identifier-link.tsx` applying KD #81 styling consistently. Two consolidation wrappers: `<CohortTable kind>` (4 cohort kinds → 1 file) and `<DocumentCompletenessTable module>` (admissions + p-files clones → 1 file). Plain-English copy registry at `lib/copy/data-table.ts`. URL state via `use-url-state.ts` hook with optional namespace prefix. KD #15 (TanStack canonical) stays valid; the shell is the canonical _consumer_ of TanStack now. Per-row overflow menus + net-new bulk API surface deferred — shell exposes the slots, populate per-table next sprint.
 ```
 
 - [ ] **Step 5: Update `.claude/rules/key-decisions.md` quick-lookup**

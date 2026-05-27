@@ -8,7 +8,12 @@ import {
   AssignSectionDialog,
   type AssignableSection,
 } from '@/components/sis/assign-section-dialog';
-import { Alert, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert';
+import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
+  AlertTitle,
+} from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -45,11 +50,14 @@ export function UnsyncedActionCard({
         <AlertIcon variant="warning">
           <AlertTriangle />
         </AlertIcon>
-        <AlertTitle>Grading access is not yet set up for this student.</AlertTitle>
+        <AlertTitle>
+          Grading access is not yet set up for this student.
+        </AlertTitle>
         <AlertDescription>
           <p>
-            This student is enrolled but does not have a class section assigned. Once a section is
-            assigned, grades and attendance will be available here.
+            This student is enrolled but does not have a class section assigned.
+            Once a section is assigned, grades and attendance will be available
+            here.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Button type="button" onClick={() => setOpen(true)}>

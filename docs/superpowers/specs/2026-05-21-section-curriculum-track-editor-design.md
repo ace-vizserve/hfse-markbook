@@ -24,7 +24,11 @@ Extend the existing Rename dialog on the section detail page (`/sis/sections/[id
 `SectionUpdateSchema` gains an optional field:
 
 ```typescript
-curriculum_track: z.enum(['cambridge', 'o_level', 'singapore_inspired']).optional()
+curriculum_track: z.enum([
+  'cambridge',
+  'o_level',
+  'singapore_inspired',
+]).optional();
 ```
 
 Both `name` and `curriculum_track` remain optional so a name-only or track-only save are both valid.

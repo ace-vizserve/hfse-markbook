@@ -4,7 +4,10 @@ import {
   seedAdmissionsMinimal,
   type AdmissionsMinimalResult,
 } from './seeder/admissions-minimal';
-import { ensureTestStructure, type StructureSeedResult } from './seeder/structural';
+import {
+  ensureTestStructure,
+  type StructureSeedResult,
+} from './seeder/structural';
 
 // Environment abstraction over the AY switcher. UI-side, users pick
 // "Production" or "Test"; internally this maps to flipping is_current
@@ -26,7 +29,12 @@ function isTestAyCode(code: string | null | undefined): boolean {
   return !!code && /^AY9/.test(code);
 }
 
-type AyRow = { id: string; ay_code: string; label: string; is_current: boolean };
+type AyRow = {
+  id: string;
+  ay_code: string;
+  label: string;
+  is_current: boolean;
+};
 
 export async function listEnvironmentAys(service: SupabaseClient): Promise<{
   current: AyRow | null;
@@ -43,12 +51,19 @@ export async function listEnvironmentAys(service: SupabaseClient): Promise<{
     .order('ay_code', { ascending: false });
   if (error || !data) {
     console.error('[environment] list failed:', error?.message);
-    return { current: null, testAy: null, priorTestAy: null, prodAy: null, prodAys: [] };
+    return {
+      current: null,
+      testAy: null,
+      priorTestAy: null,
+      prodAy: null,
+      prodAys: [],
+    };
   }
   const rows = data as AyRow[];
   const current = rows.find((r) => r.is_current) ?? null;
   const testAy = rows.find((r) => r.ay_code === TEST_AY_CODE) ?? null;
-  const priorTestAy = rows.find((r) => r.ay_code === PRIOR_TEST_AY_CODE) ?? null;
+  const priorTestAy =
+    rows.find((r) => r.ay_code === PRIOR_TEST_AY_CODE) ?? null;
   const prodAys = rows.filter((r) => !isTestAyCode(r.ay_code));
   const prodAy =
     rows.find((r) => r.ay_code === PROD_AY_CODE && !isTestAyCode(r.ay_code)) ??
@@ -58,7 +73,7 @@ export async function listEnvironmentAys(service: SupabaseClient): Promise<{
 }
 
 export async function getCurrentEnvironment(
-  service: SupabaseClient,
+  service: SupabaseClient
 ): Promise<{ environment: Environment; current: AyRow | null }> {
   const { current } = await listEnvironmentAys(service);
   if (!current) return { environment: null, current: null };
@@ -91,7 +106,9 @@ async function ensureTestAy(service: SupabaseClient): Promise<AyRow> {
     .eq('ay_code', TEST_AY_CODE)
     .single();
   if (reErr || !fresh) {
-    throw new Error(`ensureTestAy: post-RPC read failed — ${reErr?.message ?? 'no row'}`);
+    throw new Error(
+      `ensureTestAy: post-RPC read failed — ${reErr?.message ?? 'no row'}`
+    );
   }
   return fresh as AyRow;
 }
@@ -100,7 +117,7 @@ async function ensureTestAy(service: SupabaseClient): Promise<AyRow> {
 // is_current=false, then set target=true. Idempotent; converges on re-run.
 async function flipIsCurrent(
   service: SupabaseClient,
-  targetAyCode: string,
+  targetAyCode: string
 ): Promise<{ fromAyCode: string | null; toAyCode: string }> {
   const { data: prev } = await service
     .from('academic_years')
@@ -135,7 +152,7 @@ export type SwitchResult = {
 export async function switchEnvironment(
   service: SupabaseClient,
   target: Exclude<Environment, null>,
-  opts: { ayCode?: string } = {},
+  opts: { ayCode?: string } = {}
 ): Promise<SwitchResult> {
   if (target === 'test') {
     const testAy = await ensureTestAy(service);
@@ -149,7 +166,7 @@ export async function switchEnvironment(
     const structure = await ensureTestStructure(
       service,
       { id: testAy.id, ay_code: testAy.ay_code },
-      { targetYear: currentYear, forceOverwriteDates: true },
+      { targetYear: currentYear, forceOverwriteDates: true }
     );
 
     // 2) Minimal admissions seed — exactly 10 hardcoded apps + status +
@@ -173,13 +190,13 @@ export async function switchEnvironment(
   if (opts.ayCode) {
     if (isTestAyCode(opts.ayCode)) {
       throw new Error(
-        `Refusing to switch into a test AY (${opts.ayCode}) via the Production target. Use target='test' instead.`,
+        `Refusing to switch into a test AY (${opts.ayCode}) via the Production target. Use target='test' instead.`
       );
     }
     target_ay = prodAys.find((r) => r.ay_code === opts.ayCode) ?? null;
     if (!target_ay) {
       throw new Error(
-        `Production AY ${opts.ayCode} not found. Create it via /sis/ay-setup first.`,
+        `Production AY ${opts.ayCode} not found. Create it via /sis/ay-setup first.`
       );
     }
   } else {
@@ -187,7 +204,7 @@ export async function switchEnvironment(
   }
   if (!target_ay) {
     throw new Error(
-      'No Production AY found. Create an AY whose code does not start with AY9 before switching.',
+      'No Production AY found. Create an AY whose code does not start with AY9 before switching.'
     );
   }
   const flip = await flipIsCurrent(service, target_ay.ay_code);
@@ -243,8 +260,11 @@ export type ResetResult = {
   rpcSummary: unknown;
 };
 
-export async function resetTestEnvironment(service: SupabaseClient): Promise<ResetResult> {
-  const { testAy, priorTestAy, prodAy, current } = await listEnvironmentAys(service);
+export async function resetTestEnvironment(
+  service: SupabaseClient
+): Promise<ResetResult> {
+  const { testAy, priorTestAy, prodAy, current } =
+    await listEnvironmentAys(service);
   const targets = [testAy, priorTestAy].filter((a): a is AyRow => a !== null);
   if (targets.length === 0) {
     throw new Error('No Test AY (matching ^AY9) found.');
@@ -293,7 +313,9 @@ export async function resetTestEnvironment(service: SupabaseClient): Promise<Res
 
   for (const target of targets) {
     const perAy = await wipeOneTestAy(service, target);
-    for (const k of Object.keys(aggregateDeleted) as Array<keyof ResetResult['deleted']>) {
+    for (const k of Object.keys(aggregateDeleted) as Array<
+      keyof ResetResult['deleted']
+    >) {
       aggregateDeleted[k] += perAy.deleted[k];
     }
     aggregateRpcSummary.push(perAy.rpcSummary);
@@ -301,7 +323,9 @@ export async function resetTestEnvironment(service: SupabaseClient): Promise<Res
 
   // Purge seeded teacher auth accounts (global — not per-AY).
   // Identified by user_metadata.seeded_teacher = true set during seedTestTeachers.
-  const { data: allUsers } = await service.auth.admin.listUsers({ perPage: 1000 });
+  const { data: allUsers } = await service.auth.admin.listUsers({
+    perPage: 1000,
+  });
   const seededTeacherIds = (allUsers?.users ?? [])
     .filter((u) => u.user_metadata?.seeded_teacher === true)
     .map((u) => u.id);
@@ -320,7 +344,7 @@ export async function resetTestEnvironment(service: SupabaseClient): Promise<Res
 
 async function wipeOneTestAy(
   service: SupabaseClient,
-  target: AyRow,
+  target: AyRow
 ): Promise<{ deleted: ResetResult['deleted']; rpcSummary: unknown }> {
   const ayId = target.id;
   const ayCode = target.ay_code;
@@ -331,14 +355,16 @@ async function wipeOneTestAy(
     service.from('sections').select('id').eq('academic_year_id', ayId),
   ]);
   const termIds = ((termRows ?? []) as Array<{ id: string }>).map((r) => r.id);
-  const sectionIds = ((sectionRows ?? []) as Array<{ id: string }>).map((r) => r.id);
+  const sectionIds = ((sectionRows ?? []) as Array<{ id: string }>).map(
+    (r) => r.id
+  );
 
   const { data: sheetRows } = await (termIds.length > 0 || sectionIds.length > 0
     ? (() => {
         let q = service.from('grading_sheets').select('id');
         if (termIds.length > 0 && sectionIds.length > 0) {
           q = q.or(
-            `term_id.in.(${termIds.join(',')}),section_id.in.(${sectionIds.join(',')})`,
+            `term_id.in.(${termIds.join(',')}),section_id.in.(${sectionIds.join(',')})`
           );
         } else if (termIds.length > 0) {
           q = q.in('term_id', termIds);
@@ -348,7 +374,9 @@ async function wipeOneTestAy(
         return q;
       })()
     : Promise.resolve({ data: [] as Array<{ id: string }> }));
-  const sheetIds = ((sheetRows ?? []) as Array<{ id: string }>).map((r) => r.id);
+  const sheetIds = ((sheetRows ?? []) as Array<{ id: string }>).map(
+    (r) => r.id
+  );
 
   const deleted: ResetResult['deleted'] = {
     grade_entries: 0,
@@ -383,7 +411,7 @@ async function wipeOneTestAy(
     key: keyof ResetResult['deleted'],
     table: string,
     column: string,
-    ids: string[],
+    ids: string[]
   ): Promise<void> {
     if (ids.length === 0) return;
     let total = 0;
@@ -396,7 +424,7 @@ async function wipeOneTestAy(
       if (error) {
         console.error(
           `[reset] ${table}.${column} wipe failed (chunk ${i}..${i + slice.length}):`,
-          error.message,
+          error.message
         );
         return;
       }
@@ -408,8 +436,18 @@ async function wipeOneTestAy(
   // ---- Delete in reverse-dependency order ----
   // Sheet-scoped children first.
   if (sheetIds.length > 0) {
-    await wipe('grade_change_requests', 'grade_change_requests', 'grading_sheet_id', sheetIds);
-    await wipe('grade_audit_log', 'grade_audit_log', 'grading_sheet_id', sheetIds);
+    await wipe(
+      'grade_change_requests',
+      'grade_change_requests',
+      'grading_sheet_id',
+      sheetIds
+    );
+    await wipe(
+      'grade_audit_log',
+      'grade_audit_log',
+      'grading_sheet_id',
+      sheetIds
+    );
     await wipe('grade_entries', 'grade_entries', 'grading_sheet_id', sheetIds);
   }
 
@@ -419,25 +457,60 @@ async function wipeOneTestAy(
     await wipe('attendance_records', 'attendance_records', 'term_id', termIds);
     await wipe('school_calendar', 'school_calendar', 'term_id', termIds);
     await wipe('calendar_events', 'calendar_events', 'term_id', termIds);
-    await wipe('evaluation_writeups', 'evaluation_writeups', 'term_id', termIds);
-    await wipe('evaluation_subject_comments', 'evaluation_subject_comments', 'term_id', termIds);
+    await wipe(
+      'evaluation_writeups',
+      'evaluation_writeups',
+      'term_id',
+      termIds
+    );
+    await wipe(
+      'evaluation_subject_comments',
+      'evaluation_subject_comments',
+      'term_id',
+      termIds
+    );
     await wipe(
       'evaluation_checklist_responses',
       'evaluation_checklist_responses',
       'term_id',
-      termIds,
+      termIds
     );
-    await wipe('evaluation_ptc_feedback', 'evaluation_ptc_feedback', 'term_id', termIds);
-    await wipe('evaluation_checklist_items', 'evaluation_checklist_items', 'term_id', termIds);
+    await wipe(
+      'evaluation_ptc_feedback',
+      'evaluation_ptc_feedback',
+      'term_id',
+      termIds
+    );
+    await wipe(
+      'evaluation_checklist_items',
+      'evaluation_checklist_items',
+      'term_id',
+      termIds
+    );
     await wipe('evaluation_terms', 'evaluation_terms', 'term_id', termIds);
-    await wipe('report_card_publications', 'report_card_publications', 'term_id', termIds);
+    await wipe(
+      'report_card_publications',
+      'report_card_publications',
+      'term_id',
+      termIds
+    );
     await wipe('grading_sheets', 'grading_sheets', 'term_id', termIds);
   }
 
   // Section-scoped children.
   if (sectionIds.length > 0) {
-    await wipe('teacher_assignments', 'teacher_assignments', 'section_id', sectionIds);
-    await wipe('section_students', 'section_students', 'section_id', sectionIds);
+    await wipe(
+      'teacher_assignments',
+      'teacher_assignments',
+      'section_id',
+      sectionIds
+    );
+    await wipe(
+      'section_students',
+      'section_students',
+      'section_id',
+      sectionIds
+    );
   }
 
   // Seeded test students (TEST-% legacy format + H270% realistic format).
@@ -491,9 +564,12 @@ async function wipeOneTestAy(
   // Final: call the RPC. With all children cleared, its guards pass and
   // it drops the ay{YY}_* tables + removes subject_configs, sections,
   // terms, academic_years rows atomically.
-  const { data: rpcResult, error: rpcErr } = await service.rpc('delete_academic_year', {
-    p_ay_code: ayCode,
-  });
+  const { data: rpcResult, error: rpcErr } = await service.rpc(
+    'delete_academic_year',
+    {
+      p_ay_code: ayCode,
+    }
+  );
   if (rpcErr) {
     throw new Error(`delete_academic_year RPC failed: ${rpcErr.message}`);
   }

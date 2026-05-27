@@ -16,10 +16,7 @@ import {
   type LevelCode,
 } from '@/lib/sis/levels';
 import { invalidateAllOperationalDrills } from '@/lib/cache/invalidate-drill-tags';
-import {
-  DOCUMENT_SLOTS,
-  OPTIONAL_DOCUMENT_SLOT_KEYS,
-} from '@/lib/sis/queries';
+import { DOCUMENT_SLOTS, OPTIONAL_DOCUMENT_SLOT_KEYS } from '@/lib/sis/queries';
 import { fetchAllPages } from '@/lib/supabase/paginate';
 
 import { pickNames } from './names';
@@ -59,22 +56,24 @@ export type PopulatedSeedResult = {
 // for cleanup via `user_metadata.seeded_teacher = true`.
 
 export const TEST_TEACHERS = [
-  { email: 'sarah.chen@demo.com',      displayName: 'Sarah Chen' },
-  { email: 'michael.santos@demo.com',  displayName: 'Michael Santos' },
-  { email: 'priya.nair@demo.com',      displayName: 'Priya Nair' },
-  { email: 'james.tan@demo.com',       displayName: 'James Tan' },
+  { email: 'sarah.chen@demo.com', displayName: 'Sarah Chen' },
+  { email: 'michael.santos@demo.com', displayName: 'Michael Santos' },
+  { email: 'priya.nair@demo.com', displayName: 'Priya Nair' },
+  { email: 'james.tan@demo.com', displayName: 'James Tan' },
   { email: 'emily.rodriguez@demo.com', displayName: 'Emily Rodriguez' },
-  { email: 'david.kim@demo.com',       displayName: 'David Kim' },
-  { email: 'anne.deleon@demo.com',     displayName: 'Anne De Leon' },
+  { email: 'david.kim@demo.com', displayName: 'David Kim' },
+  { email: 'anne.deleon@demo.com', displayName: 'Anne De Leon' },
   { email: 'robert.williams@demo.com', displayName: 'Robert Williams' },
-  { email: 'maria.cruz@demo.com',      displayName: 'Maria Cruz' },
-  { email: 'kevin.lim@demo.com',       displayName: 'Kevin Lim' },
+  { email: 'maria.cruz@demo.com', displayName: 'Maria Cruz' },
+  { email: 'kevin.lim@demo.com', displayName: 'Kevin Lim' },
 ] as const;
 
 export const TEST_TEACHER_PASSWORD = 'demo-2026!Teacher';
 
 async function seedTestTeachers(service: SupabaseClient): Promise<number> {
-  const { data: existingUsers } = await service.auth.admin.listUsers({ perPage: 1000 });
+  const { data: existingUsers } = await service.auth.admin.listUsers({
+    perPage: 1000,
+  });
   const existingByEmail = new Map<string, string>();
   for (const u of existingUsers?.users ?? []) {
     if (u.email) existingByEmail.set(u.email.toLowerCase(), u.id);
@@ -90,7 +89,10 @@ async function seedTestTeachers(service: SupabaseClient): Promise<number> {
       user_metadata: { display_name: t.displayName, seeded_teacher: true },
     });
     if (error) {
-      console.error(`[populated seeder] teacher create failed for ${t.email}:`, error.message);
+      console.error(
+        `[populated seeder] teacher create failed for ${t.email}:`,
+        error.message
+      );
       continue;
     }
     created++;
@@ -114,7 +116,7 @@ export type SeedPopulatedOptions = {
 export async function seedPopulated(
   service: SupabaseClient,
   testAy: { id: string; ay_code: string },
-  options: SeedPopulatedOptions = {},
+  options: SeedPopulatedOptions = {}
 ): Promise<PopulatedSeedResult> {
   const { allTermsFull = false } = options;
   const result: PopulatedSeedResult = {
@@ -135,7 +137,11 @@ export async function seedPopulated(
   };
 
   // ---- 1. Grade entries ----
-  result.grade_entries_inserted = await seedGradeEntries(service, testAy, allTermsFull);
+  result.grade_entries_inserted = await seedGradeEntries(
+    service,
+    testAy,
+    allTermsFull
+  );
 
   // Lock the appropriate set of grading sheets. Active-AY (default): only
   // T1 is locked, T2 stays unlocked so the registrar can demo entry edits
@@ -165,7 +171,7 @@ export async function seedPopulated(
       if (error) {
         console.error(
           `[populated seeder] T${term.term_number} lock pass failed:`,
-          error.message,
+          error.message
         );
       }
     }
@@ -188,14 +194,14 @@ export async function seedPopulated(
   result.evaluation_writeups_inserted = await seedEvaluationWriteups(
     service,
     testAy,
-    allTermsFull,
+    allTermsFull
   );
 
   // ---- 5. Enrolled-stage admissions rows (Records/Admissions detail pages
   //        need these to resolve for the seeded TEST-% students) ----
   result.enrolled_applications_inserted = await seedEnrolledAdmissionsRows(
     service,
-    testAy,
+    testAy
   );
 
   // ---- 6. Admissions pre-enrolment funnel (non-enrolled stages) ----
@@ -239,17 +245,22 @@ export async function seedPopulated(
 async function seedGradeEntries(
   service: SupabaseClient,
   testAy: { id: string; ay_code: string },
-  allTermsFull: boolean,
+  allTermsFull: boolean
 ): Promise<number> {
   // Skip if any grade_entries already exist for this AY's sheets.
   const { data: sheetIds } = await service
     .from('grading_sheets')
-    .select('id, term_id, section_id, subject_config_id, ww_totals, pt_totals, qa_total')
+    .select(
+      'id, term_id, section_id, subject_config_id, ww_totals, pt_totals, qa_total'
+    )
     .in(
       'term_id',
       (
-        await service.from('terms').select('id').eq('academic_year_id', testAy.id)
-      ).data?.map((r) => (r as { id: string }).id) ?? [],
+        await service
+          .from('terms')
+          .select('id')
+          .eq('academic_year_id', testAy.id)
+      ).data?.map((r) => (r as { id: string }).id) ?? []
     );
   const sheets = (sheetIds ?? []) as Array<{
     id: string;
@@ -289,14 +300,14 @@ async function seedGradeEntries(
   // Active-AY: T1 full + T2 partial. Closed-AY: T1-T4 all full so the
   // Masterfile awards + T4 report card General Average compute (KD #95).
   const targetTermIds = allTermsFull
-    ? [t1, t2, t3, t4].filter((t): t is NonNullable<typeof t> => !!t).map((t) => t.id)
+    ? [t1, t2, t3, t4]
+        .filter((t): t is NonNullable<typeof t> => !!t)
+        .map((t) => t.id)
     : t2
       ? [t1.id, t2.id]
       : [t1.id];
   const fullTermIds = new Set(
-    allTermsFull
-      ? targetTermIds
-      : [t1.id], // active-AY: only T1 is "full"; T2 is the partial term
+    allTermsFull ? targetTermIds : [t1.id] // active-AY: only T1 is "full"; T2 is the partial term
   );
   const targetSheets = sheets.filter((s) => targetTermIds.includes(s.term_id));
 
@@ -306,14 +317,20 @@ async function seedGradeEntries(
     .from('section_students')
     .select('id, section_id, student_id')
     .in('section_id', sectionIds);
-  const enrolmentsBySection = new Map<string, Array<{ id: string; student_id: string }>>();
+  const enrolmentsBySection = new Map<
+    string,
+    Array<{ id: string; student_id: string }>
+  >();
   for (const e of (enrolments ?? []) as Array<{
     id: string;
     section_id: string;
     student_id: string;
   }>) {
-    if (!enrolmentsBySection.has(e.section_id)) enrolmentsBySection.set(e.section_id, []);
-    enrolmentsBySection.get(e.section_id)!.push({ id: e.id, student_id: e.student_id });
+    if (!enrolmentsBySection.has(e.section_id))
+      enrolmentsBySection.set(e.section_id, []);
+    enrolmentsBySection
+      .get(e.section_id)!
+      .push({ id: e.id, student_id: e.student_id });
   }
 
   // Pull weights per subject_config_id (needed for computeQuarterly).
@@ -323,12 +340,14 @@ async function seedGradeEntries(
     .select('id, ww_weight, pt_weight, qa_weight')
     .in('id', configIds);
   const configById = new Map(
-    ((cfgs ?? []) as Array<{
-      id: string;
-      ww_weight: number;
-      pt_weight: number;
-      qa_weight: number;
-    }>).map((c) => [c.id, c]),
+    (
+      (cfgs ?? []) as Array<{
+        id: string;
+        ww_weight: number;
+        pt_weight: number;
+        qa_weight: number;
+      }>
+    ).map((c) => [c.id, c])
   );
 
   type InsertRow = {
@@ -371,10 +390,13 @@ async function seedGradeEntries(
     if (cached != null) return cached;
     const r = rand();
     let baseline: number;
-    if (r < 0.25) baseline = 0.92 + rand() * 0.08;        // 92-100%
-    else if (r < 0.55) baseline = 0.85 + rand() * 0.07;   // 85-92%
-    else if (r < 0.85) baseline = 0.80 + rand() * 0.05;   // 80-85%
-    else baseline = 0.65 + rand() * 0.15;                 // 65-80%
+    if (r < 0.25)
+      baseline = 0.92 + rand() * 0.08; // 92-100%
+    else if (r < 0.55)
+      baseline = 0.85 + rand() * 0.07; // 85-92%
+    else if (r < 0.85)
+      baseline = 0.8 + rand() * 0.05; // 80-85%
+    else baseline = 0.65 + rand() * 0.15; // 65-80%
     studentQuality.set(studentId, baseline);
     return baseline;
   };
@@ -401,7 +423,8 @@ async function seedGradeEntries(
     if (!term?.start_date) return new Date().toISOString();
     const startMs = new Date(`${term.start_date}T00:00:00+08:00`).getTime();
     const isFull = fullTermIds.has(termId);
-    const upperIso = isFull && term.end_date ? `${term.end_date}T23:59:59+08:00` : null;
+    const upperIso =
+      isFull && term.end_date ? `${term.end_date}T23:59:59+08:00` : null;
     const upperMs = upperIso ? new Date(upperIso).getTime() : todayMs;
     if (upperMs <= startMs) return new Date().toISOString();
     const ms = startMs + Math.floor(rand() * (upperMs - startMs));
@@ -413,9 +436,12 @@ async function seedGradeEntries(
     const cfg = configById.get(sheet.subject_config_id);
     if (!cfg) continue;
 
-    const ww_totals = (sheet.ww_totals ?? [10, 10]).length > 0 ? sheet.ww_totals! : [10, 10];
+    const ww_totals =
+      (sheet.ww_totals ?? [10, 10]).length > 0 ? sheet.ww_totals! : [10, 10];
     const pt_totals =
-      (sheet.pt_totals ?? [10, 10, 10]).length > 0 ? sheet.pt_totals! : [10, 10, 10];
+      (sheet.pt_totals ?? [10, 10, 10]).length > 0
+        ? sheet.pt_totals!
+        : [10, 10, 10];
     const qa_total = sheet.qa_total ?? 30;
 
     const isFullTerm = fullTermIds.has(sheet.term_id);
@@ -533,7 +559,7 @@ async function seedGradeEntries(
 async function seedAttendanceSummary(
   service: SupabaseClient,
   testAy: { id: string; ay_code: string },
-  allTermsFull: boolean,
+  allTermsFull: boolean
 ): Promise<{ daily: number; rollups: number }> {
   const targetTermNumbers = allTermsFull ? [1, 2, 3, 4] : [1, 2];
   const { data: termRows } = await service
@@ -567,9 +593,13 @@ async function seedAttendanceSummary(
     .from('section_students')
     .select('id')
     .in('section_id', sectionIds);
-  const enrolList = ((enrolments ?? []) as Array<{ id: string }>).map((e) => e.id);
+  const enrolList = ((enrolments ?? []) as Array<{ id: string }>).map(
+    (e) => e.id
+  );
   if (enrolList.length === 0) {
-    console.warn('[populated seeder] attendance: no enrolments in test AY — skipping');
+    console.warn(
+      '[populated seeder] attendance: no enrolments in test AY — skipping'
+    );
     return { daily: 0, rollups: 0 };
   }
 
@@ -609,12 +639,12 @@ async function seedAttendanceSummary(
       .eq('term_id', term.id)
       .in('day_type', ['school_day', 'hbl'])
       .order('date');
-    let schoolDays = ((calendarRows ?? []) as Array<{ date: string; day_type: string }>).map(
-      (r) => r.date,
-    );
+    let schoolDays = (
+      (calendarRows ?? []) as Array<{ date: string; day_type: string }>
+    ).map((r) => r.date);
     if (schoolDays.length === 0) {
       console.warn(
-        `[populated seeder] attendance: no encodable school days in T${term.term_number} — skipping`,
+        `[populated seeder] attendance: no encodable school days in T${term.term_number} — skipping`
       );
       continue;
     }
@@ -673,13 +703,13 @@ async function seedAttendanceSummary(
         .from('attendance_daily')
         .select('section_student_id, date')
         .eq('term_id', term.id)
-        .range(from, to),
+        .range(from, to)
     );
     const existingTuples = new Set(
-      existingDailyRows.map((r) => `${r.section_student_id}|${r.date}`),
+      existingDailyRows.map((r) => `${r.section_student_id}|${r.date}`)
     );
     const rows = allRows.filter(
-      (r) => !existingTuples.has(`${r.section_student_id}|${r.date}`),
+      (r) => !existingTuples.has(`${r.section_student_id}|${r.date}`)
     );
 
     const CHUNK = 500;
@@ -689,7 +719,7 @@ async function seedAttendanceSummary(
       if (error) {
         console.error(
           `[populated seeder] attendance_daily T${term.term_number} insert failed:`,
-          error.message,
+          error.message
         );
         continue;
       }
@@ -707,7 +737,7 @@ async function seedAttendanceSummary(
       if (error) {
         console.error(
           `[populated seeder] rollup RPC failed for T${term.term_number} ${enrolmentId}:`,
-          error.message,
+          error.message
         );
         continue;
       }
@@ -726,7 +756,7 @@ async function seedAttendanceSummary(
 async function seedEvaluationWriteups(
   service: SupabaseClient,
   testAy: { id: string; ay_code: string },
-  allTermsFull: boolean,
+  allTermsFull: boolean
 ): Promise<number> {
   const targetTermNumbers = allTermsFull ? [1, 2, 3] : [1, 2];
   const { data: termRows } = await service
@@ -780,7 +810,9 @@ async function seedEvaluationWriteups(
       ? `${t1.end_date}T17:00:00+08:00`
       : new Date().toISOString();
   // T2 "submitted recently" timestamp: today − 7 days.
-  const t2SubmittedAt = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const t2SubmittedAt = new Date(
+    Date.now() - 7 * 24 * 60 * 60 * 1000
+  ).toISOString();
 
   for (const sectionId of sectionIds) {
     // T1 — 5 submitted writeups per section (end-of-term snapshot).
@@ -840,10 +872,9 @@ async function seedEvaluationWriteups(
         .eq('section_id', sectionId)
         .limit(5);
       const students = (enrolments ?? []) as Array<{ student_id: string }>;
-      const t3EndStamp =
-        t3.end_date
-          ? `${t3.end_date}T17:00:00+08:00`
-          : new Date().toISOString();
+      const t3EndStamp = t3.end_date
+        ? `${t3.end_date}T17:00:00+08:00`
+        : new Date().toISOString();
       for (const s of students) {
         const tmpl = TEMPLATES[Math.floor(rand() * TEMPLATES.length)];
         writeupRows.push({
@@ -901,7 +932,7 @@ function stageProgressionFor(
     | 'processing'
     | 'cancelled'
     | 'withdrawn-pre-enrolment',
-  rand: () => number,
+  rand: () => number
 ): StageProgression & { ungatedToEnroll: boolean } {
   switch (profile) {
     case 'submitted':
@@ -1018,19 +1049,31 @@ const FUNNEL_PROFILES: ReadonlyArray<{
     | 'withdrawn-pre-enrolment';
 }> = [
   { applicationStatus: 'Submitted', count: 8, stageProfile: 'submitted' },
-  { applicationStatus: 'Ongoing Verification', count: 8, stageProfile: 'ongoing-verification' },
+  {
+    applicationStatus: 'Ongoing Verification',
+    count: 8,
+    stageProfile: 'ongoing-verification',
+  },
   { applicationStatus: 'Processing', count: 12, stageProfile: 'processing' },
   { applicationStatus: 'Cancelled', count: 3, stageProfile: 'cancelled' },
-  { applicationStatus: 'Withdrawn', count: 2, stageProfile: 'withdrawn-pre-enrolment' },
+  {
+    applicationStatus: 'Withdrawn',
+    count: 2,
+    stageProfile: 'withdrawn-pre-enrolment',
+  },
 ];
 
 // 4-value enum mirrored across the apps row's `category` and the status row's
 // `enroleeType`. They always agree. Distribution: ~70% Current (returning),
 // ~25% New (first-time), ~3% VizSchool Current, ~2% VizSchool New.
-type EnroleeCategoryValue = 'New' | 'Current' | 'VizSchool New' | 'VizSchool Current';
+type EnroleeCategoryValue =
+  | 'New'
+  | 'Current'
+  | 'VizSchool New'
+  | 'VizSchool Current';
 function pickEnroleeCategory(rand: () => number): EnroleeCategoryValue {
   const r = rand();
-  if (r < 0.70) return 'Current';
+  if (r < 0.7) return 'Current';
   if (r < 0.95) return 'New';
   if (r < 0.98) return 'VizSchool Current';
   return 'VizSchool New';
@@ -1049,7 +1092,13 @@ const RELIGIONS = [
   'No Religion',
 ] as const;
 
-const PRIMARY_LANGUAGES = ['English', 'Filipino', 'Mandarin Chinese', 'Tamil', 'Hindi'] as const;
+const PRIMARY_LANGUAGES = [
+  'English',
+  'Filipino',
+  'Mandarin Chinese',
+  'Tamil',
+  'Hindi',
+] as const;
 
 // Singapore residential addresses — realistic district spread.
 const SG_ADDRESSES = [
@@ -1073,9 +1122,9 @@ const SG_ADDRESSES = [
 const PREVIOUS_SCHOOLS = [
   'Nanyang Primary School',
   'Anglo-Chinese School (Primary)',
-  'St. Joseph\'s Institution Junior',
-  'Raffles Girls\' Primary School',
-  'Methodist Girls\' School (Primary)',
+  "St. Joseph's Institution Junior",
+  "Raffles Girls' Primary School",
+  "Methodist Girls' School (Primary)",
   'CHIJ Our Lady of Good Counsel',
   'Maha Bodhi School',
   'Fairfield Methodist School (Primary)',
@@ -1128,10 +1177,20 @@ const OTHER_CONDITIONS = [
 const STUDENT_NATIONALITY_BY_PASS: Record<string, string[]> = {
   'Singapore PR': ['Singaporean', 'Filipino', 'Indian', 'Chinese'],
   'S-PASS': ['Filipino', 'Indian', 'British', 'Australian', 'American'],
-  'Dependent Pass': ['Indian', 'British', 'American', 'Korean', 'Japanese', 'Indonesian'],
+  'Dependent Pass': [
+    'Indian',
+    'British',
+    'American',
+    'Korean',
+    'Japanese',
+    'Indonesian',
+  ],
 };
 
-function pickStudentNationality(rand: () => number, passType: string | null): string {
+function pickStudentNationality(
+  rand: () => number,
+  passType: string | null
+): string {
   if (!passType) return 'Singaporean';
   const pool = STUDENT_NATIONALITY_BY_PASS[passType];
   if (!pool) return 'Filipino';
@@ -1144,9 +1203,17 @@ function birthYearRangeForLevel(levelLabel: string): [number, number] {
   const year = 2026;
   if (/youngstarters/i.test(levelLabel)) return [year - 6, year - 3];
   const pMatch = levelLabel.match(/Primary\s+(\d)/i);
-  if (pMatch) { const g = parseInt(pMatch[1], 10); const age = 5 + g; return [year - age - 1, year - age]; }
+  if (pMatch) {
+    const g = parseInt(pMatch[1], 10);
+    const age = 5 + g;
+    return [year - age - 1, year - age];
+  }
   const sMatch = levelLabel.match(/Secondary\s+(\d)/i);
-  if (sMatch) { const g = parseInt(sMatch[1], 10); const age = 11 + g; return [year - age - 1, year - age]; }
+  if (sMatch) {
+    const g = parseInt(sMatch[1], 10);
+    const age = 11 + g;
+    return [year - age - 1, year - age];
+  }
   if (/cambridge/i.test(levelLabel)) return [year - 14, year - 12];
   return [year - 12, year - 6];
 }
@@ -1156,7 +1223,7 @@ function birthYearRangeForLevel(levelLabel: string): [number, number] {
 function buildStudentDemographics(
   rand: () => number,
   levelLabel: string,
-  passType: string | null,
+  passType: string | null
 ): Record<string, unknown> {
   const gender = GENDERS[Math.floor(rand() * GENDERS.length)];
   const [byMin, byMax] = birthYearRangeForLevel(levelLabel);
@@ -1166,12 +1233,22 @@ function buildStudentDemographics(
   const birthDayIso = `${birthYear}-${String(birthMonth).padStart(2, '0')}-${String(birthDay).padStart(2, '0')}`;
   const nationality = pickStudentNationality(rand, passType);
   const religion = RELIGIONS[Math.floor(rand() * RELIGIONS.length)];
-  const primaryLanguage = PRIMARY_LANGUAGES[Math.floor(rand() * PRIMARY_LANGUAGES.length)];
+  const primaryLanguage =
+    PRIMARY_LANGUAGES[Math.floor(rand() * PRIMARY_LANGUAGES.length)];
   const addr = SG_ADDRESSES[Math.floor(rand() * SG_ADDRESSES.length)];
   const homePhone = 60000000 + Math.floor(rand() * 9999999);
-  const livingWith = rand() < 0.70 ? 'Both Parents' : rand() < 0.60 ? 'Mother' : rand() < 0.50 ? 'Father' : 'Guardian';
-  const maritalStatus = rand() < 0.75 ? 'Married' : rand() < 0.60 ? 'Divorced' : 'Single';
-  const previousSchool = PREVIOUS_SCHOOLS[Math.floor(rand() * PREVIOUS_SCHOOLS.length)];
+  const livingWith =
+    rand() < 0.7
+      ? 'Both Parents'
+      : rand() < 0.6
+        ? 'Mother'
+        : rand() < 0.5
+          ? 'Father'
+          : 'Guardian';
+  const maritalStatus =
+    rand() < 0.75 ? 'Married' : rand() < 0.6 ? 'Divorced' : 'Single';
+  const previousSchool =
+    PREVIOUS_SCHOOLS[Math.floor(rand() * PREVIOUS_SCHOOLS.length)];
   const hasLearningNeeds = rand() < 0.08;
   const additionalLearningNeeds = hasLearningNeeds ? 'Yes' : 'No';
   const otherLearningNeeds = hasLearningNeeds
@@ -1206,9 +1283,9 @@ function buildStudentDemographics(
     previousSchool,
     additionalLearningNeeds,
     otherLearningNeeds,
-    motherWhatsappTeamsConsent: rand() < 0.80,
-    fatherWhatsappTeamsConsent: rand() < 0.80,
-    guardianWhatsappTeamsConsent: rand() < 0.70,
+    motherWhatsappTeamsConsent: rand() < 0.8,
+    fatherWhatsappTeamsConsent: rand() < 0.8,
+    guardianWhatsappTeamsConsent: rand() < 0.7,
     ...(nric ? { nric } : {}),
     passportNumber,
     passportExpiry,
@@ -1226,7 +1303,7 @@ function buildMedicalData(rand: () => number): Record<string, unknown> {
   const hasEpilepsy = rand() < 0.005;
   const hasHeartConditions = rand() < 0.01;
   const hasOtherConditions = rand() < 0.05;
-  const hasDietaryRestrictions = rand() < 0.10;
+  const hasDietaryRestrictions = rand() < 0.1;
 
   const paracetamolRoll = rand();
   const paracetamolConsent =
@@ -1394,7 +1471,11 @@ function fakeSgNric(rand: () => number): string {
 }
 
 // Generates an ISO date N years from today (inclusive of a 0–11 month jitter).
-function isoFutureDate(rand: () => number, minYears: number, maxYears: number): string {
+function isoFutureDate(
+  rand: () => number,
+  minYears: number,
+  maxYears: number
+): string {
   const years = minYears + Math.floor(rand() * (maxYears - minYears + 1));
   const months = Math.floor(rand() * 12);
   const d = new Date(Date.now());
@@ -1404,7 +1485,11 @@ function isoFutureDate(rand: () => number, minYears: number, maxYears: number): 
 
 // Pass types realistic for parents of foreign students at an international school.
 // Displayed on the P-Files parent-document cards via meta.numberCol = 'motherPass' etc.
-const PARENT_PASS_TYPES = ['Employment Pass', 'S-PASS', 'Dependent Pass'] as const;
+const PARENT_PASS_TYPES = [
+  'Employment Pass',
+  'S-PASS',
+  'Dependent Pass',
+] as const;
 
 // Builds parent + guardian columns for an apps row. Mother is always
 // present (KD #69 anchor parent). Father is present in ~85% of rows;
@@ -1419,19 +1504,22 @@ const PARENT_PASS_TYPES = ['Employment Pass', 'S-PASS', 'Dependent Pass'] as con
 function buildParentFields(
   rand: () => number,
   studentLastName: string | null,
-  passType: string | null,
+  passType: string | null
 ): Record<string, unknown> {
   const lastName = studentLastName?.trim() ? studentLastName : 'Doe';
-  const motherFirst = MOTHER_FIRST_NAMES[Math.floor(rand() * MOTHER_FIRST_NAMES.length)];
-  const fatherFirst = FATHER_FIRST_NAMES[Math.floor(rand() * FATHER_FIRST_NAMES.length)];
-  const nationality = (passType && NATIONALITY_BY_PASS[passType]) ?? FALLBACK_NATIONALITY;
+  const motherFirst =
+    MOTHER_FIRST_NAMES[Math.floor(rand() * MOTHER_FIRST_NAMES.length)];
+  const fatherFirst =
+    FATHER_FIRST_NAMES[Math.floor(rand() * FATHER_FIRST_NAMES.length)];
+  const nationality =
+    (passType && NATIONALITY_BY_PASS[passType]) ?? FALLBACK_NATIONALITY;
 
   // Parent pass type mirrors student's foreign-residency context. Singaporean
   // families (passType null) typically don't hold work passes; PR families may.
   const parentNeedsPass = passType !== null && passType !== 'Singapore PR';
 
   const hasFather = rand() < 0.85;
-  const hasGuardian = !hasFather && rand() < 0.80;
+  const hasGuardian = !hasFather && rand() < 0.8;
 
   // Generates document details for one parent (passport always; pass when foreign).
   const parentDocFields = (prefix: string): Record<string, unknown> => {
@@ -1440,7 +1528,8 @@ function buildParentFields(
       [`${prefix}PassportExpiry`]: isoFutureDate(rand, 5, 10),
     };
     if (parentNeedsPass) {
-      doc[`${prefix}Pass`] = PARENT_PASS_TYPES[Math.floor(rand() * PARENT_PASS_TYPES.length)];
+      doc[`${prefix}Pass`] =
+        PARENT_PASS_TYPES[Math.floor(rand() * PARENT_PASS_TYPES.length)];
       doc[`${prefix}PassExpiry`] = isoFutureDate(rand, 1, 3);
     }
     return doc;
@@ -1467,8 +1556,10 @@ function buildParentFields(
   }
 
   if (hasGuardian) {
-    const gFirst = GUARDIAN_FIRST_NAMES[Math.floor(rand() * GUARDIAN_FIRST_NAMES.length)];
-    const gLast = GUARDIAN_LAST_NAMES[Math.floor(rand() * GUARDIAN_LAST_NAMES.length)];
+    const gFirst =
+      GUARDIAN_FIRST_NAMES[Math.floor(rand() * GUARDIAN_FIRST_NAMES.length)];
+    const gLast =
+      GUARDIAN_LAST_NAMES[Math.floor(rand() * GUARDIAN_LAST_NAMES.length)];
     fields.guardianFirstName = gFirst;
     fields.guardianLastName = gLast;
     fields.guardianFullName = `${gFirst} ${gLast}`;
@@ -1499,7 +1590,7 @@ function pickFunnelLevelCode(rand: () => number): LevelCode {
   // Primary + standard Secondary share the remaining ~91%. Pick uniformly
   // across all P1-S4 codes (10 of them).
   const main = LEVEL_CODES.filter(
-    (c) => LEVEL_TYPE_BY_CODE[c] !== 'preschool' && c !== 'CS1' && c !== 'CS2',
+    (c) => LEVEL_TYPE_BY_CODE[c] !== 'preschool' && c !== 'CS1' && c !== 'CS2'
   );
   return main[Math.floor(rand() * main.length)];
 }
@@ -1513,7 +1604,7 @@ function pickFunnelLevelCode(rand: () => number): LevelCode {
 // Skips when any non-Enrolled rows already exist.
 async function seedAdmissionsFunnel(
   service: SupabaseClient,
-  testAy: { id: string; ay_code: string },
+  testAy: { id: string; ay_code: string }
 ): Promise<number> {
   const prefix = prefixFor(testAy.ay_code);
   const appsTable = `${prefix}_enrolment_applications`;
@@ -1552,13 +1643,14 @@ async function seedAdmissionsFunnel(
       // Dates spread back ~60 days for outdated-applications demo.
       const daysBack = Math.floor(rand() * 60);
       const dateIso = new Date(
-        Date.now() - daysBack * 24 * 60 * 60 * 1000,
+        Date.now() - daysBack * 24 * 60 * 60 * 1000
       ).toISOString();
 
       const stageFill = stageProgressionFor(profile.stageProfile, rand);
       const category = pickEnroleeCategory(rand);
       const classType = CLASS_TYPES[Math.floor(rand() * CLASS_TYPES.length)];
-      const paymentOption = PAYMENT_OPTIONS[Math.floor(rand() * PAYMENT_OPTIONS.length)];
+      const paymentOption =
+        PAYMENT_OPTIONS[Math.floor(rand() * PAYMENT_OPTIONS.length)];
       const contractSignatory =
         CONTRACT_SIGNATORIES[Math.floor(rand() * CONTRACT_SIGNATORIES.length)];
       const passType = PASS_TYPES[Math.floor(rand() * PASS_TYPES.length)];
@@ -1647,7 +1739,7 @@ async function seedAdmissionsFunnel(
       if (stageFill.feeStatus === 'Paid') {
         const payDaysBack = Math.floor(rand() * 14);
         statusRow.feePaymentDate = new Date(
-          Date.now() - payDaysBack * 24 * 60 * 60 * 1000,
+          Date.now() - payDaysBack * 24 * 60 * 60 * 1000
         )
           .toISOString()
           .slice(0, 10);
@@ -1662,32 +1754,44 @@ async function seedAdmissionsFunnel(
   // as "this funnel row was already seeded".
   const existingApps = await fetchAllPages<{ enroleeNumber: string | null }>(
     (from, to) =>
-      service.from(appsTable).select('enroleeNumber').range(from, to),
+      service.from(appsTable).select('enroleeNumber').range(from, to)
   );
   const existingStatus = await fetchAllPages<{ enroleeNumber: string | null }>(
     (from, to) =>
-      service.from(statusTable).select('enroleeNumber').range(from, to),
+      service.from(statusTable).select('enroleeNumber').range(from, to)
   );
   const existingNums = new Set<string>([
     ...existingApps.map((r) => r.enroleeNumber).filter((n): n is string => !!n),
-    ...existingStatus.map((r) => r.enroleeNumber).filter((n): n is string => !!n),
+    ...existingStatus
+      .map((r) => r.enroleeNumber)
+      .filter((n): n is string => !!n),
   ]);
   const appRowsToInsert = appRows.filter(
-    (r) => !existingNums.has(String(r.enroleeNumber)),
+    (r) => !existingNums.has(String(r.enroleeNumber))
   );
   const statusRowsToInsert = statusRows.filter(
-    (r) => !existingNums.has(String(r.enroleeNumber)),
+    (r) => !existingNums.has(String(r.enroleeNumber))
   );
   if (appRowsToInsert.length === 0) return 0;
 
-  const { error: appsErr } = await service.from(appsTable).insert(appRowsToInsert);
+  const { error: appsErr } = await service
+    .from(appsTable)
+    .insert(appRowsToInsert);
   if (appsErr) {
-    console.error('[populated seeder] admissions apps insert failed:', appsErr.message);
+    console.error(
+      '[populated seeder] admissions apps insert failed:',
+      appsErr.message
+    );
     return 0;
   }
-  const { error: statusErr } = await service.from(statusTable).insert(statusRowsToInsert);
+  const { error: statusErr } = await service
+    .from(statusTable)
+    .insert(statusRowsToInsert);
   if (statusErr) {
-    console.error('[populated seeder] admissions status insert failed:', statusErr.message);
+    console.error(
+      '[populated seeder] admissions status insert failed:',
+      statusErr.message
+    );
   }
   return appRowsToInsert.length;
 }
@@ -1698,7 +1802,7 @@ async function seedAdmissionsFunnel(
 // Code naming convention is AY-prefixed: AY99 = AY9999 test environment.
 async function seedDiscountCodes(
   service: SupabaseClient,
-  testAy: { id: string; ay_code: string },
+  testAy: { id: string; ay_code: string }
 ): Promise<number> {
   const prefix = prefixFor(testAy.ay_code);
   const table = `${prefix}_discount_codes`;
@@ -1710,7 +1814,7 @@ async function seedDiscountCodes(
   const existingCodes = new Set(
     ((existingRows ?? []) as Array<{ discountCode: string | null }>)
       .map((r) => r.discountCode)
-      .filter((c): c is string => !!c),
+      .filter((c): c is string => !!c)
   );
 
   const today = new Date();
@@ -1776,7 +1880,10 @@ async function seedDiscountCodes(
 
   const { error } = await service.from(table).insert(rowsToInsert);
   if (error) {
-    console.error('[populated seeder] discount codes insert failed:', error.message);
+    console.error(
+      '[populated seeder] discount codes insert failed:',
+      error.message
+    );
     return 0;
   }
   return rowsToInsert.length;
@@ -1786,7 +1893,7 @@ async function seedDiscountCodes(
 // portal + publish-checklist have something to demo.
 async function seedPublication(
   service: SupabaseClient,
-  testAy: { id: string; ay_code: string },
+  testAy: { id: string; ay_code: string }
 ): Promise<number> {
   const { data: t1 } = await service
     .from('terms')
@@ -1821,11 +1928,14 @@ async function seedPublication(
         publish_until: until.toISOString(),
         published_by: 'test-seeder@hfse.edu.sg',
       },
-      { onConflict: 'section_id,term_id', ignoreDuplicates: true },
+      { onConflict: 'section_id,term_id', ignoreDuplicates: true }
     )
     .select('id');
   if (error) {
-    console.error('[populated seeder] publication insert failed:', error.message);
+    console.error(
+      '[populated seeder] publication insert failed:',
+      error.message
+    );
     return 0;
   }
   return data?.length ?? 0;
@@ -1837,14 +1947,17 @@ async function seedPublication(
 // is a single "any row already" count to keep the check cheap.
 async function seedTeacherAssignments(
   service: SupabaseClient,
-  testAy: { id: string; ay_code: string },
+  testAy: { id: string; ay_code: string }
 ): Promise<{ form_adviser: number; subject_teacher: number }> {
   // AY-scoped sections.
   const { data: sections } = await service
     .from('sections')
     .select('id, level_id')
     .eq('academic_year_id', testAy.id);
-  const sectionRows = ((sections ?? []) as Array<{ id: string; level_id: string }>);
+  const sectionRows = (sections ?? []) as Array<{
+    id: string;
+    level_id: string;
+  }>;
   if (sectionRows.length === 0) return { form_adviser: 0, subject_teacher: 0 };
 
   // Idempotent: pull every existing assignment for these sections so we
@@ -1857,7 +1970,7 @@ async function seedTeacherAssignments(
     .select('section_id, subject_id, role')
     .in(
       'section_id',
-      sectionRows.map((s) => s.id),
+      sectionRows.map((s) => s.id)
     );
   type ExistingAssign = {
     section_id: string;
@@ -1867,24 +1980,30 @@ async function seedTeacherAssignments(
   const existingFAs = new Set(
     ((existingAssigns ?? []) as ExistingAssign[])
       .filter((r) => r.role === 'form_adviser')
-      .map((r) => r.section_id),
+      .map((r) => r.section_id)
   );
   const existingSTs = new Set(
     ((existingAssigns ?? []) as ExistingAssign[])
       .filter((r) => r.role === 'subject_teacher' && r.subject_id)
-      .map((r) => `${r.section_id}|${r.subject_id}`),
+      .map((r) => `${r.section_id}|${r.subject_id}`)
   );
 
   // Pool of candidate users. Supabase JS `auth.admin.listUsers` returns
   // everyone including parents (role=null). Filter to staff roles.
-  const { data: userList, error: usersErr } = await service.auth.admin.listUsers({
-    perPage: 1000,
-  });
+  const { data: userList, error: usersErr } =
+    await service.auth.admin.listUsers({
+      perPage: 1000,
+    });
   if (usersErr) {
     console.error('[populated seeder] listUsers failed:', usersErr.message);
     return { form_adviser: 0, subject_teacher: 0 };
   }
-  const STAFF_ROLES = new Set(['teacher', 'registrar', 'school_admin', 'superadmin']);
+  const STAFF_ROLES = new Set([
+    'teacher',
+    'registrar',
+    'school_admin',
+    'superadmin',
+  ]);
   const staff = (userList?.users ?? [])
     .map((u) => ({
       id: u.id,
@@ -1901,7 +2020,7 @@ async function seedTeacherAssignments(
 
   if (pool.length === 0) {
     console.warn(
-      '[populated seeder] no staff users to assign — teacher flows will be empty',
+      '[populated seeder] no staff users to assign — teacher flows will be empty'
     );
     return { form_adviser: 0, subject_teacher: 0 };
   }
@@ -1922,7 +2041,10 @@ async function seedTeacherAssignments(
       .insert(faRows)
       .select('id');
     if (faErr) {
-      console.error('[populated seeder] form_adviser insert failed:', faErr.message);
+      console.error(
+        '[populated seeder] form_adviser insert failed:',
+        faErr.message
+      );
     }
     formAdviserCount = faInserted?.length ?? 0;
   }
@@ -1935,7 +2057,10 @@ async function seedTeacherAssignments(
     .select('subject_id, level_id')
     .eq('academic_year_id', testAy.id);
   const cfgByLevel = new Map<string, string[]>();
-  for (const c of (configs ?? []) as Array<{ subject_id: string; level_id: string }>) {
+  for (const c of (configs ?? []) as Array<{
+    subject_id: string;
+    level_id: string;
+  }>) {
     if (!cfgByLevel.has(c.level_id)) cfgByLevel.set(c.level_id, []);
     cfgByLevel.get(c.level_id)!.push(c.subject_id);
   }
@@ -1977,7 +2102,7 @@ async function seedTeacherAssignments(
       if (error) {
         console.error(
           `[populated seeder] subject_teacher insert failed (chunk ${i}..${i + slice.length}):`,
-          error.message,
+          error.message
         );
         continue;
       }
@@ -1985,7 +2110,10 @@ async function seedTeacherAssignments(
     }
   }
 
-  return { form_adviser: formAdviserCount, subject_teacher: subjectTeacherCount };
+  return {
+    form_adviser: formAdviserCount,
+    subject_teacher: subjectTeacherCount,
+  };
 }
 
 // For every TEST-% student in public.students, upserts a matching row in
@@ -1995,7 +2123,7 @@ async function seedTeacherAssignments(
 // those students resolve.
 async function seedEnrolledAdmissionsRows(
   service: SupabaseClient,
-  testAy: { id: string; ay_code: string },
+  testAy: { id: string; ay_code: string }
 ): Promise<number> {
   const prefix = prefixFor(testAy.ay_code);
   const appsTable = `${prefix}_enrolment_applications`;
@@ -2017,7 +2145,7 @@ async function seedEnrolledAdmissionsRows(
           academic_year_id,
           level:levels(code, label)
         )
-      `,
+      `
     )
     .like('student.student_number', 'TEST-%');
 
@@ -2043,12 +2171,18 @@ async function seedEnrolledAdmissionsRows(
       | {
           name: string;
           academic_year_id: string;
-          level: { code: string; label: string } | { code: string; label: string }[] | null;
+          level:
+            | { code: string; label: string }
+            | { code: string; label: string }[]
+            | null;
         }
       | {
           name: string;
           academic_year_id: string;
-          level: { code: string; label: string } | { code: string; label: string }[] | null;
+          level:
+            | { code: string; label: string }
+            | { code: string; label: string }[]
+            | null;
         }[]
       | null;
   };
@@ -2059,7 +2193,9 @@ async function seedEnrolledAdmissionsRows(
       const section = Array.isArray(r.section) ? r.section[0] : r.section;
       if (!student || !section) return null;
       if (section.academic_year_id !== testAy.id) return null;
-      const level = Array.isArray(section.level) ? section.level[0] : section.level;
+      const level = Array.isArray(section.level)
+        ? section.level[0]
+        : section.level;
       if (!level) return null;
       return {
         // Carried through so we can write the generated enroleeNumber back
@@ -2113,7 +2249,8 @@ async function seedEnrolledAdmissionsRows(
   // Withdrawn persona keeps prereqs at their last-known state (Finished) since
   // they enrolled before withdrawing.
   const personaStageFill = (i: number) => {
-    const isVerified = i >= VERIFIED_DOCS_RANGE.start && i < VERIFIED_DOCS_RANGE.end;
+    const isVerified =
+      i >= VERIFIED_DOCS_RANGE.start && i < VERIFIED_DOCS_RANGE.end;
     return {
       registrationStatus: 'Finished',
       documentStatus: isVerified ? 'Verified' : 'Finished',
@@ -2131,7 +2268,9 @@ async function seedEnrolledAdmissionsRows(
 
   // Deterministic per-AY rand for category / classType / pass / STP picks. Same
   // pattern as funnel — keeps re-runs stable.
-  const enrolledRand = mulberry32(hashString(`${testAy.ay_code}:enrolled-personas`));
+  const enrolledRand = mulberry32(
+    hashString(`${testAy.ay_code}:enrolled-personas`)
+  );
 
   // Spread `applicationUpdatedDate` across the current calendar month for
   // ~35% of enrolled rows so the Conversion Rate KPI's `thisMonth` range
@@ -2140,7 +2279,8 @@ async function seedEnrolledAdmissionsRows(
   const monthStartDay = 1;
   const monthMaxDay = now.getDate();
   const personaUpdatedDate = (i: number): string => {
-    if (i >= WITHDRAWN_RANGE.start && i < WITHDRAWN_RANGE.end) return thirtyDaysAgo;
+    if (i >= WITHDRAWN_RANGE.start && i < WITHDRAWN_RANGE.end)
+      return thirtyDaysAgo;
     if (enrolledRand() < 0.35) {
       const day = monthStartDay + Math.floor(enrolledRand() * monthMaxDay);
       return new Date(now.getFullYear(), now.getMonth(), day)
@@ -2169,13 +2309,16 @@ async function seedEnrolledAdmissionsRows(
   // mirror each other in production).
   const personaMeta = rows.map(() => {
     const category = pickEnroleeCategory(enrolledRand);
-    const classType = CLASS_TYPES[Math.floor(enrolledRand() * CLASS_TYPES.length)];
+    const classType =
+      CLASS_TYPES[Math.floor(enrolledRand() * CLASS_TYPES.length)];
     const paymentOption =
       PAYMENT_OPTIONS[Math.floor(enrolledRand() * PAYMENT_OPTIONS.length)];
     const contractSignatory =
-      CONTRACT_SIGNATORIES[Math.floor(enrolledRand() * CONTRACT_SIGNATORIES.length)];
+      CONTRACT_SIGNATORIES[
+        Math.floor(enrolledRand() * CONTRACT_SIGNATORIES.length)
+      ];
     const passType = PASS_TYPES[Math.floor(enrolledRand() * PASS_TYPES.length)];
-    const isStpApplicant = passType !== 'Singapore PR' && enrolledRand() < 0.20;
+    const isStpApplicant = passType !== 'Singapore PR' && enrolledRand() < 0.2;
     const availSchoolBus = YES_NO[Math.floor(enrolledRand() * YES_NO.length)];
     const availUniform = YES_NO[Math.floor(enrolledRand() * YES_NO.length)];
     const availStudentCare = YES_NO[Math.floor(enrolledRand() * YES_NO.length)];
@@ -2196,8 +2339,16 @@ async function seedEnrolledAdmissionsRows(
 
   const appInserts = rows.map((r, i) => {
     const m = personaMeta[i];
-    const parentFields = buildParentFields(enrolledRand, r.lastName, m.passType);
-    const demographics = buildStudentDemographics(enrolledRand, r.levelLabel, m.passType);
+    const parentFields = buildParentFields(
+      enrolledRand,
+      r.lastName,
+      m.passType
+    );
+    const demographics = buildStudentDemographics(
+      enrolledRand,
+      r.levelLabel,
+      m.passType
+    );
     const medical = buildMedicalData(enrolledRand);
     return {
       enroleeNumber: `${upperPrefix}-ENR-${String(i + 1).padStart(4, '0')}`,
@@ -2206,7 +2357,9 @@ async function seedEnrolledAdmissionsRows(
       firstName: r.firstName,
       lastName: r.lastName,
       middleName: r.middleName,
-      enroleeFullName: [r.firstName, r.middleName, r.lastName].filter(Boolean).join(' '),
+      enroleeFullName: [r.firstName, r.middleName, r.lastName]
+        .filter(Boolean)
+        .join(' '),
       levelApplied: r.levelLabel,
       classType: m.classType,
       paymentOption: m.paymentOption,
@@ -2259,21 +2412,23 @@ async function seedEnrolledAdmissionsRows(
   // Filter out enroleeNumbers that already exist on either table.
   const existingApps = await fetchAllPages<{ enroleeNumber: string | null }>(
     (from, to) =>
-      service.from(appsTable).select('enroleeNumber').range(from, to),
+      service.from(appsTable).select('enroleeNumber').range(from, to)
   );
   const existingStatus = await fetchAllPages<{ enroleeNumber: string | null }>(
     (from, to) =>
-      service.from(statusTable).select('enroleeNumber').range(from, to),
+      service.from(statusTable).select('enroleeNumber').range(from, to)
   );
   const existingNums = new Set<string>([
     ...existingApps.map((r) => r.enroleeNumber).filter((n): n is string => !!n),
-    ...existingStatus.map((r) => r.enroleeNumber).filter((n): n is string => !!n),
+    ...existingStatus
+      .map((r) => r.enroleeNumber)
+      .filter((n): n is string => !!n),
   ]);
   const filteredApps = appInserts.filter(
-    (r) => !existingNums.has(r.enroleeNumber),
+    (r) => !existingNums.has(r.enroleeNumber)
   );
   const filteredStatus = statusInserts.filter(
-    (r) => !existingNums.has(r.enroleeNumber),
+    (r) => !existingNums.has(r.enroleeNumber)
   );
 
   let inserted = 0;
@@ -2285,15 +2440,17 @@ async function seedEnrolledAdmissionsRows(
     if (appsErr) {
       console.error(
         `[populated seeder] ${appsTable} insert failed (chunk ${i}..${i + appSlice.length}):`,
-        appsErr.message,
+        appsErr.message
       );
       continue;
     }
-    const { error: statusErr } = await service.from(statusTable).insert(statusSlice);
+    const { error: statusErr } = await service
+      .from(statusTable)
+      .insert(statusSlice);
     if (statusErr) {
       console.error(
         `[populated seeder] ${statusTable} insert failed (chunk ${i}..${i + statusSlice.length}):`,
-        statusErr.message,
+        statusErr.message
       );
       continue;
     }
@@ -2320,7 +2477,7 @@ async function seedEnrolledAdmissionsRows(
   }
   if (backwritten > 0) {
     console.info(
-      `[populated seeder] section_students.enrolee_number back-written for ${backwritten} row(s).`,
+      `[populated seeder] section_students.enrolee_number back-written for ${backwritten} row(s).`
     );
   }
 
@@ -2348,7 +2505,7 @@ async function seedEnrolledAdmissionsRows(
 // don't have one yet, so re-runs after a partial seed complete the set.
 async function seedAdmissionsDocuments(
   service: SupabaseClient,
-  testAy: { id: string; ay_code: string },
+  testAy: { id: string; ay_code: string }
 ): Promise<number> {
   const prefix = prefixFor(testAy.ay_code);
   const appsTable = `${prefix}_enrolment_applications`;
@@ -2359,10 +2516,10 @@ async function seedAdmissionsDocuments(
   // and we leave them alone.
   const existingDocs = await fetchAllPages<{ enroleeNumber: string | null }>(
     (from, to) =>
-      service.from(docsTable).select('enroleeNumber').range(from, to),
+      service.from(docsTable).select('enroleeNumber').range(from, to)
   );
   const existingDocNums = new Set(
-    existingDocs.map((r) => r.enroleeNumber).filter((n): n is string => !!n),
+    existingDocs.map((r) => r.enroleeNumber).filter((n): n is string => !!n)
   );
 
   // Pull every application row + matching status (need applicationStatus to
@@ -2377,7 +2534,7 @@ async function seedAdmissionsDocuments(
   if (appsErr || !appsData) {
     console.error(
       `[populated seeder] ${appsTable} read failed for documents seeder:`,
-      appsErr?.message,
+      appsErr?.message
     );
     return 0;
   }
@@ -2395,7 +2552,7 @@ async function seedAdmissionsDocuments(
   if (statusErr) {
     console.error(
       `[populated seeder] ${statusTable} read failed for documents seeder:`,
-      statusErr.message,
+      statusErr.message
     );
     return 0;
   }
@@ -2441,7 +2598,10 @@ async function seedAdmissionsDocuments(
   const FATHER_SLOT_KEYS = new Set(['fatherPassport', 'fatherPass']);
   const GUARDIAN_SLOT_KEYS = new Set(['guardianPassport', 'guardianPass']);
   type Gates = { father: boolean; guardian: boolean };
-  const buildSlotFill = (profile: string, gates: Gates): Record<string, SlotFill> => {
+  const buildSlotFill = (
+    profile: string,
+    gates: Gates
+  ): Record<string, SlotFill> => {
     // Slot order from DOCUMENT_SLOTS (12 slots). Each profile picks a count
     // distribution and walks slots in order assigning statuses.
     const slots = DOCUMENT_SLOTS;
@@ -2462,7 +2622,7 @@ async function seedAdmissionsDocuments(
       indices: number[],
       status: string,
       hasUrl: boolean,
-      withRejection: boolean,
+      withRejection: boolean
     ) => {
       for (const idx of indices) {
         if (idx < 0 || idx >= slots.length) continue;
@@ -2483,7 +2643,7 @@ async function seedAdmissionsDocuments(
     const pickIndices = (
       n: number,
       exclude: Set<number> = new Set(),
-      nonExpiringOnly = false,
+      nonExpiringOnly = false
     ): number[] => {
       const pool: number[] = [];
       for (let i = 0; i < slots.length; i++) {
@@ -2508,13 +2668,19 @@ async function seedAdmissionsDocuments(
         //   - Non-expiring: 'Uploaded' (registrar hasn't validated yet).
         //   - Expiring:     'Valid' (the expiry date IS the validation).
         // Required slots: ~80% uploaded/valid, ~20% 'To follow'.
-        const OPTIONAL = new Set(OPTIONAL_DOCUMENT_SLOT_KEYS as readonly string[]);
+        const OPTIONAL = new Set(
+          OPTIONAL_DOCUMENT_SLOT_KEYS as readonly string[]
+        );
         for (let i = 0; i < slots.length; i++) {
           const slot = slots[i];
           if (isGated(slot.key)) continue;
           if (OPTIONAL.has(slot.key) && rand() < 0.4) continue;
           if (!OPTIONAL.has(slot.key) && rand() < 0.2) {
-            fill[slot.key] = { status: 'To follow', url: null, rejection: null };
+            fill[slot.key] = {
+              status: 'To follow',
+              url: null,
+              rejection: null,
+            };
             continue;
           }
           const status = slot.expiryCol ? 'Valid' : 'Uploaded';
@@ -2541,13 +2707,19 @@ async function seedAdmissionsDocuments(
         assign(rejectIdx, 'Rejected', true, true);
         // Sweep: required non-optional non-gated slots that are still null
         // become 'To follow' — required docs are never silently missing.
-        const OPTIONAL_OV = new Set(OPTIONAL_DOCUMENT_SLOT_KEYS as readonly string[]);
+        const OPTIONAL_OV = new Set(
+          OPTIONAL_DOCUMENT_SLOT_KEYS as readonly string[]
+        );
         for (let i = 0; i < slots.length; i++) {
           const slot = slots[i];
           if (isGated(slot.key)) continue;
           if (OPTIONAL_OV.has(slot.key)) continue;
           if (!fill[slot.key].status) {
-            fill[slot.key] = { status: 'To follow', url: null, rejection: null };
+            fill[slot.key] = {
+              status: 'To follow',
+              url: null,
+              rejection: null,
+            };
           }
         }
         return fill;
@@ -2566,13 +2738,19 @@ async function seedAdmissionsDocuments(
         assign(toFollowIdx, 'To follow', false, false);
         // Sweep: required non-optional non-gated slots that are still null
         // become 'To follow' — required docs are never silently missing.
-        const OPTIONAL_PR = new Set(OPTIONAL_DOCUMENT_SLOT_KEYS as readonly string[]);
+        const OPTIONAL_PR = new Set(
+          OPTIONAL_DOCUMENT_SLOT_KEYS as readonly string[]
+        );
         for (let i = 0; i < slots.length; i++) {
           const slot = slots[i];
           if (isGated(slot.key)) continue;
           if (OPTIONAL_PR.has(slot.key)) continue;
           if (!fill[slot.key].status) {
-            fill[slot.key] = { status: 'To follow', url: null, rejection: null };
+            fill[slot.key] = {
+              status: 'To follow',
+              url: null,
+              rejection: null,
+            };
           }
         }
         return fill;
@@ -2612,7 +2790,9 @@ async function seedAdmissionsDocuments(
         // Distribution: 55% Valid / 20% (Uploaded|Expired) / 15% To follow /
         // 10% Rejected. Optional slots (medical/educCert/form12) get a 30%
         // skip skew per KD #60 (admissions-side optional).
-        const OPTIONAL = new Set(OPTIONAL_DOCUMENT_SLOT_KEYS as readonly string[]);
+        const OPTIONAL = new Set(
+          OPTIONAL_DOCUMENT_SLOT_KEYS as readonly string[]
+        );
         for (const s of slots) {
           if (isGated(s.key)) continue;
           const isExpiring = !!s.expiryCol;
@@ -2663,7 +2843,9 @@ async function seedAdmissionsDocuments(
         // Rejected / Expired / null. ~3% of enrolled rows get the legacy
         // needs-revalidation skew (mostly-Valid + 1-2 Rejected) for the
         // pastoral-care chase-strip demo.
-        return idx % 30 === 0 ? 'enrolled-needs-revalidation' : 'enrolled-realistic';
+        return idx % 30 === 0
+          ? 'enrolled-needs-revalidation'
+          : 'enrolled-realistic';
       default:
         return 'submitted';
     }
@@ -2683,7 +2865,9 @@ async function seedAdmissionsDocuments(
   const PASSPORT_EXPIRING_30 = new Set(enrolledEnroleeNumbers.slice(0, 5));
   const PASSPORT_EXPIRING_60 = new Set(enrolledEnroleeNumbers.slice(5, 10));
   const PASSPORT_EXPIRING_90 = new Set(enrolledEnroleeNumbers.slice(10, 15));
-  const PASSPORT_ALREADY_EXPIRED = new Set(enrolledEnroleeNumbers.slice(15, 18));
+  const PASSPORT_ALREADY_EXPIRED = new Set(
+    enrolledEnroleeNumbers.slice(15, 18)
+  );
   const PASS_EXPIRING_30 = new Set(enrolledEnroleeNumbers.slice(18, 21));
   const PASS_EXPIRING_60 = new Set(enrolledEnroleeNumbers.slice(21, 24));
   const PASS_EXPIRING_90 = new Set(enrolledEnroleeNumbers.slice(24, 27));
@@ -2691,13 +2875,16 @@ async function seedAdmissionsDocuments(
 
   // Generate ISO yyyy-MM-dd offsets relative to today.
   const isoDateOffset = (days: number): string =>
-    new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
 
   const inserts: Array<Record<string, unknown>> = [];
   let enrolledIdx = 0;
   for (const app of apps) {
     const status = statusByEnrolee.get(app.enroleeNumber) ?? null;
-    const isEnrolled = status === 'Enrolled' || status === 'Enrolled (Conditional)';
+    const isEnrolled =
+      status === 'Enrolled' || status === 'Enrolled (Conditional)';
     const profile = profileForStatus(status, isEnrolled ? enrolledIdx++ : 0);
     const gates = {
       father: !!app.fatherEmail?.trim(),
@@ -2781,7 +2968,7 @@ async function seedAdmissionsDocuments(
 
   // Filter out enroleeNumbers that already have a docs row.
   const filteredInserts = inserts.filter(
-    (r) => !existingDocNums.has(String(r.enroleeNumber)),
+    (r) => !existingDocNums.has(String(r.enroleeNumber))
   );
 
   let inserted = 0;
@@ -2792,7 +2979,7 @@ async function seedAdmissionsDocuments(
     if (error) {
       console.error(
         `[populated seeder] ${docsTable} insert failed (chunk ${i}..${i + slice.length}):`,
-        error.message,
+        error.message
       );
       continue;
     }

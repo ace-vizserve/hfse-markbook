@@ -3,7 +3,10 @@ import { NextResponse } from 'next/server';
 
 import { requireRole } from '@/lib/auth/require-role';
 import { logAction } from '@/lib/audit/log-action';
-import { resolveRecipients, sendReminder } from '@/lib/notifications/email-pfile-reminder';
+import {
+  resolveRecipients,
+  sendReminder,
+} from '@/lib/notifications/email-pfile-reminder';
 import { DocumentValidationSchema } from '@/lib/schemas/sis';
 import { DOCUMENT_SLOTS } from '@/lib/sis/queries';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -21,19 +24,27 @@ const SLOT_META = new Map(DOCUMENT_SLOTS.map((s) => [s.key, s]));
 // contract — P-Files stays a repository.
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ enroleeNumber: string; slotKey: string }> },
+  { params }: { params: Promise<{ enroleeNumber: string; slotKey: string }> }
 ) {
   // 'admissions' added Sprint 37 (KD #70). 'p-file' added alongside the P-Files
   // document-validation page so officers can approve / reject enrolled-student slots.
   // 'registrar' added per KD #37: Records is the sole writer of 'Rejected' for
   // enrolled students; 'school_admin' intentionally excluded (read-only oversight,
   // KD #74 + KD #31).
-  const auth = await requireRole(['registrar', 'superadmin', 'admissions', 'p-file']);
+  const auth = await requireRole([
+    'registrar',
+    'superadmin',
+    'admissions',
+    'p-file',
+  ]);
   if ('error' in auth) return auth.error;
 
   const { enroleeNumber, slotKey } = await params;
   if (!enroleeNumber.trim()) {
-    return NextResponse.json({ error: 'Missing enroleeNumber' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Missing enroleeNumber' },
+      { status: 400 }
+    );
   }
   if (!SLOT_KEYS.has(slotKey)) {
     return NextResponse.json({ error: 'Unknown slotKey' }, { status: 400 });
@@ -42,7 +53,10 @@ export async function PATCH(
   const url = new URL(request.url);
   const ayCode = (url.searchParams.get('ay') ?? '').trim();
   if (!/^AY\d{4}$/i.test(ayCode)) {
-    return NextResponse.json({ error: 'Invalid or missing ay query param' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid or missing ay query param' },
+      { status: 400 }
+    );
   }
 
   const body = await request.json().catch(() => null);
@@ -50,7 +64,7 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -66,7 +80,11 @@ export async function PATCH(
   // Pre-fetch prior status + url + (when applicable) expiry. The expiry
   // is only present on expiring slots (`expiryCol` defined in
   // DOCUMENT_SLOTS) — KD #60 distinguishes the two flows.
-  const selectCols = [statusCol, urlCol, ...(expiryCol ? [expiryCol] : [])].join(', ');
+  const selectCols = [
+    statusCol,
+    urlCol,
+    ...(expiryCol ? [expiryCol] : []),
+  ].join(', ');
   const { data: before, error: beforeErr } = await supabase
     .from(table)
     .select(selectCols)
@@ -77,17 +95,22 @@ export async function PATCH(
     return NextResponse.json({ error: 'Lookup failed' }, { status: 500 });
   }
   if (!before) {
-    return NextResponse.json({ error: 'No document row for this enrolee in this AY' }, { status: 404 });
+    return NextResponse.json(
+      { error: 'No document row for this enrolee in this AY' },
+      { status: 404 }
+    );
   }
   const beforeRow = before as unknown as Record<string, unknown>;
   const priorStatus = (beforeRow[statusCol] as string | null) ?? null;
   const fileUrl = (beforeRow[urlCol] as string | null) ?? null;
-  const priorExpiry = expiryCol ? ((beforeRow[expiryCol] as string | null) ?? null) : null;
+  const priorExpiry = expiryCol
+    ? ((beforeRow[expiryCol] as string | null) ?? null)
+    : null;
 
   if (!fileUrl) {
     return NextResponse.json(
       { error: 'Cannot validate a slot with no uploaded file' },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -112,7 +135,7 @@ export async function PATCH(
           priorStatus,
           expiry: priorExpiry,
         },
-        { status: 422 },
+        { status: 422 }
       );
     }
   }
@@ -139,7 +162,9 @@ export async function PATCH(
       const [{ data: appRow }, { data: statusRow }] = await Promise.all([
         supabase
           .from(appsTable)
-          .select('enroleeFullName, motherEmail, fatherEmail, guardianEmail, levelApplied')
+          .select(
+            'enroleeFullName, motherEmail, fatherEmail, guardianEmail, levelApplied'
+          )
           .eq('enroleeNumber', enroleeNumber)
           .maybeSingle(),
         supabase
@@ -156,7 +181,9 @@ export async function PATCH(
           guardianEmail: string | null;
           levelApplied: string | null;
         };
-        const classSection = (statusRow as { classSection: string | null } | null)?.classSection ?? null;
+        const classSection =
+          (statusRow as { classSection: string | null } | null)?.classSection ??
+          null;
         const slotMeta = SLOT_META.get(slotKey)!;
         const envelope = resolveRecipients(slotKey, {
           motherEmail: appData.motherEmail,
@@ -178,20 +205,26 @@ export async function PATCH(
               enroleeNumber,
               ayCode,
             },
-            envelope,
+            envelope
           );
           notified = result.sent > 0;
         }
       }
     } catch (e) {
-      console.error('[sis document PATCH] rejection email failed (non-fatal):', e);
+      console.error(
+        '[sis document PATCH] rejection email failed (non-fatal):',
+        e
+      );
     }
   }
 
   await logAction({
     service: supabase,
     actor: { id: auth.user.id, email: auth.user.email ?? null },
-    action: parsed.data.status === 'Valid' ? 'sis.document.approve' : 'sis.document.reject',
+    action:
+      parsed.data.status === 'Valid'
+        ? 'sis.document.approve'
+        : 'sis.document.reject',
     entityType: 'enrolment_document',
     entityId: `${enroleeNumber}:${slotKey}`,
     context: {
@@ -199,7 +232,9 @@ export async function PATCH(
       slot_key: slotKey,
       prior_status: priorStatus,
       new_status: parsed.data.status,
-      ...(rejectionReason ? { rejection_reason: rejectionReason, notified } : {}),
+      ...(rejectionReason
+        ? { rejection_reason: rejectionReason, notified }
+        : {}),
     },
   });
 

@@ -12,9 +12,15 @@ type SortableHeaderProps<TRow> = {
   align?: 'left' | 'right' | 'center';
 };
 
-export function SortableHeader<TRow>({ column, children, className, align = 'left' }: SortableHeaderProps<TRow>) {
+export function SortableHeader<TRow>({
+  column,
+  children,
+  className,
+  align = 'left',
+}: SortableHeaderProps<TRow>) {
   const sorted = column.getIsSorted();
-  const Icon = sorted === 'asc' ? ArrowUp : sorted === 'desc' ? ArrowDown : ChevronsUpDown;
+  const Icon =
+    sorted === 'asc' ? ArrowUp : sorted === 'desc' ? ArrowDown : ChevronsUpDown;
   return (
     <Button
       variant="ghost"
@@ -23,7 +29,7 @@ export function SortableHeader<TRow>({ column, children, className, align = 'lef
       className={cn(
         '-ml-3 h-7 gap-1 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]',
         align === 'right' && 'ml-0 mr-0',
-        className,
+        className
       )}
     >
       {children}

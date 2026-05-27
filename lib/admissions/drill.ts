@@ -95,7 +95,9 @@ function deriveStage(status: string | null): string {
   return s;
 }
 
-function classifyAssessmentValue(raw: string | number | null): 'pass' | 'fail' | 'unknown' {
+function classifyAssessmentValue(
+  raw: string | number | null
+): 'pass' | 'fail' | 'unknown' {
   if (raw === null || raw === undefined) return 'unknown';
   if (typeof raw === 'number') return raw >= 60 ? 'pass' : 'fail';
   const s = String(raw).trim();
@@ -110,7 +112,7 @@ function classifyAssessmentValue(raw: string | number | null): 'pass' | 'fail' |
 
 function combinedAssessmentOutcome(
   math: string | number | null,
-  eng: string | number | null,
+  eng: string | number | null
 ): 'pass' | 'fail' | 'unknown' {
   const m = classifyAssessmentValue(math);
   const e = classifyAssessmentValue(eng);
@@ -134,9 +136,14 @@ const CORE_DOC_STATUS_COLUMNS = [
   'idPictureStatus',
 ] as const;
 
-type DocRow = Record<(typeof CORE_DOC_STATUS_COLUMNS)[number] | 'enroleeNumber', string | null>;
+type DocRow = Record<
+  (typeof CORE_DOC_STATUS_COLUMNS)[number] | 'enroleeNumber',
+  string | null
+>;
 
-async function loadDrillRowsUncached(input: { ayCode: string }): Promise<DrillRow[]> {
+async function loadDrillRowsUncached(input: {
+  ayCode: string;
+}): Promise<DrillRow[]> {
   // Core rows fetch — no docs. Doc enrichment is layered on top via
   // `enrichWithDocs` for the targets that need it. Of 12 drill targets, only
   // 5 surface doc fields (applications, enrolled, outdated, doc-completion,
@@ -167,11 +174,19 @@ async function loadDrillRowsUncached(input: { ayCode: string }): Promise<DrillRo
     assessmentGradeEnglish: string | number | null;
   } & Record<string, string | null | number>;
 
-  type P<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
+  type P<T> = PromiseLike<{
+    data: T[] | null;
+    error: { message: string } | null;
+  }>;
 
   const statusCols = [
-    'enroleeNumber', 'applicationStatus', 'applicationUpdatedDate',
-    'classLevel', 'levelApplied', 'assessmentGradeMath', 'assessmentGradeEnglish',
+    'enroleeNumber',
+    'applicationStatus',
+    'applicationUpdatedDate',
+    'classLevel',
+    'levelApplied',
+    'assessmentGradeMath',
+    'assessmentGradeEnglish',
     ...STAGE_KEYS.map((k) => STAGE_COLUMN_MAP[k].updatedDateCol),
   ].join(', ');
 
@@ -179,19 +194,23 @@ async function loadDrillRowsUncached(input: { ayCode: string }): Promise<DrillRo
   let statuses: StatusLite[];
   try {
     [apps, statuses] = await Promise.all([
-      fetchAllPages<AppLite>((from, to) =>
-        supabase
-          .from(appsTable)
-          .select('enroleeNumber, studentNumber, enroleeFullName, firstName, lastName, levelApplied, created_at, howDidYouKnowAboutHFSEIS')
-          .range(from, to) as unknown as P<AppLite>,
+      fetchAllPages<AppLite>(
+        (from, to) =>
+          supabase
+            .from(appsTable)
+            .select(
+              'enroleeNumber, studentNumber, enroleeFullName, firstName, lastName, levelApplied, created_at, howDidYouKnowAboutHFSEIS'
+            )
+            .range(from, to) as unknown as P<AppLite>
       ),
       // Cast via unknown — the dynamic SELECT (joined with per-stage updatedDate
       // columns) defeats supabase-js's row-shape inference.
-      fetchAllPages<StatusLite>((from, to) =>
-        supabase
-          .from(statusTable)
-          .select(statusCols)
-          .range(from, to) as unknown as P<StatusLite>,
+      fetchAllPages<StatusLite>(
+        (from, to) =>
+          supabase
+            .from(statusTable)
+            .select(statusCols)
+            .range(from, to) as unknown as P<StatusLite>
       ),
     ]);
   } catch (err) {
@@ -237,7 +256,10 @@ async function loadDrillRowsUncached(input: { ayCode: string }): Promise<DrillRo
     const enrollmentDate = isEnrolled ? updated : null;
 
     const daysToEnroll =
-      isEnrolled && !Number.isNaN(createdMs) && !Number.isNaN(updatedMs) && updatedMs >= createdMs
+      isEnrolled &&
+      !Number.isNaN(createdMs) &&
+      !Number.isNaN(updatedMs) &&
+      updatedMs >= createdMs
         ? Math.round((updatedMs - createdMs) / 86_400_000)
         : null;
     const daysSinceUpdate = !Number.isNaN(updatedMs)
@@ -262,18 +284,27 @@ async function loadDrillRowsUncached(input: { ayCode: string }): Promise<DrillRo
       // chart and drill key on different values and segment-clicks miss
       // every row whose source columns disagree (Investigation #1).
       level:
-        ((s?.classLevel ?? s?.levelApplied ?? a.levelApplied ?? '') as string).trim() ||
-        'Unknown',
+        (
+          (s?.classLevel ?? s?.levelApplied ?? a.levelApplied ?? '') as string
+        ).trim() || 'Unknown',
       stage: deriveStage(status),
       pipelineStage: derivePipelineStage(s),
       referralSource: (a.howDidYouKnowAboutHFSEIS ?? '').trim() || null,
-      assessmentMath: s?.assessmentGradeMath != null ? String(s.assessmentGradeMath) : null,
-      assessmentEnglish: s?.assessmentGradeEnglish != null ? String(s.assessmentGradeEnglish) : null,
-      assessmentMathOutcome: classifyAssessmentValue(s?.assessmentGradeMath ?? null),
-      assessmentEnglishOutcome: classifyAssessmentValue(s?.assessmentGradeEnglish ?? null),
+      assessmentMath:
+        s?.assessmentGradeMath != null ? String(s.assessmentGradeMath) : null,
+      assessmentEnglish:
+        s?.assessmentGradeEnglish != null
+          ? String(s.assessmentGradeEnglish)
+          : null,
+      assessmentMathOutcome: classifyAssessmentValue(
+        s?.assessmentGradeMath ?? null
+      ),
+      assessmentEnglishOutcome: classifyAssessmentValue(
+        s?.assessmentGradeEnglish ?? null
+      ),
       assessmentOutcome: combinedAssessmentOutcome(
         s?.assessmentGradeMath ?? null,
-        s?.assessmentGradeEnglish ?? null,
+        s?.assessmentGradeEnglish ?? null
       ),
       applicationDate: a.created_at,
       enrollmentDate,
@@ -295,7 +326,10 @@ async function loadDrillRowsUncached(input: { ayCode: string }): Promise<DrillRo
  * loadDrillRowsUncached. Called only by callers that need the doc fields
  * (5 of 12 drill targets); other callers use the cheaper bare row set.
  */
-async function enrichWithDocs(rows: DrillRow[], ayCode: string): Promise<DrillRow[]> {
+async function enrichWithDocs(
+  rows: DrillRow[],
+  ayCode: string
+): Promise<DrillRow[]> {
   if (rows.length === 0) return rows;
   const prefix = prefixFor(ayCode);
   const docsTable = `${prefix}_enrolment_documents`;
@@ -304,7 +338,10 @@ async function enrichWithDocs(rows: DrillRow[], ayCode: string): Promise<DrillRo
     .from(docsTable)
     .select(`enroleeNumber, ${CORE_DOC_STATUS_COLUMNS.join(', ')}`);
   if (error) {
-    console.warn('[admissions-drill] docs fetch failed (non-fatal):', error.message);
+    console.warn(
+      '[admissions-drill] docs fetch failed (non-fatal):',
+      error.message
+    );
     return rows;
   }
   const docsByEnrolee = new Map<string, DocRow>();
@@ -317,7 +354,11 @@ async function enrichWithDocs(rows: DrillRow[], ayCode: string): Promise<DrillRo
     let documentsComplete = 0;
     for (const col of CORE_DOC_STATUS_COLUMNS) {
       const v = d[col];
-      if (v && String(v).trim() !== '' && String(v).toLowerCase() !== 'missing') {
+      if (
+        v &&
+        String(v).trim() !== '' &&
+        String(v).toLowerCase() !== 'missing'
+      ) {
         documentsComplete += 1;
       }
     }
@@ -332,7 +373,7 @@ async function enrichWithDocs(rows: DrillRow[], ayCode: string): Promise<DrillRo
 function applyScopeFilter(
   rows: DrillRow[],
   input: DrillRangeInput,
-  target?: DrillTarget,
+  target?: DrillTarget
 ): DrillRow[] {
   // Different drill targets anchor the date range to different timestamps
   // — pick the anchor that matches the chart whose segment was clicked.
@@ -366,7 +407,7 @@ function applyScopeFilter(
 
 export async function buildDrillRows(
   input: DrillRangeInput,
-  options?: { withDocs?: boolean; target?: DrillTarget },
+  options?: { withDocs?: boolean; target?: DrillTarget }
 ): Promise<DrillRow[]> {
   // Cache the AY-wide row set once per AY; apply range filtering post-cache.
   // Cheap because applyScopeFilter is a single .filter() over the cached
@@ -381,7 +422,7 @@ export async function buildDrillRows(
   const cached = await unstable_cache(
     () => loadDrillRowsUncached({ ayCode: input.ayCode }),
     ['admissions-drill', 'rows', input.ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tags(input.ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tags(input.ayCode) }
   )();
   const scoped = applyScopeFilter(cached, input, options?.target);
   return options?.withDocs ? enrichWithDocs(scoped, input.ayCode) : scoped;
@@ -398,12 +439,16 @@ export async function buildDrillRows(
 // Analytical targets (conversion / time-to-enroll / referral / assessment /
 // funnel-stage) intentionally return the full pipeline because the metrics
 // they compute require seeing enrolled outcomes.
-const ACTIVE_FUNNEL_STATUSES = new Set(['Submitted', 'Ongoing Verification', 'Processing']);
+const ACTIVE_FUNNEL_STATUSES = new Set([
+  'Submitted',
+  'Ongoing Verification',
+  'Processing',
+]);
 
 export function applyTargetFilter(
   rows: DrillRow[],
   target: DrillTarget,
-  segment?: string | null,
+  segment?: string | null
 ): DrillRow[] {
   switch (target) {
     case 'applications':
@@ -417,7 +462,7 @@ export function applyTargetFilter(
       return rows;
     case 'enrolled':
       return rows.filter(
-        (r) => r.status === 'Enrolled' || r.status === 'Enrolled (Conditional)',
+        (r) => r.status === 'Enrolled' || r.status === 'Enrolled (Conditional)'
       );
     case 'conversion':
       return rows;
@@ -425,7 +470,12 @@ export function applyTargetFilter(
       return rows.filter((r) => r.daysToEnroll !== null);
     case 'funnel-stage': {
       // Cumulative funnel — every later stage row counts toward earlier stages.
-      const stages = ['Submitted', 'Ongoing Verification', 'Processing', 'Enrolled'];
+      const stages = [
+        'Submitted',
+        'Ongoing Verification',
+        'Processing',
+        'Enrolled',
+      ];
       const idx = stages.indexOf(segment ?? '');
       if (idx === -1) return rows;
       const ENROLLED = ['Enrolled', 'Enrolled (Conditional)'];
@@ -434,7 +484,9 @@ export function applyTargetFilter(
           return r.status !== 'Cancelled' && r.status !== 'Withdrawn';
         }
         if (segment === 'Ongoing Verification') {
-          return ['Ongoing Verification', 'Processing', ...ENROLLED].includes(r.status);
+          return ['Ongoing Verification', 'Processing', ...ENROLLED].includes(
+            r.status
+          );
         }
         if (segment === 'Processing') {
           return ['Processing', ...ENROLLED].includes(r.status);
@@ -453,7 +505,7 @@ export function applyTargetFilter(
       // Legacy fallback to `r.status === segment` preserved in case any
       // caller still passes an applicationStatus value.
       return rows.filter(
-        (r) => r.pipelineStage === segment || r.status === segment,
+        (r) => r.pipelineStage === segment || r.status === segment
       );
     case 'referral':
       if (!segment) return rows;
@@ -465,7 +517,9 @@ export function applyTargetFilter(
         // so we can exclude them exactly, rather than guessing which sources
         // were collapsed into "Other".
         const named = new Set(segment.slice(10).split('|').filter(Boolean));
-        return rows.filter((r) => r.referralSource != null && !named.has(r.referralSource));
+        return rows.filter(
+          (r) => r.referralSource != null && !named.has(r.referralSource)
+        );
       }
       return rows.filter((r) => r.referralSource === segment);
     case 'assessment':
@@ -474,8 +528,10 @@ export function applyTargetFilter(
         const colonIdx = segment.indexOf(':');
         const subject = segment.slice(0, colonIdx);
         const outcome = segment.slice(colonIdx + 1);
-        if (subject === 'math') return rows.filter((r) => r.assessmentMathOutcome === outcome);
-        if (subject === 'eng') return rows.filter((r) => r.assessmentEnglishOutcome === outcome);
+        if (subject === 'math')
+          return rows.filter((r) => r.assessmentMathOutcome === outcome);
+        if (subject === 'eng')
+          return rows.filter((r) => r.assessmentEnglishOutcome === outcome);
       }
       return rows.filter((r) => r.assessmentOutcome === segment);
     case 'time-to-enroll-bucket': {
@@ -494,19 +550,26 @@ export function applyTargetFilter(
     case 'doc-completion': {
       // Admissions cares about completeness for funnel applicants only;
       // enrolled-side missing-doc work belongs to P-Files renewal queue.
-      const funnelOnly = rows.filter((r) => ACTIVE_FUNNEL_STATUSES.has(r.status));
+      const funnelOnly = rows.filter((r) =>
+        ACTIVE_FUNNEL_STATUSES.has(r.status)
+      );
       if (!segment) return funnelOnly.filter((r) => r.hasMissingDocs);
       // segment can be a level string OR "missing" / "complete"
-      if (segment === 'missing') return funnelOnly.filter((r) => r.hasMissingDocs);
-      if (segment === 'complete') return funnelOnly.filter((r) => !r.hasMissingDocs);
+      if (segment === 'missing')
+        return funnelOnly.filter((r) => r.hasMissingDocs);
+      if (segment === 'complete')
+        return funnelOnly.filter((r) => !r.hasMissingDocs);
       return funnelOnly.filter((r) => r.level === segment);
     }
     case 'outdated':
       // Outdated = stale & active (≥7 days since update, status not closed).
       return rows.filter((r) => {
-        const closed = ['Enrolled', 'Enrolled (Conditional)', 'Cancelled', 'Withdrawn'].includes(
-          r.status,
-        );
+        const closed = [
+          'Enrolled',
+          'Enrolled (Conditional)',
+          'Cancelled',
+          'Withdrawn',
+        ].includes(r.status);
         if (closed) return false;
         return r.daysSinceUpdate === null || r.daysSinceUpdate >= 7;
       });
@@ -515,7 +578,9 @@ export function applyTargetFilter(
   }
 }
 
-function parseTimeToEnrollBucket(segment: string): { lo: number; hi: number | null } | null {
+function parseTimeToEnrollBucket(
+  segment: string
+): { lo: number; hi: number | null } | null {
   // Matches "0–7d", "8–14d", "31–60d", ">180d". Use alternation (not a
   // character class) so the en-dash U+2013 in the bucket label and a plain
   // hyphen both match — `[–-]` is a degenerate character-class range and
@@ -571,7 +636,14 @@ export const ALL_DRILL_COLUMNS: DrillColumnKey[] = [
 export function defaultColumnsForTarget(target: DrillTarget): DrillColumnKey[] {
   switch (target) {
     case 'applications':
-      return ['fullName', 'enroleeNumber', 'status', 'level', 'applicationDate', 'daysSinceUpdate'];
+      return [
+        'fullName',
+        'enroleeNumber',
+        'status',
+        'level',
+        'applicationDate',
+        'daysSinceUpdate',
+      ];
     case 'enrolled':
       return [
         'fullName',
@@ -582,7 +654,14 @@ export function defaultColumnsForTarget(target: DrillTarget): DrillColumnKey[] {
         'daysToEnroll',
       ];
     case 'conversion':
-      return ['fullName', 'enroleeNumber', 'status', 'level', 'applicationDate', 'daysToEnroll'];
+      return [
+        'fullName',
+        'enroleeNumber',
+        'status',
+        'level',
+        'applicationDate',
+        'daysToEnroll',
+      ];
     case 'avg-time':
       return [
         'fullName',
@@ -593,13 +672,41 @@ export function defaultColumnsForTarget(target: DrillTarget): DrillColumnKey[] {
         'daysToEnroll',
       ];
     case 'funnel-stage':
-      return ['fullName', 'enroleeNumber', 'status', 'level', 'applicationDate', 'daysSinceUpdate'];
+      return [
+        'fullName',
+        'enroleeNumber',
+        'status',
+        'level',
+        'applicationDate',
+        'daysSinceUpdate',
+      ];
     case 'pipeline-stage':
-      return ['fullName', 'enroleeNumber', 'status', 'level', 'daysSinceUpdate', 'daysInPipeline'];
+      return [
+        'fullName',
+        'enroleeNumber',
+        'status',
+        'level',
+        'daysSinceUpdate',
+        'daysInPipeline',
+      ];
     case 'referral':
-      return ['fullName', 'enroleeNumber', 'referralSource', 'status', 'level', 'applicationDate'];
+      return [
+        'fullName',
+        'enroleeNumber',
+        'referralSource',
+        'status',
+        'level',
+        'applicationDate',
+      ];
     case 'assessment':
-      return ['fullName', 'enroleeNumber', 'level', 'assessmentMath', 'assessmentEnglish', 'assessmentOutcome'];
+      return [
+        'fullName',
+        'enroleeNumber',
+        'level',
+        'assessmentMath',
+        'assessmentEnglish',
+        'assessmentOutcome',
+      ];
     case 'time-to-enroll-bucket':
       return [
         'fullName',
@@ -610,11 +717,29 @@ export function defaultColumnsForTarget(target: DrillTarget): DrillColumnKey[] {
         'daysToEnroll',
       ];
     case 'applications-by-level':
-      return ['fullName', 'enroleeNumber', 'level', 'status', 'applicationDate'];
+      return [
+        'fullName',
+        'enroleeNumber',
+        'level',
+        'status',
+        'applicationDate',
+      ];
     case 'doc-completion':
-      return ['fullName', 'enroleeNumber', 'level', 'documentsComplete', 'daysSinceUpdate'];
+      return [
+        'fullName',
+        'enroleeNumber',
+        'level',
+        'documentsComplete',
+        'daysSinceUpdate',
+      ];
     case 'outdated':
-      return ['fullName', 'enroleeNumber', 'status', 'level', 'daysSinceUpdate'];
+      return [
+        'fullName',
+        'enroleeNumber',
+        'status',
+        'level',
+        'daysSinceUpdate',
+      ];
     default:
       return ['fullName', 'enroleeNumber', 'status', 'level'];
   }
@@ -642,13 +767,19 @@ export const DRILL_COLUMN_LABELS: Record<DrillColumnKey, string> = {
 // Title + eyebrow per target. Used in the drill sheet header.
 export function drillHeaderForTarget(
   target: DrillTarget,
-  segment?: string | null,
+  segment?: string | null
 ): { eyebrow: string; title: string } {
   switch (target) {
     case 'applications':
-      return { eyebrow: 'Admissions', title: 'Applications received in this date range' };
+      return {
+        eyebrow: 'Admissions',
+        title: 'Applications received in this date range',
+      };
     case 'enrolled':
-      return { eyebrow: 'Admissions', title: 'Students enrolled in this date range' };
+      return {
+        eyebrow: 'Admissions',
+        title: 'Students enrolled in this date range',
+      };
     case 'conversion':
       return {
         eyebrow: 'Admissions',
@@ -685,14 +816,25 @@ export function drillHeaderForTarget(
               : `Applicants who heard about HFSE from ${segment}`,
       };
     case 'assessment': {
-      if (!segment) return { eyebrow: 'Admissions', title: 'Applicants by entrance assessment outcome' };
+      if (!segment)
+        return {
+          eyebrow: 'Admissions',
+          title: 'Applicants by entrance assessment outcome',
+        };
       if (segment.includes(':')) {
         const colonIdx = segment.indexOf(':');
-        const subjectLabel = segment.slice(0, colonIdx) === 'math' ? 'Maths' : 'English';
+        const subjectLabel =
+          segment.slice(0, colonIdx) === 'math' ? 'Maths' : 'English';
         const outcome = segment.slice(colonIdx + 1);
-        return { eyebrow: 'Admissions', title: `Applicants whose ${subjectLabel} assessment outcome was ${outcome}` };
+        return {
+          eyebrow: 'Admissions',
+          title: `Applicants whose ${subjectLabel} assessment outcome was ${outcome}`,
+        };
       }
-      return { eyebrow: 'Admissions', title: `Applicants whose assessment outcome was ${segment}` };
+      return {
+        eyebrow: 'Admissions',
+        title: `Applicants whose assessment outcome was ${segment}`,
+      };
     }
     case 'time-to-enroll-bucket':
       return {
@@ -721,7 +863,10 @@ export function drillHeaderForTarget(
                 : 'Document completeness',
       };
     case 'outdated':
-      return { eyebrow: 'Drill · Outdated', title: 'Applications with no recent activity' };
+      return {
+        eyebrow: 'Drill · Outdated',
+        title: 'Applications with no recent activity',
+      };
     default:
       return { eyebrow: 'Drill', title: 'Applications' };
   }

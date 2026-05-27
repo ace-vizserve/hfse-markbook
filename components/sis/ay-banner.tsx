@@ -48,7 +48,9 @@ export async function AyBanner() {
           <span className="font-mono text-ink-4" aria-hidden="true">
             ·
           </span>
-          <span className="font-mono font-semibold tabular-nums text-ink-2">{ay.ay_code}</span>
+          <span className="font-mono font-semibold tabular-nums text-ink-2">
+            {ay.ay_code}
+          </span>
           <span className="font-mono text-ink-4" aria-hidden="true">
             ·
           </span>
@@ -85,7 +87,9 @@ export async function AyBanner() {
         <span className="font-mono text-ink-4" aria-hidden="true">
           ·
         </span>
-        <span className="font-mono font-semibold tabular-nums text-ink-2">{ay.ay_code}</span>
+        <span className="font-mono font-semibold tabular-nums text-ink-2">
+          {ay.ay_code}
+        </span>
         <span className="font-mono text-ink-4" aria-hidden="true">
           ·
         </span>

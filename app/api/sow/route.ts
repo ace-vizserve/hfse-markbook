@@ -31,7 +31,12 @@ const UpsertSchema = z.object({
 // GET /api/sow?sectionId=&subjectId=&termId=
 // Returns the teacher's SOW instance for a (section × subject × term), or null.
 export async function GET(request: NextRequest) {
-  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'superadmin']);
+  const auth = await requireRole([
+    'teacher',
+    'registrar',
+    'school_admin',
+    'superadmin',
+  ]);
   if ('error' in auth) return auth.error;
 
   const { searchParams } = new URL(request.url);
@@ -40,13 +45,18 @@ export async function GET(request: NextRequest) {
   const termId = searchParams.get('termId');
 
   if (!sectionId || !subjectId || !termId) {
-    return NextResponse.json({ error: 'sectionId, subjectId, and termId are required' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'sectionId, subjectId, and termId are required' },
+      { status: 400 }
+    );
   }
 
   const service = createServiceClient();
   const { data } = await service
     .from('sow_class_instances')
-    .select('id, section_id, subject_id, term_id, ww_labels, pt_labels, topics, copied_from_section_id, copied_at, created_by, updated_by, created_at, updated_at')
+    .select(
+      'id, section_id, subject_id, term_id, ww_labels, pt_labels, topics, copied_from_section_id, copied_at, created_by, updated_by, created_at, updated_at'
+    )
     .eq('section_id', sectionId)
     .eq('subject_id', subjectId)
     .eq('term_id', termId)
@@ -59,16 +69,25 @@ export async function GET(request: NextRequest) {
 // Upserts a SOW instance for a (section × subject × term).
 // Auth: teacher assigned to section+subject, or registrar+.
 export async function PUT(request: NextRequest) {
-  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'superadmin']);
+  const auth = await requireRole([
+    'teacher',
+    'registrar',
+    'school_admin',
+    'superadmin',
+  ]);
   if ('error' in auth) return auth.error;
 
   const body = await request.json().catch(() => null);
   const parsed = UpsertSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid request', issues: parsed.error.issues }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid request', issues: parsed.error.issues },
+      { status: 400 }
+    );
   }
 
-  const { section_id, subject_id, term_id, ww_labels, pt_labels, topics } = parsed.data;
+  const { section_id, subject_id, term_id, ww_labels, pt_labels, topics } =
+    parsed.data;
   const service = createServiceClient();
 
   // Auth gate: teacher must be the subject_teacher for this section × subject.
@@ -81,7 +100,8 @@ export async function PUT(request: NextRequest) {
       .eq('subject_id', subject_id)
       .eq('role', 'subject_teacher')
       .maybeSingle();
-    if (!assignment) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!assignment)
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   // Resolve human-readable context for the audit log.
@@ -103,12 +123,13 @@ export async function PUT(request: NextRequest) {
         topics: topics as SowTopic[],
         updated_by: auth.user.id,
       },
-      { onConflict: 'section_id,subject_id,term_id' },
+      { onConflict: 'section_id,subject_id,term_id' }
     )
     .select('id')
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
 
   // Stamp created_by on insert (upsert doesn't overwrite it if already set).
   await service

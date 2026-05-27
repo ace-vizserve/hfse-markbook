@@ -54,7 +54,7 @@ type TransferParams = {
 // transfer is safe.
 export async function transferStudentSection(
   service: SupabaseClient,
-  params: TransferParams,
+  params: TransferParams
 ): Promise<TransferResult> {
   const { ayCode, enroleeNumber, targetSectionId, actorEmail } = params;
   const today = new Date().toISOString().slice(0, 10);
@@ -66,7 +66,11 @@ export async function transferStudentSection(
     .eq('ay_code', ayCode)
     .maybeSingle();
   if (ayErr || !ayRow) {
-    return { ok: false, error: `Academic year ${ayCode} not found`, status: 404 };
+    return {
+      ok: false,
+      error: `Academic year ${ayCode} not found`,
+      status: 404,
+    };
   }
   const ayId = (ayRow as { id: string }).id;
 
@@ -97,7 +101,11 @@ export async function transferStudentSection(
     ? targetSec.levels[0]?.label
     : targetSec.levels?.label;
   if (!targetLevelLabel) {
-    return { ok: false, error: 'Target section has no level label', status: 500 };
+    return {
+      ok: false,
+      error: 'Target section has no level label',
+      status: 500,
+    };
   }
 
   // ── 3. Resolve student via admissions enroleeNumber ────────────────────
@@ -109,13 +117,19 @@ export async function transferStudentSection(
     .eq('enroleeNumber', enroleeNumber)
     .maybeSingle();
   if (appErr || !appRow) {
-    return { ok: false, error: 'Applicant not found in admissions roster', status: 404 };
+    return {
+      ok: false,
+      error: 'Applicant not found in admissions roster',
+      status: 404,
+    };
   }
-  const studentNumber = (appRow as { studentNumber: string | null }).studentNumber;
+  const studentNumber = (appRow as { studentNumber: string | null })
+    .studentNumber;
   if (!studentNumber) {
     return {
       ok: false,
-      error: 'Applicant has no studentNumber — cannot transfer (sync them first)',
+      error:
+        'Applicant has no studentNumber — cannot transfer (sync them first)',
       status: 422,
     };
   }
@@ -142,7 +156,11 @@ export async function transferStudentSection(
     .select('id, level_id, name, levels!inner(label)')
     .eq('academic_year_id', ayId);
   if (aySecErr) {
-    return { ok: false, error: `Section lookup failed: ${aySecErr.message}`, status: 500 };
+    return {
+      ok: false,
+      error: `Section lookup failed: ${aySecErr.message}`,
+      status: 500,
+    };
   }
   const aySections = (aySectionRows ?? []) as Array<{
     id: string;
@@ -152,7 +170,11 @@ export async function transferStudentSection(
   }>;
   const aySectionIds = aySections.map((s) => s.id);
   if (aySectionIds.length === 0) {
-    return { ok: false, error: 'No sections configured for this AY', status: 422 };
+    return {
+      ok: false,
+      error: 'No sections configured for this AY',
+      status: 422,
+    };
   }
 
   const { data: enrRows, error: enrErr } = await service
@@ -161,9 +183,15 @@ export async function transferStudentSection(
     .eq('student_id', studentId)
     .in('section_id', aySectionIds);
   if (enrErr) {
-    return { ok: false, error: `Enrolment lookup failed: ${enrErr.message}`, status: 500 };
+    return {
+      ok: false,
+      error: `Enrolment lookup failed: ${enrErr.message}`,
+      status: 500,
+    };
   }
-  const activeRows = (enrRows ?? []).filter((r) => r.enrollment_status === 'active');
+  const activeRows = (enrRows ?? []).filter(
+    (r) => r.enrollment_status === 'active'
+  );
   if (activeRows.length === 0) {
     return {
       ok: false,
@@ -207,7 +235,7 @@ export async function transferStudentSection(
 
   // ── 7. Capacity check on target ────────────────────────────────────────
   const targetActive = (enrRows ?? []).filter(
-    (r) => r.section_id === targetSec.id && r.enrollment_status === 'active',
+    (r) => r.section_id === targetSec.id && r.enrollment_status === 'active'
   ).length;
   // The student being transferred isn't in target yet (filtered above as
   // single active row in source), so the count above is the standalone
@@ -220,7 +248,11 @@ export async function transferStudentSection(
     .eq('section_id', targetSec.id)
     .in('enrollment_status', ['active', 'late_enrollee']);
   if (capErr) {
-    return { ok: false, error: `Capacity check failed: ${capErr.message}`, status: 500 };
+    return {
+      ok: false,
+      error: `Capacity check failed: ${capErr.message}`,
+      status: 500,
+    };
   }
   const totalActive = targetTotalActive ?? targetActive;
   if (totalActive >= MAX_ACTIVE_PER_SECTION) {
@@ -244,7 +276,9 @@ export async function transferStudentSection(
     .eq('section_id', targetSec.id)
     .order('index_number', { ascending: false })
     .limit(1);
-  const maxIdx = (targetIdxRows?.[0] as { index_number: number } | undefined)?.index_number ?? 0;
+  const maxIdx =
+    (targetIdxRows?.[0] as { index_number: number } | undefined)
+      ?.index_number ?? 0;
   const nextIndex = maxIdx + 1;
 
   // ── 10. Mutation block (best-effort atomic) ────────────────────────────
@@ -299,7 +333,7 @@ export async function transferStudentSection(
     // the caller can decide whether to retry.
     console.warn(
       '[section-transfer] grading mutation succeeded but admissions update failed:',
-      admissionsErr.message,
+      admissionsErr.message
     );
   }
 

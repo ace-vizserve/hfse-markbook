@@ -80,10 +80,20 @@ export async function POST(request: NextRequest) {
       action: 'attendance.calendar.upsert',
       entityType: 'school_calendar',
       entityId: termId,
-      context: { action: 'autofill_weekdays', audience, start, end, inserted: count ?? rows.length },
+      context: {
+        action: 'autofill_weekdays',
+        audience,
+        start,
+        end,
+        inserted: count ?? rows.length,
+      },
     });
     invalidateDrillTags('attendance', await requireCurrentAyCode(service));
-    return NextResponse.json({ ok: true, seeded: rows.length, inserted: count });
+    return NextResponse.json({
+      ok: true,
+      seeded: rows.length,
+      inserted: count,
+    });
   }
 
   // Bulk upsert branch.
@@ -91,7 +101,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const { termId, entries } = parsed.data;
@@ -108,10 +118,9 @@ export async function POST(request: NextRequest) {
     .eq('audience', audience)
     .in('date', dates);
   const beforeByDate = new Map<string, string>(
-    ((beforeRows ?? []) as Array<{ date: string; day_type: string }>).map((r) => [
-      r.date,
-      r.day_type,
-    ]),
+    ((beforeRows ?? []) as Array<{ date: string; day_type: string }>).map(
+      (r) => [r.date, r.day_type]
+    )
   );
 
   const rows = entries.map((e) => {
@@ -175,7 +184,10 @@ export async function DELETE(request: NextRequest) {
     ? (rawAudience as Audience)
     : 'all';
   if (!termId || !date) {
-    return NextResponse.json({ error: 'termId and date are required' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'termId and date are required' },
+      { status: 400 }
+    );
   }
 
   const service = createServiceClient();

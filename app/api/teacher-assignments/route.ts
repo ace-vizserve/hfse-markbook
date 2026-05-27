@@ -8,14 +8,22 @@ import { logAction } from '@/lib/audit/log-action';
 // Managers (registrar+) see all; any other authenticated user can request
 // their own via ?mine=1 (used by teacher-facing screens later).
 export async function GET(request: NextRequest) {
-  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'superadmin']);
+  const auth = await requireRole([
+    'teacher',
+    'registrar',
+    'school_admin',
+    'superadmin',
+  ]);
   if ('error' in auth) return auth.error;
 
   const supabase = await createClient();
   const sectionId = request.nextUrl.searchParams.get('section_id');
   const mine = request.nextUrl.searchParams.get('mine') === '1';
 
-  const isManager = auth.role === 'registrar' || auth.role === 'school_admin' || auth.role === 'superadmin';
+  const isManager =
+    auth.role === 'registrar' ||
+    auth.role === 'school_admin' ||
+    auth.role === 'superadmin';
 
   let q = supabase
     .from('teacher_assignments')
@@ -25,7 +33,8 @@ export async function GET(request: NextRequest) {
   if (!isManager) q = q.eq('teacher_user_id', auth.user.id);
 
   const { data, error } = await q;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ assignments: data ?? [] });
 }
 
@@ -37,25 +46,29 @@ export async function POST(request: NextRequest) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
-  const body = (await request.json().catch(() => null)) as
-    | {
-        teacher_user_id?: string;
-        section_id?: string;
-        subject_id?: string | null;
-        role?: 'form_adviser' | 'subject_teacher';
-      }
-    | null;
+  const body = (await request.json().catch(() => null)) as {
+    teacher_user_id?: string;
+    section_id?: string;
+    subject_id?: string | null;
+    role?: 'form_adviser' | 'subject_teacher';
+  } | null;
   if (!body?.teacher_user_id || !body.section_id || !body.role) {
     return NextResponse.json(
       { error: 'teacher_user_id, section_id, role are required' },
-      { status: 400 },
+      { status: 400 }
     );
   }
   if (body.role === 'form_adviser' && body.subject_id) {
-    return NextResponse.json({ error: 'form_adviser must not have a subject_id' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'form_adviser must not have a subject_id' },
+      { status: 400 }
+    );
   }
   if (body.role === 'subject_teacher' && !body.subject_id) {
-    return NextResponse.json({ error: 'subject_teacher requires a subject_id' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'subject_teacher requires a subject_id' },
+      { status: 400 }
+    );
   }
 
   const service = createServiceClient();
@@ -72,7 +85,9 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     // Unique-constraint / check-constraint violations get friendly messages.
-    const msg = error.message.includes('teacher_assignments_form_adviser_unique')
+    const msg = error.message.includes(
+      'teacher_assignments_form_adviser_unique'
+    )
       ? 'This section already has a form adviser. Remove the existing one first.'
       : error.message.includes('teacher_assignments_subject_teacher_unique')
         ? 'This teacher is already assigned to this subject in this section.'
@@ -85,9 +100,12 @@ export async function POST(request: NextRequest) {
   // query. Best-effort â€” don't fail the insert if this lookup errors.
   if (body.role === 'form_adviser') {
     try {
-      const { data: u } = await service.auth.admin.getUserById(body.teacher_user_id);
+      const { data: u } = await service.auth.admin.getUserById(
+        body.teacher_user_id
+      );
       const display =
-        ((u.user?.user_metadata as Record<string, unknown> | null)?.full_name as string | undefined) ??
+        ((u.user?.user_metadata as Record<string, unknown> | null)
+          ?.full_name as string | undefined) ??
         u.user?.email ??
         null;
       if (display) {

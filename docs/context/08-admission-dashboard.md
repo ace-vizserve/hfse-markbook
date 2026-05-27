@@ -153,13 +153,13 @@ Phase-1 shared infra: notify/promise/bulk-notify routes accept `module: 'p-files
 
 ## Access Control
 
-| Role         | Access                                          |
-| ------------ | ----------------------------------------------- |
-| `admissions` | Operational — full dashboard + chase actions    |
-| `registrar`  | Operational — full dashboard + chase actions    |
+| Role                     | Access                                                                       |
+| ------------------------ | ---------------------------------------------------------------------------- |
+| `admissions`             | Operational — full dashboard + chase actions                                 |
+| `registrar`              | Operational — full dashboard + chase actions                                 |
 | `school_admin` / `admin` | Read-only oversight — KPIs + drill cards only; chase tiles hidden per KD #74 |
-| `superadmin` | Full access including data export               |
-| `teacher`    | No access                                       |
+| `superadmin`             | Full access including data export                                            |
+| `teacher`                | No access                                                                    |
 
 ---
 

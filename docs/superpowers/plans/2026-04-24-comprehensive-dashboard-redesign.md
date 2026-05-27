@@ -9,6 +9,7 @@
 **Tech Stack:** Next.js 16 App Router, Supabase Postgres, Tailwind v4, shadcn primitives, recharts, `@tanstack/react-table`, existing `lib/dashboard/` primitives (range, insights, windows).
 
 **References:**
+
 - Spec: `docs/superpowers/specs/2026-04-24-comprehensive-dashboard-redesign.md`
 - Schema snapshot: plan Phase 8 at `C:\Users\Ace\.claude\plans\for-all-our-module-curried-quail.md`
 - Design system: `docs/context/09-design-system.md` + `docs/context/09a-design-patterns.md`
@@ -18,6 +19,7 @@
 ### Task 1: Baseline build + grep-drift baseline
 
 **Files:**
+
 - Read-only — no code changes.
 
 - [ ] **Step 1: Run baseline build**
@@ -28,33 +30,41 @@ Expected: all 79 routes compile, "Finalizing page optimization" at end.
 - [ ] **Step 2: Grep for known-dead references**
 
 Run:
+
 ```
 grep -rn "report_card_comments" lib app components
 ```
+
 Expected output: NO matches in `lib/` or `app/`. `report_card_comments` was dropped in migration 024; any residual reference is a bug.
 
 - [ ] **Step 3: Grep for 2-digit AY slug references**
 
 Run:
+
 ```
 grep -rn "ay[0-9][0-9]_enrolment" lib app
 ```
+
 Expected: NO matches. KD #53 requires `ay{YYYY}_*` (4-digit) slugs. Pre-026 2-digit slugs are dropped.
 
 - [ ] **Step 4: Grep for gradient-tile compliance**
 
 Run:
+
 ```
 grep -rn "bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile" components/{admissions,sis,p-files,markbook} | wc -l
 ```
+
 Expected: ≥ 12 matches (every chart wrapper's `CardAction`). If < 10, some wrapper lost its gradient tile during the earlier Phase 4/6 edits.
 
 - [ ] **Step 5: Grep for `font-serif text-xl` CardTitle voice**
 
 Run:
+
 ```
 grep -rn "CardTitle className=\"font-serif text-xl" components/{admissions,sis,p-files,markbook}
 ```
+
 Expected: ≥ 12 matches. Less means a chart wrapper lost its serif voice.
 
 - [ ] **Step 6: Commit baseline findings**
@@ -69,6 +79,7 @@ echo "Baseline checks complete. Proceeding with per-module audits."
 ### Task 2: Admissions audit — `/admissions`
 
 **Files:**
+
 - Audit: `app/(admissions)/admissions/page.tsx`
 - Audit: `lib/admissions/dashboard.ts`
 - Audit: `components/admissions/*-chart.tsx`
@@ -77,6 +88,7 @@ echo "Baseline checks complete. Proceeding with per-module audits."
 - [ ] **Step 1: Schema audit — lib helpers**
 
 Read `lib/admissions/dashboard.ts`. Verify every column reference exists in the Phase 8 snapshot for `ay{YYYY}_enrolment_applications`, `ay{YYYY}_enrolment_status`, `ay{YYYY}_enrolment_documents`. Key columns:
+
 - `created_at`, `enroleeNumber`, `studentNumber`, `levelApplied`, `enroleeFullName`, `firstName`, `lastName`, `howDidYouKnowAboutHFSEIS` (applications)
 - `applicationStatus`, `applicationUpdatedDate`, `classLevel`, `assessmentGradeMath`, `assessmentGradeEnglish` (status)
 
@@ -85,6 +97,7 @@ Flag any helper that references a column NOT in Phase 8. Fix by removing the ref
 - [ ] **Step 2: Page wireframe audit**
 
 Read `app/(admissions)/admissions/page.tsx`. Confirm the section order matches spec §1 wireframe:
+
 1. Hero + ComparisonToolbar
 2. InsightsPanel
 3. 4 MetricCards
@@ -101,6 +114,7 @@ If any row is missing or out of order, rearrange with an `Edit` on the page.
 - [ ] **Step 3: Insight-rule audit**
 
 Read `lib/dashboard/insights.ts` → `admissionsInsights()`. Confirm thresholds match spec §1:
+
 - Conversion rose: Δ ≥ +3pp → good
 - Applications rising: Δ ≥ +5% → good
 - Outdated count: ≥10 → bad, ≥3 → warn
@@ -112,6 +126,7 @@ Fix any drift inline.
 - [ ] **Step 4: Chart wrapper audit**
 
 For each of `conversion-funnel-chart.tsx`, `assessment-outcomes-chart.tsx`, `referral-source-chart.tsx`, `time-to-enrollment-card.tsx` (in `components/admissions/`): confirm:
+
 - `<CardTitle className="font-serif text-xl font-semibold tracking-tight text-foreground">`
 - `<CardAction>` contains `bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile`
 
@@ -134,6 +149,7 @@ git commit -m "chore(dashboard): admissions spec compliance audit"
 ### Task 3: Records audit — `/records`
 
 **Files:**
+
 - Audit: `app/(records)/records/page.tsx`
 - Audit: `lib/sis/dashboard.ts` (shared with Admissions)
 - Audit: `components/sis/document-backlog-chart.tsx`, `level-distribution-chart.tsx`, `pipeline-stage-chart.tsx`, `expiring-documents-panel.tsx`, `recent-activity-feed.tsx`
@@ -145,6 +161,7 @@ Read `lib/sis/dashboard.ts`. Verify column references against Phase 8 for `secti
 - [ ] **Step 2: Wireframe audit**
 
 Confirm `app/(records)/records/page.tsx` row order matches spec §2:
+
 1. Hero + Toolbar
 2. InsightsPanel
 3. 4 MetricCards (sparkline on #1)
@@ -160,6 +177,7 @@ Confirm `app/(records)/records/page.tsx` row order matches spec §2:
 - [ ] **Step 3: Insight-rule audit**
 
 `recordsInsights()` thresholds per spec §2:
+
 - New enrollments Δ ≥ +5% → good
 - Withdrawals > prior × 1.5 (and prior > 0) → bad
 - Expiring ≤60d: ≥10 → warn, ≥3 → info
@@ -184,6 +202,7 @@ git commit -m "chore(dashboard): records spec compliance audit"
 ### Task 4: P-Files audit — `/p-files`
 
 **Files:**
+
 - Audit: `app/(p-files)/p-files/page.tsx`
 - Audit: `lib/p-files/dashboard.ts`
 - Audit: `components/p-files/summary-cards.tsx`, `completion-by-level-chart.tsx`, `revisions-over-time-chart.tsx`, `top-missing-panel.tsx`
@@ -191,12 +210,14 @@ git commit -m "chore(dashboard): records spec compliance audit"
 - [ ] **Step 1: Schema audit**
 
 Verify `lib/p-files/dashboard.ts` uses:
+
 - `p_file_revisions.replaced_at`, `ay_code`, `enrolee_number`, `slot_key`, `status_snapshot`, `expiry_snapshot`
 - `ay{YYYY}_enrolment_documents.{slot}Status`, `{slot}Expiry` — expiring slots list must match `DOCUMENT_SLOTS` with `expires: true`
 
 - [ ] **Step 2: Wireframe audit**
 
 Confirm page row order per spec §3:
+
 1. Hero + Toolbar
 2. InsightsPanel
 3. 4 range MetricCards
@@ -212,6 +233,7 @@ Confirm page row order per spec §3:
 - [ ] **Step 3: Insight-rule audit**
 
 `pfilesInsights()` thresholds:
+
 - Expiring ≥10 → bad, ≥1 → warn
 - Pending ≥15 → warn, ≥3 → info
 - Revisions Δ ≥ ±20% → info
@@ -237,6 +259,7 @@ git commit -m "chore(dashboard): p-files spec compliance audit"
 ### Task 5: Markbook audit — `/markbook`
 
 **Files:**
+
 - Audit: `app/(markbook)/markbook/page.tsx`
 - Audit: `lib/markbook/dashboard.ts`
 - Audit: `components/markbook/grade-distribution-chart.tsx`, `sheet-progress-chart.tsx`, `change-request-panel.tsx`, `publication-coverage-chart.tsx`, `recent-markbook-activity.tsx`
@@ -244,6 +267,7 @@ git commit -m "chore(dashboard): p-files spec compliance audit"
 - [ ] **Step 1: Schema audit**
 
 Verify columns:
+
 - `grading_sheets.is_locked`, `locked_at`, `term_id`, `section_id`, `subject_id`
 - `grade_entries.created_at`, `quarterly_grade` (smallint), `ww_scores numeric[]`, `pt_scores numeric[]`
 - `grade_change_requests.status`, `requested_at`, `reviewed_at`, `reason_category`
@@ -255,6 +279,7 @@ Numeric precision note: `ww_ps`, `pt_ps`, `qa_ps`, `initial_grade` are `numeric(
 - [ ] **Step 2: Wireframe audit**
 
 Confirm page row order per spec §4:
+
 1. Hero + Toolbar (no AY switcher)
 2. InsightsPanel
 3. 4 range MetricCards
@@ -270,6 +295,7 @@ Confirm page row order per spec §4:
 - [ ] **Step 3: Insight-rule audit**
 
 `markbookInsights()` thresholds:
+
 - Change requests pending ≥5 → bad, ≥1 → warn
 - lockedPct ≥90 → good, <50 (and total>0) → warn
 - gradesEntered Δ ≥ ±15% → info
@@ -294,12 +320,14 @@ git commit -m "chore(dashboard): markbook spec compliance audit"
 ### Task 6: Attendance audit — `/attendance`
 
 **Files:**
+
 - Audit: `app/(attendance)/attendance/page.tsx`
 - Audit: `lib/attendance/dashboard.ts`
 
 - [ ] **Step 1: Schema audit**
 
 Verify:
+
 - `attendance_daily.status` ∈ (`P`,`L`,`EX`,`A`,`NC`), `ex_reason` ∈ (`null`,`mc`,`compassionate`,`school_activity`), `date`, `recorded_at`, `section_student_id`, `period_id` (nullable Phase 1)
 - `attendance_records` rollup columns: `school_days`, `days_present`, `days_late`, `days_excused`, `days_absent`, `attendance_pct numeric(5,2)`
 - `school_calendar.day_type` ∈ (`school_day`,`public_holiday`,`school_holiday`,`hbl`,`no_class`); note `is_holiday` is a trigger-derived column (prefer `day_type` in new code)
@@ -309,6 +337,7 @@ Encodable-day semantics: writes allowed only for `day_type` ∈ (`school_day`, `
 - [ ] **Step 2: Wireframe audit**
 
 Confirm page row order per spec §5:
+
 1. Hero + "Mark attendance" primary CTA + Toolbar (no AY switcher)
 2. InsightsPanel
 3. 4 MetricCards (Attendance rate sparkline on #1)
@@ -320,6 +349,7 @@ Confirm page row order per spec §5:
 - [ ] **Step 3: Insight-rule audit**
 
 `attendanceInsights()` thresholds:
+
 - attendancePct ≥95 → good; Δ ≤ −1pp (pct <90) → bad; (pct ≥90) → warn
 - absent > absentPrior × 1.5 (prior > 0) → bad
 - late > latePrior × 1.5 (prior > 0) → warn
@@ -341,12 +371,14 @@ git commit -m "chore(dashboard): attendance spec compliance audit"
 ### Task 7: Evaluation audit — `/evaluation`
 
 **Files:**
+
 - Audit: `app/(evaluation)/evaluation/page.tsx`
 - Audit: `lib/evaluation/dashboard.ts`
 
 - [ ] **Step 1: Schema audit**
 
 Verify:
+
 - `evaluation_writeups.created_at`, `updated_at`, `submitted_at`, `submitted bool`, `term_id`, `student_id`, `section_id`
 - `terms.virtue_theme` (nullable)
 - `evaluation_terms.is_open`, `opened_at`, `term_id` (unique)
@@ -355,6 +387,7 @@ Verify:
 - [ ] **Step 2: Wireframe audit**
 
 Confirm page row order per spec §6 (dashboard band ABOVE existing hub):
+
 1. Hero + Toolbar (no AY switcher)
 2. InsightsPanel
 3. 4 MetricCards (Submission % sparkline on #1)
@@ -366,6 +399,7 @@ Confirm page row order per spec §6 (dashboard band ABOVE existing hub):
 - [ ] **Step 3: Insight-rule audit**
 
 `evaluationInsights()` thresholds:
+
 - submissionPct ≥90 (expected > 0) → good
 - submissionPct <50 (expected > 0) → bad
 - lateSubmissions ≥5 → warn, ≥1 → info
@@ -387,12 +421,14 @@ git commit -m "chore(dashboard): evaluation spec compliance audit"
 ### Task 8: SIS Admin audit — `/sis`
 
 **Files:**
+
 - Audit: `app/(sis)/sis/page.tsx`
 - Audit: `lib/sis/dashboard.ts` (audit-activity aggregator)
 
 - [ ] **Step 1: Schema audit**
 
 Verify:
+
 - `audit_log.created_at`, `action text`, `actor_email`, `entity_id`, `context jsonb`
 - Module prefixes tracked (must match `lib/sis/dashboard.ts` `modules` array):
   - `sheet.`, `entry.`, `pfile.`, `sis.`, `attendance.`, `evaluation.`
@@ -401,6 +437,7 @@ Verify:
 - [ ] **Step 2: Wireframe audit**
 
 Confirm page row order per spec §7:
+
 1. Hero
 2. SystemHealthStrip (superadmin only)
 3. Toolbar (no AY switcher)
@@ -413,6 +450,7 @@ Confirm page row order per spec §7:
 - [ ] **Step 3: Insight-rule audit**
 
 `sisInsights()` thresholds:
+
 - auditEvents Δ ≥ ±25% → info/warn
 - topModule.share ≥40% → info
 - (trackedModules − activeModules) ≥2 → info
@@ -438,6 +476,7 @@ git commit -m "chore(dashboard): sis-admin spec compliance audit"
 ### Task 9: Shared primitives audit
 
 **Files:**
+
 - Audit: `components/dashboard/dashboard-hero.tsx`
 - Audit: `components/dashboard/comparison-toolbar.tsx`
 - Audit: `components/dashboard/insights-panel.tsx`
@@ -450,6 +489,7 @@ git commit -m "chore(dashboard): sis-admin spec compliance audit"
 - [ ] **Step 1: Hero voice**
 
 Confirm `DashboardHero` renders:
+
 - Eyebrow: `font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground`
 - Headline: `font-serif text-[38px] md:text-[44px] font-semibold leading-[1.05] tracking-tight`
 - Body: `text-[15px] leading-relaxed text-muted-foreground`
@@ -457,6 +497,7 @@ Confirm `DashboardHero` renders:
 - [ ] **Step 2: MetricCard voice**
 
 Confirm `MetricCard` renders:
+
 - Card with dashboard-01 gradient: `bg-gradient-to-t from-primary/5 to-card shadow-xs`
 - `CardDescription` mono 10px uppercase
 - `CardTitle` `font-serif text-[32px] tabular-nums @[240px]/card:text-[38px]`
@@ -466,6 +507,7 @@ Confirm `MetricCard` renders:
 - [ ] **Step 3: InsightsPanel voice**
 
 Confirm `InsightsPanel` is a single Card with:
+
 - `CardTitle` `font-serif text-xl`
 - Gradient `CardAction` tile (Sparkles icon)
 - Divided-row `<ul>` of observations
@@ -495,6 +537,7 @@ git commit -m "chore(dashboard): shared primitives spec audit"
 ### Task 10: Docs update
 
 **Files:**
+
 - Create or modify: `docs/context/20-dashboards.md`
 
 - [ ] **Step 1: Check if docs/context/20-dashboards.md exists**
@@ -517,6 +560,7 @@ Content:
 Every module's dashboard landing page composes from **one** vocabulary:
 
 **Shared primitives (`components/dashboard/`):**
+
 - `dashboard-hero.tsx` — canonical hero pattern (§8 hero header)
 - `comparison-toolbar.tsx` — AY + date range + comparison period picker
 - `insights-panel.tsx` — 3–5 auto-generated narrative observations
@@ -530,6 +574,7 @@ Every module's dashboard landing page composes from **one** vocabulary:
 - `charts/heatmap.tsx` — custom grid (solid-tint intensity steps)
 
 **Shared lib (`lib/dashboard/`):**
+
 - `range.ts` — preset resolution + delta math + shared types (`RangeInput`, `RangeResult<T>`)
 - `windows.ts` — server-side term + AY window resolver (uses service client to stay inside `unstable_cache`)
 - `insights.ts` — 7 module-specific insight generators (pure, data-driven)
@@ -537,10 +582,11 @@ Every module's dashboard landing page composes from **one** vocabulary:
 ## URL-param contract
 
 Every dashboard page parses the same query shape:
+```
 
-```
 ?ay=AY2026&from=YYYY-MM-DD&to=YYYY-MM-DD&cmpFrom=YYYY-MM-DD&cmpTo=YYYY-MM-DD
-```
+
+````
 
 Malformed `from`/`to` → fall back to `thisTerm` preset (else last-30d). Missing `cmpFrom`/`cmpTo` → auto-computed prior period of equal length.
 
@@ -553,13 +599,14 @@ Every `lib/<module>/dashboard.ts` file adds `*Range` sibling functions next to a
 ```ts
 export function getRevisionsOverTime(ayCode: string, weeks = 12): Promise<RevisionWeek[]>;                    // existing
 export function getRevisionsOverTimeRange(input: RangeInput): Promise<RangeResult<RevisionWeek[]>>;          // added
-```
+````
 
 Hoist `load*Uncached` at module scope (KD #46), wrap per-call with `unstable_cache` using cache key `['module', 'fn-name', ayCode, from, to, cmpFrom, cmpTo]` and tag = the existing per-AY tag.
 
 ## F-pattern row order
 
 Every dashboard follows:
+
 1. Hero + filters
 2. InsightsPanel
 3. 4 MetricCards (SectionCards grid)
@@ -578,7 +625,8 @@ Chart budget ≤ 8 per screen (sparklines inside MetricCards don't count).
 ## Full spec
 
 See `docs/superpowers/specs/2026-04-24-comprehensive-dashboard-redesign.md` for per-module business questions, KPI formulas, wireframes, insight rules, and deviation notes.
-```
+
+````
 
 Write this content to `docs/context/20-dashboards.md`.
 
@@ -591,7 +639,7 @@ Check `CLAUDE.md` for a reference table of docs/context/ files and confirm `20-d
 ```bash
 git add docs/context/20-dashboards.md CLAUDE.md
 git commit -m "docs(dashboard): add dashboard architecture one-pager"
-```
+````
 
 ---
 
@@ -613,15 +661,19 @@ For each of the 7 modules, confirm the "Changes-from-current inventory" table en
 - [ ] **Step 3: Grep for drift risks (negative control)**
 
 Run:
+
 ```
 grep -rn "text-lg font-semibold tracking-tight" app/ components/dashboard/
 ```
+
 Expected: ZERO matches. If any remain, they're the earlier "modern Vercel-sans" override leftover and must be reverted to `font-serif text-xl`.
 
 Run:
+
 ```
 grep -rn "bg-accent text-accent-foreground shadow-brand-tile" app/ components/
 ```
+
 Expected: ZERO matches (solid-tint + brand-tile shadow is an inconsistency — if bg is solid-tint, shadow should drop).
 
 - [ ] **Step 4: Grep for chart-count compliance**
@@ -629,6 +681,7 @@ Expected: ZERO matches (solid-tint + brand-tile shadow is an inconsistency — i
 For each dashboard page, manually count `<TrendChart`, `<ComparisonBarChart`, `<DonutChart`, `<StackedAreaChart`, `<Heatmap`, `<GradeDistributionChart`, `<SheetProgressChart`, `<ConversionFunnelChart`, `<PipelineStageChart`, `<AssessmentOutcomesChart`, `<CompletionByLevelChart`, `<DocumentBacklogChart`, `<LevelDistributionChart`, `<RevisionsOverTimeChart`, `<PublicationCoverageChart`, `<ChangeRequestPanel` occurrences.
 
 Confirm per spec:
+
 - Admissions: 6 · Records: 5 · P-Files: 3 · Markbook: 6 · Attendance: 3 · Evaluation: 1 · SIS: 1
 
 If any module exceeds 8, flag as violation.
@@ -659,6 +712,7 @@ git commit --allow-empty -m "chore(dashboard): Phase 9 spec-compliance audit com
 ## Self-review (done by plan author)
 
 **1. Spec coverage:** Every spec section mapped to a task.
+
 - Shared design language → Tasks 9, 10
 - Admissions (§1) → Task 2
 - Records (§2) → Task 3

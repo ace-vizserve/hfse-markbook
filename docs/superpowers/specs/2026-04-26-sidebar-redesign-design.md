@@ -71,23 +71,39 @@ The sidebar header today is a static "HFSE / Markbook" link. After: the same gra
 <SidebarHeader className="border-b border-sidebar-border px-3 py-4">
   <Popover>
     <PopoverTrigger asChild>
-      <button className="group flex w-full items-center gap-3 rounded-lg px-1 py-1
+      <button
+        className="group flex w-full items-center gap-3 rounded-lg px-1 py-1
                          outline-none transition-colors hover:bg-sidebar-accent
-                         focus-visible:ring-2 focus-visible:ring-sidebar-ring">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl
+                         focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+      >
+        <div
+          className="flex size-9 shrink-0 items-center justify-center rounded-xl
                         bg-gradient-to-br from-brand-indigo to-brand-navy text-white
-                        shadow-brand-tile">
+                        shadow-brand-tile"
+        >
           <ModuleIcon className="size-4" />
         </div>
-        <div className="flex min-w-0 flex-1 flex-col text-left leading-tight
-                        group-data-[collapsible=icon]:hidden">
-          <span className="font-mono text-[10px] font-semibold uppercase
-                           tracking-[0.14em] text-sidebar-foreground/60">HFSE</span>
-          <span className="truncate font-serif text-base font-semibold tracking-tight
-                           text-sidebar-foreground">{moduleLabel}</span>
+        <div
+          className="flex min-w-0 flex-1 flex-col text-left leading-tight
+                        group-data-[collapsible=icon]:hidden"
+        >
+          <span
+            className="font-mono text-[10px] font-semibold uppercase
+                           tracking-[0.14em] text-sidebar-foreground/60"
+          >
+            HFSE
+          </span>
+          <span
+            className="truncate font-serif text-base font-semibold tracking-tight
+                           text-sidebar-foreground"
+          >
+            {moduleLabel}
+          </span>
         </div>
-        <ChevronsUpDown className="size-3.5 shrink-0 text-sidebar-foreground/50
-                                   group-data-[collapsible=icon]:hidden" />
+        <ChevronsUpDown
+          className="size-3.5 shrink-0 text-sidebar-foreground/50
+                                   group-data-[collapsible=icon]:hidden"
+        />
       </button>
     </PopoverTrigger>
     <PopoverContent align="start" side="right" className="w-[260px] p-1.5">
@@ -120,7 +136,8 @@ Today: 2px brand-indigo bar via `before:` pseudo-element. After: the active item
              data-[active=true]:font-semibold
              data-[active=true]:ring-1 data-[active=true]:ring-inset
              data-[active=true]:ring-brand-indigo-soft/30
-             data-[active=true]:[&_svg]:text-brand-indigo-deep">
+             data-[active=true]:[&_svg]:text-brand-indigo-deep"
+>
   <Link href={item.href}>
     <Icon />
     <span>{item.label}</span>
@@ -131,7 +148,7 @@ Today: 2px brand-indigo bar via `before:` pseudo-element. After: the active item
 
 Inactive items keep `text-sidebar-foreground/70`. Hover deepens to `text-sidebar-foreground` + `bg-sidebar-accent`.
 
-**Why not gradient?** Gradient backgrounds are reserved for primary CTAs and tier-1 chip/CTA primitives (per §9.3 + the Sprint 24 non-flat refresh spec). Nav items are *informational* — the §9.4 accent wash is the right tier.
+**Why not gradient?** Gradient backgrounds are reserved for primary CTAs and tier-1 chip/CTA primitives (per §9.3 + the Sprint 24 non-flat refresh spec). Nav items are _informational_ — the §9.4 accent wash is the right tier.
 
 ### 5.3 Footer profile pill
 
@@ -141,27 +158,37 @@ Today: 4 always-visible rows (avatar block, Account row, Sign out row). After: a
 <SidebarFooter className="border-t border-sidebar-border p-2">
   <Popover>
     <PopoverTrigger asChild>
-      <button className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5
+      <button
+        className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5
                          text-left transition-colors hover:bg-sidebar-accent
                          focus-visible:outline-none focus-visible:ring-2
-                         focus-visible:ring-sidebar-ring">
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-full
+                         focus-visible:ring-sidebar-ring"
+      >
+        <div
+          className="flex size-8 shrink-0 items-center justify-center rounded-full
                         bg-gradient-to-br from-brand-indigo to-brand-navy
-                        text-[11px] font-semibold text-white shadow-brand-tile">
+                        text-[11px] font-semibold text-white shadow-brand-tile"
+        >
           {initials}
         </div>
-        <div className="min-w-0 flex-1 leading-tight
-                        group-data-[collapsible=icon]:hidden">
+        <div
+          className="min-w-0 flex-1 leading-tight
+                        group-data-[collapsible=icon]:hidden"
+        >
           <div className="truncate text-xs font-medium text-sidebar-foreground">
             {email}
           </div>
-          <div className="mt-0.5 font-mono text-[9px] font-semibold uppercase
-                          tracking-[0.14em] text-sidebar-foreground/60">
+          <div
+            className="mt-0.5 font-mono text-[9px] font-semibold uppercase
+                          tracking-[0.14em] text-sidebar-foreground/60"
+          >
             {ROLE_LABEL[role]}
           </div>
         </div>
-        <ChevronsUpDown className="size-3.5 shrink-0 text-sidebar-foreground/50
-                                   group-data-[collapsible=icon]:hidden" />
+        <ChevronsUpDown
+          className="size-3.5 shrink-0 text-sidebar-foreground/50
+                                   group-data-[collapsible=icon]:hidden"
+        />
       </button>
     </PopoverTrigger>
     <PopoverContent side="top" align="start" className="w-[240px] p-1.5">
@@ -184,7 +211,7 @@ Today: `useRealtimeBadgeCount` in `hooks/use-realtime-badge-count.ts` is hardcod
 export function useRealtimeBadges(
   role: Role,
   userId: string,
-  initial: SidebarBadges,
+  initial: SidebarBadges
 ): SidebarBadges {
   // subscribes to one channel per badgeKey present in `initial`,
   // returns merged live counts. No subscription if a badgeKey is absent.
@@ -194,6 +221,7 @@ export function useRealtimeBadges(
 The shared sidebar passes the merged badges to `<SidebarNavItem>`, which reads `item.badgeKey` (already in `NavItem`) and renders the count when > 0. Existing `getSidebarChangeRequestCount` keeps shipping the SSR initial value via `<ModuleSidebar badges={…}>`.
 
 **New badge keys (deferred but slot-ready):**
+
 - `attendanceUnmarked` — number of sections still needing today's mark (operational priority).
 - `pfilesMissingDocs` — count of students with missing required docs.
 - `admissionsToReview` — count of applications in `Inquiry`/`Applied`.
@@ -207,12 +235,15 @@ These plug into the same `SidebarBadgeKey` union in `lib/auth/roles.ts`. The act
 A 0–1 item slot at the top of `<SidebarContent>`, above the first `SidebarGroup`. Renders as a full-width primary CTA — the brand `Button` default variant (gradient + shadow-button) — labelled with a verb. The intent is "what does this user open first."
 
 **Visual.**
+
 ```tsx
 <div className="px-3 pt-3 pb-2">
   <Button asChild className="h-9 w-full justify-start gap-2">
     <Link href={action.href}>
       <ActionIcon className="size-4" />
-      <span className="flex-1 text-left text-[13px] font-semibold">{action.label}</span>
+      <span className="flex-1 text-left text-[13px] font-semibold">
+        {action.label}
+      </span>
       {action.badge && action.badge > 0 && (
         <span className="rounded-full bg-white/20 px-1.5 text-[10px] font-semibold tabular-nums">
           {action.badge}
@@ -227,24 +258,24 @@ A 0–1 item slot at the top of `<SidebarContent>`, above the first `SidebarGrou
 
 **Per-(module × role) declarations.** Lives in `lib/sidebar/registry.ts`. The registry is the single source — no inline scattering in module layouts. Initial set (call out gaps with reasoning):
 
-| Module | Role(s) | Quick action | Href |
-|---|---|---|---|
-| markbook | teacher | "Open my sheets" | `/markbook/grading` |
-| markbook | registrar / admin / superadmin | "Review change requests" (+ live badge) | `/markbook/change-requests` |
-| markbook | school_admin | — (no approval pool, no urgent action) | — |
-| attendance | teacher | "Mark today" | `/attendance/sections` |
-| attendance | registrar+ | — (lands on dashboard, that *is* the action) | — |
-| p-files | p-file | "Missing documents" (+ live badge when wired) | `/p-files?status=missing` |
-| p-files | school_admin / admin / superadmin | — (read-only) | — |
-| evaluation | teacher | "Open writeups" | `/evaluation/sections` |
-| evaluation | registrar+ | — (analytics, no active task) | — |
-| admissions | admissions / registrar+ | "Open applications" | `/admissions/applications` |
-| records | registrar+ | "Browse students" | `/records/students` |
-| sis | school_admin / admin | "School Calendar" | `/sis/calendar` |
-| sis | superadmin | "AY Setup" | `/sis/ay-setup` |
-| parent | (no role) | — | — |
+| Module     | Role(s)                           | Quick action                                  | Href                        |
+| ---------- | --------------------------------- | --------------------------------------------- | --------------------------- |
+| markbook   | teacher                           | "Open my sheets"                              | `/markbook/grading`         |
+| markbook   | registrar / admin / superadmin    | "Review change requests" (+ live badge)       | `/markbook/change-requests` |
+| markbook   | school_admin                      | — (no approval pool, no urgent action)        | —                           |
+| attendance | teacher                           | "Mark today"                                  | `/attendance/sections`      |
+| attendance | registrar+                        | — (lands on dashboard, that _is_ the action)  | —                           |
+| p-files    | p-file                            | "Missing documents" (+ live badge when wired) | `/p-files?status=missing`   |
+| p-files    | school_admin / admin / superadmin | — (read-only)                                 | —                           |
+| evaluation | teacher                           | "Open writeups"                               | `/evaluation/sections`      |
+| evaluation | registrar+                        | — (analytics, no active task)                 | —                           |
+| admissions | admissions / registrar+           | "Open applications"                           | `/admissions/applications`  |
+| records    | registrar+                        | "Browse students"                             | `/records/students`         |
+| sis        | school_admin / admin              | "School Calendar"                             | `/sis/calendar`             |
+| sis        | superadmin                        | "AY Setup"                                    | `/sis/ay-setup`             |
+| parent     | (no role)                         | —                                             | —                           |
 
-**Why these.** Each row is the *most-likely-next-click after the dashboard* for that role, drawn from existing nav. The module-redesign doesn't introduce new pages.
+**Why these.** Each row is the _most-likely-next-click after the dashboard_ for that role, drawn from existing nav. The module-redesign doesn't introduce new pages.
 
 **Verb-not-noun rule.** Quick action labels start with a verb where natural ("Open my sheets", "Mark today", "Review change requests") — distinguishes them from nav items, which are nouns ("Dashboard", "Sections", "Audit Log"). Exception: for config-oriented destinations in SIS, the destination noun stands alone ("School Calendar", "AY Setup") — verb-ifying ("Open School Calendar") reads as boilerplate.
 
@@ -252,13 +283,24 @@ A 0–1 item slot at the top of `<SidebarContent>`, above the first `SidebarGrou
 
 ```ts
 // lib/sidebar/registry.ts
-import type { LucideIcon } from "lucide-react";
+import type { LucideIcon } from 'lucide-react';
 import {
-  BookOpen, CalendarCheck, ClipboardCheck, ClipboardList, FileStack,
-  FilePlus2, FileText, FolderOpen, History, Home, RefreshCw, ShieldCheck,
-  Users, UserCog, /* etc. */
-} from "lucide-react";
-import type { Module, Role, SidebarBadgeKey } from "@/lib/auth/roles";
+  BookOpen,
+  CalendarCheck,
+  ClipboardCheck,
+  ClipboardList,
+  FileStack,
+  FilePlus2,
+  FileText,
+  FolderOpen,
+  History,
+  Home,
+  RefreshCw,
+  ShieldCheck,
+  Users,
+  UserCog /* etc. */,
+} from 'lucide-react';
+import type { Module, Role, SidebarBadgeKey } from '@/lib/auth/roles';
 
 export type QuickAction = {
   label: string;
@@ -268,18 +310,23 @@ export type QuickAction = {
 };
 
 export type ModuleSidebarConfig = {
-  module: Module | "parent";       // "parent" is special-cased
-  label: string;                    // "Markbook", "Attendance", …
-  icon: LucideIcon;                 // matches ModuleSwitcher icons today
+  module: Module | 'parent'; // "parent" is special-cased
+  label: string; // "Markbook", "Attendance", …
+  icon: LucideIcon; // matches ModuleSwitcher icons today
   iconByHref: Record<string, LucideIcon>;
-  quickActionByRole: Partial<Record<Role | "parent", QuickAction>>;
+  quickActionByRole: Partial<Record<Role | 'parent', QuickAction>>;
 };
 
-export const SIDEBAR_REGISTRY: Record<Module | "parent", ModuleSidebarConfig> = {
-  markbook: { /* … */ },
-  attendance: { /* … */ },
-  // …
-};
+export const SIDEBAR_REGISTRY: Record<Module | 'parent', ModuleSidebarConfig> =
+  {
+    markbook: {
+      /* … */
+    },
+    attendance: {
+      /* … */
+    },
+    // …
+  };
 ```
 
 `<ModuleSidebar module="markbook" role={role} email={email} badges={badges} userId={userId} />` reads from `SIDEBAR_REGISTRY[module]` + `NAV_BY_MODULE[module]` and composes the layout. No prop drilling beyond that.
@@ -289,11 +336,11 @@ export const SIDEBAR_REGISTRY: Record<Module | "parent", ModuleSidebarConfig> = 
 ```tsx
 // components/module-sidebar.tsx
 type ModuleSidebarProps = {
-  module: Module | "parent";
-  role: Role | null;            // null only for parents
+  module: Module | 'parent';
+  role: Role | null; // null only for parents
   email: string;
-  userId: string;               // needed for realtime channels
-  badges?: SidebarBadges;       // SSR initial values
+  userId: string; // needed for realtime channels
+  badges?: SidebarBadges; // SSR initial values
 };
 
 export function ModuleSidebar(props: ModuleSidebarProps): JSX.Element;
@@ -303,18 +350,18 @@ Internal subcomponents (`module-sidebar/*.tsx`) are not exported — implementat
 
 ## 8. Tokens & primitives
 
-| Surface | Token / primitive |
-|---|---|
-| Sidebar shell | `Sidebar collapsible="icon"` (shadcn, unchanged) |
-| Header tile | `bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile` (§3.2) |
-| Header label | `font-mono text-[10px] tracking-[0.14em]` eyebrow + `font-serif text-base` headline (§3.3) |
-| Module switcher popover | `Popover` + `PopoverTrigger` + `PopoverContent` (shadcn) |
-| Quick action CTA | `Button` default variant (gradient + `shadow-button`, §3.2) |
-| Nav item active | `bg-accent` + `ring-1 ring-inset ring-brand-indigo-soft/30` + `text-brand-indigo-deep` (§9.4 wash family) |
-| Nav item badge | `rounded-full bg-destructive px-1.5 text-[10px] tabular-nums text-white` (§9.3 destructive) |
-| Section labels | `font-mono text-[10px] tracking-[0.14em] text-sidebar-foreground/50` (unchanged) |
-| Footer pill | shadcn `Popover` with avatar + email + chevron |
-| Footer avatar | `bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile` (§3.2) |
+| Surface                 | Token / primitive                                                                                         |
+| ----------------------- | --------------------------------------------------------------------------------------------------------- |
+| Sidebar shell           | `Sidebar collapsible="icon"` (shadcn, unchanged)                                                          |
+| Header tile             | `bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile` (§3.2)                   |
+| Header label            | `font-mono text-[10px] tracking-[0.14em]` eyebrow + `font-serif text-base` headline (§3.3)                |
+| Module switcher popover | `Popover` + `PopoverTrigger` + `PopoverContent` (shadcn)                                                  |
+| Quick action CTA        | `Button` default variant (gradient + `shadow-button`, §3.2)                                               |
+| Nav item active         | `bg-accent` + `ring-1 ring-inset ring-brand-indigo-soft/30` + `text-brand-indigo-deep` (§9.4 wash family) |
+| Nav item badge          | `rounded-full bg-destructive px-1.5 text-[10px] tabular-nums text-white` (§9.3 destructive)               |
+| Section labels          | `font-mono text-[10px] tracking-[0.14em] text-sidebar-foreground/50` (unchanged)                          |
+| Footer pill             | shadcn `Popover` with avatar + email + chevron                                                            |
+| Footer avatar           | `bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile` (§3.2)                   |
 
 **Tokens added.** None — every recipe uses existing tokens. Hard Rule #7 maintained.
 
@@ -384,6 +431,7 @@ Order of operations (informs the `writing-plans` plan, not a binding script):
 ## 12. Files touched
 
 **New (10 files):**
+
 - `lib/sidebar/registry.ts`
 - `lib/sidebar/use-realtime-badges.ts`
 - `components/module-sidebar.tsx`
@@ -393,6 +441,7 @@ Order of operations (informs the `writing-plans` plan, not a binding script):
 - `components/module-sidebar/sidebar-profile.tsx`
 
 **Modified (8 layouts):**
+
 - `app/(markbook)/layout.tsx`
 - `app/(attendance)/layout.tsx`
 - `app/(sis)/layout.tsx`
@@ -403,6 +452,7 @@ Order of operations (informs the `writing-plans` plan, not a binding script):
 - `app/(parent)/layout.tsx`
 
 **Deleted (10 files):**
+
 - `components/markbook-sidebar.tsx`
 - `components/attendance-sidebar.tsx`
 - `components/sis-sidebar.tsx`

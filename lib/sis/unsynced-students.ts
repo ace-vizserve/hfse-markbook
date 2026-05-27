@@ -34,7 +34,10 @@ import { createServiceClient } from '@/lib/supabase/service';
 // lockstep with Records + cohorts surfaces without needing its own tag.
 // ──────────────────────────────────────────────────────────────────────────
 
-export type UnsyncedGapReason = 'no_student_number' | 'no_class_section' | 'not_synced';
+export type UnsyncedGapReason =
+  | 'no_student_number'
+  | 'no_class_section'
+  | 'not_synced';
 
 export type UnsyncedStudentRow = {
   enroleeNumber: string;
@@ -57,7 +60,9 @@ function prefixFor(ayCode: string): string {
   return `ay${ayCode.replace(/^AY/i, '').toLowerCase()}`;
 }
 
-async function loadUnsyncedUncached(ayCode: string): Promise<UnsyncedStudentRow[]> {
+async function loadUnsyncedUncached(
+  ayCode: string
+): Promise<UnsyncedStudentRow[]> {
   const prefix = prefixFor(ayCode);
   const admissions = createAdmissionsClient();
   const service = createServiceClient();
@@ -66,7 +71,7 @@ async function loadUnsyncedUncached(ayCode: string): Promise<UnsyncedStudentRow[
     admissions
       .from(`${prefix}_enrolment_applications`)
       .select(
-        'enroleeNumber, studentNumber, firstName, middleName, lastName, enroleeFullName, levelApplied',
+        'enroleeNumber, studentNumber, firstName, middleName, lastName, enroleeFullName, levelApplied'
       ),
     admissions
       .from(`${prefix}_enrolment_status`)
@@ -75,11 +80,17 @@ async function loadUnsyncedUncached(ayCode: string): Promise<UnsyncedStudentRow[
   ]);
 
   if (appsRes.error) {
-    console.warn('[sis/unsynced-students] apps fetch failed:', appsRes.error.message);
+    console.warn(
+      '[sis/unsynced-students] apps fetch failed:',
+      appsRes.error.message
+    );
     return [];
   }
   if (statusRes.error) {
-    console.warn('[sis/unsynced-students] status fetch failed:', statusRes.error.message);
+    console.warn(
+      '[sis/unsynced-students] status fetch failed:',
+      statusRes.error.message
+    );
     return [];
   }
 
@@ -99,8 +110,12 @@ async function loadUnsyncedUncached(ayCode: string): Promise<UnsyncedStudentRow[
     applicationStatus: string | null;
   };
 
-  const appsRows = ((appsRes.data ?? []) as AppsRow[]).filter((r) => !!r.enroleeNumber);
-  const statusRows = ((statusRes.data ?? []) as StatusRow[]).filter((r) => !!r.enroleeNumber);
+  const appsRows = ((appsRes.data ?? []) as AppsRow[]).filter(
+    (r) => !!r.enroleeNumber
+  );
+  const statusRows = ((statusRes.data ?? []) as StatusRow[]).filter(
+    (r) => !!r.enroleeNumber
+  );
 
   const appsByEnrolee = new Map<string, AppsRow>();
   for (const r of appsRows) {
@@ -123,13 +138,15 @@ async function loadUnsyncedUncached(ayCode: string): Promise<UnsyncedStudentRow[
     if (syncedErr) {
       console.warn(
         '[sis/unsynced-students] students table check failed:',
-        syncedErr.message,
+        syncedErr.message
       );
       // Fail soft — without the sync set we'd wrongly mark everyone as
       // unsynced. Returning [] is safer than a flood of false positives.
       return [];
     }
-    for (const row of (syncedRows ?? []) as Array<{ student_number: string | null }>) {
+    for (const row of (syncedRows ?? []) as Array<{
+      student_number: string | null;
+    }>) {
       if (row.student_number) syncedSet.add(row.student_number);
     }
   }
@@ -166,7 +183,8 @@ async function loadUnsyncedUncached(ayCode: string): Promise<UnsyncedStudentRow[
     //    can pick one via the assign-section dialog; otherwise it's an
     //    ordinary "needs a bulk sync" case.
     const hasClassSection =
-      typeof status.classSection === 'string' && status.classSection.trim().length > 0;
+      typeof status.classSection === 'string' &&
+      status.classSection.trim().length > 0;
     out.push({
       ...base,
       gapReason: hasClassSection ? 'not_synced' : 'no_class_section',
@@ -190,16 +208,18 @@ async function loadUnsyncedUncached(ayCode: string): Promise<UnsyncedStudentRow[
 }
 
 export async function loadUnsyncedEnrolledStudents(
-  ayCode: string,
+  ayCode: string
 ): Promise<UnsyncedStudentRow[]> {
   return unstable_cache(
     () => loadUnsyncedUncached(ayCode),
     ['sis-unsynced-students', ayCode],
-    { tags: [`sis:${ayCode}`], revalidate: CACHE_TTL_SECONDS },
+    { tags: [`sis:${ayCode}`], revalidate: CACHE_TTL_SECONDS }
   )();
 }
 
-export async function countUnsyncedEnrolledStudents(ayCode: string): Promise<number> {
+export async function countUnsyncedEnrolledStudents(
+  ayCode: string
+): Promise<number> {
   const rows = await loadUnsyncedEnrolledStudents(ayCode);
   return rows.length;
 }

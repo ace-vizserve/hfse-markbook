@@ -1,19 +1,36 @@
-import { AlertTriangle, ArrowUpRight, CalendarDays, CheckCircle2, ClipboardCheck, Clock, ListChecks, MessageSquare, NotebookPen, SquarePen, TrendingUp } from "lucide-react";
-import Link from "next/link";
-import { redirect } from "next/navigation";
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardCheck,
+  Clock,
+  ListChecks,
+  MessageSquare,
+  NotebookPen,
+  SquarePen,
+  TrendingUp,
+} from 'lucide-react';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
-import { ComparisonToolbar } from "@/components/dashboard/comparison-toolbar";
-import { DashboardHero } from "@/components/dashboard/dashboard-hero";
-import { InsightsPanel } from "@/components/dashboard/insights-panel";
-import { MetricCard } from "@/components/dashboard/metric-card";
-import { PriorityPanel } from "@/components/dashboard/priority-panel";
+import { ComparisonToolbar } from '@/components/dashboard/comparison-toolbar';
+import { DashboardHero } from '@/components/dashboard/dashboard-hero';
+import { InsightsPanel } from '@/components/dashboard/insights-panel';
+import { MetricCard } from '@/components/dashboard/metric-card';
+import { PriorityPanel } from '@/components/dashboard/priority-panel';
 import {
   SubmissionVelocityDrillCard,
   TimeToSubmitHistogramCard,
   WriteupsBySectionCard,
-} from "@/components/evaluation/drills/chart-drill-cards";
-import { EvaluationDrillSheet } from "@/components/evaluation/drills/evaluation-drill-sheet";
-import { Alert, AlertDescription, AlertIcon, AlertTitle } from "@/components/ui/alert";
+} from '@/components/evaluation/drills/chart-drill-cards';
+import { EvaluationDrillSheet } from '@/components/evaluation/drills/evaluation-drill-sheet';
+import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
+  AlertTitle,
+} from '@/components/ui/alert';
 import {
   Card,
   CardAction,
@@ -22,11 +39,16 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { PageShell } from "@/components/ui/page-shell";
-import { evaluationInsights } from "@/lib/dashboard/insights";
-import { formatRangeLabel, resolveRange, TERM_SCOPED_PRESETS, type DashboardSearchParams } from "@/lib/dashboard/range";
-import { getDashboardWindows } from "@/lib/dashboard/windows";
+} from '@/components/ui/card';
+import { PageShell } from '@/components/ui/page-shell';
+import { evaluationInsights } from '@/lib/dashboard/insights';
+import {
+  formatRangeLabel,
+  resolveRange,
+  TERM_SCOPED_PRESETS,
+  type DashboardSearchParams,
+} from '@/lib/dashboard/range';
+import { getDashboardWindows } from '@/lib/dashboard/windows';
 import {
   getEvaluationKpisRange,
   getEvaluationPtcFeedbackCompletenessRange,
@@ -34,9 +56,9 @@ import {
   getEvaluationRegistrarPriority,
   getEvaluationTeacherPriority,
   getSubmissionVelocityRange,
-} from "@/lib/evaluation/dashboard";
-import { buildAllRowSets } from "@/lib/evaluation/drill";
-import { createClient, getSessionUser } from "@/lib/supabase/server";
+} from '@/lib/evaluation/dashboard';
+import { buildAllRowSets } from '@/lib/evaluation/drill';
+import { createClient, getSessionUser } from '@/lib/supabase/server';
 
 // Evaluation module landing page. The real work happens on /evaluation/sections
 // (Bite 4) — this page is a light orientation surface describing what the
@@ -49,27 +71,35 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 // Deferred because the inline pattern is functionally correct and the split
 // is regression-risky for zero user-facing benefit. Revisit when this file
 // crosses ~600 lines or a third role enters the mix.
-export default async function EvaluationHub({ searchParams }: { searchParams: Promise<DashboardSearchParams> }) {
+export default async function EvaluationHub({
+  searchParams,
+}: {
+  searchParams: Promise<DashboardSearchParams>;
+}) {
   const sessionUser = await getSessionUser();
-  if (!sessionUser) redirect("/login");
+  if (!sessionUser) redirect('/login');
   const resolvedSearch = await searchParams;
 
   const canToggle =
-    sessionUser.role === "registrar" ||
-    sessionUser.role === "school_admin" ||
-    sessionUser.role === "superadmin";
+    sessionUser.role === 'registrar' ||
+    sessionUser.role === 'school_admin' ||
+    sessionUser.role === 'superadmin';
 
   // Current AY → its T1-T3 terms + window state. Cheap query + used only
   // by the toggle strip on this page.
   const supabase = await createClient();
-  const { data: ay } = await supabase.from("academic_years").select("id, ay_code").eq("is_current", true).maybeSingle();
+  const { data: ay } = await supabase
+    .from('academic_years')
+    .select('id, ay_code')
+    .eq('is_current', true)
+    .maybeSingle();
   const { data: termRows } = ay
     ? await supabase
-        .from("terms")
-        .select("id, label, term_number, is_current, virtue_theme")
-        .eq("academic_year_id", ay.id)
-        .neq("term_number", 4)
-        .order("term_number", { ascending: true })
+        .from('terms')
+        .select('id, label, term_number, is_current, virtue_theme')
+        .eq('academic_year_id', ay.id)
+        .neq('term_number', 4)
+        .order('term_number', { ascending: true })
     : { data: [] };
   type TermLite = {
     id: string;
@@ -81,13 +111,29 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
   const terms = (termRows ?? []) as TermLite[];
 
   // Dashboard band — current AY only.
-  const ayCode = ay?.ay_code ?? "";
+  const ayCode = ay?.ay_code ?? '';
 
   const windows = ayCode
     ? await getDashboardWindows(ayCode)
-    : { term: { thisTerm: null, lastTerm: null, byNumber: { 1: null, 2: null, 3: null, 4: null } }, ay: { thisAY: null, lastAY: null }, activeTermFallback: false };
-  const rangeInput = ayCode ? resolveRange(resolvedSearch, windows, ayCode) : null;
-  const [kpisResult, velocity, drillRowSets, ratingCompleteness, ptcCompleteness] = rangeInput
+    : {
+        term: {
+          thisTerm: null,
+          lastTerm: null,
+          byNumber: { 1: null, 2: null, 3: null, 4: null },
+        },
+        ay: { thisAY: null, lastAY: null },
+        activeTermFallback: false,
+      };
+  const rangeInput = ayCode
+    ? resolveRange(resolvedSearch, windows, ayCode)
+    : null;
+  const [
+    kpisResult,
+    velocity,
+    drillRowSets,
+    ratingCompleteness,
+    ptcCompleteness,
+  ] = rangeInput
     ? await Promise.all([
         getEvaluationKpisRange(rangeInput),
         getSubmissionVelocityRange(rangeInput),
@@ -103,7 +149,7 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
   // Role-aware PriorityPanel payload — teacher gets pending writeups across
   // their advisory sections; registrar gets pending writeups school-wide.
   // Run in parallel — neither depends on the other.
-  const isTeacher = sessionUser.role === "teacher";
+  const isTeacher = sessionUser.role === 'teacher';
   const [teacherPriority, registrarPriority] = await Promise.all([
     isTeacher && ayCode
       ? getEvaluationTeacherPriority({ ayCode, teacherUserId: sessionUser.id })
@@ -119,7 +165,8 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
         submitted: kpisResult.current.submitted,
         expected: kpisResult.current.expected,
         medianTimeToSubmitDays: kpisResult.current.medianTimeToSubmitDays,
-        medianTimeToSubmitDaysPrior: kpisResult.comparison?.medianTimeToSubmitDays,
+        medianTimeToSubmitDaysPrior:
+          kpisResult.comparison?.medianTimeToSubmitDays,
         lateSubmissions: kpisResult.current.lateSubmissions,
       })
     : [];
@@ -144,16 +191,25 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
           <AlertIcon>
             <AlertTriangle className="size-4" />
           </AlertIcon>
-          <AlertTitle>Virtue theme not set for {termsMissingVirtue.length} term{termsMissingVirtue.length === 1 ? "" : "s"}</AlertTitle>
+          <AlertTitle>
+            Virtue theme not set for {termsMissingVirtue.length} term
+            {termsMissingVirtue.length === 1 ? '' : 's'}
+          </AlertTitle>
           <AlertDescription>
-            {termsMissingVirtue.map((t) => t.label).join(" · ")} — write-up textareas stay locked for teachers until a
-            virtue theme is configured.{" "}
+            {termsMissingVirtue.map((t) => t.label).join(' · ')} — write-up
+            textareas stay locked for teachers until a virtue theme is
+            configured.{' '}
             {canToggle ? (
-              <Link href="/sis/ay-setup" className="font-medium underline underline-offset-2">
+              <Link
+                href="/sis/ay-setup"
+                className="font-medium underline underline-offset-2"
+              >
                 Set virtue themes in AY Setup →
               </Link>
             ) : (
-              <span>Ask the registrar to set the virtue theme in AY Setup.</span>
+              <span>
+                Ask the registrar to set the virtue theme in AY Setup.
+              </span>
             )}
           </AlertDescription>
         </Alert>
@@ -166,7 +222,9 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
         <>
           {windows.activeTermFallback && (
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-900 dark:text-amber-100">
-              Active term hasn&apos;t started yet. Showing the previous term&apos;s data as a default — pick a different range above to override.
+              Active term hasn&apos;t started yet. Showing the previous
+              term&apos;s data as a default — pick a different range above to
+              override.
             </div>
           )}
 
@@ -193,7 +251,9 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
               value={kpisResult.current.submissionPct}
               format="percent"
               icon={TrendingUp}
-              intent={kpisResult.current.submissionPct >= 80 ? "good" : "warning"}
+              intent={
+                kpisResult.current.submissionPct >= 80 ? 'good' : 'warning'
+              }
               delta={kpisResult.delta ?? undefined}
               deltaGoodWhen="up"
               comparisonLabel={comparisonLabel}
@@ -226,7 +286,7 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
             />
             <MetricCard
               label="Median time-to-submit"
-              value={kpisResult.current.medianTimeToSubmitDays ?? "—"}
+              value={kpisResult.current.medianTimeToSubmitDays ?? '—'}
               format="days"
               icon={Clock}
               intent="default"
@@ -235,7 +295,7 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
                 kpisResult.comparison?.medianTimeToSubmitDays != null
                   ? `${kpisResult.comparison.medianTimeToSubmitDays}d prior`
                   : kpisResult.comparison
-                    ? "No prior data"
+                    ? 'No prior data'
                     : undefined
               }
               drillSheet={() => (
@@ -252,12 +312,14 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
               label="Late submissions"
               value={kpisResult.current.lateSubmissions}
               icon={Clock}
-              intent={kpisResult.current.lateSubmissions > 0 ? "warning" : "good"}
+              intent={
+                kpisResult.current.lateSubmissions > 0 ? 'warning' : 'good'
+              }
               deltaGoodWhen="down"
               subtext={
                 kpisResult.comparison
                   ? `${kpisResult.comparison.lateSubmissions} prior · submitted >14d after creation`
-                  : "Submitted >14d after writeup was created"
+                  : 'Submitted >14d after writeup was created'
               }
               drillSheet={() => (
                 <EvaluationDrillSheet
@@ -278,7 +340,9 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
                 value={ratingCompleteness.current.pct}
                 format="percent"
                 icon={ListChecks}
-                intent={ratingCompleteness.current.pct >= 80 ? "good" : "warning"}
+                intent={
+                  ratingCompleteness.current.pct >= 80 ? 'good' : 'warning'
+                }
                 delta={ratingCompleteness.delta ?? undefined}
                 deltaGoodWhen="up"
                 comparisonLabel={comparisonLabel}
@@ -309,26 +373,28 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
             />
           )}
 
-          {drillRowSets && (drillRowSets.bySection.length > 0 || drillRowSets.buckets.some((b) => b.count > 0)) && (
-            <section className="grid gap-4 lg:grid-cols-2">
-              <WriteupsBySectionCard
-                data={drillRowSets.bySection}
-                ayCode={ayCode}
-                rangeFrom={rangeInput.from}
-                rangeTo={rangeInput.to}
-                initialBySection={drillRowSets.bySection}
-                initialWriteups={drillRowSets.writeups}
-              />
-              <TimeToSubmitHistogramCard
-                data={drillRowSets.buckets}
-                ayCode={ayCode}
-                rangeFrom={rangeInput.from}
-                rangeTo={rangeInput.to}
-                initialBuckets={drillRowSets.buckets}
-                initialWriteups={drillRowSets.writeups}
-              />
-            </section>
-          )}
+          {drillRowSets &&
+            (drillRowSets.bySection.length > 0 ||
+              drillRowSets.buckets.some((b) => b.count > 0)) && (
+              <section className="grid gap-4 lg:grid-cols-2">
+                <WriteupsBySectionCard
+                  data={drillRowSets.bySection}
+                  ayCode={ayCode}
+                  rangeFrom={rangeInput.from}
+                  rangeTo={rangeInput.to}
+                  initialBySection={drillRowSets.bySection}
+                  initialWriteups={drillRowSets.writeups}
+                />
+                <TimeToSubmitHistogramCard
+                  data={drillRowSets.buckets}
+                  ayCode={ayCode}
+                  rangeFrom={rangeInput.from}
+                  rangeTo={rangeInput.to}
+                  initialBuckets={drillRowSets.buckets}
+                  initialWriteups={drillRowSets.writeups}
+                />
+              </section>
+            )}
         </>
       )}
 
@@ -337,7 +403,7 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
           href="/evaluation/sections"
           icon={SquarePen}
           eyebrow="Write-ups"
-          title={isTeacher ? "My sections" : "Section roster"}
+          title={isTeacher ? 'My sections' : 'Section roster'}
           description={
             isTeacher
               ? "Write or revise the adviser paragraph for each student in your section. Guided by the term's virtue theme. Autosaves per keystroke; Submit marks a write-up finalised."
@@ -365,7 +431,10 @@ export default async function EvaluationHub({ searchParams }: { searchParams: Pr
 
       <div className="mt-2 flex items-center gap-2 border-t border-border pt-5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
         <ClipboardCheck className="size-3" strokeWidth={2.25} />
-        <span>KD #49 — Evaluation owns the FCA write-up · PTC dates pulled from the school calendar (KD #76)</span>
+        <span>
+          KD #49 — Evaluation owns the FCA write-up · PTC dates pulled from the
+          school calendar (KD #76)
+        </span>
       </div>
     </PageShell>
   );
@@ -393,7 +462,9 @@ function HubCard({
           <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
             {eyebrow}
           </CardDescription>
-          <CardTitle className="font-serif text-xl font-semibold tracking-tight text-foreground">{title}</CardTitle>
+          <CardTitle className="font-serif text-xl font-semibold tracking-tight text-foreground">
+            {title}
+          </CardTitle>
           <CardAction>
             <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
               <Icon className="size-4" />
@@ -401,7 +472,9 @@ function HubCard({
           </CardAction>
         </CardHeader>
         <CardContent>
-          <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            {description}
+          </p>
         </CardContent>
         <CardFooter>
           <span className="inline-flex items-center gap-1.5 font-medium text-foreground">

@@ -10,7 +10,12 @@ export async function GET(request: Request) {
   // Teachers are excluded: they are section-scoped and shouldn't have
   // cross-AY student search. Per KD #74 Records is enrolled-only; admissions
   // users included for command-palette lookup in the Admissions module.
-  const auth = await requireRole(['admissions', 'registrar', 'school_admin', 'superadmin']);
+  const auth = await requireRole([
+    'admissions',
+    'registrar',
+    'school_admin',
+    'superadmin',
+  ]);
   if ('error' in auth) return auth.error;
 
   const { searchParams } = new URL(request.url);
@@ -22,6 +27,10 @@ export async function GET(request: Request) {
   const matches = await searchStudentsAcrossAY(q);
   return NextResponse.json(
     { matches },
-    { headers: { 'Cache-Control': 'private, max-age=15, stale-while-revalidate=60' } },
+    {
+      headers: {
+        'Cache-Control': 'private, max-age=15, stale-while-revalidate=60',
+      },
+    }
   );
 }

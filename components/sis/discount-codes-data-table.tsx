@@ -70,7 +70,8 @@ const columns: ColumnDef<DiscountCodeRow>[] = [
     cell: ({ row }) => (
       <span className="inline-flex items-center gap-1.5 font-mono text-[11px] tabular-nums text-muted-foreground">
         <CalendarRange className="size-3" />
-        {formatDate(row.original.startDate)} → {formatDate(row.original.endDate)}
+        {formatDate(row.original.startDate)} →{' '}
+        {formatDate(row.original.endDate)}
       </span>
     ),
     enableSorting: false,
@@ -83,7 +84,9 @@ const columns: ColumnDef<DiscountCodeRow>[] = [
     filterFn: (row, _id, value: string[]) => {
       if (!value || value.length === 0) return true;
       // Capitalise first letter to match filter option labels
-      const label = row.original.status.charAt(0).toUpperCase() + row.original.status.slice(1);
+      const label =
+        row.original.status.charAt(0).toUpperCase() +
+        row.original.status.slice(1);
       return value.includes(label);
     },
   },
@@ -106,7 +109,10 @@ const columns: ColumnDef<DiscountCodeRow>[] = [
     enableSorting: false,
     enableHiding: false,
     cell: ({ row }) => (
-      <DiscountCodeRowActions ayCode={row.original.ayCode} code={row.original} />
+      <DiscountCodeRowActions
+        ayCode={row.original.ayCode}
+        code={row.original}
+      />
     ),
   },
 ];
@@ -135,7 +141,9 @@ export function DiscountCodesDataTable({
 
   // Unique enroleeType values for the facet dropdown.
   const enroleeTypes = Array.from(
-    new Set(codes.map((c) => c.enroleeType).filter((t): t is string => Boolean(t))),
+    new Set(
+      codes.map((c) => c.enroleeType).filter((t): t is string => Boolean(t))
+    )
   ).sort();
 
   return (
@@ -147,7 +155,13 @@ export function DiscountCodesDataTable({
       searchPlaceholder="Search codes, details, or type…"
       facets={[
         ...(enroleeTypes.length > 0
-          ? [{ columnId: 'enroleeType', label: 'Type', valueOptions: enroleeTypes }]
+          ? [
+              {
+                columnId: 'enroleeType',
+                label: 'Type',
+                valueOptions: enroleeTypes,
+              },
+            ]
           : []),
         {
           columnId: 'status',

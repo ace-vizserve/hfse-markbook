@@ -14,13 +14,13 @@
 
 ## File Structure
 
-| File | Role | Change |
-|---|---|---|
-| `package.json` + `package-lock.json` | dependency manifest | uninstall `sonner`, install `sileo` |
-| `tsconfig.json` | TS path resolution | +1 entry under `compilerOptions.paths` redirecting `'sonner'` → `./components/ui/sonner.tsx` |
-| `components/ui/sonner.tsx` | sonner-shaped facade | full rewrite — imports from `'sileo'`, re-exports `Toaster` + `toast` + `ToasterProps` with sonner-compatible signatures |
-| `app/layout.tsx` | not touched | `<Toaster position="top-right" richColors closeButton />` continues to work; wrapper discards sonner-only props |
-| 55 call-site files | not touched | `import { toast } from 'sonner'` continues to resolve, now to the local shim |
+| File                                 | Role                 | Change                                                                                                                   |
+| ------------------------------------ | -------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `package.json` + `package-lock.json` | dependency manifest  | uninstall `sonner`, install `sileo`                                                                                      |
+| `tsconfig.json`                      | TS path resolution   | +1 entry under `compilerOptions.paths` redirecting `'sonner'` → `./components/ui/sonner.tsx`                             |
+| `components/ui/sonner.tsx`           | sonner-shaped facade | full rewrite — imports from `'sileo'`, re-exports `Toaster` + `toast` + `ToasterProps` with sonner-compatible signatures |
+| `app/layout.tsx`                     | not touched          | `<Toaster position="top-right" richColors closeButton />` continues to work; wrapper discards sonner-only props          |
+| 55 call-site files                   | not touched          | `import { toast } from 'sonner'` continues to resolve, now to the local shim                                             |
 
 ---
 
@@ -29,6 +29,7 @@
 ### Task 1: Swap the dependency
 
 **Files:**
+
 - Modify: `package.json`, `package-lock.json` (auto-managed by npm)
 
 - [ ] **Step 1: Uninstall sonner**
@@ -42,6 +43,7 @@ Run: `npm install sileo`
 Expected: adds `sileo` to `dependencies` in `package.json`; lockfile updates.
 
 **If the install fails** (package not found / 404 / unpublished):
+
 - Stop here. Do not proceed.
 - Report to user: "`sileo` is not resolvable on the npm registry under that name. The swap cannot proceed as specified."
 - Roll back: `npm install sonner` to restore the previous state.
@@ -50,6 +52,7 @@ Expected: adds `sileo` to `dependencies` in `package.json`; lockfile updates.
 - [ ] **Step 3: Verify package.json reflects the swap**
 
 Use Read on `package.json` and confirm:
+
 - `dependencies` no longer contains `"sonner"`.
 - `dependencies` now contains `"sileo"` with a version range.
 
@@ -62,6 +65,7 @@ The codebase is currently broken — every `import { toast } from 'sonner'` will
 ### Task 2: Add the tsconfig path alias
 
 **Files:**
+
 - Modify: `tsconfig.json`
 
 - [ ] **Step 1: Read current tsconfig.json**
@@ -104,6 +108,7 @@ The codebase is still broken at this point — the file at `./components/ui/sonn
 ### Task 3: Rewrite components/ui/sonner.tsx as the shim
 
 **Files:**
+
 - Modify: `components/ui/sonner.tsx` (full rewrite)
 
 - [ ] **Step 1: Read the current file**
@@ -150,7 +155,7 @@ type SonnerPromiseMessages<T> = {
 
 function normalize<T>(
   value: SonnerPromiseMessages<T>['success'],
-  arg?: T,
+  arg?: T
 ): { title: string } {
   if (typeof value === 'string') return { title: value };
   if (typeof value === 'function')
@@ -181,6 +186,7 @@ export const toast = {
 - [ ] **Step 3: Verify the file**
 
 Use Read on `components/ui/sonner.tsx` and confirm:
+
 - First import line is `import * as React from 'react';`.
 - Second import line is `import { sileo, Toaster as SileoToaster } from 'sileo';`.
 - `export const toast` exists with `success / error / warning / info / promise / dismiss / loading / custom / message` keys.
@@ -192,6 +198,7 @@ Use Read on `components/ui/sonner.tsx` and confirm:
 ### Task 4: Verify type-check + build
 
 **Files:**
+
 - None modified — verification only.
 
 - [ ] **Step 1: TypeScript compile**
@@ -200,6 +207,7 @@ Run: `npx tsc --noEmit`
 Expected: no errors. Type errors here typically mean either (a) the `sileo` package's actual types don't match the docs the user pasted (the shim signatures need adjustment), or (b) some call site passes a shape the shim doesn't accept (e.g. `toast.success({ title: 'x' })` instead of `toast.success('x')` — none expected per grep, but possible).
 
 If errors appear:
+
 - Read the exact error.
 - If it's about a call-site shape the shim doesn't cover, widen the shim signatures (do NOT modify the call site — Task 4 is verification, not call-site changes).
 - If it's about `sileo`'s real exports differing from docs, adjust the shim's import line and the delegated calls accordingly.
@@ -210,6 +218,7 @@ Run: `npx next build`
 Expected: build completes with `Compiled successfully` and no errors. Warnings are acceptable.
 
 If the build fails, read the exact error. Common causes and fixes:
+
 - "Module not found: 'sonner'" → tsconfig alias not honored. Verify `tsconfig.json` was saved with the new entry. Restart any cached dev process.
 - "Cannot find module 'sileo'" inside `components/ui/sonner.tsx` → `npm install sileo` did not complete. Re-run Task 1 Step 2.
 - Type error in the shim → the package's real types differ from the docs. Read `node_modules/sileo/dist/index.d.ts` (or wherever its types live) and adjust the shim.
@@ -223,6 +232,7 @@ Verify the build output ends with a successful summary (route table) and exits w
 ### Task 5: Commit the swap
 
 **Files:**
+
 - Stage: `package.json`, `package-lock.json`, `tsconfig.json`, `components/ui/sonner.tsx`
 
 - [ ] **Step 1: Inspect what's about to be committed**
@@ -326,3 +336,4 @@ If any scenario was broken (no toast appeared, console errors, runtime crash):
 - [ ] Commit step uses HEREDOC for clean formatting — verified
 - [ ] Risk handling for `sileo` not on npm — Task 1 Step 2 has explicit rollback path ✓
 - [ ] Risk handling for tsconfig alias not honored at runtime — Task 4 Step 2 has diagnosis path ✓
+```

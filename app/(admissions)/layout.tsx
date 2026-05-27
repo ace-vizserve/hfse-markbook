@@ -13,12 +13,21 @@ import { countPendingDocValidation } from '@/lib/admissions/document-validation'
 import type { SidebarBadges } from '@/lib/auth/roles';
 import { getSessionUser } from '@/lib/supabase/server';
 
-export default async function AdmissionsLayout({ children }: { children: React.ReactNode }) {
+export default async function AdmissionsLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
 
   const { id, email, role } = sessionUser;
-  const allowed = ['admissions', 'registrar', 'school_admin', 'superadmin'] as const;
+  const allowed = [
+    'admissions',
+    'registrar',
+    'school_admin',
+    'superadmin',
+  ] as const;
   if (!role || !(allowed as readonly string[]).includes(role)) {
     if (role === 'p-file') redirect('/p-files');
     if (role === 'teacher') redirect('/markbook');
@@ -37,12 +46,22 @@ export default async function AdmissionsLayout({ children }: { children: React.R
   // with tag `sis:${ayCode}` and auto-invalidates on the validate PATCH.
   const currentAy = await getCurrentAcademicYear();
   const badges: SidebarBadges = currentAy
-    ? { pendingDocValidation: await countPendingDocValidation(currentAy.ay_code) }
+    ? {
+        pendingDocValidation: await countPendingDocValidation(
+          currentAy.ay_code
+        ),
+      }
     : {};
 
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
-      <ModuleSidebar module="admissions" role={role} email={email} userId={id} badges={badges} />
+      <ModuleSidebar
+        module="admissions"
+        role={role}
+        email={email}
+        userId={id}
+        badges={badges}
+      />
       <SidebarInset>
         <AyBanner />
         <header className="sticky top-0 z-50 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/85 px-4 backdrop-blur-md">

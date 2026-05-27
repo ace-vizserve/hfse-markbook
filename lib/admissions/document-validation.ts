@@ -65,7 +65,7 @@ const PENDING_APP_STATUSES = [
 type PendingAppStatus = (typeof PENDING_APP_STATUSES)[number];
 
 async function loadPendingDocValidationUncached(
-  ayCode: string,
+  ayCode: string
 ): Promise<ValidationQueueRow[]> {
   const year = ayCode.replace(/^AY/i, '').toLowerCase();
   const appsTable = `ay${year}_enrolment_applications`;
@@ -81,7 +81,7 @@ async function loadPendingDocValidationUncached(
     admissions
       .from(appsTable)
       .select(
-        'enroleeNumber, studentNumber, firstName, lastName, middleName, enroleeFullName, levelApplied, stpApplicationType',
+        'enroleeNumber, studentNumber, firstName, lastName, middleName, enroleeFullName, levelApplied, stpApplicationType'
       ),
     admissions.from(statusTable).select('enroleeNumber, applicationStatus'),
     // Build the docs SELECT from DOCUMENT_SLOTS so we always read every
@@ -89,7 +89,10 @@ async function loadPendingDocValidationUncached(
     admissions
       .from(docsTable)
       .select(
-        ['enroleeNumber', ...DOCUMENT_SLOTS.flatMap((s) => [s.statusCol, s.urlCol])].join(', '),
+        [
+          'enroleeNumber',
+          ...DOCUMENT_SLOTS.flatMap((s) => [s.statusCol, s.urlCol]),
+        ].join(', ')
       ),
   ]);
 
@@ -116,7 +119,9 @@ async function loadPendingDocValidationUncached(
     enroleeNumber: string | null;
     applicationStatus: string | null;
   };
-  type DocsRow = Record<string, string | null> & { enroleeNumber: string | null };
+  type DocsRow = Record<string, string | null> & {
+    enroleeNumber: string | null;
+  };
 
   const apps = (appsRes.data ?? []) as AppRow[];
   const statuses = (statusRes.data ?? []) as StatusRow[];
@@ -126,7 +131,8 @@ async function loadPendingDocValidationUncached(
 
   const statusByEnrolee = new Map<string, string | null>();
   for (const s of statuses) {
-    if (s.enroleeNumber) statusByEnrolee.set(s.enroleeNumber, s.applicationStatus);
+    if (s.enroleeNumber)
+      statusByEnrolee.set(s.enroleeNumber, s.applicationStatus);
   }
   const appByEnrolee = new Map<string, AppRow>();
   for (const a of apps) {
@@ -188,16 +194,18 @@ async function loadPendingDocValidationUncached(
 }
 
 export async function loadPendingDocValidation(
-  ayCode: string,
+  ayCode: string
 ): Promise<ValidationQueueRow[]> {
   return unstable_cache(
     () => loadPendingDocValidationUncached(ayCode),
     ['admissions', 'doc-validation', ayCode],
-    { tags: [`sis:${ayCode}`], revalidate: 60 },
+    { tags: [`sis:${ayCode}`], revalidate: 60 }
   )();
 }
 
-export async function countPendingDocValidation(ayCode: string): Promise<number> {
+export async function countPendingDocValidation(
+  ayCode: string
+): Promise<number> {
   const rows = await loadPendingDocValidation(ayCode);
   return rows.length;
 }

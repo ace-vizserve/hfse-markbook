@@ -16,9 +16,15 @@ const timer = setInterval(() => {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 if (typeof (timer as any).unref === 'function') (timer as any).unref();
 
-export type RateLimitResult = { limited: false } | { limited: true; retryAfter: number };
+export type RateLimitResult =
+  | { limited: false }
+  | { limited: true; retryAfter: number };
 
-function checkLimit(key: string, max: number, windowSecs: number): RateLimitResult {
+function checkLimit(
+  key: string,
+  max: number,
+  windowSecs: number
+): RateLimitResult {
   const now = Date.now();
   const e = store.get(key);
   if (!e || e.resetAt < now) {
@@ -60,17 +66,24 @@ export function rateLimit({
 }
 
 /** Extract caller IP from Vercel's x-forwarded-for header. */
-export function getClientIp(request: { headers: { get(h: string): string | null } }): string {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+export function getClientIp(request: {
+  headers: { get(h: string): string | null };
+}): string {
+  return (
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  );
 }
 
 /** Build a 429 response with Retry-After and optional extra headers (e.g. CORS). */
 export function tooManyRequests(
   retryAfter: number,
-  extraHeaders?: Record<string, string>,
+  extraHeaders?: Record<string, string>
 ): NextResponse {
   return NextResponse.json(
     { error: 'Too many requests. Please try again shortly.' },
-    { status: 429, headers: { 'Retry-After': String(retryAfter), ...extraHeaders } },
+    {
+      status: 429,
+      headers: { 'Retry-After': String(retryAfter), ...extraHeaders },
+    }
   );
 }

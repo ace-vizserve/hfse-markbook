@@ -16,7 +16,12 @@ import {
 import { PageShell } from '@/components/ui/page-shell';
 import { compareLevelLabels } from '@/lib/sis/levels';
 
-type LevelLite = { id: string; code: string; label: string; level_type: 'primary' | 'secondary' };
+type LevelLite = {
+  id: string;
+  code: string;
+  label: string;
+  level_type: 'primary' | 'secondary';
+};
 type SectionCard = {
   id: string;
   name: string;
@@ -50,12 +55,30 @@ export default async function AttendanceSectionsListPage() {
         .select('id, label, start_date, end_date, is_current')
         .eq('academic_year_id', ay.id)
         .order('term_number', { ascending: true })
-    : { data: [] as Array<{ id: string; label: string; start_date: string | null; end_date: string | null; is_current: boolean }> };
-  type TermRow = { id: string; label: string; start_date: string | null; end_date: string | null; is_current: boolean };
+    : {
+        data: [] as Array<{
+          id: string;
+          label: string;
+          start_date: string | null;
+          end_date: string | null;
+          is_current: boolean;
+        }>,
+      };
+  type TermRow = {
+    id: string;
+    label: string;
+    start_date: string | null;
+    end_date: string | null;
+    is_current: boolean;
+  };
   const termRows = (currentTerm ?? []) as TermRow[];
   const activeTerm =
     termRows.find(
-      (t) => t.start_date && t.end_date && t.start_date <= today && t.end_date >= today,
+      (t) =>
+        t.start_date &&
+        t.end_date &&
+        t.start_date <= today &&
+        t.end_date >= today
     ) ??
     termRows.find((t) => t.is_current) ??
     null;
@@ -70,7 +93,9 @@ export default async function AttendanceSectionsListPage() {
       .eq('role', 'form_adviser')
       .eq('sections.academic_year_id', ay.id);
     allowedSectionIds = new Set(
-      ((assignments ?? []) as Array<{ section_id: string }>).map((a) => a.section_id),
+      ((assignments ?? []) as Array<{ section_id: string }>).map(
+        (a) => a.section_id
+      )
     );
   }
 
@@ -79,7 +104,13 @@ export default async function AttendanceSectionsListPage() {
         .from('sections')
         .select('id, name, level:levels(id, code, label, level_type)')
         .eq('academic_year_id', ay.id)
-    : { data: [] as Array<{ id: string; name: string; level: LevelLite | LevelLite[] | null }> };
+    : {
+        data: [] as Array<{
+          id: string;
+          name: string;
+          level: LevelLite | LevelLite[] | null;
+        }>,
+      };
 
   const ids = (sections ?? []).map((s) => s.id);
   const counts: Record<string, number> = {};
@@ -96,7 +127,7 @@ export default async function AttendanceSectionsListPage() {
   }
 
   const getLevel = (l: LevelLite | LevelLite[] | null): LevelLite | null =>
-    Array.isArray(l) ? l[0] ?? null : l;
+    Array.isArray(l) ? (l[0] ?? null) : l;
 
   const cards: SectionCard[] = (sections ?? [])
     .filter((s) => !allowedSectionIds || allowedSectionIds.has(s.id))
@@ -120,7 +151,7 @@ export default async function AttendanceSectionsListPage() {
   // → CS2) per `lib/sis/levels.ts`. localeCompare gave alphabetical
   // ordering which read wrong ("Primary Five" before "Primary One").
   const sortedLevels = Array.from(grouped.entries()).sort(([a], [b]) =>
-    compareLevelLabels(a, b),
+    compareLevelLabels(a, b)
   );
   for (const [, sects] of sortedLevels) {
     sects.sort((a, b) => a.name.localeCompare(b.name));
@@ -206,7 +237,12 @@ export default async function AttendanceSectionsListPage() {
           </h2>
           <div className="space-y-4">
             {sortedLevels.map(([level, sects]) => (
-              <LevelGroup key={level} levelLabel={level} sections={sects} today={today} />
+              <LevelGroup
+                key={level}
+                levelLabel={level}
+                sections={sects}
+                today={today}
+              />
             ))}
           </div>
         </div>
@@ -257,7 +293,13 @@ function LevelGroup({
   );
 }
 
-function SectionPill({ section, today }: { section: SectionCard; today: string }) {
+function SectionPill({
+  section,
+  today,
+}: {
+  section: SectionCard;
+  today: string;
+}) {
   return (
     <Link
       href={`/attendance/${section.id}?date=${today}`}

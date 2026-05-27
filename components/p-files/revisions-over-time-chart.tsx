@@ -8,9 +8,9 @@ import type { RevisionWeek } from '@/lib/p-files/dashboard';
 const RevisionsOverTimeChartImpl = dynamic(
   () =>
     import('./revisions-over-time-chart.client').then(
-      (m) => m.RevisionsOverTimeChartImpl,
+      (m) => m.RevisionsOverTimeChartImpl
     ),
-  { ssr: false, loading: () => <ChartSkeleton kind="trend" /> },
+  { ssr: false, loading: () => <ChartSkeleton kind="trend" /> }
 );
 
 export function RevisionsOverTimeChart({ data }: { data: RevisionWeek[] }) {

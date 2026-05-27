@@ -37,8 +37,8 @@ import {
 export type ChaseQueueLens = 'admissions' | 'p-files';
 
 export type DocumentChaseQueueCounts = {
-  promised: number;     // any slot at 'To follow' (admissions only — zero for p-files)
-  validation: number;   // any slot at 'Uploaded' (admissions only — zero for p-files)
+  promised: number; // any slot at 'To follow' (admissions only — zero for p-files)
+  validation: number; // any slot at 'Uploaded' (admissions only — zero for p-files)
   revalidation: number; // Rejected + Expired for both modules per KD #70
   expiringSoon: number; // any Valid slot expiring within 30 days (p-files only — zero for admissions)
 };
@@ -59,7 +59,7 @@ function prefixFor(ayCode: string): string {
 
 async function loadChaseQueueUncached(
   ayCode: string,
-  moduleKey: ChaseQueueLens,
+  moduleKey: ChaseQueueLens
 ): Promise<DocumentChaseQueueCounts> {
   const prefix = prefixFor(ayCode);
   const supabase = createAdmissionsClient();
@@ -67,10 +67,18 @@ async function loadChaseQueueUncached(
   // Pull the matching enrolee scope first from the status table — gives
   // us the enrolee numbers for the docs filter + lets us enforce the
   // p-files classSection requirement (KD #31).
-  const statusSelect = ['enroleeNumber', 'applicationStatus', 'classSection'].join(', ');
-  let statusQuery = supabase.from(`${prefix}_enrolment_status`).select(statusSelect);
+  const statusSelect = [
+    'enroleeNumber',
+    'applicationStatus',
+    'classSection',
+  ].join(', ');
+  let statusQuery = supabase
+    .from(`${prefix}_enrolment_status`)
+    .select(statusSelect);
   if (moduleKey === 'admissions') {
-    statusQuery = statusQuery.in('applicationStatus', [...ADMISSIONS_FUNNEL_STATUSES]);
+    statusQuery = statusQuery.in('applicationStatus', [
+      ...ADMISSIONS_FUNNEL_STATUSES,
+    ]);
   } else {
     statusQuery = statusQuery
       .in('applicationStatus', [...ENROLLED_STATUSES])
@@ -80,12 +88,18 @@ async function loadChaseQueueUncached(
   if (statusRes.error) {
     console.warn(
       '[sis/document-chase-queue] status fetch failed:',
-      statusRes.error.message,
+      statusRes.error.message
     );
     return { promised: 0, validation: 0, revalidation: 0, expiringSoon: 0 };
   }
-  type StatusRow = { enroleeNumber: string | null; applicationStatus: string | null; classSection: string | null };
-  const statusRows = ((statusRes.data ?? []) as unknown as StatusRow[]).filter((r) => !!r.enroleeNumber);
+  type StatusRow = {
+    enroleeNumber: string | null;
+    applicationStatus: string | null;
+    classSection: string | null;
+  };
+  const statusRows = ((statusRes.data ?? []) as unknown as StatusRow[]).filter(
+    (r) => !!r.enroleeNumber
+  );
   // p-files extra defensive filter — `.not('classSection', 'is', null)`
   // handles NULL but blank strings ('') would slip through. Strip them.
   const enroleeSet = new Set(
@@ -93,7 +107,7 @@ async function loadChaseQueueUncached(
       ? statusRows
           .filter((r) => (r.classSection ?? '').toString().trim().length > 0)
           .map((r) => r.enroleeNumber!)
-      : statusRows.map((r) => r.enroleeNumber!),
+      : statusRows.map((r) => r.enroleeNumber!)
   );
   if (enroleeSet.size === 0) {
     return { promised: 0, validation: 0, revalidation: 0, expiringSoon: 0 };
@@ -115,7 +129,7 @@ async function loadChaseQueueUncached(
   if (docsRes.error) {
     console.warn(
       '[sis/document-chase-queue] docs fetch failed:',
-      docsRes.error.message,
+      docsRes.error.message
     );
     return { promised: 0, validation: 0, revalidation: 0, expiringSoon: 0 };
   }
@@ -154,7 +168,7 @@ async function loadChaseQueueUncached(
 
 export async function getDocumentChaseQueueCounts(
   ayCode: string,
-  moduleKey: ChaseQueueLens = 'admissions',
+  moduleKey: ChaseQueueLens = 'admissions'
 ): Promise<DocumentChaseQueueCounts> {
   return unstable_cache(
     () => loadChaseQueueUncached(ayCode, moduleKey),
@@ -162,6 +176,6 @@ export async function getDocumentChaseQueueCounts(
     {
       revalidate: CACHE_TTL_SECONDS,
       tags: ['sis', `sis:${ayCode}`],
-    },
+    }
   )();
 }

@@ -1,13 +1,13 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from 'next/server';
 
-import { requireRole } from "@/lib/auth/require-role";
-import { requireCurrentAyCode } from "@/lib/academic-year";
-import { logAction, type AuditAction } from "@/lib/audit/log-action";
-import { createServiceClient } from "@/lib/supabase/service";
-import { runNotify, type NotifyOutcome } from "@/lib/p-files/notify-helpers";
-import { resolveModule } from "@/lib/p-files/_shared";
-import { BulkNotifySchema } from "@/lib/schemas/p-files";
-import { invalidateDrillTags } from "@/lib/cache/invalidate-drill-tags";
+import { requireRole } from '@/lib/auth/require-role';
+import { requireCurrentAyCode } from '@/lib/academic-year';
+import { logAction, type AuditAction } from '@/lib/audit/log-action';
+import { createServiceClient } from '@/lib/supabase/service';
+import { runNotify, type NotifyOutcome } from '@/lib/p-files/notify-helpers';
+import { resolveModule } from '@/lib/p-files/_shared';
+import { BulkNotifySchema } from '@/lib/schemas/p-files';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 
 type BulkItem = { enroleeNumber: string; slotKey: string };
 
@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
   const parsed = BulkNotifySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid request body", details: parsed.error.flatten() },
-      { status: 400 },
+      { error: 'Invalid request body', details: parsed.error.flatten() },
+      { status: 400 }
     );
   }
 
@@ -38,11 +38,13 @@ export async function POST(request: NextRequest) {
 
   // Per-module role gate.
   const allowedRoles =
-    moduleKey === "admissions"
-      ? ["admissions", "registrar", "school_admin", "superadmin"]
-      : ["p-file", "superadmin"];
-  const auth = await requireRole(allowedRoles as import("@/lib/auth/roles").Role[]);
-  if ("error" in auth) return auth.error;
+    moduleKey === 'admissions'
+      ? ['admissions', 'registrar', 'school_admin', 'superadmin']
+      : ['p-file', 'superadmin'];
+  const auth = await requireRole(
+    allowedRoles as import('@/lib/auth/roles').Role[]
+  );
+  if ('error' in auth) return auth.error;
 
   const service = createServiceClient();
   const ayCode = await requireCurrentAyCode(service);
@@ -56,7 +58,8 @@ export async function POST(request: NextRequest) {
   let recipientsTotal = 0;
 
   const CONCURRENCY = 8;
-  const kind: "initial-chase" | "renewal" = moduleKey === "admissions" ? "initial-chase" : "renewal";
+  const kind: 'initial-chase' | 'renewal' =
+    moduleKey === 'admissions' ? 'initial-chase' : 'renewal';
 
   type RowResult = { item: BulkItem; outcome: NotifyOutcome };
   const rowResults: RowResult[] = [];
@@ -72,7 +75,7 @@ export async function POST(request: NextRequest) {
           kind,
         });
         return { item, outcome } satisfies RowResult;
-      }),
+      })
     );
     rowResults.push(...chunkResults);
 
@@ -84,19 +87,19 @@ export async function POST(request: NextRequest) {
         continue;
       }
       switch (outcome.reason) {
-        case "cooldown":
+        case 'cooldown':
           skippedCooldown += 1;
           break;
-        case "not_enrolled":
+        case 'not_enrolled':
           skippedNotEnrolled += 1;
           break;
-        case "no_recipients":
+        case 'no_recipients':
           skippedNoRecipients += 1;
           break;
-        case "no_actionable_status":
+        case 'no_actionable_status':
           skippedNotActionable += 1;
           break;
-        case "send_failed":
+        case 'send_failed':
           failed += outcome.recipients ?? 0;
           break;
         default:
@@ -106,12 +109,14 @@ export async function POST(request: NextRequest) {
   }
 
   const action: AuditAction =
-    moduleKey === "admissions" ? "admissions.reminder.bulk" : "pfile.reminder.bulk";
+    moduleKey === 'admissions'
+      ? 'admissions.reminder.bulk'
+      : 'pfile.reminder.bulk';
   await logAction({
     service,
     actor: { id: auth.user.id, email: auth.user.email ?? null },
     action,
-    entityType: "enrolment_document",
+    entityType: 'enrolment_document',
     entityId: `${ayCode}:bulk`,
     context: {
       ay_code: ayCode,

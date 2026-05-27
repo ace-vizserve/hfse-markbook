@@ -10,27 +10,27 @@ import {
   TrendingUp,
   Users,
   type LucideIcon,
-} from "lucide-react";
-import { unstable_cache } from "next/cache";
-import Link from "next/link";
+} from 'lucide-react';
+import { unstable_cache } from 'next/cache';
+import Link from 'next/link';
 
-import { TrendChart } from "@/components/dashboard/charts/trend-chart";
-import { ComparisonToolbar } from "@/components/dashboard/comparison-toolbar";
-import { DashboardHero } from "@/components/dashboard/dashboard-hero";
-import { InsightsPanel } from "@/components/dashboard/insights-panel";
-import { MetricCard } from "@/components/dashboard/metric-card";
-import { PriorityPanel } from "@/components/dashboard/priority-panel";
-import { ChangeRequestPanel } from "@/components/markbook/change-request-panel";
+import { TrendChart } from '@/components/dashboard/charts/trend-chart';
+import { ComparisonToolbar } from '@/components/dashboard/comparison-toolbar';
+import { DashboardHero } from '@/components/dashboard/dashboard-hero';
+import { InsightsPanel } from '@/components/dashboard/insights-panel';
+import { MetricCard } from '@/components/dashboard/metric-card';
+import { PriorityPanel } from '@/components/dashboard/priority-panel';
+import { ChangeRequestPanel } from '@/components/markbook/change-request-panel';
 import {
   GradeDistributionDrillCard,
   PublicationCoverageDrillCard,
   SheetProgressDrillCard,
-} from "@/components/markbook/drills/chart-drill-cards";
-import { MarkbookDrillSheet } from "@/components/markbook/drills/markbook-drill-sheet";
-import { SheetReadinessCard } from "@/components/markbook/drills/sheet-readiness-card";
-import { TeacherEntryVelocityCard } from "@/components/markbook/drills/teacher-entry-velocity-card";
-import { RecentMarkbookActivity } from "@/components/markbook/recent-markbook-activity";
-import { Button } from "@/components/ui/button";
+} from '@/components/markbook/drills/chart-drill-cards';
+import { MarkbookDrillSheet } from '@/components/markbook/drills/markbook-drill-sheet';
+import { SheetReadinessCard } from '@/components/markbook/drills/sheet-readiness-card';
+import { TeacherEntryVelocityCard } from '@/components/markbook/drills/teacher-entry-velocity-card';
+import { RecentMarkbookActivity } from '@/components/markbook/recent-markbook-activity';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardAction,
@@ -39,14 +39,19 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { PageShell } from "@/components/ui/page-shell";
-import { getCurrentAcademicYear, listAyCodes } from "@/lib/academic-year";
-import { getRoleFromClaims } from "@/lib/auth/roles";
-import { isUserAssignedApprover } from "@/lib/sis/approvers/queries";
-import { markbookInsights } from "@/lib/dashboard/insights";
-import { formatRangeLabel, resolveRange, TERM_SCOPED_PRESETS, type DashboardSearchParams } from "@/lib/dashboard/range";
-import { getDashboardWindows } from "@/lib/dashboard/windows";
+} from '@/components/ui/card';
+import { PageShell } from '@/components/ui/page-shell';
+import { getCurrentAcademicYear, listAyCodes } from '@/lib/academic-year';
+import { getRoleFromClaims } from '@/lib/auth/roles';
+import { isUserAssignedApprover } from '@/lib/sis/approvers/queries';
+import { markbookInsights } from '@/lib/dashboard/insights';
+import {
+  formatRangeLabel,
+  resolveRange,
+  TERM_SCOPED_PRESETS,
+  type DashboardSearchParams,
+} from '@/lib/dashboard/range';
+import { getDashboardWindows } from '@/lib/dashboard/windows';
 import {
   getChangeRequestSummary,
   getChangeRequestVelocityRange,
@@ -58,10 +63,10 @@ import {
   getPublicationCoverage,
   getRecentMarkbookActivity,
   getSheetLockProgressByTerm,
-} from "@/lib/markbook/dashboard";
-import { buildAllRowSets, getTeacherEntryVelocity } from "@/lib/markbook/drill";
-import { createClient } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/service";
+} from '@/lib/markbook/dashboard';
+import { buildAllRowSets, getTeacherEntryVelocity } from '@/lib/markbook/drill';
+import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 
 type Tool = {
   eyebrow: string;
@@ -75,27 +80,30 @@ type Tool = {
 const ADMIN_TOOLS: Tool[] = [
   {
     icon: RefreshCw,
-    eyebrow: "Admissions",
-    title: "Sync Students",
-    description: "Pull new, updated, and withdrawn students from the admissions tables. Lives in SIS Admin (KD #48) — opens the canonical surface.",
-    href: "/sis/sync-students",
-    cta: "Open sync",
+    eyebrow: 'Admissions',
+    title: 'Sync Students',
+    description:
+      'Pull new, updated, and withdrawn students from the admissions tables. Lives in SIS Admin (KD #48) — opens the canonical surface.',
+    href: '/sis/sync-students',
+    cta: 'Open sync',
   },
   {
     icon: Users,
-    eyebrow: "Rosters",
-    title: "Browse sections",
-    description: "Read-only roster launcher into per-section grading sheets, attendance, and report cards. Section + adviser config lives in SIS Admin (KD #48).",
-    href: "/markbook/sections",
-    cta: "Open roster",
+    eyebrow: 'Rosters',
+    title: 'Browse sections',
+    description:
+      'Read-only roster launcher into per-section grading sheets, attendance, and report cards. Section + adviser config lives in SIS Admin (KD #48).',
+    href: '/markbook/sections',
+    cta: 'Open roster',
   },
   {
     icon: History,
-    eyebrow: "Compliance",
-    title: "Audit Log",
-    description: "A history of every grade change made after a sheet is locked, including which fields changed and the approval reference.",
-    href: "/markbook/audit-log",
-    cta: "Open audit log",
+    eyebrow: 'Compliance',
+    title: 'Audit Log',
+    description:
+      'A history of every grade change made after a sheet is locked, including which fields changed and the approval reference.',
+    href: '/markbook/audit-log',
+    cta: 'Open audit log',
   },
 ];
 
@@ -107,7 +115,11 @@ const ADMIN_TOOLS: Tool[] = [
 // because the inline pattern is functionally correct and the split is
 // regression-risky for zero user-facing benefit. Revisit when this file
 // crosses ~800 lines or a third role enters the mix.
-export default async function MarkbookHome({ searchParams }: { searchParams: Promise<DashboardSearchParams> }) {
+export default async function MarkbookHome({
+  searchParams,
+}: {
+  searchParams: Promise<DashboardSearchParams>;
+}) {
   const resolvedSearchParams = await searchParams;
   const supabase = await createClient();
   const { data: claimsData } = await supabase.auth.getClaims();
@@ -115,20 +127,30 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
   const email = (claims?.email as string | undefined) ?? undefined;
   const role = getRoleFromClaims(claims);
 
-  const canSeeAdmin = role === "registrar" || role === "school_admin" || role === "superadmin";
-  const canSeeGrading = role === "teacher" || role === "registrar" || role === "superadmin";
+  const canSeeAdmin =
+    role === 'registrar' || role === 'school_admin' || role === 'superadmin';
+  const canSeeGrading =
+    role === 'teacher' || role === 'registrar' || role === 'superadmin';
   const canSeeReportCards =
-    role === "registrar" || role === "school_admin" || role === "superadmin";
+    role === 'registrar' || role === 'school_admin' || role === 'superadmin';
 
   const service = createServiceClient();
   const currentAy = await getCurrentAcademicYear(service);
   const ayId = currentAy?.id ?? null;
-  const ayCode = currentAy?.ay_code ?? "";
+  const ayCode = currentAy?.ay_code ?? '';
 
   const [windows, ayCodes] = await Promise.all([
     ayCode
       ? getDashboardWindows(ayCode)
-      : Promise.resolve({ term: { thisTerm: null, lastTerm: null, byNumber: { 1: null, 2: null, 3: null, 4: null } }, ay: { thisAY: null, lastAY: null }, activeTermFallback: false }),
+      : Promise.resolve({
+          term: {
+            thisTerm: null,
+            lastTerm: null,
+            byNumber: { 1: null, 2: null, 3: null, 4: null },
+          },
+          ay: { thisAY: null, lastAY: null },
+          activeTermFallback: false,
+        }),
     listAyCodes(service),
   ]);
   const rangeInput = resolveRange(resolvedSearchParams, windows, ayCode);
@@ -149,19 +171,25 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
   ] = await Promise.all([
     ayId ? loadStats(ayId, ayCode) : Promise.resolve(null),
     canSeeAdmin ? getMarkbookKpisRange(rangeInput) : Promise.resolve(null),
-    canSeeAdmin ? getGradeEntryVelocityRange(rangeInput) : Promise.resolve(null),
-    canSeeAdmin ? getChangeRequestVelocityRange(rangeInput) : Promise.resolve(null),
+    canSeeAdmin
+      ? getGradeEntryVelocityRange(rangeInput)
+      : Promise.resolve(null),
+    canSeeAdmin
+      ? getChangeRequestVelocityRange(rangeInput)
+      : Promise.resolve(null),
     canSeeAdmin && ayId ? getGradeDistribution(ayId) : Promise.resolve(null),
-    canSeeAdmin && ayId ? getSheetLockProgressByTerm(ayId) : Promise.resolve(null),
+    canSeeAdmin && ayId
+      ? getSheetLockProgressByTerm(ayId)
+      : Promise.resolve(null),
     canSeeAdmin ? getChangeRequestSummary(ayCode, 30) : Promise.resolve(null),
     canSeeAdmin && ayId ? getPublicationCoverage(ayId) : Promise.resolve(null),
     canSeeAdmin ? getRecentMarkbookActivity(8) : Promise.resolve(null),
     ayId
       ? service
-          .from("terms")
-          .select("term_number, is_current, start_date, end_date")
-          .eq("academic_year_id", ayId)
-          .order("term_number", { ascending: true })
+          .from('terms')
+          .select('term_number, is_current, start_date, end_date')
+          .eq('academic_year_id', ayId)
+          .order('term_number', { ascending: true })
           .then((r) => {
             type TermRow = {
               term_number: number;
@@ -174,7 +202,11 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
             const today = new Date().toISOString().slice(0, 10);
             const current = rows.find((t) => t.is_current === true);
             const containingToday = rows.find(
-              (t) => t.start_date && t.end_date && t.start_date <= today && t.end_date >= today,
+              (t) =>
+                t.start_date &&
+                t.end_date &&
+                t.start_date <= today &&
+                t.end_date >= today
             );
             const lastFinished = [...rows]
               .filter((t) => t.end_date && t.end_date < today)
@@ -207,15 +239,15 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
   // registrar gets "decisions queued + per-term unlocked sheets". Run in
   // parallel so navigation doesn't serialise two priority queries.
   const userId = (claims?.sub as string | undefined) ?? null;
-  const isTeacher = role === "teacher";
+  const isTeacher = role === 'teacher';
   const [teacherPriority, registrarPriority] = await Promise.all([
     isTeacher && userId && ayCode
       ? getMarkbookTeacherPriority({ ayCode, teacherUserId: userId })
       : Promise.resolve(null),
     canSeeAdmin && ayCode && kpisResult && userId
-      ? (role === "superadmin"
+      ? (role === 'superadmin'
           ? Promise.resolve(true)
-          : isUserAssignedApprover(userId, "markbook.change_request")
+          : isUserAssignedApprover(userId, 'markbook.change_request')
         ).then((canActOnChangeRequests) =>
           getMarkbookRegistrarPriority({
             ayCode,
@@ -223,7 +255,7 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
             from: rangeInput.from,
             to: rangeInput.to,
             canActOnChangeRequests,
-          }),
+          })
         )
       : Promise.resolve(null),
   ]);
@@ -244,16 +276,21 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
     <PageShell>
       <DashboardHero
         eyebrow="Markbook · Dashboard"
-        title={`Welcome back${email ? `, ${email.split("@")[0]}` : ""}`}
+        title={`Welcome back${email ? `, ${email.split('@')[0]}` : ''}`}
         description="Grading sheets, change requests, publications, and recent module activity."
-        badges={currentAy ? [{ label: currentAy.ay_code }, { label: "Current", tone: "mint" }] : []}
+        badges={
+          currentAy
+            ? [{ label: currentAy.ay_code }, { label: 'Current', tone: 'mint' }]
+            : []
+        }
       />
 
       {teacherPriority && <PriorityPanel payload={teacherPriority} />}
 
       {canSeeAdmin && ayCode && windows.activeTermFallback && (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-900 dark:text-amber-100">
-          Active term hasn&apos;t started yet. Showing the previous term&apos;s data as a default — pick a different range above to override.
+          Active term hasn&apos;t started yet. Showing the previous term&apos;s
+          data as a default — pick a different range above to override.
         </div>
       )}
 
@@ -276,7 +313,9 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
 
       {registrarPriority && <PriorityPanel payload={registrarPriority} />}
 
-      {canSeeAdmin && insights.length > 0 && <InsightsPanel insights={insights} />}
+      {canSeeAdmin && insights.length > 0 && (
+        <InsightsPanel insights={insights} />
+      )}
 
       {/* Range-aware KPIs — new MetricCards driven by ComparisonToolbar */}
       {canSeeAdmin && kpisResult && ayCode && (
@@ -319,7 +358,9 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
             label="Change requests pending"
             value={kpisResult.current.changeRequestsPending}
             icon={TrendingUp}
-            intent={kpisResult.current.changeRequestsPending > 0 ? "warning" : "good"}
+            intent={
+              kpisResult.current.changeRequestsPending > 0 ? 'warning' : 'good'
+            }
             subtext={
               kpisResult.comparison
                 ? `${kpisResult.comparison.changeRequestsPending} in prior period`
@@ -338,7 +379,7 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
           />
           <MetricCard
             label="Avg decision time"
-            value={kpisResult.current.avgDecisionHours ?? "—"}
+            value={kpisResult.current.avgDecisionHours ?? '—'}
             format="hours"
             icon={Clock}
             intent="default"
@@ -346,7 +387,7 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
               kpisResult.comparison?.avgDecisionHours != null
                 ? `${kpisResult.comparison.avgDecisionHours.toFixed(1)}h prior`
                 : kpisResult.comparison
-                  ? "No prior decisions"
+                  ? 'No prior decisions'
                   : undefined
             }
             drillSheet={() => (
@@ -364,36 +405,50 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
       )}
 
       {/* Row 4 — velocity trends side-by-side (grade entry + change requests) */}
-      {canSeeAdmin && ((velocity && velocity.current.length > 1) || (crVelocity && crVelocity.current.length > 1)) && (
-        <section className="grid gap-4 lg:grid-cols-2">
-          {velocity && velocity.current.length > 1 && (
-            <Card>
-              <CardHeader>
-                <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-                  Grade entry velocity
-                </CardDescription>
-                <CardTitle className="font-serif text-xl">Entries per day</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <TrendChart label="Entries" current={velocity.current} comparison={velocity.comparison} />
-              </CardContent>
-            </Card>
-          )}
-          {crVelocity && crVelocity.current.length > 1 && (
-            <Card>
-              <CardHeader>
-                <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-                  Change requests
-                </CardDescription>
-                <CardTitle className="font-serif text-xl">Requests per day</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <TrendChart label="Requests" current={crVelocity.current} comparison={crVelocity.comparison} />
-              </CardContent>
-            </Card>
-          )}
-        </section>
-      )}
+      {canSeeAdmin &&
+        ((velocity && velocity.current.length > 1) ||
+          (crVelocity && crVelocity.current.length > 1)) && (
+          <section className="grid gap-4 lg:grid-cols-2">
+            {velocity && velocity.current.length > 1 && (
+              <Card>
+                <CardHeader>
+                  <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
+                    Grade entry velocity
+                  </CardDescription>
+                  <CardTitle className="font-serif text-xl">
+                    Entries per day
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <TrendChart
+                    label="Entries"
+                    current={velocity.current}
+                    comparison={velocity.comparison}
+                  />
+                </CardContent>
+              </Card>
+            )}
+            {crVelocity && crVelocity.current.length > 1 && (
+              <Card>
+                <CardHeader>
+                  <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
+                    Change requests
+                  </CardDescription>
+                  <CardTitle className="font-serif text-xl">
+                    Requests per day
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <TrendChart
+                    label="Requests"
+                    current={crVelocity.current}
+                    comparison={crVelocity.comparison}
+                  />
+                </CardContent>
+              </Card>
+            )}
+          </section>
+        )}
 
       {/* Static school-wide counters — Markbook scope only. "Students enrolled"
           and "Active sections" were dropped (Records-territory per KD #51);
@@ -404,21 +459,32 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
         <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2">
           <StatCard
             description="Grading sheets"
-            value={stats ? formatNumber(stats.sheetsOpen + stats.sheetsLocked) : "—"}
+            value={
+              stats ? formatNumber(stats.sheetsOpen + stats.sheetsLocked) : '—'
+            }
             icon={ClipboardList}
             footerTitle={
-              stats ? `${formatNumber(stats.sheetsOpen)} open · ${formatNumber(stats.sheetsLocked)} locked` : "No data"
+              stats
+                ? `${formatNumber(stats.sheetsOpen)} open · ${formatNumber(stats.sheetsLocked)} locked`
+                : 'No data'
             }
             footerDetail="Across all terms"
           />
           <StatCard
             description="% sheets locked"
-            value={stats ? formatPercent(stats.sheetsLocked, stats.sheetsOpen + stats.sheetsLocked) : "—"}
+            value={
+              stats
+                ? formatPercent(
+                    stats.sheetsLocked,
+                    stats.sheetsOpen + stats.sheetsLocked
+                  )
+                : '—'
+            }
             icon={Lock}
             footerTitle={
               stats && stats.sheetsOpen + stats.sheetsLocked > 0
                 ? `${stats.sheetsLocked} of ${stats.sheetsOpen + stats.sheetsLocked} sheets`
-                : "No sheets yet"
+                : 'No sheets yet'
             }
             footerDetail="Locked = finalized for parents"
           />
@@ -431,7 +497,9 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
             <div className="lg:col-span-2">
               <GradeDistributionDrillCard
                 data={gradeDist}
-                termLabel={currentTerm != null ? `Term ${currentTerm}` : "Current term"}
+                termLabel={
+                  currentTerm != null ? `Term ${currentTerm}` : 'Current term'
+                }
                 ayCode={ayCode}
                 rangeFrom={rangeInput.from}
                 rangeTo={rangeInput.to}
@@ -480,7 +548,9 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
             <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Tools
             </p>
-            <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">School admin tools</h2>
+            <h2 className="font-serif text-2xl font-semibold tracking-tight text-foreground">
+              School admin tools
+            </h2>
           </div>
           <div className="@container/main">
             <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-3">
@@ -535,7 +605,7 @@ export default async function MarkbookHome({ searchParams }: { searchParams: Pro
 
       <div className="mt-2 flex items-center gap-2 border-t border-border pt-5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
         <BarChart3 className="size-3" strokeWidth={2.25} />
-        <span>{currentAy?.ay_code ?? "—"}</span>
+        <span>{currentAy?.ay_code ?? '—'}</span>
         <span className="text-border">·</span>
         <span>Secure sign-in</span>
       </div>
@@ -556,8 +626,11 @@ async function loadStatsUncached(academicYearId: string): Promise<Stats> {
   const service = createServiceClient();
 
   const [sectionsRes, termsRes] = await Promise.all([
-    service.from("sections").select("id", { count: "exact" }).eq("academic_year_id", academicYearId),
-    service.from("terms").select("id").eq("academic_year_id", academicYearId),
+    service
+      .from('sections')
+      .select('id', { count: 'exact' })
+      .eq('academic_year_id', academicYearId),
+    service.from('terms').select('id').eq('academic_year_id', academicYearId),
   ]);
 
   const sectionIds = (sectionsRes.data ?? []).map((r) => r.id as string);
@@ -568,42 +641,48 @@ async function loadStatsUncached(academicYearId: string): Promise<Stats> {
   type CountRes = { count: number | null };
   const zero: Promise<CountRes> = Promise.resolve({ count: 0 });
 
-  const [studentsRes, sheetsOpenRes, sheetsLockedRes, pubActiveRes, pubScheduledRes] = await Promise.all([
+  const [
+    studentsRes,
+    sheetsOpenRes,
+    sheetsLockedRes,
+    pubActiveRes,
+    pubScheduledRes,
+  ] = await Promise.all([
     sectionIds.length > 0
       ? service
-          .from("section_students")
-          .select("*", { count: "exact", head: true })
-          .eq("enrollment_status", "active")
-          .in("section_id", sectionIds)
+          .from('section_students')
+          .select('*', { count: 'exact', head: true })
+          .eq('enrollment_status', 'active')
+          .in('section_id', sectionIds)
       : zero,
     termIds.length > 0
       ? service
-          .from("grading_sheets")
-          .select("*", { count: "exact", head: true })
-          .eq("is_locked", false)
-          .in("term_id", termIds)
+          .from('grading_sheets')
+          .select('*', { count: 'exact', head: true })
+          .eq('is_locked', false)
+          .in('term_id', termIds)
       : zero,
     termIds.length > 0
       ? service
-          .from("grading_sheets")
-          .select("*", { count: "exact", head: true })
-          .eq("is_locked", true)
-          .in("term_id", termIds)
+          .from('grading_sheets')
+          .select('*', { count: 'exact', head: true })
+          .eq('is_locked', true)
+          .in('term_id', termIds)
       : zero,
     sectionIds.length > 0
       ? service
-          .from("report_card_publications")
-          .select("*", { count: "exact", head: true })
-          .in("section_id", sectionIds)
-          .lte("publish_from", nowIso)
-          .gte("publish_until", nowIso)
+          .from('report_card_publications')
+          .select('*', { count: 'exact', head: true })
+          .in('section_id', sectionIds)
+          .lte('publish_from', nowIso)
+          .gte('publish_until', nowIso)
       : zero,
     sectionIds.length > 0
       ? service
-          .from("report_card_publications")
-          .select("*", { count: "exact", head: true })
-          .in("section_id", sectionIds)
-          .gt("publish_from", nowIso)
+          .from('report_card_publications')
+          .select('*', { count: 'exact', head: true })
+          .in('section_id', sectionIds)
+          .gt('publish_from', nowIso)
       : zero,
   ]);
 
@@ -625,17 +704,17 @@ async function loadStatsUncached(academicYearId: string): Promise<Stats> {
 function loadStats(academicYearId: string, ayCode: string): Promise<Stats> {
   return unstable_cache(
     () => loadStatsUncached(academicYearId),
-    ["dashboard-stats", academicYearId],
-    { revalidate: 60, tags: ["dashboard-stats", `markbook:${ayCode}`] },
+    ['dashboard-stats', academicYearId],
+    { revalidate: 60, tags: ['dashboard-stats', `markbook:${ayCode}`] }
   )();
 }
 
 function formatNumber(n: number): string {
-  return n.toLocaleString("en-SG");
+  return n.toLocaleString('en-SG');
 }
 
 function formatPercent(num: number, den: number): string {
-  if (den === 0) return "—";
+  if (den === 0) return '—';
   const pct = Math.round((num / den) * 100);
   return `${pct}%`;
 }
@@ -696,9 +775,10 @@ function QuickLinkCard({
   return (
     <Card
       className={
-        "@container/card group relative transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md" +
-        (primary ? " ring-1 ring-primary/20" : "")
-      }>
+        '@container/card group relative transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md' +
+        (primary ? ' ring-1 ring-primary/20' : '')
+      }
+    >
       <CardHeader>
         <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
           {eyebrow}

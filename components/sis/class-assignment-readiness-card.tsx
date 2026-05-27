@@ -18,7 +18,8 @@ import {
 import { Sheet } from '@/components/ui/sheet';
 import type { ClassAssignmentReadinessRow } from '@/lib/sis/dashboard';
 
-const BADGE_BASE = 'h-6 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]';
+const BADGE_BASE =
+  'h-6 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]';
 
 /**
  * ClassAssignmentReadinessCard — surfaces students with applicationStatus =
@@ -89,9 +90,16 @@ export function ClassAssignmentReadinessCard({
               </thead>
               <tbody>
                 {data.slice(0, 8).map((r) => (
-                  <tr key={r.enroleeNumber} className="border-b border-border/60">
-                    <td className="py-2 font-medium text-foreground">{r.fullName}</td>
-                    <td className="py-2 text-muted-foreground">{r.level ?? '—'}</td>
+                  <tr
+                    key={r.enroleeNumber}
+                    className="border-b border-border/60"
+                  >
+                    <td className="py-2 font-medium text-foreground">
+                      {r.fullName}
+                    </td>
+                    <td className="py-2 text-muted-foreground">
+                      {r.level ?? '—'}
+                    </td>
                     <td
                       className={
                         'py-2 text-right font-mono tabular-nums ' +

@@ -57,7 +57,11 @@ type Props = {
 
 // Reusable gradient icon tile — mirrors the same recipe used across the
 // full Records page so the lite surface reads with one voice.
-function ActionTile({ icon: Icon }: { icon: React.ComponentType<{ className?: string }> }) {
+function ActionTile({
+  icon: Icon,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+}) {
   return (
     <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
       <Icon className="size-4" />
@@ -65,12 +69,19 @@ function ActionTile({ icon: Icon }: { icon: React.ComponentType<{ className?: st
   );
 }
 
-export async function RecordsLitePage({ studentNumber, history, currentEntry }: Props) {
+export async function RecordsLitePage({
+  studentNumber,
+  history,
+  currentEntry,
+}: Props) {
   // 1. Admissions-side detail — populates Family tab + gives us the
   //    canonical full name to display in the hero. The lite page is
   //    pinned to `currentEntry` (most-recent or AY-current), so we
   //    only fetch this one AY's detail.
-  const detail = await getStudentDetail(currentEntry.ayCode, currentEntry.enroleeNumber);
+  const detail = await getStudentDetail(
+    currentEntry.ayCode,
+    currentEntry.enroleeNumber
+  );
 
   // Resolve the student name with sensible fallbacks. `getStudentDetail`
   // can fail entirely on a legacy AY whose apps row is so minimal we
@@ -89,7 +100,7 @@ export async function RecordsLitePage({ studentNumber, history, currentEntry }: 
     detail?.application?.levelApplied ?? currentEntry.level ?? null;
   const availableSections = await loadAvailableSections(
     currentEntry.ayCode,
-    levelLabel,
+    levelLabel
   );
 
   return (
@@ -227,14 +238,20 @@ function EmptyStateCard({
           <p className="font-serif text-[16px] font-semibold tracking-tight text-foreground">
             {title}
           </p>
-          <p className="mx-auto max-w-md text-sm leading-relaxed text-muted-foreground">{body}</p>
+          <p className="mx-auto max-w-md text-sm leading-relaxed text-muted-foreground">
+            {body}
+          </p>
         </div>
       </CardContent>
     </Card>
   );
 }
 
-function EnrollmentHistoryList({ history }: { history: EnrollmentHistoryEntry[] }) {
+function EnrollmentHistoryList({
+  history,
+}: {
+  history: EnrollmentHistoryEntry[];
+}) {
   const sorted = [...history].sort((a, b) => b.ayCode.localeCompare(a.ayCode));
   return (
     <Card>
@@ -251,7 +268,9 @@ function EnrollmentHistoryList({ history }: { history: EnrollmentHistoryEntry[] 
       </CardHeader>
       <CardContent>
         {sorted.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No enrolment history on file.</p>
+          <p className="text-sm text-muted-foreground">
+            No enrolment history on file.
+          </p>
         ) : (
           <ul className="divide-y divide-hairline">
             {sorted.map((h) => (
@@ -375,10 +394,19 @@ function FamilyContactSummary({ app }: { app: ApplicationRow }) {
                   {(b.email || b.mobile) && (
                     <div className="mt-3 space-y-1.5 border-t border-hairline pt-3">
                       {b.email && (
-                        <ContactPill href={`mailto:${b.email}`} icon={Mail} value={b.email} />
+                        <ContactPill
+                          href={`mailto:${b.email}`}
+                          icon={Mail}
+                          value={b.email}
+                        />
                       )}
                       {b.mobile && (
-                        <ContactPill href={`tel:${b.mobile}`} icon={Phone} value={b.mobile} mono />
+                        <ContactPill
+                          href={`tel:${b.mobile}`}
+                          icon={Phone}
+                          value={b.mobile}
+                          mono
+                        />
                       )}
                     </div>
                   )}
@@ -398,7 +426,9 @@ function FamilyContactSummary({ app }: { app: ApplicationRow }) {
                   Home
                 </p>
                 {app.homeAddress && (
-                  <p className="text-[13px] leading-tight text-foreground">{app.homeAddress}</p>
+                  <p className="text-[13px] leading-tight text-foreground">
+                    {app.homeAddress}
+                  </p>
                 )}
               </div>
               {app.postalCode && (
@@ -412,7 +442,12 @@ function FamilyContactSummary({ app }: { app: ApplicationRow }) {
             </div>
             {app.homePhone && (
               <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-hairline pt-3">
-                <ContactPill href={`tel:${app.homePhone}`} icon={Phone} value={app.homePhone} mono />
+                <ContactPill
+                  href={`tel:${app.homePhone}`}
+                  icon={Phone}
+                  value={app.homePhone}
+                  mono
+                />
               </div>
             )}
           </div>
@@ -441,7 +476,11 @@ function ContactPill({
       <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-brand-indigo/20 to-brand-indigo/5 text-brand-indigo">
         <Icon className="size-3" />
       </span>
-      <span className={`min-w-0 truncate ${mono ? 'font-mono tabular-nums' : ''}`}>{value}</span>
+      <span
+        className={`min-w-0 truncate ${mono ? 'font-mono tabular-nums' : ''}`}
+      >
+        {value}
+      </span>
     </a>
   );
 }
@@ -455,7 +494,7 @@ function ContactPill({
 
 async function loadAvailableSections(
   ayCode: string,
-  levelLabel: string | null,
+  levelLabel: string | null
 ): Promise<AssignableSection[]> {
   if (!levelLabel) return [];
   const service = createServiceClient();
@@ -493,7 +532,10 @@ async function loadAvailableSections(
     .in('section_id', sectionIds);
   const activeCountById = new Map<string, number>();
   for (const r of (activeRows ?? []) as Array<{ section_id: string }>) {
-    activeCountById.set(r.section_id, (activeCountById.get(r.section_id) ?? 0) + 1);
+    activeCountById.set(
+      r.section_id,
+      (activeCountById.get(r.section_id) ?? 0) + 1
+    );
   }
 
   return sections

@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   ArrowRight,
@@ -17,11 +17,11 @@ import {
   Share2,
   X,
   XCircle,
-} from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
-import { toast } from "sonner";
+} from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState, useTransition } from 'react';
+import { toast } from 'sonner';
 
 import {
   AlertDialog,
@@ -32,13 +32,20 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DateTimePicker } from "@/components/ui/date-time-picker";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { ScrollArea } from "@/components/ui/scroll-area";
+} from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { DateTimePicker } from '@/components/ui/date-time-picker';
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type Term = { id: string; term_number: number; label: string };
 
@@ -51,7 +58,7 @@ type Publication = {
   published_by: string;
 };
 
-type Status = "active" | "scheduled" | "expired" | "none";
+type Status = 'active' | 'scheduled' | 'expired' | 'none';
 
 type ChecklistData = {
   grading_sheets: {
@@ -77,7 +84,11 @@ type ChecklistData = {
   t4_readiness: {
     all_terms_locked: boolean;
     unlocked_terms: { term_number: number; subjects: string[] }[];
-    missing_annual_grades: { student_name: string; subject_name: string; missing_terms: number[] }[];
+    missing_annual_grades: {
+      student_name: string;
+      subject_name: string;
+      missing_terms: number[];
+    }[];
     missing_annual_count: number;
     non_examinable_readiness: {
       missing: { student_name: string; subject_name: string }[];
@@ -95,40 +106,43 @@ type ChecklistData = {
 };
 
 function statusOf(p: Publication | undefined): Status {
-  if (!p) return "none";
+  if (!p) return 'none';
   const now = new Date();
   const from = new Date(p.publish_from);
   const until = new Date(p.publish_until);
-  if (now < from) return "scheduled";
-  if (now > until) return "expired";
-  return "active";
+  if (now < from) return 'scheduled';
+  if (now > until) return 'expired';
+  return 'active';
 }
 
 function StatusBadge({ status }: { status: Status }) {
   switch (status) {
-    case "active":
+    case 'active':
       return (
         <Badge
           variant="outline"
-          className="h-6 border-brand-mint bg-brand-mint/30 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ink">
+          className="h-6 border-brand-mint bg-brand-mint/30 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ink"
+        >
           <CheckCircle2 className="h-3 w-3" />
           Published
         </Badge>
       );
-    case "scheduled":
+    case 'scheduled':
       return (
         <Badge
           variant="outline"
-          className="h-6 border-brand-indigo-soft/60 bg-accent px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-brand-indigo-deep">
+          className="h-6 border-brand-indigo-soft/60 bg-accent px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-brand-indigo-deep"
+        >
           <Clock className="h-3 w-3" />
           Scheduled
         </Badge>
       );
-    case "expired":
+    case 'expired':
       return (
         <Badge
           variant="outline"
-          className="h-6 border-destructive/40 bg-gradient-to-b from-destructive/15 to-destructive/5 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-destructive">
+          className="h-6 border-destructive/40 bg-gradient-to-b from-destructive/15 to-destructive/5 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-destructive"
+        >
           Expired
         </Badge>
       );
@@ -136,7 +150,8 @@ function StatusBadge({ status }: { status: Status }) {
       return (
         <Badge
           variant="outline"
-          className="h-6 border-dashed border-border bg-muted px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          className="h-6 border-dashed border-border bg-muted px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+        >
           Not published
         </Badge>
       );
@@ -145,11 +160,11 @@ function StatusBadge({ status }: { status: Status }) {
 
 function fmt(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
   });
 }
 
@@ -184,8 +199,8 @@ function ChecklistRow({
   actionLabel: string;
 }) {
   const tileClass = passed
-    ? "bg-gradient-to-br from-brand-mint to-brand-sky shadow-brand-tile-mint"
-    : "bg-gradient-to-br from-brand-amber to-brand-amber/80 shadow-brand-tile-amber";
+    ? 'bg-gradient-to-br from-brand-mint to-brand-sky shadow-brand-tile-mint'
+    : 'bg-gradient-to-br from-brand-amber to-brand-amber/80 shadow-brand-tile-amber';
 
   return (
     <div className="rounded-xl border border-hairline bg-card p-3.5 ring-1 ring-inset ring-border/40">
@@ -194,7 +209,8 @@ function ChecklistRow({
             warning. shadow-brand-tile-{mint,amber} per non-flat T1 tile
             recipe (09a-design-patterns.md §8). */}
         <div
-          className={`flex size-9 shrink-0 items-center justify-center rounded-xl text-white ${tileClass}`}>
+          className={`flex size-9 shrink-0 items-center justify-center rounded-xl text-white ${tileClass}`}
+        >
           <Icon className="size-4" />
         </div>
         <div className="min-w-0 flex-1 space-y-1">
@@ -205,13 +221,15 @@ function ChecklistRow({
             <p className="font-serif text-[15px] font-semibold leading-tight tracking-tight text-foreground">
               {title}
             </p>
-            <Badge variant={passed ? "success" : "warning"} className="h-5">
+            <Badge variant={passed ? 'success' : 'warning'} className="h-5">
               {passed ? <CheckCircle2 /> : <XCircle />}
               {summary}
             </Badge>
           </div>
           {detail && (
-            <p className="text-xs leading-relaxed text-muted-foreground">{detail}</p>
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              {detail}
+            </p>
           )}
           {studentList && studentList.length > 0 && (
             <ScrollArea className="mt-1 h-20">
@@ -259,18 +277,22 @@ export function PublishWindowPanel({
   const [publications, setPublications] = useState<Publication[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingTermId, setEditingTermId] = useState<string | null>(null);
-  const [from, setFrom] = useState("");
-  const [until, setUntil] = useState("");
+  const [from, setFrom] = useState('');
+  const [until, setUntil] = useState('');
   const [busy, setBusy] = useState(false);
   const [pendingRevokeId, setPendingRevokeId] = useState<string | null>(null);
   const [checklist, setChecklist] = useState<ChecklistData | null>(null);
-  const [pendingPublishTermId, setPendingPublishTermId] = useState<string | null>(null);
+  const [pendingPublishTermId, setPendingPublishTermId] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       setLoading(true);
-      const res = await fetch(`/api/report-card-publications?section_id=${sectionId}`);
+      const res = await fetch(
+        `/api/report-card-publications?section_id=${sectionId}`
+      );
       const body = await res.json();
       if (!cancelled) {
         setPublications((body.publications ?? []) as Publication[]);
@@ -286,9 +308,9 @@ export function PublishWindowPanel({
   async function save(termId: string) {
     setBusy(true);
     try {
-      const res = await fetch("/api/report-card-publications", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+      const res = await fetch('/api/report-card-publications', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           section_id: sectionId,
           term_id: termId,
@@ -297,15 +319,19 @@ export function PublishWindowPanel({
         }),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? "publish failed");
-      const reload = await fetch(`/api/report-card-publications?section_id=${sectionId}`);
+      if (!res.ok) throw new Error(body.error ?? 'publish failed');
+      const reload = await fetch(
+        `/api/report-card-publications?section_id=${sectionId}`
+      );
       const reloadBody = await reload.json();
       setPublications((reloadBody.publications ?? []) as Publication[]);
       setEditingTermId(null);
-      toast.success("Publication window saved");
+      toast.success('Publication window saved');
       startTransition(() => router.refresh());
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to save publication window");
+      toast.error(
+        e instanceof Error ? e.message : 'Failed to save publication window'
+      );
     } finally {
       setBusy(false);
     }
@@ -314,16 +340,21 @@ export function PublishWindowPanel({
   async function revoke(publicationId: string) {
     setBusy(true);
     try {
-      const res = await fetch(`/api/report-card-publications/${publicationId}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `/api/report-card-publications/${publicationId}`,
+        {
+          method: 'DELETE',
+        }
+      );
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error ?? "revoke failed");
+      if (!res.ok) throw new Error(body.error ?? 'revoke failed');
       setPublications((prev) => prev.filter((p) => p.id !== publicationId));
-      toast.success("Publication revoked");
+      toast.success('Publication revoked');
       startTransition(() => router.refresh());
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to revoke publication");
+      toast.error(
+        e instanceof Error ? e.message : 'Failed to revoke publication'
+      );
     } finally {
       setBusy(false);
     }
@@ -332,7 +363,9 @@ export function PublishWindowPanel({
   async function handlePublish(termId: string) {
     setBusy(true);
     try {
-      const res = await fetch(`/api/sections/${sectionId}/publish-readiness?term_id=${termId}`);
+      const res = await fetch(
+        `/api/sections/${sectionId}/publish-readiness?term_id=${termId}`
+      );
       if (!res.ok) {
         await save(termId);
         return;
@@ -346,12 +379,11 @@ export function PublishWindowPanel({
         data.attendance.missing.length > 0 ||
         data.slot_dates.sheets_missing_count > 0 ||
         (data.virtue_readiness && !data.virtue_readiness.ok) ||
-        (data.t4_readiness && (
-          !data.t4_readiness.all_terms_locked ||
-          data.t4_readiness.missing_annual_count > 0 ||
-          data.t4_readiness.non_examinable_readiness.missing_count > 0 ||
-          !data.t4_readiness.letterhead_readiness.ok
-        ));
+        (data.t4_readiness &&
+          (!data.t4_readiness.all_terms_locked ||
+            data.t4_readiness.missing_annual_count > 0 ||
+            data.t4_readiness.non_examinable_readiness.missing_count > 0 ||
+            !data.t4_readiness.letterhead_readiness.ok));
 
       if (!hasIssues) {
         await save(termId);
@@ -380,23 +412,36 @@ export function PublishWindowPanel({
   }
 
   const checklistOpen = checklist !== null;
-  const sheetsOk = checklist ? checklist.grading_sheets.unlocked.length === 0 : true;
-  const slotDatesOk = checklist ? checklist.slot_dates.sheets_missing_count === 0 : true;
+  const sheetsOk = checklist
+    ? checklist.grading_sheets.unlocked.length === 0
+    : true;
+  const slotDatesOk = checklist
+    ? checklist.slot_dates.sheets_missing_count === 0
+    : true;
   // commentsOk is true only when nothing is missing AND nothing is still drafted.
   // drafted > 0 renders as an amber warning so the registrar sees unfinished writeups.
   const commentsOk = checklist
-    ? checklist.evaluations.missing.length === 0 && checklist.evaluations.drafted === 0
+    ? checklist.evaluations.missing.length === 0 &&
+      checklist.evaluations.drafted === 0
     : true;
-  const attendanceOk = checklist ? checklist.attendance.missing.length === 0 : true;
-  const t4LockedOk = checklist?.t4_readiness ? checklist.t4_readiness.all_terms_locked : true;
-  const t4GradesOk = checklist?.t4_readiness ? checklist.t4_readiness.missing_annual_count === 0 : true;
+  const attendanceOk = checklist
+    ? checklist.attendance.missing.length === 0
+    : true;
+  const t4LockedOk = checklist?.t4_readiness
+    ? checklist.t4_readiness.all_terms_locked
+    : true;
+  const t4GradesOk = checklist?.t4_readiness
+    ? checklist.t4_readiness.missing_annual_count === 0
+    : true;
   const nonExamOk = checklist?.t4_readiness
     ? checklist.t4_readiness.non_examinable_readiness.missing_count === 0
     : true;
   const letterheadOk = checklist?.t4_readiness
     ? checklist.t4_readiness.letterhead_readiness.ok
     : true;
-  const virtueOk = checklist?.virtue_readiness ? checklist.virtue_readiness.ok : true;
+  const virtueOk = checklist?.virtue_readiness
+    ? checklist.virtue_readiness.ok
+    : true;
 
   return (
     <Card className="@container/card gap-0 py-0">
@@ -415,8 +460,8 @@ export function PublishWindowPanel({
       </CardHeader>
       <CardContent className="space-y-3 px-0 pt-0">
         <p className="px-6 pt-4 text-sm text-muted-foreground">
-          Publish each term to parents within a time window. Parents sign in to the parent portal and can only view
-          terms with an active window.
+          Publish each term to parents within a time window. Parents sign in to
+          the parent portal and can only view terms with an active window.
         </p>
 
         {loading && (
@@ -455,17 +500,19 @@ export function PublishWindowPanel({
                       <div className="flex gap-2">
                         <Button
                           size="sm"
-                          variant={existing ? "outline" : "default"}
+                          variant={existing ? 'outline' : 'default'}
                           onClick={() => startEdit(term.id, existing)}
-                          disabled={busy}>
-                          {existing ? "Edit window" : "Publish"}
+                          disabled={busy}
+                        >
+                          {existing ? 'Edit window' : 'Publish'}
                         </Button>
                         {existing && (
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => setPendingRevokeId(existing.id)}
-                            disabled={busy}>
+                            disabled={busy}
+                          >
                             <X className="h-3.5 w-3.5" />
                             Revoke
                           </Button>
@@ -479,7 +526,9 @@ export function PublishWindowPanel({
                       <FieldGroup>
                         <div className="grid gap-4 sm:grid-cols-2">
                           <Field>
-                            <FieldLabel htmlFor={`from-${term.id}`}>Publish from</FieldLabel>
+                            <FieldLabel htmlFor={`from-${term.id}`}>
+                              Publish from
+                            </FieldLabel>
                             <DateTimePicker
                               id={`from-${term.id}`}
                               value={from}
@@ -488,7 +537,9 @@ export function PublishWindowPanel({
                             />
                           </Field>
                           <Field>
-                            <FieldLabel htmlFor={`until-${term.id}`}>Publish until</FieldLabel>
+                            <FieldLabel htmlFor={`until-${term.id}`}>
+                              Publish until
+                            </FieldLabel>
                             <DateTimePicker
                               id={`until-${term.id}`}
                               value={until}
@@ -498,12 +549,23 @@ export function PublishWindowPanel({
                           </Field>
                         </div>
                         <div className="flex justify-end gap-2">
-                          <Button size="sm" variant="outline" onClick={() => setEditingTermId(null)} disabled={busy}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditingTermId(null)}
+                            disabled={busy}
+                          >
                             Cancel
                           </Button>
-                          <Button size="sm" onClick={() => handlePublish(term.id)} disabled={busy || !from || !until}>
-                            {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                            {existing ? "Update window" : "Publish"}
+                          <Button
+                            size="sm"
+                            onClick={() => handlePublish(term.id)}
+                            disabled={busy || !from || !until}
+                          >
+                            {busy && (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            )}
+                            {existing ? 'Update window' : 'Publish'}
                           </Button>
                         </div>
                       </FieldGroup>
@@ -521,12 +583,14 @@ export function PublishWindowPanel({
         open={pendingRevokeId !== null}
         onOpenChange={(open) => {
           if (!open) setPendingRevokeId(null);
-        }}>
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Revoke this publication?</AlertDialogTitle>
             <AlertDialogDescription>
-              Parents will lose access to the report card immediately. You can re-publish later if needed.
+              Parents will lose access to the report card immediately. You can
+              re-publish later if needed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -537,7 +601,8 @@ export function PublishWindowPanel({
                 const id = pendingRevokeId;
                 setPendingRevokeId(null);
                 if (id) await revoke(id);
-              }}>
+              }}
+            >
               Revoke
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -557,16 +622,18 @@ export function PublishWindowPanel({
             setChecklist(null);
             setPendingPublishTermId(null);
           }
-        }}>
+        }}
+      >
         <AlertDialogContent className="max-w-2xl!">
           <AlertDialogHeader>
             <AlertDialogTitle className="font-serif text-[22px] font-semibold tracking-tight">
               Publishing checklist
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Some items need attention before publishing to parents. You can still publish — these
-              are warnings, not hard stops. Use the quick-links to jump into each module and fix
-              issues, then re-publish.
+              Some items need attention before publishing to parents. You can
+              still publish — these are warnings, not hard stops. Use the
+              quick-links to jump into each module and fix issues, then
+              re-publish.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -585,11 +652,11 @@ export function PublishWindowPanel({
                 }
                 detail={
                   sheetsOk
-                    ? `All ${checklist.grading_sheets.total} sheet${checklist.grading_sheets.total === 1 ? "" : "s"} locked and ready to publish.`
-                    : `Unlocked subject${checklist.grading_sheets.unlocked.length === 1 ? "" : "s"}: ${checklist.grading_sheets.unlocked.map((s) => s.subject_name).join(", ")}`
+                    ? `All ${checklist.grading_sheets.total} sheet${checklist.grading_sheets.total === 1 ? '' : 's'} locked and ready to publish.`
+                    : `Unlocked subject${checklist.grading_sheets.unlocked.length === 1 ? '' : 's'}: ${checklist.grading_sheets.unlocked.map((s) => s.subject_name).join(', ')}`
                 }
                 href={`/markbook/grading?q=${encodeURIComponent(sectionName)}`}
-                actionLabel={sheetsOk ? "View" : "Lock sheets"}
+                actionLabel={sheetsOk ? 'View' : 'Lock sheets'}
               />
 
               <ChecklistRow
@@ -599,16 +666,16 @@ export function PublishWindowPanel({
                 title="Administered dates"
                 summary={
                   slotDatesOk
-                    ? "All recorded"
-                    : `${checklist.slot_dates.sheets_missing_count} sheet${checklist.slot_dates.sheets_missing_count === 1 ? "" : "s"} with scores missing a date`
+                    ? 'All recorded'
+                    : `${checklist.slot_dates.sheets_missing_count} sheet${checklist.slot_dates.sheets_missing_count === 1 ? '' : 's'} with scores missing a date`
                 }
                 detail={
                   slotDatesOk
-                    ? "Every scored activity slot has an administered date on record."
-                    : `Scored slots without a date won't show the correct activity date on the score record. Subject${checklist.slot_dates.sheets.length === 1 ? "" : "s"}: ${checklist.slot_dates.sheets.map((s) => s.subject_name).join(", ")}`
+                    ? 'Every scored activity slot has an administered date on record.'
+                    : `Scored slots without a date won't show the correct activity date on the score record. Subject${checklist.slot_dates.sheets.length === 1 ? '' : 's'}: ${checklist.slot_dates.sheets.map((s) => s.subject_name).join(', ')}`
                 }
                 href={`/markbook/grading?q=${encodeURIComponent(sectionName)}`}
-                actionLabel={slotDatesOk ? "View" : "Add dates"}
+                actionLabel={slotDatesOk ? 'View' : 'Add dates'}
               />
 
               <ChecklistRow
@@ -626,14 +693,19 @@ export function PublishWindowPanel({
                 })()}
                 detail={
                   commentsOk
-                    ? `All ${checklist.evaluations.total_active} active student comment${checklist.evaluations.total_active === 1 ? "" : "s"} submitted.`
-                    : checklist.evaluations.drafted > 0 && checklist.evaluations.missing.length === 0
-                      ? `${checklist.evaluations.drafted} comment${checklist.evaluations.drafted === 1 ? "" : "s"} saved as draft — teacher hasn't submitted yet.`
+                    ? `All ${checklist.evaluations.total_active} active student comment${checklist.evaluations.total_active === 1 ? '' : 's'} submitted.`
+                    : checklist.evaluations.drafted > 0 &&
+                        checklist.evaluations.missing.length === 0
+                      ? `${checklist.evaluations.drafted} comment${checklist.evaluations.drafted === 1 ? '' : 's'} saved as draft — teacher hasn't submitted yet.`
                       : undefined
                 }
-                studentList={checklist.evaluations.missing.length > 0 ? checklist.evaluations.missing : undefined}
+                studentList={
+                  checklist.evaluations.missing.length > 0
+                    ? checklist.evaluations.missing
+                    : undefined
+                }
                 href={`/evaluation/sections/${sectionId}`}
-                actionLabel={commentsOk ? "View" : "Review comments"}
+                actionLabel={commentsOk ? 'View' : 'Review comments'}
               />
 
               <ChecklistRow
@@ -648,12 +720,14 @@ export function PublishWindowPanel({
                 }
                 detail={
                   attendanceOk
-                    ? `All ${checklist.attendance.total_active} active student record${checklist.attendance.total_active === 1 ? "" : "s"} marked.`
+                    ? `All ${checklist.attendance.total_active} active student record${checklist.attendance.total_active === 1 ? '' : 's'} marked.`
                     : undefined
                 }
-                studentList={!attendanceOk ? checklist.attendance.missing : undefined}
+                studentList={
+                  !attendanceOk ? checklist.attendance.missing : undefined
+                }
                 href={`/attendance/${sectionId}`}
-                actionLabel={attendanceOk ? "View" : "Mark attendance"}
+                actionLabel={attendanceOk ? 'View' : 'Mark attendance'}
               />
 
               {/* Virtue theme — T1–T3 only (T4 has no FCA comment block per KD #49). */}
@@ -663,14 +737,14 @@ export function PublishWindowPanel({
                   icon={BookOpen}
                   eyebrow="Evaluation · Virtue theme"
                   title="Virtue theme"
-                  summary={virtueOk ? "Set" : "Not set"}
+                  summary={virtueOk ? 'Set' : 'Not set'}
                   detail={
                     virtueOk
                       ? `The virtue theme for ${checklist.virtue_readiness.term_label} is configured — the FCA comment heading will display correctly.`
                       : `No virtue theme is set for ${checklist.virtue_readiness.term_label}. The "(HFSE Virtues: …)" parenthetical will be missing from the report card.`
                   }
                   href="/sis/ay-setup"
-                  actionLabel={virtueOk ? "View" : "Set theme"}
+                  actionLabel={virtueOk ? 'View' : 'Set theme'}
                 />
               )}
 
@@ -692,18 +766,21 @@ export function PublishWindowPanel({
                     title="All terms locked"
                     summary={
                       t4LockedOk
-                        ? "4 of 4 locked"
+                        ? '4 of 4 locked'
                         : `${checklist.t4_readiness.unlocked_terms.length} unlocked`
                     }
                     detail={
                       t4LockedOk
                         ? "Every term's grading sheets are locked — Final Grade can be computed."
                         : checklist.t4_readiness.unlocked_terms
-                            .map((t) => `T${t.term_number}: ${t.subjects.join(", ")}`)
-                            .join(" · ")
+                            .map(
+                              (t) =>
+                                `T${t.term_number}: ${t.subjects.join(', ')}`
+                            )
+                            .join(' · ')
                     }
                     href={`/markbook/grading?q=${encodeURIComponent(sectionName)}`}
-                    actionLabel={t4LockedOk ? "View" : "Lock prior terms"}
+                    actionLabel={t4LockedOk ? 'View' : 'Lock prior terms'}
                   />
 
                   <ChecklistRow
@@ -713,24 +790,25 @@ export function PublishWindowPanel({
                     title="Quarterly grades"
                     summary={
                       t4GradesOk
-                        ? "All present"
+                        ? 'All present'
                         : `${checklist.t4_readiness.missing_annual_count} missing`
                     }
                     detail={
                       t4GradesOk
-                        ? "Every (student × subject) has Q1–Q4 grades for Final Grade computation."
+                        ? 'Every (student × subject) has Q1–Q4 grades for Final Grade computation.'
                         : checklist.t4_readiness.missing_annual_grades
                             .slice(0, 5)
                             .map(
-                              (g) => `${g.student_name} — ${g.subject_name} (T${g.missing_terms.join(",")})`,
+                              (g) =>
+                                `${g.student_name} — ${g.subject_name} (T${g.missing_terms.join(',')})`
                             )
-                            .join("; ") +
+                            .join('; ') +
                           (checklist.t4_readiness.missing_annual_count > 5
                             ? ` … and ${checklist.t4_readiness.missing_annual_count - 5} more`
-                            : "")
+                            : '')
                     }
                     href={`/markbook/grading?q=${encodeURIComponent(sectionName)}`}
-                    actionLabel={t4GradesOk ? "View" : "Backfill grades"}
+                    actionLabel={t4GradesOk ? 'View' : 'Backfill grades'}
                   />
 
                   <ChecklistRow
@@ -740,21 +818,23 @@ export function PublishWindowPanel({
                     title="Letter grades"
                     summary={
                       nonExamOk
-                        ? "All present"
+                        ? 'All present'
                         : `${checklist.t4_readiness.non_examinable_readiness.missing_count} missing`
                     }
                     detail={
                       nonExamOk
-                        ? "All non-examinable subjects (PE, Music, Arts, etc.) have a grade or N/A on record."
-                        : checklist.t4_readiness.non_examinable_readiness.missing.slice(0, 5)
+                        ? 'All non-examinable subjects (PE, Music, Arts, etc.) have a grade or N/A on record.'
+                        : checklist.t4_readiness.non_examinable_readiness.missing
+                            .slice(0, 5)
                             .map((g) => `${g.student_name} — ${g.subject_name}`)
-                            .join("; ") +
-                          (checklist.t4_readiness.non_examinable_readiness.missing_count > 5
+                            .join('; ') +
+                          (checklist.t4_readiness.non_examinable_readiness
+                            .missing_count > 5
                             ? ` … and ${checklist.t4_readiness.non_examinable_readiness.missing_count - 5} more`
-                            : "")
+                            : '')
                     }
                     href="/markbook/masterfile"
-                    actionLabel={nonExamOk ? "View" : "Enter grades"}
+                    actionLabel={nonExamOk ? 'View' : 'Enter grades'}
                   />
 
                   <ChecklistRow
@@ -762,14 +842,14 @@ export function PublishWindowPanel({
                     icon={Building2}
                     eyebrow="School config · Letterhead"
                     title="Report card letterhead"
-                    summary={letterheadOk ? "Complete" : "Incomplete"}
+                    summary={letterheadOk ? 'Complete' : 'Incomplete'}
                     detail={
                       letterheadOk
-                        ? "Principal name, CEO name, and PEI registration number are all set."
-                        : `Missing: ${checklist.t4_readiness.letterhead_readiness.missing_fields.join(", ")}. Blank fields produce empty signature lines on the final card.`
+                        ? 'Principal name, CEO name, and PEI registration number are all set.'
+                        : `Missing: ${checklist.t4_readiness.letterhead_readiness.missing_fields.join(', ')}. Blank fields produce empty signature lines on the final card.`
                     }
                     href="/sis/admin/school-config"
-                    actionLabel={letterheadOk ? "View" : "Complete config"}
+                    actionLabel={letterheadOk ? 'View' : 'Complete config'}
                   />
                 </>
               )}
@@ -784,7 +864,8 @@ export function PublishWindowPanel({
                 setChecklist(null);
                 setPendingPublishTermId(null);
                 if (termId) await save(termId);
-              }}>
+              }}
+            >
               Publish anyway
             </AlertDialogAction>
           </AlertDialogFooter>

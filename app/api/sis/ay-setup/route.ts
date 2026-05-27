@@ -28,11 +28,15 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
-  const { ay_code: ayCode, label, accepting_applications: acceptingApplications } = parsed.data;
+  const {
+    ay_code: ayCode,
+    label,
+    accepting_applications: acceptingApplications,
+  } = parsed.data;
   const supabase = createServiceClient();
 
   // The RPC is fully idempotent (migration 030): if the AY row exists it
@@ -40,13 +44,19 @@ export async function POST(request: Request) {
   // missing, admissions tables use CREATE IF NOT EXISTS. So we always
   // call it â€” it correctly handles brand-new, partial, and fully-set-up
   // states, and on a re-run nothing is duplicated or destroyed.
-  const { data: result, error: rpcErr } = await supabase.rpc('create_academic_year', {
-    p_ay_code: ayCode,
-    p_label: label,
-  });
+  const { data: result, error: rpcErr } = await supabase.rpc(
+    'create_academic_year',
+    {
+      p_ay_code: ayCode,
+      p_label: label,
+    }
+  );
 
   if (rpcErr) {
-    console.error('[ay-setup POST] create_academic_year rpc failed:', rpcErr.message);
+    console.error(
+      '[ay-setup POST] create_academic_year rpc failed:',
+      rpcErr.message
+    );
     return NextResponse.json({ error: rpcErr.message }, { status: 500 });
   }
 
@@ -62,7 +72,10 @@ export async function POST(request: Request) {
     if (gateErr) {
       // Non-fatal: the AY exists; the registrar can flip the switch from
       // the AY list. Log and surface so the toast tells them why.
-      console.error('[ay-setup POST] accepting_applications flip failed:', gateErr.message);
+      console.error(
+        '[ay-setup POST] accepting_applications flip failed:',
+        gateErr.message
+      );
     }
   }
 
@@ -73,12 +86,19 @@ export async function POST(request: Request) {
   // were filled in) reports ok+summary but does NOT set alreadyExisted â€”
   // the UI surfaces it as a normal success and advances to the follow-up.
   const ayExisted = summary.ay_existed === true;
-  const termsInserted = typeof summary.terms_inserted === 'number' ? summary.terms_inserted : 0;
-  const sectionsCopied = typeof summary.sections_copied === 'number' ? summary.sections_copied : 0;
+  const termsInserted =
+    typeof summary.terms_inserted === 'number' ? summary.terms_inserted : 0;
+  const sectionsCopied =
+    typeof summary.sections_copied === 'number' ? summary.sections_copied : 0;
   const configsCopied =
-    typeof summary.subject_configs_copied === 'number' ? summary.subject_configs_copied : 0;
+    typeof summary.subject_configs_copied === 'number'
+      ? summary.subject_configs_copied
+      : 0;
   const alreadyExisted =
-    ayExisted && termsInserted === 0 && sectionsCopied === 0 && configsCopied === 0;
+    ayExisted &&
+    termsInserted === 0 &&
+    sectionsCopied === 0 &&
+    configsCopied === 0;
 
   await logAction({
     service: supabase,
@@ -113,7 +133,7 @@ export async function PATCH(request: Request) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -127,7 +147,10 @@ export async function PATCH(request: Request) {
     .eq('ay_code', targetAy)
     .maybeSingle();
   if (!target) {
-    return NextResponse.json({ error: `AY ${targetAy} not found` }, { status: 404 });
+    return NextResponse.json(
+      { error: `AY ${targetAy} not found` },
+      { status: 404 }
+    );
   }
 
   // Capture previous active AY for audit + cache invalidation
@@ -145,7 +168,10 @@ export async function PATCH(request: Request) {
     .update({ is_current: false })
     .neq('id', '00000000-0000-0000-0000-000000000000');
   if (clearErr) {
-    console.error('[ay-setup PATCH] clearing is_current failed:', clearErr.message);
+    console.error(
+      '[ay-setup PATCH] clearing is_current failed:',
+      clearErr.message
+    );
     return NextResponse.json({ error: clearErr.message }, { status: 500 });
   }
 
@@ -154,7 +180,10 @@ export async function PATCH(request: Request) {
     .update({ is_current: true })
     .eq('ay_code', targetAy);
   if (setErr) {
-    console.error('[ay-setup PATCH] setting is_current failed:', setErr.message);
+    console.error(
+      '[ay-setup PATCH] setting is_current failed:',
+      setErr.message
+    );
     return NextResponse.json({ error: setErr.message }, { status: 500 });
   }
 
@@ -193,7 +222,7 @@ export async function DELETE(request: Request) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'Invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -208,9 +237,12 @@ export async function DELETE(request: Request) {
     .maybeSingle();
   const ayId = (target as { id: string } | null)?.id ?? null;
 
-  const { data: result, error: rpcErr } = await supabase.rpc('delete_academic_year', {
-    p_ay_code: ayCode,
-  });
+  const { data: result, error: rpcErr } = await supabase.rpc(
+    'delete_academic_year',
+    {
+      p_ay_code: ayCode,
+    }
+  );
 
   if (rpcErr) {
     // The stored function raises on blockers with a descriptive message;

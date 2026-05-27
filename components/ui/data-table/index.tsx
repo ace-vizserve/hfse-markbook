@@ -71,7 +71,9 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
   } = props;
 
   const urlState = useUrlState(url);
-  const initial = url.enabled ? urlState.read() : { facets: {} as Record<string, string[]> };
+  const initial = url.enabled
+    ? urlState.read()
+    : { facets: {} as Record<string, string[]> };
 
   // Toggle visibility gate. New `enabled` flag takes precedence so consumers
   // whose predicate has nothing to do with the viewer (e.g. a registrar's
@@ -80,14 +82,23 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
   // use case so existing callers keep working unchanged.
   const meScopeEnabled = meScope?.enabled ?? Boolean(meScope?.userId);
 
-  const defaultStatus = statusTabs?.find((t) => t.isDefault)?.value ?? statusTabs?.[0]?.value;
-  const [statusTab, setStatusTab] = useState<string | undefined>(initial.status ?? defaultStatus);
-  const [mineActive, setMineActive] = useState<boolean>(Boolean(initial.mine && meScopeEnabled));
-  const [search, setSearch] = useState<string>(initial.search ?? initialSearch ?? '');
+  const defaultStatus =
+    statusTabs?.find((t) => t.isDefault)?.value ?? statusTabs?.[0]?.value;
+  const [statusTab, setStatusTab] = useState<string | undefined>(
+    initial.status ?? defaultStatus
+  );
+  const [mineActive, setMineActive] = useState<boolean>(
+    Boolean(initial.mine && meScopeEnabled)
+  );
+  const [search, setSearch] = useState<string>(
+    initial.search ?? initialSearch ?? ''
+  );
   const [sorting, setSorting] = useState<SortingState>(initialSort);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(initialColumnVisibility);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
+    initialColumnVisibility
+  );
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(
-    Object.entries(initial.facets ?? {}).map(([id, value]) => ({ id, value })),
+    Object.entries(initial.facets ?? {}).map(([id, value]) => ({ id, value }))
   );
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
@@ -132,7 +143,9 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
           .map((k) =>
             typeof k === 'function'
               ? k(r)
-              : String((r as unknown as Record<string, unknown>)[k as string] ?? ''),
+              : String(
+                  (r as unknown as Record<string, unknown>)[k as string] ?? ''
+                )
           )
           .join(' ')
           .toLowerCase();
@@ -140,13 +153,27 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
       });
     }
     return rows;
-  }, [data, mineActive, meScope, meScopeEnabled, columnFilters, search, searchKeys]);
+  }, [
+    data,
+    mineActive,
+    meScope,
+    meScopeEnabled,
+    columnFilters,
+    search,
+    searchKeys,
+  ]);
 
   const table = useReactTable<TRow>({
     data: tabFilteredData,
     columns,
     getRowId,
-    state: { sorting, columnFilters, columnVisibility, rowSelection, globalFilter: search },
+    state: {
+      sorting,
+      columnFilters,
+      columnVisibility,
+      rowSelection,
+      globalFilter: search,
+    },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
@@ -157,7 +184,11 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
     globalFilterFn: (row, _columnId, filterValue) => {
       if (!filterValue || !searchKeys) return true;
       const haystack = searchKeys
-        .map((k) => (typeof k === 'function' ? k(row.original) : String(row.original[k] ?? '')))
+        .map((k) =>
+          typeof k === 'function'
+            ? k(row.original)
+            : String(row.original[k] ?? '')
+        )
         .join(' ')
         .toLowerCase();
       return haystack.includes(String(filterValue).toLowerCase());
@@ -175,7 +206,8 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
     const facetsSnapshot: Record<string, string[]> = {};
     for (const f of columnFilters) {
       const v = f.value;
-      if (Array.isArray(v) && v.length > 0) facetsSnapshot[f.id] = v.map(String);
+      if (Array.isArray(v) && v.length > 0)
+        facetsSnapshot[f.id] = v.map(String);
     }
     urlState.write(
       {
@@ -183,13 +215,25 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
         status: statusTab !== defaultStatus ? statusTab : undefined,
         mine: mineActive || undefined,
         facets: facetsSnapshot,
-        page: table.getState().pagination.pageIndex > 0 ? table.getState().pagination.pageIndex + 1 : undefined,
-        pageSize: table.getState().pagination.pageSize !== pageSize ? table.getState().pagination.pageSize : undefined,
+        page:
+          table.getState().pagination.pageIndex > 0
+            ? table.getState().pagination.pageIndex + 1
+            : undefined,
+        pageSize:
+          table.getState().pagination.pageSize !== pageSize
+            ? table.getState().pagination.pageSize
+            : undefined,
       },
-      { debounce: false },
+      { debounce: false }
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columnFilters, statusTab, mineActive, table.getState().pagination.pageIndex, table.getState().pagination.pageSize]);
+  }, [
+    columnFilters,
+    statusTab,
+    mineActive,
+    table.getState().pagination.pageIndex,
+    table.getState().pagination.pageSize,
+  ]);
 
   useEffect(() => {
     if (!url.enabled) return;
@@ -199,10 +243,12 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
         status: statusTab !== defaultStatus ? statusTab : undefined,
         mine: mineActive || undefined,
         facets: Object.fromEntries(
-          columnFilters.filter((f) => Array.isArray(f.value) && f.value.length > 0).map((f) => [f.id, (f.value as unknown[]).map(String)]),
+          columnFilters
+            .filter((f) => Array.isArray(f.value) && f.value.length > 0)
+            .map((f) => [f.id, (f.value as unknown[]).map(String)])
         ),
       },
-      { debounce: true },
+      { debounce: true }
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
@@ -211,11 +257,16 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
   const selectedRows = useMemo(
     () => table.getFilteredSelectedRowModel().rows.map((r) => r.original),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rowSelection, table],
+    [rowSelection, table]
   );
 
   const activeChips = useMemo(() => {
-    const chips: Array<{ key: string; label: string; value: string; onClear: () => void }> = [];
+    const chips: Array<{
+      key: string;
+      label: string;
+      value: string;
+      onClear: () => void;
+    }> = [];
     for (const f of columnFilters) {
       const facetCfg = facets.find((fc) => fc.columnId === f.id);
       if (!facetCfg) continue;
@@ -230,16 +281,33 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
               prev
                 .map((p) =>
                   p.id === f.id
-                    ? { ...p, value: (p.value as string[]).filter((x) => x !== v) }
-                    : p,
+                    ? {
+                        ...p,
+                        value: (p.value as string[]).filter((x) => x !== v),
+                      }
+                    : p
                 )
-                .filter((p) => !(Array.isArray(p.value) && p.value.length === 0)),
+                .filter(
+                  (p) => !(Array.isArray(p.value) && p.value.length === 0)
+                )
             ),
-        }),
+        })
       );
     }
-    if (search) chips.push({ key: 'q', label: 'Search', value: search, onClear: () => setSearch('') });
-    if (mineActive && meScope) chips.push({ key: 'mine', label: 'Scope', value: meScope.label, onClear: () => setMineActive(false) });
+    if (search)
+      chips.push({
+        key: 'q',
+        label: 'Search',
+        value: search,
+        onClear: () => setSearch(''),
+      });
+    if (mineActive && meScope)
+      chips.push({
+        key: 'mine',
+        label: 'Scope',
+        value: meScope.label,
+        onClear: () => setMineActive(false),
+      });
     return chips;
   }, [columnFilters, facets, search, mineActive, meScope]);
 
@@ -281,7 +349,9 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
               .filter((v): v is string => typeof v === 'string')
               .sort()
               .map((v) => ({ value: v, label: v }));
-          const selected = ((columnFilters.find((cf) => cf.id === f.columnId)?.value as string[]) ?? []);
+          const selected =
+            (columnFilters.find((cf) => cf.id === f.columnId)
+              ?.value as string[]) ?? [];
           return (
             <FacetDropdown
               key={f.columnId}
@@ -291,7 +361,9 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
               onChange={(next) =>
                 setColumnFilters((prev) => {
                   const without = prev.filter((p) => p.id !== f.columnId);
-                  return next.length ? [...without, { id: f.columnId, value: next }] : without;
+                  return next.length
+                    ? [...without, { id: f.columnId, value: next }]
+                    : without;
                 })
               }
             />
@@ -311,13 +383,20 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
                     .getVisibleLeafColumns()
                     .filter((c) => c.id !== 'select')
                     .map((c) => ({
-                      header: typeof c.columnDef.header === 'string' ? c.columnDef.header : c.id,
+                      header:
+                        typeof c.columnDef.header === 'string'
+                          ? c.columnDef.header
+                          : c.id,
                       accessor: (row: TRow) => {
                         const v = (row as Record<string, unknown>)[c.id];
                         return v == null ? null : (v as string | number);
                       },
                     }));
-                exportCsv(table.getFilteredRowModel().rows.map((r) => r.original), cols, csv.filename);
+                exportCsv(
+                  table.getFilteredRowModel().rows.map((r) => r.original),
+                  cols,
+                  csv.filename
+                );
               }}
             >
               <Download className="mr-1 h-3.5 w-3.5" />
@@ -341,7 +420,9 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
                     checked={c.getIsVisible()}
                     onCheckedChange={(v) => c.toggleVisibility(Boolean(v))}
                   >
-                    {typeof c.columnDef.header === 'string' ? c.columnDef.header : c.id}
+                    {typeof c.columnDef.header === 'string'
+                      ? c.columnDef.header
+                      : c.id}
                   </DropdownMenuCheckboxItem>
                 ))}
             </DropdownMenuContent>
@@ -360,7 +441,9 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
               return (
                 <TabsTrigger key={t.value} value={t.value} className="gap-1.5">
                   <span>{t.label}</span>
-                  <span className="rounded-sm bg-muted px-1 font-mono text-[10px] text-muted-foreground">{count}</span>
+                  <span className="rounded-sm bg-muted px-1 font-mono text-[10px] text-muted-foreground">
+                    {count}
+                  </span>
                 </TabsTrigger>
               );
             })}
@@ -372,7 +455,12 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
       {activeChips.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
           {activeChips.map((chip) => (
-            <FilterChip key={chip.key} label={chip.label} value={chip.value} onClear={chip.onClear} />
+            <FilterChip
+              key={chip.key}
+              label={chip.label}
+              value={chip.value}
+              onClear={chip.onClear}
+            />
           ))}
           <Button
             variant="ghost"
@@ -394,12 +482,19 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
       <div className="overflow-hidden rounded-lg border border-border">
         <div className="overflow-x-auto">
           <Table>
-            <TableHeader className={cn(stickyHeader && 'sticky top-0 z-10 bg-background')}>
+            <TableHeader
+              className={cn(stickyHeader && 'sticky top-0 z-10 bg-background')}
+            >
               {table.getHeaderGroups().map((hg) => (
                 <TableRow key={hg.id}>
                   {hg.headers.map((h) => (
-                    <TableHead key={h.id} className="font-mono text-[10px] uppercase tracking-[0.12em]">
-                      {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
+                    <TableHead
+                      key={h.id}
+                      className="font-mono text-[10px] uppercase tracking-[0.12em]"
+                    >
+                      {h.isPlaceholder
+                        ? null
+                        : flexRender(h.column.columnDef.header, h.getContext())}
                     </TableHead>
                   ))}
                 </TableRow>
@@ -409,7 +504,9 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
               {showEmpty ? (
                 <TableRow>
                   <TableCell colSpan={columns.length} className="p-0">
-                    <DataTableEmptyState {...(emptyState ?? { title: 'No data.' })} />
+                    <DataTableEmptyState
+                      {...(emptyState ?? { title: 'No data.' })}
+                    />
                   </TableCell>
                 </TableRow>
               ) : showFilteredEmpty ? (
@@ -423,9 +520,14 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
                 </TableRow>
               ) : (
                 table.getRowModel().rows.map((r) => (
-                  <TableRow key={r.id} data-state={r.getIsSelected() && 'selected'}>
+                  <TableRow
+                    key={r.id}
+                    data-state={r.getIsSelected() && 'selected'}
+                  >
                     {r.getVisibleCells().map((c) => (
-                      <TableCell key={c.id}>{flexRender(c.column.columnDef.cell, c.getContext())}</TableCell>
+                      <TableCell key={c.id}>
+                        {flexRender(c.column.columnDef.cell, c.getContext())}
+                      </TableCell>
                     ))}
                   </TableRow>
                 ))
@@ -436,7 +538,10 @@ export function DataTable<TRow>(props: DataTableProps<TRow>) {
 
         {!hidePagination && totalRows > 0 && (
           <div className="border-t border-border bg-muted/20">
-            <DataTablePagination table={table} pageSizeOptions={pageSizeOptions} />
+            <DataTablePagination
+              table={table}
+              pageSizeOptions={pageSizeOptions}
+            />
           </div>
         )}
       </div>

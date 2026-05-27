@@ -124,7 +124,8 @@ const ENROLL_TIERS = [
   {
     label: 'Typical',
     maxDays: 30,
-    className: 'border-hairline bg-gradient-to-b from-muted to-muted/60 text-ink-3',
+    className:
+      'border-hairline bg-gradient-to-b from-muted to-muted/60 text-ink-3',
   },
   {
     label: 'Slow',
@@ -140,7 +141,9 @@ const ENROLL_TIERS = [
 ] as const;
 
 function EnrollTimeTierBadge({ days }: { days: number }) {
-  const tier = ENROLL_TIERS.find((t) => days <= t.maxDays) ?? ENROLL_TIERS[ENROLL_TIERS.length - 1];
+  const tier =
+    ENROLL_TIERS.find((t) => days <= t.maxDays) ??
+    ENROLL_TIERS[ENROLL_TIERS.length - 1];
   return (
     <div className="flex items-center gap-2">
       <span className="text-sm tabular-nums text-foreground">{days}d</span>
@@ -161,7 +164,8 @@ const STATUS_STYLES: Record<string, StatusStyle> = {
   Submitted: {
     icon: FileText,
     label: 'Submitted',
-    className: 'border-brand-indigo/40 bg-gradient-to-b from-brand-indigo/15 to-brand-indigo/5 text-brand-indigo',
+    className:
+      'border-brand-indigo/40 bg-gradient-to-b from-brand-indigo/15 to-brand-indigo/5 text-brand-indigo',
   },
   'Ongoing Verification': {
     icon: ClipboardList,
@@ -171,34 +175,40 @@ const STATUS_STYLES: Record<string, StatusStyle> = {
   Processing: {
     icon: Cog,
     label: 'Processing',
-    className: 'border-brand-indigo-soft/60 bg-gradient-to-b from-brand-indigo-soft/20 to-brand-indigo-soft/5 text-ink',
+    className:
+      'border-brand-indigo-soft/60 bg-gradient-to-b from-brand-indigo-soft/20 to-brand-indigo-soft/5 text-ink',
   },
   Enrolled: {
     icon: GraduationCap,
     label: 'Enrolled',
-    className: 'border-brand-mint bg-gradient-to-b from-brand-mint/35 to-brand-mint/15 text-ink',
+    className:
+      'border-brand-mint bg-gradient-to-b from-brand-mint/35 to-brand-mint/15 text-ink',
   },
   'Enrolled (Conditional)': {
     icon: Asterisk,
     label: 'Conditional',
-    className: 'border-brand-mint/60 bg-gradient-to-b from-brand-mint/20 to-brand-mint/5 text-ink',
+    className:
+      'border-brand-mint/60 bg-gradient-to-b from-brand-mint/20 to-brand-mint/5 text-ink',
   },
   Withdrawn: {
     icon: UserMinus,
     label: 'Withdrawn',
-    className: 'border-destructive/30 bg-gradient-to-b from-destructive/10 to-destructive/0 text-ink-4',
+    className:
+      'border-destructive/30 bg-gradient-to-b from-destructive/10 to-destructive/0 text-ink-4',
   },
   Cancelled: {
     icon: XCircle,
     label: 'Cancelled',
-    className: 'border-destructive/30 bg-gradient-to-b from-destructive/10 to-destructive/0 text-ink-4',
+    className:
+      'border-destructive/30 bg-gradient-to-b from-destructive/10 to-destructive/0 text-ink-4',
   },
 };
 
 const UNKNOWN_STATUS: StatusStyle = {
   icon: HelpCircle,
   label: 'No status',
-  className: 'border-hairline bg-gradient-to-b from-muted to-muted/60 text-ink-3',
+  className:
+    'border-hairline bg-gradient-to-b from-muted to-muted/60 text-ink-3',
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -223,11 +233,19 @@ function DocsCell({ complete, total }: { complete: number; total: number }) {
   const pct = total === 0 ? 0 : Math.round((complete / total) * 100);
   let badge: React.ReactNode;
   if (total > 0 && complete === total) {
-    badge = <Badge variant="success">{complete}/{total}</Badge>;
+    badge = (
+      <Badge variant="success">
+        {complete}/{total}
+      </Badge>
+    );
   } else if (complete === 0) {
     badge = <Badge variant="blocked">0/{total}</Badge>;
   } else {
-    badge = <Badge variant="muted">{complete}/{total}</Badge>;
+    badge = (
+      <Badge variant="muted">
+        {complete}/{total}
+      </Badge>
+    );
   }
   // Inline meter under the badge — semantic tokens only, no hardcoded color.
   const fillClass =
@@ -265,14 +283,23 @@ function formatDate(iso: string | null): string {
 }
 
 const CANONICAL_LEVELS = [
-  'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'S1', 'S2', 'S3', 'S4',
+  'P1',
+  'P2',
+  'P3',
+  'P4',
+  'P5',
+  'P6',
+  'S1',
+  'S2',
+  'S3',
+  'S4',
 ] as const;
 const CANONICAL_LEVEL_INDEX: Record<string, number> = CANONICAL_LEVELS.reduce(
   (acc, lvl, i) => {
     acc[lvl] = i;
     return acc;
   },
-  {} as Record<string, number>,
+  {} as Record<string, number>
 );
 
 function compareLevels(a: string, b: string): number {
@@ -298,7 +325,7 @@ function buildDrillUrl(
   to: string | undefined,
   segment: string | null | undefined,
   format: 'json' | 'csv',
-  visibleColumnKeys?: string[],
+  visibleColumnKeys?: string[]
 ): string {
   const params = new URLSearchParams();
   params.set('ay', ayCode);
@@ -319,7 +346,7 @@ function buildDrillUrl(
 
 function buildColumnDef(
   key: DrillColumnKey,
-  opts?: { showDaysTier?: boolean },
+  opts?: { showDaysTier?: boolean }
 ): ColumnDef<DrillRow, unknown> {
   const header = DRILL_COLUMN_LABELS[key];
   switch (key) {
@@ -331,7 +358,8 @@ function buildColumnDef(
         cell: ({ row }) => {
           const { enroleeNumber, studentNumber, status } = row.original;
           // KD #81: Enrolled rows route to Records; pre-Enrolled stay on Admissions.
-          const isEnrolled = status === 'Enrolled' || status === 'Enrolled (Conditional)';
+          const isEnrolled =
+            status === 'Enrolled' || status === 'Enrolled (Conditional)';
           const href = isEnrolled
             ? studentNumber
               ? `/records/students/${encodeURIComponent(studentNumber)}`
@@ -432,7 +460,9 @@ function buildColumnDef(
         accessorKey: 'assessmentOutcome',
         header,
         cell: ({ row }) => (
-          <AssessmentBadge outcome={row.original.assessmentOutcome ?? 'unknown'} />
+          <AssessmentBadge
+            outcome={row.original.assessmentOutcome ?? 'unknown'}
+          />
         ),
         enableSorting: true,
       };
@@ -464,7 +494,9 @@ function buildColumnDef(
               {row.original.assessmentEnglish ?? '—'}
             </span>
             {row.original.assessmentEnglish != null && (
-              <AssessmentBadge outcome={row.original.assessmentEnglishOutcome} />
+              <AssessmentBadge
+                outcome={row.original.assessmentEnglishOutcome}
+              />
             )}
           </div>
         ),
@@ -501,9 +533,14 @@ function buildColumnDef(
         header,
         cell: ({ row }) => {
           const days = row.original.daysToEnroll;
-          if (days === null) return <span className="text-sm text-muted-foreground">—</span>;
+          if (days === null)
+            return <span className="text-sm text-muted-foreground">—</span>;
           if (opts?.showDaysTier) return <EnrollTimeTierBadge days={days} />;
-          return <span className="text-sm tabular-nums text-foreground">{days}d</span>;
+          return (
+            <span className="text-sm tabular-nums text-foreground">
+              {days}d
+            </span>
+          );
         },
         enableSorting: true,
         sortingFn: (a, b) => {
@@ -520,7 +557,9 @@ function buildColumnDef(
         id: 'daysSinceUpdate',
         accessorKey: 'daysSinceUpdate',
         header,
-        cell: ({ row }) => <StalenessBadge days={row.original.daysSinceUpdate} />,
+        cell: ({ row }) => (
+          <StalenessBadge days={row.original.daysSinceUpdate} />
+        ),
         enableSorting: true,
         sortingFn: (a, b) => {
           const av = a.original.daysSinceUpdate;
@@ -577,25 +616,21 @@ export function AdmissionsDrillSheet({
 }: AdmissionsDrillSheetProps) {
   // ── State ────────────────────────────────────────────────────────────────
   const [rows, setRows] = React.useState<DrillRow[]>(initialRows ?? []);
-  const [, setLoading] = React.useState<boolean>(
-    initialRows === undefined,
-  );
+  const [, setLoading] = React.useState<boolean>(initialRows === undefined);
   const [selectedStatuses, setSelectedStatuses] = React.useState<string[]>([]);
   const [selectedLevels, setSelectedLevels] = React.useState<string[]>([]);
   const [groupBy, setGroupBy] = React.useState<DrillDownGroupBy>(() =>
-    target === 'conversion' ? 'status' : 'none',
+    target === 'conversion' ? 'status' : 'none'
   );
   const [density, setDensity] = React.useState<DrillDownDensity>('comfortable');
-  const [visibleColumnKeys, setVisibleColumnKeys] = React.useState<DrillColumnKey[]>(
-    () => defaultColumnsForTarget(target),
-  );
+  const [visibleColumnKeys, setVisibleColumnKeys] = React.useState<
+    DrillColumnKey[]
+  >(() => defaultColumnsForTarget(target));
 
   // ── Fetch on range change ────────────────────────────────────────────────
   // Skip the first effect run when initialRows is provided — the parent
   // already handed us hydrated rows.
-  const skipNextFetchRef = React.useRef<boolean>(
-    initialRows !== undefined,
-  );
+  const skipNextFetchRef = React.useRef<boolean>(initialRows !== undefined);
 
   React.useEffect(() => {
     if (skipNextFetchRef.current) {
@@ -610,7 +645,7 @@ export function AdmissionsDrillSheet({
       initialFrom,
       initialTo,
       segment,
-      'json',
+      'json'
     );
     fetch(url, { credentials: 'include' })
       .then(async (res) => {
@@ -640,12 +675,14 @@ export function AdmissionsDrillSheet({
   // we apply the slower client filters here so they reduce the dataset
   // *before* the table builds its row model.
   const preFiltered = React.useMemo<DrillRow[]>(() => {
-    if (selectedStatuses.length === 0 && selectedLevels.length === 0) return rows;
+    if (selectedStatuses.length === 0 && selectedLevels.length === 0)
+      return rows;
     const statusSet = new Set(selectedStatuses);
     const levelSet = new Set(selectedLevels);
     return rows.filter((r) => {
       if (selectedStatuses.length > 0 && !statusSet.has(r.status)) return false;
-      if (selectedLevels.length > 0 && !levelSet.has(r.level ?? 'Unknown')) return false;
+      if (selectedLevels.length > 0 && !levelSet.has(r.level ?? 'Unknown'))
+        return false;
       return true;
     });
   }, [rows, selectedStatuses, selectedLevels]);
@@ -655,7 +692,7 @@ export function AdmissionsDrillSheet({
     if (target !== 'conversion') return null;
     const total = preFiltered.length;
     const convertedCount = preFiltered.filter(
-      (r) => r.status === 'Enrolled' || r.status === 'Enrolled (Conditional)',
+      (r) => r.status === 'Enrolled' || r.status === 'Enrolled (Conditional)'
     ).length;
     const notConvertedCount = total - convertedCount;
     const pct = total > 0 ? Math.round((convertedCount / total) * 100) : 0;
@@ -684,8 +721,11 @@ export function AdmissionsDrillSheet({
   // Build full column set in canonical order; DrillDownSheet handles
   // visibility filtering via `visibleColumnKeys`.
   const columns = React.useMemo<ColumnDef<DrillRow, unknown>[]>(
-    () => ALL_DRILL_COLUMNS.map((k) => buildColumnDef(k, { showDaysTier: target === 'avg-time' })),
-    [target],
+    () =>
+      ALL_DRILL_COLUMNS.map((k) =>
+        buildColumnDef(k, { showDaysTier: target === 'avg-time' })
+      ),
+    [target]
   );
 
   const columnOptions = React.useMemo(
@@ -694,7 +734,7 @@ export function AdmissionsDrillSheet({
         key: k,
         label: DRILL_COLUMN_LABELS[k],
       })),
-    [],
+    []
   );
 
   // ── Group accessor ───────────────────────────────────────────────────────
@@ -718,19 +758,19 @@ export function AdmissionsDrillSheet({
           return null;
       }
     },
-    [groupBy, target, conversionGroupLabels],
+    [groupBy, target, conversionGroupLabels]
   );
 
   // ── Display rows — pre-sorted by actionability signal per target ─────────
   const displayRows = React.useMemo<DrillRow[]>(() => {
     if (target === 'avg-time') {
       return [...preFiltered].sort(
-        (a, b) => (b.daysToEnroll ?? -1) - (a.daysToEnroll ?? -1),
+        (a, b) => (b.daysToEnroll ?? -1) - (a.daysToEnroll ?? -1)
       );
     }
     if (target === 'applications' || target === 'outdated') {
       return [...preFiltered].sort(
-        (a, b) => (b.daysSinceUpdate ?? -1) - (a.daysSinceUpdate ?? -1),
+        (a, b) => (b.daysSinceUpdate ?? -1) - (a.daysSinceUpdate ?? -1)
       );
     }
     return preFiltered;
@@ -756,7 +796,7 @@ export function AdmissionsDrillSheet({
     initialTo,
     segment,
     'csv',
-    visibleColumnKeys,
+    visibleColumnKeys
   );
 
   // ── Per-target tweaks ────────────────────────────────────────────────────
@@ -795,9 +835,7 @@ export function AdmissionsDrillSheet({
       onDensityChange={setDensity}
       columnOptions={columnOptions}
       visibleColumnKeys={visibleColumnKeys}
-      onColumnsChange={(next) =>
-        setVisibleColumnKeys(next as DrillColumnKey[])
-      }
+      onColumnsChange={(next) => setVisibleColumnKeys(next as DrillColumnKey[])}
     />
   );
 }

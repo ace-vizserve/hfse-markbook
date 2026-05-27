@@ -18,7 +18,9 @@ export type TrendPoint = { x: string; y: number };
 
 export type YFormat = 'number' | 'percent' | 'days';
 
-function formatterFor(format: YFormat | undefined): ((n: number) => string) | undefined {
+function formatterFor(
+  format: YFormat | undefined
+): ((n: number) => string) | undefined {
   switch (format) {
     case 'percent':
       return (n) => `${Math.round(n)}%`;
@@ -54,18 +56,32 @@ function TrendChartImpl({
   const merged = current.map((pt, i) => ({
     x: pt.x,
     current: pt.y,
-    comparison: comparison && alignComparison && comparison[i] ? comparison[i].y : undefined,
+    comparison:
+      comparison && alignComparison && comparison[i]
+        ? comparison[i].y
+        : undefined,
   }));
 
   const gradientId = `trend-gradient-${label.replace(/\s+/g, '-')}`;
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <AreaChart data={merged} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+      <AreaChart
+        data={merged}
+        margin={{ top: 8, right: 4, left: 0, bottom: 0 }}
+      >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-chart-1)" stopOpacity={0.28} />
-            <stop offset="100%" stopColor="var(--color-chart-1)" stopOpacity={0} />
+            <stop
+              offset="0%"
+              stopColor="var(--color-chart-1)"
+              stopOpacity={0.28}
+            />
+            <stop
+              offset="100%"
+              stopColor="var(--color-chart-1)"
+              stopOpacity={0}
+            />
           </linearGradient>
         </defs>
         <CartesianGrid
@@ -90,7 +106,10 @@ function TrendChartImpl({
           width={36}
         />
         <Tooltip
-          cursor={{ stroke: 'var(--color-muted-foreground)', strokeDasharray: '3 3' }}
+          cursor={{
+            stroke: 'var(--color-muted-foreground)',
+            strokeDasharray: '3 3',
+          }}
           contentStyle={{
             background: 'var(--color-popover)',
             border: '1px solid var(--color-border)',
@@ -99,14 +118,23 @@ function TrendChartImpl({
             fontSize: 11,
             padding: '8px 10px',
           }}
-          labelStyle={{ color: 'var(--color-foreground)', fontWeight: 600, marginBottom: 2 }}
+          labelStyle={{
+            color: 'var(--color-foreground)',
+            fontWeight: 600,
+            marginBottom: 2,
+          }}
           formatter={(value) => {
             const v = typeof value === 'number' ? value : Number(value);
             return yFormatter ? yFormatter(v) : v;
           }}
         />
         {comparison && (
-          <Legend content={chartLegendContent({ current: 'chart-1', comparison: 'chart-3' })} />
+          <Legend
+            content={chartLegendContent({
+              current: 'chart-1',
+              comparison: 'chart-3',
+            })}
+          />
         )}
         <Area
           type="monotone"
@@ -116,7 +144,11 @@ function TrendChartImpl({
           strokeWidth={2}
           fill={`url(#${gradientId})`}
           dot={false}
-          activeDot={{ r: 4, strokeWidth: 2, stroke: 'var(--color-background)' }}
+          activeDot={{
+            r: 4,
+            strokeWidth: 2,
+            stroke: 'var(--color-background)',
+          }}
           isAnimationActive={false}
         />
         {comparison && (

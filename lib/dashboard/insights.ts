@@ -27,7 +27,9 @@ const SEVERITY_ORDER: Record<InsightSeverity, number> = {
 };
 
 function sortInsights(items: Insight[]): Insight[] {
-  return [...items].sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+  return [...items].sort(
+    (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]
+  );
 }
 
 function pct(n: number): string {
@@ -62,7 +64,11 @@ export function admissionsInsights(input: AdmissionsInsightInput): Insight[] {
   const out: Insight[] = [];
 
   // Applications velocity vs prior
-  if (input.appsDelta && input.appsDelta.pct !== null && Math.abs(input.appsDelta.pct) >= 5) {
+  if (
+    input.appsDelta &&
+    input.appsDelta.pct !== null &&
+    Math.abs(input.appsDelta.pct) >= 5
+  ) {
     const up = input.appsDelta.direction === 'up';
     out.push({
       severity: up ? 'good' : 'warn',
@@ -106,14 +112,16 @@ export function admissionsInsights(input: AdmissionsInsightInput): Insight[] {
     out.push({
       severity: input.outdatedCount >= 10 ? 'bad' : 'warn',
       title: `${pluralize(input.outdatedCount, 'applicant', 'applicants')} need follow-up`,
-      detail: 'Stages not updated in >7 days — outside Enrolled/Cancelled/Withdrawn',
+      detail:
+        'Stages not updated in >7 days — outside Enrolled/Cancelled/Withdrawn',
       cta: { label: 'Review list', href: '#outdated-applications' },
     });
   }
 
   // Top referral source — informational, aids CEO reporting
   if (input.topReferral && input.topReferral.totalCount > 0) {
-    const share = (input.topReferral.count / input.topReferral.totalCount) * 100;
+    const share =
+      (input.topReferral.count / input.topReferral.totalCount) * 100;
     if (share >= 15) {
       out.push({
         severity: 'info',
@@ -150,7 +158,9 @@ export type AdmissionsChaseInsightInput = {
   totalApplicants: number;
 };
 
-export function admissionsChaseInsights(input: AdmissionsChaseInsightInput): Insight[] {
+export function admissionsChaseInsights(
+  input: AdmissionsChaseInsightInput
+): Insight[] {
   const out: Insight[] = [];
 
   if (input.chaseRejected >= 1) {
@@ -370,9 +380,10 @@ export function markbookInsights(input: MarkbookInsightInput): Insight[] {
     out.push({
       severity: input.changeRequestsPending >= 5 ? 'bad' : 'warn',
       title: `${pluralize(input.changeRequestsPending, 'change request', 'change requests')} pending`,
-      detail: input.avgDecisionHours != null
-        ? `Avg decision time: ${input.avgDecisionHours.toFixed(1)}h`
-        : 'Awaiting approver action',
+      detail:
+        input.avgDecisionHours != null
+          ? `Avg decision time: ${input.avgDecisionHours.toFixed(1)}h`
+          : 'Awaiting approver action',
       cta: { label: 'Review requests', href: '/markbook/change-requests' },
     });
   }
@@ -535,8 +546,12 @@ export function evaluationInsights(input: EvaluationInsightInput): Insight[] {
     });
   }
 
-  if (input.medianTimeToSubmitDays != null && input.medianTimeToSubmitDaysPrior != null) {
-    const diff = input.medianTimeToSubmitDays - input.medianTimeToSubmitDaysPrior;
+  if (
+    input.medianTimeToSubmitDays != null &&
+    input.medianTimeToSubmitDaysPrior != null
+  ) {
+    const diff =
+      input.medianTimeToSubmitDays - input.medianTimeToSubmitDaysPrior;
     if (Math.abs(diff) >= 2) {
       const slower = diff > 0;
       out.push({
@@ -581,7 +596,11 @@ export function sisInsights(input: SisInsightInput): Insight[] {
     });
   }
 
-  if (input.topModule && input.topModule.count > 0 && input.auditEventsCurrent > 0) {
+  if (
+    input.topModule &&
+    input.topModule.count > 0 &&
+    input.auditEventsCurrent > 0
+  ) {
     const share = (input.topModule.count / input.auditEventsCurrent) * 100;
     if (share >= 40) {
       out.push({

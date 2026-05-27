@@ -137,9 +137,7 @@ function getColumnKey<T>(column: ColumnDef<T, unknown>): string | undefined {
 }
 
 function toggleInArray(arr: string[], value: string): string[] {
-  return arr.includes(value)
-    ? arr.filter((v) => v !== value)
-    : [...arr, value];
+  return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 }
 
 const GROUP_BY_TABS: Array<{ value: DrillDownGroupBy; label: string }> = [
@@ -242,8 +240,7 @@ export function DrillDownSheet<T>({
   }, [groupBy, groupAccessor, visibleRows]);
 
   // --- Density classes ---------------------------------------------------
-  const densityClass =
-    density === 'compact' ? '[&_td]:py-1 [&_th]:py-1' : '';
+  const densityClass = density === 'compact' ? '[&_td]:py-1 [&_th]:py-1' : '';
 
   // --- Virtualization ----------------------------------------------------
   // Renders only the rows in the visible scroll window + an overscan band.
@@ -281,10 +278,11 @@ export function DrillDownSheet<T>({
     initialRect: { width: 700, height: 500 },
   });
 
-  const virtualItems = useVirtualization ? rowVirtualizer.getVirtualItems() : [];
+  const virtualItems = useVirtualization
+    ? rowVirtualizer.getVirtualItems()
+    : [];
   const totalSize = useVirtualization ? rowVirtualizer.getTotalSize() : 0;
-  const paddingTop =
-    virtualItems.length > 0 ? virtualItems[0]!.start : 0;
+  const paddingTop = virtualItems.length > 0 ? virtualItems[0]!.start : 0;
   const paddingBottom =
     virtualItems.length > 0
       ? totalSize - virtualItems[virtualItems.length - 1]!.end
@@ -293,10 +291,11 @@ export function DrillDownSheet<T>({
   // --- Toolkit visibility flags -----------------------------------------
   const showStatus = Array.isArray(statusOptions) && statusOptions.length > 0;
   const showLevel = Array.isArray(levelOptions) && levelOptions.length > 0;
-  const showGroupByCtl = showGroupBy && groupBy !== undefined && Boolean(onGroupByChange);
-  const showDensityCtl = showDensity && density !== undefined && Boolean(onDensityChange);
-  const showColumns =
-    Array.isArray(columnOptions) && columnOptions.length > 0;
+  const showGroupByCtl =
+    showGroupBy && groupBy !== undefined && Boolean(onGroupByChange);
+  const showDensityCtl =
+    showDensity && density !== undefined && Boolean(onDensityChange);
+  const showColumns = Array.isArray(columnOptions) && columnOptions.length > 0;
 
   const showRow1 = searchable || Boolean(filters);
   const showRow2 =
@@ -306,7 +305,7 @@ export function DrillDownSheet<T>({
   const statusSelected = selectedStatuses ?? [];
   const levelSelected = selectedLevels ?? [];
   const visibleColsSelected =
-    visibleColumnKeys ?? (columnOptions?.map((c) => c.key) ?? []);
+    visibleColumnKeys ?? columnOptions?.map((c) => c.key) ?? [];
 
   return (
     <SheetContent
@@ -323,12 +322,12 @@ export function DrillDownSheet<T>({
             {title}
           </h2>
           <SheetTitle className="sr-only">{title}</SheetTitle>
-          <Badge variant="outline">
-            {count.toLocaleString('en-SG')} rows
-          </Badge>
+          <Badge variant="outline">{count.toLocaleString('en-SG')} rows</Badge>
         </div>
         {description && (
-          <p className="mt-1 text-[11px] text-muted-foreground">{description}</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            {description}
+          </p>
         )}
       </div>
 
@@ -426,7 +425,9 @@ export function DrillDownSheet<T>({
               {showGroupByCtl && groupBy && (
                 <Tabs
                   value={groupBy}
-                  onValueChange={(v) => onGroupByChange?.(v as DrillDownGroupBy)}
+                  onValueChange={(v) =>
+                    onGroupByChange?.(v as DrillDownGroupBy)
+                  }
                 >
                   <TabsList variant="segmented">
                     {GROUP_BY_TABS.map((t) => (
@@ -444,7 +445,7 @@ export function DrillDownSheet<T>({
                   size="sm"
                   onClick={() =>
                     onDensityChange?.(
-                      density === 'compact' ? 'comfortable' : 'compact',
+                      density === 'compact' ? 'comfortable' : 'compact'
                     )
                   }
                 >
@@ -469,7 +470,7 @@ export function DrillDownSheet<T>({
                         checked={visibleColsSelected.includes(opt.key)}
                         onCheckedChange={() =>
                           onColumnsChange?.(
-                            toggleInArray(visibleColsSelected, opt.key),
+                            toggleInArray(visibleColsSelected, opt.key)
                           )
                         }
                         onSelect={(e) => e.preventDefault()}
@@ -486,10 +487,7 @@ export function DrillDownSheet<T>({
       )}
 
       {/* Table */}
-      <div
-        ref={setScrollRef}
-        className="flex-1 overflow-auto px-6 py-4"
-      >
+      <div ref={setScrollRef} className="flex-1 overflow-auto px-6 py-4">
         {visibleRows.length === 0 ? (
           <div className="py-12 text-center text-sm text-muted-foreground">
             {emptyMessage}
@@ -534,7 +532,9 @@ export function DrillDownSheet<T>({
                           <SortIcon
                             className={
                               'size-3 ml-1 ' +
-                              (sorted ? 'opacity-100 text-foreground' : 'opacity-50')
+                              (sorted
+                                ? 'opacity-100 text-foreground'
+                                : 'opacity-50')
                             }
                           />
                         </button>
@@ -563,7 +563,10 @@ export function DrillDownSheet<T>({
                       <TableRow key={row.id}>
                         {row.getVisibleCells().map((cell) => (
                           <TableCell key={cell.id}>
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
                           </TableCell>
                         ))}
                       </TableRow>
@@ -590,7 +593,10 @@ export function DrillDownSheet<T>({
                       >
                         {row.getVisibleCells().map((cell) => (
                           <TableCell key={cell.id}>
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
                           </TableCell>
                         ))}
                       </TableRow>

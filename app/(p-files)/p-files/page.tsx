@@ -1,31 +1,55 @@
-import { AlertTriangle, ArrowLeft, CalendarClock, FileStack, FolderKanban, TrendingUp } from "lucide-react";
-import Link from "next/link";
-import { redirect } from "next/navigation";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CalendarClock,
+  FileStack,
+  FolderKanban,
+  TrendingUp,
+} from 'lucide-react';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
-import { ChartLegendChip } from "@/components/dashboard/chart-legend-chip";
-import { ComparisonToolbar } from "@/components/dashboard/comparison-toolbar";
-import { DashboardHero } from "@/components/dashboard/dashboard-hero";
-import { InsightsPanel } from "@/components/dashboard/insights-panel";
-import { MetricCard } from "@/components/dashboard/metric-card";
-import { PriorityPanel } from "@/components/dashboard/priority-panel";
-import { DocumentCompletenessTable, type PFilesStatusFilter as StatusFilter } from "@/components/shared/document-completeness-table";
-import { DocumentChaseQueueStrip } from "@/components/sis/document-chase-queue-strip";
+import { ChartLegendChip } from '@/components/dashboard/chart-legend-chip';
+import { ComparisonToolbar } from '@/components/dashboard/comparison-toolbar';
+import { DashboardHero } from '@/components/dashboard/dashboard-hero';
+import { InsightsPanel } from '@/components/dashboard/insights-panel';
+import { MetricCard } from '@/components/dashboard/metric-card';
+import { PriorityPanel } from '@/components/dashboard/priority-panel';
+import {
+  DocumentCompletenessTable,
+  type PFilesStatusFilter as StatusFilter,
+} from '@/components/shared/document-completeness-table';
+import { DocumentChaseQueueStrip } from '@/components/sis/document-chase-queue-strip';
 import {
   CompletenessCsvButton,
   CompletionByLevelDrillCard,
   SlotStatusDrillCard,
-} from "@/components/p-files/drills/chart-drill-cards";
-import { PFilesDrillSheet } from "@/components/p-files/drills/pfiles-drill-sheet";
-import { RevisionsHeatmapCard } from "@/components/p-files/revisions-heatmap-card";
-import { RevisionsOverTimeChart } from "@/components/p-files/revisions-over-time-chart";
-import { SummaryCards } from "@/components/p-files/summary-cards";
-import { ExpiringDocumentsPanel } from "@/components/sis/expiring-documents-panel";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PageShell } from "@/components/ui/page-shell";
-import { getCurrentAcademicYear, listAyCodes as listAcademicAyCodes } from "@/lib/academic-year";
-import { pfilesInsights } from "@/lib/dashboard/insights";
-import { formatRangeLabel, resolveRange, FLEXIBLE_PRESETS, type DashboardSearchParams } from "@/lib/dashboard/range";
-import { getDashboardWindows } from "@/lib/dashboard/windows";
+} from '@/components/p-files/drills/chart-drill-cards';
+import { PFilesDrillSheet } from '@/components/p-files/drills/pfiles-drill-sheet';
+import { RevisionsHeatmapCard } from '@/components/p-files/revisions-heatmap-card';
+import { RevisionsOverTimeChart } from '@/components/p-files/revisions-over-time-chart';
+import { SummaryCards } from '@/components/p-files/summary-cards';
+import { ExpiringDocumentsPanel } from '@/components/sis/expiring-documents-panel';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { PageShell } from '@/components/ui/page-shell';
+import {
+  getCurrentAcademicYear,
+  listAyCodes as listAcademicAyCodes,
+} from '@/lib/academic-year';
+import { pfilesInsights } from '@/lib/dashboard/insights';
+import {
+  formatRangeLabel,
+  resolveRange,
+  FLEXIBLE_PRESETS,
+  type DashboardSearchParams,
+} from '@/lib/dashboard/range';
+import { getDashboardWindows } from '@/lib/dashboard/windows';
 import {
   getCompletionByLevel,
   getPFilesKpisRange,
@@ -34,22 +58,24 @@ import {
   getRevisionsHeatmap,
   getRevisionsOverTime,
   getSlotStatusMix,
-} from "@/lib/p-files/dashboard";
-import { getDocumentDashboardData } from "@/lib/p-files/queries";
-import { freshenAyDocuments } from "@/lib/p-files/freshen-document-statuses";
-import { getExpiringDocuments } from "@/lib/sis/dashboard";
-import { getSessionUser } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/service";
+} from '@/lib/p-files/dashboard';
+import { getDocumentDashboardData } from '@/lib/p-files/queries';
+import { freshenAyDocuments } from '@/lib/p-files/freshen-document-statuses';
+import { getExpiringDocuments } from '@/lib/sis/dashboard';
+import { getSessionUser } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 
 // Canonical set of status-filter values the sidebar Quicklinks use as
 // `?status=...`. P-Files only chases the renewal lens for enrolled
 // students — initial-chase statuses (To follow, Rejected, Pending review)
 // belong on Admissions, so 'expired' is the only focused-view target here.
-const STATUS_FILTER_VALUES: readonly StatusFilter[] = ["all", "expired"];
+const STATUS_FILTER_VALUES: readonly StatusFilter[] = ['all', 'expired'];
 
 function parseStatusFilter(raw: string | undefined): StatusFilter | undefined {
   if (!raw) return undefined;
-  return (STATUS_FILTER_VALUES as readonly string[]).includes(raw) ? (raw as StatusFilter) : undefined;
+  return (STATUS_FILTER_VALUES as readonly string[]).includes(raw)
+    ? (raw as StatusFilter)
+    : undefined;
 }
 
 // Companion to ?status — sidebar Quicklinks for renewal-outreach use
@@ -57,8 +83,11 @@ function parseStatusFilter(raw: string | undefined): StatusFilter | undefined {
 // one Valid expiring slot whose expiry falls within the window.
 type ExpiringWindow = 30 | 60 | 90;
 
-function parseExpiringWindow(raw: string | undefined): ExpiringWindow | undefined {
-  if (raw === "30" || raw === "60" || raw === "90") return Number(raw) as ExpiringWindow;
+function parseExpiringWindow(
+  raw: string | undefined
+): ExpiringWindow | undefined {
+  if (raw === '30' || raw === '60' || raw === '90')
+    return Number(raw) as ExpiringWindow;
   return undefined;
 }
 
@@ -66,77 +95,106 @@ function parseExpiringWindow(raw: string | undefined): ExpiringWindow | undefine
 // to a non-`all` value, the page renders a stripped-down "operational list"
 // layout — no KPIs, no charts, just the table + filters at the top — using
 // these strings for the hero title/description.
-const STATUS_VIEW_META: Record<Exclude<StatusFilter, "all">, { eyebrow: string; title: string; description: string }> = {
+const STATUS_VIEW_META: Record<
+  Exclude<StatusFilter, 'all'>,
+  { eyebrow: string; title: string; description: string }
+> = {
   expired: {
-    eyebrow: "P-Files · Expired documents",
-    title: "Students with expired documents",
-    description: "Passport, pass, or guardian docs whose expiry date has passed. Chase parents to re-upload current documents.",
+    eyebrow: 'P-Files · Expired documents',
+    title: 'Students with expired documents',
+    description:
+      'Passport, pass, or guardian docs whose expiry date has passed. Chase parents to re-upload current documents.',
   },
 };
 
-const EXPIRING_VIEW_META: Record<ExpiringWindow, { eyebrow: string; title: string; description: string }> = {
+const EXPIRING_VIEW_META: Record<
+  ExpiringWindow,
+  { eyebrow: string; title: string; description: string }
+> = {
   30: {
-    eyebrow: "P-Files · Expiring within 30 days",
-    title: "Documents expiring within 30 days",
-    description: "Passport, pass, and guardian docs lapsing in the next 30 days. Use the bulk action to remind parents in one go.",
+    eyebrow: 'P-Files · Expiring within 30 days',
+    title: 'Documents expiring within 30 days',
+    description:
+      'Passport, pass, and guardian docs lapsing in the next 30 days. Use the bulk action to remind parents in one go.',
   },
   60: {
-    eyebrow: "P-Files · Expiring within 60 days",
-    title: "Documents expiring within 60 days",
-    description: "Documents lapsing in the next 60 days. Send reminders ahead of expiry to give parents lead time.",
+    eyebrow: 'P-Files · Expiring within 60 days',
+    title: 'Documents expiring within 60 days',
+    description:
+      'Documents lapsing in the next 60 days. Send reminders ahead of expiry to give parents lead time.',
   },
   90: {
-    eyebrow: "P-Files · Expiring within 90 days",
-    title: "Documents expiring within 90 days",
-    description: "Quarterly view of upcoming expirations. Useful for planning renewal outreach.",
+    eyebrow: 'P-Files · Expiring within 90 days',
+    title: 'Documents expiring within 90 days',
+    description:
+      'Quarterly view of upcoming expirations. Useful for planning renewal outreach.',
   },
 };
 
 export default async function PFilesDashboard({
   searchParams,
 }: {
-  searchParams: Promise<DashboardSearchParams & { status?: string; expiring?: string }>;
+  searchParams: Promise<
+    DashboardSearchParams & { status?: string; expiring?: string }
+  >;
 }) {
   const sessionUser = await getSessionUser();
-  if (!sessionUser) redirect("/login");
+  if (!sessionUser) redirect('/login');
   if (
-    sessionUser.role !== "p-file" &&
-    sessionUser.role !== "school_admin" &&
-    sessionUser.role !== "superadmin"
+    sessionUser.role !== 'p-file' &&
+    sessionUser.role !== 'school_admin' &&
+    sessionUser.role !== 'superadmin'
   ) {
-    redirect("/");
+    redirect('/');
   }
   // KD #2 + KD #31: p-file/superadmin = officer (writes); school_admin/admin =
   // oversight (read-only monitoring lens). The two roles share KPIs +
   // completion charts + revision trends, but the chase queue, priority
   // panel, and chase narrative are officer-only — admins can't act on
   // them and the framing ("you owe these reminders") doesn't fit.
-  const isOfficer = sessionUser.role === "p-file" || sessionUser.role === "superadmin";
+  const isOfficer =
+    sessionUser.role === 'p-file' || sessionUser.role === 'superadmin';
 
   const service = createServiceClient();
   const currentAy = await getCurrentAcademicYear(service);
   if (!currentAy) {
     return (
       <PageShell>
-        <div className="text-sm text-destructive">No current academic year configured.</div>
+        <div className="text-sm text-destructive">
+          No current academic year configured.
+        </div>
       </PageShell>
     );
   }
 
   const resolvedSearch = await searchParams;
-  const ayParam = typeof resolvedSearch.ay === "string" ? resolvedSearch.ay : undefined;
-  const statusParam = typeof resolvedSearch.status === "string" ? resolvedSearch.status : undefined;
-  const expiringParam = typeof resolvedSearch.expiring === "string" ? resolvedSearch.expiring : undefined;
+  const ayParam =
+    typeof resolvedSearch.ay === 'string' ? resolvedSearch.ay : undefined;
+  const statusParam =
+    typeof resolvedSearch.status === 'string'
+      ? resolvedSearch.status
+      : undefined;
+  const expiringParam =
+    typeof resolvedSearch.expiring === 'string'
+      ? resolvedSearch.expiring
+      : undefined;
   const ayCodes = await listAcademicAyCodes(service);
-  const selectedAy = ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
+  const selectedAy =
+    ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
   const isCurrentAy = selectedAy === currentAy.ay_code;
   const initialStatusFilter = parseStatusFilter(statusParam);
   const expiringWindow = parseExpiringWindow(expiringParam);
 
   const windows = await getDashboardWindows(selectedAy);
-  const rangeInput = resolveRange(resolvedSearch, windows, selectedAy, undefined, {
-    defaultPreset: 'thisMonth',
-  });
+  const rangeInput = resolveRange(
+    resolvedSearch,
+    windows,
+    selectedAy,
+    undefined,
+    {
+      defaultPreset: 'thisMonth',
+    }
+  );
 
   // Auto-flip runs in parallel with subsequent fetches instead of blocking
   // serially. Cached 60s, tag-invalidated by sis:${ayCode}, so most
@@ -152,10 +210,13 @@ export default async function PFilesDashboard({
   // they always show AY-wide data and would mislead users who expected
   // a focused list view.
   // ──────────────────────────────────────────────────────────────────
-  if ((initialStatusFilter && initialStatusFilter !== "all") || expiringWindow) {
+  if (
+    (initialStatusFilter && initialStatusFilter !== 'all') ||
+    expiringWindow
+  ) {
     const meta = expiringWindow
       ? EXPIRING_VIEW_META[expiringWindow]
-      : STATUS_VIEW_META[initialStatusFilter as Exclude<StatusFilter, "all">];
+      : STATUS_VIEW_META[initialStatusFilter as Exclude<StatusFilter, 'all'>];
     // freshen runs in parallel with the focused-view dashboard fetch.
     const [{ students, summary }] = await Promise.all([
       getDocumentDashboardData(selectedAy),
@@ -172,20 +233,20 @@ export default async function PFilesDashboard({
       const horizonMs = todayMs + expiringWindow * 86_400_000;
       visibleStudents = students.filter((s) =>
         s.slots.some((slot) => {
-          if (slot.status !== "valid" || !slot.expiryDate) return false;
+          if (slot.status !== 'valid' || !slot.expiryDate) return false;
           const t = new Date(slot.expiryDate).getTime();
           return t >= todayMs && t <= horizonMs;
-        }),
+        })
       );
     }
 
     const filterLabel = expiringWindow
       ? `expiring ≤${expiringWindow}d`
-      : (initialStatusFilter ?? "all");
+      : (initialStatusFilter ?? 'all');
     // Bulk notify is an officer write action — oversight roles see the same
     // focused list but without the bulk-remind footer.
     const enableBulk =
-      isOfficer && (!!expiringWindow || initialStatusFilter === "expired");
+      isOfficer && (!!expiringWindow || initialStatusFilter === 'expired');
 
     return (
       <PageShell>
@@ -195,7 +256,10 @@ export default async function PFilesDashboard({
           description={meta.description}
           badges={[
             { label: selectedAy },
-            { label: isCurrentAy ? "Current" : "Historical", tone: isCurrentAy ? "mint" : "muted" },
+            {
+              label: isCurrentAy ? 'Current' : 'Historical',
+              tone: isCurrentAy ? 'mint' : 'muted',
+            },
           ]}
         />
 
@@ -213,9 +277,12 @@ export default async function PFilesDashboard({
           presets={FLEXIBLE_PRESETS}
           trustStrip={
             <p className="text-[11px] text-muted-foreground">
-              Date range filters the{" "}
-              <strong className="font-semibold text-foreground">Revisions</strong> KPI
-              + chart only — slot status, expiring, and total counts are AY-wide.
+              Date range filters the{' '}
+              <strong className="font-semibold text-foreground">
+                Revisions
+              </strong>{' '}
+              KPI + chart only — slot status, expiring, and total counts are
+              AY-wide.
             </p>
           }
         />
@@ -245,7 +312,10 @@ export default async function PFilesDashboard({
           <FolderKanban className="size-3" strokeWidth={2.25} />
           <span>{selectedAy}</span>
           <span className="text-border">·</span>
-          <span>{visibleStudents.length.toLocaleString("en-SG")} of {summary.totalStudents.toLocaleString("en-SG")} students</span>
+          <span>
+            {visibleStudents.length.toLocaleString('en-SG')} of{' '}
+            {summary.totalStudents.toLocaleString('en-SG')} students
+          </span>
           <span className="text-border">·</span>
           <span>Filter: {filterLabel}</span>
         </div>
@@ -274,7 +344,9 @@ export default async function PFilesDashboard({
     getRevisionsHeatmap(selectedAy, 12),
     // Priority panel is officer-only; skip the fetch entirely for oversight
     // roles so the dashboard renders one fewer trip on every load.
-    isOfficer ? getPFilesPriority({ ayCode: selectedAy }) : Promise.resolve(null),
+    isOfficer
+      ? getPFilesPriority({ ayCode: selectedAy })
+      : Promise.resolve(null),
   ]);
 
   // Freshen runs in parallel with the data fetches above; awaited here so
@@ -296,16 +368,27 @@ export default async function PFilesDashboard({
   return (
     <PageShell>
       <DashboardHero
-        eyebrow={isOfficer ? "P-Files · Document tracking" : "P-Files · Read-only oversight"}
-        title={isOfficer ? "Student document completeness" : "Student documents — monitoring"}
+        eyebrow={
+          isOfficer
+            ? 'P-Files · Document tracking'
+            : 'P-Files · Read-only oversight'
+        }
+        title={
+          isOfficer
+            ? 'Student document completeness'
+            : 'Student documents — monitoring'
+        }
         description={
           isOfficer
-            ? "Retrieve validated student, parent, and guardian documents. Prior versions preserved in revision history."
-            : "Read-only view of student document completeness. The P-Files officer owns chasing, validation, and renewal — this surface is for oversight."
+            ? 'Retrieve validated student, parent, and guardian documents. Prior versions preserved in revision history.'
+            : 'Read-only view of student document completeness. The P-Files officer owns chasing, validation, and renewal — this surface is for oversight.'
         }
         badges={[
           { label: selectedAy },
-          { label: isCurrentAy ? "Current" : "Historical", tone: isCurrentAy ? "mint" : "muted" },
+          {
+            label: isCurrentAy ? 'Current' : 'Historical',
+            tone: isCurrentAy ? 'mint' : 'muted',
+          },
         ]}
       />
 
@@ -323,9 +406,10 @@ export default async function PFilesDashboard({
         presets={FLEXIBLE_PRESETS}
         trustStrip={
           <p className="text-[11px] text-muted-foreground">
-            Date range filters the{" "}
-            <strong className="font-semibold text-foreground">Revisions</strong> KPI
-            + chart only — slot status, expiring, and total counts are AY-wide.
+            Date range filters the{' '}
+            <strong className="font-semibold text-foreground">Revisions</strong>{' '}
+            KPI + chart only — slot status, expiring, and total counts are
+            AY-wide.
           </p>
         }
       />
@@ -365,7 +449,7 @@ export default async function PFilesDashboard({
           label="Expiring ≤30d"
           value={kpisResult.current.expiringSoon30}
           icon={CalendarClock}
-          intent={kpisResult.current.expiringSoon30 > 0 ? "warning" : "good"}
+          intent={kpisResult.current.expiringSoon30 > 0 ? 'warning' : 'good'}
           subtext="From end of range"
           drillSheet={() => (
             <PFilesDrillSheet
@@ -379,7 +463,7 @@ export default async function PFilesDashboard({
           label="Expiring ≤60d"
           value={kpisResult.current.expiringSoon}
           icon={AlertTriangle}
-          intent={kpisResult.current.expiringSoon > 0 ? "warning" : "good"}
+          intent={kpisResult.current.expiringSoon > 0 ? 'warning' : 'good'}
           subtext="From end of range"
           drillSheet={() => (
             <PFilesDrillSheet
@@ -396,10 +480,7 @@ export default async function PFilesDashboard({
           intent="default"
           subtext="All slots · all levels"
           drillSheet={() => (
-            <PFilesDrillSheet
-              target="all-docs"
-              ayCode={selectedAy}
-            />
+            <PFilesDrillSheet target="all-docs" ayCode={selectedAy} />
           )}
         />
       </section>
@@ -409,7 +490,11 @@ export default async function PFilesDashboard({
       {/* Row 6 — wide revision trend + heatmap (12-week reference) */}
       <section className="grid gap-4 lg:grid-cols-2">
         <RevisionsOverTimeChart data={revisions} />
-        <RevisionsHeatmapCard data={revisionsHeatmap} ayCode={selectedAy} weeks={12} />
+        <RevisionsHeatmapCard
+          data={revisionsHeatmap}
+          ayCode={selectedAy}
+          weeks={12}
+        />
       </section>
 
       {/* Row 7 — completion by level (2/3) + slot status mix (1/3) */}
@@ -476,7 +561,7 @@ export default async function PFilesDashboard({
         <FolderKanban className="size-3" strokeWidth={2.25} />
         <span>{selectedAy}</span>
         <span className="text-border">·</span>
-        <span>{summary.totalStudents.toLocaleString("en-SG")} students</span>
+        <span>{summary.totalStudents.toLocaleString('en-SG')} students</span>
         <span className="text-border">·</span>
         <span>Refreshes every 10 minutes</span>
       </div>

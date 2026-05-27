@@ -1,14 +1,25 @@
-"use client";
+'use client';
 
-import type { ColumnDef } from "@tanstack/react-table";
-import { Ban, CheckCircle2, Copy, KeyRound, Loader2, Pencil, RefreshCw, Shield, UserPlus, Users } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { toast } from "sonner";
+import type { ColumnDef } from '@tanstack/react-table';
+import {
+  Ban,
+  CheckCircle2,
+  Copy,
+  KeyRound,
+  Loader2,
+  Pencil,
+  RefreshCw,
+  Shield,
+  UserPlus,
+  Users,
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { toast } from 'sonner';
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { DataTable } from "@/components/ui/data-table";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { DataTable } from '@/components/ui/data-table';
 import {
   Dialog,
   DialogContent,
@@ -17,57 +28,77 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ROLES, type Role } from "@/lib/auth/roles";
-import { TABLE_COPY } from "@/lib/copy/data-table";
-import type { AdminUserRow } from "@/lib/sis/users/queries";
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ROLES, type Role } from '@/lib/auth/roles';
+import { TABLE_COPY } from '@/lib/copy/data-table';
+import type { AdminUserRow } from '@/lib/sis/users/queries';
 
 // ─── Role labels ──────────────────────────────────────────────────────────────
 
 const ROLE_LABEL: Record<Role, string> = {
-  teacher: "Teacher",
-  registrar: "Registrar",
+  teacher: 'Teacher',
+  registrar: 'Registrar',
   school_admin: TABLE_COPY.schoolAdmin,
-  superadmin: "Superadmin",
-  "p-file": "P-Files",
-  admissions: "Admissions",
+  superadmin: 'Superadmin',
+  'p-file': 'P-Files',
+  admissions: 'Admissions',
 };
 
 // ─── Columns ──────────────────────────────────────────────────────────────────
 
-function buildColumns(currentUserId: string, isSuperadmin: boolean): ColumnDef<AdminUserRow>[] {
+function buildColumns(
+  currentUserId: string,
+  isSuperadmin: boolean
+): ColumnDef<AdminUserRow>[] {
   return [
     {
-      id: "user",
+      id: 'user',
       accessorFn: (row) => row.display_name,
-      header: "User",
+      header: 'User',
       // No identifier link — no canonical user-detail page
       cell: ({ row }) => (
         <div>
-          <div className="font-medium text-foreground">{row.original.display_name}</div>
-          <div className="font-mono text-[11px] text-muted-foreground">{row.original.email}</div>
+          <div className="font-medium text-foreground">
+            {row.original.display_name}
+          </div>
+          <div className="font-mono text-[11px] text-muted-foreground">
+            {row.original.email}
+          </div>
         </div>
       ),
       enableHiding: false,
     },
     {
-      id: "role",
-      accessorFn: (row) => row.role ?? "",
-      header: "Role",
-      cell: ({ row }) => <RoleSelect user={row.original} isSelf={row.original.id === currentUserId} />,
+      id: 'role',
+      accessorFn: (row) => row.role ?? '',
+      header: 'Role',
+      cell: ({ row }) => (
+        <RoleSelect
+          user={row.original}
+          isSelf={row.original.id === currentUserId}
+        />
+      ),
       filterFn: (row, _id, value) => {
         if (!value || (Array.isArray(value) && value.length === 0)) return true;
-        const roleVal = row.original.role ?? "";
-        return Array.isArray(value) ? value.includes(roleVal) : roleVal === value;
+        const roleVal = row.original.role ?? '';
+        return Array.isArray(value)
+          ? value.includes(roleVal)
+          : roleVal === value;
       },
     },
     {
-      id: "status",
-      accessorFn: (row) => (row.disabled ? "Disabled" : "Active"),
-      header: "Status",
+      id: 'status',
+      accessorFn: (row) => (row.disabled ? 'Disabled' : 'Active'),
+      header: 'Status',
       cell: ({ row }) =>
         row.original.disabled ? (
           <Badge variant="blocked">
@@ -80,52 +111,63 @@ function buildColumns(currentUserId: string, isSuperadmin: boolean): ColumnDef<A
         ),
       filterFn: (row, _id, value) => {
         if (!value || (Array.isArray(value) && value.length === 0)) return true;
-        const statusVal = row.original.disabled ? "Disabled" : "Active";
-        return Array.isArray(value) ? value.includes(statusVal) : statusVal === value;
+        const statusVal = row.original.disabled ? 'Disabled' : 'Active';
+        return Array.isArray(value)
+          ? value.includes(statusVal)
+          : statusVal === value;
       },
     },
     {
       // created_at: hidden-by-default "Member since" column
-      id: "created_at",
-      accessorKey: "created_at",
-      header: "Member since",
+      id: 'created_at',
+      accessorKey: 'created_at',
+      header: 'Member since',
       cell: ({ row }) => (
         <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-          {new Date(row.original.created_at).toLocaleDateString("en-SG", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
+          {new Date(row.original.created_at).toLocaleDateString('en-SG', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
           })}
         </span>
       ),
       enableSorting: true,
     },
     {
-      id: "lastSignIn",
-      accessorKey: "last_sign_in_at",
-      header: "Last sign-in",
+      id: 'lastSignIn',
+      accessorKey: 'last_sign_in_at',
+      header: 'Last sign-in',
       cell: ({ row }) => (
         <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
           {row.original.last_sign_in_at
-            ? new Date(row.original.last_sign_in_at).toLocaleDateString("en-SG", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              })
-            : "—"}
+            ? new Date(row.original.last_sign_in_at).toLocaleDateString(
+                'en-SG',
+                {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                }
+              )
+            : '—'}
         </span>
       ),
       enableSorting: true,
     },
     {
-      id: "actions",
-      header: "",
+      id: 'actions',
+      header: '',
       cell: ({ row }) => (
         <div className="flex items-center justify-end gap-2">
           {isSuperadmin && (
-            <EditUserButton user={row.original} isSelf={row.original.id === currentUserId} />
+            <EditUserButton
+              user={row.original}
+              isSelf={row.original.id === currentUserId}
+            />
           )}
-          <ToggleDisabledButton user={row.original} isSelf={row.original.id === currentUserId} />
+          <ToggleDisabledButton
+            user={row.original}
+            isSelf={row.original.id === currentUserId}
+          />
         </div>
       ),
       enableSorting: false,
@@ -145,23 +187,27 @@ function RoleSelect({ user, isSelf }: { user: AdminUserRow; isSelf: boolean }) {
     setBusy(true);
     try {
       const res = await fetch(`/api/sis/admin/users/${user.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ role: next }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body?.error ?? "update failed");
+      if (!res.ok) throw new Error(body?.error ?? 'update failed');
       toast.success(`Role updated: ${user.email} → ${ROLE_LABEL[next]}`);
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "update failed");
+      toast.error(e instanceof Error ? e.message : 'update failed');
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Select value={user.role ?? undefined} onValueChange={(v) => setRole(v as Role)} disabled={busy || isSelf}>
+    <Select
+      value={user.role ?? undefined}
+      onValueChange={(v) => setRole(v as Role)}
+      disabled={busy || isSelf}
+    >
       <SelectTrigger className="h-8 w-[160px]">
         <SelectValue placeholder="— no role —" />
       </SelectTrigger>
@@ -176,7 +222,13 @@ function RoleSelect({ user, isSelf }: { user: AdminUserRow; isSelf: boolean }) {
   );
 }
 
-function ToggleDisabledButton({ user, isSelf }: { user: AdminUserRow; isSelf: boolean }) {
+function ToggleDisabledButton({
+  user,
+  isSelf,
+}: {
+  user: AdminUserRow;
+  isSelf: boolean;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -185,16 +237,18 @@ function ToggleDisabledButton({ user, isSelf }: { user: AdminUserRow; isSelf: bo
     setBusy(true);
     try {
       const res = await fetch(`/api/sis/admin/users/${user.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ disabled: next }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body?.error ?? "update failed");
-      toast.success(next ? `Disabled: ${user.email}` : `Enabled: ${user.email}`);
+      if (!res.ok) throw new Error(body?.error ?? 'update failed');
+      toast.success(
+        next ? `Disabled: ${user.email}` : `Enabled: ${user.email}`
+      );
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "update failed");
+      toast.error(e instanceof Error ? e.message : 'update failed');
     } finally {
       setBusy(false);
     }
@@ -204,11 +258,12 @@ function ToggleDisabledButton({ user, isSelf }: { user: AdminUserRow; isSelf: bo
     <Button
       type="button"
       size="sm"
-      variant={user.disabled ? "default" : "destructive"}
+      variant={user.disabled ? 'default' : 'destructive'}
       disabled={busy || isSelf}
       onClick={toggleDisabled}
       className="gap-1.5"
-      title={isSelf ? "You cannot disable your own account here" : undefined}>
+      title={isSelf ? 'You cannot disable your own account here' : undefined}
+    >
       {busy ? (
         <Loader2 className="size-3.5 animate-spin" />
       ) : user.disabled ? (
@@ -216,14 +271,20 @@ function ToggleDisabledButton({ user, isSelf }: { user: AdminUserRow; isSelf: bo
       ) : (
         <Ban className="size-3.5" />
       )}
-      {user.disabled ? "Enable" : "Disable"}
+      {user.disabled ? 'Enable' : 'Disable'}
     </Button>
   );
 }
 
 // ─── Edit user ────────────────────────────────────────────────────────────────
 
-function EditUserButton({ user, isSelf }: { user: AdminUserRow; isSelf: boolean }) {
+function EditUserButton({
+  user,
+  isSelf,
+}: {
+  user: AdminUserRow;
+  isSelf: boolean;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -234,7 +295,11 @@ function EditUserButton({ user, isSelf }: { user: AdminUserRow; isSelf: boolean 
         disabled={isSelf}
         onClick={() => setOpen(true)}
         className="gap-1.5"
-        title={isSelf ? "Edit your own account at /account" : `Edit ${user.display_name}`}
+        title={
+          isSelf
+            ? 'Edit your own account at /account'
+            : `Edit ${user.display_name}`
+        }
       >
         <Pencil className="size-3.5" />
         Edit
@@ -254,17 +319,19 @@ function EditUserDialog({
   user: AdminUserRow;
 }) {
   const router = useRouter();
-  const [displayName, setDisplayName] = useState(user.display_name === user.email.split("@")[0] ? "" : user.display_name);
+  const [displayName, setDisplayName] = useState(
+    user.display_name === user.email.split('@')[0] ? '' : user.display_name
+  );
   const [email, setEmail] = useState(user.email);
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
 
   function fillPassword() {
     const p = generatePassword();
     setPassword(p);
     void navigator.clipboard?.writeText(p).then(
-      () => toast.success("Password generated + copied to clipboard"),
-      () => toast.success("Password generated. Copy it before saving."),
+      () => toast.success('Password generated + copied to clipboard'),
+      () => toast.success('Password generated. Copy it before saving.')
     );
   }
 
@@ -272,7 +339,7 @@ function EditUserDialog({
     if (!password) return;
     try {
       await navigator.clipboard.writeText(password);
-      toast.success("Password copied");
+      toast.success('Password copied');
     } catch {
       toast.error("Couldn't copy — select + copy manually");
     }
@@ -280,12 +347,12 @@ function EditUserDialog({
 
   async function submit() {
     const trimmedEmail = email.trim().toLowerCase();
-    if (!trimmedEmail || !trimmedEmail.includes("@")) {
-      toast.error("Valid email required");
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
+      toast.error('Valid email required');
       return;
     }
     if (password && password.length < 8) {
-      toast.error("Password must be at least 8 characters");
+      toast.error('Password must be at least 8 characters');
       return;
     }
 
@@ -296,7 +363,7 @@ function EditUserDialog({
     if (password) payload.password = password;
 
     if (Object.keys(payload).length === 0) {
-      toast.message("No changes to save.");
+      toast.message('No changes to save.');
       onOpenChange(false);
       return;
     }
@@ -304,24 +371,31 @@ function EditUserDialog({
     setSaving(true);
     try {
       const res = await fetch(`/api/sis/admin/users/${user.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error((body as { error?: string })?.error ?? "update failed");
+      if (!res.ok)
+        throw new Error((body as { error?: string })?.error ?? 'update failed');
       toast.success(`Updated: ${trimmedEmail}`);
       onOpenChange(false);
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "update failed");
+      toast.error(e instanceof Error ? e.message : 'update failed');
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o && !saving) onOpenChange(false); else onOpenChange(o); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o && !saving) onOpenChange(false);
+        else onOpenChange(o);
+      }}
+    >
       <DialogContent className="sm:max-w-xl!">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 font-serif text-lg">
@@ -331,7 +405,8 @@ function EditUserDialog({
             Edit staff user
           </DialogTitle>
           <DialogDescription>
-            Changes apply immediately. Share new credentials out-of-band if you reset the password.
+            Changes apply immediately. Share new credentials out-of-band if you
+            reset the password.
           </DialogDescription>
         </DialogHeader>
 
@@ -372,26 +447,49 @@ function EditUserDialog({
                 className="font-mono tabular-nums"
                 maxLength={72}
               />
-              <Button type="button" variant="outline" size="icon" onClick={fillPassword} title="Generate strong password + copy">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={fillPassword}
+                title="Generate strong password + copy"
+              >
                 <RefreshCw className="size-3.5" />
               </Button>
-              <Button type="button" variant="outline" size="icon" onClick={copyPassword} disabled={!password} title="Copy password">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={copyPassword}
+                disabled={!password}
+                title="Copy password"
+              >
                 <Copy className="size-3.5" />
               </Button>
             </div>
             <p className="text-[11px] leading-relaxed text-muted-foreground">
-              Leave blank to keep the current password. Generated passwords avoid 0/O/1/l/I.
+              Leave blank to keep the current password. Generated passwords
+              avoid 0/O/1/l/I.
             </p>
           </div>
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
             Cancel
           </Button>
           <Button type="button" onClick={submit} disabled={saving || !email}>
-            {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Pencil className="size-3.5" />}
-            {saving ? "Saving…" : "Save changes"}
+            {saving ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Pencil className="size-3.5" />
+            )}
+            {saving ? 'Saving…' : 'Save changes'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -414,42 +512,44 @@ export function UsersAdminClient({
 
   const columns = buildColumns(currentUserId, isSuperadmin);
 
-  const toolbarTrailing = <InviteUserDialog open={inviteOpen} onOpenChange={setInviteOpen} />;
+  const toolbarTrailing = (
+    <InviteUserDialog open={inviteOpen} onOpenChange={setInviteOpen} />
+  );
 
   return (
     <DataTable<AdminUserRow>
       data={users}
       columns={columns}
       getRowId={(row) => row.id}
-      searchKeys={["email", "display_name", (row) => row.role ?? ""]}
+      searchKeys={['email', 'display_name', (row) => row.role ?? '']}
       searchPlaceholder="Search email, name, or role…"
       facets={[
         {
-          columnId: "role",
-          label: "Role",
+          columnId: 'role',
+          label: 'Role',
           valueOptions: ROLES.map((r) => r),
         },
         {
-          columnId: "status",
-          label: "Status",
-          valueOptions: ["Active", "Disabled"],
+          columnId: 'status',
+          label: 'Status',
+          valueOptions: ['Active', 'Disabled'],
         },
       ]}
       toolbarTrailing={toolbarTrailing}
-      initialSort={[{ id: "user", desc: false }]}
+      initialSort={[{ id: 'user', desc: false }]}
       initialColumnVisibility={{ created_at: false }}
       pageSize={25}
       emptyState={{
         icon: Users,
-        title: "No staff users yet.",
+        title: 'No staff users yet.',
         cta: {
-          label: "Invite user",
+          label: 'Invite user',
           onClick: () => setInviteOpen(true),
         },
       }}
       emptyFilteredState={{
-        title: "No users match.",
-        body: "Try clearing filters or adjusting the search.",
+        title: 'No users match.',
+        body: 'Try clearing filters or adjusting the search.',
       }}
     />
   );
@@ -461,45 +561,55 @@ export function UsersAdminClient({
 // excluding visually-confusable glyphs (no 0/O, 1/l/I). Mix of upper +
 // lower + digit guaranteed by construction.
 function generatePassword(): string {
-  const upper = "ABCDEFGHJKMNPQRSTUVWXYZ";
-  const lower = "abcdefghijkmnpqrstuvwxyz";
-  const digit = "23456789";
+  const upper = 'ABCDEFGHJKMNPQRSTUVWXYZ';
+  const lower = 'abcdefghijkmnpqrstuvwxyz';
+  const digit = '23456789';
   const all = upper + lower + digit;
   const buf = new Uint32Array(16);
   crypto.getRandomValues(buf);
   // Guarantee one from each category in the first 3 chars, fill the rest
   // from the full pool. Order doesn't matter — the random fill scrambles.
-  const out: string[] = [upper[buf[0] % upper.length], lower[buf[1] % lower.length], digit[buf[2] % digit.length]];
+  const out: string[] = [
+    upper[buf[0] % upper.length],
+    lower[buf[1] % lower.length],
+    digit[buf[2] % digit.length],
+  ];
   for (let i = 3; i < buf.length; i++) out.push(all[buf[i] % all.length]);
   // Light shuffle so the category-anchored prefix isn't predictable.
   return out
     .map((ch) => ({ ch, k: Math.random() }))
     .sort((a, b) => a.k - b.k)
     .map((x) => x.ch)
-    .join("");
+    .join('');
 }
 
-function InviteUserDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+function InviteUserDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [role, setRole] = useState<Role>("teacher");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [role, setRole] = useState<Role>('teacher');
+  const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
 
   function resetForm() {
-    setEmail("");
-    setDisplayName("");
-    setRole("teacher");
-    setPassword("");
+    setEmail('');
+    setDisplayName('');
+    setRole('teacher');
+    setPassword('');
   }
 
   function fillPassword() {
     const p = generatePassword();
     setPassword(p);
     void navigator.clipboard?.writeText(p).then(
-      () => toast.success("Password generated + copied to clipboard"),
-      () => toast.success("Password generated. Copy it before submitting."),
+      () => toast.success('Password generated + copied to clipboard'),
+      () => toast.success('Password generated. Copy it before submitting.')
     );
   }
 
@@ -507,7 +617,7 @@ function InviteUserDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
     if (!password) return;
     try {
       await navigator.clipboard.writeText(password);
-      toast.success("Password copied");
+      toast.success('Password copied');
     } catch {
       toast.error("Couldn't copy — select + copy manually");
     }
@@ -515,19 +625,19 @@ function InviteUserDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
 
   async function submit() {
     const trimmedEmail = email.trim().toLowerCase();
-    if (!trimmedEmail || !trimmedEmail.includes("@")) {
-      toast.error("Valid email required");
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
+      toast.error('Valid email required');
       return;
     }
     if (password.length < 8) {
-      toast.error("Password must be at least 8 characters");
+      toast.error('Password must be at least 8 characters');
       return;
     }
     setSaving(true);
     try {
-      const res = await fetch("/api/sis/admin/users", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+      const res = await fetch('/api/sis/admin/users', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           email: trimmedEmail,
           role,
@@ -536,13 +646,15 @@ function InviteUserDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
         }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body?.error ?? "user creation failed");
-      toast.success(`Account created for ${trimmedEmail}. Share the password securely.`);
+      if (!res.ok) throw new Error(body?.error ?? 'user creation failed');
+      toast.success(
+        `Account created for ${trimmedEmail}. Share the password securely.`
+      );
       onOpenChange(false);
       resetForm();
       router.refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "user creation failed");
+      toast.error(e instanceof Error ? e.message : 'user creation failed');
     } finally {
       setSaving(false);
     }
@@ -554,7 +666,8 @@ function InviteUserDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
       onOpenChange={(o) => {
         if (!o && !saving) resetForm();
         onOpenChange(o);
-      }}>
+      }}
+    >
       <DialogTrigger asChild>
         <Button size="sm" className="gap-1.5">
           <UserPlus className="size-3.5" />
@@ -570,9 +683,10 @@ function InviteUserDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
             New staff user
           </DialogTitle>
           <DialogDescription>
-            Account is active immediately. Set the password upfront and share it with
-            the user out-of-band (Slack, in-person). They can change it after first
-            sign-in from <span className="font-mono text-[11px]">/account</span>.
+            Account is active immediately. Set the password upfront and share it
+            with the user out-of-band (Slack, in-person). They can change it
+            after first sign-in from{' '}
+            <span className="font-mono text-[11px]">/account</span>.
           </DialogDescription>
         </DialogHeader>
 
@@ -639,7 +753,8 @@ function InviteUserDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
                 variant="outline"
                 size="icon"
                 onClick={fillPassword}
-                title="Generate strong password + copy">
+                title="Generate strong password + copy"
+              >
                 <RefreshCw className="size-3.5" />
               </Button>
               <Button
@@ -648,23 +763,38 @@ function InviteUserDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
                 size="icon"
                 onClick={copyPassword}
                 disabled={!password}
-                title="Copy current password">
+                title="Copy current password"
+              >
                 <Copy className="size-3.5" />
               </Button>
             </div>
             <p className="text-[11px] leading-relaxed text-muted-foreground">
-              Minimum 8 characters. Generated passwords avoid 0/O/1/l/I to reduce share-out errors.
+              Minimum 8 characters. Generated passwords avoid 0/O/1/l/I to
+              reduce share-out errors.
             </p>
           </div>
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
             Cancel
           </Button>
-          <Button type="button" onClick={submit} disabled={saving || !email || password.length < 8}>
-            {saving ? <Loader2 className="size-3.5 animate-spin" /> : <KeyRound className="size-3.5" />}
-            {saving ? "Creating…" : "Create account"}
+          <Button
+            type="button"
+            onClick={submit}
+            disabled={saving || !email || password.length < 8}
+          >
+            {saving ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <KeyRound className="size-3.5" />
+            )}
+            {saving ? 'Creating…' : 'Create account'}
           </Button>
         </DialogFooter>
       </DialogContent>

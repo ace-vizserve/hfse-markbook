@@ -20,7 +20,7 @@ import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 // not a studentNumber.
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ enroleeNumber: string }> },
+  { params }: { params: Promise<{ enroleeNumber: string }> }
 ) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -32,7 +32,7 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const { allowance } = parsed.data;
@@ -48,15 +48,20 @@ export async function PATCH(
     .select('studentNumber')
     .eq('enroleeNumber', enroleeNumber)
     .maybeSingle();
-  if (appErr) return NextResponse.json({ error: appErr.message }, { status: 500 });
-  if (!app) return NextResponse.json({ error: 'enrolee not found' }, { status: 404 });
+  if (appErr)
+    return NextResponse.json({ error: appErr.message }, { status: 500 });
+  if (!app)
+    return NextResponse.json({ error: 'enrolee not found' }, { status: 404 });
 
   type AppRow = { studentNumber: string | null };
   const studentNumber = (app as AppRow).studentNumber;
   if (!studentNumber) {
     return NextResponse.json(
-      { error: 'enrolee has no studentNumber yet — assign one before setting allowance' },
-      { status: 409 },
+      {
+        error:
+          'enrolee has no studentNumber yet — assign one before setting allowance',
+      },
+      { status: 409 }
     );
   }
 
@@ -66,16 +71,25 @@ export async function PATCH(
     .select('id, urgent_compassionate_allowance')
     .eq('student_number', studentNumber)
     .maybeSingle();
-  if (studentErr) return NextResponse.json({ error: studentErr.message }, { status: 500 });
+  if (studentErr)
+    return NextResponse.json({ error: studentErr.message }, { status: 500 });
   if (!studentRow) {
     return NextResponse.json(
-      { error: 'student not synced to grading schema — run /markbook/sync-students first' },
-      { status: 404 },
+      {
+        error:
+          'student not synced to grading schema — run /markbook/sync-students first',
+      },
+      { status: 404 }
     );
   }
 
-  const before = (studentRow as { id: string; urgent_compassionate_allowance: number | null })
-    .urgent_compassionate_allowance ?? 5;
+  const before =
+    (
+      studentRow as {
+        id: string;
+        urgent_compassionate_allowance: number | null;
+      }
+    ).urgent_compassionate_allowance ?? 5;
   const studentId = (studentRow as { id: string }).id;
 
   if (before === allowance) {
@@ -86,7 +100,8 @@ export async function PATCH(
     .from('students')
     .update({ urgent_compassionate_allowance: allowance })
     .eq('id', studentId);
-  if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 });
+  if (updateErr)
+    return NextResponse.json({ error: updateErr.message }, { status: 500 });
 
   await logAction({
     service,

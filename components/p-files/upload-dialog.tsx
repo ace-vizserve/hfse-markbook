@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { FileText, Loader2, Merge, Upload, X } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState } from "react";
-import { toast } from "sonner";
+import { FileText, Loader2, Merge, Upload, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -15,18 +15,29 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { DatePicker } from "@/components/ui/date-picker";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { PASS_TYPES, type SlotMeta } from "@/lib/p-files/document-config";
+} from '@/components/ui/dialog';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { PASS_TYPES, type SlotMeta } from '@/lib/p-files/document-config';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const MAX_TOTAL_SIZE = 30 * 1024 * 1024; // 30 MB
-const ACCEPT_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
-const ACCEPT_EXTENSIONS = ".pdf,.jpg,.jpeg,.png,.webp";
+const ACCEPT_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+];
+const ACCEPT_EXTENSIONS = '.pdf,.jpg,.jpeg,.png,.webp';
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -35,13 +46,15 @@ function formatSize(bytes: number): string {
 }
 
 function isPdf(file: File): boolean {
-  return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+  return (
+    file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+  );
 }
 
 function isAccepted(file: File): boolean {
   if (ACCEPT_TYPES.includes(file.type)) return true;
-  const ext = file.name.toLowerCase().split(".").pop();
-  return ["pdf", "jpg", "jpeg", "png", "webp"].includes(ext ?? "");
+  const ext = file.name.toLowerCase().split('.').pop();
+  return ['pdf', 'jpg', 'jpeg', 'png', 'webp'].includes(ext ?? '');
 }
 
 type UploadDialogProps = {
@@ -55,26 +68,34 @@ type UploadDialogProps = {
   trigger?: React.ReactNode;
 };
 
-export function UploadDialog({ enroleeNumber, slotKey, label, expires, meta, isReplacement, trigger }: UploadDialogProps) {
+export function UploadDialog({
+  enroleeNumber,
+  slotKey,
+  label,
+  expires,
+  meta,
+  isReplacement,
+  trigger,
+}: UploadDialogProps) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [expiryDate, setExpiryDate] = useState("");
-  const [passportNumber, setPassportNumber] = useState("");
-  const [passType, setPassType] = useState("");
-  const [note, setNote] = useState("");
+  const [expiryDate, setExpiryDate] = useState('');
+  const [passportNumber, setPassportNumber] = useState('');
+  const [passType, setPassType] = useState('');
+  const [note, setNote] = useState('');
 
   function resetForm() {
     setSelectedFiles([]);
-    setExpiryDate("");
-    setPassportNumber("");
-    setPassType("");
-    setNote("");
+    setExpiryDate('');
+    setPassportNumber('');
+    setPassType('');
+    setNote('');
     setDragging(false);
-    if (fileRef.current) fileRef.current.value = "";
+    if (fileRef.current) fileRef.current.value = '';
   }
 
   function handleOpenChange(next: boolean) {
@@ -85,7 +106,9 @@ export function UploadDialog({ enroleeNumber, slotKey, label, expires, meta, isR
   function addFiles(incoming: File[]) {
     const valid = incoming.filter(isAccepted);
     if (valid.length < incoming.length) {
-      toast.error("Some files were skipped — only PDF, JPG, and PNG are accepted");
+      toast.error(
+        'Some files were skipped — only PDF, JPG, and PNG are accepted'
+      );
     }
     setSelectedFiles((prev) => [...prev, ...valid]);
   }
@@ -97,7 +120,7 @@ export function UploadDialog({ enroleeNumber, slotKey, label, expires, meta, isR
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     addFiles(Array.from(e.target.files ?? []));
     // Reset the input so re-selecting the same file works
-    if (fileRef.current) fileRef.current.value = "";
+    if (fileRef.current) fileRef.current.value = '';
   }
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -121,14 +144,14 @@ export function UploadDialog({ enroleeNumber, slotKey, label, expires, meta, isR
       if (files.length > 0) addFiles(files);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    []
   );
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
     if (selectedFiles.length === 0) {
-      toast.error("Please select a file");
+      toast.error('Please select a file');
       return;
     }
 
@@ -136,7 +159,9 @@ export function UploadDialog({ enroleeNumber, slotKey, label, expires, meta, isR
     if (selectedFiles.length > 1) {
       const nonPdf = selectedFiles.find((f) => !isPdf(f));
       if (nonPdf) {
-        toast.error("When uploading multiple files, all must be PDFs for merging");
+        toast.error(
+          'When uploading multiple files, all must be PDFs for merging'
+        );
         return;
       }
     }
@@ -150,23 +175,23 @@ export function UploadDialog({ enroleeNumber, slotKey, label, expires, meta, isR
     }
     const totalSize = selectedFiles.reduce((sum, f) => sum + f.size, 0);
     if (totalSize > MAX_TOTAL_SIZE) {
-      toast.error("Total file size exceeds the 30 MB limit");
+      toast.error('Total file size exceeds the 30 MB limit');
       return;
     }
 
     // Expiry required for expiring docs
     if (expires && !expiryDate) {
-      toast.error("Expiry date is required for this document");
+      toast.error('Expiry date is required for this document');
       return;
     }
 
     // Metadata required for passport/pass docs
-    if (meta?.kind === "passport" && !passportNumber.trim()) {
-      toast.error("Passport / ID number is required");
+    if (meta?.kind === 'passport' && !passportNumber.trim()) {
+      toast.error('Passport / ID number is required');
       return;
     }
-    if (meta?.kind === "pass" && !passType) {
-      toast.error("Pass type is required");
+    if (meta?.kind === 'pass' && !passType) {
+      toast.error('Pass type is required');
       return;
     }
 
@@ -174,20 +199,21 @@ export function UploadDialog({ enroleeNumber, slotKey, label, expires, meta, isR
     try {
       const formData = new FormData();
       for (const file of selectedFiles) {
-        formData.append("file", file);
+        formData.append('file', file);
       }
-      formData.append("slotKey", slotKey);
-      if (expiryDate) formData.append("expiryDate", expiryDate);
-      if (meta?.kind === "passport") formData.append("passportNumber", passportNumber.trim());
-      if (meta?.kind === "pass") formData.append("passType", passType);
-      if (isReplacement && note.trim()) formData.append("note", note.trim());
+      formData.append('slotKey', slotKey);
+      if (expiryDate) formData.append('expiryDate', expiryDate);
+      if (meta?.kind === 'passport')
+        formData.append('passportNumber', passportNumber.trim());
+      if (meta?.kind === 'pass') formData.append('passType', passType);
+      if (isReplacement && note.trim()) formData.append('note', note.trim());
 
       const res = await fetch(`/api/p-files/${enroleeNumber}/upload`, {
-        method: "POST",
+        method: 'POST',
         body: formData,
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? "Upload failed");
+      if (!res.ok) throw new Error(body.error ?? 'Upload failed');
 
       if (body.warning) {
         toast.warning(body.warning);
@@ -198,7 +224,7 @@ export function UploadDialog({ enroleeNumber, slotKey, label, expires, meta, isR
       resetForm();
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Upload failed");
+      toast.error(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setBusy(false);
     }
@@ -213,7 +239,7 @@ export function UploadDialog({ enroleeNumber, slotKey, label, expires, meta, isR
         {trigger ?? (
           <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
             <Upload className="size-3" />
-            {isReplacement ? "Replace" : "Upload"}
+            {isReplacement ? 'Replace' : 'Upload'}
           </Button>
         )}
       </DialogTrigger>
@@ -225,8 +251,8 @@ export function UploadDialog({ enroleeNumber, slotKey, label, expires, meta, isR
             </DialogTitle>
             <DialogDescription className="text-[13px] leading-relaxed">
               {isReplacement
-                ? "The current file will be archived and viewable via History. Drop multiple PDFs to merge them into one document."
-                : "Upload on behalf of the parent. Drop multiple PDFs to merge them into one document."}
+                ? 'The current file will be archived and viewable via History. Drop multiple PDFs to merge them into one document.'
+                : 'Upload on behalf of the parent. Drop multiple PDFs to merge them into one document.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -234,7 +260,7 @@ export function UploadDialog({ enroleeNumber, slotKey, label, expires, meta, isR
             {/* ── Drop zone ── */}
             <div className="grid gap-1.5">
               <Label className="text-[13px] font-medium text-foreground">
-                Document{hasFiles && selectedFiles.length > 1 ? "s" : ""}
+                Document{hasFiles && selectedFiles.length > 1 ? 's' : ''}
               </Label>
 
               <div
@@ -242,7 +268,7 @@ export function UploadDialog({ enroleeNumber, slotKey, label, expires, meta, isR
                 tabIndex={0}
                 onClick={() => fileRef.current?.click()}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
+                  if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
                     fileRef.current?.click();
                   }
@@ -252,31 +278,37 @@ export function UploadDialog({ enroleeNumber, slotKey, label, expires, meta, isR
                 onDrop={handleDrop}
                 className={`group relative flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 transition-all ${
                   dragging
-                    ? "border-primary bg-accent/80 shadow-sm"
+                    ? 'border-primary bg-accent/80 shadow-sm'
                     : hasFiles
-                      ? "border-border/60 bg-muted/30 hover:border-primary/40 hover:bg-accent/40"
-                      : "border-border bg-muted/40 hover:border-primary/40 hover:bg-accent/40"
-                }`}>
+                      ? 'border-border/60 bg-muted/30 hover:border-primary/40 hover:bg-accent/40'
+                      : 'border-border bg-muted/40 hover:border-primary/40 hover:bg-accent/40'
+                }`}
+              >
                 <div
                   className={`flex size-10 items-center justify-center rounded-xl transition-colors ${
                     dragging
-                      ? "bg-primary text-primary-foreground shadow-brand-tile"
-                      : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
-                  }`}>
+                      ? 'bg-primary text-primary-foreground shadow-brand-tile'
+                      : 'bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary'
+                  }`}
+                >
                   <Upload className="size-5" />
                 </div>
 
                 {!hasFiles ? (
                   <>
                     <p className="text-sm font-medium text-foreground">
-                      {dragging ? "Drop files here" : "Click to browse or drag files here"}
+                      {dragging
+                        ? 'Drop files here'
+                        : 'Click to browse or drag files here'}
                     </p>
                     <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
                       PDF, JPG, PNG · Max 10 MB per file
                     </p>
                   </>
                 ) : (
-                  <p className="text-xs text-muted-foreground">Click or drop to add more files</p>
+                  <p className="text-xs text-muted-foreground">
+                    Click or drop to add more files
+                  </p>
                 )}
 
                 <input
@@ -306,10 +338,13 @@ export function UploadDialog({ enroleeNumber, slotKey, label, expires, meta, isR
                   {selectedFiles.map((f, i) => (
                     <li key={i} className="flex items-center gap-2 px-3 py-2">
                       <FileText className="size-4 shrink-0 text-muted-foreground" />
-                      <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">{f.name}</span>
+                      <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">
+                        {f.name}
+                      </span>
                       <Badge
                         variant="outline"
-                        className="h-5 shrink-0 border-border bg-muted px-1.5 font-mono text-[10px] tabular-nums text-muted-foreground">
+                        className="h-5 shrink-0 border-border bg-muted px-1.5 font-mono text-[10px] tabular-nums text-muted-foreground"
+                      >
                         {formatSize(f.size)}
                       </Badge>
                       <button
@@ -319,7 +354,8 @@ export function UploadDialog({ enroleeNumber, slotKey, label, expires, meta, isR
                           removeFile(i);
                         }}
                         className="ml-0.5 flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                        aria-label={`Remove ${f.name}`}>
+                        aria-label={`Remove ${f.name}`}
+                      >
                         <X className="size-3" />
                       </button>
                     </li>
@@ -329,9 +365,12 @@ export function UploadDialog({ enroleeNumber, slotKey, label, expires, meta, isR
             )}
 
             {/* ── Passport number (passport slots only) ── */}
-            {meta?.kind === "passport" && (
+            {meta?.kind === 'passport' && (
               <div className="grid gap-1.5">
-                <Label htmlFor={`passport-num-${slotKey}`} className="text-[13px] font-medium text-foreground">
+                <Label
+                  htmlFor={`passport-num-${slotKey}`}
+                  className="text-[13px] font-medium text-foreground"
+                >
                   Passport / ID number
                 </Label>
                 <Input
@@ -347,12 +386,19 @@ export function UploadDialog({ enroleeNumber, slotKey, label, expires, meta, isR
             )}
 
             {/* ── Pass type (pass slots only) ── */}
-            {meta?.kind === "pass" && (
+            {meta?.kind === 'pass' && (
               <div className="grid gap-1.5">
-                <Label htmlFor={`pass-type-${slotKey}`} className="text-[13px] font-medium text-foreground">
+                <Label
+                  htmlFor={`pass-type-${slotKey}`}
+                  className="text-[13px] font-medium text-foreground"
+                >
                   Type of pass
                 </Label>
-                <Select value={passType} onValueChange={setPassType} disabled={busy}>
+                <Select
+                  value={passType}
+                  onValueChange={setPassType}
+                  disabled={busy}
+                >
                   <SelectTrigger id={`pass-type-${slotKey}`}>
                     <SelectValue placeholder="Select pass type" />
                   </SelectTrigger>
@@ -370,7 +416,10 @@ export function UploadDialog({ enroleeNumber, slotKey, label, expires, meta, isR
             {/* ── Expiry date (all expiring docs) ── */}
             {expires && (
               <div className="grid gap-1.5">
-                <Label htmlFor={`expiry-${slotKey}`} className="text-[13px] font-medium text-foreground">
+                <Label
+                  htmlFor={`expiry-${slotKey}`}
+                  className="text-[13px] font-medium text-foreground"
+                >
                   Expiry date
                 </Label>
                 <DatePicker
@@ -380,15 +429,23 @@ export function UploadDialog({ enroleeNumber, slotKey, label, expires, meta, isR
                   disabled={busy}
                   placeholder="Select expiry date"
                 />
-                <p className="text-[11px] text-muted-foreground">Required for expiring documents (passport, pass).</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Required for expiring documents (passport, pass).
+                </p>
               </div>
             )}
 
             {/* ── Replacement note (optional, only when replacing) ── */}
             {isReplacement && (
               <div className="grid gap-1.5">
-                <Label htmlFor={`note-${slotKey}`} className="text-[13px] font-medium text-foreground">
-                  Note <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Optional</span>
+                <Label
+                  htmlFor={`note-${slotKey}`}
+                  className="text-[13px] font-medium text-foreground"
+                >
+                  Note{' '}
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Optional
+                  </span>
                 </Label>
                 <Textarea
                   id={`note-${slotKey}`}
@@ -398,18 +455,29 @@ export function UploadDialog({ enroleeNumber, slotKey, label, expires, meta, isR
                   placeholder="Why is this being replaced? e.g. Parent emailed an updated passport."
                   rows={2}
                 />
-                <p className="text-[11px] text-muted-foreground">Shown in the History dialog alongside the archived file.</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Shown in the History dialog alongside the archived file.
+                </p>
               </div>
             )}
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={busy}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={busy}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={busy || !hasFiles}>
               {busy && <Loader2 className="size-3.5 animate-spin" />}
-              {isMerge ? "Merge & Upload" : isReplacement ? "Replace" : "Upload"}
+              {isMerge
+                ? 'Merge & Upload'
+                : isReplacement
+                  ? 'Replace'
+                  : 'Upload'}
             </Button>
           </DialogFooter>
         </form>

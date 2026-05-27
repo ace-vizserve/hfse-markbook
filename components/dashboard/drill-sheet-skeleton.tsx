@@ -40,7 +40,10 @@ export function DrillSheetSkeleton({ title = 'Loading…' }: { title?: string })
       <div className="flex-1 overflow-auto px-6 py-4 space-y-3">
         <div className="grid grid-cols-6 gap-3 border-b border-border pb-2">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-3 w-full animate-pulse rounded bg-muted" />
+            <div
+              key={i}
+              className="h-3 w-full animate-pulse rounded bg-muted"
+            />
           ))}
         </div>
         {Array.from({ length: 6 }).map((_, row) => (

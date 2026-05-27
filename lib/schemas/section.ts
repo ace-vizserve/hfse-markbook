@@ -13,7 +13,11 @@ export type SectionClassType = (typeof SECTION_CLASS_TYPES)[number];
 const uuidString = z.string().uuid('Invalid id');
 
 export const SectionCreateSchema = z.object({
-  name: z.string().trim().min(1, 'Name required').max(60, 'Keep it under 60 chars'),
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Name required')
+    .max(60, 'Keep it under 60 chars'),
   level_id: uuidString,
   class_type: z.enum(SECTION_CLASS_TYPES).nullable().optional(),
 });
@@ -24,7 +28,12 @@ export type SectionCreateInput = z.infer<typeof SectionCreateSchema>;
 // `level_id` and `academic_year_id` are load-bearing joins and can't be
 // edited without cascade concerns; class_type is set at creation for now.
 export const SectionUpdateSchema = z.object({
-  name: z.string().trim().min(1, 'Name required').max(60, 'Keep it under 60 chars').optional(),
+  name: z
+    .string()
+    .trim()
+    .min(1, 'Name required')
+    .max(60, 'Keep it under 60 chars')
+    .optional(),
 });
 
 export type SectionUpdateInput = z.infer<typeof SectionUpdateSchema>;

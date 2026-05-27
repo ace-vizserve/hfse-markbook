@@ -22,7 +22,12 @@ import {
 import { PageShell } from '@/components/ui/page-shell';
 import { compareLevelLabels } from '@/lib/sis/levels';
 
-type LevelLite = { id: string; code: string; label: string; level_type: 'primary' | 'secondary' };
+type LevelLite = {
+  id: string;
+  code: string;
+  label: string;
+  level_type: 'primary' | 'secondary';
+};
 type SectionCard = {
   id: string;
   name: string;
@@ -52,7 +57,13 @@ export default async function SectionsListPage() {
         .from('sections')
         .select('id, name, level:levels(id, code, label, level_type)')
         .eq('academic_year_id', ay.id)
-    : { data: [] as Array<{ id: string; name: string; level: LevelLite | LevelLite[] | null }> };
+    : {
+        data: [] as Array<{
+          id: string;
+          name: string;
+          level: LevelLite | LevelLite[] | null;
+        }>,
+      };
 
   const ids = (sections ?? []).map((s) => s.id);
   const counts: Record<string, { active: number; withdrawn: number }> = {};
@@ -69,7 +80,7 @@ export default async function SectionsListPage() {
   }
 
   const getLevel = (l: LevelLite | LevelLite[] | null): LevelLite | null =>
-    Array.isArray(l) ? l[0] ?? null : l;
+    Array.isArray(l) ? (l[0] ?? null) : l;
 
   const cards: SectionCard[] = (sections ?? []).map((s) => {
     const lvl = getLevel(s.level as LevelLite | LevelLite[] | null);
@@ -93,7 +104,7 @@ export default async function SectionsListPage() {
   // matches `/sis/sections`. localeCompare gave alphabetical order
   // ("Primary Five" before "Primary One") which read wrong.
   const sortedLevels = Array.from(grouped.entries()).sort(([a], [b]) =>
-    compareLevelLabels(a, b),
+    compareLevelLabels(a, b)
   );
   // Sort sections within each level alphabetically (Diamond before Pearl).
   for (const [, sects] of sortedLevels) {
@@ -116,9 +127,9 @@ export default async function SectionsListPage() {
             Sections & advisers.
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            Every section for the current academic year. Click a card to view the roster, grading
-            sheets, and attendance. Section setup (create, teacher assignments) lives in SIS
-            Admin.
+            Every section for the current academic year. Click a card to view
+            the roster, grading sheets, and attendance. Section setup (create,
+            teacher assignments) lives in SIS Admin.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -163,7 +174,9 @@ export default async function SectionsListPage() {
             description="Withdrawn"
             value={totalWithdrawn}
             icon={UserX}
-            footerTitle={totalWithdrawn === 0 ? 'None this year' : 'Still on the roster'}
+            footerTitle={
+              totalWithdrawn === 0 ? 'None this year' : 'Still on the roster'
+            }
             footerDetail="Kept for audit trail"
           />
         </div>
@@ -180,7 +193,10 @@ export default async function SectionsListPage() {
               {canManage ? (
                 <>
                   Create sections for the current AY in{' '}
-                  <Link href="/sis/sections" className="font-medium text-foreground underline">
+                  <Link
+                    href="/sis/sections"
+                    className="font-medium text-foreground underline"
+                  >
                     SIS Admin
                   </Link>
                   .
@@ -316,4 +332,3 @@ function SummaryCard({
     </Card>
   );
 }
-

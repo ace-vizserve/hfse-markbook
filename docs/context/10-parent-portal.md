@@ -23,7 +23,7 @@ Both systems authenticate against the **same `auth.users` table**.
 
 This is enforced in two layers:
 
-1. **`proxy.ts`** — treats `/parent/*` as fully cookie-gated by the HMAC-signed `parent_session` cookie (KD #65); skips Supabase claim checks inside `/parent`. Null-role users *outside* `/parent` get bounced to `/login`. The `(parent-handoff)` route group (`/parent/enter`) is the one bypass for the HMAC gate so the handoff itself can land.
+1. **`proxy.ts`** — treats `/parent/*` as fully cookie-gated by the HMAC-signed `parent_session` cookie (KD #65); skips Supabase claim checks inside `/parent`. Null-role users _outside_ `/parent` get bounced to `/login`. The `(parent-handoff)` route group (`/parent/enter`) is the one bypass for the HMAC gate so the handoff itself can land.
 2. **`app/(parent)/layout.tsx`** — verifies the `parent_session` cookie. If invalid: real staff (`role !== null`) → `/`; **everyone else** (anonymous OR null-role Supabase JWT leftover from pre-KD-#65 `setSession` flow) → `NEXT_PUBLIC_PARENT_PORTAL_URL`. Never bounces parents to `/` or `/login` (KD #73).
 
 Never add `'parent'` to the `Role` type — it would break this heuristic and require schema-level role storage that neither system needs. KD #11's "parents = null-role Supabase users" pattern is **deprecated for fresh logins** (KD #73) but still tolerated as fallback identity.
@@ -53,16 +53,16 @@ The real DDL is at the bottom of this doc under [§ Reference DDL](#reference-dd
 
 Used by: `lib/supabase/admissions.ts::fetchAdmissionsRoster()`, `getStudentsByParentEmail()`, `lib/sync/students.ts`.
 
-| Column | Type | Nullable | Used for |
-|---|---|---|---|
-| `enroleeNumber` | `text` | yes | Join key to `ay{YY}_enrolment_status` |
-| `studentNumber` | `text` | yes | Stable cross-year student ID (Hard Rule #4). `null` means the registrar hasn't assigned one yet — that row is skipped by the sync. |
-| `lastName`, `firstName`, `middleName` | `text` | yes | Name sync into `public.students` |
-| `motherEmail` | `text` | yes | Parent auth lookup (**case-insensitive** — the SIS matches with `.ilike`) |
-| `fatherEmail` | `text` | yes | Parent auth lookup (same) |
-| `applicationStatus` | `text` | yes | **Parent-portal-side** — tracks the application *form* submission state, not the enrollment pipeline. Production value seen: `"Registered"` (set when parent finishes the form). `"Draft"` is presumed for in-progress rows but unconfirmed. **Do not use this for enrollment filtering** — that lives on `ay{YY}_enrolment_status.applicationStatus`. The two columns share a name but have completely disjoint value spaces; see `06-admissions-integration.md` § The two `applicationStatus` columns. |
-| `category` | `varchar` | yes | One of `New` / `Current` / `VizSchool New` / `VizSchool Current`. Mirrors `enrolment_status.enroleeType`. |
-| `stpApplicationType` | `text` | yes | Gates the 3 STP-conditional document slots (`icaPhoto`, `financialSupportDocs`, `vaccinationInformation`). HFSE is now Edutrust Certified, so the school can sponsor Singapore Student Pass applications via ICA on behalf of foreign students. See `21-stp-application.md` for the full workflow. |
+| Column                                | Type      | Nullable | Used for                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------------- | --------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enroleeNumber`                       | `text`    | yes      | Join key to `ay{YY}_enrolment_status`                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `studentNumber`                       | `text`    | yes      | Stable cross-year student ID (Hard Rule #4). `null` means the registrar hasn't assigned one yet — that row is skipped by the sync.                                                                                                                                                                                                                                                                                                                                                                       |
+| `lastName`, `firstName`, `middleName` | `text`    | yes      | Name sync into `public.students`                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `motherEmail`                         | `text`    | yes      | Parent auth lookup (**case-insensitive** — the SIS matches with `.ilike`)                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `fatherEmail`                         | `text`    | yes      | Parent auth lookup (same)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `applicationStatus`                   | `text`    | yes      | **Parent-portal-side** — tracks the application _form_ submission state, not the enrollment pipeline. Production value seen: `"Registered"` (set when parent finishes the form). `"Draft"` is presumed for in-progress rows but unconfirmed. **Do not use this for enrollment filtering** — that lives on `ay{YY}_enrolment_status.applicationStatus`. The two columns share a name but have completely disjoint value spaces; see `06-admissions-integration.md` § The two `applicationStatus` columns. |
+| `category`                            | `varchar` | yes      | One of `New` / `Current` / `VizSchool New` / `VizSchool Current`. Mirrors `enrolment_status.enroleeType`.                                                                                                                                                                                                                                                                                                                                                                                                |
+| `stpApplicationType`                  | `text`    | yes      | Gates the 3 STP-conditional document slots (`icaPhoto`, `financialSupportDocs`, `vaccinationInformation`). HFSE is now Edutrust Certified, so the school can sponsor Singapore Student Pass applications via ICA on behalf of foreign students. See `21-stp-application.md` for the full workflow.                                                                                                                                                                                                       |
 
 Columns the SIS does **not** currently read (but which exist on the table and may be useful later): `guardianEmail`, `levelApplied`, structured medical flags (`allergies`, `asthma`, `foodAllergies`, `heartConditions`, `epilepsy`, `diabetes`, `eczema`, etc.), all `father*` / `mother*` / `guardian*` personal data beyond email, sibling tracking columns (`siblingFullName1..5` etc.), `residenceHistory` (jsonb — used by the STP workflow), consent flags (`socialMediaConsent`, `feedbackConsent`, `*WhatsappTeamsConsent`), pre-course + feedback workflow columns (`preCourseAnswer`, `preCourseDate`, `feedbackRating`, `feedbackComments`, etc.), `vizSchoolProgram`, `enroleePhoto`, `creatorUid`. The full reference DDL lives at `10a-parent-portal-ddl.md`.
 
@@ -72,14 +72,14 @@ Columns the SIS does **not** currently read (but which exist on the table and ma
 
 Used by: `fetchAdmissionsRoster()`, `getStudentsByParentEmail()`.
 
-| Column | Type | Nullable | Used for |
-|---|---|---|---|
-| `enroleeNumber` | `text` | yes | Join to applications |
-| `classLevel` | `character varying` | yes | Section level label in **word form** (e.g. `"Primary One"`, `"Secondary Three"`, `"Cambridge Secondary One (Year 8)"`, `"Youngstarters \| Little Stars"`). Migration 029 aligned both sides on word form, so admissions and SIS now agree on the canonical label; `lib/sync/level-normalizer.ts` is retained as a defensive fallback that still accepts legacy digit input (`"Primary 1"`) and known typos, normalizing them to the current word form. |
-| `classSection` | `character varying` | yes | Section name (e.g. `"Patience"`). **Primary liveness signal** — `classSection IS NOT NULL` filters to currently-enrolled students. May contain typos; normalized by `lib/sync/section-normalizer.ts`. |
-| `classAY` | `character varying` | yes | AY code (e.g. `"AY2026"`) |
-| `applicationStatus` | `character varying` | yes | **SIS-side workflow pipeline.** One of `Submitted` / `Ongoing Verification` / `Processing` / `Enrolled` / `Enrolled (Conditional)` / `Cancelled` / `Withdrawn` (canonical list in `lib/schemas/sis.ts:STAGE_STATUS_OPTIONS.application`). Filter — rows where this is `"Cancelled"` or `"Withdrawn"` are excluded from sync. **Not the same column as `ay{YY}_enrolment_applications.applicationStatus`** — see `06-admissions-integration.md` § The two `applicationStatus` columns. |
-| `enroleeType` | `character varying` | yes | One of `New` / `Current` / `VizSchool New` / `VizSchool Current`. Mirrors `enrolment_applications.category`. The discount-codes catalogue stores a 6-value superset that adds `Both` and `VizSchool Both`. |
+| Column              | Type                | Nullable | Used for                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------- | ------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enroleeNumber`     | `text`              | yes      | Join to applications                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `classLevel`        | `character varying` | yes      | Section level label in **word form** (e.g. `"Primary One"`, `"Secondary Three"`, `"Cambridge Secondary One (Year 8)"`, `"Youngstarters \| Little Stars"`). Migration 029 aligned both sides on word form, so admissions and SIS now agree on the canonical label; `lib/sync/level-normalizer.ts` is retained as a defensive fallback that still accepts legacy digit input (`"Primary 1"`) and known typos, normalizing them to the current word form.                                |
+| `classSection`      | `character varying` | yes      | Section name (e.g. `"Patience"`). **Primary liveness signal** — `classSection IS NOT NULL` filters to currently-enrolled students. May contain typos; normalized by `lib/sync/section-normalizer.ts`.                                                                                                                                                                                                                                                                                 |
+| `classAY`           | `character varying` | yes      | AY code (e.g. `"AY2026"`)                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `applicationStatus` | `character varying` | yes      | **SIS-side workflow pipeline.** One of `Submitted` / `Ongoing Verification` / `Processing` / `Enrolled` / `Enrolled (Conditional)` / `Cancelled` / `Withdrawn` (canonical list in `lib/schemas/sis.ts:STAGE_STATUS_OPTIONS.application`). Filter — rows where this is `"Cancelled"` or `"Withdrawn"` are excluded from sync. **Not the same column as `ay{YY}_enrolment_applications.applicationStatus`** — see `06-admissions-integration.md` § The two `applicationStatus` columns. |
+| `enroleeType`       | `character varying` | yes      | One of `New` / `Current` / `VizSchool New` / `VizSchool Current`. Mirrors `enrolment_applications.category`. The discount-codes catalogue stores a 6-value superset that adds `Both` and `VizSchool Both`.                                                                                                                                                                                                                                                                            |
 
 Columns the SIS does **not** read but that exist: `registrationStatus`, `documentStatus`, `assessmentStatus`, `assessmentGradeMath`, `assessmentGradeEnglish`, `contractStatus`, `feeStatus`, `suppliesStatus`, `orientationStatus`, all their `Remarks`/`UpdatedDate`/`Updatedby` siblings. These drive the admissions dashboard (Sprint 7 Part A) but are out of scope for the SIS proper.
 
@@ -154,20 +154,20 @@ Both sides of the handoff need **per-environment** env vars — the staging pare
 
 Server-only HMAC signing key for the `parent_session` cookie (KD #65). ≥32 chars (`openssl rand -hex 32`). MUST differ per environment. Rotating invalidates all live parent sessions; nobody currently signed in via the SIS will retain access until they re-handoff from the parent portal.
 
-| Vercel environment | Notes |
-|---|---|
-| **Production** | Generate a fresh secret per environment; never share with non-production. |
-| **Preview** | Distinct from production. |
-| **Development** (local `.env.local`) | Distinct again; rotating doesn't break anyone. |
+| Vercel environment                   | Notes                                                                     |
+| ------------------------------------ | ------------------------------------------------------------------------- |
+| **Production**                       | Generate a fresh secret per environment; never share with non-production. |
+| **Preview**                          | Distinct from production.                                                 |
+| **Development** (local `.env.local`) | Distinct again; rotating doesn't break anyone.                            |
 
 #### Markbook — `NEXT_PUBLIC_PARENT_PORTAL_URL`
 
 Used by `/parent/enter` as the "Back to parent portal" button destination when the handoff fails, **and** by `app/(parent)/layout.tsx` as the redirect target when an anonymous or null-role JWT visitor lands on `/parent/*` without a valid `parent_session` cookie (KD #73). Read on every request, so changing it takes effect on the next page load — no redeploy needed.
 
-| Vercel environment | Value |
-|---|---|
-| **Production** | `https://enrol.hfse.edu.sg/admission/dashboard` |
-| **Preview** | `https://online-admission-staging.vercel.app/admission/dashboard` |
+| Vercel environment                   | Value                                                                                                                      |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| **Production**                       | `https://enrol.hfse.edu.sg/admission/dashboard`                                                                            |
+| **Preview**                          | `https://online-admission-staging.vercel.app/admission/dashboard`                                                          |
 | **Development** (local `.env.local`) | `https://online-admission-staging.vercel.app/admission/dashboard` (or whatever parent-portal instance you develop against) |
 
 Configure all three at **Vercel → your SIS project → Settings → Environment Variables**. Select the environment scope for each value individually; don't paste one value into "All Environments" or staging will point at production by accident.
@@ -176,11 +176,11 @@ Configure all three at **Vercel → your SIS project → Settings → Environmen
 
 Used by the `<ViewReportCardButton>` snippet as the handoff URL. The parent-portal team sets this in **their** Vercel project, not the SIS's.
 
-| Vercel environment | Value |
-|---|---|
-| **Production** | `https://<sis-production-domain>/parent/enter` |
-| **Preview** | `https://<sis-staging-or-preview-domain>/parent/enter` |
-| **Development** | `https://<sis-staging-or-preview-domain>/parent/enter` |
+| Vercel environment | Value                                                  |
+| ------------------ | ------------------------------------------------------ |
+| **Production**     | `https://<sis-production-domain>/parent/enter`         |
+| **Preview**        | `https://<sis-staging-or-preview-domain>/parent/enter` |
+| **Development**    | `https://<sis-staging-or-preview-domain>/parent/enter` |
 
 If there is only one SIS deployment today, both Production and Preview point at the same URL — that's fine, the SIS accepts handoffs from any origin (no origin checks were added this sprint). When a dedicated staging SIS exists later, bump the Preview value to point at it.
 
@@ -232,7 +232,11 @@ type Props = {
   children?: React.ReactNode;
 };
 
-export function ViewReportCardButton({ studentId, className, children }: Props) {
+export function ViewReportCardButton({
+  studentId,
+  className,
+  children,
+}: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -252,9 +256,7 @@ export function ViewReportCardButton({ studentId, className, children }: Props) 
         return;
       }
 
-      const next = studentId
-        ? `/parent/report-cards/${studentId}`
-        : '/parent';
+      const next = studentId ? `/parent/report-cards/${studentId}` : '/parent';
 
       const fragment = new URLSearchParams({
         access_token: session.access_token,
@@ -273,7 +275,12 @@ export function ViewReportCardButton({ studentId, className, children }: Props) 
 
   return (
     <>
-      <button type="button" onClick={go} disabled={loading} className={className}>
+      <button
+        type="button"
+        onClick={go}
+        disabled={loading}
+        className={className}
+      >
         {children ?? (loading ? 'Loading…' : 'View report card')}
       </button>
       {error && <p role="alert">{error}</p>}

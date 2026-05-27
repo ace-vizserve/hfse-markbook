@@ -6,7 +6,7 @@
 
 Two coupled gaps surfaced together:
 
-1. **AY semantics drift.** HFSE's academic year runs January through November of a single calendar year. AY2026 = calendar 2026, NOT a 2025–2026 split. The AY-code format was already single-year (`^AY[0-9]{4}$`, KD #53), but the *labels* leaked a year-range framing in three places (seed.sql, `lib/academic-year.ts` docstring, `04-database-schema.md`), and one walkthrough doc self-contradicted ("AY2026 = 2026-2027").
+1. **AY semantics drift.** HFSE's academic year runs January through November of a single calendar year. AY2026 = calendar 2026, NOT a 2025–2026 split. The AY-code format was already single-year (`^AY[0-9]{4}$`, KD #53), but the _labels_ leaked a year-range framing in three places (seed.sql, `lib/academic-year.ts` docstring, `04-database-schema.md`), and one walkthrough doc self-contradicted ("AY2026 = 2026-2027").
 
 2. **Calendar gaps.**
    - No primary/secondary segregation. The `school_calendar` and `calendar_events` tables both lacked an audience column — every entry applied to every section.
@@ -25,11 +25,13 @@ The user explicitly flagged that they didn't yet know which events are static ac
 ## What shipped
 
 ### Migration 037 (`037_calendar_audience_and_categories.sql`)
+
 - `school_calendar`: + `audience text NOT NULL DEFAULT 'all'` with `CHECK audience IN ('all','primary','secondary')`. Unique key widened from `(term_id, date)` → `(term_id, audience, date)`. New index `school_calendar_term_audience_date_idx`.
 - `calendar_events`: + `audience` (same CHECK) + `category text NOT NULL DEFAULT 'other'` with CHECK over the 9 categories + `tentative bool NOT NULL DEFAULT false`. New index `calendar_events_term_audience_idx`.
 - Backfill: every existing row receives the safe defaults; legacy AYs work unchanged.
 
 ### Schemas (`lib/schemas/attendance.ts`)
+
 - `AUDIENCE_VALUES` + `Audience` type.
 - `EVENT_CATEGORY_VALUES` + `EventCategory` type + `EVENT_CATEGORY_LABELS`.
 - `SchoolCalendarUpsertSchema` gains `audience`.
@@ -38,15 +40,18 @@ The user explicitly flagged that they didn't yet know which events are static ac
 - `CopyFromPriorAyPayloadSchema` (new — bulk copy with year-shift already applied client-side; default `markTentative=true`).
 
 ### Helpers
+
 - `lib/sis/levels.ts::levelTypeForAudienceLookup(levelOrCode)` — returns `'primary' | 'secondary' | null`. Preschool returns `null` (callers query only `audience='all'`).
 - `lib/attendance/calendar.ts` — every read helper takes an `audience` param. `listHolidaysForPriorTerm` generalized → `listPriorAyEntriesForCopy` (returns both holidays + events).
 
 ### Attendance gate
+
 - `app/api/attendance/daily/route.ts` resolves the section's level via `levelTypeForAudienceLookup`, queries `audience IN ('all', $level_type)` with `audience = $level_type` taking precedence (`ORDER BY (audience = $level_type) DESC LIMIT 1`).
 - `blockCache` key widened to `(termId, date, levelType)`.
 - KD #50 remains binding — only the 5 existing day-types gate attendance.
 
 ### API routes
+
 - `POST /api/attendance/calendar` — accepts `audience` (default `all`); upsert uses `onConflict: 'term_id,audience,date'`.
 - `DELETE /api/attendance/calendar` — accepts `audience` query param (default `all`).
 - `POST /api/attendance/calendar/events` — accepts `category`, `audience`, `tentative`.
@@ -54,6 +59,7 @@ The user explicitly flagged that they didn't yet know which events are static ac
 - `POST /api/attendance/calendar/copy-from-prior-ay` (new) — bulk copy of school_calendar overrides + calendar_events with `markTentative` flag.
 
 ### UI
+
 - `/sis/calendar` page — reads `?audience=` URL param and threads it through.
 - `CalendarAdminClient` — audience filter tab strip (`All | Primary | Secondary`), per-cell precedence rendering, "P"/"S" corner badge for overrides when filter='all', "Tentative only" toggle, "Reset to All" affordance in the date dialog when an override is selected.
 - `AddEventDialog` — adds Category + Audience selects + Tentative checkbox.
@@ -63,16 +69,18 @@ The user explicitly flagged that they didn't yet know which events are static ac
 - `CopyFromPriorAyDialog` (new, replaces `copy-holidays-dialog.tsx`) — two tabs (overrides + events), year-shift, default `markTentative=true`.
 
 ### AY label sweep
-| File | Change |
-| --- | --- |
-| `supabase/seed.sql:8` | `'Academic Year 2025-2026'` → `'Academic Year 2026'` |
-| `lib/academic-year.ts:40` | docstring example → single-year |
-| `docs/context/04-database-schema.md:33-34` | `(covers 2025-2026)` → `(Jan–Nov of the named calendar year)` |
-| `sis-walkthrough.md:466` | `"AY2026 = 2026-2027"` → `"AY2026 = calendar year 2026 (Jan–Nov)"` |
-| `docs/context/18-ay-setup.md` | one-liner: AY{YYYY} = calendar year {YYYY}, Jan–Nov |
-| `.claude/rules/key-decisions.md` KD #13 | extended with single-year framing |
+
+| File                                       | Change                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------ |
+| `supabase/seed.sql:8`                      | `'Academic Year 2025-2026'` → `'Academic Year 2026'`               |
+| `lib/academic-year.ts:40`                  | docstring example → single-year                                    |
+| `docs/context/04-database-schema.md:33-34` | `(covers 2025-2026)` → `(Jan–Nov of the named calendar year)`      |
+| `sis-walkthrough.md:466`                   | `"AY2026 = 2026-2027"` → `"AY2026 = calendar year 2026 (Jan–Nov)"` |
+| `docs/context/18-ay-setup.md`              | one-liner: AY{YYYY} = calendar year {YYYY}, Jan–Nov                |
+| `.claude/rules/key-decisions.md` KD #13    | extended with single-year framing                                  |
 
 ### KDs
+
 - KD #13 — extended with single-year framing.
 - KD #50 — extended with audience-precedence rule.
 - **KD #76 (new)** — Calendar audience scope + typed event categories. Documents the migration 037 schema, the KD #50 day-type-untouched principle, the carry-forward UX, and the deferred preschool scope.

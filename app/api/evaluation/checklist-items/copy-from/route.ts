@@ -8,7 +8,9 @@ import { NextResponse } from 'next/server';
 // their checklist via POST /api/sow/[id]/sync-to-eval.
 export function POST() {
   return NextResponse.json(
-    { error: 'Use POST /api/sow/import to copy topics via the SOW import flow.' },
-    { status: 410 },
+    {
+      error: 'Use POST /api/sow/import to copy topics via the SOW import flow.',
+    },
+    { status: 410 }
   );
 }

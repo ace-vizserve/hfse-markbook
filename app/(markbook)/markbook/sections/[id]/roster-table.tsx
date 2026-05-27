@@ -60,21 +60,29 @@ function buildColumns(sectionId: string): ColumnDef<RosterRow>[] {
   return [
     {
       accessorKey: 'index_number',
-      header: ({ column }) => <SortableHeader column={column}>#</SortableHeader>,
+      header: ({ column }) => (
+        <SortableHeader column={column}>#</SortableHeader>
+      ),
       cell: ({ row }) => (
-        <span className="font-mono tabular-nums text-muted-foreground">{row.original.index_number}</span>
+        <span className="font-mono tabular-nums text-muted-foreground">
+          {row.original.index_number}
+        </span>
       ),
     },
     {
       accessorKey: 'student_number',
       header: 'Student number',
       cell: ({ row }) => (
-        <span className="font-mono tabular-nums">{row.original.student_number || '—'}</span>
+        <span className="font-mono tabular-nums">
+          {row.original.student_number || '—'}
+        </span>
       ),
     },
     {
       accessorKey: 'student_name',
-      header: ({ column }) => <SortableHeader column={column}>Name</SortableHeader>,
+      header: ({ column }) => (
+        <SortableHeader column={column}>Name</SortableHeader>
+      ),
       cell: ({ row }) => {
         const withdrawn = row.original.enrollment_status === 'withdrawn';
         if (withdrawn) {
@@ -85,7 +93,9 @@ function buildColumns(sectionId: string): ColumnDef<RosterRow>[] {
           );
         }
         return (
-          <IdentifierLink href={`/records/students/${row.original.student_number}`}>
+          <IdentifierLink
+            href={`/records/students/${row.original.student_number}`}
+          >
             {row.original.student_name}
           </IdentifierLink>
         );
@@ -104,17 +114,27 @@ function buildColumns(sectionId: string): ColumnDef<RosterRow>[] {
       cell: ({ row }) => {
         const { bus_no, classroom_officer_role } = row.original;
         if (!bus_no && !classroom_officer_role) {
-          return <span className="font-mono text-[11px] text-muted-foreground">—</span>;
+          return (
+            <span className="font-mono text-[11px] text-muted-foreground">
+              —
+            </span>
+          );
         }
         return (
           <div className="flex flex-wrap gap-1.5 font-mono text-[10px] text-muted-foreground">
             {bus_no && (
-              <span title="Bus number" className="rounded bg-muted/60 px-1.5 py-0.5">
+              <span
+                title="Bus number"
+                className="rounded bg-muted/60 px-1.5 py-0.5"
+              >
                 Bus {bus_no}
               </span>
             )}
             {classroom_officer_role && (
-              <span title="Classroom officer role" className="rounded bg-muted/60 px-1.5 py-0.5">
+              <span
+                title="Classroom officer role"
+                className="rounded bg-muted/60 px-1.5 py-0.5"
+              >
                 {classroom_officer_role}
               </span>
             )}
@@ -155,7 +175,12 @@ function buildColumns(sectionId: string): ColumnDef<RosterRow>[] {
       cell: ({ row }) => (
         <div className="flex items-center justify-end gap-1">
           {row.original.student_id && (
-            <Button asChild variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs">
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1 px-2 text-xs"
+            >
               <Link
                 href={`/markbook/report-cards/${row.original.student_id}`}
                 title={`Open ${row.original.student_name}'s report card`}
@@ -171,7 +196,13 @@ function buildColumns(sectionId: string): ColumnDef<RosterRow>[] {
   ];
 }
 
-export function RosterTable({ data, sectionId }: { data: RosterRow[]; sectionId: string }) {
+export function RosterTable({
+  data,
+  sectionId,
+}: {
+  data: RosterRow[];
+  sectionId: string;
+}) {
   const columns = buildColumns(sectionId);
 
   return (
@@ -179,11 +210,18 @@ export function RosterTable({ data, sectionId }: { data: RosterRow[]; sectionId:
       data={data}
       columns={columns}
       getRowId={(row) => row.id}
-      searchKeys={['student_name', 'student_number', (r) => String(r.index_number)]}
+      searchKeys={[
+        'student_name',
+        'student_number',
+        (r) => String(r.index_number),
+      ]}
       searchPlaceholder="Search name, student number, index…"
       statusTabs={STATUS_TABS}
       initialSort={[{ id: 'index_number', desc: false }]}
-      initialColumnVisibility={{ enrollment_date: false, withdrawal_date: false }}
+      initialColumnVisibility={{
+        enrollment_date: false,
+        withdrawal_date: false,
+      }}
       pageSize={25}
       pageSizeOptions={[10, 25, 50]}
       emptyState={{ title: 'No students enrolled yet.' }}

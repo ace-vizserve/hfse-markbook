@@ -8,7 +8,11 @@
 // All constants are TS-only; nothing here references the DB. The structural
 // seeder reads these and upserts against Supabase.
 
-import type { DayType, EventCategory, Audience } from '@/lib/schemas/attendance';
+import type {
+  DayType,
+  EventCategory,
+  Audience,
+} from '@/lib/schemas/attendance';
 
 export type LevelSeed = {
   code: string;
@@ -17,21 +21,41 @@ export type LevelSeed = {
 };
 
 export const LEVELS: LevelSeed[] = [
-  { code: 'YS-L', label: 'Youngstarters | Little Stars',     level_type: 'preschool' },
-  { code: 'YS-J', label: 'Youngstarters | Junior Stars',     level_type: 'preschool' },
-  { code: 'YS-S', label: 'Youngstarters | Senior Stars',     level_type: 'preschool' },
-  { code: 'P1',   label: 'Primary One',                       level_type: 'primary'   },
-  { code: 'P2',   label: 'Primary Two',                       level_type: 'primary'   },
-  { code: 'P3',   label: 'Primary Three',                     level_type: 'primary'   },
-  { code: 'P4',   label: 'Primary Four',                      level_type: 'primary'   },
-  { code: 'P5',   label: 'Primary Five',                      level_type: 'primary'   },
-  { code: 'P6',   label: 'Primary Six',                       level_type: 'primary'   },
-  { code: 'S1',   label: 'Secondary One',                     level_type: 'secondary' },
-  { code: 'S2',   label: 'Secondary Two',                     level_type: 'secondary' },
-  { code: 'S3',   label: 'Secondary Three',                   level_type: 'secondary' },
-  { code: 'S4',   label: 'Secondary Four',                    level_type: 'secondary' },
-  { code: 'CS1',  label: 'Cambridge Secondary One (Year 8)',  level_type: 'secondary' },
-  { code: 'CS2',  label: 'Cambridge Secondary Two (Year 9)',  level_type: 'secondary' },
+  {
+    code: 'YS-L',
+    label: 'Youngstarters | Little Stars',
+    level_type: 'preschool',
+  },
+  {
+    code: 'YS-J',
+    label: 'Youngstarters | Junior Stars',
+    level_type: 'preschool',
+  },
+  {
+    code: 'YS-S',
+    label: 'Youngstarters | Senior Stars',
+    level_type: 'preschool',
+  },
+  { code: 'P1', label: 'Primary One', level_type: 'primary' },
+  { code: 'P2', label: 'Primary Two', level_type: 'primary' },
+  { code: 'P3', label: 'Primary Three', level_type: 'primary' },
+  { code: 'P4', label: 'Primary Four', level_type: 'primary' },
+  { code: 'P5', label: 'Primary Five', level_type: 'primary' },
+  { code: 'P6', label: 'Primary Six', level_type: 'primary' },
+  { code: 'S1', label: 'Secondary One', level_type: 'secondary' },
+  { code: 'S2', label: 'Secondary Two', level_type: 'secondary' },
+  { code: 'S3', label: 'Secondary Three', level_type: 'secondary' },
+  { code: 'S4', label: 'Secondary Four', level_type: 'secondary' },
+  {
+    code: 'CS1',
+    label: 'Cambridge Secondary One (Year 8)',
+    level_type: 'secondary',
+  },
+  {
+    code: 'CS2',
+    label: 'Cambridge Secondary Two (Year 9)',
+    level_type: 'secondary',
+  },
 ];
 
 export type SubjectSeed = {
@@ -44,24 +68,104 @@ export type SubjectSeed = {
 export const SUBJECTS: SubjectSeed[] = [
   // Primary
   { code: 'ENG', name: 'English', is_examinable: true, level_type: 'primary' },
-  { code: 'MATH', name: 'Mathematics', is_examinable: true, level_type: 'primary' },
-  { code: 'MT', name: 'Mother Tongue', is_examinable: true, level_type: 'primary' },
+  {
+    code: 'MATH',
+    name: 'Mathematics',
+    is_examinable: true,
+    level_type: 'primary',
+  },
+  {
+    code: 'MT',
+    name: 'Mother Tongue',
+    is_examinable: true,
+    level_type: 'primary',
+  },
   { code: 'SCI', name: 'Science', is_examinable: true, level_type: 'primary' },
-  { code: 'SS', name: 'Social Studies', is_examinable: true, level_type: 'primary' },
-  { code: 'MUSIC', name: 'Music Education', is_examinable: true, level_type: 'primary' },
-  { code: 'ARTS', name: 'Arts Education', is_examinable: true, level_type: 'primary' },
-  { code: 'PE', name: 'Physical Education', is_examinable: true, level_type: 'primary' },
-  { code: 'HE', name: 'Health Education', is_examinable: true, level_type: 'primary' },
-  { code: 'CL', name: 'Christian Living', is_examinable: true, level_type: 'primary' },
+  {
+    code: 'SS',
+    name: 'Social Studies',
+    is_examinable: true,
+    level_type: 'primary',
+  },
+  {
+    code: 'MUSIC',
+    name: 'Music Education',
+    is_examinable: true,
+    level_type: 'primary',
+  },
+  {
+    code: 'ARTS',
+    name: 'Arts Education',
+    is_examinable: true,
+    level_type: 'primary',
+  },
+  {
+    code: 'PE',
+    name: 'Physical Education',
+    is_examinable: true,
+    level_type: 'primary',
+  },
+  {
+    code: 'HE',
+    name: 'Health Education',
+    is_examinable: true,
+    level_type: 'primary',
+  },
+  {
+    code: 'CL',
+    name: 'Christian Living',
+    is_examinable: true,
+    level_type: 'primary',
+  },
   // Secondary
-  { code: 'HIST', name: 'History', is_examinable: true, level_type: 'secondary' },
-  { code: 'LIT', name: 'Literature', is_examinable: true, level_type: 'secondary' },
-  { code: 'HUM', name: 'Humanities', is_examinable: true, level_type: 'secondary' },
-  { code: 'ECON', name: 'Economics', is_examinable: true, level_type: 'secondary' },
-  { code: 'CA', name: 'Contemporary Art', is_examinable: true, level_type: 'secondary' },
-  { code: 'PEH', name: 'Physical Education and Health', is_examinable: true, level_type: 'secondary' },
-  { code: 'PMPD', name: 'Pastoral Ministry and Personal Development', is_examinable: true, level_type: 'secondary' },
-  { code: 'CCA', name: 'Co-curricular Activities', is_examinable: false, level_type: 'secondary' },
+  {
+    code: 'HIST',
+    name: 'History',
+    is_examinable: true,
+    level_type: 'secondary',
+  },
+  {
+    code: 'LIT',
+    name: 'Literature',
+    is_examinable: true,
+    level_type: 'secondary',
+  },
+  {
+    code: 'HUM',
+    name: 'Humanities',
+    is_examinable: true,
+    level_type: 'secondary',
+  },
+  {
+    code: 'ECON',
+    name: 'Economics',
+    is_examinable: true,
+    level_type: 'secondary',
+  },
+  {
+    code: 'CA',
+    name: 'Contemporary Art',
+    is_examinable: true,
+    level_type: 'secondary',
+  },
+  {
+    code: 'PEH',
+    name: 'Physical Education and Health',
+    is_examinable: true,
+    level_type: 'secondary',
+  },
+  {
+    code: 'PMPD',
+    name: 'Pastoral Ministry and Personal Development',
+    is_examinable: true,
+    level_type: 'secondary',
+  },
+  {
+    code: 'CCA',
+    name: 'Co-curricular Activities',
+    is_examinable: false,
+    level_type: 'secondary',
+  },
 ];
 
 export type SectionSeed = { level_code: string; name: string };
@@ -95,7 +199,7 @@ export const SECTIONS: SectionSeed[] = [
 // Registrar can re-edit dates via /sis/ay-setup → Dates.
 export type TermTemplate = {
   term_number: 1 | 2 | 3 | 4;
-  start_date: string;  // ISO yyyy-MM-dd
+  start_date: string; // ISO yyyy-MM-dd
   end_date: string;
   virtue_theme: string | null;
   grading_lock_date: string;
@@ -146,7 +250,9 @@ export function buildTermTemplates(targetYear: number): TermTemplate[] {
 
 /** Backwards-compat alias — points at current calendar year. Existing callers keep working. */
 // fallow-ignore-next-line unused-export
-export const TERM_TEMPLATES: TermTemplate[] = buildTermTemplates(new Date().getFullYear());
+export const TERM_TEMPLATES: TermTemplate[] = buildTermTemplates(
+  new Date().getFullYear()
+);
 
 // School calendar entries based on HFSE's AY 2026 official calendar.
 // Only includes dates that fall within the term windows defined above —
@@ -158,10 +264,10 @@ export const TERM_TEMPLATES: TermTemplate[] = buildTermTemplates(new Date().getF
 // Applies to Marking Days and Awards Deliberation Day per HFSE's published
 // calendar (which shows both labels on those cells).
 export type CannedCalendarEntry = {
-  date: string;          // ISO yyyy-MM-dd
+  date: string; // ISO yyyy-MM-dd
   day_type: DayType;
   label: string;
-  hblOverlay?: boolean;  // only meaningful when day_type='school_holiday'
+  hblOverlay?: boolean; // only meaningful when day_type='school_holiday'
 };
 
 /**
@@ -177,38 +283,95 @@ export function buildCannedCalendar(targetYear: number): CannedCalendarEntry[] {
   const y = String(targetYear);
   return [
     // ── T1 (Jan 8 – Mar 13) ────────────────────────────────────────────
-    { date: `${y}-02-17`, day_type: 'public_holiday',  label: 'Chinese New Year (Day 1)' },
-    { date: `${y}-02-18`, day_type: 'public_holiday',  label: 'Chinese New Year (Day 2)' },
-    { date: `${y}-02-20`, day_type: 'hbl',             label: 'Homebased Learning (HBL)' },
-    { date: `${y}-03-06`, day_type: 'school_holiday',  label: 'Term 1 Marking Day', hblOverlay: true },
+    {
+      date: `${y}-02-17`,
+      day_type: 'public_holiday',
+      label: 'Chinese New Year (Day 1)',
+    },
+    {
+      date: `${y}-02-18`,
+      day_type: 'public_holiday',
+      label: 'Chinese New Year (Day 2)',
+    },
+    { date: `${y}-02-20`, day_type: 'hbl', label: 'Homebased Learning (HBL)' },
+    {
+      date: `${y}-03-06`,
+      day_type: 'school_holiday',
+      label: 'Term 1 Marking Day',
+      hblOverlay: true,
+    },
 
     // ── T2 (Mar 24 – May 29) ───────────────────────────────────────────
     // Hari Raya Puasa (Mar 21) and its In Lieu (Mar 23) fall in the
     // term break (Mar 14–22) — not within any term, so omitted here.
-    { date: `${y}-04-03`, day_type: 'public_holiday',  label: 'Good Friday' },
-    { date: `${y}-04-10`, day_type: 'school_holiday',  label: 'Staff Development Day' },
-    { date: `${y}-05-01`, day_type: 'public_holiday',  label: 'Labour Day' },
-    { date: `${y}-05-22`, day_type: 'school_holiday',  label: 'Term 2 Marking Day', hblOverlay: true },
-    { date: `${y}-05-25`, day_type: 'school_holiday',  label: 'In-Lieu of Family Sportsfest' },
+    { date: `${y}-04-03`, day_type: 'public_holiday', label: 'Good Friday' },
+    {
+      date: `${y}-04-10`,
+      day_type: 'school_holiday',
+      label: 'Staff Development Day',
+    },
+    { date: `${y}-05-01`, day_type: 'public_holiday', label: 'Labour Day' },
+    {
+      date: `${y}-05-22`,
+      day_type: 'school_holiday',
+      label: 'Term 2 Marking Day',
+      hblOverlay: true,
+    },
+    {
+      date: `${y}-05-25`,
+      day_type: 'school_holiday',
+      label: 'In-Lieu of Family Sportsfest',
+    },
 
     // ── T3 (Jun 29 – Sep 6) ────────────────────────────────────────────
     // Vesak Day (May 31) + In Lieu (Jun 1) fall in the break — omitted.
-    { date: `${y}-07-05`, day_type: 'public_holiday',  label: 'Youth Day' },
-    { date: `${y}-07-06`, day_type: 'public_holiday',  label: 'In Lieu of Youth Day' },
-    { date: `${y}-07-08`, day_type: 'hbl',             label: 'Homebased Learning (HBL)' },
-    { date: `${y}-07-17`, day_type: 'hbl',             label: 'Homebased Learning (HBL)' },
-    { date: `${y}-07-24`, day_type: 'school_holiday',  label: 'Staff Development Day' },
-    { date: `${y}-08-09`, day_type: 'public_holiday',  label: 'National Day' },
-    { date: `${y}-08-10`, day_type: 'public_holiday',  label: 'In Lieu of National Day' },
-    { date: `${y}-08-28`, day_type: 'school_holiday',  label: 'Term 3 Marking Day', hblOverlay: true },
-    { date: `${y}-09-04`, day_type: 'public_holiday',  label: "Teacher's Day" },
+    { date: `${y}-07-05`, day_type: 'public_holiday', label: 'Youth Day' },
+    {
+      date: `${y}-07-06`,
+      day_type: 'public_holiday',
+      label: 'In Lieu of Youth Day',
+    },
+    { date: `${y}-07-08`, day_type: 'hbl', label: 'Homebased Learning (HBL)' },
+    { date: `${y}-07-17`, day_type: 'hbl', label: 'Homebased Learning (HBL)' },
+    {
+      date: `${y}-07-24`,
+      day_type: 'school_holiday',
+      label: 'Staff Development Day',
+    },
+    { date: `${y}-08-09`, day_type: 'public_holiday', label: 'National Day' },
+    {
+      date: `${y}-08-10`,
+      day_type: 'public_holiday',
+      label: 'In Lieu of National Day',
+    },
+    {
+      date: `${y}-08-28`,
+      day_type: 'school_holiday',
+      label: 'Term 3 Marking Day',
+      hblOverlay: true,
+    },
+    { date: `${y}-09-04`, day_type: 'public_holiday', label: "Teacher's Day" },
 
     // ── T4 (Sep 14 – Nov 21) ───────────────────────────────────────────
-    { date: `${y}-10-02`, day_type: 'public_holiday',  label: "Children's Day" },
-    { date: `${y}-10-23`, day_type: 'school_holiday',  label: 'Term 4 Marking Day', hblOverlay: true },
-    { date: `${y}-11-06`, day_type: 'school_holiday',  label: 'Awards Deliberation Day', hblOverlay: true },
-    { date: `${y}-11-08`, day_type: 'public_holiday',  label: 'Deepavali' },
-    { date: `${y}-11-09`, day_type: 'public_holiday',  label: 'In Lieu of Deepavali' },
+    { date: `${y}-10-02`, day_type: 'public_holiday', label: "Children's Day" },
+    {
+      date: `${y}-10-23`,
+      day_type: 'school_holiday',
+      label: 'Term 4 Marking Day',
+      hblOverlay: true,
+    },
+    {
+      date: `${y}-11-06`,
+      day_type: 'school_holiday',
+      label: 'Awards Deliberation Day',
+      hblOverlay: true,
+    },
+    { date: `${y}-11-08`, day_type: 'public_holiday', label: 'Deepavali' },
+    {
+      date: `${y}-11-09`,
+      day_type: 'public_holiday',
+      label: 'In Lieu of Deepavali',
+    },
   ];
 }
 
@@ -227,33 +390,159 @@ export function buildCannedEvents(targetYear: number): CannedEvent[] {
   const y = String(targetYear);
   return [
     // ── T1 events ──────────────────────────────────────────────────────
-    { start_date: `${y}-01-08`, end_date: `${y}-01-08`, label: 'Start of 11th Academic Year',          category: 'start_of_term',    audience: 'all'       },
-    { start_date: `${y}-02-02`, end_date: `${y}-02-06`, label: 'Mathematics Week',                     category: 'subject_week',     audience: 'all'       },
-    { start_date: `${y}-02-25`, end_date: `${y}-02-27`, label: 'Secondary School Term 1 Exam',         category: 'term_exam',        audience: 'secondary' },
-    { start_date: `${y}-03-02`, end_date: `${y}-03-05`, label: 'Secondary School Term 1 Exam',         category: 'term_exam',        audience: 'secondary' },
-    { start_date: `${y}-03-04`, end_date: `${y}-03-05`, label: 'Primary School Term 1 Exam',           category: 'term_exam',        audience: 'primary'   },
+    {
+      start_date: `${y}-01-08`,
+      end_date: `${y}-01-08`,
+      label: 'Start of 11th Academic Year',
+      category: 'start_of_term',
+      audience: 'all',
+    },
+    {
+      start_date: `${y}-02-02`,
+      end_date: `${y}-02-06`,
+      label: 'Mathematics Week',
+      category: 'subject_week',
+      audience: 'all',
+    },
+    {
+      start_date: `${y}-02-25`,
+      end_date: `${y}-02-27`,
+      label: 'Secondary School Term 1 Exam',
+      category: 'term_exam',
+      audience: 'secondary',
+    },
+    {
+      start_date: `${y}-03-02`,
+      end_date: `${y}-03-05`,
+      label: 'Secondary School Term 1 Exam',
+      category: 'term_exam',
+      audience: 'secondary',
+    },
+    {
+      start_date: `${y}-03-04`,
+      end_date: `${y}-03-05`,
+      label: 'Primary School Term 1 Exam',
+      category: 'term_exam',
+      audience: 'primary',
+    },
 
     // ── T2 events ──────────────────────────────────────────────────────
-    { start_date: `${y}-03-24`, end_date: `${y}-03-24`, label: 'Start of Term 2',                      category: 'start_of_term',    audience: 'all'       },
-    { start_date: `${y}-04-08`, end_date: `${y}-04-09`, label: 'General PTC (Online)',                  category: 'ptc',              audience: 'all'       },
-    { start_date: `${y}-04-13`, end_date: `${y}-04-17`, label: 'English Week',                         category: 'subject_week',     audience: 'all'       },
-    { start_date: `${y}-04-27`, end_date: `${y}-04-30`, label: 'Science Week',                         category: 'subject_week',     audience: 'all'       },
-    { start_date: `${y}-05-13`, end_date: `${y}-05-15`, label: 'Secondary School Term 2 Exam',         category: 'term_exam',        audience: 'secondary' },
-    { start_date: `${y}-05-20`, end_date: `${y}-05-21`, label: 'Primary School Term 2 Exam',           category: 'term_exam',        audience: 'primary'   },
+    {
+      start_date: `${y}-03-24`,
+      end_date: `${y}-03-24`,
+      label: 'Start of Term 2',
+      category: 'start_of_term',
+      audience: 'all',
+    },
+    {
+      start_date: `${y}-04-08`,
+      end_date: `${y}-04-09`,
+      label: 'General PTC (Online)',
+      category: 'ptc',
+      audience: 'all',
+    },
+    {
+      start_date: `${y}-04-13`,
+      end_date: `${y}-04-17`,
+      label: 'English Week',
+      category: 'subject_week',
+      audience: 'all',
+    },
+    {
+      start_date: `${y}-04-27`,
+      end_date: `${y}-04-30`,
+      label: 'Science Week',
+      category: 'subject_week',
+      audience: 'all',
+    },
+    {
+      start_date: `${y}-05-13`,
+      end_date: `${y}-05-15`,
+      label: 'Secondary School Term 2 Exam',
+      category: 'term_exam',
+      audience: 'secondary',
+    },
+    {
+      start_date: `${y}-05-20`,
+      end_date: `${y}-05-21`,
+      label: 'Primary School Term 2 Exam',
+      category: 'term_exam',
+      audience: 'primary',
+    },
 
     // ── T3 events ──────────────────────────────────────────────────────
-    { start_date: `${y}-06-29`, end_date: `${y}-06-29`, label: 'Start of Term 3',                      category: 'start_of_term',    audience: 'all'       },
-    { start_date: `${y}-07-27`, end_date: `${y}-07-31`, label: 'STAR Week',                            category: 'subject_week',     audience: 'all'       },
-    { start_date: `${y}-08-10`, end_date: `${y}-08-14`, label: 'Mother Tongue Week',                   category: 'subject_week',     audience: 'all'       },
-    { start_date: `${y}-08-18`, end_date: `${y}-08-21`, label: 'Secondary School Term 3 Exam',         category: 'term_exam',        audience: 'secondary' },
-    { start_date: `${y}-08-26`, end_date: `${y}-08-27`, label: 'Primary School Term 3 Exam',           category: 'term_exam',        audience: 'primary'   },
+    {
+      start_date: `${y}-06-29`,
+      end_date: `${y}-06-29`,
+      label: 'Start of Term 3',
+      category: 'start_of_term',
+      audience: 'all',
+    },
+    {
+      start_date: `${y}-07-27`,
+      end_date: `${y}-07-31`,
+      label: 'STAR Week',
+      category: 'subject_week',
+      audience: 'all',
+    },
+    {
+      start_date: `${y}-08-10`,
+      end_date: `${y}-08-14`,
+      label: 'Mother Tongue Week',
+      category: 'subject_week',
+      audience: 'all',
+    },
+    {
+      start_date: `${y}-08-18`,
+      end_date: `${y}-08-21`,
+      label: 'Secondary School Term 3 Exam',
+      category: 'term_exam',
+      audience: 'secondary',
+    },
+    {
+      start_date: `${y}-08-26`,
+      end_date: `${y}-08-27`,
+      label: 'Primary School Term 3 Exam',
+      category: 'term_exam',
+      audience: 'primary',
+    },
 
     // ── T4 events ──────────────────────────────────────────────────────
-    { start_date: `${y}-09-14`, end_date: `${y}-09-14`, label: 'Start of Term 4',                      category: 'start_of_term',    audience: 'all'       },
-    { start_date: `${y}-10-14`, end_date: `${y}-10-16`, label: 'Secondary School Term 4 Exam',         category: 'term_exam',        audience: 'secondary' },
-    { start_date: `${y}-10-19`, end_date: `${y}-10-22`, label: 'Secondary School Term 4 Final Exam',   category: 'term_exam',        audience: 'secondary' },
-    { start_date: `${y}-10-21`, end_date: `${y}-10-22`, label: 'Primary School Term 4 Exam',           category: 'term_exam',        audience: 'primary'   },
-    { start_date: `${y}-11-04`, end_date: `${y}-11-05`, label: 'General PTC (Online)',                  category: 'ptc',              audience: 'all'       },
+    {
+      start_date: `${y}-09-14`,
+      end_date: `${y}-09-14`,
+      label: 'Start of Term 4',
+      category: 'start_of_term',
+      audience: 'all',
+    },
+    {
+      start_date: `${y}-10-14`,
+      end_date: `${y}-10-16`,
+      label: 'Secondary School Term 4 Exam',
+      category: 'term_exam',
+      audience: 'secondary',
+    },
+    {
+      start_date: `${y}-10-19`,
+      end_date: `${y}-10-22`,
+      label: 'Secondary School Term 4 Final Exam',
+      category: 'term_exam',
+      audience: 'secondary',
+    },
+    {
+      start_date: `${y}-10-21`,
+      end_date: `${y}-10-22`,
+      label: 'Primary School Term 4 Exam',
+      category: 'term_exam',
+      audience: 'primary',
+    },
+    {
+      start_date: `${y}-11-04`,
+      end_date: `${y}-11-05`,
+      label: 'General PTC (Online)',
+      category: 'ptc',
+      audience: 'all',
+    },
   ];
 }
 

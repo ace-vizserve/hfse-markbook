@@ -1,4 +1,4 @@
-import "server-only";
+import 'server-only';
 
 import { Resend } from 'resend';
 import { getParentEmailsForSection } from '@/lib/supabase/admissions';
@@ -25,7 +25,7 @@ export async function emailParentsPublication(args: {
   const portalUrl = process.env.NEXT_PUBLIC_PARENT_PORTAL_URL;
   if (!apiKey || !portalUrl) {
     console.warn(
-      '[notify] skipping parent email: RESEND_API_KEY or NEXT_PUBLIC_PARENT_PORTAL_URL unset',
+      '[notify] skipping parent email: RESEND_API_KEY or NEXT_PUBLIC_PARENT_PORTAL_URL unset'
     );
     return { sent: 0, failed: 0, recipients: 0 };
   }
@@ -71,7 +71,7 @@ export async function emailParentsPublication(args: {
   const resend = new Resend(apiKey);
   const subject = `Report card available — ${sectionLabel} · ${termLabel}`;
   const windowLine = `${new Date(args.publishFrom).toLocaleString('en-SG')} → ${new Date(
-    args.publishUntil,
+    args.publishUntil
   ).toLocaleString('en-SG')}`;
 
   const bodyHtml = `
@@ -110,7 +110,8 @@ export async function emailParentsPublication(args: {
 
   let sent = 0;
   let failed = 0;
-  const devTo = process.env.NODE_ENV !== 'production' ? 'ace.vizserve@gmail.com' : null;
+  const devTo =
+    process.env.NODE_ENV !== 'production' ? 'ace.vizserve@gmail.com' : null;
   for (const to of recipients) {
     try {
       const res = await resend.emails.send({

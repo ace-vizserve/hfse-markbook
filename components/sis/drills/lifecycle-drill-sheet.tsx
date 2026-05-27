@@ -3,7 +3,12 @@
 import * as React from 'react';
 import Link from 'next/link';
 import type { ColumnDef } from '@tanstack/react-table';
-import { AlertCircle, AlertTriangle, CheckCircle2, HelpCircle } from 'lucide-react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  HelpCircle,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import {
@@ -99,7 +104,10 @@ function StalenessBadge({ days }: { days: number | null }) {
 
 function StatusPill({ value }: { value: string | null | undefined }) {
   return (
-    <Badge variant="outline" className={`${BADGE_BASE} border-hairline bg-gradient-to-b from-muted to-muted/60 text-ink-3`}>
+    <Badge
+      variant="outline"
+      className={`${BADGE_BASE} border-hairline bg-gradient-to-b from-muted to-muted/60 text-ink-3`}
+    >
       {value && value.trim().length > 0 ? value : '—'}
     </Badge>
   );
@@ -138,14 +146,23 @@ function formatDate(iso: string | null | undefined): string {
 // ─── Level sort ─────────────────────────────────────────────────────────────
 
 const CANONICAL_LEVELS = [
-  'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'S1', 'S2', 'S3', 'S4',
+  'P1',
+  'P2',
+  'P3',
+  'P4',
+  'P5',
+  'P6',
+  'S1',
+  'S2',
+  'S3',
+  'S4',
 ] as const;
 const CANONICAL_LEVEL_INDEX: Record<string, number> = CANONICAL_LEVELS.reduce(
   (acc, lvl, i) => {
     acc[lvl] = i;
     return acc;
   },
-  {} as Record<string, number>,
+  {} as Record<string, number>
 );
 
 function compareLevels(a: string, b: string): number {
@@ -167,7 +184,7 @@ function compareLevels(a: string, b: string): number {
 // ─── Column factory ─────────────────────────────────────────────────────────
 
 function buildColumnDef(
-  key: LifecycleDrillColumnKey,
+  key: LifecycleDrillColumnKey
 ): ColumnDef<LifecycleDrillRow, unknown> {
   const header = LIFECYCLE_DRILL_COLUMN_LABELS[key];
   switch (key) {
@@ -248,7 +265,7 @@ function buildColumnDef(
         sortingFn: (a, b) =>
           compareLevels(
             a.original.levelApplied ?? 'Unknown',
-            b.original.levelApplied ?? 'Unknown',
+            b.original.levelApplied ?? 'Unknown'
           ),
       };
     case 'applicationStatus':
@@ -256,7 +273,9 @@ function buildColumnDef(
         id: 'applicationStatus',
         accessorKey: 'applicationStatus',
         header,
-        cell: ({ row }) => <StatusPill value={row.original.applicationStatus} />,
+        cell: ({ row }) => (
+          <StatusPill value={row.original.applicationStatus} />
+        ),
         enableSorting: true,
       };
     case 'applicationUpdatedDate':
@@ -428,7 +447,8 @@ function buildColumnDef(
         header,
         cell: ({ row }) => {
           const v = row.original.daysLeft;
-          if (v === null || v === undefined) return <span className="text-ink-4">—</span>;
+          if (v === null || v === undefined)
+            return <span className="text-ink-4">—</span>;
           return (
             <span className="font-mono tabular-nums text-[12px]">{v}d</span>
           );
@@ -448,7 +468,7 @@ function buildDrillUrl(
   target: LifecycleDrillTarget,
   ayCode: string,
   format: 'json' | 'csv',
-  visibleColumnKeys?: string[],
+  visibleColumnKeys?: string[]
 ): string {
   const params = new URLSearchParams();
   params.set('ay', ayCode);
@@ -466,8 +486,12 @@ export function LifecycleDrillSheet({
   ayCode,
   initialRows,
 }: LifecycleDrillSheetProps) {
-  const [rows, setRows] = React.useState<LifecycleDrillRow[]>(initialRows ?? []);
-  const [loading, setLoading] = React.useState<boolean>(initialRows === undefined);
+  const [rows, setRows] = React.useState<LifecycleDrillRow[]>(
+    initialRows ?? []
+  );
+  const [loading, setLoading] = React.useState<boolean>(
+    initialRows === undefined
+  );
   const [selectedLevels, setSelectedLevels] = React.useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = React.useState<string[]>([]);
   const [density, setDensity] = React.useState<DrillDownDensity>('comfortable');
@@ -515,11 +539,15 @@ export function LifecycleDrillSheet({
 
   // Pre-filter by status + level (universal toolkit).
   const preFiltered = React.useMemo<LifecycleDrillRow[]>(() => {
-    if (selectedLevels.length === 0 && selectedStatuses.length === 0) return rows;
+    if (selectedLevels.length === 0 && selectedStatuses.length === 0)
+      return rows;
     const levelSet = new Set(selectedLevels);
     const statusSet = new Set(selectedStatuses);
     return rows.filter((r) => {
-      if (selectedLevels.length > 0 && !levelSet.has(r.levelApplied ?? 'Unknown')) {
+      if (
+        selectedLevels.length > 0 &&
+        !levelSet.has(r.levelApplied ?? 'Unknown')
+      ) {
         return false;
       }
       if (
@@ -549,7 +577,7 @@ export function LifecycleDrillSheet({
 
   const columns = React.useMemo<ColumnDef<LifecycleDrillRow, unknown>[]>(
     () => ALL_LIFECYCLE_DRILL_COLUMNS.map(buildColumnDef),
-    [],
+    []
   );
 
   const columnOptions = React.useMemo(
@@ -558,7 +586,7 @@ export function LifecycleDrillSheet({
         key: k,
         label: LIFECYCLE_DRILL_COLUMN_LABELS[k],
       })),
-    [],
+    []
   );
 
   const heading = lifecycleDrillHeaderForTarget(target);

@@ -10,6 +10,7 @@
 Replicate the Admissions drill-down pattern across the three remaining operational modules — Markbook, Attendance, Evaluation — so every aggregating element on every module dashboard becomes a clickable drill into the underlying rows, with the universal toolkit (range scope, status/level multi-select, group-by, density, columns, CSV).
 
 This closes the deferred backlog items from Sprint 21:
+
 - Markbook: `getSheetReadinessBySection`, `getTeacherEntryVelocity`
 - Attendance: `getAttendanceBySectionRange`, `getCompassionateQuotaUsage`
 - Evaluation: `getWriteupsBySectionRange`, `getTimeToSubmitHistogram`
@@ -25,6 +26,7 @@ This closes the deferred backlog items from Sprint 21:
 ## 3. Per-module shape
 
 Each module gets:
+
 - `lib/<module>/drill.ts` — module-specific row shape(s), `buildDrillRows`, `applyTargetFilter`, `defaultColumnsForTarget`, `drillHeaderForTarget`
 - `app/api/<module>/drill/[target]/route.ts` — unified GET endpoint, JSON + CSV
 - `components/<module>/drills/<module>-drill-sheet.tsx` — target-aware wrapper
@@ -38,17 +40,17 @@ Each module gets:
 
 ### 4.1 Drill targets (8)
 
-| # | Surface | Drill content | Slug |
-|---|---|---|---|
-| 1 | MetricCard: Grade entries (range) | Entries written in range | `grade-entries` |
-| 2 | MetricCard: Sheets locked | Sheets locked in range | `sheets-locked` |
-| 3 | MetricCard: Change requests | Requests in range, by status | `change-requests` |
-| 4 | MetricCard: Publication coverage | Sections published vs not | `publication-coverage` |
-| 5 | Grade Distribution Chart bars | Entries in that bucket | `grade-bucket-entries` |
-| 6 | Sheet Progress chart segments | Sheets in that term + status | `term-sheet-status` |
-| 7 | Publication Coverage chart segments | Sections in that term + status | `term-publication-status` |
-| 8 | **NEW** card — Sheet readiness by section | Section × open sheets count | `sheet-readiness-section` |
-| 9 | **NEW** card — Teacher entry velocity (registrar+ only) | Teacher × entries count | `teacher-entry-velocity` |
+| #   | Surface                                                 | Drill content                  | Slug                      |
+| --- | ------------------------------------------------------- | ------------------------------ | ------------------------- |
+| 1   | MetricCard: Grade entries (range)                       | Entries written in range       | `grade-entries`           |
+| 2   | MetricCard: Sheets locked                               | Sheets locked in range         | `sheets-locked`           |
+| 3   | MetricCard: Change requests                             | Requests in range, by status   | `change-requests`         |
+| 4   | MetricCard: Publication coverage                        | Sections published vs not      | `publication-coverage`    |
+| 5   | Grade Distribution Chart bars                           | Entries in that bucket         | `grade-bucket-entries`    |
+| 6   | Sheet Progress chart segments                           | Sheets in that term + status   | `term-sheet-status`       |
+| 7   | Publication Coverage chart segments                     | Sections in that term + status | `term-publication-status` |
+| 8   | **NEW** card — Sheet readiness by section               | Section × open sheets count    | `sheet-readiness-section` |
+| 9   | **NEW** card — Teacher entry velocity (registrar+ only) | Teacher × entries count        | `teacher-entry-velocity`  |
 
 ### 4.2 Row shapes
 
@@ -68,11 +70,11 @@ type GradeEntryRow = {
   termNumber: number;
   rawScore: number | null;
   maxScore: number;
-  computedGrade: number | null;     // % grade or null
-  gradeBucket: string | null;        // 'A','B','C','D','F','none'
+  computedGrade: number | null; // % grade or null
+  gradeBucket: string | null; // 'A','B','C','D','F','none'
   isLocked: boolean;
-  enteredAt: string;                 // ISO
-  enteredBy: string | null;          // teacher email
+  enteredAt: string; // ISO
+  enteredBy: string | null; // teacher email
 };
 
 // Sheet-centric (drills 2, 4, 6, 7, 8)
@@ -84,9 +86,9 @@ type SheetRow = {
   subjectCode: string;
   termNumber: number;
   isLocked: boolean;
-  lockedAt: string | null;           // ISO
+  lockedAt: string | null; // ISO
   isPublished: boolean;
-  publishedAt: string | null;        // ISO
+  publishedAt: string | null; // ISO
   entriesPresent: number;
   entriesExpected: number;
   completenessPct: number;
@@ -121,18 +123,18 @@ The drill component picks which shape based on target.
 
 ### 5.1 Drill targets (8)
 
-| # | Surface | Drill content | Slug |
-|---|---|---|---|
-| 1 | MetricCard: Attendance % | Encoded days in range, by status | `attendance-summary` |
-| 2 | MetricCard: Late count | Late entries in range | `lates` |
-| 3 | MetricCard: Excused count | Excused entries in range | `excused` |
-| 4 | MetricCard: Absent count | Absent entries in range | `absent` |
-| 5 | Daily % Trend bars | Day × per-section breakdown | `daily-attendance-day` |
-| 6 | EX Reason Donut slices | EX entries with that reason | `ex-reason` |
-| 7 | Day-Type Donut slices | Calendar days with that type | `day-type` |
-| 8 | Top-Absent Table — adopt CSV button | (already row-level) | `top-absent` (CSV only) |
-| 9 | **NEW** card — Attendance by section | Section × attendance % | `attendance-by-section` |
-| 10 | **NEW** card — Compassionate quota usage | Student × used vs allowance | `compassionate-quota` |
+| #   | Surface                                  | Drill content                    | Slug                    |
+| --- | ---------------------------------------- | -------------------------------- | ----------------------- |
+| 1   | MetricCard: Attendance %                 | Encoded days in range, by status | `attendance-summary`    |
+| 2   | MetricCard: Late count                   | Late entries in range            | `lates`                 |
+| 3   | MetricCard: Excused count                | Excused entries in range         | `excused`               |
+| 4   | MetricCard: Absent count                 | Absent entries in range          | `absent`                |
+| 5   | Daily % Trend bars                       | Day × per-section breakdown      | `daily-attendance-day`  |
+| 6   | EX Reason Donut slices                   | EX entries with that reason      | `ex-reason`             |
+| 7   | Day-Type Donut slices                    | Calendar days with that type     | `day-type`              |
+| 8   | Top-Absent Table — adopt CSV button      | (already row-level)              | `top-absent` (CSV only) |
+| 9   | **NEW** card — Attendance by section     | Section × attendance %           | `attendance-by-section` |
+| 10  | **NEW** card — Compassionate quota usage | Student × used vs allowance      | `compassionate-quota`   |
 
 ### 5.2 Row shapes
 
@@ -140,7 +142,7 @@ The drill component picks which shape based on target.
 // Daily entry (drills 1-6)
 type AttendanceEntryRow = {
   entryId: string;
-  attendanceDate: string;             // ISO date
+  attendanceDate: string; // ISO date
   sectionId: string;
   sectionName: string;
   studentSectionId: string;
@@ -180,10 +182,15 @@ type CompassionateUsageRow = {
 
 // Calendar day (drill 7)
 type CalendarDayRow = {
-  date: string;                       // ISO
+  date: string; // ISO
   termId: string;
   termNumber: number;
-  dayType: 'school_day' | 'public_holiday' | 'school_holiday' | 'hbl' | 'no_class';
+  dayType:
+    | 'school_day'
+    | 'public_holiday'
+    | 'school_holiday'
+    | 'hbl'
+    | 'no_class';
   label: string | null;
 };
 ```
@@ -203,15 +210,15 @@ type CalendarDayRow = {
 
 ### 6.1 Drill targets (6)
 
-| # | Surface | Drill content | Slug |
-|---|---|---|---|
-| 1 | MetricCard: Submission % | Sections × submission status | `submission-status` |
-| 2 | MetricCard: Submitted | Submitted writeups | `submitted` |
-| 3 | MetricCard: Median time-to-submit | Submitted writeups w/ days-to-submit | `time-to-submit` |
-| 4 | MetricCard: Late submissions | Writeups submitted >14d | `late` |
-| 5 | Submission velocity trend bars | Per-day submission rows | `submission-velocity-day` |
-| 6 | **NEW** card — Writeups by section | Section × writeup status | `writeups-by-section` |
-| 7 | **NEW** card — Time-to-submit histogram | Bucket bars (0-3d / 4-7d / 8-14d / >14d) | `time-to-submit-bucket` |
+| #   | Surface                                 | Drill content                            | Slug                      |
+| --- | --------------------------------------- | ---------------------------------------- | ------------------------- |
+| 1   | MetricCard: Submission %                | Sections × submission status             | `submission-status`       |
+| 2   | MetricCard: Submitted                   | Submitted writeups                       | `submitted`               |
+| 3   | MetricCard: Median time-to-submit       | Submitted writeups w/ days-to-submit     | `time-to-submit`          |
+| 4   | MetricCard: Late submissions            | Writeups submitted >14d                  | `late`                    |
+| 5   | Submission velocity trend bars          | Per-day submission rows                  | `submission-velocity-day` |
+| 6   | **NEW** card — Writeups by section      | Section × writeup status                 | `writeups-by-section`     |
+| 7   | **NEW** card — Time-to-submit histogram | Bucket bars (0-3d / 4-7d / 8-14d / >14d) | `time-to-submit-bucket`   |
 
 ### 6.2 Row shape
 
@@ -232,8 +239,8 @@ type WriteupRow = {
   adviserEmail: string | null;
   status: 'submitted' | 'draft' | 'missing';
   draftCharCount: number;
-  submittedAt: string | null;          // ISO
-  daysToSubmit: number | null;         // open_at -> submitted_at
+  submittedAt: string | null; // ISO
+  daysToSubmit: number | null; // open_at -> submitted_at
 };
 ```
 
@@ -249,6 +256,7 @@ type WriteupRow = {
 ## 7. Build sequence
 
 Three parallel subagents — one per module — each scoped to:
+
 1. Build `lib/<module>/drill.ts`
 2. Build `app/api/<module>/drill/[target]/route.ts`
 3. Build `components/<module>/drills/<module>-drill-sheet.tsx`

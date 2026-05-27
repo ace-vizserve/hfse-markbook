@@ -7,9 +7,14 @@ import { createClient } from '@/lib/supabase/server';
 // grade_entries joined to section_students + students, ordered by index.
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'superadmin']);
+  const auth = await requireRole([
+    'teacher',
+    'registrar',
+    'school_admin',
+    'superadmin',
+  ]);
   if ('error' in auth) return auth.error;
 
   const { id } = await params;
@@ -22,7 +27,7 @@ export async function GET(
        term:terms(id, term_number, label),
        subject:subjects(id, code, name, is_examinable),
        section:sections(id, name, level:levels(id, code, label, level_type)),
-       subject_config:subject_configs(ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots)`,
+       subject_config:subject_configs(ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots)`
     )
     .eq('id', id)
     .single();
@@ -39,16 +44,21 @@ export async function GET(
        section_student:section_students(
          id, index_number, enrollment_status,
          student:students(student_number, last_name, first_name, middle_name)
-       )`,
+       )`
     )
     .eq('grading_sheet_id', id);
-  if (entErr) return NextResponse.json({ error: entErr.message }, { status: 500 });
+  if (entErr)
+    return NextResponse.json({ error: entErr.message }, { status: 500 });
 
   // Sort by index_number client-side since the join doesn't order.
-  type EntryRow = (typeof entries extends (infer U)[] | null ? U : never);
+  type EntryRow = typeof entries extends (infer U)[] | null ? U : never;
   const sorted = ((entries ?? []) as EntryRow[]).slice().sort((a, b) => {
-    const ai = Array.isArray(a.section_student) ? a.section_student[0] : a.section_student;
-    const bi = Array.isArray(b.section_student) ? b.section_student[0] : b.section_student;
+    const ai = Array.isArray(a.section_student)
+      ? a.section_student[0]
+      : a.section_student;
+    const bi = Array.isArray(b.section_student)
+      ? b.section_student[0]
+      : b.section_student;
     return (ai?.index_number ?? 0) - (bi?.index_number ?? 0);
   });
 

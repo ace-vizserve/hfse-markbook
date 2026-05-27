@@ -26,21 +26,18 @@ const VALID_TARGETS: RecordsDrillTarget[] = [
   'class-assignment-readiness',
 ];
 
-const DOC_TARGETS: ReadonlySet<RecordsDrillTarget> = new Set<RecordsDrillTarget>([
-  'expiring-docs',
-  'active-enrolled',
-  'backlog-by-document',
-]);
+const DOC_TARGETS: ReadonlySet<RecordsDrillTarget> =
+  new Set<RecordsDrillTarget>([
+    'expiring-docs',
+    'active-enrolled',
+    'backlog-by-document',
+  ]);
 
-const ALLOWED_ROLES = [
-  'registrar',
-  'school_admin',
-  'superadmin',
-] as const;
+const ALLOWED_ROLES = ['registrar', 'school_admin', 'superadmin'] as const;
 
 export async function GET(
   req: Request,
-  ctx: { params: Promise<{ target: string }> },
+  ctx: { params: Promise<{ target: string }> }
 ) {
   const guard = await requireRole([...ALLOWED_ROLES]);
   if ('error' in guard) return guard.error;
@@ -69,7 +66,7 @@ export async function GET(
 
   const all = await buildRecordsDrillRows(
     { ayCode, from, to },
-    { withDocs: DOC_TARGETS.has(target) },
+    { withDocs: DOC_TARGETS.has(target) }
   );
   const rangeForFilter = from && to ? { from, to } : undefined;
   let rows = applyTargetFilter(all, target, segment, rangeForFilter);
@@ -100,14 +97,22 @@ export async function GET(
   });
   res.headers.set(
     'Cache-Control',
-    'private, max-age=60, stale-while-revalidate=300',
+    'private, max-age=60, stale-while-revalidate=300'
   );
   return res;
 }
 
-function pickColumns(target: RecordsDrillTarget, columnsParam: string | null): DrillColumnKey[] {
+function pickColumns(
+  target: RecordsDrillTarget,
+  columnsParam: string | null
+): DrillColumnKey[] {
   if (!columnsParam) return defaultColumnsForTarget(target);
-  const requested = columnsParam.split(',').map((c) => c.trim()).filter((c): c is DrillColumnKey => (ALL_DRILL_COLUMNS as string[]).includes(c));
+  const requested = columnsParam
+    .split(',')
+    .map((c) => c.trim())
+    .filter((c): c is DrillColumnKey =>
+      (ALL_DRILL_COLUMNS as string[]).includes(c)
+    );
   return requested.length > 0 ? requested : defaultColumnsForTarget(target);
 }
 
@@ -116,7 +121,7 @@ function csvResponse(
   target: RecordsDrillTarget,
   segment: string | null,
   ayCode: string,
-  columnsParam: string | null,
+  columnsParam: string | null
 ): Response {
   const columns = pickColumns(target, columnsParam);
   const headers = columns.map((c) => DRILL_COLUMN_LABELS[c] ?? c);
@@ -135,21 +140,36 @@ function csvResponse(
 
 function csvCell(row: RecordsDrillRow, key: DrillColumnKey): string | number {
   switch (key) {
-    case 'fullName': return row.fullName;
-    case 'studentNumber': return row.studentNumber ?? '';
-    case 'enroleeNumber': return row.enroleeNumber;
-    case 'enrollmentStatus': return row.enrollmentStatus;
-    case 'applicationStatus': return row.applicationStatus;
-    case 'level': return row.level ?? '';
-    case 'sectionName': return row.sectionName ?? '';
-    case 'pipelineStage': return row.pipelineStage;
-    case 'enrollmentDate': return row.enrollmentDate?.slice(0, 10) ?? '';
-    case 'withdrawalDate': return row.withdrawalDate?.slice(0, 10) ?? '';
-    case 'daysSinceUpdate': return row.daysSinceUpdate ?? '';
-    case 'documentsComplete': return `${row.documentsComplete}/${row.documentsTotal}`;
+    case 'fullName':
+      return row.fullName;
+    case 'studentNumber':
+      return row.studentNumber ?? '';
+    case 'enroleeNumber':
+      return row.enroleeNumber;
+    case 'enrollmentStatus':
+      return row.enrollmentStatus;
+    case 'applicationStatus':
+      return row.applicationStatus;
+    case 'level':
+      return row.level ?? '';
+    case 'sectionName':
+      return row.sectionName ?? '';
+    case 'pipelineStage':
+      return row.pipelineStage;
+    case 'enrollmentDate':
+      return row.enrollmentDate?.slice(0, 10) ?? '';
+    case 'withdrawalDate':
+      return row.withdrawalDate?.slice(0, 10) ?? '';
+    case 'daysSinceUpdate':
+      return row.daysSinceUpdate ?? '';
+    case 'documentsComplete':
+      return `${row.documentsComplete}/${row.documentsTotal}`;
   }
 }
 
 function slug(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }

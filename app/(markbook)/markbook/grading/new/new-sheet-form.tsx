@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { zodResolver } from "@hookform/resolvers/zod";
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Check,
   ChevronsUpDown,
@@ -10,14 +10,21 @@ import {
   Sliders,
   Target,
   UserRound,
-} from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 
-import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import {
   Command,
   CommandEmpty,
@@ -25,10 +32,22 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/components/ui/command";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+} from '@/components/ui/command';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -37,20 +56,30 @@ import {
   SelectLabel,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { NewSheetSchema, type NewSheetInput } from "@/lib/schemas/new-sheet";
-import { cn } from "@/lib/utils";
+} from '@/components/ui/select';
+import { NewSheetSchema, type NewSheetInput } from '@/lib/schemas/new-sheet';
+import { cn } from '@/lib/utils';
 
-type Term = { id: string; term_number: number; label: string; is_current: boolean };
+type Term = {
+  id: string;
+  term_number: number;
+  label: string;
+  is_current: boolean;
+};
 type Level = {
   id: string;
   code: string;
   label: string;
   // Includes 'preschool' per migration 029 — KD #50.
-  level_type: "primary" | "secondary" | "preschool";
+  level_type: 'primary' | 'secondary' | 'preschool';
 };
 type Section = { id: string; name: string; level: Level | Level[] | null };
-type Subject = { id: string; code: string; name: string; is_examinable: boolean };
+type Subject = {
+  id: string;
+  code: string;
+  name: string;
+  is_examinable: boolean;
+};
 type Config = {
   subject_id: string;
   level_id: string;
@@ -64,9 +93,14 @@ type Teacher = { id: string; email: string; name: string };
 // Matches subject_configs.qa_max default from migration 021 + Hard Rule #1.
 const QA_TOTAL_FALLBACK = 30;
 
-const first = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? (v[0] ?? null) : (v ?? null));
+const first = <T,>(v: T | T[] | null): T | null =>
+  Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
 
-function TileIcon({ icon: Icon }: { icon: React.ComponentType<{ className?: string }> }) {
+function TileIcon({
+  icon: Icon,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+}) {
   return (
     <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
       <Icon className="size-4" />
@@ -96,26 +130,26 @@ export function NewSheetForm({
     resolver: zodResolver(NewSheetSchema),
     defaultValues: {
       term_id: defaultTermId,
-      section_id: "",
-      subject_id: "",
+      section_id: '',
+      subject_id: '',
       ww_slots: 3,
       ww_each: 10,
       pt_slots: 3,
       pt_each: 10,
       qa_total: QA_TOTAL_FALLBACK,
-      teacher_name: "",
+      teacher_name: '',
     },
   });
 
-  const termId = form.watch("term_id");
-  const sectionId = form.watch("section_id");
-  const subjectId = form.watch("subject_id");
-  const wwSlots = form.watch("ww_slots");
-  const wwEach = form.watch("ww_each");
-  const ptSlots = form.watch("pt_slots");
-  const ptEach = form.watch("pt_each");
-  const qaTotal = form.watch("qa_total");
-  const teacherName = form.watch("teacher_name") ?? "";
+  const termId = form.watch('term_id');
+  const sectionId = form.watch('section_id');
+  const subjectId = form.watch('subject_id');
+  const wwSlots = form.watch('ww_slots');
+  const wwEach = form.watch('ww_each');
+  const ptSlots = form.watch('pt_slots');
+  const ptEach = form.watch('pt_each');
+  const qaTotal = form.watch('qa_total');
+  const teacherName = form.watch('teacher_name') ?? '';
 
   const sectionLevelId = useMemo(() => {
     const sec = sections.find((s) => s.id === sectionId);
@@ -124,7 +158,11 @@ export function NewSheetForm({
 
   const allowedSubjectIds = useMemo(() => {
     if (!sectionLevelId) return new Set<string>();
-    return new Set(configs.filter((c) => c.level_id === sectionLevelId).map((c) => c.subject_id));
+    return new Set(
+      configs
+        .filter((c) => c.level_id === sectionLevelId)
+        .map((c) => c.subject_id)
+    );
   }, [configs, sectionLevelId]);
 
   // Auto-fill qa_total from subject_configs.qa_max for the selected
@@ -134,9 +172,9 @@ export function NewSheetForm({
   useEffect(() => {
     if (!sectionLevelId || !subjectId) return;
     const cfg = configs.find(
-      (c) => c.level_id === sectionLevelId && c.subject_id === subjectId,
+      (c) => c.level_id === sectionLevelId && c.subject_id === subjectId
     );
-    form.setValue("qa_total", cfg?.qa_max ?? QA_TOTAL_FALLBACK, {
+    form.setValue('qa_total', cfg?.qa_max ?? QA_TOTAL_FALLBACK, {
       shouldDirty: false,
       shouldValidate: false,
     });
@@ -145,7 +183,7 @@ export function NewSheetForm({
   const sectionsGrouped = useMemo(() => {
     const map = new Map<string, Section[]>();
     for (const s of sections) {
-      const label = first(s.level)?.label ?? "Unknown";
+      const label = first(s.level)?.label ?? 'Unknown';
       if (!map.has(label)) map.set(label, []);
       map.get(label)!.push(s);
     }
@@ -162,9 +200,9 @@ export function NewSheetForm({
 
   async function onSubmit(values: NewSheetInput) {
     try {
-      const res = await fetch("/api/grading-sheets", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+      const res = await fetch('/api/grading-sheets', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           term_id: values.term_id,
           section_id: values.section_id,
@@ -176,11 +214,13 @@ export function NewSheetForm({
         }),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? "failed");
-      toast.success("Grading sheet created");
+      if (!res.ok) throw new Error(body.error ?? 'failed');
+      toast.success('Grading sheet created');
       router.push(`/markbook/grading/${body.id}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to create grading sheet");
+      toast.error(
+        e instanceof Error ? e.message : 'Failed to create grading sheet'
+      );
     }
   }
 
@@ -188,14 +228,17 @@ export function NewSheetForm({
   const canSubmit = !busy && !!termId && !!sectionId && !!subjectId;
 
   const missing: string[] = [];
-  if (!termId) missing.push("Term");
-  if (!sectionId) missing.push("Section");
-  if (!subjectId) missing.push("Subject");
+  if (!termId) missing.push('Term');
+  if (!sectionId) missing.push('Section');
+  if (!subjectId) missing.push('Subject');
   const isIncomplete = missing.length > 0;
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6 lg:grid-cols-12">
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="grid gap-6 lg:grid-cols-12"
+      >
         <div className="flex flex-col gap-6 lg:col-span-8">
           <Card className="@container/card">
             <CardHeader>
@@ -226,12 +269,15 @@ export function NewSheetForm({
                         {terms.map((t) => (
                           <SelectItem key={t.id} value={t.id}>
                             {t.label}
-                            {t.is_current ? " · current" : ""}
+                            {t.is_current ? ' · current' : ''}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormDescription>The sheet&apos;s reporting period. Current term is pre-selected.</FormDescription>
+                    <FormDescription>
+                      The sheet&apos;s reporting period. Current term is
+                      pre-selected.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -247,8 +293,9 @@ export function NewSheetForm({
                       value={field.value}
                       onValueChange={(v) => {
                         field.onChange(v);
-                        form.setValue("subject_id", "");
-                      }}>
+                        form.setValue('subject_id', '');
+                      }}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="— pick a section —" />
@@ -268,7 +315,8 @@ export function NewSheetForm({
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      Sections are grouped by level. Picking one filters the subject list below.
+                      Sections are grouped by level. Picking one filters the
+                      subject list below.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -281,10 +329,20 @@ export function NewSheetForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Subject</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange} disabled={!sectionId}>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={!sectionId}
+                    >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={sectionId ? "— pick a subject —" : "— pick a section first —"} />
+                          <SelectValue
+                            placeholder={
+                              sectionId
+                                ? '— pick a subject —'
+                                : '— pick a section first —'
+                            }
+                          />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -293,13 +351,14 @@ export function NewSheetForm({
                           .map((s) => (
                             <SelectItem key={s.id} value={s.id}>
                               {s.name}
-                              {!s.is_examinable && " · letter grade"}
+                              {!s.is_examinable && ' · letter grade'}
                             </SelectItem>
                           ))}
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      Only subjects with a weight configuration for this level appear here.
+                      Only subjects with a weight configuration for this level
+                      appear here.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -383,9 +442,9 @@ export function NewSheetForm({
                 control={form.control}
                 name="teacher_name"
                 render={({ field }) => {
-                  const current = field.value ?? "";
+                  const current = field.value ?? '';
                   const matched = teachers.find(
-                    (t) => t.name === current || t.email === current,
+                    (t) => t.name === current || t.email === current
                   );
                   return (
                     <FormItem className="flex flex-col">
@@ -399,21 +458,22 @@ export function NewSheetForm({
                               role="combobox"
                               aria-expanded={teacherOpen}
                               className={cn(
-                                "w-full justify-between font-normal",
-                                !current && "text-muted-foreground",
+                                'w-full justify-between font-normal',
+                                !current && 'text-muted-foreground'
                               )}
                             >
                               {current ? (
                                 <span className="truncate">
                                   {matched ? matched.name : current}
-                                  {matched && matched.name !== matched.email && (
-                                    <span className="ml-2 font-mono text-[10px] text-muted-foreground">
-                                      {matched.email}
-                                    </span>
-                                  )}
+                                  {matched &&
+                                    matched.name !== matched.email && (
+                                      <span className="ml-2 font-mono text-[10px] text-muted-foreground">
+                                        {matched.email}
+                                      </span>
+                                    )}
                                 </span>
                               ) : (
-                                "Pick a teacher…"
+                                'Pick a teacher…'
                               )}
                               <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
                             </Button>
@@ -426,22 +486,30 @@ export function NewSheetForm({
                           <Command
                             filter={(value, search) => {
                               if (!search) return 1;
-                              return value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
+                              return value
+                                .toLowerCase()
+                                .includes(search.toLowerCase())
+                                ? 1
+                                : 0;
                             }}
                           >
                             <CommandInput placeholder="Search by name or email…" />
                             <CommandList>
-                              <CommandEmpty>No staff member found.</CommandEmpty>
+                              <CommandEmpty>
+                                No staff member found.
+                              </CommandEmpty>
                               {current && (
                                 <CommandGroup heading="Selected">
                                   <CommandItem
                                     value="__clear__"
                                     onSelect={() => {
-                                      field.onChange("");
+                                      field.onChange('');
                                       setTeacherOpen(false);
                                     }}
                                   >
-                                    <span className="text-muted-foreground">Clear selection</span>
+                                    <span className="text-muted-foreground">
+                                      Clear selection
+                                    </span>
                                   </CommandItem>
                                 </CommandGroup>
                               )}
@@ -454,7 +522,8 @@ export function NewSheetForm({
                                   </CommandItem>
                                 )}
                                 {teachers.map((t) => {
-                                  const selected = current === t.name || current === t.email;
+                                  const selected =
+                                    current === t.name || current === t.email;
                                   return (
                                     <CommandItem
                                       key={t.id}
@@ -466,12 +535,14 @@ export function NewSheetForm({
                                     >
                                       <Check
                                         className={cn(
-                                          "mr-2 size-4",
-                                          selected ? "opacity-100" : "opacity-0",
+                                          'mr-2 size-4',
+                                          selected ? 'opacity-100' : 'opacity-0'
                                         )}
                                       />
                                       <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                                        <span className="truncate text-foreground">{t.name}</span>
+                                        <span className="truncate text-foreground">
+                                          {t.name}
+                                        </span>
                                         {t.name !== t.email && (
                                           <span className="truncate font-mono text-[10px] text-muted-foreground">
                                             {t.email}
@@ -487,8 +558,9 @@ export function NewSheetForm({
                         </PopoverContent>
                       </Popover>
                       <FormDescription>
-                        Optional. Pick from the list of teacher accounts — the name appears on the
-                        grading sheet list and the report card.
+                        Optional. Pick from the list of teacher accounts — the
+                        name appears on the grading sheet list and the report
+                        card.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -501,7 +573,7 @@ export function NewSheetForm({
 
         <aside className="lg:col-span-4">
           <div className="lg:sticky lg:top-6">
-            <Card className={"@container/card transition-colors "}>
+            <Card className={'@container/card transition-colors '}>
               <CardHeader>
                 <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
                   Live preview
@@ -515,34 +587,58 @@ export function NewSheetForm({
               </CardHeader>
               <CardContent className="space-y-5">
                 <dl className="space-y-3 text-sm">
-                  <SummaryRow label="Subject" value={selectedSubject?.name} required={!subjectId} />
+                  <SummaryRow
+                    label="Subject"
+                    value={selectedSubject?.name}
+                    required={!subjectId}
+                  />
                   <SummaryRow
                     label="Section"
                     value={
                       selectedSection
-                        ? `${selectedLevel?.label ? `${selectedLevel.label} · ` : ""}${selectedSection.name}`
+                        ? `${selectedLevel?.label ? `${selectedLevel.label} · ` : ''}${selectedSection.name}`
                         : undefined
                     }
                     required={!sectionId}
                   />
-                  <SummaryRow label="Term" value={selectedTerm?.label} required={!termId} />
-                  <SummaryRow label="Teacher" value={teacherName.trim() || undefined} />
+                  <SummaryRow
+                    label="Term"
+                    value={selectedTerm?.label}
+                    required={!termId}
+                  />
+                  <SummaryRow
+                    label="Teacher"
+                    value={teacherName.trim() || undefined}
+                  />
                 </dl>
 
                 <div className="h-px bg-border" />
 
                 <div className="grid grid-cols-3 gap-3">
-                  <Metric label="WW" value={`${wwSlots}×${wwEach}`} sub={`= ${wwTotal}`} />
-                  <Metric label="PT" value={`${ptSlots}×${ptEach}`} sub={`= ${ptTotal}`} />
+                  <Metric
+                    label="WW"
+                    value={`${wwSlots}×${wwEach}`}
+                    sub={`= ${wwTotal}`}
+                  />
+                  <Metric
+                    label="PT"
+                    value={`${ptSlots}×${ptEach}`}
+                    sub={`= ${ptTotal}`}
+                  />
                   <Metric label="QA" value={`${qaTotal}`} sub="max" />
                 </div>
 
                 <Button
                   type="submit"
                   disabled={!canSubmit}
-                  className="w-full disabled:from-muted disabled:to-muted disabled:text-muted-foreground disabled:shadow-none disabled:opacity-100">
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                  {busy ? "Creating…" : "Create grading sheet"}
+                  className="w-full disabled:from-muted disabled:to-muted disabled:text-muted-foreground disabled:shadow-none disabled:opacity-100"
+                >
+                  {busy ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                  {busy ? 'Creating…' : 'Create grading sheet'}
                 </Button>
               </CardContent>
             </Card>
@@ -561,8 +657,8 @@ function NumberField({
   min,
   max,
 }: {
-  control: ReturnType<typeof useForm<NewSheetInput>>["control"];
-  name: "ww_slots" | "ww_each" | "pt_slots" | "pt_each" | "qa_total";
+  control: ReturnType<typeof useForm<NewSheetInput>>['control'];
+  name: 'ww_slots' | 'ww_each' | 'pt_slots' | 'pt_each' | 'qa_total';
   label: string;
   description: string;
   min?: number;
@@ -580,10 +676,10 @@ function NumberField({
               type="number"
               min={min}
               max={max}
-              value={Number.isFinite(field.value) ? field.value : ""}
+              value={Number.isFinite(field.value) ? field.value : ''}
               onChange={(e) => {
                 const raw = e.target.value;
-                field.onChange(raw === "" ? Number.NaN : Number(raw));
+                field.onChange(raw === '' ? Number.NaN : Number(raw));
               }}
               onBlur={field.onBlur}
               name={field.name}
@@ -598,31 +694,56 @@ function NumberField({
   );
 }
 
-function SummaryRow({ label, value, required }: { label: string; value: string | undefined; required?: boolean }) {
+function SummaryRow({
+  label,
+  value,
+  required,
+}: {
+  label: string;
+  value: string | undefined;
+  required?: boolean;
+}) {
   const missing = !value;
   return (
     <div className="flex items-baseline justify-between gap-4">
-      <dt className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</dt>
+      <dt className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        {label}
+      </dt>
       <dd
         className={
           value
-            ? "truncate text-right font-medium text-foreground"
+            ? 'truncate text-right font-medium text-foreground'
             : required
-              ? "text-right font-medium text-destructive"
-              : "text-right text-muted-foreground/60"
-        }>
-        {value ?? (required && missing ? "Required" : "—")}
+              ? 'text-right font-medium text-destructive'
+              : 'text-right text-muted-foreground/60'
+        }
+      >
+        {value ?? (required && missing ? 'Required' : '—')}
       </dd>
     </div>
   );
 }
 
-function Metric({ label, value, sub }: { label: string; value: string; sub: string }) {
+function Metric({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+}) {
   return (
     <div className="rounded-xl border border-border bg-muted/40 p-3">
-      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
-      <p className="mt-1 font-serif text-lg font-semibold leading-none tabular-nums text-foreground">{value}</p>
-      <p className="mt-1 text-[11px] text-muted-foreground tabular-nums">{sub}</p>
+      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 font-serif text-lg font-semibold leading-none tabular-nums text-foreground">
+        {value}
+      </p>
+      <p className="mt-1 text-[11px] text-muted-foreground tabular-nums">
+        {sub}
+      </p>
     </div>
   );
 }

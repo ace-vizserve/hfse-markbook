@@ -1,14 +1,19 @@
-import "server-only";
+import 'server-only';
 
-import { Resend } from "resend";
+import { Resend } from 'resend';
 
-import { escapeHtml, renderEmailFrame } from "@/lib/notifications/email-frame";
+import { escapeHtml, renderEmailFrame } from '@/lib/notifications/email-frame';
 
 // Server-only. Best-effort renewal-reminder email to the parent(s) tied
 // to a P-Files document slot. Mirrors the send/dev-redirect pattern of
 // `email-parents-publication.ts` per KD #16 + KD #29.
 
-export type SlotStatusKind = "expired" | "expiringSoon" | "rejected" | "missing" | "toFollow";
+export type SlotStatusKind =
+  | 'expired'
+  | 'expiringSoon'
+  | 'rejected'
+  | 'missing'
+  | 'toFollow';
 
 // `kind` selects the email tone:
 //   - 'renewal' (default): post-enrolment chase aimed at parents whose
@@ -24,7 +29,7 @@ export type SlotStatusKind = "expired" | "expiringSoon" | "rejected" | "missing"
 //     Includes the specific rejection reason so the parent knows exactly
 //     what to fix before re-uploading. Bypasses the runNotify() 24h cooldown
 //     because rejection is a discrete event, not a recurring chase reminder.
-export type ReminderKind = "renewal" | "initial-chase" | "rejection";
+export type ReminderKind = 'renewal' | 'initial-chase' | 'rejection';
 
 export type ReminderContext = {
   studentName: string;
@@ -49,7 +54,7 @@ export type ReminderContext = {
 
 export type RecipientCandidate = {
   email: string;
-  role: "mother" | "father" | "guardian";
+  role: 'mother' | 'father' | 'guardian';
 };
 
 /** A single email envelope representing one send: one To address + zero or
@@ -57,12 +62,12 @@ export type RecipientCandidate = {
  *  pattern so each notify call maps to exactly one Resend send. */
 export type RecipientEnvelope =
   | {
-      kind: "parent";
+      kind: 'parent';
       to: string;
       cc: string[];
-      primaryRole: "mother" | "father" | "guardian";
+      primaryRole: 'mother' | 'father' | 'guardian';
     }
-  | { kind: "none"; reason: "no-parent-emails" };
+  | { kind: 'none'; reason: 'no-parent-emails' };
 
 // Resolve which parent email addresses receive a reminder for a given
 // slot, collapsed to a single envelope. Mother-prefixed slots go to the
@@ -71,44 +76,53 @@ export type RecipientEnvelope =
 // as To + father as Cc, falling back to guardian when both are missing.
 export function resolveRecipients(
   slotKey: string,
-  emails: { motherEmail: string | null; fatherEmail: string | null; guardianEmail: string | null },
+  emails: {
+    motherEmail: string | null;
+    fatherEmail: string | null;
+    guardianEmail: string | null;
+  }
 ): RecipientEnvelope {
   const motherEmail = emails.motherEmail?.trim() || null;
   const fatherEmail = emails.fatherEmail?.trim() || null;
   const guardianEmail = emails.guardianEmail?.trim() || null;
 
-  if (slotKey.startsWith("mother")) {
+  if (slotKey.startsWith('mother')) {
     return motherEmail
-      ? { kind: "parent", to: motherEmail, cc: [], primaryRole: "mother" }
-      : { kind: "none", reason: "no-parent-emails" };
+      ? { kind: 'parent', to: motherEmail, cc: [], primaryRole: 'mother' }
+      : { kind: 'none', reason: 'no-parent-emails' };
   }
-  if (slotKey.startsWith("father")) {
+  if (slotKey.startsWith('father')) {
     return fatherEmail
-      ? { kind: "parent", to: fatherEmail, cc: [], primaryRole: "father" }
-      : { kind: "none", reason: "no-parent-emails" };
+      ? { kind: 'parent', to: fatherEmail, cc: [], primaryRole: 'father' }
+      : { kind: 'none', reason: 'no-parent-emails' };
   }
-  if (slotKey.startsWith("guardian")) {
+  if (slotKey.startsWith('guardian')) {
     return guardianEmail
-      ? { kind: "parent", to: guardianEmail, cc: [], primaryRole: "guardian" }
-      : { kind: "none", reason: "no-parent-emails" };
+      ? { kind: 'parent', to: guardianEmail, cc: [], primaryRole: 'guardian' }
+      : { kind: 'none', reason: 'no-parent-emails' };
   }
 
   // Student-owned slot — mother as To, father as Cc, fallback guardian.
   if (motherEmail) {
     return {
-      kind: "parent",
+      kind: 'parent',
       to: motherEmail,
       cc: fatherEmail ? [fatherEmail] : [],
-      primaryRole: "mother",
+      primaryRole: 'mother',
     };
   }
   if (fatherEmail) {
-    return { kind: "parent", to: fatherEmail, cc: [], primaryRole: "father" };
+    return { kind: 'parent', to: fatherEmail, cc: [], primaryRole: 'father' };
   }
   if (guardianEmail) {
-    return { kind: "parent", to: guardianEmail, cc: [], primaryRole: "guardian" };
+    return {
+      kind: 'parent',
+      to: guardianEmail,
+      cc: [],
+      primaryRole: 'guardian',
+    };
   }
-  return { kind: "none", reason: "no-parent-emails" };
+  return { kind: 'none', reason: 'no-parent-emails' };
 }
 
 function daysBetween(aIso: string, bIso: string): number {
@@ -120,17 +134,18 @@ function daysBetween(aIso: string, bIso: string): number {
 
 function statusDescriptor(ctx: ReminderContext): string {
   const today = new Date().toISOString().slice(0, 10);
-  if (ctx.statusKind === "expired" && ctx.expiryDateIso) {
+  if (ctx.statusKind === 'expired' && ctx.expiryDateIso) {
     const days = daysBetween(today, ctx.expiryDateIso);
-    return days <= 0 ? "expired today" : `expired ${days} days ago`;
+    return days <= 0 ? 'expired today' : `expired ${days} days ago`;
   }
-  if (ctx.statusKind === "expiringSoon" && ctx.expiryDateIso) {
+  if (ctx.statusKind === 'expiringSoon' && ctx.expiryDateIso) {
     const days = daysBetween(ctx.expiryDateIso, today);
-    return days <= 0 ? "expires today" : `expires in ${days} days`;
+    return days <= 0 ? 'expires today' : `expires in ${days} days`;
   }
-  if (ctx.statusKind === "rejected") return "needs replacement";
-  if (ctx.statusKind === "toFollow") return "has been promised but not yet received";
-  return "is missing";
+  if (ctx.statusKind === 'rejected') return 'needs replacement';
+  if (ctx.statusKind === 'toFollow')
+    return 'has been promised but not yet received';
+  return 'is missing';
 }
 
 export type RenderedReminder = {
@@ -141,23 +156,30 @@ export type RenderedReminder = {
 function parentPortalUploadUrl(
   portalUrl: string,
   enroleeNumber: string,
-  ayCode: string,
+  ayCode: string
 ): string {
   // Lowercased 4-digit AY slug per KD #53.
-  const ayCodeLower = `ay${ayCode.replace(/^AY/i, "").toLowerCase()}`;
+  const ayCodeLower = `ay${ayCode.replace(/^AY/i, '').toLowerCase()}`;
   return `${portalUrl}/admission/enrolments/application/${encodeURIComponent(enroleeNumber)}?academicYear=${ayCodeLower}`;
 }
 
 function renderReminder(ctx: ReminderContext): RenderedReminder {
-  const portalUrl = process.env.NEXT_PUBLIC_PARENT_PORTAL_URL ?? "https://enrol.hfse.edu.sg";
+  const portalUrl =
+    process.env.NEXT_PUBLIC_PARENT_PORTAL_URL ?? 'https://enrol.hfse.edu.sg';
   const descriptor = statusDescriptor(ctx);
-  const kind: ReminderKind = ctx.kind ?? "renewal";
-  const ctaHref = parentPortalUploadUrl(portalUrl, ctx.enroleeNumber, ctx.ayCode);
+  const kind: ReminderKind = ctx.kind ?? 'renewal';
+  const ctaHref = parentPortalUploadUrl(
+    portalUrl,
+    ctx.enroleeNumber,
+    ctx.ayCode
+  );
 
-  if (kind === "rejection") {
-    const rejectionReason = ctx.rejectionReason ?? "(no reason provided)";
+  if (kind === 'rejection') {
+    const rejectionReason = ctx.rejectionReason ?? '(no reason provided)';
     const sectionLabel =
-      ctx.level && ctx.section ? `${ctx.level} ${ctx.section}` : ctx.level ?? ctx.section ?? "";
+      ctx.level && ctx.section
+        ? `${ctx.level} ${ctx.section}`
+        : (ctx.level ?? ctx.section ?? '');
     const subject = `Action needed: ${ctx.slotLabel} not accepted — ${ctx.studentName}`;
     const headline = `${ctx.slotLabel} — document not accepted`;
     const bodyHtml = `
@@ -166,7 +188,7 @@ function renderReminder(ctx: ReminderContext): RenderedReminder {
       </p>
       <p style="font-size:16px;line-height:26px;color:#1d1c1d;margin:0 0 16px;">
         The <strong>${escapeHtml(ctx.slotLabel)}</strong> submitted for
-        <strong>${escapeHtml(ctx.studentName)}</strong>${sectionLabel ? ` (${escapeHtml(sectionLabel)})` : ""}
+        <strong>${escapeHtml(ctx.studentName)}</strong>${sectionLabel ? ` (${escapeHtml(sectionLabel)})` : ''}
         could not be accepted for the following reason:
       </p>
       <blockquote style="margin:0 0 16px;padding:12px 16px;border-left:4px solid #e2e8f0;background:#f8fafc;color:#334155;font-size:15px;line-height:24px;">
@@ -179,7 +201,12 @@ function renderReminder(ctx: ReminderContext): RenderedReminder {
     const html = renderEmailFrame({
       headline,
       bodyHtml,
-      ctas: [{ label: `Re-upload ${ctx.slotLabel} for ${ctx.studentName}`, href: ctaHref }],
+      ctas: [
+        {
+          label: `Re-upload ${ctx.slotLabel} for ${ctx.studentName}`,
+          href: ctaHref,
+        },
+      ],
       reviewLinkHtml: `
         <p style="font-size:14px;line-height:24px;color:#1d1c1d;margin:0 0 16px;">
           Sign in at the parent portal and upload a replacement document under your
@@ -193,20 +220,22 @@ function renderReminder(ctx: ReminderContext): RenderedReminder {
 
   // Subject branching matches the existing kind split.
   const subject =
-    kind === "initial-chase"
+    kind === 'initial-chase'
       ? `Document follow-up needed: ${ctx.slotLabel} for ${ctx.studentName}`
       : `Document renewal needed: ${ctx.slotLabel} for ${ctx.studentName} (${descriptor})`;
 
   const sectionLabel =
-    ctx.level && ctx.section ? `${ctx.level} ${ctx.section}` : ctx.level ?? ctx.section ?? "";
+    ctx.level && ctx.section
+      ? `${ctx.level} ${ctx.section}`
+      : (ctx.level ?? ctx.section ?? '');
 
   const headline =
-    kind === "initial-chase"
+    kind === 'initial-chase'
       ? `${ctx.slotLabel} required to complete application`
       : `${ctx.slotLabel} ${descriptor}`;
 
   const ctaLabel =
-    kind === "initial-chase"
+    kind === 'initial-chase'
       ? `Upload ${ctx.slotLabel} for ${ctx.studentName}`
       : `Re-upload ${ctx.slotLabel} for ${ctx.studentName}`;
 
@@ -214,30 +243,30 @@ function renderReminder(ctx: ReminderContext): RenderedReminder {
     ? `<p style="font-size:16px;line-height:26px;color:#1d1c1d;margin:0 0 12px;">
          <strong>Document expiry:</strong>
          <span style="font-family:monospace;color:#475569;">${escapeHtml(
-           new Date(ctx.expiryDateIso).toLocaleDateString("en-SG", {
-             year: "numeric",
-             month: "long",
-             day: "numeric",
-           }),
+           new Date(ctx.expiryDateIso).toLocaleDateString('en-SG', {
+             year: 'numeric',
+             month: 'long',
+             day: 'numeric',
+           })
          )}</span>
        </p>`
-    : "";
+    : '';
 
   const bodyParagraph =
-    kind === "initial-chase"
+    kind === 'initial-chase'
       ? `Please upload the <strong>${escapeHtml(ctx.slotLabel)}</strong> for
          <strong>${escapeHtml(ctx.studentName)}</strong>${
-           sectionLabel ? ` (${escapeHtml(sectionLabel)})` : ""
+           sectionLabel ? ` (${escapeHtml(sectionLabel)})` : ''
          }
          to continue the application. Our records show this document ${escapeHtml(descriptor)}.`
       : `Please re-upload the <strong>${escapeHtml(ctx.slotLabel)}</strong> for
          <strong>${escapeHtml(ctx.studentName)}</strong>${
-           sectionLabel ? ` (${escapeHtml(sectionLabel)})` : ""
+           sectionLabel ? ` (${escapeHtml(sectionLabel)})` : ''
          }.
          Our records show this document ${escapeHtml(descriptor)}.`;
 
   const footerParagraph =
-    kind === "initial-chase"
+    kind === 'initial-chase'
       ? `Sign in at the parent portal with the same email and password you use
          for enrolment, then upload the document under your enrolment
          details page. If you have already submitted this document, please
@@ -288,23 +317,29 @@ export type SendResult = {
 // per-outcome shape for compatibility with callers. No DB writes here.
 export async function sendReminder(
   ctx: ReminderContext,
-  envelope: RecipientEnvelope,
+  envelope: RecipientEnvelope
 ): Promise<SendResult> {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey || envelope.kind === "none") {
+  if (!apiKey || envelope.kind === 'none') {
     if (!apiKey) {
-      console.warn("[notify] skipping pfile reminder: RESEND_API_KEY unset");
+      console.warn('[notify] skipping pfile reminder: RESEND_API_KEY unset');
     }
     return { attempted: 0, sent: 0, failed: 0, outcomes: [] };
   }
 
   const resend = new Resend(apiKey);
-  const fromAddress = process.env.RESEND_FROM_EMAIL ?? "HFSE SIS <noreply@hfse.edu.sg>";
-  const devTo = process.env.NODE_ENV !== "production" ? "ace.vizserve@gmail.com" : null;
+  const fromAddress =
+    process.env.RESEND_FROM_EMAIL ?? 'HFSE SIS <noreply@hfse.edu.sg>';
+  const devTo =
+    process.env.NODE_ENV !== 'production' ? 'ace.vizserve@gmail.com' : null;
   const { subject, html } = renderReminder(ctx);
 
   const toAddr = devTo ?? envelope.to;
-  const ccAddrs = devTo ? undefined : envelope.cc.length > 0 ? envelope.cc : undefined;
+  const ccAddrs = devTo
+    ? undefined
+    : envelope.cc.length > 0
+      ? envelope.cc
+      : undefined;
 
   // Represent the primary recipient as a RecipientCandidate for the outcome shape.
   const primaryRecipient: RecipientCandidate = {
@@ -321,12 +356,18 @@ export async function sendReminder(
       html,
     });
     if (res.error) {
-      console.error("[notify] pfile reminder resend error for", envelope.to, res.error);
+      console.error(
+        '[notify] pfile reminder resend error for',
+        envelope.to,
+        res.error
+      );
       return {
         attempted: 1,
         sent: 0,
         failed: 1,
-        outcomes: [{ recipient: primaryRecipient, ok: false, error: res.error.message }],
+        outcomes: [
+          { recipient: primaryRecipient, ok: false, error: res.error.message },
+        ],
       };
     }
     return {
@@ -337,7 +378,7 @@ export async function sendReminder(
     };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error("[notify] pfile reminder resend throw for", envelope.to, e);
+    console.error('[notify] pfile reminder resend throw for', envelope.to, e);
     return {
       attempted: 1,
       sent: 0,

@@ -1,8 +1,23 @@
-import { Badge } from "@/components/ui/badge";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/server";
-import { ArrowRight, ArrowUpRight, Clock, Eye, EyeOff, Share2, XCircle } from "lucide-react";
-import Link from "next/link";
+import { Badge } from '@/components/ui/badge';
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { createClient } from '@/lib/supabase/server';
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Clock,
+  Eye,
+  EyeOff,
+  Share2,
+  XCircle,
+} from 'lucide-react';
+import Link from 'next/link';
 
 type Term = { id: string; term_number: number; label: string };
 
@@ -13,18 +28,24 @@ type Publication = {
   publish_until: string;
 };
 
-type Status = "active" | "scheduled" | "expired" | "none";
+type Status = 'active' | 'scheduled' | 'expired' | 'none';
 
 // Read-only publication indicator shown on the staff-side report card detail
 // page. Unlike `PublishWindowPanel` (which is the full editor on the list
 // page), this is a per-term scan view. Click-through to the list page for
 // editing.
-export async function PublicationStatus({ sectionId, terms }: { sectionId: string; terms: Term[] }) {
+export async function PublicationStatus({
+  sectionId,
+  terms,
+}: {
+  sectionId: string;
+  terms: Term[];
+}) {
   const supabase = await createClient();
   const { data } = await supabase
-    .from("report_card_publications")
-    .select("id, term_id, publish_from, publish_until")
-    .eq("section_id", sectionId);
+    .from('report_card_publications')
+    .select('id, term_id, publish_from, publish_until')
+    .eq('section_id', sectionId);
   const pubs = (data ?? []) as Publication[];
 
   // Server component runs per-request; current time is required to bucket
@@ -35,15 +56,15 @@ export async function PublicationStatus({ sectionId, terms }: { sectionId: strin
 
   const rows = terms.map((t) => {
     const p = pubs.find((x) => x.term_id === t.id);
-    if (!p) return { term: t, pub: null, status: "none" as Status };
+    if (!p) return { term: t, pub: null, status: 'none' as Status };
     const from = new Date(p.publish_from).getTime();
     const until = new Date(p.publish_until).getTime();
-    if (now < from) return { term: t, pub: p, status: "scheduled" as Status };
-    if (now > until) return { term: t, pub: p, status: "expired" as Status };
-    return { term: t, pub: p, status: "active" as Status };
+    if (now < from) return { term: t, pub: p, status: 'scheduled' as Status };
+    if (now > until) return { term: t, pub: p, status: 'expired' as Status };
+    return { term: t, pub: p, status: 'active' as Status };
   });
 
-  const activeCount = rows.filter((r) => r.status === "active").length;
+  const activeCount = rows.filter((r) => r.status === 'active').length;
 
   return (
     <Card>
@@ -56,15 +77,16 @@ export async function PublicationStatus({ sectionId, terms }: { sectionId: strin
         </CardTitle>
         <CardDescription>
           {activeCount === 0
-            ? "No terms are currently visible to parents."
+            ? 'No terms are currently visible to parents.'
             : activeCount === terms.length
-              ? "All terms are currently visible to parents."
+              ? 'All terms are currently visible to parents.'
               : `${activeCount} of ${terms.length} terms are currently visible to parents.`}
         </CardDescription>
         <CardAction>
           <Link
             href="/markbook/report-cards"
-            className="inline-flex items-center gap-1 text-sm font-medium text-brand-indigo-deep underline-offset-4 hover:underline">
+            className="inline-flex items-center gap-1 text-sm font-medium text-brand-indigo-deep underline-offset-4 hover:underline"
+          >
             Manage
             <ArrowUpRight className="size-3.5" />
           </Link>
@@ -81,7 +103,15 @@ export async function PublicationStatus({ sectionId, terms }: { sectionId: strin
   );
 }
 
-function TermRow({ term, pub, status }: { term: Term; pub: Publication | null; status: Status }) {
+function TermRow({
+  term,
+  pub,
+  status,
+}: {
+  term: Term;
+  pub: Publication | null;
+  status: Status;
+}) {
   return (
     <div className="flex items-start justify-between gap-3 rounded-xl border border-border bg-muted/30 p-3">
       <div className="space-y-1.5">
@@ -95,7 +125,9 @@ function TermRow({ term, pub, status }: { term: Term; pub: Publication | null; s
             {fmtShort(pub.publish_until)}
           </p>
         ) : (
-          <p className="text-[11px] italic text-muted-foreground">No window scheduled</p>
+          <p className="text-[11px] italic text-muted-foreground">
+            No window scheduled
+          </p>
         )}
       </div>
       <StatusBadge status={status} />
@@ -105,29 +137,32 @@ function TermRow({ term, pub, status }: { term: Term; pub: Publication | null; s
 
 function StatusBadge({ status }: { status: Status }) {
   switch (status) {
-    case "active":
+    case 'active':
       return (
         <Badge
           variant="outline"
-          className="h-6 shrink-0 border-brand-mint bg-brand-mint/30 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ink">
+          className="h-6 shrink-0 border-brand-mint bg-brand-mint/30 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ink"
+        >
           <Eye className="h-3 w-3" />
           Visible
         </Badge>
       );
-    case "scheduled":
+    case 'scheduled':
       return (
         <Badge
           variant="outline"
-          className="h-6 shrink-0 border-brand-indigo-soft/60 bg-accent px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-brand-indigo-deep">
+          className="h-6 shrink-0 border-brand-indigo-soft/60 bg-accent px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-brand-indigo-deep"
+        >
           <Clock className="h-3 w-3" />
           Scheduled
         </Badge>
       );
-    case "expired":
+    case 'expired':
       return (
         <Badge
           variant="outline"
-          className="h-6 shrink-0 border-destructive/40 bg-gradient-to-b from-destructive/15 to-destructive/5 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-destructive">
+          className="h-6 shrink-0 border-destructive/40 bg-gradient-to-b from-destructive/15 to-destructive/5 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-destructive"
+        >
           <XCircle className="h-3 w-3" />
           Expired
         </Badge>
@@ -136,7 +171,8 @@ function StatusBadge({ status }: { status: Status }) {
       return (
         <Badge
           variant="outline"
-          className="h-6 shrink-0 border-dashed border-border bg-muted px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          className="h-6 shrink-0 border-dashed border-border bg-muted px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+        >
           <EyeOff className="h-3 w-3" />
           Not published
         </Badge>
@@ -146,8 +182,8 @@ function StatusBadge({ status }: { status: Status }) {
 
 function fmtShort(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
   });
 }

@@ -17,7 +17,12 @@ import { getSessionUser } from '@/lib/supabase/server';
 import type { Role } from '@/lib/auth/roles';
 import { FeedbackTable } from './feedback-table';
 
-const ALLOWED_ROLES: Role[] = ['admissions', 'registrar', 'school_admin', 'superadmin'];
+const ALLOWED_ROLES: Role[] = [
+  'admissions',
+  'registrar',
+  'school_admin',
+  'superadmin',
+];
 
 function StatCard({
   label,
@@ -45,7 +50,9 @@ function StatCard({
           </div>
         </CardAction>
       </CardHeader>
-      <CardFooter className="text-xs text-muted-foreground">{footnote}</CardFooter>
+      <CardFooter className="text-xs text-muted-foreground">
+        {footnote}
+      </CardFooter>
     </Card>
   );
 }
@@ -76,7 +83,8 @@ export default async function FeedbackPage({
           Application feedback.
         </h1>
         <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-          Parent ratings and comments about the online application form experience.
+          Parent ratings and comments about the online application form
+          experience.
         </p>
       </header>
 

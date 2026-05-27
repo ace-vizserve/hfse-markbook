@@ -2,7 +2,10 @@
 
 import * as React from 'react';
 
-import { ComparisonBarChart, type ComparisonBarPoint } from '@/components/dashboard/charts/comparison-bar-chart';
+import {
+  ComparisonBarChart,
+  type ComparisonBarPoint,
+} from '@/components/dashboard/charts/comparison-bar-chart';
 import { SisAdminDrillSheet } from '@/components/sis/drills/sis-admin-drill-sheet';
 import {
   Card,
@@ -35,7 +38,9 @@ export function AuditByModuleDrillCard({
           <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
             Audit activity by module
           </CardDescription>
-          <CardTitle className="font-serif text-xl">Where the system is most active</CardTitle>
+          <CardTitle className="font-serif text-xl">
+            Where the system is most active
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <ComparisonBarChart

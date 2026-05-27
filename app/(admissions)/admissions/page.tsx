@@ -1,28 +1,43 @@
-import { ArrowLeft, ArrowRight, ChartBar, FileStack, Hourglass, TrendingUp, UserPlus, Users } from "lucide-react";
-import Link from "next/link";
-import { redirect } from "next/navigation";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ChartBar,
+  FileStack,
+  Hourglass,
+  TrendingUp,
+  UserPlus,
+  Users,
+} from 'lucide-react';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
-import { DocumentCompletenessTable, type AdmissionsStatusFilter as AdmissionsChaseStatusFilter } from "@/components/shared/document-completeness-table";
-import { ApplicationsByLevelCard } from "@/components/admissions/applications-by-level-card";
-import { DocumentCompletionCard } from "@/components/admissions/document-completion-card";
-import { AdmissionsDrillSheet } from "@/components/admissions/drills/admissions-drill-sheet";
-import { DocumentChaseQueueStrip } from "@/components/sis/document-chase-queue-strip";
-import { NewApplicationsPriority } from "@/components/admissions/new-applications-priority";
+import {
+  DocumentCompletenessTable,
+  type AdmissionsStatusFilter as AdmissionsChaseStatusFilter,
+} from '@/components/shared/document-completeness-table';
+import { ApplicationsByLevelCard } from '@/components/admissions/applications-by-level-card';
+import { DocumentCompletionCard } from '@/components/admissions/document-completion-card';
+import { AdmissionsDrillSheet } from '@/components/admissions/drills/admissions-drill-sheet';
+import { DocumentChaseQueueStrip } from '@/components/sis/document-chase-queue-strip';
+import { NewApplicationsPriority } from '@/components/admissions/new-applications-priority';
 import {
   AssessmentDrillCard,
   PipelineDrillCard,
   ReferralDrillCard,
   TimeToEnrollDrillCard,
-} from "@/components/admissions/drills/chart-drill-cards";
-import { OutdatedApplicationsTable } from "@/components/admissions/outdated-applications-table";
-import { TimeToEnrollmentCard } from "@/components/admissions/time-to-enrollment-card";
-import { ActionList, type ActionItem } from "@/components/dashboard/action-list";
-import { TrendChart } from "@/components/dashboard/charts/trend-chart";
-import { ComparisonToolbar } from "@/components/dashboard/comparison-toolbar";
-import { DashboardHero } from "@/components/dashboard/dashboard-hero";
-import { InsightsPanel } from "@/components/dashboard/insights-panel";
-import { MetricCard } from "@/components/dashboard/metric-card";
-import { PriorityPanel } from "@/components/dashboard/priority-panel";
+} from '@/components/admissions/drills/chart-drill-cards';
+import { OutdatedApplicationsTable } from '@/components/admissions/outdated-applications-table';
+import { TimeToEnrollmentCard } from '@/components/admissions/time-to-enrollment-card';
+import {
+  ActionList,
+  type ActionItem,
+} from '@/components/dashboard/action-list';
+import { TrendChart } from '@/components/dashboard/charts/trend-chart';
+import { ComparisonToolbar } from '@/components/dashboard/comparison-toolbar';
+import { DashboardHero } from '@/components/dashboard/dashboard-hero';
+import { InsightsPanel } from '@/components/dashboard/insights-panel';
+import { MetricCard } from '@/components/dashboard/metric-card';
+import { PriorityPanel } from '@/components/dashboard/priority-panel';
 import {
   Card,
   CardAction,
@@ -31,15 +46,15 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { PageShell } from "@/components/ui/page-shell";
+} from '@/components/ui/card';
+import { PageShell } from '@/components/ui/page-shell';
 import {
   getCurrentAcademicYear,
   getUpcomingAcademicYear,
   listAyCodes as listAcademicAyCodes,
-} from "@/lib/academic-year";
-import { listStudents } from "@/lib/sis/queries";
-import { UpcomingAyCard } from "@/components/admissions/upcoming-ay-card";
+} from '@/lib/academic-year';
+import { listStudents } from '@/lib/sis/queries';
+import { UpcomingAyCard } from '@/components/admissions/upcoming-ay-card';
 import {
   getAdmissionsCompletenessForChase,
   getAdmissionsKpisRange,
@@ -52,18 +67,29 @@ import {
   getOutdatedApplications,
   getReferralSourceBreakdown,
   getTimeToEnrollHistogram,
-} from "@/lib/admissions/dashboard";
-import { getAdmissionsPriority } from "@/lib/admissions/priority";
-import { buildDrillRows } from "@/lib/admissions/drill";
-import { getAdmissionsFeedback, getPreCourseStats } from "@/lib/admissions/feedback";
-import { admissionsChaseInsights, admissionsInsights } from "@/lib/dashboard/insights";
-import { formatRangeLabel, resolveRange, FLEXIBLE_PRESETS, type DashboardSearchParams } from "@/lib/dashboard/range";
-import { getDashboardWindows } from "@/lib/dashboard/windows";
-import { getPipelineStageBreakdown } from "@/lib/sis/dashboard";
-import { getSisDashboardSummary } from "@/lib/sis/queries";
-import { freshenAyDocuments } from "@/lib/p-files/freshen-document-statuses";
-import { getSessionUser } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/service";
+} from '@/lib/admissions/dashboard';
+import { getAdmissionsPriority } from '@/lib/admissions/priority';
+import { buildDrillRows } from '@/lib/admissions/drill';
+import {
+  getAdmissionsFeedback,
+  getPreCourseStats,
+} from '@/lib/admissions/feedback';
+import {
+  admissionsChaseInsights,
+  admissionsInsights,
+} from '@/lib/dashboard/insights';
+import {
+  formatRangeLabel,
+  resolveRange,
+  FLEXIBLE_PRESETS,
+  type DashboardSearchParams,
+} from '@/lib/dashboard/range';
+import { getDashboardWindows } from '@/lib/dashboard/windows';
+import { getPipelineStageBreakdown } from '@/lib/sis/dashboard';
+import { getSisDashboardSummary } from '@/lib/sis/queries';
+import { freshenAyDocuments } from '@/lib/p-files/freshen-document-statuses';
+import { getSessionUser } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 
 // Sidebar Quicklink status filters that flip the page into a focused
 // chase view (KD #64 mirrored for admissions). When `?status=` matches
@@ -78,7 +104,9 @@ const FOCUSED_VIEW_STATUSES: ReadonlyArray<AdmissionsChaseStatusFilter> = [
   'expired',
 ];
 
-function parseChaseStatusFilter(raw: string | undefined): AdmissionsChaseStatusFilter | undefined {
+function parseChaseStatusFilter(
+  raw: string | undefined
+): AdmissionsChaseStatusFilter | undefined {
   if (!raw) return undefined;
   return (FOCUSED_VIEW_STATUSES as readonly string[]).includes(raw)
     ? (raw as AdmissionsChaseStatusFilter)
@@ -124,44 +152,57 @@ export default async function AdmissionsDashboard({
   searchParams: Promise<DashboardSearchParams & { status?: string }>;
 }) {
   const sessionUser = await getSessionUser();
-  if (!sessionUser) redirect("/login");
+  if (!sessionUser) redirect('/login');
   if (
-    sessionUser.role !== "admissions" &&
-    sessionUser.role !== "registrar" &&
-    sessionUser.role !== "school_admin" &&
-    sessionUser.role !== "superadmin"
+    sessionUser.role !== 'admissions' &&
+    sessionUser.role !== 'registrar' &&
+    sessionUser.role !== 'school_admin' &&
+    sessionUser.role !== 'superadmin'
   ) {
-    redirect("/");
+    redirect('/');
   }
   // KD #51: admissions team owns the funnel; registrar joins on enrolled
   // hand-off. Both are operational here — they triage new applications,
   // chase documents, and validate uploads. school_admin/admin/superadmin
   // are oversight: same KPIs + analytics, no priority/chase top-of-fold.
   const isOperational =
-    sessionUser.role === "admissions" || sessionUser.role === "registrar";
+    sessionUser.role === 'admissions' || sessionUser.role === 'registrar';
 
   const service = createServiceClient();
   const currentAy = await getCurrentAcademicYear(service);
   if (!currentAy) {
     return (
       <PageShell>
-        <div className="text-sm text-destructive">No current academic year configured.</div>
+        <div className="text-sm text-destructive">
+          No current academic year configured.
+        </div>
       </PageShell>
     );
   }
 
   const resolvedSearch = await searchParams;
-  const ayParam = typeof resolvedSearch.ay === "string" ? resolvedSearch.ay : undefined;
-  const statusParam = typeof resolvedSearch.status === "string" ? resolvedSearch.status : undefined;
+  const ayParam =
+    typeof resolvedSearch.ay === 'string' ? resolvedSearch.ay : undefined;
+  const statusParam =
+    typeof resolvedSearch.status === 'string'
+      ? resolvedSearch.status
+      : undefined;
   const ayCodes = await listAcademicAyCodes(service);
-  const selectedAy = ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
+  const selectedAy =
+    ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
   const isCurrentAy = selectedAy === currentAy.ay_code;
   const focusedStatus = parseChaseStatusFilter(statusParam);
 
   const windows = await getDashboardWindows(selectedAy);
-  const rangeInput = resolveRange(resolvedSearch, windows, selectedAy, undefined, {
-    defaultPreset: 'thisMonth',
-  });
+  const rangeInput = resolveRange(
+    resolvedSearch,
+    windows,
+    selectedAy,
+    undefined,
+    {
+      defaultPreset: 'thisMonth',
+    }
+  );
 
   // Auto-flip runs in parallel with subsequent fetches instead of blocking
   // serially. Cached 60s, tag-invalidated by sis:${ayCode}, so most
@@ -193,7 +234,10 @@ export default async function AdmissionsDashboard({
           description={meta.description}
           badges={[
             { label: selectedAy },
-            { label: isCurrentAy ? "Current" : "Historical", tone: isCurrentAy ? "mint" : "muted" },
+            {
+              label: isCurrentAy ? 'Current' : 'Historical',
+              tone: isCurrentAy ? 'mint' : 'muted',
+            },
           ]}
         />
 
@@ -211,7 +255,11 @@ export default async function AdmissionsDashboard({
           presets={FLEXIBLE_PRESETS}
           trustStrip={
             <p className="text-[11px] text-muted-foreground">
-              Filtering by <strong className="font-semibold text-foreground">application date</strong> · drills that count enrolments switch to enrollment date.
+              Filtering by{' '}
+              <strong className="font-semibold text-foreground">
+                application date
+              </strong>{' '}
+              · drills that count enrolments switch to enrollment date.
             </p>
           }
         />
@@ -238,8 +286,8 @@ export default async function AdmissionsDashboard({
           <span>{selectedAy}</span>
           <span className="text-border">·</span>
           <span>
-            {students.length.toLocaleString("en-SG")} of {summary.totalApplicants.toLocaleString("en-SG")}{" "}
-            applicants
+            {students.length.toLocaleString('en-SG')} of{' '}
+            {summary.totalApplicants.toLocaleString('en-SG')} applicants
           </span>
           <span className="text-border">·</span>
           <span>Filter: {focusedStatus}</span>
@@ -289,11 +337,11 @@ export default async function AdmissionsDashboard({
         from: rangeInput.from,
         to: rangeInput.to,
       },
-      { withDocs: true },
+      { withDocs: true }
     ),
     // Workstream A — chase summary feeds the chase insights panel; the
     // priority panel + chase strip do their own internal fetch.
-    getAdmissionsCompletenessForChase(selectedAy, "all").then((r) => r.summary),
+    getAdmissionsCompletenessForChase(selectedAy, 'all').then((r) => r.summary),
     getAdmissionsPriority({ ayCode: selectedAy }),
     getAdmissionsFeedback(selectedAy),
     getPreCourseStats(selectedAy),
@@ -312,22 +360,37 @@ export default async function AdmissionsDashboard({
     ayCode: string;
     ayLabel: string;
     applicationCount: number;
-    byStage: { submitted: number; ongoingVerification: number; processing: number };
+    byStage: {
+      submitted: number;
+      ongoingVerification: number;
+      processing: number;
+    };
   } | null = null;
   if (upcomingAy) {
-    const ACTIVE_STAGES = new Set(["Submitted", "Ongoing Verification", "Processing"]);
-    const upcomingStudents = await listStudents(upcomingAy.ay_code, "created_at_desc");
+    const ACTIVE_STAGES = new Set([
+      'Submitted',
+      'Ongoing Verification',
+      'Processing',
+    ]);
+    const upcomingStudents = await listStudents(
+      upcomingAy.ay_code,
+      'created_at_desc'
+    );
     const inFlight = upcomingStudents.filter((s) =>
-      ACTIVE_STAGES.has((s.applicationStatus ?? "").trim()),
+      ACTIVE_STAGES.has((s.applicationStatus ?? '').trim())
     );
     upcomingAyCardData = {
       ayCode: upcomingAy.ay_code,
       ayLabel: upcomingAy.label,
       applicationCount: inFlight.length,
       byStage: {
-        submitted: inFlight.filter((s) => s.applicationStatus === "Submitted").length,
-        ongoingVerification: inFlight.filter((s) => s.applicationStatus === "Ongoing Verification").length,
-        processing: inFlight.filter((s) => s.applicationStatus === "Processing").length,
+        submitted: inFlight.filter((s) => s.applicationStatus === 'Submitted')
+          .length,
+        ongoingVerification: inFlight.filter(
+          (s) => s.applicationStatus === 'Ongoing Verification'
+        ).length,
+        processing: inFlight.filter((s) => s.applicationStatus === 'Processing')
+          .length,
       },
     };
   }
@@ -349,7 +412,7 @@ export default async function AdmissionsDashboard({
   const totalRef = referral.reduce((s, r) => s + r.count, 0);
   const biggestDrop = funnel.reduce(
     (acc, stage) => (stage.dropOffPct > (acc?.dropOffPct ?? 0) ? stage : acc),
-    funnel[0] ?? null,
+    funnel[0] ?? null
   );
   const insights = admissionsInsights({
     applications: kpisResult.current.applicationsInRange,
@@ -360,32 +423,51 @@ export default async function AdmissionsDashboard({
     avgDaysToEnrollPrior: kpisResult.comparison?.avgDaysToEnroll,
     appsDelta: kpisResult.delta ?? undefined,
     outdatedCount: outdated.length,
-    topReferral: topRef ? { source: topRef.source, count: topRef.count, totalCount: totalRef } : undefined,
-    funnelDropOff: biggestDrop ? { stage: biggestDrop.stage, dropOffPct: biggestDrop.dropOffPct } : undefined,
+    topReferral: topRef
+      ? { source: topRef.source, count: topRef.count, totalCount: totalRef }
+      : undefined,
+    funnelDropOff: biggestDrop
+      ? { stage: biggestDrop.stage, dropOffPct: biggestDrop.dropOffPct }
+      : undefined,
   });
 
   // Build action list — top 6 stalled applicants.
   const actionItems: ActionItem[] = outdated.slice(0, 6).map((row) => ({
     label: row.fullName,
-    sublabel: `${row.status} · ${row.levelApplied ?? "—"}`,
-    meta: row.daysSinceUpdate === null ? "Never updated" : `${row.daysSinceUpdate}d without update`,
-    severity: row.daysSinceUpdate === null || row.daysSinceUpdate >= 30 ? "bad" : "warn",
+    sublabel: `${row.status} · ${row.levelApplied ?? '—'}`,
+    meta:
+      row.daysSinceUpdate === null
+        ? 'Never updated'
+        : `${row.daysSinceUpdate}d without update`,
+    severity:
+      row.daysSinceUpdate === null || row.daysSinceUpdate >= 30
+        ? 'bad'
+        : 'warn',
     href: `/admissions/applications/${row.enroleeNumber}`,
   }));
 
   return (
     <PageShell>
       <DashboardHero
-        eyebrow={isOperational ? "Admissions · Pre-enrolment funnel" : "Admissions · School-wide overview"}
-        title={isOperational ? "Admissions dashboard" : "Admissions — oversight"}
+        eyebrow={
+          isOperational
+            ? 'Admissions · Pre-enrolment funnel'
+            : 'Admissions · School-wide overview'
+        }
+        title={
+          isOperational ? 'Admissions dashboard' : 'Admissions — oversight'
+        }
         description={
           isOperational
-            ? "Inquiry → applied → interviewed → offered → accepted. Once enrolled, the permanent record lives in Records."
-            : "Read-only oversight of the pre-enrolment funnel. Day-to-day triage, document chase, and validation are owned by the admissions team and registrar."
+            ? 'Inquiry → applied → interviewed → offered → accepted. Once enrolled, the permanent record lives in Records.'
+            : 'Read-only oversight of the pre-enrolment funnel. Day-to-day triage, document chase, and validation are owned by the admissions team and registrar.'
         }
         badges={[
           { label: selectedAy },
-          { label: isCurrentAy ? "Current" : "Historical", tone: isCurrentAy ? "mint" : "muted" },
+          {
+            label: isCurrentAy ? 'Current' : 'Historical',
+            tone: isCurrentAy ? 'mint' : 'muted',
+          },
         ]}
       />
 
@@ -403,7 +485,11 @@ export default async function AdmissionsDashboard({
         presets={FLEXIBLE_PRESETS}
         trustStrip={
           <p className="text-[11px] text-muted-foreground">
-            Filtering by <strong className="font-semibold text-foreground">application date</strong> · drills that count enrolments switch to enrollment date.
+            Filtering by{' '}
+            <strong className="font-semibold text-foreground">
+              application date
+            </strong>{' '}
+            · drills that count enrolments switch to enrollment date.
           </p>
         }
       />
@@ -530,7 +616,11 @@ export default async function AdmissionsDashboard({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <TrendChart label="Applications" current={velocity.current} comparison={velocity.comparison} />
+              <TrendChart
+                label="Applications"
+                current={velocity.current}
+                comparison={velocity.comparison}
+              />
             </CardContent>
           </Card>
         )}
@@ -554,7 +644,11 @@ export default async function AdmissionsDashboard({
           survives as an `admissionsInsights` narrative below. */}
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <PipelineDrillCard data={pipelineStages} ayCode={selectedAy} drillRows={drillRows} />
+          <PipelineDrillCard
+            data={pipelineStages}
+            ayCode={selectedAy}
+            drillRows={drillRows}
+          />
         </div>
         <div className="lg:col-span-1">
           <TimeToEnrollDrillCard
@@ -569,7 +663,11 @@ export default async function AdmissionsDashboard({
           row 2's wide slot above). */}
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-3">
-          <AssessmentDrillCard data={assessment} ayCode={selectedAy} drillRows={drillRows} />
+          <AssessmentDrillCard
+            data={assessment}
+            ayCode={selectedAy}
+            drillRows={drillRows}
+          />
         </div>
       </section>
 
@@ -592,7 +690,11 @@ export default async function AdmissionsDashboard({
       {/* Referral + time-to-enrol + browse — three-up footer row */}
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-1">
-          <ReferralDrillCard data={referral} ayCode={selectedAy} drillRows={drillRows} />
+          <ReferralDrillCard
+            data={referral}
+            ayCode={selectedAy}
+            drillRows={drillRows}
+          />
         </div>
         <div className="lg:col-span-1">
           <TimeToEnrollmentCard data={timeToEnroll} />
@@ -620,8 +722,18 @@ export default async function AdmissionsDashboard({
       {/* Static AY counters — dashboard-01 SectionCards pattern */}
       <section className="@container/main">
         <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
-          <SummaryStat label="Total applications" value={summary.totalStudents} icon={Users} footnote="In this AY" />
-          <SummaryStat label="In pipeline" value={summary.pending} icon={Hourglass} footnote="Pre-enrolment stages" />
+          <SummaryStat
+            label="Total applications"
+            value={summary.totalStudents}
+            icon={Users}
+            footnote="In this AY"
+          />
+          <SummaryStat
+            label="In pipeline"
+            value={summary.pending}
+            icon={Hourglass}
+            footnote="Pre-enrolment stages"
+          />
           <SummaryStat
             label="Enrolled (final stage)"
             value={summary.enrolled}
@@ -642,14 +754,22 @@ export default async function AdmissionsDashboard({
         <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2">
           <SummaryStat
             label="Pre-course counselling"
-            value={preCourseStats.completionPct !== null ? `${preCourseStats.completionPct}%` : '—'}
+            value={
+              preCourseStats.completionPct !== null
+                ? `${preCourseStats.completionPct}%`
+                : '—'
+            }
             icon={TrendingUp}
             footnote={`${preCourseStats.complete} of ${preCourseStats.total} funnel applicants completed`}
             href={`/admissions/cohorts/pre-course?ay=${selectedAy}`}
           />
           <SummaryStat
             label="Avg application rating"
-            value={feedbackResult.stats.avgRating !== null ? feedbackResult.stats.avgRating.toFixed(1) : '—'}
+            value={
+              feedbackResult.stats.avgRating !== null
+                ? feedbackResult.stats.avgRating.toFixed(1)
+                : '—'
+            }
             icon={ChartBar}
             footnote={`out of 5 · ${feedbackResult.stats.ratingCount} response${feedbackResult.stats.ratingCount !== 1 ? 's' : ''}`}
             href={`/admissions/feedback?ay=${selectedAy}`}
@@ -695,13 +815,15 @@ function SummaryStat({
   href?: string;
 }) {
   const card = (
-    <Card className={`@container/card${href ? ' transition-all hover:-translate-y-0.5 hover:shadow-sm hover:border-brand-indigo/40' : ''}`}>
+    <Card
+      className={`@container/card${href ? ' transition-all hover:-translate-y-0.5 hover:shadow-sm hover:border-brand-indigo/40' : ''}`}
+    >
       <CardHeader>
         <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
           {label}
         </CardDescription>
         <CardTitle className="font-serif text-[32px] font-semibold leading-none tabular-nums text-foreground @[240px]/card:text-[38px]">
-          {typeof value === 'number' ? value.toLocaleString("en-SG") : value}
+          {typeof value === 'number' ? value.toLocaleString('en-SG') : value}
         </CardTitle>
         <CardAction>
           <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
@@ -709,7 +831,9 @@ function SummaryStat({
           </div>
         </CardAction>
       </CardHeader>
-      <CardFooter className="text-xs text-muted-foreground">{footnote}</CardFooter>
+      <CardFooter className="text-xs text-muted-foreground">
+        {footnote}
+      </CardFooter>
     </Card>
   );
   if (href) return <Link href={href}>{card}</Link>;
@@ -730,16 +854,21 @@ function QuickLink({
   return (
     <Link
       href={href}
-      className="group flex items-start gap-4 rounded-xl border border-hairline bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-brand-indigo/40 hover:shadow-sm">
+      className="group flex items-start gap-4 rounded-xl border border-hairline bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-brand-indigo/40 hover:shadow-sm"
+    >
       <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
         <Icon className="size-4" />
       </div>
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="font-serif text-base font-semibold text-foreground">{title}</h3>
+          <h3 className="font-serif text-base font-semibold text-foreground">
+            {title}
+          </h3>
           <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
         </div>
-        <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {description}
+        </p>
       </div>
     </Link>
   );

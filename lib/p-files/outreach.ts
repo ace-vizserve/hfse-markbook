@@ -1,7 +1,7 @@
-import "server-only";
+import 'server-only';
 
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { createServiceClient } from "@/lib/supabase/service";
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { createServiceClient } from '@/lib/supabase/service';
 
 const REMINDER_COOLDOWN_HOURS = 24;
 
@@ -25,24 +25,27 @@ export type LatestPromise = {
 export async function getLatestPromisesForRoster(
   ayCode: string,
   enroleeNumbers: string[],
-  client?: SupabaseClient,
+  client?: SupabaseClient
 ): Promise<Map<string, Map<string, LatestPromise>>> {
   if (enroleeNumbers.length === 0) return new Map();
 
   const service = client ?? createServiceClient();
   const { data, error } = await service
-    .from("p_file_outreach")
-    .select("enrolee_number, slot_key, promised_until, note, created_at")
-    .eq("ay_code", ayCode)
-    .eq("kind", "promise")
-    .in("enrolee_number", enroleeNumbers)
-    .order("created_at", { ascending: false });
+    .from('p_file_outreach')
+    .select('enrolee_number, slot_key, promised_until, note, created_at')
+    .eq('ay_code', ayCode)
+    .eq('kind', 'promise')
+    .in('enrolee_number', enroleeNumbers)
+    .order('created_at', { ascending: false });
 
   if (error || !data) return new Map();
 
   const byStudent = new Map<string, Map<string, LatestPromise>>();
   for (const row of data as Array<
-    Pick<RawOutreachRow, "enrolee_number" | "slot_key" | "promised_until" | "note">
+    Pick<
+      RawOutreachRow,
+      'enrolee_number' | 'slot_key' | 'promised_until' | 'note'
+    >
   >) {
     if (row.promised_until === null) continue;
     let bySlot = byStudent.get(row.enrolee_number);
@@ -66,17 +69,17 @@ export async function getActiveCooldown(
   ayCode: string,
   enroleeNumber: string,
   slotKey: string,
-  client?: SupabaseClient,
+  client?: SupabaseClient
 ): Promise<{ lastSentAt: string; hoursAgo: number } | null> {
   const service = client ?? createServiceClient();
   const { data, error } = await service
-    .from("p_file_outreach")
-    .select("created_at")
-    .eq("ay_code", ayCode)
-    .eq("enrolee_number", enroleeNumber)
-    .eq("slot_key", slotKey)
-    .eq("kind", "reminder")
-    .order("created_at", { ascending: false })
+    .from('p_file_outreach')
+    .select('created_at')
+    .eq('ay_code', ayCode)
+    .eq('enrolee_number', enroleeNumber)
+    .eq('slot_key', slotKey)
+    .eq('kind', 'reminder')
+    .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 

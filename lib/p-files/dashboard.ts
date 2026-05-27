@@ -48,7 +48,9 @@ export type LevelCompletionRow = {
   missing: number;
 };
 
-async function loadCompletionByLevelUncached(ayCode: string): Promise<LevelCompletionRow[]> {
+async function loadCompletionByLevelUncached(
+  ayCode: string
+): Promise<LevelCompletionRow[]> {
   const prefix = prefixFor(ayCode);
   const supabase = createAdmissionsClient();
 
@@ -59,10 +61,15 @@ async function loadCompletionByLevelUncached(ayCode: string): Promise<LevelCompl
     .select('enroleeNumber, classLevel, applicationStatus')
     .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']);
   if (statusErr) {
-    console.error('[p-files] getCompletionByLevel status fetch failed:', statusErr.message);
+    console.error(
+      '[p-files] getCompletionByLevel status fetch failed:',
+      statusErr.message
+    );
     return [];
   }
-  const enrolledNumbers = ((statusRows ?? []) as { enroleeNumber: string | null }[])
+  const enrolledNumbers = (
+    (statusRows ?? []) as { enroleeNumber: string | null }[]
+  )
     .map((s) => s.enroleeNumber)
     .filter((v): v is string => v !== null);
   if (enrolledNumbers.length === 0) return [];
@@ -70,7 +77,9 @@ async function loadCompletionByLevelUncached(ayCode: string): Promise<LevelCompl
   const [appsRes, docsRes] = await Promise.all([
     supabase
       .from(`${prefix}_enrolment_applications`)
-      .select('enroleeNumber, levelApplied, fatherEmail, guardianEmail, stpApplicationType')
+      .select(
+        'enroleeNumber, levelApplied, fatherEmail, guardianEmail, stpApplicationType'
+      )
       .in('enroleeNumber', enrolledNumbers),
     supabase
       .from(`${prefix}_enrolment_documents`)
@@ -80,9 +89,9 @@ async function loadCompletionByLevelUncached(ayCode: string): Promise<LevelCompl
           ...DOCUMENT_SLOTS.flatMap((s) =>
             s.expires
               ? [s.key, `${s.key}Status`, `${s.key}Expiry`]
-              : [s.key, `${s.key}Status`],
+              : [s.key, `${s.key}Status`]
           ),
-        ].join(', '),
+        ].join(', ')
       )
       .in('enroleeNumber', enrolledNumbers),
   ]);
@@ -95,7 +104,7 @@ async function loadCompletionByLevelUncached(ayCode: string): Promise<LevelCompl
   if (appsRes.error || docsRes.error) {
     console.error(
       '[p-files] getCompletionByLevel fetch failed:',
-      appsRes.error?.message ?? docsRes.error?.message,
+      appsRes.error?.message ?? docsRes.error?.message
     );
     return [];
   }
@@ -111,7 +120,8 @@ async function loadCompletionByLevelUncached(ayCode: string): Promise<LevelCompl
 
   const statusByEnrolee = new Map<string, string>();
   for (const s of (statusRes.data ?? []) as StatusRow[]) {
-    if (s.enroleeNumber && s.classLevel) statusByEnrolee.set(s.enroleeNumber, s.classLevel);
+    if (s.enroleeNumber && s.classLevel)
+      statusByEnrolee.set(s.enroleeNumber, s.classLevel);
   }
 
   // level + gate info per enrollee
@@ -119,7 +129,9 @@ async function loadCompletionByLevelUncached(ayCode: string): Promise<LevelCompl
   for (const a of (appsRes.data ?? []) as AppRow[]) {
     if (!a.enroleeNumber) continue;
     const level =
-      statusByEnrolee.get(a.enroleeNumber) || (a.levelApplied?.trim() || 'Unknown');
+      statusByEnrolee.get(a.enroleeNumber) ||
+      a.levelApplied?.trim() ||
+      'Unknown';
     byEnrolee.set(a.enroleeNumber, { level, gate: a });
   }
 
@@ -127,12 +139,20 @@ async function loadCompletionByLevelUncached(ayCode: string): Promise<LevelCompl
   const ensureBucket = (level: string): LevelCompletionRow => {
     const existing = buckets.get(level);
     if (existing) return existing;
-    const fresh: LevelCompletionRow = { level, valid: 0, pending: 0, rejected: 0, missing: 0 };
+    const fresh: LevelCompletionRow = {
+      level,
+      valid: 0,
+      pending: 0,
+      rejected: 0,
+      missing: 0,
+    };
     buckets.set(level, fresh);
     return fresh;
   };
 
-  const docRows = (docsRes.data ?? []) as unknown as Array<Record<string, string | null>>;
+  const docRows = (docsRes.data ?? []) as unknown as Array<
+    Record<string, string | null>
+  >;
   for (const row of docRows) {
     const enroleeNumber = row.enroleeNumber;
     if (!enroleeNumber) continue;
@@ -144,7 +164,10 @@ async function loadCompletionByLevelUncached(ayCode: string): Promise<LevelCompl
       if (slot.conditional) {
         const gateValue =
           entry.gate[
-            slot.conditional as 'fatherEmail' | 'guardianEmail' | 'stpApplicationType'
+            slot.conditional as
+              | 'fatherEmail'
+              | 'guardianEmail'
+              | 'stpApplicationType'
           ] ?? null;
         if (!gateValue || String(gateValue).trim() === '') continue;
       }
@@ -153,17 +176,24 @@ async function loadCompletionByLevelUncached(ayCode: string): Promise<LevelCompl
       const expiry = slot.expires ? row[`${slot.key}Expiry`] : null;
       const status = resolveStatus(url, rawStatus, expiry, slot.expires);
       switch (status) {
-        case 'valid': bucket.valid += 1; break;
+        case 'valid':
+          bucket.valid += 1;
+          break;
         case 'uploaded':
         case 'to-follow':
           // 'to-follow' counts as in-progress alongside 'uploaded' for
           // level completion roll-ups.
           bucket.pending += 1;
           break;
-        case 'rejected': bucket.rejected += 1; break;
+        case 'rejected':
+          bucket.rejected += 1;
+          break;
         case 'expired':
-        case 'missing': bucket.missing += 1; break;
-        case 'na': break;
+        case 'missing':
+          bucket.missing += 1;
+          break;
+        case 'na':
+          break;
       }
     }
   }
@@ -173,11 +203,13 @@ async function loadCompletionByLevelUncached(ayCode: string): Promise<LevelCompl
   return entries;
 }
 
-export function getCompletionByLevel(ayCode: string): Promise<LevelCompletionRow[]> {
+export function getCompletionByLevel(
+  ayCode: string
+): Promise<LevelCompletionRow[]> {
   return unstable_cache(
     loadCompletionByLevelUncached,
     ['p-files', 'completion-by-level', ayCode],
-    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS },
+    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS }
   )(ayCode);
 }
 
@@ -193,7 +225,7 @@ export type RevisionWeek = {
 
 async function loadRevisionsOverTimeUncached(
   ayCode: string,
-  weeks: number,
+  weeks: number
 ): Promise<RevisionWeek[]> {
   const service = createServiceClient();
 
@@ -211,7 +243,10 @@ async function loadRevisionsOverTimeUncached(
     .order('replaced_at', { ascending: true });
 
   if (error) {
-    console.error('[p-files] getRevisionsOverTime fetch failed:', error.message);
+    console.error(
+      '[p-files] getRevisionsOverTime fetch failed:',
+      error.message
+    );
     return emptyWeeks(weeks);
   }
 
@@ -242,12 +277,12 @@ async function loadRevisionsOverTimeUncached(
 
 export function getRevisionsOverTime(
   ayCode: string,
-  weeks: number = 12,
+  weeks: number = 12
 ): Promise<RevisionWeek[]> {
   return unstable_cache(
     loadRevisionsOverTimeUncached,
     ['p-files', 'revisions-over-time', ayCode, String(weeks)],
-    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS },
+    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS }
   )(ayCode, weeks);
 }
 
@@ -315,7 +350,9 @@ export type PFilesRangeKpis = {
   totalDocuments: number;
 };
 
-async function loadPFilesKpisForRange(input: RangeInput): Promise<PFilesRangeKpis> {
+async function loadPFilesKpisForRange(
+  input: RangeInput
+): Promise<PFilesRangeKpis> {
   const service = createServiceClient();
   const admissions = createAdmissionsClient();
   const prefix = prefixFor(input.ayCode);
@@ -335,7 +372,10 @@ async function loadPFilesKpisForRange(input: RangeInput): Promise<PFilesRangeKpi
     .select('enroleeNumber, applicationStatus')
     .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']);
   if (statusErr) {
-    console.error('[p-files] getPFilesKpisRange status fetch failed:', statusErr.message);
+    console.error(
+      '[p-files] getPFilesKpisRange status fetch failed:',
+      statusErr.message
+    );
     return {
       revisionsInRange: 0,
       expiringSoon: 0,
@@ -343,7 +383,9 @@ async function loadPFilesKpisForRange(input: RangeInput): Promise<PFilesRangeKpi
       totalDocuments: 0,
     };
   }
-  const enrolledNumbers = ((statusRows ?? []) as { enroleeNumber: string | null }[])
+  const enrolledNumbers = (
+    (statusRows ?? []) as { enroleeNumber: string | null }[]
+  )
     .map((s) => s.enroleeNumber)
     .filter((v): v is string => v !== null);
 
@@ -355,16 +397,21 @@ async function loadPFilesKpisForRange(input: RangeInput): Promise<PFilesRangeKpi
       .gte('replaced_at', fromIso)
       .lte('replaced_at', toIso),
     enrolledNumbers.length === 0
-      ? Promise.resolve({ data: [] as Array<Record<string, string | null>>, error: null })
+      ? Promise.resolve({
+          data: [] as Array<Record<string, string | null>>,
+          error: null,
+        })
       : admissions
           .from(`${prefix}_enrolment_documents`)
           .select(
             [
               'enroleeNumber',
               ...DOCUMENT_SLOTS.flatMap((s) =>
-                s.expires ? [s.key, `${s.key}Status`, `${s.key}Expiry`] : [s.key, `${s.key}Status`],
+                s.expires
+                  ? [s.key, `${s.key}Status`, `${s.key}Expiry`]
+                  : [s.key, `${s.key}Status`]
               ),
-            ].join(', '),
+            ].join(', ')
           )
           .in('enroleeNumber', enrolledNumbers),
   ]);
@@ -404,7 +451,7 @@ async function loadPFilesKpisForRange(input: RangeInput): Promise<PFilesRangeKpi
 }
 
 async function loadPFilesKpisRangeUncached(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<PFilesRangeKpis>> {
   const current = await loadPFilesKpisForRange(input);
   if (input.cmpFrom == null || input.cmpTo == null) {
@@ -432,17 +479,31 @@ async function loadPFilesKpisRangeUncached(
   };
 }
 
-export function getPFilesKpisRange(input: RangeInput): Promise<RangeResult<PFilesRangeKpis>> {
+export function getPFilesKpisRange(
+  input: RangeInput
+): Promise<RangeResult<PFilesRangeKpis>> {
   return unstable_cache(
     loadPFilesKpisRangeUncached,
-    ['p-files', 'kpis-range', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
-    { tags: tag(input.ayCode), revalidate: CACHE_TTL_SECONDS },
+    [
+      'p-files',
+      'kpis-range',
+      input.ayCode,
+      input.from,
+      input.to,
+      input.cmpFrom ?? '',
+      input.cmpTo ?? '',
+    ],
+    { tags: tag(input.ayCode), revalidate: CACHE_TTL_SECONDS }
   )(input);
 }
 
 // Revision velocity — daily-bucketed revision replacements.
 
-function bucketByDay(rows: { ts: string }[], from: string, to: string): VelocityPoint[] {
+function bucketByDay(
+  rows: { ts: string }[],
+  from: string,
+  to: string
+): VelocityPoint[] {
   const fromDate = parseLocalDate(from);
   const toDate = parseLocalDate(to);
   if (!fromDate || !toDate) return [];
@@ -450,7 +511,11 @@ function bucketByDay(rows: { ts: string }[], from: string, to: string): Velocity
   const buckets = new Array(length).fill(0) as number[];
   const labels: string[] = [];
   for (let i = 0; i < length; i += 1) {
-    const d = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate() + i);
+    const d = new Date(
+      fromDate.getFullYear(),
+      fromDate.getMonth(),
+      fromDate.getDate() + i
+    );
     labels.push(toISODate(d));
   }
   for (const row of rows) {
@@ -462,11 +527,12 @@ function bucketByDay(rows: { ts: string }[], from: string, to: string): Velocity
 }
 
 async function loadRevisionVelocityRangeUncached(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<VelocityPoint[]>> {
   const service = createServiceClient();
   const hasCmp = input.cmpFrom != null && input.cmpTo != null;
-  const earliest = hasCmp && input.cmpFrom! < input.from ? input.cmpFrom! : input.from;
+  const earliest =
+    hasCmp && input.cmpFrom! < input.from ? input.cmpFrom! : input.from;
   const latest = hasCmp && input.to < input.cmpTo! ? input.cmpTo! : input.to;
 
   const { data } = await service
@@ -501,12 +567,20 @@ async function loadRevisionVelocityRangeUncached(
 }
 
 export function getRevisionVelocityRange(
-  input: RangeInput,
+  input: RangeInput
 ): Promise<RangeResult<VelocityPoint[]>> {
   return unstable_cache(
     loadRevisionVelocityRangeUncached,
-    ['p-files', 'revision-velocity', input.ayCode, input.from, input.to, input.cmpFrom ?? '', input.cmpTo ?? ''],
-    { tags: tag(input.ayCode), revalidate: CACHE_TTL_SECONDS },
+    [
+      'p-files',
+      'revision-velocity',
+      input.ayCode,
+      input.from,
+      input.to,
+      input.cmpFrom ?? '',
+      input.cmpTo ?? '',
+    ],
+    { tags: tag(input.ayCode), revalidate: CACHE_TTL_SECONDS }
   )(input);
 }
 
@@ -519,7 +593,9 @@ export type SlotStatusMix = {
   missing: number;
 };
 
-async function loadSlotStatusMixUncached(ayCode: string): Promise<SlotStatusMix> {
+async function loadSlotStatusMixUncached(
+  ayCode: string
+): Promise<SlotStatusMix> {
   const prefix = prefixFor(ayCode);
   const admissions = createAdmissionsClient();
   // P-Files is enrolled-only per KD #71 — narrow the docs query to the
@@ -531,13 +607,19 @@ async function loadSlotStatusMixUncached(ayCode: string): Promise<SlotStatusMix>
     .select('enroleeNumber, applicationStatus')
     .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']);
   if (statusErr) {
-    console.error('[p-files] getSlotStatusMix status fetch failed:', statusErr.message);
+    console.error(
+      '[p-files] getSlotStatusMix status fetch failed:',
+      statusErr.message
+    );
     return { valid: 0, pending: 0, rejected: 0, missing: 0 };
   }
-  const enrolledNumbers = ((statusRows ?? []) as { enroleeNumber: string | null }[])
+  const enrolledNumbers = (
+    (statusRows ?? []) as { enroleeNumber: string | null }[]
+  )
     .map((s) => s.enroleeNumber)
     .filter((v): v is string => v !== null);
-  if (enrolledNumbers.length === 0) return { valid: 0, pending: 0, rejected: 0, missing: 0 };
+  if (enrolledNumbers.length === 0)
+    return { valid: 0, pending: 0, rejected: 0, missing: 0 };
 
   const { data } = await admissions
     .from(`${prefix}_enrolment_documents`)
@@ -545,31 +627,40 @@ async function loadSlotStatusMixUncached(ayCode: string): Promise<SlotStatusMix>
       [
         'enroleeNumber',
         ...DOCUMENT_SLOTS.flatMap((s) =>
-          s.expires ? [s.key, `${s.key}Status`, `${s.key}Expiry`] : [s.key, `${s.key}Status`],
+          s.expires
+            ? [s.key, `${s.key}Status`, `${s.key}Expiry`]
+            : [s.key, `${s.key}Status`]
         ),
-      ].join(', '),
+      ].join(', ')
     )
     .in('enroleeNumber', enrolledNumbers);
   type Row = Record<string, string | null>;
   const mix: SlotStatusMix = { valid: 0, pending: 0, rejected: 0, missing: 0 };
-  for (const row of ((data ?? []) as unknown as Row[])) {
+  for (const row of (data ?? []) as unknown as Row[]) {
     for (const slot of DOCUMENT_SLOTS) {
       const url = row[slot.key];
       const rawStatus = row[`${slot.key}Status`];
       const expiry = slot.expires ? row[`${slot.key}Expiry`] : null;
       const status = resolveStatus(url, rawStatus, expiry, slot.expires);
       switch (status) {
-        case 'valid': mix.valid += 1; break;
+        case 'valid':
+          mix.valid += 1;
+          break;
         case 'uploaded':
         case 'to-follow':
           // 'to-follow' counts as in-progress alongside 'uploaded' for the
           // donut "Pending" slice.
           mix.pending += 1;
           break;
-        case 'rejected': mix.rejected += 1; break;
+        case 'rejected':
+          mix.rejected += 1;
+          break;
         case 'expired':
-        case 'missing': mix.missing += 1; break;
-        case 'na': break;
+        case 'missing':
+          mix.missing += 1;
+          break;
+        case 'na':
+          break;
       }
     }
   }
@@ -580,7 +671,7 @@ export function getSlotStatusMix(ayCode: string): Promise<SlotStatusMix> {
   return unstable_cache(
     loadSlotStatusMixUncached,
     ['p-files', 'slot-status-mix', ayCode],
-    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS },
+    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS }
   )(ayCode);
 }
 
@@ -596,11 +687,15 @@ export type RevisionsHeatmapCell = {
 
 async function loadRevisionsHeatmapUncached(
   ayCode: string,
-  weeks: number,
+  weeks: number
 ): Promise<RevisionsHeatmapCell[]> {
   const service = createServiceClient();
   const today = new Date();
-  const since = new Date(today.getFullYear(), today.getMonth(), today.getDate() - weeks * 7 + 1);
+  const since = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate() - weeks * 7 + 1
+  );
   const sinceIso = since.toISOString();
 
   const { data } = await service
@@ -623,7 +718,11 @@ async function loadRevisionsHeatmapUncached(
   // chronological order which the card uses to lay out 7 days × N weeks.
   const out: RevisionsHeatmapCell[] = [];
   for (let i = 0; i < weeks * 7; i += 1) {
-    const d = new Date(since.getFullYear(), since.getMonth(), since.getDate() + i);
+    const d = new Date(
+      since.getFullYear(),
+      since.getMonth(),
+      since.getDate() + i
+    );
     const iso = d.toISOString().slice(0, 10);
     out.push({ date: iso, count: buckets.get(iso) ?? 0 });
   }
@@ -632,12 +731,12 @@ async function loadRevisionsHeatmapUncached(
 
 export function getRevisionsHeatmap(
   ayCode: string,
-  weeks = 12,
+  weeks = 12
 ): Promise<RevisionsHeatmapCell[]> {
   return unstable_cache(
     () => loadRevisionsHeatmapUncached(ayCode, weeks),
     ['p-files', 'revisions-heatmap', ayCode, String(weeks)],
-    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS },
+    { tags: tag(ayCode), revalidate: CACHE_TTL_SECONDS }
   )();
 }
 
@@ -652,7 +751,7 @@ export type PFilesPriorityInput = {
 };
 
 export async function getPFilesPriority(
-  input: PFilesPriorityInput,
+  input: PFilesPriorityInput
 ): Promise<PriorityPayload> {
   // Pull all items so totals (overdue + dueSoon) are honest.
   // The display is capped to 4 chips below; the tail goes into the CTA count.
@@ -660,14 +759,17 @@ export async function getPFilesPriority(
 
   const overdue = expiring.filter((r) => r.daysUntilExpiry < 0);
   const dueSoon = expiring.filter(
-    (r) => r.daysUntilExpiry >= 0 && r.daysUntilExpiry <= 14,
+    (r) => r.daysUntilExpiry >= 0 && r.daysUntilExpiry <= 14
   );
   const total = overdue.length + dueSoon.length;
 
   // Chips: top 4 most urgent items. Each chip is one student.
   const top = expiring.slice(0, 4).map((row) => ({
     label: row.studentName,
-    count: row.daysUntilExpiry < 0 ? Math.abs(row.daysUntilExpiry) : row.daysUntilExpiry,
+    count:
+      row.daysUntilExpiry < 0
+        ? Math.abs(row.daysUntilExpiry)
+        : row.daysUntilExpiry,
     href: `/p-files/${row.enroleeNumber}`,
     severity:
       row.daysUntilExpiry < 0
@@ -679,19 +781,26 @@ export async function getPFilesPriority(
 
   return {
     eyebrow: 'Priority · today',
-    title: total === 0 ? 'No documents need urgent attention' : 'Documents needing attention',
+    title:
+      total === 0
+        ? 'No documents need urgent attention'
+        : 'Documents needing attention',
     headline: {
       value: total,
       label:
         overdue.length > 0
           ? `${overdue.length} overdue · ${dueSoon.length} due in 14 days`
           : `due in the next 14 days`,
-      severity: overdue.length > 0 ? 'bad' : dueSoon.length > 0 ? 'warn' : 'good',
+      severity:
+        overdue.length > 0 ? 'bad' : dueSoon.length > 0 ? 'warn' : 'good',
     },
     chips: top,
     cta:
       total > 0
-        ? { label: 'View all expiring', href: `/p-files?ay=${input.ayCode}&status=expired` }
+        ? {
+            label: 'View all expiring',
+            href: `/p-files?ay=${input.ayCode}&status=expired`,
+          }
         : undefined,
     iconKey: 'alert',
   };

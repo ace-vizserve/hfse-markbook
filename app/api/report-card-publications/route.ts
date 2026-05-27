@@ -18,12 +18,15 @@ export async function GET(request: NextRequest) {
 
   let q = supabase
     .from('report_card_publications')
-    .select('id, section_id, term_id, publish_from, publish_until, published_by, created_at, updated_at')
+    .select(
+      'id, section_id, term_id, publish_from, publish_until, published_by, created_at, updated_at'
+    )
     .order('created_at', { ascending: false });
   if (sectionId) q = q.eq('section_id', sectionId);
 
   const { data, error } = await q;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ publications: data ?? [] });
 }
 
@@ -35,18 +38,23 @@ export async function POST(request: NextRequest) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
-  const body = (await request.json().catch(() => null)) as
-    | {
-        section_id?: string;
-        term_id?: string;
-        publish_from?: string;
-        publish_until?: string;
-      }
-    | null;
-  if (!body?.section_id || !body.term_id || !body.publish_from || !body.publish_until) {
+  const body = (await request.json().catch(() => null)) as {
+    section_id?: string;
+    term_id?: string;
+    publish_from?: string;
+    publish_until?: string;
+  } | null;
+  if (
+    !body?.section_id ||
+    !body.term_id ||
+    !body.publish_from ||
+    !body.publish_until
+  ) {
     return NextResponse.json(
-      { error: 'section_id, term_id, publish_from, publish_until are required' },
-      { status: 400 },
+      {
+        error: 'section_id, term_id, publish_from, publish_until are required',
+      },
+      { status: 400 }
     );
   }
 
@@ -58,7 +66,7 @@ export async function POST(request: NextRequest) {
   if (until <= from) {
     return NextResponse.json(
       { error: 'publish_until must be after publish_from' },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -76,17 +84,24 @@ export async function POST(request: NextRequest) {
         published_by: publishedBy,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: 'section_id,term_id' },
+      { onConflict: 'section_id,term_id' }
     )
     .select('id, section_id, term_id, publish_from, publish_until, notified_at')
     .single();
   if (error || !data) {
-    return NextResponse.json({ error: error?.message ?? 'upsert failed' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message ?? 'upsert failed' },
+      { status: 500 }
+    );
   }
 
   // Parent email notification â€” best-effort, idempotent via notified_at.
   // Only sends on first insert (or after a manual notified_at = NULL reset).
-  let notification: { sent: number; failed: number; recipients: number } | null = null;
+  let notification: {
+    sent: number;
+    failed: number;
+    recipients: number;
+  } | null = null;
   if (data.notified_at == null) {
     notification = await emailParentsPublication({
       sectionId: data.section_id,

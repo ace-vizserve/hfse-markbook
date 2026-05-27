@@ -32,7 +32,9 @@ function studentHref(row: MovementEvent): string {
 
 // ─── Columns ────────────────────────────────────────────────────────────────
 
-function buildColumns(includeAllAYs: boolean): ColumnDef<MovementEvent, unknown>[] {
+function buildColumns(
+  includeAllAYs: boolean
+): ColumnDef<MovementEvent, unknown>[] {
   return [
     {
       id: 'student',
@@ -60,7 +62,9 @@ function buildColumns(includeAllAYs: boolean): ColumnDef<MovementEvent, unknown>
       accessorKey: 'ayCode',
       header: 'Year',
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{row.original.ayCode || '—'}</span>
+        <span className="text-sm text-muted-foreground">
+          {row.original.ayCode || '—'}
+        </span>
       ),
       enableSorting: true,
     },
@@ -90,10 +94,15 @@ function buildColumns(includeAllAYs: boolean): ColumnDef<MovementEvent, unknown>
         if (row.original.kind !== 'withdrawn') {
           return <span className="text-muted-foreground">—</span>;
         }
-        const reason = (row.original as Extract<MovementEvent, { kind: 'withdrawn' }>).reason;
+        const reason = (
+          row.original as Extract<MovementEvent, { kind: 'withdrawn' }>
+        ).reason;
         if (!reason) return <span className="text-muted-foreground">—</span>;
         return (
-          <span className="max-w-[200px] truncate text-sm text-foreground" title={reason}>
+          <span
+            className="max-w-[200px] truncate text-sm text-foreground"
+            title={reason}
+          >
             {reason}
           </span>
         );
@@ -105,12 +114,16 @@ function buildColumns(includeAllAYs: boolean): ColumnDef<MovementEvent, unknown>
       accessorKey: 'level',
       header: 'Level',
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{row.original.level || '—'}</span>
+        <span className="text-sm text-muted-foreground">
+          {row.original.level || '—'}
+        </span>
       ),
       enableSorting: true,
       filterFn: (row, _id, value) => {
         if (!value || (Array.isArray(value) && value.length === 0)) return true;
-        return Array.isArray(value) ? value.includes(row.original.level ?? '') : row.original.level === value;
+        return Array.isArray(value)
+          ? value.includes(row.original.level ?? '')
+          : row.original.level === value;
       },
     },
     {
@@ -139,7 +152,9 @@ function buildColumns(includeAllAYs: boolean): ColumnDef<MovementEvent, unknown>
           {/* Force local-time parse — bare ISO 'yyyy-mm-dd' strings are
               parsed as UTC midnight, which can shift one day in non-SGT
               rendering contexts. Slash form is parsed as local time. */}
-          {new Date(row.original.date.replace(/-/g, '/')).toLocaleDateString('en-SG')}
+          {new Date(row.original.date.replace(/-/g, '/')).toLocaleDateString(
+            'en-SG'
+          )}
         </span>
       ),
       enableSorting: true,
@@ -168,15 +183,21 @@ type Props = {
   reasonSearch?: string;
 };
 
-const KIND_TABS: Array<{ value: string; label: string; kind?: MovementKind }> = [
-  { value: 'all', label: 'All' },
-  { value: 'section-transfer', label: 'Transfers', kind: 'section-transfer' },
-  { value: 'withdrawn', label: 'Withdrawn', kind: 'withdrawn' },
-  { value: 'late-enrolled', label: 'Late enrolled', kind: 'late-enrolled' },
-  { value: 're-enrolled', label: 'Re-enrolled', kind: 're-enrolled' },
-];
+const KIND_TABS: Array<{ value: string; label: string; kind?: MovementKind }> =
+  [
+    { value: 'all', label: 'All' },
+    { value: 'section-transfer', label: 'Transfers', kind: 'section-transfer' },
+    { value: 'withdrawn', label: 'Withdrawn', kind: 'withdrawn' },
+    { value: 'late-enrolled', label: 'Late enrolled', kind: 'late-enrolled' },
+    { value: 're-enrolled', label: 'Re-enrolled', kind: 're-enrolled' },
+  ];
 
-export function MovementsTable({ events, ayCode, includeAllAYs, reasonSearch }: Props) {
+export function MovementsTable({
+  events,
+  ayCode,
+  includeAllAYs,
+  reasonSearch,
+}: Props) {
   const router = useRouter();
   const [, startTransition] = React.useTransition();
   const [localReason, setLocalReason] = React.useState(reasonSearch ?? '');
@@ -206,7 +227,10 @@ export function MovementsTable({ events, ayCode, includeAllAYs, reasonSearch }: 
     }, 300);
   };
 
-  const columns = React.useMemo(() => buildColumns(includeAllAYs), [includeAllAYs]);
+  const columns = React.useMemo(
+    () => buildColumns(includeAllAYs),
+    [includeAllAYs]
+  );
 
   const statusTabs = KIND_TABS.map((t) => ({
     value: t.value,
@@ -257,7 +281,9 @@ export function MovementsTable({ events, ayCode, includeAllAYs, reasonSearch }: 
       <DataTable<MovementEvent>
         data={events}
         columns={columns}
-        getRowId={(row) => `${row.ayCode}-${row.date}-${row.enroleeNumber}-${row.kind}`}
+        getRowId={(row) =>
+          `${row.ayCode}-${row.date}-${row.enroleeNumber}-${row.kind}`
+        }
         searchKeys={[
           (r) => r.studentName,
           (r) => r.studentNumber ?? '',

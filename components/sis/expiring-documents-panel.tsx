@@ -48,7 +48,9 @@ export function ExpiringDocumentsPanel({
         {empty ? (
           <div className="flex h-[300px] flex-col items-center justify-center gap-2 text-center">
             <CalendarClock className="size-6 text-muted-foreground/60" />
-            <p className="text-sm font-medium text-foreground">Nothing expiring soon</p>
+            <p className="text-sm font-medium text-foreground">
+              Nothing expiring soon
+            </p>
             <p className="max-w-xs text-xs text-muted-foreground">
               No passports or passes expire in the next {windowDays} days.
             </p>
@@ -62,7 +64,9 @@ export function ExpiringDocumentsPanel({
                   className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-accent/40"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{r.studentName}</p>
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {r.studentName}
+                    </p>
                     <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
                       {r.slotLabel} · {r.expiryDate}
                     </p>

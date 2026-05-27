@@ -35,7 +35,7 @@ export type SowInstanceRow = {
 export async function getSowInstance(
   sectionId: string,
   subjectId: string,
-  termId: string,
+  termId: string
 ): Promise<SowInstanceRow | null> {
   const service = createServiceClient();
   const { data } = await service
@@ -48,7 +48,9 @@ export async function getSowInstance(
   return (data as SowInstanceRow | null) ?? null;
 }
 
-export async function getSowInstanceById(id: string): Promise<SowInstanceRow | null> {
+export async function getSowInstanceById(
+  id: string
+): Promise<SowInstanceRow | null> {
   const service = createServiceClient();
   const { data } = await service
     .from('sow_class_instances')
@@ -81,7 +83,7 @@ export type SowReviewRow = {
 export async function getSowReviewRows(
   termId: string,
   subjectId: string,
-  ayCode: string,
+  ayCode: string
 ): Promise<SowReviewRow[]> {
   const service = createServiceClient();
 
@@ -107,7 +109,9 @@ export async function getSowReviewRows(
   // SOW instances for this subject × term, across all sections
   const { data: instances } = await service
     .from('sow_class_instances')
-    .select('id, section_id, ww_labels, pt_labels, topics, copied_from_section_id, copied_at, updated_at')
+    .select(
+      'id, section_id, ww_labels, pt_labels, topics, copied_from_section_id, copied_at, updated_at'
+    )
     .in('section_id', sectionIds)
     .eq('subject_id', subjectId)
     .eq('term_id', termId);
@@ -126,22 +130,29 @@ export async function getSowReviewRows(
     (instances ?? []).map((i) => {
       const row = i as ReviewInstanceRow;
       return [row.section_id, row];
-    }),
+    })
   );
 
   // Copied-from section names
   const copiedFromIds = [
     ...new Set(
       (instances ?? [])
-        .map((i) => (i as { copied_from_section_id: string | null }).copied_from_section_id)
-        .filter((id): id is string => !!id),
+        .map(
+          (i) =>
+            (i as { copied_from_section_id: string | null })
+              .copied_from_section_id
+        )
+        .filter((id): id is string => !!id)
     ),
   ];
   const { data: copiedFromSections } = copiedFromIds.length
     ? await service.from('sections').select('id, name').in('id', copiedFromIds)
     : { data: [] };
   const copiedFromName = new Map(
-    (copiedFromSections ?? []).map((s) => [(s as { id: string }).id, (s as { name: string }).name]),
+    (copiedFromSections ?? []).map((s) => [
+      (s as { id: string }).id,
+      (s as { name: string }).name,
+    ])
   );
 
   // Form adviser names for each section
@@ -152,25 +163,31 @@ export async function getSowReviewRows(
     .eq('role', 'form_adviser');
 
   const adviserUserIds = [
-    ...new Set((assignments ?? []).map((a) => (a as { teacher_user_id: string }).teacher_user_id)),
+    ...new Set(
+      (assignments ?? []).map(
+        (a) => (a as { teacher_user_id: string }).teacher_user_id
+      )
+    ),
   ];
   const adviserNameById = new Map<string, string>();
   await Promise.all(
     adviserUserIds.map(async (uid) => {
       try {
         const { data: u } = await service.auth.admin.getUserById(uid);
-        const meta = u?.user?.user_metadata as { display_name?: string } | undefined;
+        const meta = u?.user?.user_metadata as
+          | { display_name?: string }
+          | undefined;
         adviserNameById.set(uid, meta?.display_name ?? u?.user?.email ?? uid);
       } catch {
         adviserNameById.set(uid, uid);
       }
-    }),
+    })
   );
   const adviserBySectionId = new Map(
     (assignments ?? []).map((a) => {
       const row = a as { section_id: string; teacher_user_id: string };
       return [row.section_id, adviserNameById.get(row.teacher_user_id) ?? null];
-    }),
+    })
   );
 
   // Grading sheets existence
@@ -181,14 +198,25 @@ export async function getSowReviewRows(
     .eq('subject_id', subjectId)
     .eq('term_id', termId);
   const sectionsWithSheets = new Set(
-    (sheetRows ?? []).map((s) => (s as { section_id: string }).section_id),
+    (sheetRows ?? []).map((s) => (s as { section_id: string }).section_id)
   );
 
   const LEVEL_ORDER: Record<string, number> = {
-    'YS-L': 0, 'YS-J': 1, 'YS-S': 2,
-    P1: 3, P2: 4, P3: 5, P4: 6, P5: 7, P6: 8,
-    S1: 9, S2: 10, S3: 11, S4: 12,
-    CS1: 13, CS2: 14,
+    'YS-L': 0,
+    'YS-J': 1,
+    'YS-S': 2,
+    P1: 3,
+    P2: 4,
+    P3: 5,
+    P4: 6,
+    P5: 7,
+    P6: 8,
+    S1: 9,
+    S2: 10,
+    S3: 11,
+    S4: 12,
+    CS1: 13,
+    CS2: 14,
   };
 
   const rows = sections.map((s) => {
@@ -196,7 +224,10 @@ export async function getSowReviewRows(
       id: string;
       name: string;
       level_id: string;
-      levels: { id: string; code: string; label: string } | { id: string; code: string; label: string }[] | null;
+      levels:
+        | { id: string; code: string; label: string }
+        | { id: string; code: string; label: string }[]
+        | null;
     };
     const lvl = Array.isArray(sec.levels) ? sec.levels[0] : sec.levels;
     const inst = instanceBySection.get(sec.id);
@@ -216,7 +247,7 @@ export async function getSowReviewRows(
         .sort((a, b) => a.sort_order - b.sort_order)
         .map((t) => t.text),
       copied_from_section_name: inst?.copied_from_section_id
-        ? copiedFromName.get(inst.copied_from_section_id) ?? null
+        ? (copiedFromName.get(inst.copied_from_section_id) ?? null)
         : null,
       copied_at: inst?.copied_at ?? null,
       last_edited_at: inst?.updated_at ?? null,
@@ -225,7 +256,8 @@ export async function getSowReviewRows(
   });
 
   rows.sort((a, b) => {
-    const lo = (LEVEL_ORDER[a.level_code] ?? 99) - (LEVEL_ORDER[b.level_code] ?? 99);
+    const lo =
+      (LEVEL_ORDER[a.level_code] ?? 99) - (LEVEL_ORDER[b.level_code] ?? 99);
     if (lo !== 0) return lo;
     return a.section_name.localeCompare(b.section_name);
   });
@@ -249,7 +281,7 @@ export type ImportableSource = {
 export async function listImportableSowSources(
   currentSectionId: string,
   subjectId: string,
-  termId: string,
+  termId: string
 ): Promise<ImportableSource[]> {
   const service = createServiceClient();
 
@@ -261,7 +293,10 @@ export async function listImportableSowSources(
     .maybeSingle();
   if (!sec) return [];
 
-  const { level_id, academic_year_id } = sec as { level_id: string; academic_year_id: string };
+  const { level_id, academic_year_id } = sec as {
+    level_id: string;
+    academic_year_id: string;
+  };
 
   // All same-level sections in the same AY
   const { data: peers } = await service
@@ -287,7 +322,7 @@ export async function listImportableSowSources(
   if (!instances?.length) return [];
 
   const instBySection = new Map(
-    (instances ?? []).map((i) => [(i as { section_id: string }).section_id, i]),
+    (instances ?? []).map((i) => [(i as { section_id: string }).section_id, i])
   );
 
   return peers
@@ -321,14 +356,23 @@ export async function listImportableSowSources(
 
 /** Peer sheets for the Import Labels dialog: same (level × subject × term), different section. */
 export async function listImportableSheetSources(
-  currentSheetId: string,
-): Promise<Array<{ sheet_id: string; section_name: string; ww_count: number; pt_count: number }>> {
+  currentSheetId: string
+): Promise<
+  Array<{
+    sheet_id: string;
+    section_name: string;
+    ww_count: number;
+    pt_count: number;
+  }>
+> {
   const service = createServiceClient();
 
   // Find the current sheet's section, level, subject, term
   const { data: sheet } = await service
     .from('grading_sheets')
-    .select('section_id, subject_id, term_id, sections(level_id, academic_year_id, name)')
+    .select(
+      'section_id, subject_id, term_id, sections(level_id, academic_year_id, name)'
+    )
     .eq('id', currentSheetId)
     .maybeSingle();
   if (!sheet) return [];
@@ -337,7 +381,10 @@ export async function listImportableSheetSources(
     section_id: string;
     subject_id: string;
     term_id: string;
-    sections: { level_id: string; academic_year_id: string; name: string } | { level_id: string; academic_year_id: string; name: string }[] | null;
+    sections:
+      | { level_id: string; academic_year_id: string; name: string }
+      | { level_id: string; academic_year_id: string; name: string }[]
+      | null;
   };
   const sec = Array.isArray(s.sections) ? s.sections[0] : s.sections;
   if (!sec) return [];
@@ -364,13 +411,19 @@ export async function listImportableSheetSources(
 
   if (!peerSheets?.length) return [];
 
-  const sectionName = new Map(peers.map((p) => {
-    const peer = p as { id: string; name: string };
-    return [peer.id, peer.name];
-  }));
+  const sectionName = new Map(
+    peers.map((p) => {
+      const peer = p as { id: string; name: string };
+      return [peer.id, peer.name];
+    })
+  );
 
   return peerSheets.map((ps) => {
-    const row = ps as { id: string; section_id: string; slot_labels: { ww?: unknown[]; pt?: unknown[] } | null };
+    const row = ps as {
+      id: string;
+      section_id: string;
+      slot_labels: { ww?: unknown[]; pt?: unknown[] } | null;
+    };
     const labels = row.slot_labels ?? { ww: [], pt: [] };
     return {
       sheet_id: row.id,

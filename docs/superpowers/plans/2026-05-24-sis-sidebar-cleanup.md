@@ -12,9 +12,9 @@
 
 ## Files
 
-| Action | File | Change |
-|---|---|---|
-| Modify | `lib/auth/roles.ts` | Delete the Year Setup NavSection from SIS_NAV |
+| Action | File                                   | Change                                                  |
+| ------ | -------------------------------------- | ------------------------------------------------------- |
+| Modify | `lib/auth/roles.ts`                    | Delete the Year Setup NavSection from SIS_NAV           |
 | Modify | `components/sis/ay-readiness-pill.tsx` | Remove complete===total guard; add done-state pill body |
 
 ---
@@ -22,6 +22,7 @@
 ### Task 1: Remove the Year Setup nav group
 
 **Files:**
+
 - Modify: `lib/auth/roles.ts` (lines ~347–359, the Year Setup NavSection)
 
 - [ ] **Step 1: Delete the Year Setup block from SIS_NAV**
@@ -30,31 +31,71 @@ In `lib/auth/roles.ts`, find `SIS_NAV` (around line 345). Delete the entire Year
 
 ```ts
 const SIS_NAV: NavSection[] = [
-  { items: [{ href: "/sis", label: "Admin Hub" }] },
+  { items: [{ href: '/sis', label: 'Admin Hub' }] },
   // ← Year Setup block deleted entirely
   {
-    label: "Organisation",
+    label: 'Organisation',
     items: [
-      { href: "/sis/admin/sow",            label: "Scheme of Work",       requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/admin/discount-codes", label: "Discount Codes",       requiresRoles: ["registrar", "school_admin", "superadmin"] },
-      { href: "/sis/admin/subjects",       label: "Subject Weights",      requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/admin/template",       label: "Class Template",       requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/sync-students",        label: "Sync from Admissions", requiresRoles: ["registrar", "school_admin", "superadmin"] },
+      {
+        href: '/sis/admin/sow',
+        label: 'Scheme of Work',
+        requiresRoles: ['school_admin', 'superadmin'],
+      },
+      {
+        href: '/sis/admin/discount-codes',
+        label: 'Discount Codes',
+        requiresRoles: ['registrar', 'school_admin', 'superadmin'],
+      },
+      {
+        href: '/sis/admin/subjects',
+        label: 'Subject Weights',
+        requiresRoles: ['school_admin', 'superadmin'],
+      },
+      {
+        href: '/sis/admin/template',
+        label: 'Class Template',
+        requiresRoles: ['school_admin', 'superadmin'],
+      },
+      {
+        href: '/sis/sync-students',
+        label: 'Sync from Admissions',
+        requiresRoles: ['registrar', 'school_admin', 'superadmin'],
+      },
     ],
   },
   {
-    label: "Access",
+    label: 'Access',
     items: [
-      { href: "/sis/admin/approvers", label: "Approvers", requiresRoles: ["superadmin"] },
-      { href: "/sis/admin/users",     label: "Users",     requiresRoles: ["superadmin"] },
+      {
+        href: '/sis/admin/approvers',
+        label: 'Approvers',
+        requiresRoles: ['superadmin'],
+      },
+      {
+        href: '/sis/admin/users',
+        label: 'Users',
+        requiresRoles: ['superadmin'],
+      },
     ],
   },
   {
-    label: "System",
+    label: 'System',
     items: [
-      { href: "/sis/admin/school-config", label: "School Config", requiresRoles: ["school_admin", "superadmin"] },
-      { href: "/sis/admin/settings",      label: "Settings",      requiresRoles: ["superadmin"] },
-      { href: "/sis/audit-log",           label: "Audit Log",     requiresRoles: ["school_admin", "superadmin"] },
+      {
+        href: '/sis/admin/school-config',
+        label: 'School Config',
+        requiresRoles: ['school_admin', 'superadmin'],
+      },
+      {
+        href: '/sis/admin/settings',
+        label: 'Settings',
+        requiresRoles: ['superadmin'],
+      },
+      {
+        href: '/sis/audit-log',
+        label: 'Audit Log',
+        requiresRoles: ['school_admin', 'superadmin'],
+      },
     ],
   },
 ];
@@ -80,6 +121,7 @@ git commit -m "refactor(sis): remove Year Setup nav group — pill is the canoni
 ### Task 2: Make the AyReadinessPill always visible + add done-state
 
 **Files:**
+
 - Modify: `components/sis/ay-readiness-pill.tsx`
 
 - [ ] **Step 1: Remove the complete===total early-return guard**
@@ -97,7 +139,9 @@ Replace the `pct` declaration and the pill trigger's inner `<div className="text
 
 ```tsx
 const done = readiness.complete === readiness.total;
-const pct  = done ? 100 : Math.round((readiness.complete / readiness.total) * 100);
+const pct = done
+  ? 100
+  : Math.round((readiness.complete / readiness.total) * 100);
 ```
 
 Replace the `<div className="text-left">` block inside the trigger button with:
@@ -113,7 +157,7 @@ Replace the `<div className="text-left">` block inside the trigger button with:
     </p>
   ) : (
     <p className="mt-0.5 font-serif text-sm font-semibold leading-tight text-foreground">
-      {readiness.complete}{" "}
+      {readiness.complete}{' '}
       <span className="font-sans text-[13px] font-normal text-muted-foreground">
         of {readiness.total} complete
       </span>
@@ -122,11 +166,11 @@ Replace the `<div className="text-left">` block inside the trigger button with:
   <div className="mt-1.5 h-1 w-28 overflow-hidden rounded-full bg-muted">
     <div
       className={[
-        "h-full rounded-full transition-all duration-500",
+        'h-full rounded-full transition-all duration-500',
         done
-          ? "bg-brand-mint"
-          : "bg-gradient-to-r from-brand-indigo to-brand-mint",
-      ].join(" ")}
+          ? 'bg-brand-mint'
+          : 'bg-gradient-to-r from-brand-indigo to-brand-mint',
+      ].join(' ')}
       style={{ width: `${pct}%` }}
     />
   </div>

@@ -27,6 +27,7 @@ Use the Grep tool, pattern: from\(.(grade_change_requests|grading_sheets|grade_e
 - [ ] **Step 2: For each hit, read the surrounding 30 lines and classify.**
 
 Each call must satisfy at least one of:
+
 - Filters by AY via section/term join (`.eq('...academic_year_id', currentAyId)` on an inner join, OR `.eq('term_id', termId)` where `termId` was resolved from the current AY).
 - Is keyed on a record-level identifier whose AY is already constrained (e.g. `.eq('grading_sheet_id', sheetId)` where the sheet was fetched in an AY-scoped query upstream).
 - Is intentionally cross-AY: Records via `studentNumber` (KD #4), `/records/movements?scope=all`, audit-log timeline, parent portal cross-AY publication list (KD #65), `/admissions/upcoming` (KD #77).
@@ -49,6 +50,7 @@ git commit -m "docs: spec + plan for AY-scope audit + unsynced visibility pass"
 ### Task B1: Replace dashboard chip with Alert banner (operational)
 
 **Files:**
+
 - Modify: `app/(records)/records/page.tsx:182-191` (the existing amber `<Link>` chip)
 
 - [ ] **Step 1: Read the current chip block.**
@@ -56,16 +58,18 @@ git commit -m "docs: spec + plan for AY-scope audit + unsynced visibility pass"
 Existing code at lines 182-191:
 
 ```tsx
-{unsyncedCount > 0 && isCurrentAy && (
-  <Link
-    href="/records/unsynced"
-    className="inline-flex items-center gap-2 self-start rounded-full border border-brand-amber/40 bg-gradient-to-b from-brand-amber/15 to-brand-amber/5 px-3 py-1 text-sm font-medium text-brand-amber transition-colors hover:bg-brand-amber/20"
-  >
-    <AlertTriangle className="size-3.5" />
-    {unsyncedCount.toLocaleString("en-SG")} student
-    {unsyncedCount === 1 ? "" : "s"} without a class section — review
-  </Link>
-)}
+{
+  unsyncedCount > 0 && isCurrentAy && (
+    <Link
+      href="/records/unsynced"
+      className="inline-flex items-center gap-2 self-start rounded-full border border-brand-amber/40 bg-gradient-to-b from-brand-amber/15 to-brand-amber/5 px-3 py-1 text-sm font-medium text-brand-amber transition-colors hover:bg-brand-amber/20"
+    >
+      <AlertTriangle className="size-3.5" />
+      {unsyncedCount.toLocaleString('en-SG')} student
+      {unsyncedCount === 1 ? '' : 's'} without a class section — review
+    </Link>
+  );
+}
 ```
 
 - [ ] **Step 2: Add the Alert + Button imports if not present.**
@@ -73,7 +77,12 @@ Existing code at lines 182-191:
 Verify the page already imports from `@/components/ui/alert`. If not, add:
 
 ```tsx
-import { Alert, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert';
+import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
+  AlertTitle,
+} from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 ```
 
@@ -84,37 +93,47 @@ import { Button } from '@/components/ui/button';
 Replace lines 182-191 with:
 
 ```tsx
-{unsyncedCount > 0 && isCurrentAy && isOperational && (
-  <Alert variant="warning">
-    <AlertIcon variant="warning">
-      <AlertTriangle className="size-4" />
-    </AlertIcon>
-    <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-      <div className="space-y-0.5">
-        <AlertTitle>
-          {unsyncedCount.toLocaleString('en-SG')} enrolled student
-          {unsyncedCount === 1 ? '' : 's'} without a class section
-        </AlertTitle>
-        <AlertDescription>
-          Grading and attendance can&rsquo;t reach them until a section is assigned.
-        </AlertDescription>
+{
+  unsyncedCount > 0 && isCurrentAy && isOperational && (
+    <Alert variant="warning">
+      <AlertIcon variant="warning">
+        <AlertTriangle className="size-4" />
+      </AlertIcon>
+      <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="space-y-0.5">
+          <AlertTitle>
+            {unsyncedCount.toLocaleString('en-SG')} enrolled student
+            {unsyncedCount === 1 ? '' : 's'} without a class section
+          </AlertTitle>
+          <AlertDescription>
+            Grading and attendance can&rsquo;t reach them until a section is
+            assigned.
+          </AlertDescription>
+        </div>
+        <Button
+          asChild
+          size="sm"
+          variant="outline"
+          className="self-start sm:self-auto"
+        >
+          <Link href="/records/unsynced">Review queue</Link>
+        </Button>
       </div>
-      <Button asChild size="sm" variant="outline" className="self-start sm:self-auto">
-        <Link href="/records/unsynced">Review queue</Link>
-      </Button>
-    </div>
-  </Alert>
-)}
-{unsyncedCount > 0 && isCurrentAy && !isOperational && (
-  <Link
-    href="/records/unsynced"
-    className="inline-flex items-center gap-2 self-start rounded-full border border-brand-amber/40 bg-gradient-to-b from-brand-amber/15 to-brand-amber/5 px-3 py-1 text-sm font-medium text-brand-amber transition-colors hover:bg-brand-amber/20"
-  >
-    <AlertTriangle className="size-3.5" />
-    {unsyncedCount.toLocaleString('en-SG')} student
-    {unsyncedCount === 1 ? '' : 's'} without a class section — review
-  </Link>
-)}
+    </Alert>
+  );
+}
+{
+  unsyncedCount > 0 && isCurrentAy && !isOperational && (
+    <Link
+      href="/records/unsynced"
+      className="inline-flex items-center gap-2 self-start rounded-full border border-brand-amber/40 bg-gradient-to-b from-brand-amber/15 to-brand-amber/5 px-3 py-1 text-sm font-medium text-brand-amber transition-colors hover:bg-brand-amber/20"
+    >
+      <AlertTriangle className="size-3.5" />
+      {unsyncedCount.toLocaleString('en-SG')} student
+      {unsyncedCount === 1 ? '' : 's'} without a class section — review
+    </Link>
+  );
+}
 ```
 
 - [ ] **Step 4: Run `npx next build`.**
@@ -141,6 +160,7 @@ git commit -m "feat(records): promote unsynced-students chip to Alert banner for
 ### Task B2: Add banner above the Records student list
 
 **Files:**
+
 - Modify: `app/(records)/records/students/page.tsx` — insert a banner between the hero `</header>` and the `<section>` containing the summary stats.
 
 - [ ] **Step 1: Add the imports.**
@@ -149,7 +169,12 @@ At the top of the file alongside the existing imports:
 
 ```tsx
 import { AlertTriangle } from 'lucide-react';
-import { Alert, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert';
+import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
+  AlertTitle,
+} from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { countUnsyncedEnrolledStudents } from '@/lib/sis/unsynced-students';
 ```
@@ -183,28 +208,36 @@ const isOperational = sessionUser.role === 'registrar';
 The hero block ends with `</header>` around line 122 (before the `{/* Summary stats */}` section). Insert immediately after the closing tag:
 
 ```tsx
-{unsyncedCount > 0 && isCurrentAy && isOperational && (
-  <Alert variant="warning">
-    <AlertIcon variant="warning">
-      <AlertTriangle className="size-4" />
-    </AlertIcon>
-    <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-      <div className="space-y-0.5">
-        <AlertTitle>
-          {unsyncedCount.toLocaleString('en-SG')} enrolled student
-          {unsyncedCount === 1 ? '' : 's'} not in this list
-        </AlertTitle>
-        <AlertDescription>
-          They&rsquo;re enrolled in admissions but don&rsquo;t yet have a class section,
-          so they&rsquo;re stranded outside grading and attendance.
-        </AlertDescription>
+{
+  unsyncedCount > 0 && isCurrentAy && isOperational && (
+    <Alert variant="warning">
+      <AlertIcon variant="warning">
+        <AlertTriangle className="size-4" />
+      </AlertIcon>
+      <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="space-y-0.5">
+          <AlertTitle>
+            {unsyncedCount.toLocaleString('en-SG')} enrolled student
+            {unsyncedCount === 1 ? '' : 's'} not in this list
+          </AlertTitle>
+          <AlertDescription>
+            They&rsquo;re enrolled in admissions but don&rsquo;t yet have a
+            class section, so they&rsquo;re stranded outside grading and
+            attendance.
+          </AlertDescription>
+        </div>
+        <Button
+          asChild
+          size="sm"
+          variant="outline"
+          className="self-start sm:self-auto"
+        >
+          <Link href="/records/unsynced">Review queue</Link>
+        </Button>
       </div>
-      <Button asChild size="sm" variant="outline" className="self-start sm:self-auto">
-        <Link href="/records/unsynced">Review queue</Link>
-      </Button>
-    </div>
-  </Alert>
-)}
+    </Alert>
+  );
+}
 ```
 
 The wording deliberately reframes the count for the list page: "X students not in this list" makes the gap concrete to a registrar who's scanning the roster and expects to see everyone enrolled.
@@ -233,6 +266,7 @@ git commit -m "feat(records): banner above student list when unsynced students e
 ## Self-Review
 
 Spec coverage:
+
 - Phase A (audit) → Task A1.
 - Phase B (Records dashboard banner) → Task B1.
 - Phase B (Records list banner) → Task B2.
@@ -243,6 +277,7 @@ Placeholder scan: no `TBD` / `TODO` / "implement later". Every code block is com
 Type consistency: `Alert` / `AlertIcon` / `AlertTitle` / `AlertDescription` are the named exports from `components/ui/alert.tsx` (verified by reading the eval-checklist page that uses the same imports). `countUnsyncedEnrolledStudents(ayCode: string): Promise<number>` is the existing loader.
 
 Acceptance criteria from spec:
+
 - Dashboard banner for registrar when count > 0 and current AY ✓ (B1).
 - Students list banner same gate ✓ (B2).
 - Sidebar badge unchanged ✓.

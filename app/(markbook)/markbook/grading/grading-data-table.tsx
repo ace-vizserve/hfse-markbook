@@ -6,7 +6,11 @@ import { type ColumnDef } from '@tanstack/react-table';
 
 import { Badge } from '@/components/ui/badge';
 import { DataTable } from '@/components/ui/data-table';
-import { type FacetConfig, type StatusTabConfig, type MeScopeConfig } from '@/components/ui/data-table/types';
+import {
+  type FacetConfig,
+  type StatusTabConfig,
+  type MeScopeConfig,
+} from '@/components/ui/data-table/types';
 import { IdentifierLink } from '@/components/ui/identifier-link';
 import { SortableHeader } from '@/components/ui/data-table/sortable-header';
 
@@ -37,12 +41,15 @@ export type GradingSheetRow = {
   graded_pct: number;
 };
 
-const BADGE_CLASS = 'h-6 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]';
+const BADGE_CLASS =
+  'h-6 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]';
 
 const COLUMNS: ColumnDef<GradingSheetRow>[] = [
   {
     accessorKey: 'level',
-    header: ({ column }) => <SortableHeader column={column}>Level</SortableHeader>,
+    header: ({ column }) => (
+      <SortableHeader column={column}>Level</SortableHeader>
+    ),
     cell: ({ row }) => (
       <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
         {row.original.level}
@@ -50,12 +57,16 @@ const COLUMNS: ColumnDef<GradingSheetRow>[] = [
     ),
     filterFn: (row, id, value) => {
       if (!value || (Array.isArray(value) && value.length === 0)) return true;
-      return Array.isArray(value) ? value.includes(row.getValue(id)) : row.getValue(id) === value;
+      return Array.isArray(value)
+        ? value.includes(row.getValue(id))
+        : row.getValue(id) === value;
     },
   },
   {
     accessorKey: 'section',
-    header: ({ column }) => <SortableHeader column={column}>Section</SortableHeader>,
+    header: ({ column }) => (
+      <SortableHeader column={column}>Section</SortableHeader>
+    ),
     cell: ({ row }) => (
       <IdentifierLink href={`/markbook/grading/${row.original.id}`}>
         {row.original.section}
@@ -64,20 +75,32 @@ const COLUMNS: ColumnDef<GradingSheetRow>[] = [
   },
   {
     accessorKey: 'subject',
-    header: ({ column }) => <SortableHeader column={column}>Subject</SortableHeader>,
-    cell: ({ row }) => <span className="text-foreground">{row.original.subject}</span>,
+    header: ({ column }) => (
+      <SortableHeader column={column}>Subject</SortableHeader>
+    ),
+    cell: ({ row }) => (
+      <span className="text-foreground">{row.original.subject}</span>
+    ),
     filterFn: (row, id, value) => {
       if (!value || (Array.isArray(value) && value.length === 0)) return true;
-      return Array.isArray(value) ? value.includes(row.getValue(id)) : row.getValue(id) === value;
+      return Array.isArray(value)
+        ? value.includes(row.getValue(id))
+        : row.getValue(id) === value;
     },
   },
   {
     accessorKey: 'term',
-    header: ({ column }) => <SortableHeader column={column}>Term</SortableHeader>,
-    cell: ({ row }) => <span className="text-muted-foreground">{row.original.term}</span>,
+    header: ({ column }) => (
+      <SortableHeader column={column}>Term</SortableHeader>
+    ),
+    cell: ({ row }) => (
+      <span className="text-muted-foreground">{row.original.term}</span>
+    ),
     filterFn: (row, id, value) => {
       if (!value || (Array.isArray(value) && value.length === 0)) return true;
-      return Array.isArray(value) ? value.includes(row.getValue(id)) : row.getValue(id) === value;
+      return Array.isArray(value)
+        ? value.includes(row.getValue(id))
+        : row.getValue(id) === value;
     },
   },
   {
@@ -90,7 +113,8 @@ const COLUMNS: ColumnDef<GradingSheetRow>[] = [
     ),
     filterFn: (row, _id, value) => {
       if (!value || (Array.isArray(value) && value.length === 0)) return true;
-      const cell = row.original.school_level === 'primary' ? 'Primary' : 'Secondary';
+      const cell =
+        row.original.school_level === 'primary' ? 'Primary' : 'Secondary';
       return Array.isArray(value) ? value.includes(cell) : cell === value;
     },
   },
@@ -112,7 +136,9 @@ const COLUMNS: ColumnDef<GradingSheetRow>[] = [
     accessorKey: 'teacher',
     header: 'Teacher',
     cell: ({ row }) => (
-      <span className="text-muted-foreground">{row.original.teacher ?? '—'}</span>
+      <span className="text-muted-foreground">
+        {row.original.teacher ?? '—'}
+      </span>
     ),
     filterFn: (row, id, value) => {
       if (!value || (Array.isArray(value) && value.length === 0)) return true;
@@ -127,7 +153,9 @@ const COLUMNS: ColumnDef<GradingSheetRow>[] = [
     accessorKey: 'form_adviser',
     header: 'Form adviser',
     cell: ({ row }) => (
-      <span className="text-muted-foreground">{row.original.form_adviser ?? '—'}</span>
+      <span className="text-muted-foreground">
+        {row.original.form_adviser ?? '—'}
+      </span>
     ),
     filterFn: (row, id, value) => {
       if (!value || (Array.isArray(value) && value.length === 0)) return true;
@@ -138,7 +166,9 @@ const COLUMNS: ColumnDef<GradingSheetRow>[] = [
   },
   {
     accessorKey: 'graded_pct',
-    header: ({ column }) => <SortableHeader column={column}>Graded</SortableHeader>,
+    header: ({ column }) => (
+      <SortableHeader column={column}>Graded</SortableHeader>
+    ),
     cell: ({ row }) => {
       const { graded_count, total_students, graded_pct } = row.original;
       if (total_students === 0) {
@@ -149,8 +179,13 @@ const COLUMNS: ColumnDef<GradingSheetRow>[] = [
         );
       }
       const variant =
-        graded_pct === 100 ? 'success' : graded_pct >= 50 ? 'warning' : 'blocked';
-      const icon = graded_pct === 100 ? <CheckCircle2 className="h-3 w-3" /> : null;
+        graded_pct === 100
+          ? 'success'
+          : graded_pct >= 50
+            ? 'warning'
+            : 'blocked';
+      const icon =
+        graded_pct === 100 ? <CheckCircle2 className="h-3 w-3" /> : null;
       return (
         <Badge variant={variant} className={BADGE_CLASS}>
           {icon}
@@ -244,44 +279,73 @@ export function GradingDataTable({
   // Include "(unassigned)" when any row has a null value for that column —
   // this mirrors the canonical reference's faceted-unique-values check.
   const teacherValueOptions = useMemo<string[] | undefined>(() => {
-    if (!teacherOptions && !data.some((r) => r.teacher == null || r.teacher === '')) {
+    if (
+      !teacherOptions &&
+      !data.some((r) => r.teacher == null || r.teacher === '')
+    ) {
       return undefined; // let shell derive from faceted unique values
     }
-    const hasUnassigned = data.some((r) => r.teacher == null || r.teacher === '');
-    const named = teacherOptions && teacherOptions.length > 0
-      ? [...teacherOptions]
-      : Array.from(new Set(data.map((r) => r.teacher).filter((v): v is string => !!v))).sort();
+    const hasUnassigned = data.some(
+      (r) => r.teacher == null || r.teacher === ''
+    );
+    const named =
+      teacherOptions && teacherOptions.length > 0
+        ? [...teacherOptions]
+        : Array.from(
+            new Set(data.map((r) => r.teacher).filter((v): v is string => !!v))
+          ).sort();
     return hasUnassigned ? [...named, '(unassigned)'] : named;
   }, [data, teacherOptions]);
 
   const adviserValueOptions = useMemo<string[] | undefined>(() => {
-    if (!formAdviserOptions && !data.some((r) => r.form_adviser == null || r.form_adviser === '')) {
+    if (
+      !formAdviserOptions &&
+      !data.some((r) => r.form_adviser == null || r.form_adviser === '')
+    ) {
       return undefined;
     }
-    const hasUnassigned = data.some((r) => r.form_adviser == null || r.form_adviser === '');
-    const named = formAdviserOptions && formAdviserOptions.length > 0
-      ? [...formAdviserOptions]
-      : Array.from(new Set(data.map((r) => r.form_adviser).filter((v): v is string => !!v))).sort();
+    const hasUnassigned = data.some(
+      (r) => r.form_adviser == null || r.form_adviser === ''
+    );
+    const named =
+      formAdviserOptions && formAdviserOptions.length > 0
+        ? [...formAdviserOptions]
+        : Array.from(
+            new Set(
+              data.map((r) => r.form_adviser).filter((v): v is string => !!v)
+            )
+          ).sort();
     return hasUnassigned ? [...named, '(unassigned)'] : named;
   }, [data, formAdviserOptions]);
 
-  const facets = useMemo<FacetConfig[]>(() => [
-    { columnId: 'school_level', label: 'School level', valueOptions: ['Primary', 'Secondary'] },
-    { columnId: 'level', label: 'Level' },
-    { columnId: 'is_examinable', label: 'Format', valueOptions: ['Examinable', 'Non-examinable'] },
-    { columnId: 'subject', label: 'Subject' },
-    { columnId: 'term', label: 'Term' },
-    {
-      columnId: 'teacher',
-      label: 'Teacher',
-      valueOptions: teacherValueOptions,
-    },
-    {
-      columnId: 'form_adviser',
-      label: 'Form adviser',
-      valueOptions: adviserValueOptions,
-    },
-  ], [teacherValueOptions, adviserValueOptions]);
+  const facets = useMemo<FacetConfig[]>(
+    () => [
+      {
+        columnId: 'school_level',
+        label: 'School level',
+        valueOptions: ['Primary', 'Secondary'],
+      },
+      { columnId: 'level', label: 'Level' },
+      {
+        columnId: 'is_examinable',
+        label: 'Format',
+        valueOptions: ['Examinable', 'Non-examinable'],
+      },
+      { columnId: 'subject', label: 'Subject' },
+      { columnId: 'term', label: 'Term' },
+      {
+        columnId: 'teacher',
+        label: 'Teacher',
+        valueOptions: teacherValueOptions,
+      },
+      {
+        columnId: 'form_adviser',
+        label: 'Form adviser',
+        valueOptions: adviserValueOptions,
+      },
+    ],
+    [teacherValueOptions, adviserValueOptions]
+  );
 
   const meScope = useMemo<MeScopeConfig<GradingSheetRow> | undefined>(() => {
     if (!currentUserId) return undefined;
@@ -299,7 +363,14 @@ export function GradingDataTable({
       data={data}
       columns={COLUMNS}
       getRowId={(row) => row.id}
-      searchKeys={['section', 'subject', 'term', 'teacher', 'form_adviser', 'level']}
+      searchKeys={[
+        'section',
+        'subject',
+        'term',
+        'teacher',
+        'form_adviser',
+        'level',
+      ]}
       initialSearch={initialSearch}
       searchPlaceholder="Search section, subject, teacher…"
       facets={facets}
@@ -309,7 +380,11 @@ export function GradingDataTable({
         { id: 'level', desc: false },
         { id: 'section', desc: false },
       ]}
-      initialColumnVisibility={{ form_adviser: false, school_level: false, is_examinable: false }}
+      initialColumnVisibility={{
+        form_adviser: false,
+        school_level: false,
+        is_examinable: false,
+      }}
       pageSize={20}
       pageSizeOptions={[10, 20, 50, 100]}
       url={{ enabled: true }}

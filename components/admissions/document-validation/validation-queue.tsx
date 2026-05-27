@@ -4,7 +4,11 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import type { ColumnDef } from '@tanstack/react-table';
-import { CalendarClock, GalleryHorizontalEndIcon, ListIcon } from 'lucide-react';
+import {
+  CalendarClock,
+  GalleryHorizontalEndIcon,
+  ListIcon,
+} from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,7 +36,8 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
   const [mode, setMode] = React.useState<'table' | 'triage'>('table');
   const [rows, setRows] = React.useState<ValidationQueueRow[]>(initialRows);
   const [actingKey, setActingKey] = React.useState<string | null>(null);
-  const [rejectTarget, setRejectTarget] = React.useState<ValidationQueueRow | null>(null);
+  const [rejectTarget, setRejectTarget] =
+    React.useState<ValidationQueueRow | null>(null);
 
   // Sync from server when initialRows changes (router.refresh after a successful action).
   React.useEffect(() => {
@@ -46,13 +51,15 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
 
   const rowKey = React.useCallback(
     (r: ValidationQueueRow) => `${r.enroleeNumber}::${r.slotKey}`,
-    [],
+    []
   );
 
   const patchStatus = React.useCallback(
     async (
       row: ValidationQueueRow,
-      body: { status: 'Valid' } | { status: 'Rejected'; rejectionReason: string },
+      body:
+        | { status: 'Valid' }
+        | { status: 'Rejected'; rejectionReason: string }
     ): Promise<boolean> => {
       const key = rowKey(row);
       setActingKey(key);
@@ -63,10 +70,12 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
             method: 'PATCH',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify(body),
-          },
+          }
         );
         if (!res.ok) {
-          const err = (await res.json().catch(() => ({}))) as { error?: string };
+          const err = (await res.json().catch(() => ({}))) as {
+            error?: string;
+          };
           toast.error(err.error ?? 'Could not save the change.');
           return false;
         }
@@ -78,20 +87,24 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
         router.refresh();
         return true;
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'Could not save the change.');
+        toast.error(
+          e instanceof Error ? e.message : 'Could not save the change.'
+        );
         return false;
       } finally {
         setActingKey(null);
       }
     },
-    [ayCode, router, rowKey],
+    [ayCode, router, rowKey]
   );
 
   const columns = React.useMemo<ColumnDef<ValidationQueueRow>[]>(
     () => [
       {
         accessorKey: 'fullName',
-        header: ({ column }) => <SortableHeader column={column}>Student</SortableHeader>,
+        header: ({ column }) => (
+          <SortableHeader column={column}>Student</SortableHeader>
+        ),
         cell: ({ row }) => (
           <div className="space-y-0.5">
             <IdentifierLink
@@ -107,11 +120,15 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
       },
       {
         accessorKey: 'slotLabel',
-        header: ({ column }) => <SortableHeader column={column}>Document</SortableHeader>,
+        header: ({ column }) => (
+          <SortableHeader column={column}>Document</SortableHeader>
+        ),
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
             <Badge variant="secondary">{row.original.slotLabel}</Badge>
-            {row.original.isExpirable && <Badge variant="warning">Expires</Badge>}
+            {row.original.isExpirable && (
+              <Badge variant="warning">Expires</Badge>
+            )}
           </div>
         ),
       },
@@ -119,7 +136,10 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
         accessorKey: 'owner',
         header: 'Owner',
         cell: ({ row }) => (
-          <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-wider">
+          <Badge
+            variant="outline"
+            className="font-mono text-[10px] uppercase tracking-wider"
+          >
             {row.original.owner}
           </Badge>
         ),
@@ -127,7 +147,9 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
       },
       {
         accessorKey: 'levelApplied',
-        header: ({ column }) => <SortableHeader column={column}>Level</SortableHeader>,
+        header: ({ column }) => (
+          <SortableHeader column={column}>Level</SortableHeader>
+        ),
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
             {row.original.levelApplied ?? '—'}
@@ -169,7 +191,9 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
                 size="sm"
                 variant="default"
                 disabled={busy}
-                onClick={() => void patchStatus(row.original, { status: 'Valid' })}
+                onClick={() =>
+                  void patchStatus(row.original, { status: 'Valid' })
+                }
               >
                 Approve
               </Button>
@@ -186,7 +210,7 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
         },
       },
     ],
-    [actingKey, ayCode, patchStatus, rowKey],
+    [actingKey, ayCode, patchStatus, rowKey]
   );
 
   // Facets: document type, owner, level, app status. The shell renders
@@ -198,7 +222,7 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
       { columnId: 'levelApplied', label: 'Level' },
       { columnId: 'applicationStatus', label: 'App status' },
     ],
-    [],
+    []
   );
 
   // Status tabs split by application-pipeline stage so registrars can
@@ -224,7 +248,7 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
         predicate: (r) => r.applicationStatus === 'Processing',
       },
     ],
-    [],
+    []
   );
 
   // Expires-only toggle (passport / pass / parent-pass slots). The
@@ -238,7 +262,7 @@ export function ValidationQueue({ rows: initialRows, ayCode }: Props) {
       icon: CalendarClock,
       predicate: (r) => r.isExpirable,
     }),
-    [],
+    []
   );
 
   // Toolbar: mode toggle.

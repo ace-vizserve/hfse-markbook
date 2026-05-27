@@ -15,18 +15,19 @@ A Student Information System for HFSE International School (Singapore). It centr
 
 ## Key People
 
-| Person | Role | Relevance |
-|--------|------|-----------|
+| Person         | Role                                 | Relevance                                                          |
+| -------------- | ------------------------------------ | ------------------------------------------------------------------ |
 | Joann Clemente | Registrar / Grading Admin (Vizserve) | Manages all grading sheets, locks/unlocks, applies post-lock edits |
-| Ace Guevarra | Developer (Vizserve) | Building this app |
-| Kurt Arciga | Developer (Vizserve) | Supporting development |
-| Amier Ordonez | IT Lead (HFSE) | Client-side decision maker |
-| Ms. Chandana | Principal (HFSE) | Approves grade adjustments and lock schedules |
-| Ms. Tin | Academic Head (HFSE) | Co-approves adjustments |
+| Ace Guevarra   | Developer (Vizserve)                 | Building this app                                                  |
+| Kurt Arciga    | Developer (Vizserve)                 | Supporting development                                             |
+| Amier Ordonez  | IT Lead (HFSE)                       | Client-side decision maker                                         |
+| Ms. Chandana   | Principal (HFSE)                     | Approves grade adjustments and lock schedules                      |
+| Ms. Tin        | Academic Head (HFSE)                 | Co-approves adjustments                                            |
 
 ## The Problem Being Solved
 
 The current system is Google Sheets with:
+
 - Formulas that break when teachers copy-paste into locked cells
 - Manual setup of new sheets every term (clearing scores, re-linking formulas)
 - No audit trail for who changed what
@@ -38,14 +39,14 @@ Beyond grading, student data lived scattered across Directus, Google Drive folde
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend + Backend API | Next.js (App Router) |
-| Database | Supabase (PostgreSQL) |
-| Deployment | Vercel |
-| PDF Generation | Python + FastAPI + WeasyPrint |
-| PDF Deployment | Render or Railway (free tier) |
-| Student Data Source | Supabase admissions DB (existing) |
+| Layer                  | Technology                        |
+| ---------------------- | --------------------------------- |
+| Frontend + Backend API | Next.js (App Router)              |
+| Database               | Supabase (PostgreSQL)             |
+| Deployment             | Vercel                            |
+| PDF Generation         | Python + FastAPI + WeasyPrint     |
+| PDF Deployment         | Render or Railway (free tier)     |
+| Student Data Source    | Supabase admissions DB (existing) |
 
 ## High-Level Architecture
 

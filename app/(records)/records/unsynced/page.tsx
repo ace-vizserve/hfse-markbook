@@ -25,7 +25,11 @@ export default async function UnsyncedStudentsPage() {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
   const role = sessionUser.role ?? '';
-  if (role !== 'registrar' && role !== 'school_admin' && role !== 'superadmin') {
+  if (
+    role !== 'registrar' &&
+    role !== 'school_admin' &&
+    role !== 'superadmin'
+  ) {
     redirect('/');
   }
 
@@ -34,7 +38,8 @@ export default async function UnsyncedStudentsPage() {
     return (
       <PageShell>
         <div className="rounded-xl border border-hairline bg-card p-6 text-center text-sm text-muted-foreground">
-          No active academic year is set. Ask a system administrator to set one in Settings.
+          No active academic year is set. Ask a system administrator to set one
+          in Settings.
         </div>
       </PageShell>
     );
@@ -50,10 +55,15 @@ export default async function UnsyncedStudentsPage() {
     new Set(
       rows
         .map((r) => r.levelApplied)
-        .filter((s): s is string => typeof s === 'string' && s.trim().length > 0),
-    ),
+        .filter(
+          (s): s is string => typeof s === 'string' && s.trim().length > 0
+        )
+    )
   );
-  const sectionsByLevel = await loadSectionsForLevels(currentAy.ay_code, uniqueLevels);
+  const sectionsByLevel = await loadSectionsForLevels(
+    currentAy.ay_code,
+    uniqueLevels
+  );
 
   const countLabel =
     rows.length === 0
@@ -70,8 +80,9 @@ export default async function UnsyncedStudentsPage() {
           Students needing setup
         </h1>
         <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          Enrolled students who don&rsquo;t yet have access to grading and attendance because a class
-          section hasn&rsquo;t been assigned. {countLabel}
+          Enrolled students who don&rsquo;t yet have access to grading and
+          attendance because a class section hasn&rsquo;t been assigned.{' '}
+          {countLabel}
         </p>
       </header>
 
@@ -103,7 +114,7 @@ export default async function UnsyncedStudentsPage() {
 
 async function loadSectionsForLevels(
   ayCode: string,
-  levelLabels: string[],
+  levelLabels: string[]
 ): Promise<Record<string, AssignableSection[]>> {
   if (levelLabels.length === 0) return {};
   const service = createServiceClient();
@@ -158,7 +169,10 @@ async function loadSectionsForLevels(
     .in('section_id', sectionIds);
   const activeCountById = new Map<string, number>();
   for (const r of (activeRows ?? []) as Array<{ section_id: string }>) {
-    activeCountById.set(r.section_id, (activeCountById.get(r.section_id) ?? 0) + 1);
+    activeCountById.set(
+      r.section_id,
+      (activeCountById.get(r.section_id) ?? 0) + 1
+    );
   }
 
   // Bucket sections per level id, then unpack back into the per-input-label map.

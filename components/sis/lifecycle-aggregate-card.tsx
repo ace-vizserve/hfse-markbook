@@ -38,7 +38,9 @@ const REMAINDER_ORDER: string[] = [
   'new-applications',
 ];
 
-function sortBuckets(buckets: LifecycleBlockerBucket[]): LifecycleBlockerBucket[] {
+function sortBuckets(
+  buckets: LifecycleBlockerBucket[]
+): LifecycleBlockerBucket[] {
   const byKey = new Map(buckets.map((b) => [b.key, b] as const));
   const ordered: LifecycleBlockerBucket[] = [];
   const ungated = byKey.get('ungated-to-enroll');
@@ -68,7 +70,9 @@ export function LifecycleAggregateCard({
   const visible = sorted.filter((b) => b.count > 0);
 
   // Group visible rows into three labelled sections.
-  const actionRows = visible.filter((b) => b.severity === 'bad' || b.severity === 'warn');
+  const actionRows = visible.filter(
+    (b) => b.severity === 'bad' || b.severity === 'warn'
+  );
   const infoRows = visible.filter((b) => b.severity === 'info');
   const goodRows = visible.filter((b) => b.severity === 'good');
 

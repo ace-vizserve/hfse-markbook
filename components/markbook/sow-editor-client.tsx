@@ -4,7 +4,11 @@ import { useState } from 'react';
 import { ArrowDown, ArrowUp, Info, Loader2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import type { ImportableSource, SowLabel, SowTopic } from '@/lib/sis/sow/queries';
+import type {
+  ImportableSource,
+  SowLabel,
+  SowTopic,
+} from '@/lib/sis/sow/queries';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -61,10 +65,14 @@ export function SowEditorClient({
   maxWwSlots,
   maxPtSlots,
 }: Props) {
-  const [wwLabels, setWwLabels] = useState<EditableLabel[]>(toEditable(initialWwLabels));
-  const [ptLabels, setPtLabels] = useState<EditableLabel[]>(toEditable(initialPtLabels));
+  const [wwLabels, setWwLabels] = useState<EditableLabel[]>(
+    toEditable(initialWwLabels)
+  );
+  const [ptLabels, setPtLabels] = useState<EditableLabel[]>(
+    toEditable(initialPtLabels)
+  );
   const [topics, setTopics] = useState<string[]>(
-    initialTopics.sort((a, b) => a.sort_order - b.sort_order).map((t) => t.text),
+    initialTopics.sort((a, b) => a.sort_order - b.sort_order).map((t) => t.text)
   );
   const [sowId, setSowId] = useState<string | null>(instanceId);
   const [isDirty, setIsDirty] = useState(false);
@@ -92,9 +100,11 @@ export function SowEditorClient({
     setter: typeof setWwLabels,
     idx: number,
     field: keyof EditableLabel,
-    value: string,
+    value: string
   ) {
-    setter((prev) => prev.map((l, i) => (i === idx ? { ...l, [field]: value } : l)));
+    setter((prev) =>
+      prev.map((l, i) => (i === idx ? { ...l, [field]: value } : l))
+    );
     markDirty();
   }
 
@@ -135,8 +145,14 @@ export function SowEditorClient({
         section_id: sectionId,
         subject_id: subjectId,
         term_id: termId,
-        ww_labels: wwLabels.map((l) => ({ label: l.label, page: l.page || null })),
-        pt_labels: ptLabels.map((l) => ({ label: l.label, page: l.page || null })),
+        ww_labels: wwLabels.map((l) => ({
+          label: l.label,
+          page: l.page || null,
+        })),
+        pt_labels: ptLabels.map((l) => ({
+          label: l.label,
+          page: l.page || null,
+        })),
         topics: topics
           .map((text, i) => ({ text, sort_order: i }))
           .filter((t) => t.text.trim()),
@@ -188,7 +204,9 @@ export function SowEditorClient({
     setWwLabels(toEditable(data.ww_labels ?? []));
     setPtLabels(toEditable(data.pt_labels ?? []));
     setTopics(
-      (data.topics ?? []).sort((a, b) => a.sort_order - b.sort_order).map((t) => t.text),
+      (data.topics ?? [])
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map((t) => t.text)
     );
     setIsDirty(false);
     toast.success(`Imported from ${source.section_name}`);
@@ -200,7 +218,9 @@ export function SowEditorClient({
     if (!sowId) return;
     setIsSyncing(true);
     try {
-      const res = await fetch(`/api/sow/${sowId}/sync-to-grading-sheet`, { method: 'POST' });
+      const res = await fetch(`/api/sow/${sowId}/sync-to-grading-sheet`, {
+        method: 'POST',
+      });
       if (res.status === 423) {
         toast.error('Grading sheet is locked and cannot be updated.');
         return;
@@ -221,7 +241,9 @@ export function SowEditorClient({
     if (!sowId) return;
     setIsSeeding(true);
     try {
-      const res = await fetch(`/api/sow/${sowId}/sync-to-eval`, { method: 'POST' });
+      const res = await fetch(`/api/sow/${sowId}/sync-to-eval`, {
+        method: 'POST',
+      });
       if (!res.ok) {
         toast.error('Failed to seed evaluation topics');
         return;
@@ -230,7 +252,7 @@ export function SowEditorClient({
       toast.success(
         data.inserted > 0
           ? `${data.inserted} topics seeded into evaluation checklist`
-          : 'Topics already up to date in evaluation checklist',
+          : 'Topics already up to date in evaluation checklist'
       );
     } finally {
       setIsSeeding(false);
@@ -247,7 +269,8 @@ export function SowEditorClient({
         <Alert>
           <Info className="size-4" />
           <AlertDescription>
-            Imported from <span className="font-medium">{copiedFromSectionName}</span>
+            Imported from{' '}
+            <span className="font-medium">{copiedFromSectionName}</span>
             {copiedAt && (
               <>
                 {' '}
@@ -259,14 +282,19 @@ export function SowEditorClient({
                 })}
               </>
             )}
-            . You can edit the content below; the original section is unaffected.
+            . You can edit the content below; the original section is
+            unaffected.
           </AlertDescription>
         </Alert>
       )}
 
       {/* Action toolbar */}
       <div className="flex flex-wrap items-center gap-2">
-        <Button onClick={save} disabled={isSaving || !isDirty} className="gap-2">
+        <Button
+          onClick={save}
+          disabled={isSaving || !isDirty}
+          className="gap-2"
+        >
           {isSaving && <Loader2 className="size-3.5 animate-spin" />}
           Save SOW
         </Button>
@@ -281,7 +309,8 @@ export function SowEditorClient({
                 <SelectItem key={src.sow_id} value={src.sow_id}>
                   {src.section_name}
                   <span className="ml-1.5 text-muted-foreground">
-                    ({src.ww_count}WW · {src.pt_count}PT · {src.topic_count} topics)
+                    ({src.ww_count}WW · {src.pt_count}PT · {src.topic_count}{' '}
+                    topics)
                   </span>
                 </SelectItem>
               ))}
@@ -294,7 +323,13 @@ export function SowEditorClient({
             variant="outline"
             onClick={syncToSheet}
             disabled={!canSyncSheet || isSyncing || isSheetLocked}
-            title={isSheetLocked ? 'Grading sheet is locked' : isDirty ? 'Save first' : undefined}
+            title={
+              isSheetLocked
+                ? 'Grading sheet is locked'
+                : isDirty
+                  ? 'Save first'
+                  : undefined
+            }
             className="gap-2"
           >
             {isSyncing && <Loader2 className="size-3.5 animate-spin" />}
@@ -318,7 +353,8 @@ export function SowEditorClient({
 
       {isDirty && (
         <p className="text-xs text-muted-foreground">
-          You have unsaved changes. Save before syncing to grading sheet or seeding topics.
+          You have unsaved changes. Save before syncing to grading sheet or
+          seeding topics.
         </p>
       )}
 
@@ -345,7 +381,9 @@ export function SowEditorClient({
       {/* Evaluation Topics */}
       <Card>
         <CardHeader className="pb-4">
-          <CardTitle className="font-serif text-lg">Evaluation Topics</CardTitle>
+          <CardTitle className="font-serif text-lg">
+            Evaluation Topics
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {topics.map((text, idx) => (
@@ -390,7 +428,12 @@ export function SowEditorClient({
               </Button>
             </div>
           ))}
-          <Button variant="outline" size="sm" onClick={addTopic} className="gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={addTopic}
+            className="gap-1.5"
+          >
             <Plus className="size-3.5" />
             Add topic
           </Button>
@@ -426,7 +469,9 @@ function LabelEditor({
       </CardHeader>
       <CardContent className="space-y-3">
         {labels.length === 0 && (
-          <p className="text-sm text-muted-foreground">No {title.toLowerCase()} added yet.</p>
+          <p className="text-sm text-muted-foreground">
+            No {title.toLowerCase()} added yet.
+          </p>
         )}
         {labels.map((lbl, idx) => (
           <div key={idx} className="flex items-end gap-3">
@@ -461,13 +506,20 @@ function LabelEditor({
           </div>
         ))}
         {canAdd && (
-          <Button variant="outline" size="sm" onClick={onAdd} className="gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onAdd}
+            className="gap-1.5"
+          >
             <Plus className="size-3.5" />
             Add {title === 'Written Works' ? 'WW' : 'PT'} activity
           </Button>
         )}
         {!canAdd && (
-          <p className="text-xs text-muted-foreground">Maximum {maxSlots} activities reached.</p>
+          <p className="text-xs text-muted-foreground">
+            Maximum {maxSlots} activities reached.
+          </p>
         )}
       </CardContent>
     </Card>

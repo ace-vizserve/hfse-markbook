@@ -18,7 +18,8 @@ import {
 import { Sheet } from '@/components/ui/sheet';
 import type { CompassionateUsageRow } from '@/lib/attendance/drill';
 
-const BADGE_BASE = 'h-6 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]';
+const BADGE_BASE =
+  'h-6 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]';
 
 /**
  * CompassionateQuotaCard — top students approaching or over their compassionate
@@ -47,7 +48,7 @@ export function CompassionateQuotaCard({
           if (a.isOverQuota !== b.isOverQuota) return a.isOverQuota ? -1 : 1;
           return b.used - a.used;
         }),
-    [data],
+    [data]
   );
 
   const overCount = atRisk.filter((r) => r.isOverQuota).length;
@@ -102,9 +103,16 @@ export function CompassionateQuotaCard({
               </thead>
               <tbody>
                 {atRisk.slice(0, 8).map((r) => (
-                  <tr key={r.studentSectionId} className="border-b border-border/60">
-                    <td className="py-2 font-medium text-foreground">{r.studentName}</td>
-                    <td className="py-2 text-muted-foreground">{r.sectionName}</td>
+                  <tr
+                    key={r.studentSectionId}
+                    className="border-b border-border/60"
+                  >
+                    <td className="py-2 font-medium text-foreground">
+                      {r.studentName}
+                    </td>
+                    <td className="py-2 text-muted-foreground">
+                      {r.sectionName}
+                    </td>
                     <td className="py-2 text-right font-mono tabular-nums">
                       {r.used}/{r.allowance}
                     </td>

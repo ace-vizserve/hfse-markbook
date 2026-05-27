@@ -43,7 +43,12 @@ export const UpdateUserSchema = z
     role: RoleEnum.optional(),
     disabled: z.boolean().optional(),
     displayName: z.string().trim().max(120).optional(),
-    email: z.string().trim().toLowerCase().email('Valid email required').optional(),
+    email: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email('Valid email required')
+      .optional(),
     password: z.string().min(8).max(72).optional(),
   })
   .refine(
@@ -53,6 +58,6 @@ export const UpdateUserSchema = z
       v.displayName !== undefined ||
       v.email !== undefined ||
       v.password !== undefined,
-    { message: 'At least one field required' },
+    { message: 'At least one field required' }
   );
 export type UpdateUserInput = z.infer<typeof UpdateUserSchema>;

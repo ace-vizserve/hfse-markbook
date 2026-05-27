@@ -1,6 +1,12 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, History, ListChecks, Users } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  History,
+  ListChecks,
+  Users,
+} from 'lucide-react';
 
 import { createClient, getSessionUser } from '@/lib/supabase/server';
 import { getStaffDisplayEntries } from '@/lib/auth/staff-list';
@@ -13,7 +19,10 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
-import { AttendanceAuditLogDataTable, type AttendanceAuditRow } from './audit-log-data-table';
+import {
+  AttendanceAuditLogDataTable,
+  type AttendanceAuditRow,
+} from './audit-log-data-table';
 
 export default async function AttendanceAuditLogPage({
   searchParams,
@@ -41,7 +50,10 @@ export default async function AttendanceAuditLogPage({
   const [{ data: rows, count, error }, staffEntries] = await Promise.all([
     supabase
       .from('audit_log')
-      .select('id, actor_email, action, entity_type, entity_id, context, created_at', { count: 'exact' })
+      .select(
+        'id, actor_email, action, entity_type, entity_id, context, created_at',
+        { count: 'exact' }
+      )
       .like('action', 'attendance.%')
       .order('created_at', { ascending: false })
       .range(from, to),
@@ -75,7 +87,9 @@ export default async function AttendanceAuditLogPage({
   }));
 
   const uniqueActors = new Set(entries.map((r) => r.actor_email)).size;
-  const corrections = entries.filter((r) => r.action === 'attendance.daily.correct').length;
+  const corrections = entries.filter(
+    (r) => r.action === 'attendance.daily.correct'
+  ).length;
 
   return (
     <PageShell>
@@ -96,8 +110,9 @@ export default async function AttendanceAuditLogPage({
             Daily-attendance history.
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            Every attendance mark, correction, and bulk import since this section started. Corrections
-            add a new entry rather than overwriting the original — past entries are kept on the record.
+            Every attendance mark, correction, and bulk import since this
+            section started. Corrections add a new entry rather than overwriting
+            the original — past entries are kept on the record.
           </p>
         </div>
       </header>
@@ -119,7 +134,9 @@ export default async function AttendanceAuditLogPage({
             description="Unique actors"
             value={uniqueActors.toLocaleString('en-SG')}
             icon={Users}
-            footerTitle={uniqueActors === 1 ? '1 user' : `${uniqueActors} users`}
+            footerTitle={
+              uniqueActors === 1 ? '1 user' : `${uniqueActors} users`
+            }
             footerDetail="Distinct accounts in this window"
           />
           <StatCard
@@ -141,14 +158,21 @@ export default async function AttendanceAuditLogPage({
             <p className="font-serif text-base font-semibold leading-tight text-foreground">
               Could not load audit entries
             </p>
-            <p className="text-sm leading-relaxed text-muted-foreground">{error.message}</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {error.message}
+            </p>
           </div>
         </div>
       )}
 
       <AttendanceAuditLogDataTable
         rows={entries}
-        pagination={{ page, pageSize: PAGE_SIZE, totalPages, total: count ?? 0 }}
+        pagination={{
+          page,
+          pageSize: PAGE_SIZE,
+          totalPages,
+          total: count ?? 0,
+        }}
       />
     </PageShell>
   );

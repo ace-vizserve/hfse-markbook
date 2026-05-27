@@ -19,7 +19,7 @@ export async function mergeGradingSheetSlots(
   service: ReturnType<typeof createServiceClient>,
   sheetId: string,
   newWw: SowLabel[],
-  newPt: SowLabel[],
+  newPt: SowLabel[]
 ): Promise<{ error: string | null; preserved: number }> {
   const { data: sheet } = await service
     .from('grading_sheets')
@@ -33,23 +33,37 @@ export async function mergeGradingSheetSlots(
     .select('ww_scores, pt_scores')
     .eq('grading_sheet_id', sheetId);
 
-  const current = (sheet.slot_labels ?? { ww: [], pt: [], qa: null }) as SowSlotLabels;
+  const current = (sheet.slot_labels ?? {
+    ww: [],
+    pt: [],
+    qa: null,
+  }) as SowSlotLabels;
 
   const wwHasScore = (i: number) =>
-    (entries ?? []).some((e) => ((e.ww_scores ?? []) as (number | null)[])[i] != null);
+    (entries ?? []).some(
+      (e) => ((e.ww_scores ?? []) as (number | null)[])[i] != null
+    );
   const ptHasScore = (i: number) =>
-    (entries ?? []).some((e) => ((e.pt_scores ?? []) as (number | null)[])[i] != null);
+    (entries ?? []).some(
+      (e) => ((e.pt_scores ?? []) as (number | null)[])[i] != null
+    );
 
   let preservedCount = 0;
   const mergedWw = ((sheet.ww_totals ?? []) as number[]).map((_, i) => {
     if (i < newWw.length && newWw[i]) return { ...newWw[i], date: null };
-    if (wwHasScore(i)) { preservedCount++; return current.ww[i] ?? null; }
+    if (wwHasScore(i)) {
+      preservedCount++;
+      return current.ww[i] ?? null;
+    }
     return null;
   });
 
   const mergedPt = ((sheet.pt_totals ?? []) as number[]).map((_, i) => {
     if (i < newPt.length && newPt[i]) return { ...newPt[i], date: null };
-    if (ptHasScore(i)) { preservedCount++; return current.pt[i] ?? null; }
+    if (ptHasScore(i)) {
+      preservedCount++;
+      return current.pt[i] ?? null;
+    }
     return null;
   });
 
@@ -68,8 +82,13 @@ export async function mergeGradingSheetSlots(
  */
 export async function mergeEvaluationTopics(
   service: ReturnType<typeof createServiceClient>,
-  scope: { term_id: string; subject_id: string; section_id: string; sow_instance_id?: string | null },
-  newTopics: SowTopic[],
+  scope: {
+    term_id: string;
+    subject_id: string;
+    section_id: string;
+    sow_instance_id?: string | null;
+  },
+  newTopics: SowTopic[]
 ): Promise<{ preserved: number; deleted: number; inserted: number }> {
   const { data: existingItems } = await service
     .from('evaluation_checklist_items')
@@ -88,7 +107,7 @@ export async function mergeEvaluationTopics(
           sow_instance_id: scope.sow_instance_id ?? null,
           item_text: t.text,
           sort_order: t.sort_order,
-        })),
+        }))
       );
     }
     return { preserved: 0, deleted: 0, inserted: newTopics.length };
@@ -97,21 +116,35 @@ export async function mergeEvaluationTopics(
   const { data: responses } = await service
     .from('evaluation_checklist_responses')
     .select('item_id')
-    .in('item_id', existingItems.map((i) => (i as { id: string }).id))
+    .in(
+      'item_id',
+      existingItems.map((i) => (i as { id: string }).id)
+    )
     .not('rating', 'is', null);
 
-  const respondedIds = new Set((responses ?? []).map((r) => (r as { item_id: string }).item_id));
-  const toKeep = existingItems.filter((i) => respondedIds.has((i as { id: string }).id));
-  const toDelete = existingItems.filter((i) => !respondedIds.has((i as { id: string }).id));
+  const respondedIds = new Set(
+    (responses ?? []).map((r) => (r as { item_id: string }).item_id)
+  );
+  const toKeep = existingItems.filter((i) =>
+    respondedIds.has((i as { id: string }).id)
+  );
+  const toDelete = existingItems.filter(
+    (i) => !respondedIds.has((i as { id: string }).id)
+  );
 
   if (toDelete.length > 0) {
     await service
       .from('evaluation_checklist_items')
       .delete()
-      .in('id', toDelete.map((i) => (i as { id: string }).id));
+      .in(
+        'id',
+        toDelete.map((i) => (i as { id: string }).id)
+      );
   }
 
-  const keptTexts = new Set(toKeep.map((i) => (i as { item_text: string }).item_text));
+  const keptTexts = new Set(
+    toKeep.map((i) => (i as { item_text: string }).item_text)
+  );
   const toInsert = newTopics.filter((t) => !keptTexts.has(t.text));
 
   if (toInsert.length > 0) {
@@ -123,9 +156,13 @@ export async function mergeEvaluationTopics(
         sow_instance_id: scope.sow_instance_id ?? null,
         item_text: t.text,
         sort_order: t.sort_order,
-      })),
+      }))
     );
   }
 
-  return { preserved: toKeep.length, deleted: toDelete.length, inserted: toInsert.length };
+  return {
+    preserved: toKeep.length,
+    deleted: toDelete.length,
+    inserted: toInsert.length,
+  };
 }

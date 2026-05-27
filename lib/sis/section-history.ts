@@ -14,9 +14,9 @@ export type SectionTransferEntry = {
   fromLevel: string;
   toSection: string;
   toLevel: string;
-  transferDate: string;       // ISO date (yyyy-mm-dd)
-  termNumber: number | null;  // 1..4 or null when transfer was between terms
-  termLabel: string | null;   // 'T1' / 'T2' / 'T3' / 'T4' or null
+  transferDate: string; // ISO date (yyyy-mm-dd)
+  termNumber: number | null; // 1..4 or null when transfer was between terms
+  termLabel: string | null; // 'T1' / 'T2' / 'T3' / 'T4' or null
   actorEmail: string | null;
   createdAt: string;
 };
@@ -28,7 +28,7 @@ export type SectionTransferEntry = {
 // audit-log filter.
 export async function getSectionTransfersForStudent(
   studentNumber: string,
-  enroleeNumbers: string[],
+  enroleeNumbers: string[]
 ): Promise<SectionTransferEntry[]> {
   if (enroleeNumbers.length === 0) return [];
 
@@ -43,7 +43,7 @@ export async function getSectionTransfersForStudent(
   if (error) {
     console.warn(
       `[section-history] audit fetch failed for ${studentNumber}:`,
-      error.message,
+      error.message
     );
     return [];
   }
@@ -64,7 +64,8 @@ export async function getSectionTransfersForStudent(
       fromLevel: (ctx.fromLevel as string | undefined) ?? '',
       toSection: (ctx.toSection as string | undefined) ?? '',
       toLevel: (ctx.toLevel as string | undefined) ?? '',
-      transferDate: (ctx.transferDate as string | undefined) ?? row.created_at.slice(0, 10),
+      transferDate:
+        (ctx.transferDate as string | undefined) ?? row.created_at.slice(0, 10),
       termNumber: (ctx.termNumber as number | null | undefined) ?? null,
       termLabel: (ctx.termLabel as string | null | undefined) ?? null,
       actorEmail: row.actor_email,

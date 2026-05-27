@@ -12,7 +12,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
-import { formatRangeLabel, type AYWindows, type DateRange, type Preset, type TermWindows } from '@/lib/dashboard/range';
+import {
+  formatRangeLabel,
+  type AYWindows,
+  type DateRange,
+  type Preset,
+  type TermWindows,
+} from '@/lib/dashboard/range';
 
 /**
  * ComparisonToolbar — the URL-param contract executor shared by every
@@ -44,7 +50,7 @@ export type ComparisonToolbarProps = {
 
 function updateParams(
   current: URLSearchParams,
-  next: Partial<{ ay: string; range: DateRange; comparison: DateRange }>,
+  next: Partial<{ ay: string; range: DateRange; comparison: DateRange }>
 ): URLSearchParams {
   const params = new URLSearchParams(current.toString());
   if (next.ay) params.set('ay', next.ay);
@@ -163,12 +169,18 @@ export function ComparisonToolbar({
         />
         {comparison && (
           <div className="hidden items-center gap-1.5 text-[11px] text-ink-4 sm:flex">
-            <span className="font-mono uppercase tracking-wider text-ink-5">vs</span>
-            <span className="font-mono tabular-nums">{formatRangeLabel(comparison)}</span>
+            <span className="font-mono uppercase tracking-wider text-ink-5">
+              vs
+            </span>
+            <span className="font-mono tabular-nums">
+              {formatRangeLabel(comparison)}
+            </span>
           </div>
         )}
       </div>
-      {trustStrip && <div className="flex items-center gap-2">{trustStrip}</div>}
+      {trustStrip && (
+        <div className="flex items-center gap-2">{trustStrip}</div>
+      )}
     </div>
   );
 }

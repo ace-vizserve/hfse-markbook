@@ -83,11 +83,18 @@ export function TotalsEditor({
   const [busy, setBusy] = useState(false);
   const [shrinkConfirmOpen, setShrinkConfirmOpen] = useState(false);
   const [correctionOpen, setCorrectionOpen] = useState(false);
-  const [correctionReason, setCorrectionReason] = useState<CorrectionReason>('formula_fix');
+  const [correctionReason, setCorrectionReason] =
+    useState<CorrectionReason>('formula_fix');
   const [correctionJustification, setCorrectionJustification] = useState('');
-  const pendingCorrection = useRef<((v: { reason: CorrectionReason; justification: string } | null) => void) | null>(null);
+  const pendingCorrection = useRef<
+    | ((v: { reason: CorrectionReason; justification: string } | null) => void)
+    | null
+  >(null);
 
-  async function requireCorrection(): Promise<{ reason: CorrectionReason; justification: string } | null> {
+  async function requireCorrection(): Promise<{
+    reason: CorrectionReason;
+    justification: string;
+  } | null> {
     setCorrectionReason('formula_fix');
     setCorrectionJustification('');
     setCorrectionOpen(true);
@@ -95,7 +102,9 @@ export function TotalsEditor({
       pendingCorrection.current = resolve;
     });
   }
-  function resolveCorrection(value: { reason: CorrectionReason; justification: string } | null) {
+  function resolveCorrection(
+    value: { reason: CorrectionReason; justification: string } | null
+  ) {
     const fn = pendingCorrection.current;
     pendingCorrection.current = null;
     fn?.(value);
@@ -107,7 +116,12 @@ export function TotalsEditor({
     setQa(initialQa);
   }
 
-  function updateAt(arr: number[], setArr: (v: number[]) => void, i: number, v: number) {
+  function updateAt(
+    arr: number[],
+    setArr: (v: number[]) => void,
+    i: number,
+    v: number
+  ) {
     const next = arr.slice();
     next[i] = v;
     setArr(next);
@@ -126,7 +140,8 @@ export function TotalsEditor({
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const shrinking = ww.length < initialWw.length || pt.length < initialPt.length;
+    const shrinking =
+      ww.length < initialWw.length || pt.length < initialPt.length;
     if (shrinking) {
       setShrinkConfirmOpen(true);
       return;
@@ -197,62 +212,67 @@ export function TotalsEditor({
           </SheetHeader>
 
           <form onSubmit={onSubmit}>
-          <div className="p-6">
-            <FieldGroup>
-              <SlotSection
-                label="Written Works"
-                prefix="W"
-                values={ww}
-                onChangeAt={(i, v) => updateAt(ww, setWw, i, v)}
-                onAdd={() => addSlot(ww, setWw, wwMaxSlots)}
-                onRemove={() => removeSlot(ww, setWw)}
-                cap={wwMaxSlots}
-              />
-
-              <SlotSection
-                label="Performance Tasks"
-                prefix="PT"
-                values={pt}
-                onChangeAt={(i, v) => updateAt(pt, setPt, i, v)}
-                onAdd={() => addSlot(pt, setPt, ptMaxSlots)}
-                onRemove={() => removeSlot(pt, setPt)}
-                cap={ptMaxSlots}
-              />
-
-              <Field>
-                <FieldLabel htmlFor="te-qa">Quarterly assessment · max</FieldLabel>
-                <Input
-                  id="te-qa"
-                  type="number"
-                  min={1}
-                  value={qa ?? ''}
-                  onChange={(e) =>
-                    setQa(e.target.value === '' ? null : Number(e.target.value))
-                  }
-                  className="h-9 w-28 text-right tabular-nums"
+            <div className="p-6">
+              <FieldGroup>
+                <SlotSection
+                  label="Written Works"
+                  prefix="W"
+                  values={ww}
+                  onChangeAt={(i, v) => updateAt(ww, setWw, i, v)}
+                  onAdd={() => addSlot(ww, setWw, wwMaxSlots)}
+                  onRemove={() => removeSlot(ww, setWw)}
+                  cap={wwMaxSlots}
                 />
-                <FieldDescription>Single quarterly assessment denominator.</FieldDescription>
-              </Field>
 
-            </FieldGroup>
-          </div>
+                <SlotSection
+                  label="Performance Tasks"
+                  prefix="PT"
+                  values={pt}
+                  onChangeAt={(i, v) => updateAt(pt, setPt, i, v)}
+                  onAdd={() => addSlot(pt, setPt, ptMaxSlots)}
+                  onRemove={() => removeSlot(pt, setPt)}
+                  cap={ptMaxSlots}
+                />
 
-          <SheetFooter className="flex-row justify-end gap-2 border-t border-border p-6 sm:justify-end">
-            <SheetClose asChild>
-              <Button type="button" variant="outline" size="sm">
-                Cancel
+                <Field>
+                  <FieldLabel htmlFor="te-qa">
+                    Quarterly assessment · max
+                  </FieldLabel>
+                  <Input
+                    id="te-qa"
+                    type="number"
+                    min={1}
+                    value={qa ?? ''}
+                    onChange={(e) =>
+                      setQa(
+                        e.target.value === '' ? null : Number(e.target.value)
+                      )
+                    }
+                    className="h-9 w-28 text-right tabular-nums"
+                  />
+                  <FieldDescription>
+                    Single quarterly assessment denominator.
+                  </FieldDescription>
+                </Field>
+              </FieldGroup>
+            </div>
+
+            <SheetFooter className="flex-row justify-end gap-2 border-t border-border p-6 sm:justify-end">
+              <SheetClose asChild>
+                <Button type="button" variant="outline" size="sm">
+                  Cancel
+                </Button>
+              </SheetClose>
+              <Button type="submit" size="sm" disabled={busy}>
+                {busy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {busy ? 'Saving…' : 'Save totals'}
               </Button>
-            </SheetClose>
-            <Button type="submit" size="sm" disabled={busy}>
-              {busy ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              {busy ? 'Saving…' : 'Save totals'}
-            </Button>
-          </SheetFooter>
-        </form>
+            </SheetFooter>
+          </form>
         </ScrollArea>
       </SheetContent>
 
@@ -261,8 +281,8 @@ export function TotalsEditor({
           <AlertDialogHeader>
             <AlertDialogTitle>Remove slots?</AlertDialogTitle>
             <AlertDialogDescription>
-              Removing slots will delete any scores entered in those slots for every student.
-              This cannot be undone.
+              Removing slots will delete any scores entered in those slots for
+              every student. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -285,7 +305,8 @@ export function TotalsEditor({
         onOpenChange={(next) => {
           setCorrectionOpen(next);
           if (!next) resolveCorrection(null);
-        }}>
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Log a data entry correction</DialogTitle>
@@ -296,10 +317,15 @@ export function TotalsEditor({
           </DialogHeader>
           <div className="space-y-3 pt-1">
             <Field>
-              <FieldLabel htmlFor="te-correction-reason">Correction type</FieldLabel>
+              <FieldLabel htmlFor="te-correction-reason">
+                Correction type
+              </FieldLabel>
               <Select
                 value={correctionReason}
-                onValueChange={(v) => setCorrectionReason(v as CorrectionReason)}>
+                onValueChange={(v) =>
+                  setCorrectionReason(v as CorrectionReason)
+                }
+              >
                 <SelectTrigger id="te-correction-reason" className="h-9">
                   <SelectValue />
                 </SelectTrigger>
@@ -313,7 +339,9 @@ export function TotalsEditor({
               </Select>
             </Field>
             <Field>
-              <FieldLabel htmlFor="te-correction-justification">Justification</FieldLabel>
+              <FieldLabel htmlFor="te-correction-justification">
+                Justification
+              </FieldLabel>
               <Textarea
                 id="te-correction-justification"
                 value={correctionJustification}
@@ -332,7 +360,8 @@ export function TotalsEditor({
               onClick={() => {
                 setCorrectionOpen(false);
                 resolveCorrection(null);
-              }}>
+              }}
+            >
               Cancel
             </Button>
             <Button
@@ -343,7 +372,8 @@ export function TotalsEditor({
                   reason: correctionReason,
                   justification: correctionJustification.trim(),
                 });
-              }}>
+              }}
+            >
               Log correction
             </Button>
           </DialogFooter>

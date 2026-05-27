@@ -122,18 +122,22 @@ export function ChecklistRosterClient({
   const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState('');
   const [topicBusy, setTopicBusy] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<ChecklistItem | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<ChecklistItem | null>(
+    null
+  );
   const [seedBusy, setSeedBusy] = useState(false);
   const newTopicInputRef = useRef<HTMLInputElement | null>(null);
 
-  const commentTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const commentTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map()
+  );
 
   const saveResponse = useCallback(
     async (
       studentId: string,
       itemId: string,
       nextRating: number | null,
-      previousRating: number | null,
+      previousRating: number | null
     ) => {
       try {
         const res = await fetch('/api/evaluation/checklist-responses', {
@@ -159,7 +163,7 @@ export function ChecklistRosterClient({
         });
       }
     },
-    [termId, sectionId],
+    [termId, sectionId]
   );
 
   const saveComment = useCallback(
@@ -204,10 +208,14 @@ export function ChecklistRosterClient({
         toast.error(e instanceof Error ? e.message : 'save failed');
       }
     },
-    [termId, sectionId, subjectId],
+    [termId, sectionId, subjectId]
   );
 
-  function handleRate(studentId: string, itemId: string, nextRating: number | null) {
+  function handleRate(
+    studentId: string,
+    itemId: string,
+    nextRating: number | null
+  ) {
     const key = `${studentId}|${itemId}`;
     const previousRating = state.responses.get(key) ?? null;
     setState((prev) => {
@@ -246,7 +254,9 @@ export function ChecklistRosterClient({
     setTopicBusy(true);
     try {
       const nextSortOrder =
-        topics.length === 0 ? 0 : Math.max(...topics.map((t) => t.sort_order)) + 10;
+        topics.length === 0
+          ? 0
+          : Math.max(...topics.map((t) => t.sort_order)) + 10;
       const res = await fetch('/api/evaluation/checklist-items', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -268,7 +278,9 @@ export function ChecklistRosterClient({
           id: body.id,
           item_text: trimmed,
           sort_order:
-            typeof body.sort_order === 'number' ? body.sort_order : nextSortOrder,
+            typeof body.sort_order === 'number'
+              ? body.sort_order
+              : nextSortOrder,
         },
       ]);
       setNewTopicText('');
@@ -297,12 +309,12 @@ export function ChecklistRosterClient({
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ item_text: trimmed }),
-        },
+        }
       );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error ?? 'Could not save the topic');
       setTopics((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, item_text: trimmed } : t)),
+        prev.map((t) => (t.id === id ? { ...t, item_text: trimmed } : t))
       );
       setEditingTopicId(null);
       setEditingText('');
@@ -320,7 +332,7 @@ export function ChecklistRosterClient({
     try {
       const res = await fetch(
         `/api/evaluation/checklist-items/${encodeURIComponent(target.id)}`,
-        { method: 'DELETE' },
+        { method: 'DELETE' }
       );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error ?? 'Could not delete the topic');
@@ -337,7 +349,9 @@ export function ChecklistRosterClient({
       setDeleteConfirm(null);
       toast.success(`Deleted "${target.item_text}"`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not delete the topic');
+      toast.error(
+        e instanceof Error ? e.message : 'Could not delete the topic'
+      );
     } finally {
       setTopicBusy(false);
     }
@@ -369,7 +383,7 @@ export function ChecklistRosterClient({
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ sort_order: b.sort_order }),
-        },
+        }
       );
       if (!patchA.ok) {
         const body = await patchA.json().catch(() => ({}));
@@ -381,7 +395,7 @@ export function ChecklistRosterClient({
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ sort_order: a.sort_order }),
-        },
+        }
       );
       if (!patchB.ok) {
         const body = await patchB.json().catch(() => ({}));
@@ -400,12 +414,17 @@ export function ChecklistRosterClient({
     if (!sowInstanceId || seedBusy) return;
     setSeedBusy(true);
     try {
-      const res = await fetch(`/api/sow/${encodeURIComponent(sowInstanceId)}/sync-to-eval`, {
-        method: 'POST',
-      });
+      const res = await fetch(
+        `/api/sow/${encodeURIComponent(sowInstanceId)}/sync-to-eval`,
+        {
+          method: 'POST',
+        }
+      );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error ?? 'Could not seed topics');
-      toast.success(`${body.inserted ?? 0} topic${body.inserted === 1 ? '' : 's'} seeded from your SOW`);
+      toast.success(
+        `${body.inserted ?? 0} topic${body.inserted === 1 ? '' : 's'} seeded from your SOW`
+      );
       router.refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not seed topics');
@@ -431,7 +450,7 @@ export function ChecklistRosterClient({
       if (rating == null) continue;
       const [studentId] = key.split('|');
       const belongsToCurrentTopics = topics.some(
-        (t) => `${studentId}|${t.id}` === key,
+        (t) => `${studentId}|${t.id}` === key
       );
       if (!belongsToCurrentTopics) continue;
       counts.set(studentId, (counts.get(studentId) ?? 0) + 1);
@@ -460,14 +479,17 @@ export function ChecklistRosterClient({
               {subjects.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
                   {s.name}
-                  <span className="ml-2 font-mono text-[10px] text-muted-foreground">{s.code}</span>
+                  <span className="ml-2 font-mono text-[10px] text-muted-foreground">
+                    {s.code}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
         <div className="font-mono text-[11px] tabular-nums text-muted-foreground">
-          {totalItems} topic{totalItems === 1 ? '' : 's'} · {roster.length} student
+          {totalItems} topic{totalItems === 1 ? '' : 's'} · {roster.length}{' '}
+          student
           {roster.length === 1 ? '' : 's'}
         </div>
       </div>
@@ -524,7 +546,9 @@ export function ChecklistRosterClient({
                   onClick={() => void seedFromSow()}
                   disabled={seedBusy}
                 >
-                  {seedBusy ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                  {seedBusy ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : null}
                   Seed topics from your SOW
                 </Button>
               </div>
@@ -547,7 +571,8 @@ export function ChecklistRosterClient({
                   className="underline underline-offset-2 hover:text-foreground"
                 >
                   start your SOW for this class
-                </Link>.
+                </Link>
+                .
               </p>
             )
           ) : (
@@ -563,9 +588,13 @@ export function ChecklistRosterClient({
           {roster.map((student) => {
             const rated = ratedPerStudent.get(student.student_id) ?? 0;
             const comment = state.comments.get(student.student_id) ?? '';
-            const status = state.commentStatus.get(student.student_id) ?? 'idle';
+            const status =
+              state.commentStatus.get(student.student_id) ?? 'idle';
             return (
-              <li key={student.student_id} className="grid grid-cols-1 gap-3 px-5 py-4 md:grid-cols-[240px_1fr]">
+              <li
+                key={student.student_id}
+                className="grid grid-cols-1 gap-3 px-5 py-4 md:grid-cols-[240px_1fr]"
+              >
                 {/* Student identity */}
                 <div className="min-w-0">
                   <div className="flex items-baseline gap-2">
@@ -598,11 +627,15 @@ export function ChecklistRosterClient({
                           key={item.id}
                           className="flex flex-col gap-2 rounded-md border border-border bg-muted/20 px-2 py-1.5 text-[12px] sm:flex-row sm:items-center sm:justify-between"
                         >
-                          <span className="min-w-0 flex-1 leading-snug">{item.item_text}</span>
+                          <span className="min-w-0 flex-1 leading-snug">
+                            {item.item_text}
+                          </span>
                           <div className="sm:shrink-0">
                             <RatingSelector
                               value={rating}
-                              onSelect={(v) => handleRate(student.student_id, item.id, v)}
+                              onSelect={(v) =>
+                                handleRate(student.student_id, item.id, v)
+                              }
                               disabled={!canEdit}
                             />
                           </div>
@@ -635,7 +668,9 @@ export function ChecklistRosterClient({
                       id={`comment-${student.student_id}`}
                       value={comment}
                       disabled={!canEdit}
-                      onChange={(e) => handleCommentChange(student.student_id, e.target.value)}
+                      onChange={(e) =>
+                        handleCommentChange(student.student_id, e.target.value)
+                      }
                       rows={2}
                       placeholder={
                         canEdit
@@ -666,8 +701,8 @@ export function ChecklistRosterClient({
               Delete &ldquo;{deleteConfirm?.item_text}&rdquo;?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Ratings entered for this topic will be deleted too. This can&apos;t be
-              undone.
+              Ratings entered for this topic will be deleted too. This
+              can&apos;t be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -809,7 +844,9 @@ function TopicManagerPanel({
                   </>
                 ) : (
                   <>
-                    <span className="flex-1 min-w-0 leading-snug">{t.item_text}</span>
+                    <span className="flex-1 min-w-0 leading-snug">
+                      {t.item_text}
+                    </span>
                     {canEditTopics && (
                       <div className="flex shrink-0 items-center gap-0.5">
                         <Button

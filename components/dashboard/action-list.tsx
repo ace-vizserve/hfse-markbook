@@ -59,7 +59,9 @@ export function ActionList({
           {title}
         </CardTitle>
         {description && (
-          <p className="pt-1 text-sm leading-relaxed text-muted-foreground">{description}</p>
+          <p className="pt-1 text-sm leading-relaxed text-muted-foreground">
+            {description}
+          </p>
         )}
         <CardAction>
           <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
@@ -101,7 +103,9 @@ function ActionRow({ item }: { item: ActionItem }) {
     <div className="group flex items-center gap-3 px-5 py-3 transition-colors hover:bg-accent/40">
       <span className={cn('size-2.5 shrink-0 rounded-full', dot)} />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium text-foreground">{item.label}</div>
+        <div className="truncate text-sm font-medium text-foreground">
+          {item.label}
+        </div>
         {item.sublabel && (
           <div className="mt-0.5 truncate font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
             {item.sublabel}

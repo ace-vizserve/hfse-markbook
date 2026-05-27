@@ -65,7 +65,9 @@ export function EnrolmentEditSheet({
   const [open, setOpen] = useState(false);
   const [busNo, setBusNo] = useState(initial.bus_no ?? '');
   const [officer, setOfficer] = useState(initial.classroom_officer_role ?? '');
-  const [status, setStatus] = useState<EnrollmentStatus>(initial.enrollment_status);
+  const [status, setStatus] = useState<EnrollmentStatus>(
+    initial.enrollment_status
+  );
   const [saving, setSaving] = useState(false);
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
 
@@ -107,7 +109,7 @@ export function EnrolmentEditSheet({
             classroom_officer_role: officer,
             enrollment_status: status,
           }),
-        },
+        }
       );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error ?? 'save failed');
@@ -115,17 +117,24 @@ export function EnrolmentEditSheet({
       // server resolves the joining term from `terms` and returns it so the
       // toast can confirm WHICH term they joined ("Late enrollee · T2"). Falls
       // back gracefully when the date sits outside any defined term window.
-      const lateTerm = (body as { lateEnrolleeTerm?: { termLabel: string } | null })
-        .lateEnrolleeTerm;
-      const admissionsCascade = (body as {
-        admissionsCascade?: { enroleeNumber: string; ayCode: string } | null;
-      }).admissionsCascade;
+      const lateTerm = (
+        body as { lateEnrolleeTerm?: { termLabel: string } | null }
+      ).lateEnrolleeTerm;
+      const admissionsCascade = (
+        body as {
+          admissionsCascade?: { enroleeNumber: string; ayCode: string } | null;
+        }
+      ).admissionsCascade;
       if (lateTerm?.termLabel) {
-        toast.success(`Tagged ${studentName} as late enrollee · ${lateTerm.termLabel}`);
+        toast.success(
+          `Tagged ${studentName} as late enrollee · ${lateTerm.termLabel}`
+        );
       } else if (status === 'late_enrollee') {
         toast.success(`Tagged ${studentName} as late enrollee · between terms`);
       } else if (admissionsCascade) {
-        toast.success(`Withdrew ${studentName} · admissions also marked Withdrawn`);
+        toast.success(
+          `Withdrew ${studentName} · admissions also marked Withdrawn`
+        );
       } else {
         toast.success(`Updated ${studentName}`);
       }
@@ -148,70 +157,89 @@ export function EnrolmentEditSheet({
               Edit enrolment
             </SheetTitle>
             <SheetDescription className="text-sm text-muted-foreground">
-              <span className="font-mono tabular-nums">#{indexNumber}</span> · {studentName}
+              <span className="font-mono tabular-nums">#{indexNumber}</span> ·{' '}
+              {studentName}
             </SheetDescription>
           </SheetHeader>
 
           <form onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-5 p-6">
-            <div className="space-y-2">
-              <Label htmlFor="busNo">Bus number</Label>
-              <Input
-                id="busNo"
-                value={busNo}
-                onChange={(e) => setBusNo(e.target.value)}
-                placeholder="e.g. SVC7"
-                maxLength={40}
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Shown on the attendance sheet header. Leave blank if not applicable.
-              </p>
+            <div className="flex flex-col gap-5 p-6">
+              <div className="space-y-2">
+                <Label htmlFor="busNo">Bus number</Label>
+                <Input
+                  id="busNo"
+                  value={busNo}
+                  onChange={(e) => setBusNo(e.target.value)}
+                  placeholder="e.g. SVC7"
+                  maxLength={40}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Shown on the attendance sheet header. Leave blank if not
+                  applicable.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="officer">Classroom officer role</Label>
+                <Input
+                  id="officer"
+                  value={officer}
+                  onChange={(e) => setOfficer(e.target.value)}
+                  placeholder="e.g. HAPI HAUS"
+                  maxLength={80}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Display-only. No reporting impact.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="status">Enrolment status</Label>
+                <Select
+                  value={status}
+                  onValueChange={(v) => setStatus(v as EnrollmentStatus)}
+                >
+                  <SelectTrigger id="status" className="h-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ENROLLMENT_STATUS_VALUES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {ENROLLMENT_STATUS_LABELS[s]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  Withdrawing sets{' '}
+                  <code className="font-mono">withdrawal_date</code> to today.
+                  Rejoining clears it. Pre-enrolment / post-withdrawal scores
+                  stay as N/A.
+                </p>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="officer">Classroom officer role</Label>
-              <Input
-                id="officer"
-                value={officer}
-                onChange={(e) => setOfficer(e.target.value)}
-                placeholder="e.g. HAPI HAUS"
-                maxLength={80}
-              />
-              <p className="text-[11px] text-muted-foreground">Display-only. No reporting impact.</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="status">Enrolment status</Label>
-              <Select value={status} onValueChange={(v) => setStatus(v as EnrollmentStatus)}>
-                <SelectTrigger id="status" className="h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ENROLLMENT_STATUS_VALUES.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {ENROLLMENT_STATUS_LABELS[s]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] text-muted-foreground">
-                Withdrawing sets <code className="font-mono">withdrawal_date</code> to today. Rejoining clears it. Pre-enrolment / post-withdrawal scores stay as N/A.
-              </p>
-            </div>
-          </div>
-
-          <SheetFooter className="flex-row justify-end gap-2 border-t border-border p-6">
-            <SheetClose asChild>
-              <Button type="button" variant="outline" size="sm">
-                Cancel
+            <SheetFooter className="flex-row justify-end gap-2 border-t border-border p-6">
+              <SheetClose asChild>
+                <Button type="button" variant="outline" size="sm">
+                  Cancel
+                </Button>
+              </SheetClose>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={saving}
+                className="gap-1.5"
+              >
+                {saving ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Save className="size-3.5" />
+                )}
+                {saving ? 'Saving…' : 'Save'}
               </Button>
-            </SheetClose>
-            <Button type="submit" size="sm" disabled={saving} className="gap-1.5">
-              {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
-              {saving ? 'Saving…' : 'Save'}
-            </Button>
-          </SheetFooter>
-        </form>
+            </SheetFooter>
+          </form>
         </ScrollArea>
       </SheetContent>
 
@@ -220,9 +248,10 @@ export function EnrolmentEditSheet({
           <AlertDialogHeader>
             <AlertDialogTitle>Withdraw {studentName}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes them from this section roster and marks them as Withdrawn in
-              admissions. Their grades, attendance, and history remain on file. To move
-              them to another section instead, cancel and use Move student.
+              This removes them from this section roster and marks them as
+              Withdrawn in admissions. Their grades, attendance, and history
+              remain on file. To move them to another section instead, cancel
+              and use Move student.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

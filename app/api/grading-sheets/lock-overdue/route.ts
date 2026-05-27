@@ -14,12 +14,17 @@ import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 // The CRON_SECRET env var must be configured in the Vercel project settings.
 export async function POST(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || request.headers.get('authorization') !== `Bearer ${cronSecret}`) {
+  if (
+    !cronSecret ||
+    request.headers.get('authorization') !== `Bearer ${cronSecret}`
+  ) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
   const service = createServiceClient();
-  const todaySgt = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Singapore' });
+  const todaySgt = new Date().toLocaleDateString('en-CA', {
+    timeZone: 'Asia/Singapore',
+  });
 
   // Terms whose deadline has already passed as of today SGT.
   const { data: terms, error: termsErr } = await service
@@ -73,12 +78,18 @@ export async function POST(request: NextRequest) {
     action: 'sheet.lock_overdue_batch',
     entityType: 'grading_sheet',
     entityId: null,
-    context: { locked_count: sheetIds.length, run_date: todaySgt, sheet_ids: sheetIds },
+    context: {
+      locked_count: sheetIds.length,
+      run_date: todaySgt,
+      sheet_ids: sheetIds,
+    },
   });
 
   // Invalidate markbook caches for every AY that had sheets locked.
   const termAyMap = new Map(terms.map((t) => [t.id, t.academic_year_id]));
-  const affectedAyIds = new Set(sheets.map((s) => termAyMap.get(s.term_id)).filter(Boolean) as string[]);
+  const affectedAyIds = new Set(
+    sheets.map((s) => termAyMap.get(s.term_id)).filter(Boolean) as string[]
+  );
 
   if (affectedAyIds.size > 0) {
     const { data: ayRows } = await service
@@ -90,6 +101,11 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  console.info(`[lock-overdue] locked ${sheetIds.length} sheet(s) on ${todaySgt}`);
-  return NextResponse.json({ locked_count: sheetIds.length, run_date: todaySgt });
+  console.info(
+    `[lock-overdue] locked ${sheetIds.length} sheet(s) on ${todaySgt}`
+  );
+  return NextResponse.json({
+    locked_count: sheetIds.length,
+    run_date: todaySgt,
+  });
 }

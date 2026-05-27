@@ -28,7 +28,11 @@ import { preloadTermsForAYs, termForDateInPreloaded } from '@/lib/sis/terms';
 // filter post-enrichment via the resolved section_students → sections AY.
 // Transfer rows DO carry ay_code so they get filtered at the SQL layer.
 
-export type MovementKind = 'section-transfer' | 'withdrawn' | 'late-enrolled' | 're-enrolled';
+export type MovementKind =
+  | 'section-transfer'
+  | 'withdrawn'
+  | 'late-enrolled'
+  | 're-enrolled';
 
 export type MovementEvent =
   | {
@@ -140,7 +144,7 @@ type EnrichedPartial = {
 
 export async function getMovementEvents(
   currentAyCode: string,
-  options: GetMovementsOptions = {},
+  options: GetMovementsOptions = {}
 ): Promise<MovementEvent[]> {
   const service = createServiceClient();
   const includeAll = options.includeAllAYs === true;
@@ -155,12 +159,12 @@ export async function getMovementEvents(
     transferPartials,
     metadataPartials,
     includeAll,
-    currentAyCode,
+    currentAyCode
   );
 
   // Term enrichment — one preload covering every AY we saw.
   const distinctAyCodes = Array.from(
-    new Set(enriched.map((e) => e.ayCode).filter((c) => !!c)),
+    new Set(enriched.map((e) => e.ayCode).filter((c) => !!c))
   );
   const preloaded =
     distinctAyCodes.length > 0
@@ -238,7 +242,7 @@ export async function getMovementEvents(
 async function fetchTransferEvents(
   service: SupabaseClient,
   includeAll: boolean,
-  currentAyCode: string,
+  currentAyCode: string
 ): Promise<TransferPartial[]> {
   let rows: AuditRow[] = [];
   if (includeAll) {
@@ -249,12 +253,12 @@ async function fetchTransferEvents(
           .select('id, actor_email, entity_id, context, created_at')
           .eq('action', 'student.section.transfer')
           .order('created_at', { ascending: false })
-          .range(from, to),
+          .range(from, to)
       );
     } catch (e) {
       console.warn(
         '[movements] transfer fetch (all AYs) failed:',
-        e instanceof Error ? e.message : String(e),
+        e instanceof Error ? e.message : String(e)
       );
       return [];
     }
@@ -303,7 +307,7 @@ async function fetchTransferEvents(
 
 async function fetchMetadataEvents(
   service: SupabaseClient,
-  includeAll: boolean,
+  includeAll: boolean
 ): Promise<MetadataPartial[]> {
   // We can't filter by AY at the SQL layer for metadata.update rows — see
   // the file-level scope-anchor note. Cross-AY scoping happens in
@@ -322,7 +326,7 @@ async function fetchMetadataEvents(
             .eq('action', 'enrolment.metadata.update')
             .eq('context->after->>enrollment_status', 'withdrawn')
             .order('created_at', { ascending: false })
-            .range(from, to),
+            .range(from, to)
         ),
         fetchAllPages<AuditRow>((from, to) =>
           service
@@ -331,7 +335,7 @@ async function fetchMetadataEvents(
             .eq('action', 'enrolment.metadata.update')
             .eq('context->>lateEnrolleeTransition', 'true')
             .order('created_at', { ascending: false })
-            .range(from, to),
+            .range(from, to)
         ),
         fetchAllPages<AuditRow>((from, to) =>
           service
@@ -340,13 +344,13 @@ async function fetchMetadataEvents(
             .eq('action', 'enrolment.metadata.update')
             .eq('context->>reEnrolment', 'true')
             .order('created_at', { ascending: false })
-            .range(from, to),
+            .range(from, to)
         ),
       ]);
     } catch (e) {
       console.warn(
         '[movements] metadata fetch (all AYs) failed:',
-        e instanceof Error ? e.message : String(e),
+        e instanceof Error ? e.message : String(e)
       );
       return [];
     }
@@ -377,7 +381,10 @@ async function fetchMetadataEvents(
       withdrawnRows = (wRes.data ?? []) as AuditRow[];
     }
     if (lRes.error) {
-      console.warn('[movements] late-enrolled fetch failed:', lRes.error.message);
+      console.warn(
+        '[movements] late-enrolled fetch failed:',
+        lRes.error.message
+      );
     } else {
       lateRows = (lRes.data ?? []) as AuditRow[];
     }
@@ -449,11 +456,11 @@ async function enrichWithStudents(
   transferPartials: TransferPartial[],
   metadataPartials: MetadataPartial[],
   includeAll: boolean,
-  currentAyCode: string,
+  currentAyCode: string
 ): Promise<EnrichedPartial[]> {
   // ── Pass 1: section_students enrichment for metadata rows ────────────────
   const metaIds = Array.from(
-    new Set(metadataPartials.map((e) => e.sectionStudentId)),
+    new Set(metadataPartials.map((e) => e.sectionStudentId))
   );
 
   type SectionStudentRow = {
@@ -463,12 +470,16 @@ async function enrichWithStudents(
     sections:
       | {
           name: string;
-          levels: { code: string; label: string } | { code: string; label: string }[];
+          levels:
+            | { code: string; label: string }
+            | { code: string; label: string }[];
           academic_year: { ay_code: string } | { ay_code: string }[];
         }
       | {
           name: string;
-          levels: { code: string; label: string } | { code: string; label: string }[];
+          levels:
+            | { code: string; label: string }
+            | { code: string; label: string }[];
           academic_year: { ay_code: string } | { ay_code: string }[];
         }[];
   };
@@ -485,13 +496,13 @@ async function enrichWithStudents(
     const { data, error } = await service
       .from('section_students')
       .select(
-        'id, student_id, enrolee_number, sections!inner(name, levels!inner(code, label), academic_year:academic_years!inner(ay_code))',
+        'id, student_id, enrolee_number, sections!inner(name, levels!inner(code, label), academic_year:academic_years!inner(ay_code))'
       )
       .in('id', metaIds);
     if (error) {
       console.warn(
         '[movements] section_students enrichment failed:',
-        error.message,
+        error.message
       );
     }
     for (const row of (data ?? []) as SectionStudentRow[]) {
@@ -517,7 +528,7 @@ async function enrichWithStudents(
 
   // ── Pass 2: bulk students lookup for resolved student_ids ─────────────────
   const studentIds = Array.from(
-    new Set(Array.from(ssById.values()).map((v) => v.studentId)),
+    new Set(Array.from(ssById.values()).map((v) => v.studentId))
   );
   type StudentRow = {
     id: string;
@@ -565,7 +576,7 @@ async function enrichWithStudents(
     if (error) {
       console.warn(
         `[movements] enroleeNumber fallback (${ayCode}) failed:`,
-        error.message,
+        error.message
       );
       continue;
     }
@@ -597,12 +608,14 @@ async function enrichWithStudents(
     const list = Array.from(enroleeNumbers);
     const { data, error } = await service
       .from(`ay${year}_enrolment_applications`)
-      .select('enroleeNumber, studentNumber, enroleeFullName, firstName, lastName')
+      .select(
+        'enroleeNumber, studentNumber, enroleeFullName, firstName, lastName'
+      )
       .in('enroleeNumber', list);
     if (error) {
       console.warn(
         `[movements] transfer-name lookup (${ayCode}) failed:`,
-        error.message,
+        error.message
       );
       continue;
     }
@@ -635,8 +648,7 @@ async function enrichWithStudents(
 
   for (const t of transferPartials) {
     const app = appByEnroleeAy.get(t.ayCode)?.get(t.enroleeNumber);
-    const studentName =
-      t.studentName?.trim() || app?.fullName || '(unnamed)';
+    const studentName = t.studentName?.trim() || app?.fullName || '(unnamed)';
     const studentNumber = t.studentNumber ?? app?.studentNumber ?? null;
     out.push({
       id: t.id,

@@ -10,7 +10,7 @@ const DonutChartImpl = dynamic(
   {
     ssr: false,
     loading: () => <ChartSkeleton kind="donut" />,
-  },
+  }
 );
 
 export function DonutChart(props: DonutChartProps) {

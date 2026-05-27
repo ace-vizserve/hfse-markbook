@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -49,6 +51,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
     "fallow": "^2.48.0",
+    "prettier": "^3.8.3",
     "satori": "^0.26.0",
     "satori-html": "^0.3.2",
     "server-only": "^0.0.1",

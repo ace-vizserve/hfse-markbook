@@ -7,10 +7,7 @@ import {
   notifyRequestApproved,
   notifyRequestRejected,
 } from '@/lib/notifications/email-change-request';
-import {
-  fetchLabels,
-  fetchRegistrarEmails,
-} from '../route';
+import { fetchLabels, fetchRegistrarEmails } from '../route';
 import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 import { requireCurrentAyCode } from '@/lib/academic-year';
 
@@ -25,9 +22,14 @@ import { requireCurrentAyCode } from '@/lib/academic-year';
 //   cancel   — original requester only. pending → cancelled. No notifications.
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'superadmin']);
+  const auth = await requireRole([
+    'teacher',
+    'registrar',
+    'school_admin',
+    'superadmin',
+  ]);
   if ('error' in auth) return auth.error;
 
   const { id } = await params;
@@ -37,7 +39,7 @@ export async function PATCH(
     const issue = parsed.error.issues[0];
     return NextResponse.json(
       { error: issue?.message ?? 'invalid body' },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const { action, decision_note } = parsed.data;
@@ -60,10 +62,14 @@ export async function PATCH(
   // Undo_rejection has its own status guard (rejected-only) enforced in
   // its dedicated branch below — skip the pending-only gate for it.
   const isReview = action === 'approve' || action === 'reject';
-  if (!isReview && action !== 'undo_rejection' && existing.status !== 'pending') {
+  if (
+    !isReview &&
+    action !== 'undo_rejection' &&
+    existing.status !== 'pending'
+  ) {
     return NextResponse.json(
       { error: `cannot ${action} a request in status "${existing.status}"` },
-      { status: 400 },
+      { status: 400 }
     );
   }
   if (
@@ -75,7 +81,7 @@ export async function PATCH(
     // applied / cancelled — terminal states no reviewer should write into.
     return NextResponse.json(
       { error: `cannot ${action} a request in status "${existing.status}"` },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -89,7 +95,7 @@ export async function PATCH(
     if (auth.role !== 'school_admin') {
       return NextResponse.json(
         { error: 'Only school admins can approve or reject change requests.' },
-        { status: 403 },
+        { status: 403 }
       );
     }
     // Designated-approver scope: the acting school_admin must be the
@@ -107,7 +113,7 @@ export async function PATCH(
           error:
             'You are not a designated approver on this request. Only the primary or secondary approver selected by the teacher can act on it.',
         },
-        { status: 403 },
+        { status: 403 }
       );
     }
 
@@ -130,7 +136,7 @@ export async function PATCH(
           error:
             'You have already reviewed this request. The other designated approver still needs to co-sign.',
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -145,14 +151,14 @@ export async function PATCH(
           error:
             'This request was already rejected by the other approver. A second review is not needed.',
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
   } else if (action === 'cancel') {
     if (existing.requested_by !== auth.user.id) {
       return NextResponse.json(
         { error: 'only the original requester can cancel this request' },
-        { status: 403 },
+        { status: 403 }
       );
     }
   } else if (action === 'undo_rejection') {
@@ -163,7 +169,7 @@ export async function PATCH(
     if (existing.status !== 'rejected') {
       return NextResponse.json(
         { error: "This request hasn't been declined." },
-        { status: 400 },
+        { status: 400 }
       );
     }
     if (existing.primary_reviewed_by !== auth.user.id) {
@@ -172,7 +178,7 @@ export async function PATCH(
           error:
             'Only the approver who declined this request can undo the decision.',
         },
-        { status: 403 },
+        { status: 403 }
       );
     }
     if (existing.secondary_reviewed_by != null) {
@@ -181,7 +187,7 @@ export async function PATCH(
           error:
             'The other approver has also reviewed this request. Contact a system administrator to reopen it.',
         },
-        { status: 409 },
+        { status: 409 }
       );
     }
     const reviewedMs = existing.primary_reviewed_at
@@ -194,7 +200,7 @@ export async function PATCH(
           error:
             'The 2-hour undo window has closed. The teacher will need to file a new request.',
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
   }
@@ -289,7 +295,7 @@ export async function PATCH(
   if (updateError) {
     return NextResponse.json(
       { error: updateError.message ?? 'update failed' },
-      { status: 500 },
+      { status: 500 }
     );
   }
   if (!updated) {
@@ -298,7 +304,7 @@ export async function PATCH(
         error:
           'This request was already handled by another administrator. Refresh to see the latest status.',
       },
-      { status: 409 },
+      { status: 409 }
     );
   }
 
@@ -327,7 +333,11 @@ export async function PATCH(
   if (action === 'approve' || action === 'reject') {
     void (async () => {
       try {
-        const labels = await fetchLabels(service, updated.grading_sheet_id, updated.grade_entry_id);
+        const labels = await fetchLabels(
+          service,
+          updated.grading_sheet_id,
+          updated.grade_entry_id
+        );
         const summary = {
           id: updated.id,
           grading_sheet_id: updated.grading_sheet_id,
@@ -345,7 +355,11 @@ export async function PATCH(
         };
         if (action === 'approve') {
           const registrarEmails = await fetchRegistrarEmails(service);
-          await notifyRequestApproved(summary, updated.requested_by_email, registrarEmails);
+          await notifyRequestApproved(
+            summary,
+            updated.requested_by_email,
+            registrarEmails
+          );
         } else {
           await notifyRequestRejected(summary, updated.requested_by_email);
         }

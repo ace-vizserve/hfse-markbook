@@ -47,23 +47,142 @@ export const PASS_TYPES = [
 
 export const DOCUMENT_SLOTS: DocumentSlot[] = [
   // Non-expiring (student's own)
-  { key: 'idPicture', label: 'ID Picture', expires: false, group: 'student', conditional: null, meta: null },
-  { key: 'birthCert', label: 'Birth Certificate', expires: false, group: 'student', conditional: null, meta: null },
-  { key: 'educCert', label: 'Education Certificate', expires: false, group: 'student', conditional: null, meta: null },
-  { key: 'medical', label: 'Medical Exam', expires: false, group: 'student', conditional: null, meta: null },
-  { key: 'form12', label: 'Form 12', expires: false, group: 'student', conditional: null, meta: null },
+  {
+    key: 'idPicture',
+    label: 'ID Picture',
+    expires: false,
+    group: 'student',
+    conditional: null,
+    meta: null,
+  },
+  {
+    key: 'birthCert',
+    label: 'Birth Certificate',
+    expires: false,
+    group: 'student',
+    conditional: null,
+    meta: null,
+  },
+  {
+    key: 'educCert',
+    label: 'Education Certificate',
+    expires: false,
+    group: 'student',
+    conditional: null,
+    meta: null,
+  },
+  {
+    key: 'medical',
+    label: 'Medical Exam',
+    expires: false,
+    group: 'student',
+    conditional: null,
+    meta: null,
+  },
+  {
+    key: 'form12',
+    label: 'Form 12',
+    expires: false,
+    group: 'student',
+    conditional: null,
+    meta: null,
+  },
   // Expiring (student)
-  { key: 'passport', label: 'Student Passport', expires: true, group: 'student-expiring', conditional: null, meta: { kind: 'passport', numberCol: 'passportNumber', expiryCol: 'passportExpiry' } },
-  { key: 'pass', label: 'Student Pass', expires: true, group: 'student-expiring', conditional: null, meta: { kind: 'pass', numberCol: 'pass', expiryCol: 'passExpiry' } },
+  {
+    key: 'passport',
+    label: 'Student Passport',
+    expires: true,
+    group: 'student-expiring',
+    conditional: null,
+    meta: {
+      kind: 'passport',
+      numberCol: 'passportNumber',
+      expiryCol: 'passportExpiry',
+    },
+  },
+  {
+    key: 'pass',
+    label: 'Student Pass',
+    expires: true,
+    group: 'student-expiring',
+    conditional: null,
+    meta: { kind: 'pass', numberCol: 'pass', expiryCol: 'passExpiry' },
+  },
   // Mother (always required)
-  { key: 'motherPassport', label: 'Mother Passport', expires: true, group: 'parent', conditional: null, meta: { kind: 'passport', numberCol: 'motherPassport', expiryCol: 'motherPassportExpiry' } },
-  { key: 'motherPass', label: 'Mother Pass', expires: true, group: 'parent', conditional: null, meta: { kind: 'pass', numberCol: 'motherPass', expiryCol: 'motherPassExpiry' } },
+  {
+    key: 'motherPassport',
+    label: 'Mother Passport',
+    expires: true,
+    group: 'parent',
+    conditional: null,
+    meta: {
+      kind: 'passport',
+      numberCol: 'motherPassport',
+      expiryCol: 'motherPassportExpiry',
+    },
+  },
+  {
+    key: 'motherPass',
+    label: 'Mother Pass',
+    expires: true,
+    group: 'parent',
+    conditional: null,
+    meta: {
+      kind: 'pass',
+      numberCol: 'motherPass',
+      expiryCol: 'motherPassExpiry',
+    },
+  },
   // Father (conditional on fatherEmail)
-  { key: 'fatherPassport', label: 'Father Passport', expires: true, group: 'parent', conditional: 'fatherEmail', meta: { kind: 'passport', numberCol: 'fatherPassport', expiryCol: 'fatherPassportExpiry' } },
-  { key: 'fatherPass', label: 'Father Pass', expires: true, group: 'parent', conditional: 'fatherEmail', meta: { kind: 'pass', numberCol: 'fatherPass', expiryCol: 'fatherPassExpiry' } },
+  {
+    key: 'fatherPassport',
+    label: 'Father Passport',
+    expires: true,
+    group: 'parent',
+    conditional: 'fatherEmail',
+    meta: {
+      kind: 'passport',
+      numberCol: 'fatherPassport',
+      expiryCol: 'fatherPassportExpiry',
+    },
+  },
+  {
+    key: 'fatherPass',
+    label: 'Father Pass',
+    expires: true,
+    group: 'parent',
+    conditional: 'fatherEmail',
+    meta: {
+      kind: 'pass',
+      numberCol: 'fatherPass',
+      expiryCol: 'fatherPassExpiry',
+    },
+  },
   // Guardian (conditional on guardianEmail)
-  { key: 'guardianPassport', label: 'Guardian Passport', expires: true, group: 'parent', conditional: 'guardianEmail', meta: { kind: 'passport', numberCol: 'guardianPassport', expiryCol: 'guardianPassportExpiry' } },
-  { key: 'guardianPass', label: 'Guardian Pass', expires: true, group: 'parent', conditional: 'guardianEmail', meta: { kind: 'pass', numberCol: 'guardianPass', expiryCol: 'guardianPassExpiry' } },
+  {
+    key: 'guardianPassport',
+    label: 'Guardian Passport',
+    expires: true,
+    group: 'parent',
+    conditional: 'guardianEmail',
+    meta: {
+      kind: 'passport',
+      numberCol: 'guardianPassport',
+      expiryCol: 'guardianPassportExpiry',
+    },
+  },
+  {
+    key: 'guardianPass',
+    label: 'Guardian Pass',
+    expires: true,
+    group: 'parent',
+    conditional: 'guardianEmail',
+    meta: {
+      kind: 'pass',
+      numberCol: 'guardianPass',
+      expiryCol: 'guardianPassExpiry',
+    },
+  },
 ];
 
 export const GROUP_LABELS: Record<DocumentGroup, string> = {
@@ -79,7 +198,14 @@ export const GROUP_LABELS: Record<DocumentGroup, string> = {
 // parent-acknowledged-pending state per KD #60 — it's the operational
 // focus of P-Files (active dialogue with the family), distinct from
 // `missing` (no contact yet).
-export type DocumentStatus = 'valid' | 'uploaded' | 'expired' | 'missing' | 'na' | 'rejected' | 'to-follow';
+export type DocumentStatus =
+  | 'valid'
+  | 'uploaded'
+  | 'expired'
+  | 'missing'
+  | 'na'
+  | 'rejected'
+  | 'to-follow';
 
 /** Resolve the effective display status for a document slot.
  *
@@ -93,7 +219,7 @@ export function resolveStatus(
   _url: string | null,
   rawStatus: string | null,
   expiryDate: string | null,
-  expires: boolean,
+  expires: boolean
 ): DocumentStatus {
   if (!rawStatus) return 'missing';
 

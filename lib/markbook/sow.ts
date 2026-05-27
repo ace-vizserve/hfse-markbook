@@ -2,7 +2,10 @@ import 'server-only';
 
 import { createServiceClient } from '@/lib/supabase/service';
 import type { SowInstanceRow, SowLabel, SowTopic } from '@/lib/sis/sow/queries';
-import { mergeGradingSheetSlots, mergeEvaluationTopics } from '@/lib/sis/sow/mutations';
+import {
+  mergeGradingSheetSlots,
+  mergeEvaluationTopics,
+} from '@/lib/sis/sow/mutations';
 
 export type { SowInstanceRow, SowLabel, SowTopic };
 
@@ -37,7 +40,7 @@ export type SowListItem = {
 export async function listTeacherSowItems(
   userId: string,
   ayCode: string,
-  isRegistrarPlus: boolean,
+  isRegistrarPlus: boolean
 ): Promise<SowListItem[]> {
   const service = createServiceClient();
 
@@ -71,7 +74,9 @@ export async function listTeacherSowItems(
       .eq('teacher_user_id', userId);
     sectionIds = [
       ...new Set(
-        ((assignments ?? []) as { section_id: string }[]).map((a) => a.section_id),
+        ((assignments ?? []) as { section_id: string }[]).map(
+          (a) => a.section_id
+        )
       ),
     ];
   }
@@ -91,9 +96,7 @@ export async function listTeacherSowItems(
 
   // Subject configs for all levels in these sections
   const levelIds = [
-    ...new Set(
-      (sections as { level_id: string }[]).map((s) => s.level_id),
-    ),
+    ...new Set((sections as { level_id: string }[]).map((s) => s.level_id)),
   ];
   const { data: configs } = await service
     .from('subject_configs')
@@ -114,7 +117,10 @@ export async function listTeacherSowItems(
   for (const cfg of (configs ?? []) as {
     subject_id: string;
     level_id: string;
-    subjects: { id: string; code: string; name: string } | { id: string; code: string; name: string }[] | null;
+    subjects:
+      | { id: string; code: string; name: string }
+      | { id: string; code: string; name: string }[]
+      | null;
   }[]) {
     const existing = subjectsBySectionLevel.get(cfg.level_id) ?? [];
     existing.push(cfg.subject_id);
@@ -124,13 +130,29 @@ export async function listTeacherSowItems(
   // SOW instances
   const { data: instances } = await service
     .from('sow_class_instances')
-    .select('id, section_id, subject_id, term_id, ww_labels, pt_labels, topics, copied_from_section_id, copied_at, updated_at')
+    .select(
+      'id, section_id, subject_id, term_id, ww_labels, pt_labels, topics, copied_from_section_id, copied_at, updated_at'
+    )
     .in('section_id', sectionIds);
 
-  type InstanceRow = { id: string; section_id: string; subject_id: string; term_id: string; ww_labels: SowLabel[]; pt_labels: SowLabel[]; topics: SowTopic[]; copied_from_section_id: string | null; copied_at: string | null; updated_at: string };
+  type InstanceRow = {
+    id: string;
+    section_id: string;
+    subject_id: string;
+    term_id: string;
+    ww_labels: SowLabel[];
+    pt_labels: SowLabel[];
+    topics: SowTopic[];
+    copied_from_section_id: string | null;
+    copied_at: string | null;
+    updated_at: string;
+  };
   const instanceMap = new Map<string, InstanceRow>();
   for (const inst of (instances ?? []) as InstanceRow[]) {
-    instanceMap.set(`${inst.section_id}:${inst.subject_id}:${inst.term_id}`, inst);
+    instanceMap.set(
+      `${inst.section_id}:${inst.subject_id}:${inst.term_id}`,
+      inst
+    );
   }
 
   // Grading sheets existence
@@ -141,16 +163,23 @@ export async function listTeacherSowItems(
 
   const sheetSet = new Set(
     (sheetRows ?? []).map((s) => {
-      const r = s as { section_id: string; subject_id: string; term_id: string };
+      const r = s as {
+        section_id: string;
+        subject_id: string;
+        term_id: string;
+      };
       return `${r.section_id}:${r.subject_id}:${r.term_id}`;
-    }),
+    })
   );
 
   // Subject name lookup
   const subjectById = new Map<string, { code: string; name: string }>();
   for (const cfg of (configs ?? []) as {
     subject_id: string;
-    subjects: { code: string; name: string } | { code: string; name: string }[] | null;
+    subjects:
+      | { code: string; name: string }
+      | { code: string; name: string }[]
+      | null;
   }[]) {
     const subj = Array.isArray(cfg.subjects) ? cfg.subjects[0] : cfg.subjects;
     if (subj) subjectById.set(cfg.subject_id, subj);
@@ -162,7 +191,10 @@ export async function listTeacherSowItems(
     id: string;
     name: string;
     level_id: string;
-    levels: { id: string; label: string } | { id: string; label: string }[] | null;
+    levels:
+      | { id: string; label: string }
+      | { id: string; label: string }[]
+      | null;
   }[]) {
     const lvl = Array.isArray(sec.levels) ? sec.levels[0] : sec.levels;
     const levelSubjects = subjectsBySectionLevel.get(sec.level_id) ?? [];
@@ -174,14 +206,18 @@ export async function listTeacherSowItems(
           (subjectAssignments ?? []).some((a) => {
             const assign = a as { section_id: string; subject_id: string };
             return assign.section_id === sec.id && assign.subject_id === sid;
-          }),
+          })
         );
 
     for (const subjectId of relevantSubjects) {
       const subj = subjectById.get(subjectId);
       if (!subj) continue;
 
-      for (const term of (terms ?? []) as { id: string; label: string; term_number: number }[]) {
+      for (const term of (terms ?? []) as {
+        id: string;
+        label: string;
+        term_number: number;
+      }[]) {
         const key = `${sec.id}:${subjectId}:${term.id}`;
         const inst = instanceMap.get(key);
 
@@ -225,23 +261,51 @@ export async function listTeacherSowItems(
  */
 export async function syncSowLabelsToSheet(
   sowId: string,
-  sheetId: string,
-): Promise<{ error: string | null; preserved: number; wwWritten: number; ptWritten: number }> {
+  sheetId: string
+): Promise<{
+  error: string | null;
+  preserved: number;
+  wwWritten: number;
+  ptWritten: number;
+}> {
   const service = createServiceClient();
 
   const [sowResult, sheetResult] = await Promise.all([
-    service.from('sow_class_instances').select('ww_labels, pt_labels').eq('id', sowId).maybeSingle(),
-    service.from('grading_sheets').select('is_locked').eq('id', sheetId).maybeSingle(),
+    service
+      .from('sow_class_instances')
+      .select('ww_labels, pt_labels')
+      .eq('id', sowId)
+      .maybeSingle(),
+    service
+      .from('grading_sheets')
+      .select('is_locked')
+      .eq('id', sheetId)
+      .maybeSingle(),
   ]);
 
-  if (!sowResult.data) return { error: 'SOW not found', preserved: 0, wwWritten: 0, ptWritten: 0 };
-  if (!sheetResult.data) return { error: 'Sheet not found', preserved: 0, wwWritten: 0, ptWritten: 0 };
+  if (!sowResult.data)
+    return { error: 'SOW not found', preserved: 0, wwWritten: 0, ptWritten: 0 };
+  if (!sheetResult.data)
+    return {
+      error: 'Sheet not found',
+      preserved: 0,
+      wwWritten: 0,
+      ptWritten: 0,
+    };
   if ((sheetResult.data as { is_locked: boolean }).is_locked) {
     return { error: 'sheet_locked', preserved: 0, wwWritten: 0, ptWritten: 0 };
   }
 
-  const sow = sowResult.data as { ww_labels: SowLabel[]; pt_labels: SowLabel[] };
-  const { error, preserved } = await mergeGradingSheetSlots(service, sheetId, sow.ww_labels, sow.pt_labels);
+  const sow = sowResult.data as {
+    ww_labels: SowLabel[];
+    pt_labels: SowLabel[];
+  };
+  const { error, preserved } = await mergeGradingSheetSlots(
+    service,
+    sheetId,
+    sow.ww_labels,
+    sow.pt_labels
+  );
 
   // Stamp provenance
   if (!error) {
@@ -267,7 +331,7 @@ export async function syncSowTopicsToChecklist(
   sowId: string,
   termId: string,
   subjectId: string,
-  sectionId: string,
+  sectionId: string
 ): Promise<{ error: string | null; preserved: number; inserted: number }> {
   const service = createServiceClient();
 
@@ -279,12 +343,21 @@ export async function syncSowTopicsToChecklist(
 
   if (!sow) return { error: 'SOW not found', preserved: 0, inserted: 0 };
 
-  const topics = ((sow as { topics?: SowTopic[] }).topics ?? []);
+  const topics = (sow as { topics?: SowTopic[] }).topics ?? [];
   const result = await mergeEvaluationTopics(
     service,
-    { term_id: termId, subject_id: subjectId, section_id: sectionId, sow_instance_id: sowId },
-    topics,
+    {
+      term_id: termId,
+      subject_id: subjectId,
+      section_id: sectionId,
+      sow_instance_id: sowId,
+    },
+    topics
   );
 
-  return { error: null, preserved: result.preserved, inserted: result.inserted };
+  return {
+    error: null,
+    preserved: result.preserved,
+    inserted: result.inserted,
+  };
 }

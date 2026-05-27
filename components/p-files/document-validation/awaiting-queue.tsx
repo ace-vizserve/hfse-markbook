@@ -29,7 +29,8 @@ export function AwaitingQueue({ rows: initialRows, ayCode, isOfficer }: Props) {
   const [mode, setMode] = React.useState<'table' | 'triage'>('table');
   const [rows, setRows] = React.useState<PFileValidationRow[]>(initialRows);
   const [actingKey, setActingKey] = React.useState<string | null>(null);
-  const [rejectTarget, setRejectTarget] = React.useState<PFileValidationRow | null>(null);
+  const [rejectTarget, setRejectTarget] =
+    React.useState<PFileValidationRow | null>(null);
 
   React.useEffect(() => {
     setRows(initialRows);
@@ -37,13 +38,15 @@ export function AwaitingQueue({ rows: initialRows, ayCode, isOfficer }: Props) {
 
   const rowKey = React.useCallback(
     (r: PFileValidationRow) => `${r.enroleeNumber}::${r.slotKey}`,
-    [],
+    []
   );
 
   const patchStatus = React.useCallback(
     async (
       row: PFileValidationRow,
-      body: { status: 'Valid' } | { status: 'Rejected'; rejectionReason: string },
+      body:
+        | { status: 'Valid' }
+        | { status: 'Rejected'; rejectionReason: string }
     ): Promise<boolean> => {
       const key = rowKey(row);
       setActingKey(key);
@@ -54,10 +57,12 @@ export function AwaitingQueue({ rows: initialRows, ayCode, isOfficer }: Props) {
             method: 'PATCH',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify(body),
-          },
+          }
         );
         if (!res.ok) {
-          const err = (await res.json().catch(() => ({}))) as { error?: string };
+          const err = (await res.json().catch(() => ({}))) as {
+            error?: string;
+          };
           toast.error(err.error ?? 'Could not save the change.');
           return false;
         }
@@ -67,20 +72,24 @@ export function AwaitingQueue({ rows: initialRows, ayCode, isOfficer }: Props) {
         router.refresh();
         return true;
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'Could not save the change.');
+        toast.error(
+          e instanceof Error ? e.message : 'Could not save the change.'
+        );
         return false;
       } finally {
         setActingKey(null);
       }
     },
-    [ayCode, router, rowKey],
+    [ayCode, router, rowKey]
   );
 
   const columns = React.useMemo<ColumnDef<PFileValidationRow>[]>(
     () => [
       {
         accessorKey: 'fullName',
-        header: ({ column }) => <SortableHeader column={column}>Student</SortableHeader>,
+        header: ({ column }) => (
+          <SortableHeader column={column}>Student</SortableHeader>
+        ),
         cell: ({ row }) => (
           <div className="space-y-0.5">
             <IdentifierLink
@@ -96,7 +105,9 @@ export function AwaitingQueue({ rows: initialRows, ayCode, isOfficer }: Props) {
       },
       {
         accessorKey: 'slotLabel',
-        header: ({ column }) => <SortableHeader column={column}>Document</SortableHeader>,
+        header: ({ column }) => (
+          <SortableHeader column={column}>Document</SortableHeader>
+        ),
         cell: ({ row }) => (
           <Badge variant="secondary">{row.original.slotLabel}</Badge>
         ),
@@ -105,7 +116,10 @@ export function AwaitingQueue({ rows: initialRows, ayCode, isOfficer }: Props) {
         accessorKey: 'owner',
         header: 'Owner',
         cell: ({ row }) => (
-          <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-wider">
+          <Badge
+            variant="outline"
+            className="font-mono text-[10px] uppercase tracking-wider"
+          >
             {row.original.owner}
           </Badge>
         ),
@@ -113,7 +127,9 @@ export function AwaitingQueue({ rows: initialRows, ayCode, isOfficer }: Props) {
       },
       {
         accessorKey: 'levelApplied',
-        header: ({ column }) => <SortableHeader column={column}>Level</SortableHeader>,
+        header: ({ column }) => (
+          <SortableHeader column={column}>Level</SortableHeader>
+        ),
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground">
             {row.original.levelApplied ?? '—'}
@@ -149,7 +165,9 @@ export function AwaitingQueue({ rows: initialRows, ayCode, isOfficer }: Props) {
                       size="sm"
                       variant="default"
                       disabled={busy}
-                      onClick={() => void patchStatus(row.original, { status: 'Valid' })}
+                      onClick={() =>
+                        void patchStatus(row.original, { status: 'Valid' })
+                      }
                     >
                       Approve
                     </Button>
@@ -168,7 +186,7 @@ export function AwaitingQueue({ rows: initialRows, ayCode, isOfficer }: Props) {
           ]
         : []),
     ],
-    [actingKey, isOfficer, patchStatus, rowKey],
+    [actingKey, isOfficer, patchStatus, rowKey]
   );
 
   const facets: FacetConfig[] = React.useMemo(
@@ -177,7 +195,7 @@ export function AwaitingQueue({ rows: initialRows, ayCode, isOfficer }: Props) {
       { columnId: 'owner', label: 'Owner' },
       { columnId: 'levelApplied', label: 'Level' },
     ],
-    [],
+    []
   );
 
   const modeToggle = isOfficer ? (

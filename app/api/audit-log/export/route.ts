@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   if (!fromParam || !toParam || !isIsoDate(fromParam) || !isIsoDate(toParam)) {
     return NextResponse.json(
       { error: 'from and to are required (YYYY-MM-DD)' },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -36,7 +36,9 @@ export async function GET(req: Request) {
   const [newRes, legacyRes] = await Promise.all([
     service
       .from('audit_log')
-      .select('id, actor_email, action, entity_type, entity_id, context, created_at')
+      .select(
+        'id, actor_email, action, entity_type, entity_id, context, created_at'
+      )
       .gte('created_at', fromIso)
       .lte('created_at', toIso)
       .order('created_at', { ascending: false }),
@@ -123,7 +125,11 @@ export async function GET(req: Request) {
   ].sort((a, b) =>
     // ISO-8601 timestamps sort lexicographically — no `Date` allocation per
     // comparison. Descending = most recent first.
-    b.timestamp_utc < a.timestamp_utc ? -1 : b.timestamp_utc > a.timestamp_utc ? 1 : 0,
+    b.timestamp_utc < a.timestamp_utc
+      ? -1
+      : b.timestamp_utc > a.timestamp_utc
+        ? 1
+        : 0
   );
 
   const body = buildCsv(
@@ -146,7 +152,7 @@ export async function GET(req: Request) {
       r.entity_id,
       r.sheet_id,
       r.context_json,
-    ]),
+    ])
   );
 
   const filename = `audit-log-${fromParam}-to-${toParam}.csv`;

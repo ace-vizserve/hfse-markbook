@@ -8,7 +8,12 @@ import { invalidateAllOperationalDrills } from '@/lib/cache/invalidate-drill-tag
 
 // List sections for the current academic year, annotated with enrolment counts.
 export async function GET() {
-  const auth = await requireRole(['teacher', 'registrar', 'school_admin', 'superadmin']);
+  const auth = await requireRole([
+    'teacher',
+    'registrar',
+    'school_admin',
+    'superadmin',
+  ]);
   if ('error' in auth) return auth.error;
 
   const supabase = await createClient();
@@ -19,7 +24,10 @@ export async function GET() {
     .eq('is_current', true)
     .single();
   if (ayErr || !ay) {
-    return NextResponse.json({ error: 'no current academic year' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'no current academic year' },
+      { status: 500 }
+    );
   }
 
   const { data: sections, error: secErr } = await supabase
@@ -27,16 +35,18 @@ export async function GET() {
     .select('id, name, level:levels(id, code, label, level_type)')
     .eq('academic_year_id', ay.id)
     .order('name');
-  if (secErr) return NextResponse.json({ error: secErr.message }, { status: 500 });
+  if (secErr)
+    return NextResponse.json({ error: secErr.message }, { status: 500 });
 
-  const ids = (sections ?? []).map(s => s.id);
+  const ids = (sections ?? []).map((s) => s.id);
   const counts: Record<string, { active: number; withdrawn: number }> = {};
   if (ids.length > 0) {
     const { data: enrolments, error } = await supabase
       .from('section_students')
       .select('section_id, enrollment_status')
       .in('section_id', ids);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error)
+      return NextResponse.json({ error: error.message }, { status: 500 });
     for (const row of enrolments ?? []) {
       const bucket = (counts[row.section_id] ??= { active: 0, withdrawn: 0 });
       if (row.enrollment_status === 'withdrawn') bucket.withdrawn++;
@@ -46,7 +56,7 @@ export async function GET() {
 
   return NextResponse.json({
     ay_code: ay.ay_code,
-    sections: (sections ?? []).map(s => ({
+    sections: (sections ?? []).map((s) => ({
       id: s.id,
       name: s.name,
       level: s.level,
@@ -66,7 +76,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const { name, level_id, class_type } = parsed.data;
@@ -79,7 +89,10 @@ export async function POST(request: NextRequest) {
     .eq('is_current', true)
     .maybeSingle();
   if (ayErr || !ay) {
-    return NextResponse.json({ error: 'no current academic year' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'no current academic year' },
+      { status: 500 }
+    );
   }
 
   const { data: inserted, error: insertErr } = await service
@@ -97,8 +110,10 @@ export async function POST(request: NextRequest) {
     // 23505 = unique_violation (academic_year_id, level_id, name)
     if ((insertErr as { code?: string }).code === '23505') {
       return NextResponse.json(
-        { error: `A section named "${name}" already exists in this level for ${ay.ay_code}.` },
-        { status: 409 },
+        {
+          error: `A section named "${name}" already exists in this level for ${ay.ay_code}.`,
+        },
+        { status: 409 }
       );
     }
     return NextResponse.json({ error: insertErr.message }, { status: 500 });
@@ -111,12 +126,18 @@ export async function POST(request: NextRequest) {
   let sheetsInserted = 0;
   const { data: bulkResult, error: bulkErr } = await service.rpc(
     'create_grading_sheets_for_section',
-    { p_section_id: inserted.id },
+    { p_section_id: inserted.id }
   );
   if (bulkErr) {
     console.error('[sections POST] bulk-sheet RPC failed:', bulkErr.message);
-  } else if (bulkResult && typeof bulkResult === 'object' && 'inserted' in bulkResult) {
-    sheetsInserted = Number((bulkResult as { inserted: unknown }).inserted ?? 0);
+  } else if (
+    bulkResult &&
+    typeof bulkResult === 'object' &&
+    'inserted' in bulkResult
+  ) {
+    sheetsInserted = Number(
+      (bulkResult as { inserted: unknown }).inserted ?? 0
+    );
   }
 
   await logAction({

@@ -1,9 +1,9 @@
-import { z } from "zod";
-import { DOCUMENT_SLOTS } from "@/lib/p-files/document-config";
-import { MODULE_VALUES } from "@/lib/p-files/_shared";
+import { z } from 'zod';
+import { DOCUMENT_SLOTS } from '@/lib/p-files/document-config';
+import { MODULE_VALUES } from '@/lib/p-files/_shared';
 
 const SlotKeyEnum = z.enum(
-  DOCUMENT_SLOTS.map((s) => s.key) as [string, ...string[]],
+  DOCUMENT_SLOTS.map((s) => s.key) as [string, ...string[]]
 );
 
 export const NotifySchema = z.object({
@@ -24,7 +24,7 @@ export const BulkNotifySchema = z.object({
       z.object({
         enroleeNumber: z.string().min(1).max(20),
         slotKey: SlotKeyEnum,
-      }),
+      })
     )
     .min(1)
     .max(50),

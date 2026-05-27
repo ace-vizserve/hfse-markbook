@@ -58,7 +58,7 @@ export function ApplicationsByLevelCard({
           ? { comparison: comparisonByLevel.get(row.level) ?? 0 }
           : {}),
       })),
-    [data.current, data.comparison, comparisonByLevel],
+    [data.current, data.comparison, comparisonByLevel]
   );
 
   const empty = data.current.length === 0;
@@ -88,9 +88,12 @@ export function ApplicationsByLevelCard({
           {empty ? (
             <div className="flex h-[260px] flex-col items-center justify-center gap-2 text-center">
               <GraduationCap className="size-6 text-muted-foreground/60" />
-              <p className="text-sm font-medium text-foreground">No applications yet</p>
+              <p className="text-sm font-medium text-foreground">
+                No applications yet
+              </p>
               <p className="max-w-xs text-xs text-muted-foreground">
-                Level breakdown populates once admissions records exist for this range.
+                Level breakdown populates once admissions records exist for this
+                range.
               </p>
             </div>
           ) : (

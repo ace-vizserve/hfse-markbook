@@ -80,7 +80,7 @@ export function InsightsPanel({
       acc[ins.severity] += 1;
       return acc;
     },
-    { good: 0, warn: 0, bad: 0, info: 0 } as Record<InsightSeverity, number>,
+    { good: 0, warn: 0, bad: 0, info: 0 } as Record<InsightSeverity, number>
   );
   const breakdownOrder: InsightSeverity[] = ['bad', 'warn', 'info', 'good'];
   const breakdownParts = breakdownOrder
@@ -91,7 +91,8 @@ export function InsightsPanel({
     <Card className="@container/card">
       <CardHeader>
         <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-          Narrative · {insights.length} observation{insights.length === 1 ? '' : 's'}
+          Narrative · {insights.length} observation
+          {insights.length === 1 ? '' : 's'}
         </CardDescription>
         <CardTitle className="font-serif text-xl font-semibold tracking-tight text-foreground">
           {title}
@@ -128,7 +129,7 @@ function InsightRow({ insight }: { insight: Insight }) {
       <div
         className={cn(
           'flex size-10 shrink-0 items-center justify-center rounded-xl [&>svg]:size-[18px]',
-          SEVERITY_TILE[insight.severity],
+          SEVERITY_TILE[insight.severity]
         )}
       >
         <Icon strokeWidth={2.25} />

@@ -17,11 +17,13 @@
 Foundation for Records drill targets. Defines `RecordsDrillRow`, the universal row builder, the per-target filter, and the column metadata. Mirrors the shape of `lib/admissions/drill.ts` but enrolled-only (filters out Cancelled/Withdrawn from `applications` queries) and adds level + section + days-since-update fields specific to Records.
 
 **Files:**
+
 - Create: `lib/sis/drill.ts`
 
 - [ ] **Step 1: Read pattern reference**
 
 Open `lib/admissions/drill.ts` and skim the structure. The Records drill is similar but with these differences:
+
 - Joins `students` + `section_students` (not just admissions tables) since Records is enrolled-only and tracks section assignments.
 - Adds `enrollmentStatus`, `sectionName`, `withdrawalDate`, `expiringDocsCount` fields.
 - Doc enrichment is split out via `enrichWithDocs` (same pattern as Admissions Sprint 23 split).
@@ -145,14 +147,20 @@ function studentName(s: StudentLite): string {
   return name || s.student_number || s.id;
 }
 
-function deriveStage(applicationStatus: string | null, enrollmentStatus: string): string {
-  if (enrollmentStatus === 'active' || enrollmentStatus === 'conditional') return 'Enrolled';
+function deriveStage(
+  applicationStatus: string | null,
+  enrollmentStatus: string
+): string {
+  if (enrollmentStatus === 'active' || enrollmentStatus === 'conditional')
+    return 'Enrolled';
   if (enrollmentStatus === 'withdrawn') return 'Withdrawn';
   if (enrollmentStatus === 'graduated') return 'Graduated';
   return (applicationStatus ?? '').trim() || 'Not started';
 }
 
-async function loadRecordsRowsUncached(ayCode: string): Promise<RecordsDrillRow[]> {
+async function loadRecordsRowsUncached(
+  ayCode: string
+): Promise<RecordsDrillRow[]> {
   const service = createServiceClient();
   const admissions = createAdmissionsClient();
 
@@ -170,16 +178,26 @@ async function loadRecordsRowsUncached(ayCode: string): Promise<RecordsDrillRow[
   if (!ayId) return [];
 
   const [sectionsRes, levelsRes, ssRes] = await Promise.all([
-    service.from('sections').select('id, name, level_id').eq('academic_year_id', ayId),
+    service
+      .from('sections')
+      .select('id, name, level_id')
+      .eq('academic_year_id', ayId),
     service.from('levels').select('id, code'),
     service
       .from('section_students')
-      .select('id, section_id, student_id, enrollment_status, enrollment_date, withdrawal_date, enrolee_number')
+      .select(
+        'id, section_id, student_id, enrollment_status, enrollment_date, withdrawal_date, enrolee_number'
+      )
       .in(
         'section_id',
         (
-          (await service.from('sections').select('id').eq('academic_year_id', ayId)).data ?? []
-        ).map((r) => r.id as string),
+          (
+            await service
+              .from('sections')
+              .select('id')
+              .eq('academic_year_id', ayId)
+          ).data ?? []
+        ).map((r) => r.id as string)
       ),
   ]);
 
@@ -188,7 +206,8 @@ async function loadRecordsRowsUncached(ayCode: string): Promise<RecordsDrillRow[
   for (const s of sections) sectionById.set(s.id, s);
 
   const levels = new Map<string, string>();
-  for (const l of (levelsRes.data ?? []) as LevelLite[]) levels.set(l.id, l.code);
+  for (const l of (levelsRes.data ?? []) as LevelLite[])
+    levels.set(l.id, l.code);
 
   const ss = (ssRes.data ?? []) as SectionStudentLite[];
   const studentIds = Array.from(new Set(ss.map((s) => s.student_id)));
@@ -196,7 +215,8 @@ async function loadRecordsRowsUncached(ayCode: string): Promise<RecordsDrillRow[
   const studentMap = new Map<string, StudentLite>();
   if (studentIds.length > 0) {
     const chunks: string[][] = [];
-    for (let i = 0; i < studentIds.length; i += 500) chunks.push(studentIds.slice(i, i + 500));
+    for (let i = 0; i < studentIds.length; i += 500)
+      chunks.push(studentIds.slice(i, i + 500));
     for (const chunk of chunks) {
       const { data } = await service
         .from('students')
@@ -216,11 +236,15 @@ async function loadRecordsRowsUncached(ayCode: string): Promise<RecordsDrillRow[
     const [appsRes, statusRes] = await Promise.all([
       admissions
         .from(appsTable)
-        .select('enroleeNumber, studentNumber, enroleeFullName, firstName, lastName, levelApplied, created_at')
+        .select(
+          'enroleeNumber, studentNumber, enroleeFullName, firstName, lastName, levelApplied, created_at'
+        )
         .in('enroleeNumber', enroleeNumbers),
       admissions
         .from(statusTable)
-        .select('enroleeNumber, applicationStatus, applicationUpdatedDate, classLevel, levelApplied')
+        .select(
+          'enroleeNumber, applicationStatus, applicationUpdatedDate, classLevel, levelApplied'
+        )
         .in('enroleeNumber', enroleeNumbers),
     ]);
     for (const a of (appsRes.data ?? []) as ApplicationLite[]) {
@@ -239,7 +263,9 @@ async function loadRecordsRowsUncached(ayCode: string): Promise<RecordsDrillRow[
     const section = sectionById.get(enrol.section_id);
     const enroleeNumber = enrol.enrolee_number ?? '';
     const app = enroleeNumber ? appByEnrolee.get(enroleeNumber) : undefined;
-    const status = enroleeNumber ? statusByEnrolee.get(enroleeNumber) : undefined;
+    const status = enroleeNumber
+      ? statusByEnrolee.get(enroleeNumber)
+      : undefined;
 
     const applicationStatus = (status?.applicationStatus ?? '').trim();
     if (SOFT_CLOSED_APPLICATION_STATUSES.has(applicationStatus)) continue;
@@ -252,7 +278,9 @@ async function loadRecordsRowsUncached(ayCode: string): Promise<RecordsDrillRow[
 
     const enrollmentStatus = enrol.enrollment_status;
     const pipelineStage = deriveStage(applicationStatus, enrollmentStatus);
-    const level = section ? levels.get(section.level_id) ?? null : status?.classLevel ?? app?.levelApplied ?? null;
+    const level = section
+      ? (levels.get(section.level_id) ?? null)
+      : (status?.classLevel ?? app?.levelApplied ?? null);
 
     out.push({
       enroleeNumber: enroleeNumber || student.student_number,
@@ -277,7 +305,10 @@ async function loadRecordsRowsUncached(ayCode: string): Promise<RecordsDrillRow[
 }
 
 // Doc enrichment — opt-in per spec §6 (only certain targets surface doc fields).
-async function enrichWithDocs(rows: RecordsDrillRow[], ayCode: string): Promise<RecordsDrillRow[]> {
+async function enrichWithDocs(
+  rows: RecordsDrillRow[],
+  ayCode: string
+): Promise<RecordsDrillRow[]> {
   if (rows.length === 0) return rows;
   const prefix = prefixFor(ayCode);
   const docsTable = `${prefix}_enrolment_documents`;
@@ -288,7 +319,10 @@ async function enrichWithDocs(rows: RecordsDrillRow[], ayCode: string): Promise<
     .select(`enroleeNumber, ${CORE_DOC_STATUS_COLUMNS.join(', ')}`)
     .in('enroleeNumber', enroleeNumbers);
   if (error) return rows;
-  type DocRow = Record<(typeof CORE_DOC_STATUS_COLUMNS)[number] | 'enroleeNumber', string | null>;
+  type DocRow = Record<
+    (typeof CORE_DOC_STATUS_COLUMNS)[number] | 'enroleeNumber',
+    string | null
+  >;
   const docsByEnrolee = new Map<string, DocRow>();
   for (const d of (data ?? []) as unknown as DocRow[]) {
     if (d.enroleeNumber) docsByEnrolee.set(d.enroleeNumber, d);
@@ -299,7 +333,11 @@ async function enrichWithDocs(rows: RecordsDrillRow[], ayCode: string): Promise<
     let documentsComplete = 0;
     for (const col of CORE_DOC_STATUS_COLUMNS) {
       const v = d[col];
-      if (v && String(v).trim() !== '' && String(v).toLowerCase() !== 'missing') {
+      if (
+        v &&
+        String(v).trim() !== '' &&
+        String(v).toLowerCase() !== 'missing'
+      ) {
         documentsComplete += 1;
       }
     }
@@ -315,13 +353,13 @@ async function enrichWithDocs(rows: RecordsDrillRow[], ayCode: string): Promise<
 
 export async function buildRecordsDrillRows(
   input: DrillRangeInput,
-  options?: { withDocs?: boolean },
+  options?: { withDocs?: boolean }
 ): Promise<RecordsDrillRow[]> {
   // AY-scoped cache; scope/range filtering applied post-cache (per KD #56).
   const cached = await unstable_cache(
     () => loadRecordsRowsUncached(input.ayCode),
     ['records-drill', 'rows', input.ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tags(input.ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tags(input.ayCode) }
   )();
   return options?.withDocs ? enrichWithDocs(cached, input.ayCode) : cached;
 }
@@ -332,11 +370,12 @@ export function applyTargetFilter(
   rows: RecordsDrillRow[],
   target: RecordsDrillTarget,
   segment: string | null,
-  range?: { from: string; to: string },
+  range?: { from: string; to: string }
 ): RecordsDrillRow[] {
   switch (target) {
     case 'enrollments-range': {
-      if (!range) return rows.filter((r) => ENROLLED_STATUSES.has(r.enrollmentStatus));
+      if (!range)
+        return rows.filter((r) => ENROLLED_STATUSES.has(r.enrollmentStatus));
       return rows.filter((r) => {
         if (!ENROLLED_STATUSES.has(r.enrollmentStatus)) return false;
         if (!r.enrollmentDate) return false;
@@ -372,7 +411,7 @@ export function applyTargetFilter(
     }
     case 'class-assignment-readiness':
       return rows.filter(
-        (r) => ENROLLED_STATUSES.has(r.enrollmentStatus) && r.sectionId === null,
+        (r) => ENROLLED_STATUSES.has(r.enrollmentStatus) && r.sectionId === null
       );
     default: {
       const _exhaustive: never = target;
@@ -427,20 +466,58 @@ export const DRILL_COLUMN_LABELS: Record<DrillColumnKey, string> = {
   documentsComplete: 'Documents',
 };
 
-export function defaultColumnsForTarget(target: RecordsDrillTarget): DrillColumnKey[] {
+export function defaultColumnsForTarget(
+  target: RecordsDrillTarget
+): DrillColumnKey[] {
   switch (target) {
     case 'enrollments-range':
-      return ['fullName', 'level', 'sectionName', 'enrollmentDate', 'enrollmentStatus'];
+      return [
+        'fullName',
+        'level',
+        'sectionName',
+        'enrollmentDate',
+        'enrollmentStatus',
+      ];
     case 'withdrawals-range':
-      return ['fullName', 'level', 'sectionName', 'withdrawalDate', 'daysSinceUpdate'];
+      return [
+        'fullName',
+        'level',
+        'sectionName',
+        'withdrawalDate',
+        'daysSinceUpdate',
+      ];
     case 'active-enrolled':
-      return ['fullName', 'level', 'sectionName', 'enrollmentDate', 'documentsComplete'];
+      return [
+        'fullName',
+        'level',
+        'sectionName',
+        'enrollmentDate',
+        'documentsComplete',
+      ];
     case 'expiring-docs':
-      return ['fullName', 'level', 'sectionName', 'documentsComplete', 'daysSinceUpdate'];
+      return [
+        'fullName',
+        'level',
+        'sectionName',
+        'documentsComplete',
+        'daysSinceUpdate',
+      ];
     case 'students-by-pipeline-stage':
-      return ['fullName', 'level', 'pipelineStage', 'enrollmentStatus', 'daysSinceUpdate'];
+      return [
+        'fullName',
+        'level',
+        'pipelineStage',
+        'enrollmentStatus',
+        'daysSinceUpdate',
+      ];
     case 'students-by-level':
-      return ['fullName', 'level', 'sectionName', 'enrollmentStatus', 'enrollmentDate'];
+      return [
+        'fullName',
+        'level',
+        'sectionName',
+        'enrollmentStatus',
+        'enrollmentDate',
+      ];
     case 'backlog-by-document':
       return ['fullName', 'level', 'documentsComplete', 'daysSinceUpdate'];
     case 'class-assignment-readiness':
@@ -450,21 +527,37 @@ export function defaultColumnsForTarget(target: RecordsDrillTarget): DrillColumn
 
 export function drillHeaderForTarget(
   target: RecordsDrillTarget,
-  segment: string | null,
+  segment: string | null
 ): { eyebrow: string; title: string } {
   switch (target) {
-    case 'enrollments-range': return { eyebrow: 'Drill · Enrollments', title: 'Enrolled in range' };
-    case 'withdrawals-range': return { eyebrow: 'Drill · Withdrawals', title: 'Withdrawn in range' };
-    case 'active-enrolled': return { eyebrow: 'Drill · Active', title: 'Currently enrolled' };
-    case 'expiring-docs': return { eyebrow: 'Drill · Expiring', title: 'Documents expiring soon' };
+    case 'enrollments-range':
+      return { eyebrow: 'Drill · Enrollments', title: 'Enrolled in range' };
+    case 'withdrawals-range':
+      return { eyebrow: 'Drill · Withdrawals', title: 'Withdrawn in range' };
+    case 'active-enrolled':
+      return { eyebrow: 'Drill · Active', title: 'Currently enrolled' };
+    case 'expiring-docs':
+      return { eyebrow: 'Drill · Expiring', title: 'Documents expiring soon' };
     case 'students-by-pipeline-stage':
-      return { eyebrow: 'Drill · Stage', title: segment ? `Stage: ${segment}` : 'By pipeline stage' };
+      return {
+        eyebrow: 'Drill · Stage',
+        title: segment ? `Stage: ${segment}` : 'By pipeline stage',
+      };
     case 'students-by-level':
-      return { eyebrow: 'Drill · Level', title: segment ? `Level: ${segment}` : 'By level' };
+      return {
+        eyebrow: 'Drill · Level',
+        title: segment ? `Level: ${segment}` : 'By level',
+      };
     case 'backlog-by-document':
-      return { eyebrow: 'Drill · Document backlog', title: segment ? `Backlog: ${segment}` : 'Document backlog' };
+      return {
+        eyebrow: 'Drill · Document backlog',
+        title: segment ? `Backlog: ${segment}` : 'Document backlog',
+      };
     case 'class-assignment-readiness':
-      return { eyebrow: 'Drill · Class assignment', title: 'Active without section' };
+      return {
+        eyebrow: 'Drill · Class assignment',
+        title: 'Active without section',
+      };
   }
 }
 ```
@@ -496,6 +589,7 @@ backlog-by-document / class-assignment-readiness."
 Pattern-copy from `app/api/admissions/drill/[target]/route.ts`. Auth: `registrar`/`school_admin`/`admin`/`superadmin` (no teacher; Records is not teacher-facing). Doc enrichment opt-in for targets that surface doc fields.
 
 **Files:**
+
 - Create: `app/api/records/drill/[target]/route.ts`
 
 - [ ] **Step 1: Create the route**
@@ -531,11 +625,12 @@ const VALID_TARGETS: RecordsDrillTarget[] = [
 
 const VALID_SCOPES: DrillScope[] = ['range', 'ay', 'all'];
 
-const DOC_TARGETS: ReadonlySet<RecordsDrillTarget> = new Set<RecordsDrillTarget>([
-  'expiring-docs',
-  'active-enrolled',
-  'backlog-by-document',
-]);
+const DOC_TARGETS: ReadonlySet<RecordsDrillTarget> =
+  new Set<RecordsDrillTarget>([
+    'expiring-docs',
+    'active-enrolled',
+    'backlog-by-document',
+  ]);
 
 const ALLOWED_ROLES = [
   'registrar',
@@ -546,7 +641,7 @@ const ALLOWED_ROLES = [
 
 export async function GET(
   req: Request,
-  ctx: { params: Promise<{ target: string }> },
+  ctx: { params: Promise<{ target: string }> }
 ) {
   const guard = await requireRole([...ALLOWED_ROLES]);
   if ('error' in guard) return guard.error;
@@ -573,9 +668,10 @@ export async function GET(
 
   const all = await buildRecordsDrillRows(
     { ayCode, scope, from, to },
-    { withDocs: DOC_TARGETS.has(target) },
+    { withDocs: DOC_TARGETS.has(target) }
   );
-  const rangeForFilter = scope === 'range' && from && to ? { from, to } : undefined;
+  const rangeForFilter =
+    scope === 'range' && from && to ? { from, to } : undefined;
   const rows = applyTargetFilter(all, target, segment, rangeForFilter);
 
   if (format === 'csv') {
@@ -595,9 +691,17 @@ export async function GET(
   });
 }
 
-function pickColumns(target: RecordsDrillTarget, columnsParam: string | null): DrillColumnKey[] {
+function pickColumns(
+  target: RecordsDrillTarget,
+  columnsParam: string | null
+): DrillColumnKey[] {
   if (!columnsParam) return defaultColumnsForTarget(target);
-  const requested = columnsParam.split(',').map((c) => c.trim()).filter((c): c is DrillColumnKey => (ALL_DRILL_COLUMNS as string[]).includes(c));
+  const requested = columnsParam
+    .split(',')
+    .map((c) => c.trim())
+    .filter((c): c is DrillColumnKey =>
+      (ALL_DRILL_COLUMNS as string[]).includes(c)
+    );
   return requested.length > 0 ? requested : defaultColumnsForTarget(target);
 }
 
@@ -606,7 +710,7 @@ function csvResponse(
   target: RecordsDrillTarget,
   segment: string | null,
   ayCode: string,
-  columnsParam: string | null,
+  columnsParam: string | null
 ): Response {
   const columns = pickColumns(target, columnsParam);
   const headers = columns.map((c) => DRILL_COLUMN_LABELS[c] ?? c);
@@ -625,23 +729,38 @@ function csvResponse(
 
 function csvCell(row: RecordsDrillRow, key: DrillColumnKey): string | number {
   switch (key) {
-    case 'fullName': return row.fullName;
-    case 'studentNumber': return row.studentNumber ?? '';
-    case 'enroleeNumber': return row.enroleeNumber;
-    case 'enrollmentStatus': return row.enrollmentStatus;
-    case 'applicationStatus': return row.applicationStatus;
-    case 'level': return row.level ?? '';
-    case 'sectionName': return row.sectionName ?? '';
-    case 'pipelineStage': return row.pipelineStage;
-    case 'enrollmentDate': return row.enrollmentDate?.slice(0, 10) ?? '';
-    case 'withdrawalDate': return row.withdrawalDate?.slice(0, 10) ?? '';
-    case 'daysSinceUpdate': return row.daysSinceUpdate ?? '';
-    case 'documentsComplete': return `${row.documentsComplete}/${row.documentsTotal}`;
+    case 'fullName':
+      return row.fullName;
+    case 'studentNumber':
+      return row.studentNumber ?? '';
+    case 'enroleeNumber':
+      return row.enroleeNumber;
+    case 'enrollmentStatus':
+      return row.enrollmentStatus;
+    case 'applicationStatus':
+      return row.applicationStatus;
+    case 'level':
+      return row.level ?? '';
+    case 'sectionName':
+      return row.sectionName ?? '';
+    case 'pipelineStage':
+      return row.pipelineStage;
+    case 'enrollmentDate':
+      return row.enrollmentDate?.slice(0, 10) ?? '';
+    case 'withdrawalDate':
+      return row.withdrawalDate?.slice(0, 10) ?? '';
+    case 'daysSinceUpdate':
+      return row.daysSinceUpdate ?? '';
+    case 'documentsComplete':
+      return `${row.documentsComplete}/${row.documentsTotal}`;
   }
 }
 
 function slug(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 ```
 
@@ -667,6 +786,7 @@ to registrar+ — Records is not teacher-facing."
 Bundles the client components together and wires the Records page. Pattern-copy from Admissions module (`components/admissions/drills/admissions-drill-sheet.tsx` + `chart-drill-cards.tsx`) but using `RecordsDrillRow` and Records-specific column rendering.
 
 **Files:**
+
 - Create: `components/sis/drills/records-drill-sheet.tsx`
 - Create: `components/sis/drills/chart-drill-cards.tsx`
 - Modify: `app/(records)/records/page.tsx`
@@ -674,6 +794,7 @@ Bundles the client components together and wires the Records page. Pattern-copy 
 - [ ] **Step 1: Create `components/sis/drills/records-drill-sheet.tsx`**
 
 Pattern-copy `components/admissions/drills/admissions-drill-sheet.tsx`. Replace:
+
 - `DrillRow` → `RecordsDrillRow`
 - `DrillTarget` → `RecordsDrillTarget`
 - imports from `@/lib/admissions/drill` → `@/lib/sis/drill`
@@ -685,6 +806,7 @@ Ship the file in a single Write call using the admissions sheet as a literal tem
 - [ ] **Step 2: Create `components/sis/drills/chart-drill-cards.tsx`**
 
 Pattern-copy `components/admissions/drills/chart-drill-cards.tsx`. Per-target client wrappers needed:
+
 - `EnrollmentsKpiDrillCard` — wraps a MetricCard `drillSheet`
 - `PipelineStageDrillCard` — wraps the Sankey card (built in Task 4) with onSegmentClick
 - `DocumentBacklogDrillCard` — wraps the existing `<DocumentBacklogChart>` with onSegmentClick (segment = `{slotKey}|{statusBucket}`)
@@ -752,18 +874,22 @@ pre-fetch (modest scale per KD #56)."
 Replace `components/sis/pipeline-stage-chart.tsx`'s horizontal-bar visualization with a recharts Sankey. The data shape stays the same (`PipelineStage[]` from `lib/sis/dashboard.ts`); just the rendering changes.
 
 **Files:**
+
 - Create: `components/sis/pipeline-stage-sankey-card.tsx`
 - Modify: `app/(records)/records/page.tsx` (swap usage)
 
 - [ ] **Step 1: Read recharts Sankey API**
 
 Check installed recharts version supports Sankey. Run:
+
 ```bash
 grep '"recharts"' package.json
 ```
+
 Expected: `"recharts": "^2.x"` or higher (Sankey is in 2.x). If lower, abort and ask user to upgrade.
 
 Recharts Sankey shape:
+
 ```tsx
 import { Sankey, Tooltip } from 'recharts';
 <Sankey
@@ -814,9 +940,14 @@ export function PipelineStageSankeyCard({ data, onSegmentClick }: Props) {
   // stage's flow forward = the next stage's count (drop-off naturally
   // appears as a thinning ribbon). The last node receives flow from the
   // previous stage equal to its own count.
-  const sankey = React.useMemo<{ nodes: SankeyNode[]; links: SankeyLink[] } | null>(() => {
+  const sankey = React.useMemo<{
+    nodes: SankeyNode[];
+    links: SankeyLink[];
+  } | null>(() => {
     if (data.length < 2) return null;
-    const nodes: SankeyNode[] = data.map((s) => ({ name: s.label ?? s.stage ?? '—' }));
+    const nodes: SankeyNode[] = data.map((s) => ({
+      name: s.label ?? s.stage ?? '—',
+    }));
     const links: SankeyLink[] = [];
     for (let i = 0; i < data.length - 1; i += 1) {
       const v = Math.max(0, data[i + 1].count);
@@ -847,7 +978,9 @@ export function PipelineStageSankeyCard({ data, onSegmentClick }: Props) {
         {empty ? (
           <div className="flex h-[340px] flex-col items-center justify-center gap-2 text-center">
             <Workflow className="size-6 text-muted-foreground/60" />
-            <p className="text-sm font-medium text-foreground">No applicants yet</p>
+            <p className="text-sm font-medium text-foreground">
+              No applicants yet
+            </p>
             <p className="max-w-xs text-xs text-muted-foreground">
               Stage flow appears once at least two stages have populated counts.
             </p>
@@ -860,15 +993,21 @@ export function PipelineStageSankeyCard({ data, onSegmentClick }: Props) {
               nodePadding={24}
               linkCurvature={0.5}
               link={{ stroke: 'var(--color-chart-1)', strokeOpacity: 0.45 }}
-              node={{ fill: 'var(--color-chart-1)', stroke: 'var(--color-border)' }}
+              node={{
+                fill: 'var(--color-chart-1)',
+                stroke: 'var(--color-border)',
+              }}
               margin={{ top: 8, right: 100, bottom: 8, left: 8 }}
               onClick={
                 onSegmentClick
-                  ? ((nodeData: unknown) => {
-                      const p = nodeData as { name?: string; payload?: { name?: string } };
+                  ? (((nodeData: unknown) => {
+                      const p = nodeData as {
+                        name?: string;
+                        payload?: { name?: string };
+                      };
                       const name = p?.payload?.name ?? p?.name;
                       if (name) onSegmentClick(name);
-                    }) as never
+                    }) as never)
                   : undefined
               }
             >
@@ -925,6 +1064,7 @@ new dep (Sankey ships in recharts core)."
 New card surfacing students who are enrolled but haven't been assigned to a section yet. Lib helper + card + drill wiring.
 
 **Files:**
+
 - Modify: `lib/sis/dashboard.ts` (add `getClassAssignmentReadiness` helper)
 - Create: `components/sis/class-assignment-readiness-card.tsx`
 - Modify: `app/(records)/records/page.tsx` (add the card to the page)
@@ -943,7 +1083,7 @@ export type ClassAssignmentReadinessRow = {
 };
 
 async function loadClassAssignmentReadinessUncached(
-  ayCode: string,
+  ayCode: string
 ): Promise<ClassAssignmentReadinessRow[]> {
   const service = createServiceClient();
   const { data: ayRow } = await service
@@ -972,17 +1112,22 @@ async function loadClassAssignmentReadinessUncached(
   const [enrolledRes, ssRes] = await Promise.all([
     admissions
       .from(`${prefix}_enrolment_status`)
-      .select('enroleeNumber, applicationStatus, applicationUpdatedDate, classLevel, levelApplied')
+      .select(
+        'enroleeNumber, applicationStatus, applicationUpdatedDate, classLevel, levelApplied'
+      )
       .in('applicationStatus', ['Enrolled', 'Enrolled (Conditional)']),
     sectionIds.length > 0
-      ? service.from('section_students').select('enrolee_number').in('section_id', sectionIds)
+      ? service
+          .from('section_students')
+          .select('enrolee_number')
+          .in('section_id', sectionIds)
       : Promise.resolve({ data: [] }),
   ]);
 
   const assignedEnrolees = new Set(
     ((ssRes.data ?? []) as { enrolee_number: string | null }[])
       .map((r) => r.enrolee_number)
-      .filter((v): v is string => v !== null),
+      .filter((v): v is string => v !== null)
   );
 
   type EnrolledRow = {
@@ -1005,7 +1150,9 @@ async function loadClassAssignmentReadinessUncached(
 
   const { data: appsData } = await admissions
     .from(`${prefix}_enrolment_applications`)
-    .select('enroleeNumber, enroleeFullName, firstName, lastName, levelApplied, created_at')
+    .select(
+      'enroleeNumber, enroleeFullName, firstName, lastName, levelApplied, created_at'
+    )
     .in('enroleeNumber', unassignedEnrolees);
   type AppRow = {
     enroleeNumber: string | null;
@@ -1032,7 +1179,8 @@ async function loadClassAssignmentReadinessUncached(
       (app?.enroleeFullName ?? '').trim() ||
       `${app?.firstName ?? ''} ${app?.lastName ?? ''}`.trim() ||
       enroleeNumber;
-    const enrollmentDate = status?.applicationUpdatedDate ?? app?.created_at ?? null;
+    const enrollmentDate =
+      status?.applicationUpdatedDate ?? app?.created_at ?? null;
     const enrolledMs = enrollmentDate ? Date.parse(enrollmentDate) : NaN;
     out.push({
       enroleeNumber,
@@ -1044,17 +1192,19 @@ async function loadClassAssignmentReadinessUncached(
         : null,
     });
   }
-  out.sort((a, b) => (b.daysSinceEnrollment ?? 0) - (a.daysSinceEnrollment ?? 0));
+  out.sort(
+    (a, b) => (b.daysSinceEnrollment ?? 0) - (a.daysSinceEnrollment ?? 0)
+  );
   return out;
 }
 
 export async function getClassAssignmentReadiness(
-  ayCode: string,
+  ayCode: string
 ): Promise<ClassAssignmentReadinessRow[]> {
   return unstable_cache(
     () => loadClassAssignmentReadinessUncached(ayCode),
     ['records-dashboard', 'class-assignment-readiness', ayCode],
-    { revalidate: 60, tags: [`sis-dashboard:${ayCode}`] },
+    { revalidate: 60, tags: [`sis-dashboard:${ayCode}`] }
   )();
 }
 ```
@@ -1088,7 +1238,8 @@ import {
 import { Sheet } from '@/components/ui/sheet';
 import type { ClassAssignmentReadinessRow } from '@/lib/sis/dashboard';
 
-const BADGE_BASE = 'h-6 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]';
+const BADGE_BASE =
+  'h-6 px-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em]';
 
 export function ClassAssignmentReadinessCard({
   data,
@@ -1151,9 +1302,16 @@ export function ClassAssignmentReadinessCard({
               </thead>
               <tbody>
                 {data.slice(0, 8).map((r) => (
-                  <tr key={r.enroleeNumber} className="border-b border-border/60">
-                    <td className="py-2 font-medium text-foreground">{r.fullName}</td>
-                    <td className="py-2 text-muted-foreground">{r.level ?? '—'}</td>
+                  <tr
+                    key={r.enroleeNumber}
+                    className="border-b border-border/60"
+                  >
+                    <td className="py-2 font-medium text-foreground">
+                      {r.fullName}
+                    </td>
+                    <td className="py-2 text-muted-foreground">
+                      {r.level ?? '—'}
+                    </td>
                     <td
                       className={
                         'py-2 text-right font-mono tabular-nums ' +
@@ -1193,6 +1351,7 @@ export function ClassAssignmentReadinessCard({
 Add the import + render the card on `app/(records)/records/page.tsx` in an appropriate row (suggest: `lg:grid-cols-2` row alongside the new "Activity" placeholder; or above the Recent Activity feed).
 
 Pass server-fetched data via `Promise.all`:
+
 ```ts
 const [..., classAssignment] = await Promise.all([
   ...,
@@ -1224,6 +1383,7 @@ readiness."
 ## Task 6: P-Files — `lib/p-files/drill.ts`
 
 **Files:**
+
 - Create: `lib/p-files/drill.ts`
 
 - [ ] **Step 1: Read pattern reference**
@@ -1322,7 +1482,9 @@ function normaliseStatus(raw: string | null): PFilesDrillRow['status'] {
   return 'On file';
 }
 
-async function loadPFilesRowsUncached(ayCode: string): Promise<PFilesDrillRow[]> {
+async function loadPFilesRowsUncached(
+  ayCode: string
+): Promise<PFilesDrillRow[]> {
   const prefix = prefixFor(ayCode);
   const appsTable = `${prefix}_enrolment_applications`;
   const docsTable = `${prefix}_enrolment_documents`;
@@ -1333,13 +1495,15 @@ async function loadPFilesRowsUncached(ayCode: string): Promise<PFilesDrillRow[]>
   const [appsRes, docsRes, statusRes, revRes] = await Promise.all([
     admissions
       .from(appsTable)
-      .select('enroleeNumber, enroleeFullName, firstName, lastName, levelApplied'),
+      .select(
+        'enroleeNumber, enroleeFullName, firstName, lastName, levelApplied'
+      ),
     admissions
       .from(docsTable)
-      .select(`enroleeNumber, ${CORE_SLOTS.map((s) => s.column).join(', ')}, passportExpiryDate`),
-    admissions
-      .from(statusTable)
-      .select('enroleeNumber, classLevel'),
+      .select(
+        `enroleeNumber, ${CORE_SLOTS.map((s) => s.column).join(', ')}, passportExpiryDate`
+      ),
+    admissions.from(statusTable).select('enroleeNumber, classLevel'),
     service
       .from('p_file_revisions')
       .select('enrolee_number, slot_key, ay_code, replaced_at')
@@ -1365,7 +1529,8 @@ async function loadPFilesRowsUncached(ayCode: string): Promise<PFilesDrillRow[]>
   }>;
   const classLevelByEnrolee = new Map<string, string>();
   for (const s of statuses) {
-    if (s.enroleeNumber && s.classLevel) classLevelByEnrolee.set(s.enroleeNumber, s.classLevel);
+    if (s.enroleeNumber && s.classLevel)
+      classLevelByEnrolee.set(s.enroleeNumber, s.classLevel);
   }
 
   // Revisions counted per (enrolee, slot)
@@ -1385,8 +1550,10 @@ async function loadPFilesRowsUncached(ayCode: string): Promise<PFilesDrillRow[]>
   for (const app of apps) {
     if (!app.enroleeNumber) continue;
     const docRow = docByEnrolee.get(app.enroleeNumber);
-    const level = classLevelByEnrolee.get(app.enroleeNumber) ?? app.levelApplied ?? null;
-    const expiryDate = (docRow?.['passportExpiryDate'] as string | null | undefined) ?? null;
+    const level =
+      classLevelByEnrolee.get(app.enroleeNumber) ?? app.levelApplied ?? null;
+    const expiryDate =
+      (docRow?.['passportExpiryDate'] as string | null | undefined) ?? null;
     const expiryMs = expiryDate ? Date.parse(expiryDate) : NaN;
     const daysToExpiry = !Number.isNaN(expiryMs)
       ? Math.floor((expiryMs - today) / 86_400_000)
@@ -1423,7 +1590,7 @@ export async function buildPFilesDrillRows(input: {
   return unstable_cache(
     () => loadPFilesRowsUncached(input.ayCode),
     ['p-files-drill', 'rows', input.ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tags(input.ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tags(input.ayCode) }
   )();
 }
 
@@ -1433,13 +1600,17 @@ export function applyTargetFilter(
   rows: PFilesDrillRow[],
   target: PFilesDrillTarget,
   segment: string | null,
-  range?: { from: string; to: string },
+  range?: { from: string; to: string }
 ): PFilesDrillRow[] {
   switch (target) {
-    case 'all-docs': return rows;
-    case 'complete-docs': return rows.filter((r) => r.status === 'On file');
-    case 'expired-docs': return rows.filter((r) => r.status === 'Expired');
-    case 'missing-docs': return rows.filter((r) => r.status === 'Missing');
+    case 'all-docs':
+      return rows;
+    case 'complete-docs':
+      return rows.filter((r) => r.status === 'On file');
+    case 'expired-docs':
+      return rows.filter((r) => r.status === 'Expired');
+    case 'missing-docs':
+      return rows.filter((r) => r.status === 'Missing');
     case 'slot-by-status': {
       // segment = a status string ('Missing', 'Expired', etc.)
       if (!segment) return rows;
@@ -1448,7 +1619,9 @@ export function applyTargetFilter(
     case 'missing-by-slot': {
       // segment = slotKey
       if (!segment) return rows.filter((r) => r.status === 'Missing');
-      return rows.filter((r) => r.slotKey === segment && r.status === 'Missing');
+      return rows.filter(
+        (r) => r.slotKey === segment && r.status === 'Missing'
+      );
     }
     case 'level-applicants': {
       if (!segment) return rows;
@@ -1503,9 +1676,12 @@ export const DRILL_COLUMN_LABELS: Record<DrillColumnKey, string> = {
   lastRevisionAt: 'Last revision',
 };
 
-export function defaultColumnsForTarget(target: PFilesDrillTarget): DrillColumnKey[] {
+export function defaultColumnsForTarget(
+  target: PFilesDrillTarget
+): DrillColumnKey[] {
   switch (target) {
-    case 'all-docs': return ['fullName', 'level', 'slotLabel', 'status'];
+    case 'all-docs':
+      return ['fullName', 'level', 'slotLabel', 'status'];
     case 'complete-docs':
     case 'expired-docs':
     case 'missing-docs':
@@ -1515,27 +1691,50 @@ export function defaultColumnsForTarget(target: PFilesDrillTarget): DrillColumnK
     case 'level-applicants':
       return ['fullName', 'level', 'slotLabel', 'status'];
     case 'revisions-on-day':
-      return ['fullName', 'level', 'slotLabel', 'status', 'revisionCount', 'lastRevisionAt'];
+      return [
+        'fullName',
+        'level',
+        'slotLabel',
+        'status',
+        'revisionCount',
+        'lastRevisionAt',
+      ];
   }
 }
 
 export function drillHeaderForTarget(
   target: PFilesDrillTarget,
-  segment: string | null,
+  segment: string | null
 ): { eyebrow: string; title: string } {
   switch (target) {
-    case 'all-docs': return { eyebrow: 'Drill · All', title: 'All document slots' };
-    case 'complete-docs': return { eyebrow: 'Drill · Complete', title: 'On-file documents' };
-    case 'expired-docs': return { eyebrow: 'Drill · Expired', title: 'Expired documents' };
-    case 'missing-docs': return { eyebrow: 'Drill · Missing', title: 'Missing documents' };
+    case 'all-docs':
+      return { eyebrow: 'Drill · All', title: 'All document slots' };
+    case 'complete-docs':
+      return { eyebrow: 'Drill · Complete', title: 'On-file documents' };
+    case 'expired-docs':
+      return { eyebrow: 'Drill · Expired', title: 'Expired documents' };
+    case 'missing-docs':
+      return { eyebrow: 'Drill · Missing', title: 'Missing documents' };
     case 'slot-by-status':
-      return { eyebrow: 'Drill · Status', title: segment ? `Status: ${segment}` : 'By status' };
+      return {
+        eyebrow: 'Drill · Status',
+        title: segment ? `Status: ${segment}` : 'By status',
+      };
     case 'missing-by-slot':
-      return { eyebrow: 'Drill · Slot', title: segment ? `Missing: ${segment}` : 'Missing by slot' };
+      return {
+        eyebrow: 'Drill · Slot',
+        title: segment ? `Missing: ${segment}` : 'Missing by slot',
+      };
     case 'level-applicants':
-      return { eyebrow: 'Drill · Level', title: segment ? `Level: ${segment}` : 'By level' };
+      return {
+        eyebrow: 'Drill · Level',
+        title: segment ? `Level: ${segment}` : 'By level',
+      };
     case 'revisions-on-day':
-      return { eyebrow: 'Drill · Revisions', title: segment ? `Revisions on ${segment}` : 'Revisions' };
+      return {
+        eyebrow: 'Drill · Revisions',
+        title: segment ? `Revisions on ${segment}` : 'Revisions',
+      };
   }
 }
 ```
@@ -1558,11 +1757,13 @@ p_file_revisions for revision count + last-revision-at."
 ## Task 7: P-Files — API route
 
 **Files:**
+
 - Create: `app/api/p-files/drill/[target]/route.ts`
 
 - [ ] **Step 1: Create route**
 
 Pattern-copy `app/api/records/drill/[target]/route.ts` (Task 2). Replace:
+
 - `RecordsDrillTarget`/`RecordsDrillRow` → `PFilesDrillTarget`/`PFilesDrillRow`
 - imports from `@/lib/sis/drill` → `@/lib/p-files/drill`
 - `VALID_TARGETS` to the 8 P-Files targets
@@ -1588,6 +1789,7 @@ definition."
 ## Task 8: P-Files — drill sheet + chart wrappers + page wiring
 
 **Files:**
+
 - Create: `components/p-files/drills/pfiles-drill-sheet.tsx`
 - Create: `components/p-files/drills/chart-drill-cards.tsx`
 - Modify: `app/(p-files)/p-files/page.tsx`
@@ -1595,6 +1797,7 @@ definition."
 - [ ] **Step 1: Create drill sheet**
 
 Pattern-copy `components/sis/drills/records-drill-sheet.tsx` (Task 3). Replace types, columns, badge logic. P-Files badges:
+
 - `StatusBadge`: On file=success, Pending review=muted, Expired=blocked, Missing=blocked, N/A=outline
 
 Wire `DrillSheetSkeleton` early-return (P-Files is lazy-fetched per spec §6.2).
@@ -1602,6 +1805,7 @@ Wire `DrillSheetSkeleton` early-return (P-Files is lazy-fetched per spec §6.2).
 - [ ] **Step 2: Create chart drill wrappers**
 
 5 wrappers needed:
+
 - `SlotStatusDrillCard` (wraps existing `SlotStatusDonut` with `onSegmentClick(status)`)
 - `TopMissingDrillCard` (wraps existing `TopMissingPanel` row clicks → `missing-by-slot` segment=slotKey)
 - `LevelCompletionDrillCard` (wraps existing `CompletionByLevelChart` segment click → `level-applicants`)
@@ -1632,6 +1836,7 @@ applicant × slot)."
 ## Task 9: P-Files — Revisions activity heatmap
 
 **Files:**
+
 - Modify: `lib/p-files/dashboard.ts` (add `getRevisionsHeatmap`)
 - Create: `components/p-files/revisions-heatmap-card.tsx`
 - Modify: `components/p-files/drills/chart-drill-cards.tsx` (wire `RevisionsHeatmapDrillCard`)
@@ -1648,11 +1853,15 @@ export type RevisionsHeatmapCell = {
 
 async function loadRevisionsHeatmapUncached(
   ayCode: string,
-  weeks = 12,
+  weeks = 12
 ): Promise<RevisionsHeatmapCell[]> {
   const service = createServiceClient();
   const today = new Date();
-  const since = new Date(today.getFullYear(), today.getMonth(), today.getDate() - weeks * 7);
+  const since = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate() - weeks * 7
+  );
   const sinceIso = since.toISOString();
 
   const { data } = await service
@@ -1671,7 +1880,11 @@ async function loadRevisionsHeatmapUncached(
   // Fill the full 12×7 grid so empty cells render as muted
   const out: RevisionsHeatmapCell[] = [];
   for (let i = 0; i < weeks * 7; i += 1) {
-    const d = new Date(since.getFullYear(), since.getMonth(), since.getDate() + i);
+    const d = new Date(
+      since.getFullYear(),
+      since.getMonth(),
+      since.getDate() + i
+    );
     const iso = d.toISOString().slice(0, 10);
     out.push({ date: iso, count: buckets.get(iso) ?? 0 });
   }
@@ -1680,12 +1893,12 @@ async function loadRevisionsHeatmapUncached(
 
 export function getRevisionsHeatmap(
   ayCode: string,
-  weeks = 12,
+  weeks = 12
 ): Promise<RevisionsHeatmapCell[]> {
   return unstable_cache(
     () => loadRevisionsHeatmapUncached(ayCode, weeks),
     ['p-files-dashboard', 'revisions-heatmap', ayCode, String(weeks)],
-    { revalidate: 60, tags: [`p-files:${ayCode}`] },
+    { revalidate: 60, tags: [`p-files:${ayCode}`] }
   )();
 }
 ```
@@ -1719,7 +1932,11 @@ type Props = {
   onSegmentClick?: (date: string) => void;
 };
 
-export function RevisionsHeatmapCard({ data, weeks = 12, onSegmentClick }: Props) {
+export function RevisionsHeatmapCard({
+  data,
+  weeks = 12,
+  onSegmentClick,
+}: Props) {
   const max = data.reduce((m, c) => (c.count > m ? c.count : m), 0);
   const intensity = (count: number): number => {
     if (count === 0) return 0;
@@ -1730,8 +1947,10 @@ export function RevisionsHeatmapCard({ data, weeks = 12, onSegmentClick }: Props
   // Group cells into a 7×weeks grid (rows = days of week, cols = weeks).
   // The data array is in chronological order; the first cell's day-of-week
   // determines where it starts.
-  const grid: (RevisionsHeatmapCell | null)[][] = Array.from({ length: 7 }, () =>
-    Array.from({ length: weeks }, () => null as RevisionsHeatmapCell | null),
+  const grid: (RevisionsHeatmapCell | null)[][] = Array.from(
+    { length: 7 },
+    () =>
+      Array.from({ length: weeks }, () => null as RevisionsHeatmapCell | null)
   );
   if (data.length > 0) {
     const firstDate = new Date(data[0].date);
@@ -1768,7 +1987,9 @@ export function RevisionsHeatmapCard({ data, weeks = 12, onSegmentClick }: Props
         <div className="flex gap-1">
           <div className="flex flex-col gap-1 pt-3 font-mono text-[9px] uppercase tracking-[0.14em] text-muted-foreground">
             {DAY_LABELS.map((d) => (
-              <div key={d} className="h-3.5 leading-3">{d}</div>
+              <div key={d} className="h-3.5 leading-3">
+                {d}
+              </div>
             ))}
           </div>
           <div className="grid auto-cols-fr grid-flow-col gap-1">
@@ -1776,7 +1997,8 @@ export function RevisionsHeatmapCard({ data, weeks = 12, onSegmentClick }: Props
               <div key={weekIdx} className="flex flex-col gap-1">
                 {grid.map((row, dayIdx) => {
                   const cell = row[weekIdx];
-                  if (!cell) return <div key={dayIdx} className="h-3.5 w-3.5" />;
+                  if (!cell)
+                    return <div key={dayIdx} className="h-3.5 w-3.5" />;
                   const i = intensity(cell.count);
                   return (
                     <button
@@ -1789,9 +2011,13 @@ export function RevisionsHeatmapCard({ data, weeks = 12, onSegmentClick }: Props
                         cell.count === 0
                           ? 'bg-muted'
                           : 'bg-gradient-to-br from-brand-indigo to-brand-navy',
-                        cell.count === 0 ? '' : 'hover:scale-125',
+                        cell.count === 0 ? '' : 'hover:scale-125'
                       )}
-                      style={cell.count === 0 ? undefined : { opacity: 0.3 + i * 0.7 }}
+                      style={
+                        cell.count === 0
+                          ? undefined
+                          : { opacity: 0.3 + i * 0.7 }
+                      }
                       aria-label={`${cell.date}: ${cell.count} revisions`}
                     />
                   );
@@ -1824,7 +2050,12 @@ export function RevisionsHeatmapDrillCard({
     <Sheet open={!!openDate} onOpenChange={(o) => !o && setOpenDate(null)}>
       <RevisionsHeatmapCard data={data} onSegmentClick={setOpenDate} />
       {openDate && (
-        <PFilesDrillSheet target="revisions-on-day" segment={openDate} ayCode={ayCode} initialScope="ay" />
+        <PFilesDrillSheet
+          target="revisions-on-day"
+          segment={openDate}
+          ayCode={ayCode}
+          initialScope="ay"
+        />
       )}
     </Sheet>
   );
@@ -1862,6 +2093,7 @@ ago)."
 The SIS Admin drill targets append to the existing `lib/sis/drill.ts` (created in Task 1) since both consume from the SIS module. The audit + approver + AY drills have different row shapes than `RecordsDrillRow`, so they get their own row types.
 
 **Files:**
+
 - Modify: `lib/sis/drill.ts` (extend with SIS Admin targets)
 - Modify: `lib/sis/dashboard.ts` (add `getActivityByActor`)
 
@@ -1924,17 +2156,21 @@ const MODULE_ACTION_PREFIXES: Record<string, string> = {
 
 export async function loadAuditEventsUncached(
   modulePrefix: string,
-  range?: { from: string; to: string },
+  range?: { from: string; to: string }
 ): Promise<AuditDrillRow[]> {
   const service = createServiceClient();
   let q = service
     .from('audit_log')
-    .select('id, action, actor_email, entity_type, entity_id, context, created_at')
+    .select(
+      'id, action, actor_email, entity_type, entity_id, context, created_at'
+    )
     .like('action', `${modulePrefix}%`)
     .order('created_at', { ascending: false })
     .limit(2000);
   if (range?.from && range?.to) {
-    q = q.gte('created_at', range.from).lte('created_at', `${range.to}T23:59:59.999Z`);
+    q = q
+      .gte('created_at', range.from)
+      .lte('created_at', `${range.to}T23:59:59.999Z`);
   }
   const { data } = await q;
   type AuditRow = {
@@ -1957,7 +2193,9 @@ export async function loadAuditEventsUncached(
   }));
 }
 
-export async function loadApproverAssignments(): Promise<ApproverAssignmentDrillRow[]> {
+export async function loadApproverAssignments(): Promise<
+  ApproverAssignmentDrillRow[]
+> {
   const service = createServiceClient();
   const { data } = await service
     .from('approver_assignments')
@@ -1974,7 +2212,9 @@ export async function loadApproverAssignments(): Promise<ApproverAssignmentDrill
   // Resolve emails via auth admin
   const emailMap = new Map<string, string>();
   try {
-    const { data: userList } = await service.auth.admin.listUsers({ perPage: 1000 });
+    const { data: userList } = await service.auth.admin.listUsers({
+      perPage: 1000,
+    });
     if (userList?.users) {
       for (const u of userList.users) if (u.email) emailMap.set(u.id, u.email);
     }
@@ -1997,7 +2237,12 @@ export async function loadAcademicYearsList(): Promise<AcademicYearDrillRow[]> {
     .from('academic_years')
     .select('id, ay_code, label, is_current')
     .order('ay_code', { ascending: false });
-  type Row = { id: string; ay_code: string; label: string | null; is_current: boolean };
+  type Row = {
+    id: string;
+    ay_code: string;
+    label: string | null;
+    is_current: boolean;
+  };
   const ays = (data ?? []) as Row[];
   if (ays.length === 0) return [];
 
@@ -2019,7 +2264,10 @@ export async function loadAcademicYearsList(): Promise<AcademicYearDrillRow[]> {
       .select('id, academic_year_id')
       .in('academic_year_id', ayIds)
       .then(async ({ data: sections }) => {
-        const sectionRows = (sections ?? []) as { id: string; academic_year_id: string }[];
+        const sectionRows = (sections ?? []) as {
+          id: string;
+          academic_year_id: string;
+        }[];
         if (sectionRows.length === 0) return new Map<string, number>();
         const sectionIds = sectionRows.map((s) => s.id);
         const { data: ssRows } = await service
@@ -2048,9 +2296,10 @@ export async function loadAcademicYearsList(): Promise<AcademicYearDrillRow[]> {
   }));
 }
 
-export async function loadActorActivity(
-  range?: { from: string; to: string },
-): Promise<ActorActivityDrillRow[]> {
+export async function loadActorActivity(range?: {
+  from: string;
+  to: string;
+}): Promise<ActorActivityDrillRow[]> {
   const service = createServiceClient();
   let q = service
     .from('audit_log')
@@ -2058,7 +2307,9 @@ export async function loadActorActivity(
     .order('created_at', { ascending: false })
     .limit(5000);
   if (range?.from && range?.to) {
-    q = q.gte('created_at', range.from).lte('created_at', `${range.to}T23:59:59.999Z`);
+    q = q
+      .gte('created_at', range.from)
+      .lte('created_at', `${range.to}T23:59:59.999Z`);
   }
   const { data } = await q;
   type Row = {
@@ -2066,7 +2317,10 @@ export async function loadActorActivity(
     actor_email: string | null;
     created_at: string;
   };
-  const map = new Map<string, { email: string | null; count: number; lastAt: string }>();
+  const map = new Map<
+    string,
+    { email: string | null; count: number; lastAt: string }
+  >();
   for (const r of (data ?? []) as Row[]) {
     const userId = r.actor_user_id ?? '__anon';
     const acc = map.get(userId);
@@ -2079,14 +2333,22 @@ export async function loadActorActivity(
   }
   const out: ActorActivityDrillRow[] = [];
   for (const [userId, acc] of map.entries()) {
-    out.push({ userId, email: acc.email, count: acc.count, lastEventAt: acc.lastAt });
+    out.push({
+      userId,
+      email: acc.email,
+      count: acc.count,
+      lastEventAt: acc.lastAt,
+    });
   }
   out.sort((a, b) => b.count - a.count);
   return out;
 }
 
 export function isModulePrefix(p: string): boolean {
-  return Object.values(MODULE_ACTION_PREFIXES).includes(p) || p in MODULE_ACTION_PREFIXES;
+  return (
+    Object.values(MODULE_ACTION_PREFIXES).includes(p) ||
+    p in MODULE_ACTION_PREFIXES
+  );
 }
 
 export function modulePrefixFor(slug: string): string {
@@ -2100,11 +2362,17 @@ export function modulePrefixFor(slug: string): string {
 // lib/sis/dashboard.ts — append
 import { loadActorActivity } from '@/lib/sis/drill';
 
-export async function getActivityByActor(
-  range?: { from: string; to: string },
-): Promise<Awaited<ReturnType<typeof loadActorActivity>>> {
+export async function getActivityByActor(range?: {
+  from: string;
+  to: string;
+}): Promise<Awaited<ReturnType<typeof loadActorActivity>>> {
   // Cache wrapper keyed by range
-  const key = ['sis-dashboard', 'activity-by-actor', range?.from ?? 'all', range?.to ?? 'all'];
+  const key = [
+    'sis-dashboard',
+    'activity-by-actor',
+    range?.from ?? 'all',
+    range?.to ?? 'all',
+  ];
   return unstable_cache(() => loadActorActivity(range), key, {
     revalidate: 60,
     tags: ['sis-dashboard', 'audit-log'],
@@ -2135,6 +2403,7 @@ evaluation) lives next to the audit loader for symmetry."
 ## Task 11: SIS Admin — API route + drill sheet
 
 **Files:**
+
 - Create: `app/api/sis-admin/drill/[target]/route.ts`
 - Create: `components/sis/drills/sis-admin-drill-sheet.tsx`
 
@@ -2167,11 +2436,15 @@ const VALID_TARGETS: SisAdminDrillTarget[] = [
 
 const ALLOWED_ROLES = ['school_admin', 'admin', 'superadmin'] as const;
 
-type AnyRow = AuditDrillRow | ApproverAssignmentDrillRow | AcademicYearDrillRow | ActorActivityDrillRow;
+type AnyRow =
+  | AuditDrillRow
+  | ApproverAssignmentDrillRow
+  | AcademicYearDrillRow
+  | ActorActivityDrillRow;
 
 export async function GET(
   req: Request,
-  ctx: { params: Promise<{ target: string }> },
+  ctx: { params: Promise<{ target: string }> }
 ) {
   const guard = await requireRole([...ALLOWED_ROLES]);
   if ('error' in guard) return guard.error;
@@ -2250,29 +2523,55 @@ export async function GET(
   });
 }
 
-function csvResponse(rows: AnyRow[], target: SisAdminDrillTarget, segment: string | null): Response {
+function csvResponse(
+  rows: AnyRow[],
+  target: SisAdminDrillTarget,
+  segment: string | null
+): Response {
   let headers: string[] = [];
   let body: (string | number)[][] = [];
   switch (target) {
     case 'audit-events':
       headers = ['Action', 'Actor', 'Entity', 'When'];
-      body = (rows as AuditDrillRow[]).map((r) => [r.action, r.actorEmail ?? '', `${r.entityType}:${r.entityId}`, r.createdAt]);
+      body = (rows as AuditDrillRow[]).map((r) => [
+        r.action,
+        r.actorEmail ?? '',
+        `${r.entityType}:${r.entityId}`,
+        r.createdAt,
+      ]);
       break;
     case 'approver-coverage':
       headers = ['Flow', 'Email', 'Role', 'Assigned'];
-      body = (rows as ApproverAssignmentDrillRow[]).map((r) => [r.flow, r.email ?? '', r.role, r.assignedAt ?? '']);
+      body = (rows as ApproverAssignmentDrillRow[]).map((r) => [
+        r.flow,
+        r.email ?? '',
+        r.role,
+        r.assignedAt ?? '',
+      ]);
       break;
     case 'academic-years':
       headers = ['AY', 'Label', 'Current', 'Terms', 'Students'];
-      body = (rows as AcademicYearDrillRow[]).map((r) => [r.ayCode, r.label ?? '', r.isCurrent ? 'Yes' : 'No', r.termsCount, r.studentsCount]);
+      body = (rows as AcademicYearDrillRow[]).map((r) => [
+        r.ayCode,
+        r.label ?? '',
+        r.isCurrent ? 'Yes' : 'No',
+        r.termsCount,
+        r.studentsCount,
+      ]);
       break;
     case 'activity-by-actor':
       headers = ['Actor', 'Events', 'Last event'];
-      body = (rows as ActorActivityDrillRow[]).map((r) => [r.email ?? r.userId, r.count, r.lastEventAt ?? '']);
+      body = (rows as ActorActivityDrillRow[]).map((r) => [
+        r.email ?? r.userId,
+        r.count,
+        r.lastEventAt ?? '',
+      ]);
       break;
   }
   const csv = buildCsv(headers, body);
-  const segmentSlug = segment ? `-${segment.toLowerCase().replace(/[^a-z0-9]+/g, '-')}` : '';
+  const segmentSlug = segment
+    ? `-${segment.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
+    : '';
   const today = new Date().toISOString().slice(0, 10);
   const filename = `drill-sis-admin-${target}${segmentSlug}-${today}.csv`;
   return new Response(csv, {
@@ -2308,6 +2607,7 @@ handles all 4 with target-driven column factories."
 ## Task 12: SIS Admin — activity-by-actor card + page wiring + system-health click-throughs
 
 **Files:**
+
 - Create: `components/sis/activity-by-actor-card.tsx`
 - Modify: `components/sis/system-health-strip.tsx` (or wherever the strip lives)
 - Modify: `app/(sis)/sis/page.tsx`
@@ -2371,7 +2671,9 @@ export function ActivityByActorCard({
           {empty ? (
             <div className="flex h-[260px] flex-col items-center justify-center gap-2 text-center">
               <UserCog className="size-6 text-muted-foreground/60" />
-              <p className="text-sm font-medium text-foreground">No audit activity</p>
+              <p className="text-sm font-medium text-foreground">
+                No audit activity
+              </p>
             </div>
           ) : (
             <ComparisonBarChart
@@ -2382,7 +2684,7 @@ export function ActivityByActorCard({
               onSegmentClick={(label) => {
                 // Find the actor whose email/id-stub matches the label
                 const actor = top.find(
-                  (r) => (r.email ?? r.userId.slice(0, 8)) === label,
+                  (r) => (r.email ?? r.userId.slice(0, 8)) === label
                 );
                 if (actor) setOpenActor(actor.userId);
               }}
@@ -2410,6 +2712,7 @@ Find the existing audit-by-module bar chart on `/sis`. Add `onSegmentClick` prop
 - [ ] **Step 3: Make system-health panels clickable**
 
 Edit `components/sis/system-health-strip.tsx`:
+
 - Approver-coverage panel: wrap in a `<Sheet>` + button trigger → `<SisAdminDrillSheet target="approver-coverage" />`
 - Current AY indicator: wrap in a `<Sheet>` + button trigger → `<SisAdminDrillSheet target="academic-years" />`
 - Quick link panel: leave as-is (it's a link)
@@ -2425,16 +2728,18 @@ import { getActivityByActor } from '@/lib/sis/dashboard';
 
 // Inside the page render, fetch and render:
 const activityByActor = await getActivityByActor(
-  rangeInput ? { from: rangeInput.from, to: rangeInput.to } : undefined,
+  rangeInput ? { from: rangeInput.from, to: rangeInput.to } : undefined
 );
 // Place the card alongside or below audit-by-module:
-{canSeeAdmin && activityByActor.length > 0 && (
-  <ActivityByActorCard
-    data={activityByActor}
-    rangeFrom={rangeInput?.from}
-    rangeTo={rangeInput?.to}
-  />
-)}
+{
+  canSeeAdmin && activityByActor.length > 0 && (
+    <ActivityByActorCard
+      data={activityByActor}
+      rangeFrom={rangeInput?.from}
+      rangeTo={rangeInput?.to}
+    />
+  );
+}
 ```
 
 - [ ] **Step 5: TS check + commit**
@@ -2463,6 +2768,7 @@ signal click affordance."
 ## Task 13: Final verification + KD update + docs sync
 
 **Files:**
+
 - Modify: `.claude/rules/key-decisions.md`
 - Modify: `CLAUDE.md`
 - Modify: `docs/sprints/development-plan.md`
@@ -2473,11 +2779,13 @@ signal click affordance."
 npx tsc --noEmit
 npx next build 2>&1 | grep -iE "error|fail|✗|warning"
 ```
+
 Expected: both clean.
 
 - [ ] **Step 2: Browser smoke test**
 
 Run `npm run dev`. For each dashboard:
+
 - `/records`: open each MetricCard drill (4); click pipeline Sankey node; click document-backlog stack segment; click level donut slice; click expiring-docs CSV button; verify class-assignment readiness card renders
 - `/p-files`: open each summary card drill (4); click slot-status donut slice; click top-missing row; click level-completion bar; click revisions-heatmap cell; click completeness CSV
 - `/sis`: open audit-by-module bar drill; click approver-coverage panel; click current-AY indicator; click activity-by-actor row
@@ -2534,6 +2842,7 @@ Done. The drill-down framework now covers every module dashboard end-to-end.
 ## Self-review
 
 **Spec coverage:**
+
 - ✅ §3.1 Records 9 targets — Tasks 1, 3, 5 (class-assignment), Task 4 (Sankey card hosting `students-by-pipeline-stage`)
 - ✅ §3.2 P-Files 9 targets — Tasks 6, 8, 9 (heatmap)
 - ✅ §3.3 SIS Admin 5 targets — Tasks 10, 11, 12
@@ -2550,6 +2859,7 @@ Done. The drill-down framework now covers every module dashboard end-to-end.
 **Placeholder scan:** No TBD/TODO. Each step has actual code or specific commands.
 
 **Type consistency:**
+
 - `RecordsDrillRow` / `RecordsDrillTarget` — used consistently across Tasks 1, 2, 3, 4
 - `PFilesDrillRow` / `PFilesDrillTarget` — used consistently across Tasks 6, 7, 8, 9
 - SIS Admin types (`AuditDrillRow`, `ApproverAssignmentDrillRow`, `AcademicYearDrillRow`, `ActorActivityDrillRow`, `SisAdminDrillTarget`) — used consistently across Tasks 10, 11, 12

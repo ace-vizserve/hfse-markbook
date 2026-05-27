@@ -32,7 +32,8 @@ export default async function DocumentValidationPage() {
     return (
       <PageShell>
         <div className="rounded-xl border border-hairline bg-card p-6 text-center text-sm text-muted-foreground">
-          No active academic year is set. Ask a system administrator to set one in Settings.
+          No active academic year is set. Ask a system administrator to set one
+          in Settings.
         </div>
       </PageShell>
     );

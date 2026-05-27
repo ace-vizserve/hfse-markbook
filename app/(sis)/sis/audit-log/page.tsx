@@ -1,6 +1,12 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, ListChecks, Settings2, Users } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ListChecks,
+  Settings2,
+  Users,
+} from 'lucide-react';
 
 import { createClient, getSessionUser } from '@/lib/supabase/server';
 import {
@@ -12,7 +18,10 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
-import { AuditLogDataTable, type MergedRow } from '@/app/(markbook)/markbook/audit-log/audit-log-data-table';
+import {
+  AuditLogDataTable,
+  type MergedRow,
+} from '@/app/(markbook)/markbook/audit-log/audit-log-data-table';
 
 // Config-axis actions owned by SIS Admin. Student-record-axis actions
 // (sis.profile.update, student.section.transfer, ay.*, pfile.*, etc.)
@@ -20,31 +29,51 @@ import { AuditLogDataTable, type MergedRow } from '@/app/(markbook)/markbook/aud
 // user.login + parent.session.* included here for session-issuance visibility.
 const SIS_AUDIT_ALLOWLIST = [
   // Approver assignments (KD #41)
-  'approver.assign', 'approver.revoke',
+  'approver.assign',
+  'approver.revoke',
   // Subject catalog (KD #72)
   'subject.create',
   'subject_config.update',
   // Master class template (KD #66, #72)
-  'template.section.create', 'template.section.update', 'template.section.delete',
-  'template.subject_config.create', 'template.subject_config.update',
-  'template.subject_config.delete', 'template.subject_config.bulk_delete',
+  'template.section.create',
+  'template.section.update',
+  'template.section.delete',
+  'template.subject_config.create',
+  'template.subject_config.update',
+  'template.subject_config.delete',
+  'template.subject_config.bulk_delete',
   'template.apply',
   // Sections + teacher assignments
-  'section.create', 'section.rename', 'section.realphabetize',
-  'assignment.create', 'assignment.delete',
+  'section.create',
+  'section.rename',
+  'section.realphabetize',
+  'assignment.create',
+  'assignment.delete',
   // Scheme of Work — teacher-owned model (KD #110)
-  'sow.instance.save', 'sow.instance.import_from', 'sow.labels.synced', 'sow.topics.synced',
+  'sow.instance.save',
+  'sow.instance.import_from',
+  'sow.labels.synced',
+  'sow.topics.synced',
   // School calendar (/sis/calendar)
-  'attendance.calendar.upsert', 'attendance.calendar.delete', 'attendance.calendar.copy_from_prior_ay',
+  'attendance.calendar.upsert',
+  'attendance.calendar.delete',
+  'attendance.calendar.copy_from_prior_ay',
   // School config
   'school_config.update',
   // User provisioning (KD #87)
-  'user.invite', 'user.create', 'user.role.update',
-  'user.disable', 'user.enable',
+  'user.invite',
+  'user.create',
+  'user.role.update',
+  'user.disable',
+  'user.enable',
   // Environment + seeder (KD #52)
-  'environment.switch', 'environment.seed', 'environment.topup',
+  'environment.switch',
+  'environment.seed',
+  'environment.topup',
   // Session issuance (Phase 7 — visibility for security review)
-  'user.login', 'parent.session.issued', 'parent.session.cleared',
+  'user.login',
+  'parent.session.issued',
+  'parent.session.cleared',
 ] as const;
 
 export default async function SisAuditLogPage({
@@ -54,7 +83,10 @@ export default async function SisAuditLogPage({
 }) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
-  if (sessionUser.role !== 'school_admin' && sessionUser.role !== 'superadmin') {
+  if (
+    sessionUser.role !== 'school_admin' &&
+    sessionUser.role !== 'superadmin'
+  ) {
     redirect('/');
   }
 
@@ -68,39 +100,46 @@ export default async function SisAuditLogPage({
 
   const { data, count, error } = await supabase
     .from('audit_log')
-    .select('id, actor_email, action, entity_type, entity_id, context, created_at', { count: 'exact' })
+    .select(
+      'id, actor_email, action, entity_type, entity_id, context, created_at',
+      { count: 'exact' }
+    )
     .in('action', SIS_AUDIT_ALLOWLIST)
     .order('created_at', { ascending: false })
     .range(from, to);
 
   const totalPages = count ? Math.ceil(count / PAGE_SIZE) : 1;
 
-  const rows: MergedRow[] = ((data ?? []) as Array<{
-    id: string;
-    actor_email: string;
-    action: string;
-    entity_type: string;
-    entity_id: string | null;
-    context: Record<string, unknown>;
-    created_at: string;
-  }>).map((r): MergedRow => ({
-    id: `new-${r.id}`,
-    at: r.created_at,
-    actor: r.actor_email,
-    action: r.action,
-    entity_type: r.entity_type,
-    entity_id: r.entity_id,
-    context: r.context ?? {},
-    sheet_id: null,
-    source: 'audit_log',
-  }));
+  const rows: MergedRow[] = (
+    (data ?? []) as Array<{
+      id: string;
+      actor_email: string;
+      action: string;
+      entity_type: string;
+      entity_id: string | null;
+      context: Record<string, unknown>;
+      created_at: string;
+    }>
+  ).map(
+    (r): MergedRow => ({
+      id: `new-${r.id}`,
+      at: r.created_at,
+      actor: r.actor_email,
+      action: r.action,
+      entity_type: r.entity_type,
+      entity_id: r.entity_id,
+      context: r.context ?? {},
+      sheet_id: null,
+      source: 'audit_log',
+    })
+  );
 
   const uniqueActors = new Set(rows.map((r) => r.actor)).size;
   const configChanges = rows.filter(
     (r) =>
       r.action === 'school_config.update' ||
       r.action === 'template.apply' ||
-      r.action === 'environment.switch',
+      r.action === 'environment.switch'
   ).length;
 
   return (
@@ -121,9 +160,10 @@ export default async function SisAuditLogPage({
           Audit log.
         </h1>
         <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-          A history of every administrative change — sections created, teachers assigned, templates
-          applied, approvers managed, school config edited, users added, and environment operations.
-          Past entries are kept on the record.
+          A history of every administrative change — sections created, teachers
+          assigned, templates applied, approvers managed, school config edited,
+          users added, and environment operations. Past entries are kept on the
+          record.
         </p>
       </header>
 
@@ -144,14 +184,20 @@ export default async function SisAuditLogPage({
             description="Unique actors"
             value={uniqueActors.toLocaleString('en-SG')}
             icon={Users}
-            footerTitle={uniqueActors === 1 ? '1 user' : `${uniqueActors} users`}
+            footerTitle={
+              uniqueActors === 1 ? '1 user' : `${uniqueActors} users`
+            }
             footerDetail="Distinct accounts on this page"
           />
           <StatCard
             description="Config changes"
             value={configChanges.toLocaleString('en-SG')}
             icon={Settings2}
-            footerTitle={configChanges === 0 ? 'None on this page' : 'High-impact operations'}
+            footerTitle={
+              configChanges === 0
+                ? 'None on this page'
+                : 'High-impact operations'
+            }
             footerDetail="School config, template applies, env switches"
           />
         </div>
@@ -166,7 +212,9 @@ export default async function SisAuditLogPage({
             <p className="font-serif text-base font-semibold leading-tight text-foreground">
               Could not load audit entries
             </p>
-            <p className="text-sm leading-relaxed text-muted-foreground">{error.message}</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {error.message}
+            </p>
           </div>
         </div>
       )}
@@ -174,7 +222,12 @@ export default async function SisAuditLogPage({
       <AuditLogDataTable
         rows={rows}
         canExport={sessionUser.role === 'superadmin'}
-        pagination={{ page, pageSize: PAGE_SIZE, totalPages, total: count ?? 0 }}
+        pagination={{
+          page,
+          pageSize: PAGE_SIZE,
+          totalPages,
+          total: count ?? 0,
+        }}
       />
     </PageShell>
   );

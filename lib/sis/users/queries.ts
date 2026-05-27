@@ -43,7 +43,7 @@ async function listAllUsers(): Promise<AdminUserRow[]> {
       role,
       display_name: displayName,
       disabled: Boolean(
-        u.banned_until && new Date(u.banned_until).getTime() > Date.now(),
+        u.banned_until && new Date(u.banned_until).getTime() > Date.now()
       ),
       created_at: u.created_at,
       last_sign_in_at: u.last_sign_in_at ?? null,

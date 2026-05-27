@@ -25,4 +25,6 @@ export const SubjectConfigUpdateSchema = z
     path: ['qa_weight'],
   });
 
-export type SubjectConfigUpdateInput = z.infer<typeof SubjectConfigUpdateSchema>;
+export type SubjectConfigUpdateInput = z.infer<
+  typeof SubjectConfigUpdateSchema
+>;

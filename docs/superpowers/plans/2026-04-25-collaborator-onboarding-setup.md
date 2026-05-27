@@ -104,13 +104,8 @@ Add to `package.json`:
 ```json
 {
   "lint-staged": {
-    "*.{ts,tsx,js,jsx}": [
-      "eslint --fix",
-      "prettier --write"
-    ],
-    "*.{json,md,css}": [
-      "prettier --write"
-    ]
+    "*.{ts,tsx,js,jsx}": ["eslint --fix", "prettier --write"],
+    "*.{json,md,css}": ["prettier --write"]
   }
 }
 ```
@@ -143,7 +138,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # fallow audit needs history for --base main
+          fetch-depth: 0 # fallow audit needs history for --base main
 
       - uses: actions/setup-node@v4
         with:
@@ -183,6 +178,7 @@ jobs:
 ```
 
 **Important**:
+
 - The `Build` step's placeholder env vars keep the Next.js build happy at compile time. Real Supabase calls only happen at runtime; compile-time only needs the strings to exist.
 - The fallow audit uses `--format annotations` which creates inline PR comments — collaborators see the issue exactly where they made it, no separate UI to check.
 - Branch protection (GitHub → Settings → Branches → main) must require `verify` to pass before merge. Do this after the first successful CI run.
@@ -191,7 +187,7 @@ jobs:
 
 Create `CONTRIBUTING.md` at repo root:
 
-```markdown
+````markdown
 # Contributing to HFSE SIS
 
 Thanks for contributing. This repo has accumulated context over many sprints — below is the tight path to being productive. Skim it once, bookmark it.
@@ -209,6 +205,7 @@ npm install
 cp .env.local.example .env.local  # fill in actual values from 1Password / your onboarder
 npm run dev
 ```
+````
 
 ## Making a change
 
@@ -224,19 +221,19 @@ npm run dev
 - **ESLint** — catches bugs, enforces React Compiler rules (purity, static components).
 - **Prettier** — formatting. Runs automatically on save via editor + pre-commit.
 - **TypeScript** — strict mode. `any` requires a comment explaining why.
-- **Fallow** — drift detector. Only fails CI if your PR *introduces* new dead code / complexity beyond the saved baselines in `fallow-baselines/`.
+- **Fallow** — drift detector. Only fails CI if your PR _introduces_ new dead code / complexity beyond the saved baselines in `fallow-baselines/`.
 
 ## Where to find things
 
-| Question | File |
-|---|---|
-| What's the grading formula? | `docs/context/02-grading-system.md` + `lib/compute/quarterly.ts` |
-| How do roles work? | `docs/context/03-workflow-and-roles.md` + `lib/auth/roles.ts` |
-| Database schema? | `docs/context/04-database-schema.md` + `supabase/migrations/` |
-| Design tokens? | `docs/context/09-design-system.md` + `app/globals.css` |
-| Which API routes exist? | `docs/context/07-api-routes.md` |
-| Module-specific stuff? | `docs/context/{12-p-files, 13-sis, 15-markbook, 16-attendance, 19-evaluation}-module.md` |
-| Dashboard patterns? | `docs/context/20-dashboards.md` |
+| Question                    | File                                                                                     |
+| --------------------------- | ---------------------------------------------------------------------------------------- |
+| What's the grading formula? | `docs/context/02-grading-system.md` + `lib/compute/quarterly.ts`                         |
+| How do roles work?          | `docs/context/03-workflow-and-roles.md` + `lib/auth/roles.ts`                            |
+| Database schema?            | `docs/context/04-database-schema.md` + `supabase/migrations/`                            |
+| Design tokens?              | `docs/context/09-design-system.md` + `app/globals.css`                                   |
+| Which API routes exist?     | `docs/context/07-api-routes.md`                                                          |
+| Module-specific stuff?      | `docs/context/{12-p-files, 13-sis, 15-markbook, 16-attendance, 19-evaluation}-module.md` |
+| Dashboard patterns?         | `docs/context/20-dashboards.md`                                                          |
 
 ## Things that will get flagged in review
 
@@ -260,6 +257,7 @@ No `// @ts-ignore` without a ticket number pointing at the real fix.
 - Existing patterns first — `grep` for a similar feature and copy the shape.
 - `docs/context/` has 20+ topic docs. One probably covers your question.
 - Still stuck — ask in the shared channel, don't guess at conventions.
+
 ```
 
 ### Step 5: Verify end-to-end
@@ -299,3 +297,4 @@ No `// @ts-ignore` without a ticket number pointing at the real fix.
 - Step 4 (CONTRIBUTING.md): 15 min
 - Step 5-6 (verify + branch protection): 15 min
 - **Total: ~2 hours wall clock** for a focused session.
+```

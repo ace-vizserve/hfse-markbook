@@ -33,7 +33,9 @@ export function StpStatusEditor({
   initialStatus: StpApplicationStatus | null;
 }) {
   const router = useRouter();
-  const [status, setStatus] = useState<StpApplicationStatus | null>(initialStatus);
+  const [status, setStatus] = useState<StpApplicationStatus | null>(
+    initialStatus
+  );
   const [saving, setSaving] = useState(false);
 
   async function handleChange(next: StpApplicationStatus) {
@@ -48,7 +50,7 @@ export function StpStatusEditor({
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ stpApplicationStatus: next }),
-        },
+        }
       );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error ?? 'save failed');
@@ -81,7 +83,9 @@ export function StpStatusEditor({
           ))}
         </SelectContent>
       </Select>
-      {saving && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
+      {saving && (
+        <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+      )}
     </div>
   );
 }

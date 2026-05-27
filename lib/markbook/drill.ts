@@ -75,11 +75,11 @@ export type GradeEntryRow = {
   subjectCode: string;
   termNumber: number;
   termId: string;
-  wwScores: (number | null)[];  // per-slot WW scores (length matches sheet's ww_totals)
-  ptScores: (number | null)[];  // per-slot PT scores
-  qaScore: number | null;       // qa_score
-  qaMax: number;                // qa_total from sheet (default 30)
-  letterGrade: string | null;   // letter_grade (non-examinable subjects)
+  wwScores: (number | null)[]; // per-slot WW scores (length matches sheet's ww_totals)
+  ptScores: (number | null)[]; // per-slot PT scores
+  qaScore: number | null; // qa_score
+  qaMax: number; // qa_total from sheet (default 30)
+  letterGrade: string | null; // letter_grade (non-examinable subjects)
   // Kept for back-compat / cohort drills — not surfaced as a default column.
   rawScore: number | null;
   maxScore: number;
@@ -135,13 +135,14 @@ export type MarkbookDrillRow = GradeEntryRow | SheetRow | ChangeRequestRow;
 
 export type GradeBucketKey = 'dnm' | 'fs' | 's' | 'vs' | 'o';
 
-const GRADE_BUCKET_BOUNDS: Record<GradeBucketKey, { lo: number; hi: number }> = {
-  dnm: { lo: 0, hi: 74 },
-  fs: { lo: 75, hi: 79 },
-  s: { lo: 80, hi: 84 },
-  vs: { lo: 85, hi: 89 },
-  o: { lo: 90, hi: 100 },
-};
+const GRADE_BUCKET_BOUNDS: Record<GradeBucketKey, { lo: number; hi: number }> =
+  {
+    dnm: { lo: 0, hi: 74 },
+    fs: { lo: 75, hi: 79 },
+    s: { lo: 80, hi: 84 },
+    vs: { lo: 85, hi: 89 },
+    o: { lo: 90, hi: 100 },
+  };
 
 // HFSE Singapore-school report-card bands — matches the legend in
 // components/report-card/report-card-document.tsx. No DepEd codes; the
@@ -192,7 +193,12 @@ type SectionLite = {
   level_id: string;
 };
 type LevelLite = { id: string; code: string };
-type TermLite = { id: string; term_number: number; academic_year_id: string; label: string };
+type TermLite = {
+  id: string;
+  term_number: number;
+  academic_year_id: string;
+  label: string;
+};
 type SubjectLite = { id: string; code: string; name: string };
 
 async function resolveAyContext(ayCode: string): Promise<{
@@ -236,7 +242,8 @@ async function resolveAyContext(ayCode: string): Promise<{
   ]);
   const sections = (sectionsRes.data ?? []) as SectionLite[];
   const levels = new Map<string, string>();
-  for (const l of (levelsRes.data ?? []) as LevelLite[]) levels.set(l.id, l.code);
+  for (const l of (levelsRes.data ?? []) as LevelLite[])
+    levels.set(l.id, l.code);
   const terms = (termsRes.data ?? []) as TermLite[];
   const subjects = new Map<string, string>();
   const subjectNames = new Map<string, string>();
@@ -270,7 +277,9 @@ async function loadEntryRowsUncached(ayCode: string): Promise<GradeEntryRow[]> {
   // Sheets in this AY (filter by termIds).
   const { data: sheetsData } = await service
     .from('grading_sheets')
-    .select('id, term_id, section_id, subject_id, qa_total, is_locked, locked_at, teacher_name')
+    .select(
+      'id, term_id, section_id, subject_id, qa_total, is_locked, locked_at, teacher_name'
+    )
     .in('term_id', ctx.termIds);
   type SheetLite = {
     id: string;
@@ -302,12 +311,14 @@ async function loadEntryRowsUncached(ayCode: string): Promise<GradeEntryRow[]> {
     role: string;
   };
   const assignments = (assignmentsData ?? []) as AssignmentLite[];
-  const teacherKey = (sectionId: string, subjectId: string) => `${sectionId}|${subjectId}`;
+  const teacherKey = (sectionId: string, subjectId: string) =>
+    `${sectionId}|${subjectId}`;
   const teacherBySectionSubject = new Map<string, string>();
   for (const a of assignments) {
     if (!a.subject_id) continue;
     const k = teacherKey(a.section_id, a.subject_id);
-    if (!teacherBySectionSubject.has(k)) teacherBySectionSubject.set(k, a.teacher_user_id);
+    if (!teacherBySectionSubject.has(k))
+      teacherBySectionSubject.set(k, a.teacher_user_id);
   }
 
   const teacherEmailById = new Map<string, string>(await getTeacherEmailMap());
@@ -335,12 +346,12 @@ async function loadEntryRowsUncached(ayCode: string): Promise<GradeEntryRow[]> {
           service
             .from('grade_entries')
             .select(
-              'id, grading_sheet_id, section_student_id, ww_scores, pt_scores, qa_score, quarterly_grade, letter_grade, created_at',
+              'id, grading_sheet_id, section_student_id, ww_scores, pt_scores, qa_score, quarterly_grade, letter_grade, created_at'
             )
             .in('grading_sheet_id', sheetIds.slice(i * CHUNK, (i + 1) * CHUNK))
-            .range(from, to),
-        ),
-      ),
+            .range(from, to)
+        )
+      )
     )
   ).flat();
   // "Grade entered" = the entry has any encoded data anywhere — at
@@ -359,7 +370,11 @@ async function loadEntryRowsUncached(ayCode: string): Promise<GradeEntryRow[]> {
 
   // section_students → student_id + section_id resolution.
   const ssIds = Array.from(new Set(entries.map((e) => e.section_student_id)));
-  type SectionStudentLite = { id: string; section_id: string; student_id: string };
+  type SectionStudentLite = {
+    id: string;
+    section_id: string;
+    student_id: string;
+  };
   const sectionStudents = (
     await Promise.all(
       Array.from({ length: Math.ceil(ssIds.length / CHUNK) }, (_, i) =>
@@ -367,16 +382,23 @@ async function loadEntryRowsUncached(ayCode: string): Promise<GradeEntryRow[]> {
           .from('section_students')
           .select('id, section_id, student_id')
           .in('id', ssIds.slice(i * CHUNK, (i + 1) * CHUNK))
-          .then(({ data }) => (data ?? []) as SectionStudentLite[]),
-      ),
+          .then(({ data }) => (data ?? []) as SectionStudentLite[])
+      )
     )
   ).flat();
   const ssById = new Map<string, SectionStudentLite>();
   for (const s of sectionStudents) ssById.set(s.id, s);
 
   // Students.
-  const studentIds = Array.from(new Set(sectionStudents.map((s) => s.student_id)));
-  type StudentLite = { id: string; student_number: string; first_name: string; last_name: string };
+  const studentIds = Array.from(
+    new Set(sectionStudents.map((s) => s.student_id))
+  );
+  type StudentLite = {
+    id: string;
+    student_number: string;
+    first_name: string;
+    last_name: string;
+  };
   const students = (
     await Promise.all(
       Array.from({ length: Math.ceil(studentIds.length / CHUNK) }, (_, i) =>
@@ -384,8 +406,8 @@ async function loadEntryRowsUncached(ayCode: string): Promise<GradeEntryRow[]> {
           .from('students')
           .select('id, student_number, first_name, last_name')
           .in('id', studentIds.slice(i * CHUNK, (i + 1) * CHUNK))
-          .then(({ data }) => (data ?? []) as StudentLite[]),
-      ),
+          .then(({ data }) => (data ?? []) as StudentLite[])
+      )
     )
   ).flat();
   const studentById = new Map<string, StudentLite>();
@@ -406,8 +428,13 @@ async function loadEntryRowsUncached(ayCode: string): Promise<GradeEntryRow[]> {
     if (!section) continue;
     const levelCode = ctx.levels.get(section.level_id) ?? null;
     const subjectCode = ctx.subjects.get(sheet.subject_id) ?? sheet.subject_id;
-    const teacherUserId = teacherBySectionSubject.get(teacherKey(sheet.section_id, sheet.subject_id)) ?? null;
-    const teacherEmail = teacherUserId ? teacherEmailById.get(teacherUserId) ?? null : null;
+    const teacherUserId =
+      teacherBySectionSubject.get(
+        teacherKey(sheet.section_id, sheet.subject_id)
+      ) ?? null;
+    const teacherEmail = teacherUserId
+      ? (teacherEmailById.get(teacherUserId) ?? null)
+      : null;
     const fullName = `${student.last_name}, ${student.first_name}`.trim();
     const enroleeNumber = student.student_number; // fallback when distinct enrolee# not exposed
     const qaTotal = sheet.qa_total ?? 30;
@@ -459,9 +486,13 @@ async function loadSheetRowsUncached(ayCode: string): Promise<SheetRow[]> {
   const sectionIds = ctx.sections.map((s) => s.id);
   const { data: sheetsData } = await service
     .from('grading_sheets')
-    .select('id, term_id, section_id, subject_id, is_locked, locked_at, teacher_name')
+    .select(
+      'id, term_id, section_id, subject_id, is_locked, locked_at, teacher_name'
+    )
     .in('term_id', ctx.termIds);
-  const sheetIdsForRollup = (sheetsData ?? []).map((s) => (s as { id: string }).id);
+  const sheetIdsForRollup = (sheetsData ?? []).map(
+    (s) => (s as { id: string }).id
+  );
 
   // Chunk the sheet-IDs IN-clause so the URL doesn't blow past PostgREST's
   // URL length cap when an AY has many sheets (sibling pattern in
@@ -472,32 +503,34 @@ async function loadSheetRowsUncached(ayCode: string): Promise<SheetRow[]> {
     const out: { grading_sheet_id: string }[] = [];
     for (let i = 0; i < sheetIdsForRollup.length; i += ROLLUP_CHUNK) {
       const slice = sheetIdsForRollup.slice(i, i + ROLLUP_CHUNK);
-      const rows = await fetchAllPages<{ grading_sheet_id: string }>((from, to) =>
-        service
-          .from('grade_entries')
-          .select('grading_sheet_id')
-          .in('grading_sheet_id', slice)
-          .range(from, to),
+      const rows = await fetchAllPages<{ grading_sheet_id: string }>(
+        (from, to) =>
+          service
+            .from('grade_entries')
+            .select('grading_sheet_id')
+            .in('grading_sheet_id', slice)
+            .range(from, to)
       );
       out.push(...rows);
     }
     return out;
   }
-  const [{ data: pubsData }, { data: ssRollupData }, entriesRollupData] = await Promise.all([
-    sectionIds.length > 0
-      ? service
-          .from('report_card_publications')
-          .select('section_id, term_id, publish_from')
-          .in('term_id', ctx.termIds)
-      : Promise.resolve({ data: [] }),
-    sectionIds.length > 0
-      ? service
-          .from('section_students')
-          .select('section_id, enrollment_status')
-          .in('section_id', sectionIds)
-      : Promise.resolve({ data: [] }),
-    loadEntriesRollup(),
-  ]);
+  const [{ data: pubsData }, { data: ssRollupData }, entriesRollupData] =
+    await Promise.all([
+      sectionIds.length > 0
+        ? service
+            .from('report_card_publications')
+            .select('section_id, term_id, publish_from')
+            .in('term_id', ctx.termIds)
+        : Promise.resolve({ data: [] }),
+      sectionIds.length > 0
+        ? service
+            .from('section_students')
+            .select('section_id, enrollment_status')
+            .in('section_id', sectionIds)
+        : Promise.resolve({ data: [] }),
+      loadEntriesRollup(),
+    ]);
 
   type SheetLite = {
     id: string;
@@ -520,13 +553,23 @@ async function loadSheetRowsUncached(ayCode: string): Promise<SheetRow[]> {
   type SsRollupLite = { section_id: string; enrollment_status: string };
   const activeStudentsBySection = new Map<string, number>();
   for (const r of (ssRollupData ?? []) as SsRollupLite[]) {
-    if (r.enrollment_status !== 'active' && r.enrollment_status !== 'late_enrollee') continue;
-    activeStudentsBySection.set(r.section_id, (activeStudentsBySection.get(r.section_id) ?? 0) + 1);
+    if (
+      r.enrollment_status !== 'active' &&
+      r.enrollment_status !== 'late_enrollee'
+    )
+      continue;
+    activeStudentsBySection.set(
+      r.section_id,
+      (activeStudentsBySection.get(r.section_id) ?? 0) + 1
+    );
   }
 
   const entriesPerSheet = new Map<string, number>();
   for (const e of entriesRollupData) {
-    entriesPerSheet.set(e.grading_sheet_id, (entriesPerSheet.get(e.grading_sheet_id) ?? 0) + 1);
+    entriesPerSheet.set(
+      e.grading_sheet_id,
+      (entriesPerSheet.get(e.grading_sheet_id) ?? 0) + 1
+    );
   }
 
   const out: SheetRow[] = [];
@@ -540,7 +583,8 @@ async function loadSheetRowsUncached(ayCode: string): Promise<SheetRow[]> {
     const subjectName = ctx.subjectNames.get(s.subject_id) ?? subjectCode;
     const expected = activeStudentsBySection.get(s.section_id) ?? 0;
     const present = entriesPerSheet.get(s.id) ?? 0;
-    const completeness = expected > 0 ? Math.round((present / expected) * 100) : 0;
+    const completeness =
+      expected > 0 ? Math.round((present / expected) * 100) : 0;
     const publishedAt = pubByKey.get(pubKey(s.section_id, s.term_id)) ?? null;
 
     out.push({
@@ -568,7 +612,9 @@ async function loadSheetRowsUncached(ayCode: string): Promise<SheetRow[]> {
 
 // ── Change-request rows ─────────────────────────────────────────────────────
 
-async function loadChangeRequestRowsUncached(ayCode: string): Promise<ChangeRequestRow[]> {
+async function loadChangeRequestRowsUncached(
+  ayCode: string
+): Promise<ChangeRequestRow[]> {
   const service = createServiceClient();
   const ctx = await resolveAyContext(ayCode);
   if (!ctx.ayId || ctx.termIds.length === 0) return [];
@@ -582,7 +628,12 @@ async function loadChangeRequestRowsUncached(ayCode: string): Promise<ChangeRequ
     .from('grading_sheets')
     .select('id, term_id, section_id, subject_id')
     .in('term_id', ctx.termIds);
-  type SheetLite = { id: string; term_id: string; section_id: string; subject_id: string };
+  type SheetLite = {
+    id: string;
+    term_id: string;
+    section_id: string;
+    subject_id: string;
+  };
   const sheets = (sheetsData ?? []) as SheetLite[];
   const sheetById = new Map<string, SheetLite>();
   for (const s of sheets) sheetById.set(s.id, s);
@@ -607,11 +658,11 @@ async function loadChangeRequestRowsUncached(ayCode: string): Promise<ChangeRequ
         service
           .from('grade_change_requests')
           .select(
-            'id, grading_sheet_id, field_changed, reason_category, status, requested_by_email, requested_at, reviewed_at, applied_at',
+            'id, grading_sheet_id, field_changed, reason_category, status, requested_by_email, requested_at, reviewed_at, applied_at'
           )
           .in('grading_sheet_id', sheetIds.slice(i * CHUNK, (i + 1) * CHUNK))
-          .then(({ data }) => (data ?? []) as CrLite[]),
-      ),
+          .then(({ data }) => (data ?? []) as CrLite[])
+      )
     )
   ).flat();
 
@@ -671,15 +722,17 @@ async function loadSheetRows(ayCode: string): Promise<SheetRow[]> {
   return unstable_cache(
     () => loadSheetRowsUncached(ayCode),
     ['markbook-drill', 'sheet-rows', ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tags(ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tags(ayCode) }
   )();
 }
 
-async function loadChangeRequestRows(ayCode: string): Promise<ChangeRequestRow[]> {
+async function loadChangeRequestRows(
+  ayCode: string
+): Promise<ChangeRequestRow[]> {
   return unstable_cache(
     () => loadChangeRequestRowsUncached(ayCode),
     ['markbook-drill', 'cr-rows', ayCode],
-    { revalidate: CACHE_TTL_SECONDS, tags: tags(ayCode) },
+    { revalidate: CACHE_TTL_SECONDS, tags: tags(ayCode) }
   )();
 }
 
@@ -697,14 +750,18 @@ export type TeacherVelocityRow = {
 
 async function getTeacherEntryVelocityUncached(
   ayCode: string,
-  range?: { from: string; to: string },
+  range?: { from: string; to: string }
 ): Promise<TeacherVelocityRow[]> {
   const entries = await loadEntryRows(ayCode);
   type Acc = { count: number; lastAt: string | null; email: string | null };
   const map = new Map<string, Acc>();
   for (const e of entries) {
     if (!e.enteredById) continue;
-    if (range && (e.enteredAt.slice(0, 10) < range.from || e.enteredAt.slice(0, 10) > range.to)) {
+    if (
+      range &&
+      (e.enteredAt.slice(0, 10) < range.from ||
+        e.enteredAt.slice(0, 10) > range.to)
+    ) {
       continue;
     }
     let acc = map.get(e.enteredById);
@@ -735,12 +792,18 @@ async function getTeacherEntryVelocityUncached(
 // failing the 2MB write limit and forced every render to re-fetch.
 export function getTeacherEntryVelocity(
   ayCode: string,
-  range?: { from: string; to: string },
+  range?: { from: string; to: string }
 ): Promise<TeacherVelocityRow[]> {
   return unstable_cache(
     () => getTeacherEntryVelocityUncached(ayCode, range),
-    ['markbook-drill', 'teacher-velocity', ayCode, range?.from ?? '', range?.to ?? ''],
-    { revalidate: CACHE_TTL_SECONDS, tags: tags(ayCode) },
+    [
+      'markbook-drill',
+      'teacher-velocity',
+      ayCode,
+      range?.from ?? '',
+      range?.to ?? '',
+    ],
+    { revalidate: CACHE_TTL_SECONDS, tags: tags(ayCode) }
   )();
 }
 
@@ -753,7 +816,7 @@ export type BuildDrillRowsInput = DrillRangeInput & {
 };
 
 export async function buildMarkbookDrillRows(
-  input: BuildDrillRowsInput,
+  input: BuildDrillRowsInput
 ): Promise<MarkbookDrillRow[]> {
   const kind = rowKindForTarget(input.target);
   let rows: MarkbookDrillRow[];
@@ -805,12 +868,16 @@ export async function buildAllRowSets(input: {
   const filteredSheets = applyTeacherFilter(
     applyScopeFilter(sheets as MarkbookDrillRow[], 'sheet', rangeInput),
     'sheet',
-    input.allowedSectionIds ?? null,
+    input.allowedSectionIds ?? null
   ) as SheetRow[];
   const filteredCrs = applyTeacherFilter(
-    applyScopeFilter(changeRequests as MarkbookDrillRow[], 'change-request', rangeInput),
+    applyScopeFilter(
+      changeRequests as MarkbookDrillRow[],
+      'change-request',
+      rangeInput
+    ),
     'change-request',
-    input.allowedSectionIds ?? null,
+    input.allowedSectionIds ?? null
   ) as ChangeRequestRow[];
   return {
     sheets: filteredSheets,
@@ -824,14 +891,14 @@ export async function buildAllRowSets(input: {
 function applyScopeFilter(
   rows: MarkbookDrillRow[],
   kind: MarkbookDrillRowKind,
-  input: DrillRangeInput,
+  input: DrillRangeInput
 ): MarkbookDrillRow[] {
   if (kind === 'entry') {
     return applyDateRangeFilter(
       rows as GradeEntryRow[],
       input,
       (r) => r.enteredAt,
-      { caller: 'markbook/drill:entry' },
+      { caller: 'markbook/drill:entry' }
     ) as MarkbookDrillRow[];
   }
   if (kind === 'sheet') {
@@ -845,8 +912,14 @@ function applyScopeFilter(
     const to = input.to;
     return (rows as SheetRow[]).filter((r) => {
       if (!r.lockedAt && !r.publishedAt) return true;
-      const lockIn = r.lockedAt && r.lockedAt.slice(0, 10) >= from && r.lockedAt.slice(0, 10) <= to;
-      const pubIn = r.publishedAt && r.publishedAt.slice(0, 10) >= from && r.publishedAt.slice(0, 10) <= to;
+      const lockIn =
+        r.lockedAt &&
+        r.lockedAt.slice(0, 10) >= from &&
+        r.lockedAt.slice(0, 10) <= to;
+      const pubIn =
+        r.publishedAt &&
+        r.publishedAt.slice(0, 10) >= from &&
+        r.publishedAt.slice(0, 10) <= to;
       return Boolean(lockIn || pubIn);
     }) as MarkbookDrillRow[];
   }
@@ -855,7 +928,7 @@ function applyScopeFilter(
     rows as ChangeRequestRow[],
     input,
     (r) => r.requestedAt,
-    { caller: 'markbook/drill:change-request' },
+    { caller: 'markbook/drill:change-request' }
   ) as MarkbookDrillRow[];
 }
 
@@ -864,17 +937,23 @@ function applyScopeFilter(
 function applyTeacherFilter(
   rows: MarkbookDrillRow[],
   kind: MarkbookDrillRowKind,
-  allowedSectionIds: string[] | null,
+  allowedSectionIds: string[] | null
 ): MarkbookDrillRow[] {
   if (allowedSectionIds === null) return rows;
   const allow = new Set(allowedSectionIds);
   if (kind === 'entry') {
-    return (rows as GradeEntryRow[]).filter((r) => allow.has(r.sectionId)) as MarkbookDrillRow[];
+    return (rows as GradeEntryRow[]).filter((r) =>
+      allow.has(r.sectionId)
+    ) as MarkbookDrillRow[];
   }
   if (kind === 'sheet') {
-    return (rows as SheetRow[]).filter((r) => allow.has(r.sectionId)) as MarkbookDrillRow[];
+    return (rows as SheetRow[]).filter((r) =>
+      allow.has(r.sectionId)
+    ) as MarkbookDrillRow[];
   }
-  return (rows as ChangeRequestRow[]).filter((r) => allow.has(r.sectionId)) as MarkbookDrillRow[];
+  return (rows as ChangeRequestRow[]).filter((r) =>
+    allow.has(r.sectionId)
+  ) as MarkbookDrillRow[];
 }
 
 // ---------------------------------------------------------------------------
@@ -884,7 +963,7 @@ function applyTargetFilter(
   rows: MarkbookDrillRow[],
   target: MarkbookDrillTarget,
   segment?: string | null,
-  range?: { from?: string; to?: string },
+  range?: { from?: string; to?: string }
 ): MarkbookDrillRow[] {
   switch (target) {
     case 'grade-entries':
@@ -904,7 +983,9 @@ function applyTargetFilter(
           return day >= from && day <= to;
         }) as MarkbookDrillRow[];
       }
-      return (rows as SheetRow[]).filter((r) => r.isLocked) as MarkbookDrillRow[];
+      return (rows as SheetRow[]).filter(
+        (r) => r.isLocked
+      ) as MarkbookDrillRow[];
     }
     case 'change-requests':
       if (!segment) return rows;
@@ -915,17 +996,25 @@ function applyTargetFilter(
         return (rows as ChangeRequestRow[]).filter(
           (r) =>
             r.resolvedAt != null &&
-            (r.status === 'approved' || r.status === 'rejected' || r.status === 'applied'),
+            (r.status === 'approved' ||
+              r.status === 'rejected' ||
+              r.status === 'applied')
         ) as MarkbookDrillRow[];
       }
-      return (rows as ChangeRequestRow[]).filter((r) => r.status === segment) as MarkbookDrillRow[];
+      return (rows as ChangeRequestRow[]).filter(
+        (r) => r.status === segment
+      ) as MarkbookDrillRow[];
     case 'publication-coverage':
       if (!segment) return rows;
       if (segment === 'published') {
-        return (rows as SheetRow[]).filter((r) => r.isPublished) as MarkbookDrillRow[];
+        return (rows as SheetRow[]).filter(
+          (r) => r.isPublished
+        ) as MarkbookDrillRow[];
       }
       if (segment === 'not-published') {
-        return (rows as SheetRow[]).filter((r) => !r.isPublished) as MarkbookDrillRow[];
+        return (rows as SheetRow[]).filter(
+          (r) => !r.isPublished
+        ) as MarkbookDrillRow[];
       }
       return rows;
     case 'grade-bucket-entries': {
@@ -936,7 +1025,9 @@ function applyTargetFilter(
           ? (segment as GradeBucketKey)
           : findBucketByLabel(segment);
       if (!key) return rows;
-      return (rows as GradeEntryRow[]).filter((r) => r.gradeBucket === key) as MarkbookDrillRow[];
+      return (rows as GradeEntryRow[]).filter(
+        (r) => r.gradeBucket === key
+      ) as MarkbookDrillRow[];
     }
     case 'term-sheet-status': {
       // The chart (`SheetProgressChart`) emits human labels like
@@ -967,7 +1058,8 @@ function applyTargetFilter(
       // through to `return rows` (= every sheet) when the label form
       // came in. Accept both formats.
       const compact = /^T(\d+)(?::(published|not-published))?$/i.exec(segment);
-      const labelled = /^Term\s+(\d+)\s*[·.\-]\s*(Published|Unpublished)$/i.exec(segment);
+      const labelled =
+        /^Term\s+(\d+)\s*[·.\-]\s*(Published|Unpublished)$/i.exec(segment);
       const m = compact ?? labelled;
       if (!m) return rows;
       const termNumber = Number(m[1]);
@@ -1005,17 +1097,21 @@ function applyTargetFilter(
       // Segment = section name. Show non-locked sheets in that section so
       // the user sees the open-sheet backlog drilled-into.
       if (!segment) {
-        return (rows as SheetRow[]).filter((r) => !r.isLocked) as MarkbookDrillRow[];
+        return (rows as SheetRow[]).filter(
+          (r) => !r.isLocked
+        ) as MarkbookDrillRow[];
       }
       return (rows as SheetRow[]).filter(
-        (r) => r.sectionName === segment && !r.isLocked,
+        (r) => r.sectionName === segment && !r.isLocked
       ) as MarkbookDrillRow[];
     }
     case 'teacher-entry-velocity': {
       // Segment = teacher email. Show entries by that teacher; if no segment,
       // return all entries (teacher view will still group by enteredBy).
       if (!segment) return rows;
-      return (rows as GradeEntryRow[]).filter((r) => r.enteredBy === segment) as MarkbookDrillRow[];
+      return (rows as GradeEntryRow[]).filter(
+        (r) => r.enteredBy === segment
+      ) as MarkbookDrillRow[];
     }
     default: {
       const _exhaustive: never = target;
@@ -1135,35 +1231,93 @@ const CR_ALL_COLUMNS: DrillColumnKey[] = [
   'resolvedAt',
 ];
 
-export function allColumnsForKind(kind: MarkbookDrillRowKind): DrillColumnKey[] {
+export function allColumnsForKind(
+  kind: MarkbookDrillRowKind
+): DrillColumnKey[] {
   if (kind === 'entry') return ENTRY_ALL_COLUMNS;
   if (kind === 'sheet') return SHEET_ALL_COLUMNS;
   return CR_ALL_COLUMNS;
 }
 
-export function defaultColumnsForTarget(target: MarkbookDrillTarget): DrillColumnKey[] {
+export function defaultColumnsForTarget(
+  target: MarkbookDrillTarget
+): DrillColumnKey[] {
   switch (target) {
     case 'grade-entries':
-      return ['studentName', 'subjectCode', 'wwScores', 'ptScores', 'qaScore', 'letterGrade', 'enteredAt'];
+      return [
+        'studentName',
+        'subjectCode',
+        'wwScores',
+        'ptScores',
+        'qaScore',
+        'letterGrade',
+        'enteredAt',
+      ];
     case 'grade-bucket-entries':
-      return ['studentName', 'subjectCode', 'sectionName', 'computedGrade', 'enteredAt'];
+      return [
+        'studentName',
+        'subjectCode',
+        'sectionName',
+        'computedGrade',
+        'enteredAt',
+      ];
     case 'teacher-entry-velocity':
-      return ['enteredBy', 'studentName', 'subjectCode', 'sectionName', 'computedGrade', 'enteredAt'];
+      return [
+        'enteredBy',
+        'studentName',
+        'subjectCode',
+        'sectionName',
+        'computedGrade',
+        'enteredAt',
+      ];
     case 'sheets-locked':
-      return ['sectionName', 'subjectCode', 'termNumber', 'isLocked', 'lockedAt', 'completeness'];
+      return [
+        'sectionName',
+        'subjectCode',
+        'termNumber',
+        'isLocked',
+        'lockedAt',
+        'completeness',
+      ];
     case 'publication-coverage':
-      return ['sectionName', 'subjectCode', 'termNumber', 'publishedAt', 'isLocked'];
+      return [
+        'sectionName',
+        'subjectCode',
+        'termNumber',
+        'publishedAt',
+        'isLocked',
+      ];
     case 'term-publication-status':
       // One row per section after the dedupe in applyTargetFilter — drop
       // subject-specific columns since a section's status is identical
       // across all its subject sheets in a given term.
       return ['sectionName', 'level', 'termNumber', 'publishedAt'];
     case 'term-sheet-status':
-      return ['sectionName', 'subjectCode', 'termNumber', 'isLocked', 'lockedAt', 'completeness'];
+      return [
+        'sectionName',
+        'subjectCode',
+        'termNumber',
+        'isLocked',
+        'lockedAt',
+        'completeness',
+      ];
     case 'sheet-readiness-section':
-      return ['sectionName', 'subjectCode', 'termNumber', 'completeness', 'isLocked'];
+      return [
+        'sectionName',
+        'subjectCode',
+        'termNumber',
+        'completeness',
+        'isLocked',
+      ];
     case 'change-requests':
-      return ['sectionName', 'subjectCode', 'fieldChanged', 'status', 'requestedBy', 'requestedAt'];
+      return [
+        'sectionName',
+        'subjectCode',
+        'fieldChanged',
+        'status',
+        'requestedBy',
+        'requestedAt',
+      ];
     default: {
       const _exhaustive: never = target;
       throw new Error(`unreachable target: ${String(_exhaustive)}`);
@@ -1176,13 +1330,19 @@ export function defaultColumnsForTarget(target: MarkbookDrillTarget): DrillColum
 
 export function drillHeaderForTarget(
   target: MarkbookDrillTarget,
-  segment?: string | null,
+  segment?: string | null
 ): { eyebrow: string; title: string } {
   switch (target) {
     case 'grade-entries':
-      return { eyebrow: 'Drill · Grade entries', title: 'Grade entries in scope' };
+      return {
+        eyebrow: 'Drill · Grade entries',
+        title: 'Grade entries in scope',
+      };
     case 'sheets-locked':
-      return { eyebrow: 'Drill · Sheets locked', title: 'Locked grading sheets' };
+      return {
+        eyebrow: 'Drill · Sheets locked',
+        title: 'Locked grading sheets',
+      };
     case 'change-requests':
       return {
         eyebrow: 'Drill · Change requests',

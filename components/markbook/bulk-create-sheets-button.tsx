@@ -46,16 +46,18 @@ export function BulkCreateSheetsButton({
       const blockedSubjects: string[] = body.blocked_subjects ?? [];
 
       if (inserted === 0 && blockedCount === 0) {
-        toast.info(`No new sheets needed for ${ayCode} — every (section × subject × term) is already covered.`);
+        toast.info(
+          `No new sheets needed for ${ayCode} — every (section × subject × term) is already covered.`
+        );
       } else {
         if (inserted > 0) {
           toast.success(
-            `Created ${inserted.toLocaleString('en-SG')} sheet${inserted === 1 ? '' : 's'} for ${ayCode}.`,
+            `Created ${inserted.toLocaleString('en-SG')} sheet${inserted === 1 ? '' : 's'} for ${ayCode}.`
           );
         }
         if (blockedCount > 0) {
           toast.warning(
-            `${blockedCount} scope${blockedCount === 1 ? '' : 's'} skipped — no approved SOW: ${blockedSubjects.slice(0, 3).join(', ')}${blockedSubjects.length > 3 ? ` +${blockedSubjects.length - 3} more` : ''}.`,
+            `${blockedCount} scope${blockedCount === 1 ? '' : 's'} skipped — no approved SOW: ${blockedSubjects.slice(0, 3).join(', ')}${blockedSubjects.length > 3 ? ` +${blockedSubjects.length - 3} more` : ''}.`
           );
         }
       }
@@ -70,18 +72,31 @@ export function BulkCreateSheetsButton({
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm" className="gap-1.5" disabled={busy}>
-          {busy ? <Loader2 className="size-3.5 animate-spin" /> : <PackagePlus className="size-3.5" />}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          disabled={busy}
+        >
+          {busy ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <PackagePlus className="size-3.5" />
+          )}
           Create all sheets
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Create every missing sheet for {ayCode}?</AlertDialogTitle>
+          <AlertDialogTitle>
+            Create every missing sheet for {ayCode}?
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            This runs against every section in {ayCode} and creates one grading sheet per
-            (subject in that section&apos;s level × term). Existing sheets are left alone — the
-            operation is idempotent, so re-clicking after adding a new section is safe.
+            This runs against every section in {ayCode} and creates one grading
+            sheet per (subject in that section&apos;s level × term). Existing
+            sheets are left alone — the operation is idempotent, so re-clicking
+            after adding a new section is safe.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

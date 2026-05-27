@@ -20,17 +20,21 @@ import { getSessionUser } from '@/lib/supabase/server';
 export default async function TemplateAdminPage() {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
-  if (sessionUser.role !== 'superadmin' && sessionUser.role !== 'school_admin') {
+  if (
+    sessionUser.role !== 'superadmin' &&
+    sessionUser.role !== 'school_admin'
+  ) {
     redirect('/sis');
   }
 
-  const [templateSections, templateConfigs, subjects, levels, eligibleAys] = await Promise.all([
-    listTemplateSections(),
-    listTemplateSubjectConfigs(),
-    listSubjects(),
-    listLevels(),
-    listEligibleAysForApply(),
-  ]);
+  const [templateSections, templateConfigs, subjects, levels, eligibleAys] =
+    await Promise.all([
+      listTemplateSections(),
+      listTemplateSubjectConfigs(),
+      listSubjects(),
+      listLevels(),
+      listEligibleAysForApply(),
+    ]);
 
   return (
     <PageShell>
@@ -51,10 +55,11 @@ export default async function TemplateAdminPage() {
             Class template.
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            The master sections + subject weights every new academic year copies from on creation.
-            Edits stay in the template until you propagate them. New AYs created after a template
-            change inherit the new values automatically; existing AYs only get them when you
-            explicitly propagate.
+            The master sections + subject weights every new academic year copies
+            from on creation. Edits stay in the template until you propagate
+            them. New AYs created after a template change inherit the new values
+            automatically; existing AYs only get them when you explicitly
+            propagate.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

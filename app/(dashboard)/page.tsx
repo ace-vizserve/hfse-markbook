@@ -60,14 +60,20 @@ export default async function Home() {
             Pick a module.
           </h1>
           <p className="text-[15px] leading-relaxed text-muted-foreground">
-            Signed in as <span className="font-medium text-foreground">{email}</span>. Every module
-            surfaces a different facet of the same student record.
+            Signed in as{' '}
+            <span className="font-medium text-foreground">{email}</span>. Every
+            module surfaces a different facet of the same student record.
           </p>
         </header>
 
         <section className="flex flex-wrap justify-center gap-4">
           {visibleModules.map((m) => (
-            <ModuleTile key={m.href} href={m.href} label={m.label} icon={m.icon} />
+            <ModuleTile
+              key={m.href}
+              href={m.href}
+              label={m.label}
+              icon={m.icon}
+            />
           ))}
         </section>
       </div>

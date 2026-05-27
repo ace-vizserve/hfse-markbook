@@ -83,7 +83,11 @@ import { RecordsLitePage } from '@/components/sis/records-lite-page';
 // Canonical CardAction gradient tile — indigo→navy with brand-tile glow.
 // Used as the top-right icon affordance on every Card across the page so the
 // section reads as a destination, not a flat block of text.
-function ActionTile({ icon: Icon }: { icon: React.ComponentType<{ className?: string }> }) {
+function ActionTile({
+  icon: Icon,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+}) {
   return (
     <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
       <Icon className="size-4" />
@@ -133,7 +137,13 @@ function fmtPercentage(num: number | null, den: number | null): string {
   return `${((num / den) * 100).toFixed(1)}%`;
 }
 
-const TAB_KEYS = ['overview', 'family', 'placements', 'academic', 'lifecycle'] as const;
+const TAB_KEYS = [
+  'overview',
+  'family',
+  'placements',
+  'academic',
+  'lifecycle',
+] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
 export default async function RecordsStudentCrossYearPage({
@@ -155,7 +165,9 @@ export default async function RecordsStudentCrossYearPage({
 
   const { studentNumber } = await params;
   const { tab: tabParam } = await searchParams;
-  const tab: TabKey = TAB_KEYS.includes(tabParam as TabKey) ? (tabParam as TabKey) : 'overview';
+  const tab: TabKey = TAB_KEYS.includes(tabParam as TabKey)
+    ? (tabParam as TabKey)
+    : 'overview';
 
   const student = await findStudentByNumber(studentNumber);
   if (!student) {
@@ -179,21 +191,24 @@ export default async function RecordsStudentCrossYearPage({
     );
   }
 
-  const [placements, academics, attendance, history, currentAy] = await Promise.all([
-    getPlacementHistory(student.studentId),
-    getAcademicHistory(student.studentId),
-    getAttendanceHistory(student.studentId),
-    getEnrollmentHistory(studentNumber),
-    getCurrentAcademicYear(),
-  ]);
+  const [placements, academics, attendance, history, currentAy] =
+    await Promise.all([
+      getPlacementHistory(student.studentId),
+      getAcademicHistory(student.studentId),
+      getAttendanceHistory(student.studentId),
+      getEnrollmentHistory(studentNumber),
+      getCurrentAcademicYear(),
+    ]);
 
   // Synchronous derivations — no DB calls.
   const placementAyCodes = Array.from(new Set(placements.map((p) => p.ayCode)));
   const enroleeByAy = new Map<string, string>(
-    history.map((h) => [h.ayCode, h.enroleeNumber] as const),
+    history.map((h) => [h.ayCode, h.enroleeNumber] as const)
   );
   const ayCount = new Set(placements.map((p) => p.ayCode)).size;
-  const activePlacement = placements.find((p) => p.enrollmentStatus === 'active');
+  const activePlacement = placements.find(
+    (p) => p.enrollmentStatus === 'active'
+  );
   const lifecycleEntry = (() => {
     if (history.length === 0) return null;
     if (currentAy) {
@@ -203,61 +218,88 @@ export default async function RecordsStudentCrossYearPage({
     return [...history].sort((a, b) => b.ayCode.localeCompare(a.ayCode))[0];
   })();
   const currentEnroleeNumber = currentAy
-    ? history.find((h) => h.ayCode === currentAy.ay_code)?.enroleeNumber ?? null
+    ? (history.find((h) => h.ayCode === currentAy.ay_code)?.enroleeNumber ??
+      null)
     : null;
 
   // Parallel batch A — all independent of each other and of document freshness.
   // freshenAyDocuments runs here too so it completes before batch B reads docs.
-  const [sectionTransfers, termsByAy, allowanceResult, siblings] = await Promise.all([
-    getSectionTransfersForStudent(studentNumber, history.map((h) => h.enroleeNumber)),
-    preloadTermsForAYs(placementAyCodes),
-    createServiceClient()
-      .from('students')
-      .select('urgent_compassionate_allowance')
-      .eq('id', student.studentId)
-      .maybeSingle(),
-    // Sibling sections: 3-query internal chain, returns SiblingSection[].
-    (async (): Promise<SiblingSection[]> => {
-      if (!activePlacement || !currentAy || activePlacement.ayCode !== currentAy.ay_code) return [];
-      const sibService = createServiceClient();
-      const { data: secRow } = await sibService
-        .from('sections')
-        .select('level_id, academic_year_id')
-        .eq('id', activePlacement.sectionId)
-        .maybeSingle();
-      if (!secRow) return [];
-      const { data: sibRows } = await sibService
-        .from('sections')
-        .select('id, name')
-        .eq('academic_year_id', (secRow as { level_id: string; academic_year_id: string }).academic_year_id)
-        .eq('level_id', (secRow as { level_id: string; academic_year_id: string }).level_id)
-        .neq('id', activePlacement.sectionId);
-      const sibList = (sibRows ?? []) as Array<{ id: string; name: string }>;
-      if (sibList.length === 0) return [];
-      const sibIds = sibList.map((s) => s.id);
-      const { data: countRows } = await sibService
-        .from('section_students')
-        .select('section_id')
-        .eq('enrollment_status', 'active')
-        .in('section_id', sibIds);
-      const sibCounts = new Map<string, number>();
-      for (const cr of (countRows ?? []) as Array<{ section_id: string }>) {
-        sibCounts.set(cr.section_id, (sibCounts.get(cr.section_id) ?? 0) + 1);
-      }
-      return sibList
-        .map((s) => {
-          const c = sibCounts.get(s.id) ?? 0;
-          return { id: s.id, name: s.name, activeCount: c, isAtCapacity: c >= 50 };
-        })
-        .sort((a, b) => a.name.localeCompare(b.name));
-    })(),
-    // freshenAyDocuments must complete before batch B reads doc statuses.
-    lifecycleEntry ? freshenAyDocuments(lifecycleEntry.ayCode) : Promise.resolve(undefined),
-  ]);
+  const [sectionTransfers, termsByAy, allowanceResult, siblings] =
+    await Promise.all([
+      getSectionTransfersForStudent(
+        studentNumber,
+        history.map((h) => h.enroleeNumber)
+      ),
+      preloadTermsForAYs(placementAyCodes),
+      createServiceClient()
+        .from('students')
+        .select('urgent_compassionate_allowance')
+        .eq('id', student.studentId)
+        .maybeSingle(),
+      // Sibling sections: 3-query internal chain, returns SiblingSection[].
+      (async (): Promise<SiblingSection[]> => {
+        if (
+          !activePlacement ||
+          !currentAy ||
+          activePlacement.ayCode !== currentAy.ay_code
+        )
+          return [];
+        const sibService = createServiceClient();
+        const { data: secRow } = await sibService
+          .from('sections')
+          .select('level_id, academic_year_id')
+          .eq('id', activePlacement.sectionId)
+          .maybeSingle();
+        if (!secRow) return [];
+        const { data: sibRows } = await sibService
+          .from('sections')
+          .select('id, name')
+          .eq(
+            'academic_year_id',
+            (secRow as { level_id: string; academic_year_id: string })
+              .academic_year_id
+          )
+          .eq(
+            'level_id',
+            (secRow as { level_id: string; academic_year_id: string }).level_id
+          )
+          .neq('id', activePlacement.sectionId);
+        const sibList = (sibRows ?? []) as Array<{ id: string; name: string }>;
+        if (sibList.length === 0) return [];
+        const sibIds = sibList.map((s) => s.id);
+        const { data: countRows } = await sibService
+          .from('section_students')
+          .select('section_id')
+          .eq('enrollment_status', 'active')
+          .in('section_id', sibIds);
+        const sibCounts = new Map<string, number>();
+        for (const cr of (countRows ?? []) as Array<{ section_id: string }>) {
+          sibCounts.set(cr.section_id, (sibCounts.get(cr.section_id) ?? 0) + 1);
+        }
+        return sibList
+          .map((s) => {
+            const c = sibCounts.get(s.id) ?? 0;
+            return {
+              id: s.id,
+              name: s.name,
+              activeCount: c,
+              isAtCapacity: c >= 50,
+            };
+          })
+          .sort((a, b) => a.name.localeCompare(b.name));
+      })(),
+      // freshenAyDocuments must complete before batch B reads doc statuses.
+      lifecycleEntry
+        ? freshenAyDocuments(lifecycleEntry.ayCode)
+        : Promise.resolve(undefined),
+    ]);
 
   const allowance =
-    (allowanceResult.data as { urgent_compassionate_allowance: number | null } | null)
-      ?.urgent_compassionate_allowance ?? 5;
+    (
+      allowanceResult.data as {
+        urgent_compassionate_allowance: number | null;
+      } | null
+    )?.urgent_compassionate_allowance ?? 5;
 
   // Parallel batch B — lifecycle + detail depend on freshened doc state from batch A.
   const [lifecycleSnapshot, currentAyDetail] = await Promise.all([
@@ -295,13 +337,16 @@ export default async function RecordsStudentCrossYearPage({
           </Badge>
         </div>
         <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-          Cross-year view keyed on <code className="font-mono">studentNumber</code> (Hard Rule #4).{' '}
+          Cross-year view keyed on{' '}
+          <code className="font-mono">studentNumber</code> (Hard Rule #4).{' '}
           {ayCount > 0 ? (
             <>
-              Enrolled across <strong>{ayCount}</strong> academic year{ayCount === 1 ? '' : 's'}.
+              Enrolled across <strong>{ayCount}</strong> academic year
+              {ayCount === 1 ? '' : 's'}.
               {activePlacement && (
                 <>
-                  {' '}Currently in{' '}
+                  {' '}
+                  Currently in{' '}
                   <strong>
                     {activePlacement.levelCode} {activePlacement.sectionName}
                   </strong>
@@ -317,7 +362,12 @@ export default async function RecordsStudentCrossYearPage({
 
       <section className="@container/main">
         <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-3">
-          <Stat label="Academic years" value={ayCount} icon={Layers} footnote="Years on roster" />
+          <Stat
+            label="Academic years"
+            value={ayCount}
+            icon={Layers}
+            footnote="Years on roster"
+          />
           <Stat
             label="Total placements"
             value={placements.length}
@@ -377,7 +427,9 @@ export default async function RecordsStudentCrossYearPage({
           {currentAyDetail?.application.stpApplicationType && (
             <StpApplicationCard
               application={currentAyDetail.application}
-              stpApplicationStatus={currentAyDetail.application.stpApplicationStatus ?? null}
+              stpApplicationStatus={
+                currentAyDetail.application.stpApplicationStatus ?? null
+              }
               ayCode={currentAyDetail.ayCode}
             />
           )}
@@ -397,7 +449,8 @@ export default async function RecordsStudentCrossYearPage({
             <Card>
               <CardContent className="py-6">
                 <p className="text-sm text-muted-foreground">
-                  Family, services, and medical info live on the current-AY admissions row.
+                  Family, services, and medical info live on the current-AY
+                  admissions row.
                 </p>
               </CardContent>
             </Card>
@@ -413,7 +466,10 @@ export default async function RecordsStudentCrossYearPage({
             currentEnroleeNumber={currentEnroleeNumber}
             siblings={siblings}
           />
-          <SectionTransferSection rows={sectionTransfers} enroleeByAy={enroleeByAy} />
+          <SectionTransferSection
+            rows={sectionTransfers}
+            enroleeByAy={enroleeByAy}
+          />
         </TabsContent>
 
         <TabsContent value="academic" className="space-y-6">
@@ -429,12 +485,16 @@ export default async function RecordsStudentCrossYearPage({
 
         <TabsContent value="lifecycle" className="space-y-6">
           {lifecycleSnapshot ? (
-            <StudentLifecycleTimeline snapshot={lifecycleSnapshot} history={history} />
+            <StudentLifecycleTimeline
+              snapshot={lifecycleSnapshot}
+              history={history}
+            />
           ) : (
             <Card>
               <CardContent className="py-6">
                 <p className="text-sm text-muted-foreground">
-                  No lifecycle snapshot available — this student has no admissions row in the current AY.
+                  No lifecycle snapshot available — this student has no
+                  admissions row in the current AY.
                 </p>
               </CardContent>
             </Card>
@@ -470,7 +530,9 @@ function Stat({
     >
       <div className="grid grid-cols-[1fr_auto] items-start gap-2 px-6">
         <div className="space-y-1.5">
-          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">{label}</p>
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
+            {label}
+          </p>
           <p className="font-serif text-[32px] font-semibold leading-none tabular-nums text-foreground @[240px]/card:text-[38px]">
             {value.toLocaleString('en-SG')}
           </p>
@@ -493,7 +555,10 @@ function PlacementSection({
   siblings,
 }: {
   rows: PlacementRow[];
-  termsByAy: Map<string, Array<{ termNumber: number; startDate: string; endDate: string }>>;
+  termsByAy: Map<
+    string,
+    Array<{ termNumber: number; startDate: string; endDate: string }>
+  >;
   enroleeByAy: Map<string, string>;
   currentAyCode: string | null;
   currentEnroleeNumber: string | null;
@@ -514,7 +579,9 @@ function PlacementSection({
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No placements on record.</p>
+          <p className="text-sm text-muted-foreground">
+            No placements on record.
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -538,12 +605,17 @@ function PlacementSection({
                   // late rows skip the lookup.
                   const lateTerm =
                     r.enrollmentStatus === 'late_enrollee' && r.enrollmentDate
-                      ? termForDateInPreloaded(r.enrollmentDate, r.ayCode, termsByAy)
+                      ? termForDateInPreloaded(
+                          r.enrollmentDate,
+                          r.ayCode,
+                          termsByAy
+                        )
                       : null;
                   const isCurrentAy = r.ayCode === currentAyCode;
                   const isEditable =
                     isCurrentAy &&
-                    (r.enrollmentStatus === 'active' || r.enrollmentStatus === 'withdrawn');
+                    (r.enrollmentStatus === 'active' ||
+                      r.enrollmentStatus === 'withdrawn');
                   const isTransferable =
                     isCurrentAy &&
                     r.enrollmentStatus === 'active' &&
@@ -557,7 +629,9 @@ function PlacementSection({
                         <AyLink ayCode={r.ayCode} enroleeByAy={enroleeByAy} />
                       </td>
                       <td className="py-2 pr-3">{r.levelCode}</td>
-                      <td className="py-2 pr-3 text-foreground">{r.sectionName}</td>
+                      <td className="py-2 pr-3 text-foreground">
+                        {r.sectionName}
+                      </td>
                       <td className="py-2 pr-3 text-right font-mono tabular-nums">
                         #{r.indexNumber}
                       </td>
@@ -569,11 +643,13 @@ function PlacementSection({
                               · {lateTerm.termLabel}
                             </span>
                           )}
-                          {r.enrollmentStatus === 'late_enrollee' && !lateTerm && r.enrollmentDate && (
-                            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                              · between terms
-                            </span>
-                          )}
+                          {r.enrollmentStatus === 'late_enrollee' &&
+                            !lateTerm &&
+                            r.enrollmentDate && (
+                              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                                · between terms
+                              </span>
+                            )}
                         </span>
                       </td>
                       <td className="py-2 pr-3 font-mono text-xs tabular-nums text-muted-foreground">
@@ -779,13 +855,20 @@ function AcademicSection({
                         }
                       }
                       const subjects = [...subjMap.entries()].sort((a, b) =>
-                        a[1].localeCompare(b[1]),
+                        a[1].localeCompare(b[1])
                       );
                       return subjects.map(([code, name]) => (
-                        <tr key={code} className="border-b border-hairline last:border-0">
-                          <td className="py-2 pr-3 font-medium text-foreground">{name}</td>
+                        <tr
+                          key={code}
+                          className="border-b border-hairline last:border-0"
+                        >
+                          <td className="py-2 pr-3 font-medium text-foreground">
+                            {name}
+                          </td>
                           {ay.terms.map((t) => {
-                            const cell = t.subjects.find((s) => s.subjectCode === code);
+                            const cell = t.subjects.find(
+                              (s) => s.subjectCode === code
+                            );
                             return (
                               <td
                                 key={t.termNumber}
@@ -835,7 +918,9 @@ function AttendanceSection({
         </CardTitle>
         <CardAction className="flex items-center gap-2">
           <Button asChild variant="outline" size="sm">
-            <Link href={`/attendance/students/${encodeURIComponent(studentNumber)}`}>
+            <Link
+              href={`/attendance/students/${encodeURIComponent(studentNumber)}`}
+            >
               Open daily detail
               <ArrowUpRight className="size-3" />
             </Link>
@@ -860,7 +945,9 @@ function AttendanceSection({
       </div>
       <CardContent className="space-y-6">
         {rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No attendance records yet.</p>
+          <p className="text-sm text-muted-foreground">
+            No attendance records yet.
+          </p>
         ) : (
           rows.map((ay) => (
             <div key={ay.ayCode} className="space-y-3">
@@ -882,8 +969,13 @@ function AttendanceSection({
                   </thead>
                   <tbody>
                     {ay.terms.map((t) => (
-                      <tr key={t.termNumber} className="border-b border-hairline last:border-0">
-                        <td className="py-2 pr-3 font-medium text-foreground">T{t.termNumber}</td>
+                      <tr
+                        key={t.termNumber}
+                        className="border-b border-hairline last:border-0"
+                      >
+                        <td className="py-2 pr-3 font-medium text-foreground">
+                          T{t.termNumber}
+                        </td>
                         <td className="py-2 pr-3 text-right font-mono tabular-nums">
                           {t.schoolDays ?? '—'}
                         </td>
@@ -1006,7 +1098,13 @@ function QuickActionsStrip({
 // (KD #51); the CardFooter deep-links to the admissions profile tab to edit.
 // ──────────────────────────────────────────────────────────────────────────
 
-function FieldItem({ label, value }: { label: string; value: string | null | undefined }) {
+function FieldItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | null | undefined;
+}) {
   if (!value) return null;
   return (
     <div className="space-y-0.5">
@@ -1028,7 +1126,8 @@ function StudentProfileCard({
   ayCode: string;
 }) {
   const hasIdDocs = app.nric || app.passportNumber || app.pass;
-  const hasLearningNeeds = app.additionalLearningNeeds || app.otherLearningNeeds;
+  const hasLearningNeeds =
+    app.additionalLearningNeeds || app.otherLearningNeeds;
   const religion =
     app.religion === 'Others' && app.religionOther
       ? `Other: ${app.religionOther}`
@@ -1039,7 +1138,8 @@ function StudentProfileCard({
       : app.howDidYouKnowAboutHFSEIS;
   const enroleeType = status?.enroleeType ?? app.category;
   const assignedClass =
-    [status?.classLevel, status?.classSection].filter(Boolean).join(' ') || null;
+    [status?.classLevel, status?.classSection].filter(Boolean).join(' ') ||
+    null;
 
   return (
     <Card>
@@ -1064,7 +1164,10 @@ function StudentProfileCard({
             {app.preferredName && app.preferredName !== app.firstName && (
               <FieldItem label="Preferred name" value={app.preferredName} />
             )}
-            <FieldItem label="Date of birth" value={formatShort(app.birthDay)} />
+            <FieldItem
+              label="Date of birth"
+              value={formatShort(app.birthDay)}
+            />
             <FieldItem label="Gender" value={app.gender} />
             <FieldItem label="Nationality" value={app.nationality} />
             <FieldItem label="Primary language" value={app.primaryLanguage} />
@@ -1082,11 +1185,17 @@ function StudentProfileCard({
               <FieldItem label="NRIC" value={app.nric} />
               <FieldItem label="Passport no." value={app.passportNumber} />
               {app.passportExpiry && (
-                <FieldItem label="Passport expiry" value={formatShort(app.passportExpiry)} />
+                <FieldItem
+                  label="Passport expiry"
+                  value={formatShort(app.passportExpiry)}
+                />
               )}
               <FieldItem label="Pass type" value={app.pass} />
               {app.passExpiry && (
-                <FieldItem label="Pass expiry" value={formatShort(app.passExpiry)} />
+                <FieldItem
+                  label="Pass expiry"
+                  value={formatShort(app.passExpiry)}
+                />
               )}
             </div>
           </div>
@@ -1099,10 +1208,15 @@ function StudentProfileCard({
           </p>
           <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
             <FieldItem label="Level applied" value={app.levelApplied} />
-            {assignedClass && <FieldItem label="Assigned class" value={assignedClass} />}
+            {assignedClass && (
+              <FieldItem label="Assigned class" value={assignedClass} />
+            )}
             <FieldItem label="Category" value={enroleeType} />
             <FieldItem label="Class type" value={app.classType} />
-            <FieldItem label="Preferred schedule" value={app.preferredSchedule} />
+            <FieldItem
+              label="Preferred schedule"
+              value={app.preferredSchedule}
+            />
             <FieldItem label="Previous school" value={app.previousSchool} />
             <FieldItem label="How they found us" value={howFound} />
           </div>
@@ -1137,7 +1251,9 @@ function StudentProfileCard({
       </CardContent>
       <CardFooter className="border-t border-hairline bg-muted/20">
         <Button asChild variant="outline" size="sm">
-          <Link href={`/admissions/applications/${app.enroleeNumber}?ay=${ayCode}&tab=profile`}>
+          <Link
+            href={`/admissions/applications/${app.enroleeNumber}?ay=${ayCode}&tab=profile`}
+          >
             <ExternalLink className="h-3.5 w-3.5" />
             Edit in admissions
           </Link>
@@ -1175,7 +1291,9 @@ function PostEnrolmentChecklist({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">No status row on file for this AY.</p>
+          <p className="text-sm text-muted-foreground">
+            No status row on file for this AY.
+          </p>
         </CardContent>
       </Card>
     );
@@ -1238,7 +1356,9 @@ function PostEnrolmentChecklist({
     {
       label: 'Class assignment',
       status: status.classStatus,
-      sublabel: [status.classLevel, status.classSection].filter(Boolean).join(' · ') || null,
+      sublabel:
+        [status.classLevel, status.classSection].filter(Boolean).join(' · ') ||
+        null,
       updated: status.classUpdatedDate,
       updatedBy: status.classUpdatedBy,
     },
@@ -1300,7 +1420,9 @@ function PostEnrolmentChecklist({
                       .join(' · ')}
                     {s.updatedBy && (
                       <>
-                        {(s.sublabel || s.updated) && <span className="mx-1">·</span>}
+                        {(s.sublabel || s.updated) && (
+                          <span className="mx-1">·</span>
+                        )}
                         by{' '}
                         <a
                           href={`mailto:${s.updatedBy}`}
@@ -1319,7 +1441,9 @@ function PostEnrolmentChecklist({
       </CardContent>
       <CardFooter className="border-t border-hairline bg-muted/20">
         <Button asChild variant="outline" size="sm">
-          <Link href={`/admissions/applications/${enroleeNumber}?ay=${ayCode}&tab=enrollment`}>
+          <Link
+            href={`/admissions/applications/${enroleeNumber}?ay=${ayCode}&tab=enrollment`}
+          >
             <ExternalLink className="h-3.5 w-3.5" />
             Edit in admissions
           </Link>
@@ -1363,7 +1487,11 @@ function formatShort(iso: string | null | undefined): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString('en-SG', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString('en-SG', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -1425,7 +1553,9 @@ function FamilyContactCard({ app }: { app: ApplicationRow }) {
       </CardHeader>
       <CardContent className="space-y-5">
         {visibleBlocks.length === 0 && !hasHome ? (
-          <p className="text-sm text-muted-foreground">No family contact on file.</p>
+          <p className="text-sm text-muted-foreground">
+            No family contact on file.
+          </p>
         ) : (
           <>
             {visibleBlocks.length > 0 && (
@@ -1454,16 +1584,30 @@ function FamilyContactCard({ app }: { app: ApplicationRow }) {
                       </div>
                       {b.nationality && (
                         <div className="mt-3">
-                          <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-[0.12em]">
+                          <Badge
+                            variant="outline"
+                            className="font-mono text-[10px] uppercase tracking-[0.12em]"
+                          >
                             {b.nationality}
                           </Badge>
                         </div>
                       )}
                       {(b.email || b.mobile) && (
                         <div className="mt-3 space-y-1.5 border-t border-hairline pt-3">
-                          {b.email && <ContactPill href={`mailto:${b.email}`} icon={Mail} value={b.email} />}
+                          {b.email && (
+                            <ContactPill
+                              href={`mailto:${b.email}`}
+                              icon={Mail}
+                              value={b.email}
+                            />
+                          )}
                           {b.mobile && (
-                            <ContactPill href={`tel:${b.mobile}`} icon={Phone} value={b.mobile} mono />
+                            <ContactPill
+                              href={`tel:${b.mobile}`}
+                              icon={Phone}
+                              value={b.mobile}
+                              mono
+                            />
                           )}
                         </div>
                       )}
@@ -1483,11 +1627,16 @@ function FamilyContactCard({ app }: { app: ApplicationRow }) {
                       Home
                     </p>
                     {app.homeAddress && (
-                      <p className="text-[13px] leading-tight text-foreground">{app.homeAddress}</p>
+                      <p className="text-[13px] leading-tight text-foreground">
+                        {app.homeAddress}
+                      </p>
                     )}
                   </div>
                   {app.postalCode && (
-                    <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-[0.12em] tabular-nums">
+                    <Badge
+                      variant="outline"
+                      className="font-mono text-[10px] uppercase tracking-[0.12em] tabular-nums"
+                    >
                       {app.postalCode}
                     </Badge>
                   )}
@@ -1495,10 +1644,18 @@ function FamilyContactCard({ app }: { app: ApplicationRow }) {
                 {(app.homePhone || app.livingWithWhom) && (
                   <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-hairline pt-3">
                     {app.homePhone && (
-                      <ContactPill href={`tel:${app.homePhone}`} icon={Phone} value={app.homePhone} mono />
+                      <ContactPill
+                        href={`tel:${app.homePhone}`}
+                        icon={Phone}
+                        value={app.homePhone}
+                        mono
+                      />
                     )}
                     {app.livingWithWhom && (
-                      <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-[0.12em]">
+                      <Badge
+                        variant="outline"
+                        className="font-mono text-[10px] uppercase tracking-[0.12em]"
+                      >
                         Living with · {app.livingWithWhom}
                       </Badge>
                     )}
@@ -1535,7 +1692,11 @@ function ContactPill({
       <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-brand-indigo/20 to-brand-indigo/5 text-brand-indigo">
         <Icon className="size-3" />
       </span>
-      <span className={`min-w-0 truncate ${mono ? 'font-mono tabular-nums' : ''}`}>{value}</span>
+      <span
+        className={`min-w-0 truncate ${mono ? 'font-mono tabular-nums' : ''}`}
+      >
+        {value}
+      </span>
     </a>
   );
 }
@@ -1546,7 +1707,13 @@ function ContactPill({
 // Discounts are open-text codes the registrar applied at admissions time.
 // ──────────────────────────────────────────────────────────────────────────
 
-function ServicePreferencesCard({ app, status }: { app: ApplicationRow; status: StatusRow | null }) {
+function ServicePreferencesCard({
+  app,
+  status,
+}: {
+  app: ApplicationRow;
+  status: StatusRow | null;
+}) {
   const services: Array<{
     label: string;
     value: string | null;
@@ -1563,7 +1730,7 @@ function ServicePreferencesCard({ app, status }: { app: ApplicationRow; status: 
     { label: 'Uniform', value: app.availUniform, detail: null, icon: Shirt },
   ];
   const discounts = [app.discount1, app.discount2, app.discount3].filter(
-    (d): d is string => !!d && d.trim().length > 0,
+    (d): d is string => !!d && d.trim().length > 0
   );
   const hasAnything =
     services.some((s) => !!s.value) ||
@@ -1586,7 +1753,9 @@ function ServicePreferencesCard({ app, status }: { app: ApplicationRow; status: 
       </CardHeader>
       <CardContent className="space-y-5">
         {!hasAnything ? (
-          <p className="text-sm text-muted-foreground">No service preferences on file.</p>
+          <p className="text-sm text-muted-foreground">
+            No service preferences on file.
+          </p>
         ) : (
           <>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -1616,7 +1785,9 @@ function ServicePreferencesCard({ app, status }: { app: ApplicationRow; status: 
                           No
                         </Badge>
                       ) : (
-                        <p className="font-mono text-[13px] text-muted-foreground">—</p>
+                        <p className="font-mono text-[13px] text-muted-foreground">
+                          —
+                        </p>
                       )}
                       {v === 'yes' && s.detail && (
                         <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
@@ -1628,7 +1799,9 @@ function ServicePreferencesCard({ app, status }: { app: ApplicationRow; status: 
                 );
               })}
             </div>
-            {(discounts.length > 0 || app.paymentOption || status?.enroleeType) && (
+            {(discounts.length > 0 ||
+              app.paymentOption ||
+              status?.enroleeType) && (
               <div className="grid grid-cols-1 gap-3 border-t border-hairline pt-4 sm:grid-cols-3">
                 {status?.enroleeType && (
                   <BillingTile label="Enrolee type" icon={UserCircle2}>
@@ -1702,7 +1875,9 @@ function MedicalCard({ app }: { app: ApplicationRow }) {
       </CardHeader>
       <CardContent className="space-y-5">
         {!hasAnything ? (
-          <p className="text-sm text-muted-foreground">No medical or dietary notes on file.</p>
+          <p className="text-sm text-muted-foreground">
+            No medical or dietary notes on file.
+          </p>
         ) : (
           <>
             {positiveFlags.length > 0 && (
@@ -1799,7 +1974,9 @@ function DetailRow({
     <div className="rounded-xl bg-muted/25 p-3 ring-1 ring-inset ring-border">
       <div className="flex items-start gap-3">
         {Icon && (
-          <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${tileClass}`}>
+          <div
+            className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${tileClass}`}
+          >
             <Icon className="size-3.5" />
           </div>
         )}
@@ -1840,4 +2017,3 @@ function BillingTile({
     </div>
   );
 }
-

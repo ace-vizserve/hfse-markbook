@@ -23,7 +23,9 @@ export const EvaluationWriteupUpsertSchema = z.object({
   submit: z.boolean().optional(),
 });
 
-export type EvaluationWriteupUpsertInput = z.infer<typeof EvaluationWriteupUpsertSchema>;
+export type EvaluationWriteupUpsertInput = z.infer<
+  typeof EvaluationWriteupUpsertSchema
+>;
 
 // PUT /api/evaluation/terms/[termId]/config — open or close the evaluation
 // window for a term. Virtue theme lives on `terms.virtue_theme` (edited in
@@ -32,4 +34,6 @@ export const EvaluationTermConfigSchema = z.object({
   isOpen: z.boolean(),
 });
 
-export type EvaluationTermConfigInput = z.infer<typeof EvaluationTermConfigSchema>;
+export type EvaluationTermConfigInput = z.infer<
+  typeof EvaluationTermConfigSchema
+>;

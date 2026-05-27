@@ -164,7 +164,9 @@ export type AuditEntityType =
 
 type LogActionParams = {
   service: SupabaseClient;
-  actor: Pick<User, 'id' | 'email'> | { id: string | null; email: string | null };
+  actor:
+    | Pick<User, 'id' | 'email'>
+    | { id: string | null; email: string | null };
   action: AuditAction;
   entityType: AuditEntityType;
   entityId?: string | null;
@@ -210,9 +212,7 @@ export async function logAction(params: LogActionParams): Promise<void> {
 export async function logActions(
   service: SupabaseClient,
   actor: { id: string; email: string | null },
-  rows: Array<Omit<LogActionParams, 'service' | 'actor'>>,
+  rows: Array<Omit<LogActionParams, 'service' | 'actor'>>
 ): Promise<void> {
-  await Promise.all(
-    rows.map((row) => logAction({ service, actor, ...row })),
-  );
+  await Promise.all(rows.map((row) => logAction({ service, actor, ...row })));
 }

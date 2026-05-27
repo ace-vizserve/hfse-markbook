@@ -30,7 +30,10 @@ export default async function SubjectConfigPage({
 }) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
-  if (sessionUser.role !== 'superadmin' && sessionUser.role !== 'school_admin') {
+  if (
+    sessionUser.role !== 'superadmin' &&
+    sessionUser.role !== 'school_admin'
+  ) {
     redirect('/sis');
   }
 
@@ -42,8 +45,13 @@ export default async function SubjectConfigPage({
     .from('academic_years')
     .select('id, ay_code, label, is_current')
     .order('ay_code', { ascending: false });
-  type AyRow = { id: string; ay_code: string; label: string; is_current: boolean };
-  const ayList = ((ays ?? []) as AyRow[]);
+  type AyRow = {
+    id: string;
+    ay_code: string;
+    label: string;
+    is_current: boolean;
+  };
+  const ayList = (ays ?? []) as AyRow[];
   const currentAy: AyRow | null =
     (sp.ay ? ayList.find((a) => a.ay_code === sp.ay) : undefined) ??
     ayList.find((a) => a.is_current) ??
@@ -83,8 +91,10 @@ export default async function SubjectConfigPage({
             Subject weights &amp; slots.
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            WW / PT / QA weights and max slot counts per subject + level + AY. Changes here apply to
-            <strong> every grading sheet</strong> for that subject + level — handle with care.
+            WW / PT / QA weights and max slot counts per subject + level + AY.
+            Changes here apply to
+            <strong> every grading sheet</strong> for that subject + level —
+            handle with care.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -110,7 +120,9 @@ export default async function SubjectConfigPage({
             <div className="font-serif text-lg font-semibold text-foreground">
               No academic years
             </div>
-            <p className="text-sm text-muted-foreground">Create an AY first via AY Setup.</p>
+            <p className="text-sm text-muted-foreground">
+              Create an AY first via AY Setup.
+            </p>
           </CardContent>
         </Card>
       ) : (

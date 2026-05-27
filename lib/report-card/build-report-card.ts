@@ -6,13 +6,20 @@ import {
 } from '@/lib/compute/letter-grade';
 import { getEncodableDatesForTerm } from '@/lib/attendance/calendar';
 import { levelTypeForAudienceLookup } from '@/lib/sis/levels';
-import { DEFAULT_SCHOOL_CONFIG, type SchoolConfig } from '@/lib/sis/school-config';
+import {
+  DEFAULT_SCHOOL_CONFIG,
+  type SchoolConfig,
+} from '@/lib/sis/school-config';
 
 // Fully-resolved report card payload for one student in the current academic
 // year. Staff (`/markbook/report-cards/[studentId]`) and parent
 // (`/parent/report-cards/[studentId]`) views both call this.
 
-export type Cell = { quarterly: number | null; letter: string | null; is_na: boolean };
+export type Cell = {
+  quarterly: number | null;
+  letter: string | null;
+  is_na: boolean;
+};
 
 export type SubjectRow = {
   subject: { id: string; code: string; name: string; is_examinable: boolean };
@@ -89,15 +96,18 @@ export type BuildReportCardError =
   | { kind: 'not_enrolled_this_ay'; ayLabel: string }
   | { kind: 'level_not_found' };
 
-const first = <T,>(v: T | T[] | null): T | null =>
-  Array.isArray(v) ? v[0] ?? null : v ?? null;
+const first = <T>(v: T | T[] | null): T | null =>
+  Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
 
 const empty: Cell = { quarterly: null, letter: null, is_na: false };
 
 export async function buildReportCard(
   supabase: SupabaseClient,
-  studentId: string,
-): Promise<{ ok: true; payload: ReportCardPayload } | { ok: false; error: BuildReportCardError }> {
+  studentId: string
+): Promise<
+  | { ok: true; payload: ReportCardPayload }
+  | { ok: false; error: BuildReportCardError }
+> {
   const { data: student } = await supabase
     .from('students')
     .select('id, student_number, last_name, first_name, middle_name')
@@ -124,11 +134,16 @@ export async function buildReportCard(
     .select(
       `id, enrollment_status, created_at,
        section:sections!inner(id, name, form_class_adviser, academic_year_id,
-         level:levels(id, code, label, level_type))`,
+         level:levels(id, code, label, level_type))`
     )
     .eq('student_id', studentId);
 
-  type LevelLite = { id: string; code: string; label: string; level_type: string };
+  type LevelLite = {
+    id: string;
+    code: string;
+    label: string;
+    level_type: string;
+  };
   type SectionLite = {
     id: string;
     name: string;
@@ -152,11 +167,21 @@ export async function buildReportCard(
   // term per the migration-018 unique constraint).
   const ayEnrolments = ((enrolments ?? []) as Enrolment[])
     .map((e) => ({ ...e, section: first(e.section) }))
-    .filter((e): e is { id: string; enrollment_status: string; created_at: string | null; section: SectionLite } =>
-      !!e.section && e.section.academic_year_id === ay.id,
+    .filter(
+      (
+        e
+      ): e is {
+        id: string;
+        enrollment_status: string;
+        created_at: string | null;
+        section: SectionLite;
+      } => !!e.section && e.section.academic_year_id === ay.id
     );
   if (ayEnrolments.length === 0) {
-    return { ok: false, error: { kind: 'not_enrolled_this_ay', ayLabel: ay.label } };
+    return {
+      ok: false,
+      error: { kind: 'not_enrolled_this_ay', ayLabel: ay.label },
+    };
   }
 
   // Pick the "primary" enrolment for the report header (section name, FCA,
@@ -186,7 +211,9 @@ export async function buildReportCard(
   // For grade-entry / attendance / writeup union: collect every distinct
   // section_student_id and section_id this student touched in the current AY.
   const allEnrolmentIds = ayEnrolments.map((e) => e.id);
-  const allSectionIds = Array.from(new Set(ayEnrolments.map((e) => e.section.id)));
+  const allSectionIds = Array.from(
+    new Set(ayEnrolments.map((e) => e.section.id))
+  );
 
   const { data: configs } = await supabase
     .from('subject_configs')
@@ -202,7 +229,16 @@ export async function buildReportCard(
   };
   const subjects = ((configs ?? []) as CfgRow[])
     .map((c) => first(c.subject))
-    .filter((s): s is { id: string; code: string; name: string; is_examinable: boolean } => !!s)
+    .filter(
+      (
+        s
+      ): s is {
+        id: string;
+        code: string;
+        name: string;
+        is_examinable: boolean;
+      } => !!s
+    )
     .sort((a, b) => a.name.localeCompare(b.name));
 
   // Grading sheets across every section the student touched this AY (so a
@@ -212,7 +248,10 @@ export async function buildReportCard(
     .from('grading_sheets')
     .select('id, term_id, subject_id, section_id')
     .in('section_id', allSectionIds)
-    .in('term_id', termList.map((t) => t.id));
+    .in(
+      'term_id',
+      termList.map((t) => t.id)
+    );
 
   const sheetList = (sheets ?? []) as Array<{
     id: string;
@@ -225,13 +264,19 @@ export async function buildReportCard(
   // For a non-transferred student this is the single (sheet × enrolment)
   // pair we used to query directly; for a transferred student it's the
   // union of both old + new section_student_ids.
-  const { data: entries } = sheetList.length > 0
-    ? await supabase
-        .from('grade_entries')
-        .select('id, grading_sheet_id, section_student_id, quarterly_grade, letter_grade, is_na, annual_letter_grade')
-        .in('grading_sheet_id', sheetList.map((s) => s.id))
-        .in('section_student_id', allEnrolmentIds)
-    : { data: [] };
+  const { data: entries } =
+    sheetList.length > 0
+      ? await supabase
+          .from('grade_entries')
+          .select(
+            'id, grading_sheet_id, section_student_id, quarterly_grade, letter_grade, is_na, annual_letter_grade'
+          )
+          .in(
+            'grading_sheet_id',
+            sheetList.map((s) => s.id)
+          )
+          .in('section_student_id', allEnrolmentIds)
+      : { data: [] };
 
   type EntryRow = {
     id: string;
@@ -251,7 +296,7 @@ export async function buildReportCard(
   function pickBestEntry(candidates: EntryRow[]): EntryRow | null {
     if (candidates.length === 0) return null;
     const filled = candidates.filter(
-      (e) => e.quarterly_grade != null || e.letter_grade != null || e.is_na,
+      (e) => e.quarterly_grade != null || e.letter_grade != null || e.is_na
     );
     const pool = filled.length > 0 ? filled : candidates;
     return pool.find((e) => e.section_student_id === primary.id) ?? pool[0];
@@ -268,7 +313,9 @@ export async function buildReportCard(
       const sheetIds = sheetList
         .filter((s) => s.term_id === t.id && s.subject_id === sub.id)
         .map((s) => s.id);
-      const candidates = allEntries.filter((e) => sheetIds.includes(e.grading_sheet_id));
+      const candidates = allEntries.filter((e) =>
+        sheetIds.includes(e.grading_sheet_id)
+      );
       const entry = pickBestEntry(candidates);
       byTerm[t.term_number] = entry
         ? {
@@ -294,7 +341,7 @@ export async function buildReportCard(
           [1, 2, 3, 4].map((n) => ({
             quarterly: byTerm[n]?.quarterly ?? null,
             isNa: byTerm[n]?.is_na ?? false,
-          })),
+          }))
         )
       : null;
     const annual_letter = !sub.is_examinable
@@ -311,7 +358,7 @@ export async function buildReportCard(
             byTerm[2]?.is_na ?? false,
             byTerm[3]?.is_na ?? false,
             byTerm[4]?.is_na ?? false,
-          ],
+          ]
         )
       : null;
     return {
@@ -345,7 +392,10 @@ export async function buildReportCard(
     .from('attendance_records')
     .select('term_id, days_present, days_late')
     .in('section_student_id', allEnrolmentIds)
-    .in('term_id', termList.map((t) => t.id));
+    .in(
+      'term_id',
+      termList.map((t) => t.id)
+    );
 
   type AttendanceRow = {
     term_id: string;
@@ -386,7 +436,7 @@ export async function buildReportCard(
     termList.map(async (t) => {
       const dates = await getEncodableDatesForTerm(t.id, levelType);
       calendarSchoolDaysByTerm.set(t.id, dates.length);
-    }),
+    })
   );
 
   // Fallback recorded-days count per term — needed only when the calendar
@@ -396,7 +446,10 @@ export async function buildReportCard(
     .from('attendance_records')
     .select('term_id, school_days')
     .in('section_student_id', allEnrolmentIds)
-    .in('term_id', termList.map((t) => t.id));
+    .in(
+      'term_id',
+      termList.map((t) => t.id)
+    );
   const recordedSchoolDaysByTerm = new Map<string, number>();
   for (const r of (recordedSchoolDaysRaw ?? []) as Array<{
     term_id: string;
@@ -404,7 +457,7 @@ export async function buildReportCard(
   }>) {
     recordedSchoolDaysByTerm.set(
       r.term_id,
-      (recordedSchoolDaysByTerm.get(r.term_id) ?? 0) + (r.school_days ?? 0),
+      (recordedSchoolDaysByTerm.get(r.term_id) ?? 0) + (r.school_days ?? 0)
     );
   }
 
@@ -417,7 +470,7 @@ export async function buildReportCard(
     const schoolDays =
       calendarCount > 0
         ? calendarCount
-        : recordedSchoolDaysByTerm.get(t.id) ?? null;
+        : (recordedSchoolDaysByTerm.get(t.id) ?? null);
     return {
       term_id: t.id,
       school_days: schoolDays,
@@ -435,11 +488,16 @@ export async function buildReportCard(
     .from('evaluation_writeups')
     .select('term_id, writeup')
     .eq('student_id', student.id)
-    .in('term_id', termList.map((t) => t.id));
-  const comments: CommentRecord[] = ((writeups ?? []) as Array<{
-    term_id: string;
-    writeup: string | null;
-  }>).map((w) => ({ term_id: w.term_id, comment: w.writeup }));
+    .in(
+      'term_id',
+      termList.map((t) => t.id)
+    );
+  const comments: CommentRecord[] = (
+    (writeups ?? []) as Array<{
+      term_id: string;
+      writeup: string | null;
+    }>
+  ).map((w) => ({ term_id: w.term_id, comment: w.writeup }));
 
   const fullName = [student.last_name, student.first_name, student.middle_name]
     .filter(Boolean)
@@ -449,7 +507,9 @@ export async function buildReportCard(
   // to sidestep RLS; falls back to defaults if the row is missing for any
   // reason so the report card still renders.
   const { getSchoolConfig } = await import('@/lib/sis/school-config');
-  const schoolConfig = await getSchoolConfig().catch(() => DEFAULT_SCHOOL_CONFIG);
+  const schoolConfig = await getSchoolConfig().catch(
+    () => DEFAULT_SCHOOL_CONFIG
+  );
 
   return {
     ok: true,

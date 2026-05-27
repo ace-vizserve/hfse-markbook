@@ -8,27 +8,35 @@ import {
   UserMinus,
   UserPlus,
   Users,
-} from "lucide-react";
-import Link from "next/link";
-import { redirect } from "next/navigation";
+} from 'lucide-react';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
-import { Alert, AlertDescription, AlertIcon, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { ActionList, type ActionItem } from "@/components/dashboard/action-list";
-import { TrendChart } from "@/components/dashboard/charts/trend-chart";
-import { ComparisonToolbar } from "@/components/dashboard/comparison-toolbar";
-import { DashboardHero } from "@/components/dashboard/dashboard-hero";
-import { InsightsPanel } from "@/components/dashboard/insights-panel";
-import { MetricCard } from "@/components/dashboard/metric-card";
-import { ClassAssignmentReadinessCard } from "@/components/sis/class-assignment-readiness-card";
-import { DocumentChaseQueueStrip } from "@/components/sis/document-chase-queue-strip";
+import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
+  AlertTitle,
+} from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import {
+  ActionList,
+  type ActionItem,
+} from '@/components/dashboard/action-list';
+import { TrendChart } from '@/components/dashboard/charts/trend-chart';
+import { ComparisonToolbar } from '@/components/dashboard/comparison-toolbar';
+import { DashboardHero } from '@/components/dashboard/dashboard-hero';
+import { InsightsPanel } from '@/components/dashboard/insights-panel';
+import { MetricCard } from '@/components/dashboard/metric-card';
+import { ClassAssignmentReadinessCard } from '@/components/sis/class-assignment-readiness-card';
+import { DocumentChaseQueueStrip } from '@/components/sis/document-chase-queue-strip';
 import {
   DocumentBacklogDrillCard,
   ExpiringDocsDrillCard,
   LevelDistributionDrillCard,
-} from "@/components/sis/drills/chart-drill-cards";
-import { RecordsDrillSheet } from "@/components/sis/drills/records-drill-sheet";
-import { RecentActivityFeed } from "@/components/sis/recent-activity-feed";
+} from '@/components/sis/drills/chart-drill-cards';
+import { RecordsDrillSheet } from '@/components/sis/drills/records-drill-sheet';
+import { RecentActivityFeed } from '@/components/sis/recent-activity-feed';
 import {
   Card,
   CardAction,
@@ -37,12 +45,20 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { PageShell } from "@/components/ui/page-shell";
-import { getCurrentAcademicYear, listAyCodes as listAcademicAyCodes } from "@/lib/academic-year";
-import { recordsInsights } from "@/lib/dashboard/insights";
-import { formatRangeLabel, resolveRange, FLEXIBLE_PRESETS, type DashboardSearchParams } from "@/lib/dashboard/range";
-import { getDashboardWindows } from "@/lib/dashboard/windows";
+} from '@/components/ui/card';
+import { PageShell } from '@/components/ui/page-shell';
+import {
+  getCurrentAcademicYear,
+  listAyCodes as listAcademicAyCodes,
+} from '@/lib/academic-year';
+import { recordsInsights } from '@/lib/dashboard/insights';
+import {
+  formatRangeLabel,
+  resolveRange,
+  FLEXIBLE_PRESETS,
+  type DashboardSearchParams,
+} from '@/lib/dashboard/range';
+import { getDashboardWindows } from '@/lib/dashboard/windows';
 import {
   getClassAssignmentReadiness,
   getDocumentValidationBacklog,
@@ -52,12 +68,12 @@ import {
   getRecentSisActivity,
   getRecordsKpisRange,
   getWithdrawalVelocityRange,
-} from "@/lib/sis/dashboard";
-import { freshenAyDocuments } from "@/lib/p-files/freshen-document-statuses";
-import { getSisDashboardSummary } from "@/lib/sis/queries";
-import { countUnsyncedEnrolledStudents } from "@/lib/sis/unsynced-students";
-import { getSessionUser } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/service";
+} from '@/lib/sis/dashboard';
+import { freshenAyDocuments } from '@/lib/p-files/freshen-document-statuses';
+import { getSisDashboardSummary } from '@/lib/sis/queries';
+import { countUnsyncedEnrolledStudents } from '@/lib/sis/unsynced-students';
+import { getSessionUser } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 
 const EXPIRY_WINDOW_DAYS = 60;
 
@@ -65,15 +81,19 @@ const EXPIRY_WINDOW_DAYS = 60;
 // analytics live on /admissions. This page surfaces the permanent
 // record view: who's enrolled, doc validation backlog, document
 // expiry, level distribution, recent edits.
-export default async function RecordsDashboard({ searchParams }: { searchParams: Promise<DashboardSearchParams> }) {
+export default async function RecordsDashboard({
+  searchParams,
+}: {
+  searchParams: Promise<DashboardSearchParams>;
+}) {
   const sessionUser = await getSessionUser();
-  if (!sessionUser) redirect("/login");
+  if (!sessionUser) redirect('/login');
   if (
-    sessionUser.role !== "registrar" &&
-    sessionUser.role !== "school_admin" &&
-    sessionUser.role !== "superadmin"
+    sessionUser.role !== 'registrar' &&
+    sessionUser.role !== 'school_admin' &&
+    sessionUser.role !== 'superadmin'
   ) {
-    redirect("/");
+    redirect('/');
   }
   // Registrar = operational user (writes admissions data per KD #37); the
   // other allowed roles (school_admin/admin/superadmin) are oversight. The
@@ -81,28 +101,38 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
   // (chase queue strip, "Documents to collect" action list, class-assignment
   // readiness) only matter to the registrar; oversight users see the
   // dashboard framed as a school-wide overview.
-  const isOperational = sessionUser.role === "registrar";
+  const isOperational = sessionUser.role === 'registrar';
 
   const service = createServiceClient();
   const currentAy = await getCurrentAcademicYear(service);
   if (!currentAy) {
     return (
       <PageShell>
-        <div className="text-sm text-destructive">No current academic year configured.</div>
+        <div className="text-sm text-destructive">
+          No current academic year configured.
+        </div>
       </PageShell>
     );
   }
 
   const resolvedSearch = await searchParams;
-  const ayParam = typeof resolvedSearch.ay === "string" ? resolvedSearch.ay : undefined;
+  const ayParam =
+    typeof resolvedSearch.ay === 'string' ? resolvedSearch.ay : undefined;
   const ayCodes = await listAcademicAyCodes(service);
-  const selectedAy = ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
+  const selectedAy =
+    ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
   const isCurrentAy = selectedAy === currentAy.ay_code;
 
   const windows = await getDashboardWindows(selectedAy);
-  const rangeInput = resolveRange(resolvedSearch, windows, selectedAy, undefined, {
-    defaultPreset: 'thisMonth',
-  });
+  const rangeInput = resolveRange(
+    resolvedSearch,
+    windows,
+    selectedAy,
+    undefined,
+    {
+      defaultPreset: 'thisMonth',
+    }
+  );
 
   // Auto-flip expired/revived doc statuses runs in parallel with the
   // dashboard data fetches instead of serially before them. Cached 60s
@@ -156,24 +186,41 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
   const expiringItems: ActionItem[] = expiring.slice(0, 6).map((row) => ({
     label: row.studentName,
     sublabel: `${row.slotLabel}`,
-    meta: row.daysUntilExpiry < 0 ? `${Math.abs(row.daysUntilExpiry)}d overdue` : `${row.daysUntilExpiry}d left`,
-    severity: row.daysUntilExpiry < 0 ? "bad" : row.daysUntilExpiry <= 14 ? "warn" : "info",
+    meta:
+      row.daysUntilExpiry < 0
+        ? `${Math.abs(row.daysUntilExpiry)}d overdue`
+        : `${row.daysUntilExpiry}d left`,
+    severity:
+      row.daysUntilExpiry < 0
+        ? 'bad'
+        : row.daysUntilExpiry <= 14
+          ? 'warn'
+          : 'info',
     href: `/records/students/by-enrolee/${row.enroleeNumber}`,
   }));
 
   return (
     <PageShell>
       <DashboardHero
-        eyebrow={isOperational ? "Records · Enrolled students" : "Records · School-wide overview"}
-        title={isOperational ? "Student records" : "Student records — oversight"}
+        eyebrow={
+          isOperational
+            ? 'Records · Enrolled students'
+            : 'Records · School-wide overview'
+        }
+        title={
+          isOperational ? 'Student records' : 'Student records — oversight'
+        }
         description={
           isOperational
-            ? "Permanent cross-year record of every enrolled student. Document backlog, expiring documents, level distribution, recent edits. Pre-enrolment applications live on Admissions."
-            : "Read-only oversight of enrolled students across every academic year. Day-to-day record management is owned by the registrar."
+            ? 'Permanent cross-year record of every enrolled student. Document backlog, expiring documents, level distribution, recent edits. Pre-enrolment applications live on Admissions.'
+            : 'Read-only oversight of enrolled students across every academic year. Day-to-day record management is owned by the registrar.'
         }
         badges={[
           { label: selectedAy },
-          { label: isCurrentAy ? "Current" : "Historical", tone: isCurrentAy ? "mint" : "muted" },
+          {
+            label: isCurrentAy ? 'Current' : 'Historical',
+            tone: isCurrentAy ? 'mint' : 'muted',
+          },
         ]}
       />
 
@@ -186,13 +233,19 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
             <AlertTriangle className="size-4" />
           </AlertIcon>
           <AlertTitle>
-            {unsyncedCount.toLocaleString("en-SG")} enrolled student
-            {unsyncedCount === 1 ? "" : "s"} without a class section
+            {unsyncedCount.toLocaleString('en-SG')} enrolled student
+            {unsyncedCount === 1 ? '' : 's'} without a class section
           </AlertTitle>
           <AlertDescription>
-            Grading and attendance can&rsquo;t reach them until a section is assigned.
+            Grading and attendance can&rsquo;t reach them until a section is
+            assigned.
           </AlertDescription>
-          <Button asChild size="sm" variant="outline" className="col-start-2 mt-2 w-fit">
+          <Button
+            asChild
+            size="sm"
+            variant="outline"
+            className="col-start-2 mt-2 w-fit"
+          >
             <Link href="/records/unsynced">Students needing setup</Link>
           </Button>
         </Alert>
@@ -215,7 +268,9 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
       {/* Document chase queue — registrar-only operational top-of-fold.
           Oversight roles see the same data via the analytical cards below
           but skip this top strip because they don't act on the buckets. */}
-      {isOperational && <DocumentChaseQueueStrip ayCode={selectedAy} lens="p-files" />}
+      {isOperational && (
+        <DocumentChaseQueueStrip ayCode={selectedAy} lens="p-files" />
+      )}
 
       <InsightsPanel insights={insights} />
 
@@ -233,7 +288,7 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
           subtext={
             kpisResult.current.lateEnroleesInRange > 0
               ? `${kpisResult.current.lateEnroleesInRange} late enrollee${
-                  kpisResult.current.lateEnroleesInRange === 1 ? "" : "s"
+                  kpisResult.current.lateEnroleesInRange === 1 ? '' : 's'
                 } (KD #68)`
               : undefined
           }
@@ -250,7 +305,9 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
           label="Withdrawals"
           value={kpisResult.current.withdrawalsInRange}
           icon={UserMinus}
-          intent={kpisResult.current.withdrawalsInRange > 0 ? "warning" : "good"}
+          intent={
+            kpisResult.current.withdrawalsInRange > 0 ? 'warning' : 'good'
+          }
           deltaGoodWhen="down"
           subtext={
             kpisResult.comparison
@@ -273,23 +330,17 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
           intent="good"
           subtext="Total headcount"
           drillSheet={() => (
-            <RecordsDrillSheet
-              target="active-enrolled"
-              ayCode={selectedAy}
-            />
+            <RecordsDrillSheet target="active-enrolled" ayCode={selectedAy} />
           )}
         />
         <MetricCard
           label="Docs expiring ≤60d"
           value={kpisResult.current.expiringSoon}
           icon={AlertTriangle}
-          intent={kpisResult.current.expiringSoon > 0 ? "warning" : "good"}
+          intent={kpisResult.current.expiringSoon > 0 ? 'warning' : 'good'}
           subtext="From end of range"
           drillSheet={() => (
-            <RecordsDrillSheet
-              target="expiring-docs"
-              ayCode={selectedAy}
-            />
+            <RecordsDrillSheet target="expiring-docs" ayCode={selectedAy} />
           )}
         />
       </section>
@@ -307,7 +358,11 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <TrendChart label="Enrollments" current={enrolVelocity.current} comparison={enrolVelocity.comparison} />
+              <TrendChart
+                label="Enrollments"
+                current={enrolVelocity.current}
+                comparison={enrolVelocity.comparison}
+              />
             </CardContent>
           </Card>
         )}
@@ -411,7 +466,10 @@ export default async function RecordsDashboard({ searchParams }: { searchParams:
             viewAllHref={`/p-files?ay=${selectedAy}`}
           />
 
-          <ClassAssignmentReadinessCard data={classAssignment} ayCode={selectedAy} />
+          <ClassAssignmentReadinessCard
+            data={classAssignment}
+            ayCode={selectedAy}
+          />
         </>
       )}
 
@@ -447,7 +505,7 @@ function SummaryStat({
           {label}
         </CardDescription>
         <CardTitle className="font-serif text-[32px] font-semibold leading-none tabular-nums text-foreground @[240px]/card:text-[38px]">
-          {value.toLocaleString("en-SG")}
+          {value.toLocaleString('en-SG')}
         </CardTitle>
         <CardAction>
           <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
@@ -455,7 +513,9 @@ function SummaryStat({
           </div>
         </CardAction>
       </CardHeader>
-      <CardFooter className="text-xs text-muted-foreground">{footnote}</CardFooter>
+      <CardFooter className="text-xs text-muted-foreground">
+        {footnote}
+      </CardFooter>
     </Card>
   );
 }
@@ -474,16 +534,21 @@ function QuickLink({
   return (
     <Link
       href={href}
-      className="group flex items-start gap-4 rounded-xl border border-hairline bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-brand-indigo/40 hover:shadow-sm">
+      className="group flex items-start gap-4 rounded-xl border border-hairline bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-brand-indigo/40 hover:shadow-sm"
+    >
       <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
         <Icon className="size-4" />
       </div>
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="font-serif text-base font-semibold text-foreground">{title}</h3>
+          <h3 className="font-serif text-base font-semibold text-foreground">
+            {title}
+          </h3>
           <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
         </div>
-        <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {description}
+        </p>
       </div>
     </Link>
   );

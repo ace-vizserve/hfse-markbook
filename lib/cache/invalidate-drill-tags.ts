@@ -30,7 +30,11 @@ const MODULE_TAGS: Record<DrillModule, (ayCode: string) => string[]> = {
   evaluation: (ay) => [`evaluation-drill:${ay}`, `evaluation-dashboard:${ay}`],
   admissions: (ay) => [`admissions-drill:${ay}`, `admissions-dashboard:${ay}`],
   records: (ay) => [`records-drill:${ay}`, `sis:${ay}`],
-  'p-files': (ay) => [`p-files-drill:${ay}`, `p-files-dashboard:${ay}`, `p-files-freshen:${ay}`],
+  'p-files': (ay) => [
+    `p-files-drill:${ay}`,
+    `p-files-dashboard:${ay}`,
+    `p-files-freshen:${ay}`,
+  ],
 };
 
 /**

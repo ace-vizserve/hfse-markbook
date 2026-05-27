@@ -41,7 +41,9 @@ export function PipelineStageChart({
         {empty ? (
           <div className="flex h-[340px] flex-col items-center justify-center gap-2 text-center">
             <Workflow className="size-6 text-muted-foreground/60" />
-            <p className="text-sm font-medium text-foreground">No students yet</p>
+            <p className="text-sm font-medium text-foreground">
+              No students yet
+            </p>
             <p className="max-w-xs text-xs text-muted-foreground">
               Bars appear once applicants exist for this academic year.
             </p>

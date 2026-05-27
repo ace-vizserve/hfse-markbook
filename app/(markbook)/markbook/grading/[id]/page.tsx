@@ -12,7 +12,10 @@ import {
 } from 'lucide-react';
 import { createClient, getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
-import { loadPriorTermGrades, type PriorTermGrade } from '@/lib/markbook/grade-diff';
+import {
+  loadPriorTermGrades,
+  type PriorTermGrade,
+} from '@/lib/markbook/grade-diff';
 import type { Role } from '@/lib/auth/roles';
 import {
   loadAssignmentsForUser,
@@ -42,7 +45,7 @@ import { RequestEditButton } from './request-edit-button';
  */
 function fieldLabelForChangeRequest(
   field: 'ww_scores' | 'pt_scores' | 'qa_score' | 'letter_grade' | 'is_na',
-  slotIndex: number | null,
+  slotIndex: number | null
 ): string {
   if (field === 'ww_scores') return `WW${(slotIndex ?? 0) + 1}`;
   if (field === 'pt_scores') return `PT${(slotIndex ?? 0) + 1}`;
@@ -53,7 +56,12 @@ function fieldLabelForChangeRequest(
 
 type Level = { id: string; code: string; label: string };
 type Section = { id: string; name: string; level: Level | Level[] | null };
-type Subject = { id: string; code: string; name: string; is_examinable: boolean };
+type Subject = {
+  id: string;
+  code: string;
+  name: string;
+  is_examinable: boolean;
+};
 type Term = { id: string; term_number: number; label: string };
 type SubjectConfig = {
   ww_weight: number;
@@ -91,7 +99,7 @@ type EntryRow = {
 };
 
 const first = <T,>(v: T | T[] | null): T | null =>
-  Array.isArray(v) ? v[0] ?? null : v ?? null;
+  Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
 
 export default async function GradingSheetPage({
   params,
@@ -101,7 +109,8 @@ export default async function GradingSheetPage({
   const { id } = await params;
   const sessionUser = await getSessionUser();
   const role: Role | null = sessionUser?.role ?? null;
-  const canManage = role === 'registrar' || role === 'school_admin' || role === 'superadmin';
+  const canManage =
+    role === 'registrar' || role === 'school_admin' || role === 'superadmin';
   const supabase = await createClient();
 
   // Fetch sheet first (needed for notFound gate), then parallelize the rest
@@ -112,7 +121,7 @@ export default async function GradingSheetPage({
        term:terms(id, term_number, label),
        subject:subjects(id, code, name, is_examinable),
        section:sections(id, name, level:levels(id, code, label)),
-       subject_config:subject_configs(ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots)`,
+       subject_config:subject_configs(ww_weight, pt_weight, qa_weight, ww_max_slots, pt_max_slots)`
     )
     .eq('id', id)
     .single();
@@ -138,7 +147,9 @@ export default async function GradingSheetPage({
 
   // Fetch teacher's assignments concurrently with entries/requests — only
   // needed for the subject-teacher gate; skip for non-teacher roles.
-  const assignmentsPromise: Promise<Awaited<ReturnType<typeof loadAssignmentsForUser>>> =
+  const assignmentsPromise: Promise<
+    Awaited<ReturnType<typeof loadAssignmentsForUser>>
+  > =
     role === 'teacher' && sessionUser
       ? loadAssignmentsForUser(supabase, sessionUser.id)
       : Promise.resolve([]);
@@ -148,15 +159,27 @@ export default async function GradingSheetPage({
   const subjectEarly = first(sheet.subject as Subject | Subject[] | null);
   const termEarly = first(sheet.term as Term | Term[] | null);
   const priorGradesPromise: Promise<Record<string, PriorTermGrade[]>> =
-    sectionForSeed?.id && subjectEarly?.id && termEarly && termEarly.term_number > 1
-      ? loadPriorTermGrades(sectionForSeed.id, subjectEarly.id, termEarly.term_number)
+    sectionForSeed?.id &&
+    subjectEarly?.id &&
+    termEarly &&
+    termEarly.term_number > 1
+      ? loadPriorTermGrades(
+          sectionForSeed.id,
+          subjectEarly.id,
+          termEarly.term_number
+        )
       : Promise.resolve({});
 
-  const [{ data: openRequestsRaw }, { data: entriesRaw }, rawAssignments, priorGrades] = await Promise.all([
+  const [
+    { data: openRequestsRaw },
+    { data: entriesRaw },
+    rawAssignments,
+    priorGrades,
+  ] = await Promise.all([
     supabase
       .from('grade_change_requests')
       .select(
-        'id, status, grade_entry_id, field_changed, slot_index, proposed_value, current_value, requested_by_email, reason_category',
+        'id, status, grade_entry_id, field_changed, slot_index, proposed_value, current_value, requested_by_email, reason_category'
       )
       .eq('grading_sheet_id', id)
       .in('status', ['pending', 'approved']),
@@ -167,7 +190,7 @@ export default async function GradingSheetPage({
          ww_ps, pt_ps, qa_ps, initial_grade, quarterly_grade,
          letter_grade, is_na,
          section_student:section_students(id, index_number, enrollment_status,
-           student:students(student_number, last_name, first_name, middle_name))`,
+           student:students(student_number, last_name, first_name, middle_name))`
       )
       .eq('grading_sheet_id', id),
     assignmentsPromise,
@@ -177,7 +200,12 @@ export default async function GradingSheetPage({
     id: string;
     status: 'pending' | 'approved';
     grade_entry_id: string;
-    field_changed: 'ww_scores' | 'pt_scores' | 'qa_score' | 'letter_grade' | 'is_na';
+    field_changed:
+      | 'ww_scores'
+      | 'pt_scores'
+      | 'qa_score'
+      | 'letter_grade'
+      | 'is_na';
     slot_index: number | null;
     proposed_value: string;
     current_value: string | null;
@@ -185,8 +213,12 @@ export default async function GradingSheetPage({
     reason_category: string;
   };
   const openRequests = (openRequestsRaw ?? []) as OpenRequestRow[];
-  const pendingCount = openRequests.filter((r) => r.status === 'pending').length;
-  const approvedCount = openRequests.filter((r) => r.status === 'approved').length;
+  const pendingCount = openRequests.filter(
+    (r) => r.status === 'pending'
+  ).length;
+  const approvedCount = openRequests.filter(
+    (r) => r.status === 'approved'
+  ).length;
 
   const entries = ((entriesRaw ?? []) as unknown as EntryRow[])
     .slice()
@@ -200,26 +232,38 @@ export default async function GradingSheetPage({
   const level = first(section?.level ?? null);
   const subject = first(sheet.subject as Subject | Subject[] | null);
   const term = first(sheet.term as Term | Term[] | null);
-  const config = first(sheet.subject_config as SubjectConfig | SubjectConfig[] | null);
+  const config = first(
+    sheet.subject_config as SubjectConfig | SubjectConfig[] | null
+  );
   const isExaminable = subject?.is_examinable !== false;
 
   // Fetch the SOW instance so the "View activities" dialog can show activity
   // names even when the teacher hasn't yet clicked "Sync labels to grading sheet".
   type SowLabel = { label: string; page: string | null };
-  const { data: sowInstanceRaw } = section?.id && subject?.id && term?.id
-    ? await createServiceClient()
-        .from('sow_class_instances')
-        .select('ww_labels, pt_labels')
-        .eq('section_id', section.id)
-        .eq('subject_id', subject.id)
-        .eq('term_id', term.id)
-        .maybeSingle()
-    : { data: null };
-  const sowInst = sowInstanceRaw as { ww_labels?: SowLabel[]; pt_labels?: SowLabel[] } | null;
+  const { data: sowInstanceRaw } =
+    section?.id && subject?.id && term?.id
+      ? await createServiceClient()
+          .from('sow_class_instances')
+          .select('ww_labels, pt_labels')
+          .eq('section_id', section.id)
+          .eq('subject_id', subject.id)
+          .eq('term_id', term.id)
+          .maybeSingle()
+      : { data: null };
+  const sowInst = sowInstanceRaw as {
+    ww_labels?: SowLabel[];
+    pt_labels?: SowLabel[];
+  } | null;
   const sowLabels = sowInst
     ? {
-        ww: (sowInst.ww_labels ?? []).map((l) => ({ label: l.label, page: l.page })),
-        pt: (sowInst.pt_labels ?? []).map((l) => ({ label: l.label, page: l.page })),
+        ww: (sowInst.ww_labels ?? []).map((l) => ({
+          label: l.label,
+          page: l.page,
+        })),
+        pt: (sowInst.pt_labels ?? []).map((l) => ({
+          label: l.label,
+          page: l.page,
+        })),
       }
     : undefined;
 
@@ -233,9 +277,10 @@ export default async function GradingSheetPage({
   // pick primary + secondary from this list when filing a request; the
   // list is managed at /sis/admin/approvers. Filter out the current user
   // since a teacher can't designate themselves.
-  const approversAll = sheet.is_locked && isAssignedTeacher
-    ? await listApproversForFlow('markbook.change_request')
-    : [];
+  const approversAll =
+    sheet.is_locked && isAssignedTeacher
+      ? await listApproversForFlow('markbook.change_request')
+      : [];
   const approvers = approversAll
     .filter((a) => a.user_id !== sessionUser?.id)
     .map((a) => ({ user_id: a.user_id, email: a.email, role: a.role }));
@@ -244,14 +289,19 @@ export default async function GradingSheetPage({
   // request with the affected student's name + index number. The banner
   // tells the registrar exactly which student/cell to look at without
   // forcing them to leave the page or scan the grid.
-  const rowsByEntryId = new Map<string, { index_number: number; student_name: string }>();
+  const rowsByEntryId = new Map<
+    string,
+    { index_number: number; student_name: string }
+  >();
   for (const e of entries) {
     const ss = first(e.section_student);
     const stu = first(ss?.student ?? null);
     rowsByEntryId.set(e.id, {
       index_number: ss?.index_number ?? 0,
       student_name: stu
-        ? [stu.last_name, stu.first_name, stu.middle_name].filter(Boolean).join(', ')
+        ? [stu.last_name, stu.first_name, stu.middle_name]
+            .filter(Boolean)
+            .join(', ')
         : '(missing)',
     });
   }
@@ -264,7 +314,9 @@ export default async function GradingSheetPage({
       section_student_id: ss?.id ?? '',
       index_number: ss?.index_number ?? 0,
       student_name: stu
-        ? [stu.last_name, stu.first_name, stu.middle_name].filter(Boolean).join(', ')
+        ? [stu.last_name, stu.first_name, stu.middle_name]
+            .filter(Boolean)
+            .join(', ')
         : '(missing)',
       student_number: stu?.student_number ?? '',
       withdrawn: ss?.enrollment_status === 'withdrawn',
@@ -285,8 +337,8 @@ export default async function GradingSheetPage({
   // Stat card metrics — only count active + late_enrollee students
   const activeRows = rows.filter((r) => !r.withdrawn);
   const totalStudents = activeRows.length;
-  const gradedCount = activeRows.filter((r) =>
-    r.quarterly_grade !== null || r.letter_grade !== null || r.is_na,
+  const gradedCount = activeRows.filter(
+    (r) => r.quarterly_grade !== null || r.letter_grade !== null || r.is_na
   ).length;
   const gradedPct =
     totalStudents > 0 ? Math.round((gradedCount / totalStudents) * 100) : 0;
@@ -372,7 +424,9 @@ export default async function GradingSheetPage({
               isLocked={sheet.is_locked}
             />
           )}
-          {canManage && <LockToggle sheetId={sheet.id} isLocked={sheet.is_locked} />}
+          {canManage && (
+            <LockToggle sheetId={sheet.id} isLocked={sheet.is_locked} />
+          )}
         </div>
       </header>
 
@@ -390,7 +444,9 @@ export default async function GradingSheetPage({
             description="Graded"
             value={`${gradedCount}/${totalStudents || 0}`}
             icon={CheckCircle2}
-            footerTitle={totalStudents > 0 ? `${gradedPct}% complete` : 'No students yet'}
+            footerTitle={
+              totalStudents > 0 ? `${gradedPct}% complete` : 'No students yet'
+            }
             footerDetail={
               isExaminable
                 ? 'Quarterly grade computed'
@@ -430,7 +486,9 @@ export default async function GradingSheetPage({
           </div>
           <div className="flex-1 space-y-1.5">
             <p className="font-serif text-base font-semibold leading-tight text-foreground">
-              {readOnly ? 'Sheet is locked for editing' : 'Sheet is locked — approval required'}
+              {readOnly
+                ? 'Sheet is locked for editing'
+                : 'Sheet is locked — approval required'}
             </p>
             <p className="text-sm leading-relaxed text-muted-foreground">
               {readOnly
@@ -475,9 +533,7 @@ export default async function GradingSheetPage({
             </p>
             <p className="text-sm leading-relaxed text-muted-foreground">
               {[
-                pendingCount > 0
-                  ? `${pendingCount} awaiting review`
-                  : null,
+                pendingCount > 0 ? `${pendingCount} awaiting review` : null,
                 approvedCount > 0
                   ? `${approvedCount} approved, awaiting registrar`
                   : null,
@@ -496,16 +552,24 @@ export default async function GradingSheetPage({
               <ul className="mt-2 space-y-1 border-t border-border/50 pt-2.5 text-sm">
                 {[...openRequests]
                   .sort((a, b) => {
-                    if (a.status !== b.status) return a.status === 'approved' ? -1 : 1;
-                    const ai = rowsByEntryId.get(a.grade_entry_id)?.index_number ?? 0;
-                    const bi = rowsByEntryId.get(b.grade_entry_id)?.index_number ?? 0;
+                    if (a.status !== b.status)
+                      return a.status === 'approved' ? -1 : 1;
+                    const ai =
+                      rowsByEntryId.get(a.grade_entry_id)?.index_number ?? 0;
+                    const bi =
+                      rowsByEntryId.get(b.grade_entry_id)?.index_number ?? 0;
                     return ai - bi;
                   })
                   .map((r) => {
                     const student = rowsByEntryId.get(r.grade_entry_id);
-                    const cell = fieldLabelForChangeRequest(r.field_changed, r.slot_index);
+                    const cell = fieldLabelForChangeRequest(
+                      r.field_changed,
+                      r.slot_index
+                    );
                     const from =
-                      r.current_value === null || r.current_value === '' ? '∅' : r.current_value;
+                      r.current_value === null || r.current_value === ''
+                        ? '∅'
+                        : r.current_value;
                     const isApproved = r.status === 'approved';
                     return (
                       <li
@@ -579,14 +643,27 @@ export default async function GradingSheetPage({
         rows={rows}
         readOnly={readOnly}
         requireApproval={requireApproval}
-        slotLabels={sheet.slot_labels as { ww?: ({ label?: string | null; date?: string | null; page?: string | null } | null)[]; pt?: ({ label?: string | null; date?: string | null; page?: string | null } | null)[]; qa?: string | null } | null ?? undefined}
+        slotLabels={
+          (sheet.slot_labels as {
+            ww?: ({
+              label?: string | null;
+              date?: string | null;
+              page?: string | null;
+            } | null)[];
+            pt?: ({
+              label?: string | null;
+              date?: string | null;
+              page?: string | null;
+            } | null)[];
+            qa?: string | null;
+          } | null) ?? undefined
+        }
         sowLabels={sowLabels}
         letterDisplay={!isExaminable}
         priorGrades={priorGrades}
         currentTermNumber={term?.term_number ?? 1}
         currentTermLabel={term?.label ?? 'Term'}
       />
-
     </PageShell>
   );
 }

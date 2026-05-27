@@ -14,12 +14,12 @@ P-Files lives alongside the other Records modules as a separate route group (`/(
 
 Three-tier access:
 
-| Role | Browse / view / history | Upload / replace |
-|---|---|---|
-| `p-file` officer | ✅ | ✅ |
-| `superadmin` | ✅ | ✅ |
-| `admin` / `school_admin` | ✅ (read-only oversight, KD #74) | ❌ |
-| `teacher`, `registrar`, parents | ❌ | ❌ |
+| Role                            | Browse / view / history          | Upload / replace |
+| ------------------------------- | -------------------------------- | ---------------- |
+| `p-file` officer                | ✅                               | ✅               |
+| `superadmin`                    | ✅                               | ✅               |
+| `admin` / `school_admin`        | ✅ (read-only oversight, KD #74) | ❌               |
+| `teacher`, `registrar`, parents | ❌                               | ❌               |
 
 `proxy.ts::ROUTE_ACCESS` allows `p-file + admin + school_admin + superadmin` to reach `/p-files/*`; the layouts re-assert this. Write gates live at the API layer — `POST /api/p-files/[enroleeNumber]/upload` requires `['p-file', 'superadmin']`, so even if an oversight role bypasses UI their request is rejected. `DocumentCard` takes a `canWrite` prop (server-rendered from the session role) that hides the Upload / Replace button for read-only viewers. Per KD #74, the page RSC also branches on `isOfficer = role === 'p-file' || role === 'superadmin'` to gate `<PriorityPanel>` + `<DocumentChaseQueueStrip>` + bulk-notify; oversight roles see the analytical surface only.
 
@@ -31,29 +31,29 @@ Sixteen total slots, split by expiry behavior. The canonical list lives at `lib/
 
 ### Non-expiring documents (8 slots)
 
-| Document | DB column (URL) | DB column (status) | STP-conditional? |
-|----------|----------------|-------------------|------------------|
-| ID Picture | `idPicture` | `idPictureStatus` | — |
-| Birth Certificate | `birthCert` | `birthCertStatus` | — |
-| Educational Certificate | `educCert` | `educCertStatus` | — |
-| Medical Exam | `medical` | `medicalStatus` | — |
-| Form 12 | `form12` | `form12Status` | — |
-| ICA Photo | `icaPhoto` | `icaPhotoStatus` | ✅ STP only |
-| Financial Support Docs | `financialSupportDocs` | `financialSupportDocsStatus` | ✅ STP only |
-| Vaccination Information | `vaccinationInformation` | `vaccinationInformationStatus` | ✅ STP only |
+| Document                | DB column (URL)          | DB column (status)             | STP-conditional? |
+| ----------------------- | ------------------------ | ------------------------------ | ---------------- |
+| ID Picture              | `idPicture`              | `idPictureStatus`              | —                |
+| Birth Certificate       | `birthCert`              | `birthCertStatus`              | —                |
+| Educational Certificate | `educCert`               | `educCertStatus`               | —                |
+| Medical Exam            | `medical`                | `medicalStatus`                | —                |
+| Form 12                 | `form12`                 | `form12Status`                 | —                |
+| ICA Photo               | `icaPhoto`               | `icaPhotoStatus`               | ✅ STP only      |
+| Financial Support Docs  | `financialSupportDocs`   | `financialSupportDocsStatus`   | ✅ STP only      |
+| Vaccination Information | `vaccinationInformation` | `vaccinationInformationStatus` | ✅ STP only      |
 
 ### Expiring documents (8 slots)
 
-| Document | DB column (URL) | DB column (status) | Expiry column |
-|----------|----------------|-------------------|---------------|
-| Passport | `passport` | `passportStatus` | `passportExpiry` |
-| Student Pass | `pass` | `passStatus` | `passExpiry` |
-| Mother's Passport | `motherPassport` | `motherPassportStatus` | `motherPassportExpiry` |
-| Mother's Pass | `motherPass` | `motherPassStatus` | `motherPassExpiry` |
-| Father's Passport | `fatherPassport` | `fatherPassportStatus` | `fatherPassportExpiry` |
-| Father's Pass | `fatherPass` | `fatherPassStatus` | `fatherPassExpiry` |
+| Document            | DB column (URL)    | DB column (status)       | Expiry column            |
+| ------------------- | ------------------ | ------------------------ | ------------------------ |
+| Passport            | `passport`         | `passportStatus`         | `passportExpiry`         |
+| Student Pass        | `pass`             | `passStatus`             | `passExpiry`             |
+| Mother's Passport   | `motherPassport`   | `motherPassportStatus`   | `motherPassportExpiry`   |
+| Mother's Pass       | `motherPass`       | `motherPassStatus`       | `motherPassExpiry`       |
+| Father's Passport   | `fatherPassport`   | `fatherPassportStatus`   | `fatherPassportExpiry`   |
+| Father's Pass       | `fatherPass`       | `fatherPassStatus`       | `fatherPassExpiry`       |
 | Guardian's Passport | `guardianPassport` | `guardianPassportStatus` | `guardianPassportExpiry` |
-| Guardian's Pass | `guardianPass` | `guardianPassStatus` | `guardianPassExpiry` |
+| Guardian's Pass     | `guardianPass`     | `guardianPassStatus`     | `guardianPassExpiry`     |
 
 ### Conditional logic
 
@@ -101,13 +101,13 @@ null ─────────────────────────
 
 P-Files collapses the raw `{slotKey}Status` column to five display states. **It does not mutate the status column** — that's SIS's job.
 
-| Display       | When                                                                       |
-|---------------|----------------------------------------------------------------------------|
-| On file       | URL present and raw status is not `Uploaded` (incl. `Valid` / `Approved`)  |
-| Pending review| URL present and raw status is `Uploaded` (parent self-serve, not yet SIS-validated) |
-| Expired       | Expiring slot whose expiry date is before today — overrides other states   |
-| Missing       | No URL and no status                                                       |
-| N/A           | Conditional slot that doesn't apply (e.g. no `fatherEmail`)                |
+| Display        | When                                                                                |
+| -------------- | ----------------------------------------------------------------------------------- |
+| On file        | URL present and raw status is not `Uploaded` (incl. `Valid` / `Approved`)           |
+| Pending review | URL present and raw status is `Uploaded` (parent self-serve, not yet SIS-validated) |
+| Expired        | Expiring slot whose expiry date is before today — overrides other states            |
+| Missing        | No URL and no status                                                                |
+| N/A            | Conditional slot that doesn't apply (e.g. no `fatherEmail`)                         |
 
 There is **no `Rejected` state in P-Files** — rejection is a validation call and lives in SIS. Resolution happens in `lib/p-files/document-config.ts::resolveStatus`.
 
@@ -143,7 +143,7 @@ Join path: `enrolment_documents.studentNumber` → `enrolment_applications.stude
 - The button labels switch based on slot state: **Upload** when missing, **Replace** when a file is already on record
 - Staff uploads always set the DB status column to `'Valid'` so the repository view reflects that the staff member accepted the file. Validation semantics still belong to SIS.
 - Multipart: one or more files. Single file → stored as-is; multiple PDFs → merged server-side via `pdf-merger-js`. Limits: 10 MB per file, 30 MB per request
-- Expiring slots require structured metadata (passport number *or* pass type + expiry date) which is mirrored into `ay{YYYY}_enrolment_applications`
+- Expiring slots require structured metadata (passport number _or_ pass type + expiry date) which is mirrored into `ay{YYYY}_enrolment_applications`
 
 ### 4. Revision history
 

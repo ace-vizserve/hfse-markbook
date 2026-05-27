@@ -10,7 +10,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 // non-editable here; if a section moved to a different level, recreate it.
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireRole(['school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -21,7 +21,7 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
+      { status: 400 }
     );
   }
   const { name, class_type } = parsed.data;
@@ -33,19 +33,30 @@ export async function PATCH(
     .select('id, level_id, name, class_type')
     .eq('id', id)
     .maybeSingle();
-  if (loadErr) return NextResponse.json({ error: loadErr.message }, { status: 500 });
-  if (!before) return NextResponse.json({ error: 'template section not found' }, { status: 404 });
+  if (loadErr)
+    return NextResponse.json({ error: loadErr.message }, { status: 500 });
+  if (!before)
+    return NextResponse.json(
+      { error: 'template section not found' },
+      { status: 404 }
+    );
 
   const { error: updateErr } = await service
     .from('template_sections')
-    .update({ name, class_type: class_type ?? null, updated_at: new Date().toISOString() })
+    .update({
+      name,
+      class_type: class_type ?? null,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', id);
 
   if (updateErr) {
     if ((updateErr as { code?: string }).code === '23505') {
       return NextResponse.json(
-        { error: `A template section named "${name}" already exists for this level.` },
-        { status: 409 },
+        {
+          error: `A template section named "${name}" already exists for this level.`,
+        },
+        { status: 409 }
       );
     }
     return NextResponse.json({ error: updateErr.message }, { status: 500 });
@@ -72,7 +83,7 @@ export async function PATCH(
 // must clean up per AY via /sis/sections/[id] if desired.
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireRole(['school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -85,14 +96,20 @@ export async function DELETE(
     .select('id, level_id, name, class_type')
     .eq('id', id)
     .maybeSingle();
-  if (loadErr) return NextResponse.json({ error: loadErr.message }, { status: 500 });
-  if (!before) return NextResponse.json({ error: 'template section not found' }, { status: 404 });
+  if (loadErr)
+    return NextResponse.json({ error: loadErr.message }, { status: 500 });
+  if (!before)
+    return NextResponse.json(
+      { error: 'template section not found' },
+      { status: 404 }
+    );
 
   const { error: deleteErr } = await service
     .from('template_sections')
     .delete()
     .eq('id', id);
-  if (deleteErr) return NextResponse.json({ error: deleteErr.message }, { status: 500 });
+  if (deleteErr)
+    return NextResponse.json({ error: deleteErr.message }, { status: 500 });
 
   await logAction({
     service,
@@ -100,7 +117,11 @@ export async function DELETE(
     action: 'template.section.delete',
     entityType: 'template_section',
     entityId: id,
-    context: { level_id: before.level_id, name: before.name, class_type: before.class_type },
+    context: {
+      level_id: before.level_id,
+      name: before.name,
+      class_type: before.class_type,
+    },
   });
 
   return NextResponse.json({ ok: true });

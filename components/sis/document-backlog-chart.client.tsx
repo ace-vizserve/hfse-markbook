@@ -34,7 +34,7 @@ export function DocumentBacklogChart({
 }: DocumentBacklogChartProps) {
   const total = data.reduce(
     (sum, r) => sum + r.valid + r.pending + r.rejected + r.missing,
-    0,
+    0
   );
   const empty = total === 0;
 
@@ -57,15 +57,24 @@ export function DocumentBacklogChart({
         {empty ? (
           <div className="flex h-[340px] flex-col items-center justify-center gap-2 text-center">
             <FileWarning className="size-6 text-muted-foreground/60" />
-            <p className="text-sm font-medium text-foreground">No document data</p>
+            <p className="text-sm font-medium text-foreground">
+              No document data
+            </p>
             <p className="max-w-xs text-xs text-muted-foreground">
               Bars appear once documents exist for this academic year.
             </p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={340}>
-            <BarChart data={data} margin={{ top: 16, right: 16, bottom: 8, left: 0 }}>
-              <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
+            <BarChart
+              data={data}
+              margin={{ top: 16, right: 16, bottom: 8, left: 0 }}
+            >
+              <CartesianGrid
+                vertical={false}
+                stroke="var(--border)"
+                strokeDasharray="3 3"
+              />
               <XAxis
                 dataKey="label"
                 stroke="var(--muted-foreground)"
@@ -76,7 +85,12 @@ export function DocumentBacklogChart({
                 height={80}
                 textAnchor="end"
               />
-              <YAxis stroke="var(--muted-foreground)" fontSize={12} allowDecimals={false} tickLine={false} />
+              <YAxis
+                stroke="var(--muted-foreground)"
+                fontSize={12}
+                allowDecimals={false}
+                tickLine={false}
+              />
               <Tooltip
                 cursor={{ fill: 'var(--accent)' }}
                 contentStyle={{
@@ -87,7 +101,14 @@ export function DocumentBacklogChart({
                   fontSize: 12,
                 }}
               />
-              <Legend content={chartLegendContent({ valid: 'chart-5', pending: 'chart-3', rejected: 'very-stale', missing: 'chart-2' })} />
+              <Legend
+                content={chartLegendContent({
+                  valid: 'chart-5',
+                  pending: 'chart-3',
+                  rejected: 'very-stale',
+                  missing: 'chart-2',
+                })}
+              />
               <Bar
                 dataKey="valid"
                 name="Valid"
@@ -95,11 +116,11 @@ export function DocumentBacklogChart({
                 fill="var(--chart-5)"
                 onClick={
                   onSegmentClick
-                    ? ((d: unknown) => {
+                    ? (((d: unknown) => {
                         const p = d as { payload?: { label?: string } };
                         const lbl = p?.payload?.label;
                         if (lbl) onSegmentClick(`${lbl}|valid`);
-                      }) as never
+                      }) as never)
                     : undefined
                 }
                 style={onSegmentClick ? { cursor: 'pointer' } : undefined}
@@ -111,11 +132,11 @@ export function DocumentBacklogChart({
                 fill="var(--chart-3)"
                 onClick={
                   onSegmentClick
-                    ? ((d: unknown) => {
+                    ? (((d: unknown) => {
                         const p = d as { payload?: { label?: string } };
                         const lbl = p?.payload?.label;
                         if (lbl) onSegmentClick(`${lbl}|pending`);
-                      }) as never
+                      }) as never)
                     : undefined
                 }
                 style={onSegmentClick ? { cursor: 'pointer' } : undefined}
@@ -127,11 +148,11 @@ export function DocumentBacklogChart({
                 fill="var(--destructive)"
                 onClick={
                   onSegmentClick
-                    ? ((d: unknown) => {
+                    ? (((d: unknown) => {
                         const p = d as { payload?: { label?: string } };
                         const lbl = p?.payload?.label;
                         if (lbl) onSegmentClick(`${lbl}|rejected`);
-                      }) as never
+                      }) as never)
                     : undefined
                 }
                 style={onSegmentClick ? { cursor: 'pointer' } : undefined}
@@ -143,11 +164,11 @@ export function DocumentBacklogChart({
                 fill="var(--muted-foreground)"
                 onClick={
                   onSegmentClick
-                    ? ((d: unknown) => {
+                    ? (((d: unknown) => {
                         const p = d as { payload?: { label?: string } };
                         const lbl = p?.payload?.label;
                         if (lbl) onSegmentClick(`${lbl}|missing`);
-                      }) as never
+                      }) as never)
                     : undefined
                 }
                 style={onSegmentClick ? { cursor: 'pointer' } : undefined}

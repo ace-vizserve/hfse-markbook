@@ -10,7 +10,7 @@ import { requireCurrentAyCode } from '@/lib/academic-year';
 // corresponding report card on their next page load.
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
@@ -24,8 +24,12 @@ export async function DELETE(
     .eq('id', id)
     .maybeSingle();
 
-  const { error } = await service.from('report_card_publications').delete().eq('id', id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const { error } = await service
+    .from('report_card_publications')
+    .delete()
+    .eq('id', id);
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
 
   await logAction({
     service,

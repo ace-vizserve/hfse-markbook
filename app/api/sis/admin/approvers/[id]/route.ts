@@ -13,7 +13,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 // blocks *future* teachers from picking them.
 export async function DELETE(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireRole(['superadmin']);
   if ('error' in auth) return auth.error;
@@ -30,7 +30,10 @@ export async function DELETE(
     return NextResponse.json({ error: fetchErr.message }, { status: 500 });
   }
   if (!existing) {
-    return NextResponse.json({ error: 'Assignment not found' }, { status: 404 });
+    return NextResponse.json(
+      { error: 'Assignment not found' },
+      { status: 404 }
+    );
   }
 
   const { error: delErr } = await service

@@ -58,17 +58,36 @@ export function PublicationCoverageChart({
         {empty ? (
           <div className="flex h-[340px] flex-col items-center justify-center gap-2 text-center">
             <FileCheck2 className="size-6 text-muted-foreground/60" />
-            <p className="text-sm font-medium text-foreground">No sections configured</p>
+            <p className="text-sm font-medium text-foreground">
+              No sections configured
+            </p>
             <p className="max-w-xs text-xs text-muted-foreground">
               Bars appear once AY sections are populated.
             </p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={340}>
-            <BarChart data={chartData} margin={{ top: 16, right: 16, bottom: 8, left: 0 }}>
-              <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis dataKey="termLabel" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} />
-              <YAxis stroke="var(--muted-foreground)" fontSize={12} allowDecimals={false} tickLine={false} />
+            <BarChart
+              data={chartData}
+              margin={{ top: 16, right: 16, bottom: 8, left: 0 }}
+            >
+              <CartesianGrid
+                vertical={false}
+                stroke="var(--border)"
+                strokeDasharray="3 3"
+              />
+              <XAxis
+                dataKey="termLabel"
+                stroke="var(--muted-foreground)"
+                fontSize={12}
+                tickLine={false}
+              />
+              <YAxis
+                stroke="var(--muted-foreground)"
+                fontSize={12}
+                allowDecimals={false}
+                tickLine={false}
+              />
               <Tooltip
                 cursor={{ fill: 'var(--accent)' }}
                 contentStyle={{
@@ -79,7 +98,12 @@ export function PublicationCoverageChart({
                   fontSize: 12,
                 }}
               />
-              <Legend content={chartLegendContent({ published: 'chart-5', notPublished: 'chart-2' })} />
+              <Legend
+                content={chartLegendContent({
+                  published: 'chart-5',
+                  notPublished: 'chart-2',
+                })}
+              />
               <Bar
                 dataKey="published"
                 name="Published"
@@ -87,11 +111,11 @@ export function PublicationCoverageChart({
                 fill="var(--chart-5)"
                 onClick={
                   onSegmentClick
-                    ? ((d: unknown) => {
+                    ? (((d: unknown) => {
                         const p = d as { payload?: { termLabel?: string } };
                         const lbl = p?.payload?.termLabel;
                         if (lbl) onSegmentClick(`${lbl} · Published`);
-                      }) as never
+                      }) as never)
                     : undefined
                 }
                 style={onSegmentClick ? { cursor: 'pointer' } : undefined}
@@ -103,11 +127,11 @@ export function PublicationCoverageChart({
                 fill="var(--muted-foreground)"
                 onClick={
                   onSegmentClick
-                    ? ((d: unknown) => {
+                    ? (((d: unknown) => {
                         const p = d as { payload?: { termLabel?: string } };
                         const lbl = p?.payload?.termLabel;
                         if (lbl) onSegmentClick(`${lbl} · Unpublished`);
-                      }) as never
+                      }) as never)
                     : undefined
                 }
                 style={onSegmentClick ? { cursor: 'pointer' } : undefined}

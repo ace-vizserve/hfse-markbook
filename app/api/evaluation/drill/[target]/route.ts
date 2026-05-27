@@ -28,12 +28,17 @@ const VALID_TARGETS: EvaluationDrillTarget[] = [
   'time-to-submit-bucket',
 ];
 
-const ALLOWED_ROLES = ['teacher', 'registrar', 'school_admin', 'superadmin'] as const;
+const ALLOWED_ROLES = [
+  'teacher',
+  'registrar',
+  'school_admin',
+  'superadmin',
+] as const;
 const REGISTRAR_PLUS = new Set(['registrar', 'school_admin', 'superadmin']);
 
 export async function GET(
   req: Request,
-  ctx: { params: Promise<{ target: string }> },
+  ctx: { params: Promise<{ target: string }> }
 ) {
   const guard = await requireRole([...ALLOWED_ROLES]);
   if ('error' in guard) return guard.error;
@@ -69,11 +74,18 @@ export async function GET(
       .select('section_id')
       .eq('teacher_user_id', guard.user.id)
       .eq('role', 'form_adviser');
-    allowedSectionIds = ((assignments ?? []) as { section_id: string }[]).map((a) => a.section_id);
+    allowedSectionIds = ((assignments ?? []) as { section_id: string }[]).map(
+      (a) => a.section_id
+    );
   }
 
   const rows = await buildEvaluationDrillRows({
-    ayCode, from, to, target, segment, allowedSectionIds,
+    ayCode,
+    from,
+    to,
+    target,
+    segment,
+    allowedSectionIds,
   });
 
   if (format === 'csv') {
@@ -82,19 +94,31 @@ export async function GET(
 
   const header = drillHeaderForTarget(target, segment);
   const res = NextResponse.json({
-    rows, total: rows.length, target, segment, ayCode,
-    eyebrow: header.eyebrow, title: header.title, rowKind: rowKindForTarget(target),
+    rows,
+    total: rows.length,
+    target,
+    segment,
+    ayCode,
+    eyebrow: header.eyebrow,
+    title: header.title,
+    rowKind: rowKindForTarget(target),
   });
   res.headers.set(
     'Cache-Control',
-    'private, max-age=60, stale-while-revalidate=300',
+    'private, max-age=60, stale-while-revalidate=300'
   );
   return res;
 }
 
-function pickColumns(target: EvaluationDrillTarget, columnsParam: string | null): DrillColumnKey[] {
+function pickColumns(
+  target: EvaluationDrillTarget,
+  columnsParam: string | null
+): DrillColumnKey[] {
   if (!columnsParam) return defaultColumnsForTarget(target);
-  const requested = columnsParam.split(',').map((c) => c.trim()).filter(Boolean) as DrillColumnKey[];
+  const requested = columnsParam
+    .split(',')
+    .map((c) => c.trim())
+    .filter(Boolean) as DrillColumnKey[];
   return requested.length > 0 ? requested : defaultColumnsForTarget(target);
 }
 
@@ -103,7 +127,7 @@ function csvResponse(
   target: EvaluationDrillTarget,
   segment: string | null,
   ayCode: string,
-  columnsParam: string | null,
+  columnsParam: string | null
 ): Response {
   const columns = pickColumns(target, columnsParam);
   const headers = columns.map((c) => DRILL_COLUMN_LABELS[c] ?? c);
@@ -121,46 +145,76 @@ function csvResponse(
   });
 }
 
-function csvCell(row: EvaluationDrillRow, key: DrillColumnKey, kind: EvaluationDrillRowKind): string | number {
+function csvCell(
+  row: EvaluationDrillRow,
+  key: DrillColumnKey,
+  kind: EvaluationDrillRowKind
+): string | number {
   if (kind === 'writeup') {
     const r = row as WriteupRow;
     switch (key) {
-      case 'studentName': return r.studentName;
-      case 'studentNumber': return r.studentNumber;
-      case 'sectionName': return r.sectionName;
-      case 'level': return r.level ?? '';
-      case 'termNumber': return `T${r.termNumber}`;
-      case 'status': return r.status;
-      case 'draftCharCount': return r.draftCharCount;
-      case 'submittedAt': return r.submittedAt?.slice(0, 10) ?? '';
-      case 'daysToSubmit': return r.daysToSubmit ?? '';
-      case 'adviserEmail': return r.adviserEmail ?? '';
-      default: return '';
+      case 'studentName':
+        return r.studentName;
+      case 'studentNumber':
+        return r.studentNumber;
+      case 'sectionName':
+        return r.sectionName;
+      case 'level':
+        return r.level ?? '';
+      case 'termNumber':
+        return `T${r.termNumber}`;
+      case 'status':
+        return r.status;
+      case 'draftCharCount':
+        return r.draftCharCount;
+      case 'submittedAt':
+        return r.submittedAt?.slice(0, 10) ?? '';
+      case 'daysToSubmit':
+        return r.daysToSubmit ?? '';
+      case 'adviserEmail':
+        return r.adviserEmail ?? '';
+      default:
+        return '';
     }
   }
   if (kind === 'section-rollup') {
     const r = row as SectionWriteupRow;
     switch (key) {
-      case 'sectionName': return r.sectionName;
-      case 'level': return r.level ?? '';
-      case 'termNumber': return `T${r.termNumber}`;
-      case 'submissionPct': return `${r.submissionPct}%`;
-      case 'submitted': return r.submitted;
-      case 'draft': return r.draft;
-      case 'missing': return r.missing;
-      case 'total': return r.total;
-      default: return '';
+      case 'sectionName':
+        return r.sectionName;
+      case 'level':
+        return r.level ?? '';
+      case 'termNumber':
+        return `T${r.termNumber}`;
+      case 'submissionPct':
+        return `${r.submissionPct}%`;
+      case 'submitted':
+        return r.submitted;
+      case 'draft':
+        return r.draft;
+      case 'missing':
+        return r.missing;
+      case 'total':
+        return r.total;
+      default:
+        return '';
     }
   }
   // bucket
   const r = row as TimeToSubmitBucket;
   switch (key) {
-    case 'bucketLabel': return r.label;
-    case 'bucketCount': return r.count;
-    default: return '';
+    case 'bucketLabel':
+      return r.label;
+    case 'bucketCount':
+      return r.count;
+    default:
+      return '';
   }
 }
 
 function slug(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }

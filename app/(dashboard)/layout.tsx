@@ -11,7 +11,11 @@ import { getSessionUser } from '@/lib/supabase/server';
 //
 // All module-specific chrome (sidebars, badges, module-scoped nav) lives in
 // the respective (markbook) / (records) / (p-files) / (sis) layouts.
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
 

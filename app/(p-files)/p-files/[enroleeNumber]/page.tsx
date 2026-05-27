@@ -12,20 +12,39 @@ import {
 } from 'lucide-react';
 
 import { DocumentCard } from '@/components/p-files/document-card';
-import { ActionQueueCard, type ActionQueueRow } from '@/components/p-files/action-queue-card';
+import {
+  ActionQueueCard,
+  type ActionQueueRow,
+} from '@/components/p-files/action-queue-card';
 import {
   DocumentGroupTabs,
   type DocumentGroupTab,
 } from '@/components/p-files/document-group-tabs';
 import { FamilyContactCard } from '@/components/p-files/family-contact-card';
 import { RecentActivityStrip } from '@/components/p-files/recent-activity-strip';
-import { Alert, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert';
+import {
+  Alert,
+  AlertDescription,
+  AlertIcon,
+  AlertTitle,
+} from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { PageShell } from '@/components/ui/page-shell';
 import { getCurrentAcademicYear, listAyCodes } from '@/lib/academic-year';
-import { DOCUMENT_SLOTS, GROUP_LABELS, type DocumentGroup } from '@/lib/p-files/document-config';
-import { getStudentDocumentDetail, isStudentEnrolled } from '@/lib/p-files/queries';
-import { compareSlotsByUrgency, isActionable, classifyUrgency } from '@/lib/p-files/urgency';
+import {
+  DOCUMENT_SLOTS,
+  GROUP_LABELS,
+  type DocumentGroup,
+} from '@/lib/p-files/document-config';
+import {
+  getStudentDocumentDetail,
+  isStudentEnrolled,
+} from '@/lib/p-files/queries';
+import {
+  compareSlotsByUrgency,
+  isActionable,
+  classifyUrgency,
+} from '@/lib/p-files/urgency';
 import { freshenAyDocuments } from '@/lib/p-files/freshen-document-statuses';
 import { getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -56,7 +75,8 @@ export default async function StudentDocumentDetailPage({
   if (!currentAy) notFound();
 
   const ayCodes = await listAyCodes(service);
-  const selectedAy = ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
+  const selectedAy =
+    ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
 
   // Auto-flip + the enrollment whitelist run in parallel — both are
   // gating the detail render and have no shared state. Cached 60s.
@@ -75,12 +95,17 @@ export default async function StudentDocumentDetailPage({
   if (!student) notFound();
 
   const docRow = student.rawDocRow;
-  const canWrite = sessionUser.role === 'p-file' || sessionUser.role === 'superadmin';
+  const canWrite =
+    sessionUser.role === 'p-file' || sessionUser.role === 'superadmin';
 
-  const pct = student.total > 0 ? Math.round((student.complete / student.total) * 100) : 0;
+  const pct =
+    student.total > 0
+      ? Math.round((student.complete / student.total) * 100)
+      : 0;
   const circleR = 40;
   const circleCircumference = 2 * Math.PI * circleR;
-  const circleDashOffset = circleCircumference - (pct / 100) * circleCircumference;
+  const circleDashOffset =
+    circleCircumference - (pct / 100) * circleCircumference;
 
   // Per-slot meta lookup so we don't repeat .find inside the render loops.
   const slotConfigByKey = new Map(DOCUMENT_SLOTS.map((s) => [s.key, s]));
@@ -99,10 +124,13 @@ export default async function StudentDocumentDetailPage({
     // calling Date.now() at render time is intentional — the page renders
     // fresh on every request, no client-side re-render to worry about.
     // eslint-disable-next-line react-hooks/purity
-    const days = (Date.now() - new Date(o.lastReminderAt).getTime()) / 86_400_000;
+    const days =
+      (Date.now() - new Date(o.lastReminderAt).getTime()) / 86_400_000;
     return days < 30;
   }).length;
-  const rejectedCount = student.slots.filter((s) => s.status === 'rejected').length;
+  const rejectedCount = student.slots.filter(
+    (s) => s.status === 'rejected'
+  ).length;
 
   // ── Action queue: top N actionable slots ranked by urgency.
   const actionableSlots = student.slots
@@ -110,24 +138,30 @@ export default async function StudentDocumentDetailPage({
     .slice()
     .sort(compareSlotsByUrgency);
   const totalActionable = actionableSlots.length;
-  const actionRows: ActionQueueRow[] = actionableSlots.slice(0, ACTION_QUEUE_VISIBLE).map((s) => {
-    const config = slotConfigByKey.get(s.key);
-    const url = (docRow[s.key] as string | null | undefined) ?? null;
-    return {
-      slotKey: s.key,
-      slotLabel: s.label,
-      status: s.status,
-      expiryDate: s.expiryDate,
-      url,
-      meta: config?.meta ?? null,
-      expires: config?.expires ?? false,
-      lastReminderAt: student.outreach[s.key]?.lastReminderAt ?? null,
-    };
-  });
+  const actionRows: ActionQueueRow[] = actionableSlots
+    .slice(0, ACTION_QUEUE_VISIBLE)
+    .map((s) => {
+      const config = slotConfigByKey.get(s.key);
+      const url = (docRow[s.key] as string | null | undefined) ?? null;
+      return {
+        slotKey: s.key,
+        slotLabel: s.label,
+        status: s.status,
+        expiryDate: s.expiryDate,
+        url,
+        meta: config?.meta ?? null,
+        expires: config?.expires ?? false,
+        lastReminderAt: student.outreach[s.key]?.lastReminderAt ?? null,
+      };
+    });
 
   // ── Document groups (existing layout) — slots within each group are
   //    re-sorted by urgency so the most pressing ones appear first.
-  const groups: { group: DocumentGroup; label: string; slots: typeof student.slots }[] = [];
+  const groups: {
+    group: DocumentGroup;
+    label: string;
+    slots: typeof student.slots;
+  }[] = [];
   const groupOrder: DocumentGroup[] = ['student-expiring', 'parent', 'student'];
   for (const g of groupOrder) {
     const groupSlots = student.slots
@@ -146,7 +180,7 @@ export default async function StudentDocumentDetailPage({
   // the data + content stays in the RSC tree.
   const tabGroups: DocumentGroupTab[] = groups.map((g) => {
     const groupActionable = g.slots.filter((s) =>
-      isActionable(classifyUrgency(s)),
+      isActionable(classifyUrgency(s))
     ).length;
     const groupValid = g.slots.filter((s) => s.status === 'valid').length;
     return {
@@ -201,7 +235,9 @@ export default async function StudentDocumentDetailPage({
         <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div className="space-y-4">
             <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              {canWrite ? 'P-Files · Student documents' : 'P-Files · Read-only oversight'}
+              {canWrite
+                ? 'P-Files · Student documents'
+                : 'P-Files · Read-only oversight'}
             </p>
             <h1 className="font-serif text-[38px] font-semibold leading-[1.05] tracking-tight text-foreground md:text-[44px]">
               {student.fullName}.
@@ -209,7 +245,9 @@ export default async function StudentDocumentDetailPage({
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px] text-muted-foreground">
               {student.studentNumber && (
                 <>
-                  <span className="font-mono tabular-nums">{student.studentNumber}</span>
+                  <span className="font-mono tabular-nums">
+                    {student.studentNumber}
+                  </span>
                   <span className="text-hairline-strong">·</span>
                 </>
               )}
@@ -242,7 +280,10 @@ export default async function StudentDocumentDetailPage({
                 </Badge>
               )}
               {student.missing > 0 && (
-                <Badge variant="outline" className="border-dashed text-muted-foreground">
+                <Badge
+                  variant="outline"
+                  className="border-dashed text-muted-foreground"
+                >
                   <FileWarning />
                   {student.missing} missing
                 </Badge>
@@ -317,9 +358,8 @@ export default async function StudentDocumentDetailPage({
           </AlertIcon>
           <AlertTitle>This student has no class section assigned.</AlertTitle>
           <AlertDescription>
-            They&apos;re enrolled and their documents are tracked here, but
-            they haven&apos;t been placed in a class yet. Assign a section
-            from{' '}
+            They&apos;re enrolled and their documents are tracked here, but they
+            haven&apos;t been placed in a class yet. Assign a section from{' '}
             <Link
               href={`/admissions/applications/${enroleeNumber}?ay=${selectedAy}&tab=enrollment`}
               className="font-medium text-foreground underline-offset-4 hover:underline"

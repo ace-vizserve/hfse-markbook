@@ -17,30 +17,30 @@ The fix is **architectural-first** (Option B): change the per-module data strate
 
 Every dashboard's `buildAllRowSets()` runs unconditionally on every page render and ships full row arrays through the RSC payload to the client.
 
-| Module | Pre-fetched rows (1000 students) | JSON payload (est.) |
-|---|---|---|
-| **Attendance** | 180,000 entries + rollups | **30–50 MB** |
-| **Markbook** | 40,000 entries + 1,600 sheets + CRs | **8–15 MB** |
-| Evaluation | 3,000 writeups + rollups | ~600 KB |
-| Admissions | 400 applicants × 16 fields | ~150 KB |
+| Module         | Pre-fetched rows (1000 students)    | JSON payload (est.) |
+| -------------- | ----------------------------------- | ------------------- |
+| **Attendance** | 180,000 entries + rollups           | **30–50 MB**        |
+| **Markbook**   | 40,000 entries + 1,600 sheets + CRs | **8–15 MB**         |
+| Evaluation     | 3,000 writeups + rollups            | ~600 KB             |
+| Admissions     | 400 applicants × 16 fields          | ~150 KB             |
 
 **Attendance and Markbook are the high-impact targets.** Evaluation and Admissions are small enough that pre-fetching is fine — instant-drill-open value beats the modest payload cost.
 
 ### 2.2 Tactical issues (ordered by impact)
 
-| # | Module | File | Issue | Fix sketch |
-|---|---|---|---|---|
-| 2 | Markbook | `lib/markbook/drill.ts` (entry loader) | `service.auth.admin.listUsers({perPage:1000})` blocks loader on every cache miss | Separate cached email map keyed by user-id, or DB-side join through `auth.users` |
-| 3 | Evaluation | `lib/evaluation/drill.ts` (writeup loader) | Same `auth.admin.listUsers` pattern | Same fix |
-| 4 | Admissions + Markbook | `lib/<module>/drill.ts` | Cache stores `scope='all'` then filters client-side; defeats range scoping | Push scope filter into cache key + DB query |
-| 5 | Admissions | `lib/admissions/drill.ts:loadDrillRows` | Always fetches docs even when only 5 of 12 targets need them | Hoist docs fetch into separate helper; only call from doc-related targets |
-| 6 | Admissions | `lib/admissions/dashboard.ts:bucketByDay` | Per-row `Array.indexOf` (O(n×k) on 90 days × 1000 rows = 90k ops) | Pre-build label→index Map |
-| 7 | Admissions + Markbook | drill-sheet client components | `preFiltered` does separate filter passes for status + level | Single combined `.filter()` pass |
-| 8 | Markbook | `lib/markbook/drill.ts:loadSheetRows` | `report_card_publications` + `grade_entries` queries lack `.in('term_id', termIds)` filter | Add explicit term filter |
-| 9 | Markbook | DB schema | Indexes likely missing on critical query columns | Verify before adding; if missing, ship `028_markbook_drill_indexes.sql` |
-| 10 | Attendance | `lib/attendance/drill.ts:rollupCompassionate` | Re-loads all entries even when range pre-fetch is cached | Take entries as parameter, don't re-fetch |
-| 11 | Attendance | `lib/attendance/dashboard.ts:loadDailyRowsUncached` | Doesn't filter by current term — index `(term_id, section_student_id, date)` not used | Add `eq('term_id', currentTermId)` |
-| 12 | Attendance | duplicate `loadTopAbsentRange` impls | Drift hazard | Unify on the `lib/attendance/drill.ts` shape |
+| #   | Module                | File                                                | Issue                                                                                      | Fix sketch                                                                       |
+| --- | --------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| 2   | Markbook              | `lib/markbook/drill.ts` (entry loader)              | `service.auth.admin.listUsers({perPage:1000})` blocks loader on every cache miss           | Separate cached email map keyed by user-id, or DB-side join through `auth.users` |
+| 3   | Evaluation            | `lib/evaluation/drill.ts` (writeup loader)          | Same `auth.admin.listUsers` pattern                                                        | Same fix                                                                         |
+| 4   | Admissions + Markbook | `lib/<module>/drill.ts`                             | Cache stores `scope='all'` then filters client-side; defeats range scoping                 | Push scope filter into cache key + DB query                                      |
+| 5   | Admissions            | `lib/admissions/drill.ts:loadDrillRows`             | Always fetches docs even when only 5 of 12 targets need them                               | Hoist docs fetch into separate helper; only call from doc-related targets        |
+| 6   | Admissions            | `lib/admissions/dashboard.ts:bucketByDay`           | Per-row `Array.indexOf` (O(n×k) on 90 days × 1000 rows = 90k ops)                          | Pre-build label→index Map                                                        |
+| 7   | Admissions + Markbook | drill-sheet client components                       | `preFiltered` does separate filter passes for status + level                               | Single combined `.filter()` pass                                                 |
+| 8   | Markbook              | `lib/markbook/drill.ts:loadSheetRows`               | `report_card_publications` + `grade_entries` queries lack `.in('term_id', termIds)` filter | Add explicit term filter                                                         |
+| 9   | Markbook              | DB schema                                           | Indexes likely missing on critical query columns                                           | Verify before adding; if missing, ship `028_markbook_drill_indexes.sql`          |
+| 10  | Attendance            | `lib/attendance/drill.ts:rollupCompassionate`       | Re-loads all entries even when range pre-fetch is cached                                   | Take entries as parameter, don't re-fetch                                        |
+| 11  | Attendance            | `lib/attendance/dashboard.ts:loadDailyRowsUncached` | Doesn't filter by current term — index `(term_id, section_student_id, date)` not used      | Add `eq('term_id', currentTermId)`                                               |
+| 12  | Attendance            | duplicate `loadTopAbsentRange` impls                | Drift hazard                                                                               | Unify on the `lib/attendance/drill.ts` shape                                     |
 
 ### 2.3 Verified clean
 
@@ -53,12 +53,14 @@ The new contract: **`buildAllRowSets()` returns only rolled-up shapes; raw row a
 ### 3.1 Attendance
 
 **Current:**
+
 ```ts
 buildAllRowSets() → { entries, topAbsent, sectionAttendance, calendar, compassionate }
 //                    ^^^^^^^ 180k rows, dropped from server pre-fetch
 ```
 
 **New:**
+
 ```ts
 buildAllRowSets() → { topAbsent, sectionAttendance, calendar, compassionate }
 //                    rolled-up + small (calendar ≤ 200 days, compassionate = students)
@@ -72,12 +74,14 @@ Drill sheet behavior change: on mount, if `kind === 'entry'` and `initialEntries
 ### 3.2 Markbook
 
 **Current:**
+
 ```ts
 buildAllRowSets() → { entries, sheets, changeRequests }
 //                    ^^^^^^^ 40k rows, dropped from server pre-fetch
 ```
 
 **New:**
+
 ```ts
 buildAllRowSets() → { sheets, changeRequests }  // both small
 // entries lazy-fetched by MarkbookDrillSheet on first mount when kind='entry'
@@ -126,7 +130,7 @@ export async function getTeacherEmailMap(): Promise<Map<string, string>> {
       return map;
     },
     ['teacher-emails-map'],
-    { revalidate: 300, tags: ['teacher-emails'] },
+    { revalidate: 300, tags: ['teacher-emails'] }
   )();
 }
 ```
@@ -149,6 +153,7 @@ Replace AY-only cache keys with `[ayCode, scope, from, to, segment]` where scope
 ### 5.4 Doc fetch waste (Admissions)
 
 `buildDrillRows` calls 3 tables. Of the 12 targets, only 5 use `documentsComplete` / `hasMissingDocs`. Split:
+
 - `loadCoreDrillRows()` — apps + status (no docs)
 - `loadDocCompleteness(rows)` — adds doc fields when needed
 
@@ -157,6 +162,7 @@ Targets `doc-completion`, `applications`, `enrolled`, `outdated`, `applications-
 ### 5.5 DB indexes (Markbook — verify before adding)
 
 Audit suggested missing indexes on:
+
 - `grade_entries(grading_sheet_id, created_at)`
 - `grading_sheets(term_id, section_id, is_locked)`
 - `report_card_publications(section_id, term_id)`
@@ -197,6 +203,7 @@ Update to: "Page-level pre-fetch via `buildAllRowSets()` returns rolled-up shape
 ## 9. Success criteria
 
 After implementation:
+
 - `/attendance` page-load HTML response < 500 KB (today: ~30 MB at 1000 students)
 - `/markbook` page-load HTML response < 500 KB (today: ~10 MB)
 - First drill open on a lazy target: skeleton ≤ 100 ms; rows ≤ 800 ms (cache cold)

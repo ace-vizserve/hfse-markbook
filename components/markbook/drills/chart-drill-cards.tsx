@@ -7,8 +7,16 @@ import { GradeDistributionChart } from '@/components/markbook/grade-distribution
 import { PublicationCoverageChart } from '@/components/markbook/publication-coverage-chart';
 import { SheetProgressChart } from '@/components/markbook/sheet-progress-chart';
 import { Sheet } from '@/components/ui/sheet';
-import type { GradeBucket, TermLockProgress, TermPubCoverage } from '@/lib/markbook/dashboard';
-import type { ChangeRequestRow, GradeEntryRow, SheetRow } from '@/lib/markbook/drill';
+import type {
+  GradeBucket,
+  TermLockProgress,
+  TermPubCoverage,
+} from '@/lib/markbook/dashboard';
+import type {
+  ChangeRequestRow,
+  GradeEntryRow,
+  SheetRow,
+} from '@/lib/markbook/drill';
 
 // Per-target client wrappers for Markbook chart cards. Each owns its own
 // `<Sheet>` open-state and dispatches a segment-click handler into the
@@ -37,7 +45,11 @@ export function GradeDistributionDrillCard({
   const [segment, setSegment] = React.useState<string | null>(null);
   return (
     <Sheet open={!!segment} onOpenChange={(o) => !o && setSegment(null)}>
-      <GradeDistributionChart data={data} termLabel={termLabel} onSegmentClick={setSegment} />
+      <GradeDistributionChart
+        data={data}
+        termLabel={termLabel}
+        onSegmentClick={setSegment}
+      />
       {segment && (
         <MarkbookDrillSheet
           target="grade-bucket-entries"

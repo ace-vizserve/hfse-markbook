@@ -68,17 +68,37 @@ export function GradeDistributionChart({
         {empty ? (
           <div className="flex h-[340px] flex-col items-center justify-center gap-2 text-center">
             <BarChart3 className="size-6 text-muted-foreground/60" />
-            <p className="text-sm font-medium text-foreground">No quarterly grades yet</p>
+            <p className="text-sm font-medium text-foreground">
+              No quarterly grades yet
+            </p>
             <p className="max-w-xs text-xs text-muted-foreground">
               Bars appear once teachers enter scores for {termLabel}.
             </p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={340}>
-            <BarChart data={data} margin={{ top: 16, right: 12, bottom: 8, left: 0 }}>
-              <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
-              <XAxis dataKey="label" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} interval={0} />
-              <YAxis stroke="var(--muted-foreground)" fontSize={12} allowDecimals={false} tickLine={false} />
+            <BarChart
+              data={data}
+              margin={{ top: 16, right: 12, bottom: 8, left: 0 }}
+            >
+              <CartesianGrid
+                vertical={false}
+                stroke="var(--border)"
+                strokeDasharray="3 3"
+              />
+              <XAxis
+                dataKey="label"
+                stroke="var(--muted-foreground)"
+                fontSize={11}
+                tickLine={false}
+                interval={0}
+              />
+              <YAxis
+                stroke="var(--muted-foreground)"
+                fontSize={12}
+                allowDecimals={false}
+                tickLine={false}
+              />
               <Tooltip
                 cursor={{ fill: 'var(--accent)' }}
                 contentStyle={{
@@ -95,17 +115,23 @@ export function GradeDistributionChart({
                 radius={[4, 4, 0, 0]}
                 onClick={
                   onSegmentClick
-                    ? ((d: unknown) => {
-                        const p = d as { payload?: { key?: string }; key?: string };
+                    ? (((d: unknown) => {
+                        const p = d as {
+                          payload?: { key?: string };
+                          key?: string;
+                        };
                         const key = p?.payload?.key ?? p?.key;
                         if (key) onSegmentClick(key);
-                      }) as never
+                      }) as never)
                     : undefined
                 }
                 style={onSegmentClick ? { cursor: 'pointer' } : undefined}
               >
                 {data.map((d) => (
-                  <Cell key={d.key} fill={BAND_FILL[d.key] ?? 'var(--chart-1)'} />
+                  <Cell
+                    key={d.key}
+                    fill={BAND_FILL[d.key] ?? 'var(--chart-1)'}
+                  />
                 ))}
               </Bar>
             </BarChart>
@@ -115,8 +141,14 @@ export function GradeDistributionChart({
       {!empty && (
         <CardFooter className="border-t border-border px-6 py-3 text-xs text-muted-foreground">
           <span>
-            <span className="font-semibold text-foreground tabular-nums">{pct}%</span> of{' '}
-            <span className="tabular-nums">{total.toLocaleString('en-SG')}</span> grades meet expectations (≥ 75)
+            <span className="font-semibold text-foreground tabular-nums">
+              {pct}%
+            </span>{' '}
+            of{' '}
+            <span className="tabular-nums">
+              {total.toLocaleString('en-SG')}
+            </span>{' '}
+            grades meet expectations (≥ 75)
           </span>
         </CardFooter>
       )}

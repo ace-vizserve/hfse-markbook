@@ -1,13 +1,13 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from 'next/server';
 
-import { requireRole } from "@/lib/auth/require-role";
-import { requireCurrentAyCode } from "@/lib/academic-year";
-import { logAction, type AuditAction } from "@/lib/audit/log-action";
-import { createServiceClient } from "@/lib/supabase/service";
-import { runNotify } from "@/lib/p-files/notify-helpers";
-import { resolveModule } from "@/lib/p-files/_shared";
-import { NotifySchema } from "@/lib/schemas/p-files";
-import { invalidateDrillTags } from "@/lib/cache/invalidate-drill-tags";
+import { requireRole } from '@/lib/auth/require-role';
+import { requireCurrentAyCode } from '@/lib/academic-year';
+import { logAction, type AuditAction } from '@/lib/audit/log-action';
+import { createServiceClient } from '@/lib/supabase/service';
+import { runNotify } from '@/lib/p-files/notify-helpers';
+import { resolveModule } from '@/lib/p-files/_shared';
+import { NotifySchema } from '@/lib/schemas/p-files';
+import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 
 // POST /api/p-files/[enroleeNumber]/notify
 // Body: { slotKey: string; module?: 'p-files' | 'admissions' }
@@ -27,15 +27,15 @@ import { invalidateDrillTags } from "@/lib/cache/invalidate-drill-tags";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ enroleeNumber: string }> },
+  { params }: { params: Promise<{ enroleeNumber: string }> }
 ) {
   const { enroleeNumber } = await params;
   const body = await request.json().catch(() => null);
   const parsed = NotifySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid request body", details: parsed.error.flatten() },
-      { status: 400 },
+      { error: 'Invalid request body', details: parsed.error.flatten() },
+      { status: 400 }
     );
   }
 
@@ -45,11 +45,13 @@ export async function POST(
   // Per-module role gate: admissions chase is wider (admissions team + registrar
   // + school_admin); P-Files renewal chase is scoped to p-file officers + superadmin.
   const allowedRoles =
-    moduleKey === "admissions"
-      ? ["admissions", "registrar", "school_admin", "superadmin"]
-      : ["p-file", "superadmin"];
-  const auth = await requireRole(allowedRoles as import("@/lib/auth/roles").Role[]);
-  if ("error" in auth) return auth.error;
+    moduleKey === 'admissions'
+      ? ['admissions', 'registrar', 'school_admin', 'superadmin']
+      : ['p-file', 'superadmin'];
+  const auth = await requireRole(
+    allowedRoles as import('@/lib/auth/roles').Role[]
+  );
+  if ('error' in auth) return auth.error;
 
   const service = createServiceClient();
   const ayCode = await requireCurrentAyCode(service);
@@ -58,61 +60,66 @@ export async function POST(
     ayCode,
     enroleeNumber,
     slotKey,
-    kind: moduleKey === "admissions" ? "initial-chase" : "renewal",
+    kind: moduleKey === 'admissions' ? 'initial-chase' : 'renewal',
   });
 
   if (!result.ok) {
-    if (result.reason === "cooldown") {
+    if (result.reason === 'cooldown') {
       return NextResponse.json(
         {
           error:
-            "A reminder for this slot was sent within the last 24 hours. Please wait before re-sending.",
+            'A reminder for this slot was sent within the last 24 hours. Please wait before re-sending.',
           lastSentAt: result.cooldownLastSentAt,
         },
-        { status: 429 },
+        { status: 429 }
       );
     }
-    if (result.reason === "not_enrolled") {
+    if (result.reason === 'not_enrolled') {
       // Module-aware copy — for admissions, the gate is "active funnel
       // status" not "enrolled". Reuses the same outcome reason for
       // back-compat with existing P-Files callers.
       const message =
-        moduleKey === "admissions"
-          ? "Reminders are only available for applicants in the active funnel (Submitted / Ongoing Verification / Processing)."
-          : "Reminders are only available for enrolled students.";
+        moduleKey === 'admissions'
+          ? 'Reminders are only available for applicants in the active funnel (Submitted / Ongoing Verification / Processing).'
+          : 'Reminders are only available for enrolled students.';
       return NextResponse.json({ error: message }, { status: 422 });
     }
-    if (result.reason === "no_recipients") {
+    if (result.reason === 'no_recipients') {
       return NextResponse.json(
-        { error: "No parent or guardian email is on file for this slot." },
-        { status: 422 },
+        { error: 'No parent or guardian email is on file for this slot.' },
+        { status: 422 }
       );
     }
-    if (result.reason === "no_actionable_status") {
+    if (result.reason === 'no_actionable_status') {
       return NextResponse.json(
-        { error: "This slot is not currently in an expired / rejected / missing / expiring state." },
-        { status: 422 },
+        {
+          error:
+            'This slot is not currently in an expired / rejected / missing / expiring state.',
+        },
+        { status: 422 }
       );
     }
-    if (result.reason === "send_failed") {
+    if (result.reason === 'send_failed') {
       return NextResponse.json(
-        { error: "All reminder sends failed. Please retry shortly." },
-        { status: 502 },
+        { error: 'All reminder sends failed. Please retry shortly.' },
+        { status: 502 }
       );
     }
     return NextResponse.json(
       { error: `Unable to send reminder: ${result.reason}` },
-      { status: 422 },
+      { status: 422 }
     );
   }
 
   const action: AuditAction =
-    moduleKey === "admissions" ? "admissions.reminder.sent" : "pfile.reminder.sent";
+    moduleKey === 'admissions'
+      ? 'admissions.reminder.sent'
+      : 'pfile.reminder.sent';
   await logAction({
     service,
     actor: { id: auth.user.id, email: auth.user.email ?? null },
     action,
-    entityType: "enrolment_document",
+    entityType: 'enrolment_document',
     entityId: `${enroleeNumber}:${slotKey}`,
     context: {
       ay_code: ayCode,

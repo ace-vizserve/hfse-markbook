@@ -1,32 +1,36 @@
-"use client";
+'use client';
 
-import { CalendarIcon, X } from "lucide-react";
-import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import * as React from "react";
-import type { DateRange } from "react-day-picker";
-import { toast } from "sonner";
-import { type ColumnDef } from "@tanstack/react-table";
+import { CalendarIcon, X } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import * as React from 'react';
+import type { DateRange } from 'react-day-picker';
+import { toast } from 'sonner';
+import { type ColumnDef } from '@tanstack/react-table';
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { DataTable } from "@/components/ui/data-table";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { DataTable } from '@/components/ui/data-table';
 import {
   type FacetConfig,
   type MeScopeConfig,
   type StatusTabConfig,
-} from "@/components/ui/data-table/types";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { SortableHeader } from "@/components/ui/data-table/sortable-header";
+} from '@/components/ui/data-table/types';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { SortableHeader } from '@/components/ui/data-table/sortable-header';
 import {
   CHANGE_REQUEST_STATUS_CONFIG,
   type ChangeRequestStatus,
-} from "@/lib/markbook/change-request-status";
-import { TABLE_COPY } from "@/lib/copy/data-table";
-import { cn } from "@/lib/utils";
-import { ChangeRequestDecisionButtons } from "./decision-buttons";
-import { UndoRejectionButton } from "./undo-rejection-button";
+} from '@/lib/markbook/change-request-status';
+import { TABLE_COPY } from '@/lib/copy/data-table';
+import { cn } from '@/lib/utils';
+import { ChangeRequestDecisionButtons } from './decision-buttons';
+import { UndoRejectionButton } from './undo-rejection-button';
 
 export type AdminRequestRow = {
   id: string;
@@ -65,16 +69,16 @@ export type AdminRequestRow = {
 
 function fieldLabel(field: string, slot: number | null): string {
   switch (field) {
-    case "ww_scores":
-      return slot != null ? `W${slot + 1}` : "WW";
-    case "pt_scores":
-      return slot != null ? `PT${slot + 1}` : "PT";
-    case "qa_score":
-      return "QA";
-    case "letter_grade":
-      return "Letter";
-    case "is_na":
-      return "N/A";
+    case 'ww_scores':
+      return slot != null ? `W${slot + 1}` : 'WW';
+    case 'pt_scores':
+      return slot != null ? `PT${slot + 1}` : 'PT';
+    case 'qa_score':
+      return 'QA';
+    case 'letter_grade':
+      return 'Letter';
+    case 'is_na':
+      return 'N/A';
     default:
       return field;
   }
@@ -93,31 +97,51 @@ function endOfDay(d: Date): Date {
 }
 
 function formatDay(d: Date): string {
-  return d.toLocaleDateString("en-SG", { month: "short", day: "numeric" });
+  return d.toLocaleDateString('en-SG', { month: 'short', day: 'numeric' });
 }
 
 const STATUS_TABS: StatusTabConfig<AdminRequestRow>[] = [
-  { value: "all", label: "All", predicate: () => true, isDefault: true },
-  { value: "pending", label: "Pending", predicate: (r) => r.status === "pending" },
-  { value: "approved", label: "Approved", predicate: (r) => r.status === "approved" },
-  { value: "applied", label: "Applied", predicate: (r) => r.status === "applied" },
-  { value: "rejected", label: "Declined", predicate: (r) => r.status === "rejected" },
-  { value: "cancelled", label: "Cancelled", predicate: (r) => r.status === "cancelled" },
+  { value: 'all', label: 'All', predicate: () => true, isDefault: true },
+  {
+    value: 'pending',
+    label: 'Pending',
+    predicate: (r) => r.status === 'pending',
+  },
+  {
+    value: 'approved',
+    label: 'Approved',
+    predicate: (r) => r.status === 'approved',
+  },
+  {
+    value: 'applied',
+    label: 'Applied',
+    predicate: (r) => r.status === 'applied',
+  },
+  {
+    value: 'rejected',
+    label: 'Declined',
+    predicate: (r) => r.status === 'rejected',
+  },
+  {
+    value: 'cancelled',
+    label: 'Cancelled',
+    predicate: (r) => r.status === 'cancelled',
+  },
 ];
 
 const FACETS: FacetConfig[] = [
   {
-    columnId: "status",
-    label: "Status",
-    valueOptions: ["pending", "approved", "applied", "rejected", "cancelled"],
+    columnId: 'status',
+    label: 'Status',
+    valueOptions: ['pending', 'approved', 'applied', 'rejected', 'cancelled'],
   },
   {
-    columnId: "fieldLabel",
-    label: "Field changed",
+    columnId: 'fieldLabel',
+    label: 'Field changed',
   },
   {
-    columnId: "reason_category",
-    label: "Reason",
+    columnId: 'reason_category',
+    label: 'Reason',
   },
 ];
 
@@ -130,21 +154,21 @@ function AgingLine({ approvedAt }: { approvedAt: string }) {
   const rounded = Math.floor(days);
   const label =
     rounded <= 0
-      ? "approved today"
+      ? 'approved today'
       : rounded === 1
-        ? "approved yesterday"
+        ? 'approved yesterday'
         : `approved ${rounded} days ago`;
   const tone =
     days < 3
-      ? "text-muted-foreground"
+      ? 'text-muted-foreground'
       : days < 7
-        ? "text-brand-amber"
-        : "text-destructive";
+        ? 'text-brand-amber'
+        : 'text-destructive';
   return (
     <span
       className={cn(
-        "mt-1 block font-mono text-[10px] uppercase tracking-wider tabular-nums",
-        tone,
+        'mt-1 block font-mono text-[10px] uppercase tracking-wider tabular-nums',
+        tone
       )}
     >
       {label}
@@ -172,7 +196,9 @@ function ReviewerLine({ row }: { row: AdminRequestRow }) {
   return (
     <div className="mt-1 text-[11px] text-muted-foreground">
       Reviewed by{' '}
-      <span className="font-medium text-foreground">{primary ?? secondary}</span>
+      <span className="font-medium text-foreground">
+        {primary ?? secondary}
+      </span>
     </div>
   );
 }
@@ -199,13 +225,13 @@ export function ChangeRequestsDataTable({
   showNotAppliedFilter?: boolean;
   initialSheetIdFilter?: string;
   initialRequestId?: string | null;
-  initialAction?: "approve" | "reject" | null;
+  initialAction?: 'approve' | 'reject' | null;
   ayCode?: string;
 }) {
   const [range, setRange] = React.useState<DateRange | undefined>(undefined);
   const [rangeOpen, setRangeOpen] = React.useState(false);
   const [sheetIdFilter, setSheetIdFilter] = React.useState<string | null>(
-    initialSheetIdFilter ?? null,
+    initialSheetIdFilter ?? null
   );
 
   const router = useRouter();
@@ -213,7 +239,7 @@ export function ChangeRequestsDataTable({
   const searchParams = useSearchParams();
 
   const [controlledByRow, setControlledByRow] = React.useState<
-    Record<string, { action: "approve" | "reject"; nonce: string }>
+    Record<string, { action: 'approve' | 'reject'; nonce: string }>
   >({});
 
   // Date-filtered rows passed to DataTable
@@ -238,7 +264,8 @@ export function ChangeRequestsDataTable({
     if (!initialRequestId) return;
 
     const row = rows.find((r) => r.id === initialRequestId);
-    const isVisible = row != null && dateFilteredRows.some((r) => r.id === initialRequestId);
+    const isVisible =
+      row != null && dateFilteredRows.some((r) => r.id === initialRequestId);
 
     if (!row || !isVisible) {
       toast.error("This request isn't visible in the current view.");
@@ -248,7 +275,7 @@ export function ChangeRequestsDataTable({
 
     window.setTimeout(() => {
       const el = document.getElementById(`change-request-row-${row.id}`);
-      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 50);
 
     if (!initialAction) {
@@ -256,13 +283,13 @@ export function ChangeRequestsDataTable({
       return;
     }
 
-    if (row.status !== "pending") {
+    if (row.status !== 'pending') {
       const pastLabel: Record<ChangeRequestStatus, string> = {
-        pending: "pending",
-        approved: "approved",
-        applied: "applied (changes are live)",
-        rejected: "declined",
-        cancelled: "cancelled",
+        pending: 'pending',
+        approved: 'approved',
+        applied: 'applied (changes are live)',
+        rejected: 'declined',
+        cancelled: 'cancelled',
       };
       toast.info(`This request was already ${pastLabel[row.status]}.`);
       clearReqParams();
@@ -270,7 +297,7 @@ export function ChangeRequestsDataTable({
     }
 
     if (!canDecide) {
-      toast.error("You do not have permission to decide this request.");
+      toast.error('You do not have permission to decide this request.');
       clearReqParams();
       return;
     }
@@ -284,9 +311,9 @@ export function ChangeRequestsDataTable({
   }, []);
 
   function clearReqParams() {
-    const next = new URLSearchParams(searchParams?.toString() ?? "");
-    next.delete("req");
-    next.delete("action");
+    const next = new URLSearchParams(searchParams?.toString() ?? '');
+    next.delete('req');
+    next.delete('action');
     const queryString = next.toString();
     router.replace(queryString ? `${pathname}?${queryString}` : pathname);
   }
@@ -307,7 +334,7 @@ export function ChangeRequestsDataTable({
         ...r,
         fieldLabel: fieldLabel(r.field_changed, r.slot_index),
       })),
-    [dateFilteredRows],
+    [dateFilteredRows]
   );
 
   type AugmentedRow = (typeof augmentedRows)[number];
@@ -322,66 +349,73 @@ export function ChangeRequestsDataTable({
           enabled: true,
           userId: null,
           label: TABLE_COPY.changeRequestNotApplied,
-          predicate: (r) => r.status === "approved" && r.applied_at === null,
+          predicate: (r) => r.status === 'approved' && r.applied_at === null,
         }
       : undefined;
 
   const columns = React.useMemo<ColumnDef<AugmentedRow>[]>(
     () => [
       {
-        accessorKey: "requested_at",
-        header: ({ column }) => <SortableHeader column={column}>Filed</SortableHeader>,
+        accessorKey: 'requested_at',
+        header: ({ column }) => (
+          <SortableHeader column={column}>Filed</SortableHeader>
+        ),
         cell: ({ row }) => (
           <span className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
-            {new Date(row.original.requested_at).toLocaleString("en-SG", {
-              dateStyle: "medium",
-              timeStyle: "short",
+            {new Date(row.original.requested_at).toLocaleString('en-SG', {
+              dateStyle: 'medium',
+              timeStyle: 'short',
             })}
           </span>
         ),
       },
       {
-        accessorKey: "requested_by_email",
-        header: "Teacher",
-        cell: ({ row }) => <span className="text-sm">{row.original.requested_by_email}</span>,
+        accessorKey: 'requested_by_email',
+        header: 'Teacher',
+        cell: ({ row }) => (
+          <span className="text-sm">{row.original.requested_by_email}</span>
+        ),
       },
       {
-        id: "fieldLabel",
-        accessorKey: "fieldLabel",
-        header: "Field",
+        id: 'fieldLabel',
+        accessorKey: 'fieldLabel',
+        header: 'Field',
         cell: ({ row }) => (
           <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
             {row.original.fieldLabel}
           </span>
         ),
         filterFn: (row, id, value) => {
-          if (!value || (Array.isArray(value) && value.length === 0)) return true;
+          if (!value || (Array.isArray(value) && value.length === 0))
+            return true;
           return Array.isArray(value)
             ? value.includes(row.getValue(id))
             : row.getValue(id) === value;
         },
       },
       {
-        id: "change",
-        header: "Change",
+        id: 'change',
+        header: 'Change',
         cell: ({ row }) => (
           <span className="tabular-nums text-sm">
-            {row.original.current_value ?? "(blank)"}{" "}
-            <span className="text-muted-foreground">→</span>{" "}
+            {row.original.current_value ?? '(blank)'}{' '}
+            <span className="text-muted-foreground">→</span>{' '}
             <span className="font-medium">{row.original.proposed_value}</span>
           </span>
         ),
         enableSorting: false,
       },
       {
-        accessorKey: "reason_category",
-        header: "Reason / Justification",
+        accessorKey: 'reason_category',
+        header: 'Reason / Justification',
         cell: ({ row }) => (
           <div className="max-w-xs text-xs text-muted-foreground">
             <div className="font-mono text-[10px] uppercase tracking-wider">
-              {row.original.reason_category.replace(/_/g, " ")}
+              {row.original.reason_category.replace(/_/g, ' ')}
             </div>
-            <div className="mt-0.5 line-clamp-2">{row.original.justification}</div>
+            <div className="mt-0.5 line-clamp-2">
+              {row.original.justification}
+            </div>
             {row.original.decision_note && (
               <div className="mt-1 line-clamp-1 text-[11px]">
                 Note: {row.original.decision_note}
@@ -391,15 +425,16 @@ export function ChangeRequestsDataTable({
           </div>
         ),
         filterFn: (row, id, value) => {
-          if (!value || (Array.isArray(value) && value.length === 0)) return true;
+          if (!value || (Array.isArray(value) && value.length === 0))
+            return true;
           return Array.isArray(value)
             ? value.includes(row.getValue(id))
             : row.getValue(id) === value;
         },
       },
       {
-        accessorKey: "status",
-        header: "Status",
+        accessorKey: 'status',
+        header: 'Status',
         cell: ({ row }) => {
           const cfg = CHANGE_REQUEST_STATUS_CONFIG[row.original.status];
           const Icon = cfg.icon;
@@ -409,7 +444,7 @@ export function ChangeRequestsDataTable({
                 <Icon className="h-3 w-3" />
                 {cfg.label}
               </Badge>
-              {row.original.status === "approved" &&
+              {row.original.status === 'approved' &&
                 row.original.approved_at != null && (
                   <AgingLine approvedAt={row.original.approved_at} />
                 )}
@@ -417,14 +452,15 @@ export function ChangeRequestsDataTable({
           );
         },
         filterFn: (row, id, value) => {
-          if (!value || (Array.isArray(value) && value.length === 0)) return true;
+          if (!value || (Array.isArray(value) && value.length === 0))
+            return true;
           return Array.isArray(value)
             ? value.includes(row.getValue(id))
             : row.getValue(id) === value;
         },
       },
       {
-        id: "actions",
+        id: 'actions',
         header: () => <span className="sr-only">Actions</span>,
         cell: ({ row }) => {
           const r = row.original;
@@ -432,25 +468,24 @@ export function ChangeRequestsDataTable({
           // only within 2 hours of the rejection. The PATCH endpoint
           // re-checks all three; the client gate is for surface visibility.
           const undoVisible =
-            r.status === "rejected" &&
+            r.status === 'rejected' &&
             actorEmail != null &&
             r.primary_reviewed_by_email === actorEmail &&
             r.primary_reviewed_at != null &&
-            Date.now() - Date.parse(r.primary_reviewed_at) <
-              2 * 60 * 60 * 1000;
+            Date.now() - Date.parse(r.primary_reviewed_at) < 2 * 60 * 60 * 1000;
           return (
             <div
               id={`change-request-row-${r.id}`}
               className="flex items-center justify-end gap-2"
             >
-              {canDecide && r.status === "pending" && (
+              {canDecide && r.status === 'pending' && (
                 <ChangeRequestDecisionButtons
                   requestId={r.id}
                   controlledOpen={controlledByRow[r.id] ?? null}
                   onControlledOpenConsumed={() => consumeControlledFor(r.id)}
                 />
               )}
-              {r.status === "approved" && (
+              {r.status === 'approved' && (
                 <Button asChild variant="outline" size="sm" className="h-8">
                   <Link href={`/markbook/grading/${r.grading_sheet_id}`}>
                     Open sheet
@@ -466,7 +501,7 @@ export function ChangeRequestsDataTable({
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canDecide, controlledByRow, actorEmail],
+    [canDecide, controlledByRow, actorEmail]
   );
 
   // Toolbar: date-range picker + sheet ID chip
@@ -477,13 +512,16 @@ export function ChangeRequestsDataTable({
           <Button
             variant="outline"
             size="sm"
-            className={cn("h-8 gap-2 font-normal", !range?.from && "text-muted-foreground")}
+            className={cn(
+              'h-8 gap-2 font-normal',
+              !range?.from && 'text-muted-foreground'
+            )}
           >
             <CalendarIcon className="h-3.5 w-3.5" />
             {range?.from ? (
               <span className="font-mono text-[11px] tabular-nums">
                 {formatDay(range.from)}
-                {range.to ? ` – ${formatDay(range.to)}` : ""}
+                {range.to ? ` – ${formatDay(range.to)}` : ''}
               </span>
             ) : (
               <span className="text-sm">Any date</span>
@@ -539,23 +577,23 @@ export function ChangeRequestsDataTable({
       data={augmentedRows}
       columns={columns}
       getRowId={(row) => row.id}
-      searchKeys={["requested_by_email", "justification"]}
+      searchKeys={['requested_by_email', 'justification']}
       searchPlaceholder="Search teacher, justification…"
       facets={FACETS}
       statusTabs={STATUS_TABS}
       meScope={notAppliedScope}
       toolbarLeading={toolbarLeading}
-      initialSort={[{ id: "requested_at", desc: true }]}
+      initialSort={[{ id: 'requested_at', desc: true }]}
       pageSize={20}
-      csv={{ filename: `change-requests-${ayCode ?? "export"}.csv` }}
+      csv={{ filename: `change-requests-${ayCode ?? 'export'}.csv` }}
       url={{ enabled: true }}
       emptyState={{
-        title: "No change requests yet.",
-        body: "When teachers request changes to locked sheets, they appear here.",
+        title: 'No change requests yet.',
+        body: 'When teachers request changes to locked sheets, they appear here.',
       }}
       emptyFilteredState={{
-        title: "No requests match the current filters.",
-        body: "Try clearing some filters or the date range.",
+        title: 'No requests match the current filters.',
+        body: 'Try clearing some filters or the date range.',
       }}
     />
   );

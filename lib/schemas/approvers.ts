@@ -4,9 +4,7 @@ import { z } from 'zod';
 // when a module grows its own approval flow (e.g. `sis.stage_escalation`,
 // `attendance.correction`). The superadmin UI at /sis/admin/approvers
 // renders one section per flow listed here.
-export const APPROVER_FLOWS = [
-  'markbook.change_request',
-] as const;
+export const APPROVER_FLOWS = ['markbook.change_request'] as const;
 export type ApproverFlow = (typeof APPROVER_FLOWS)[number];
 
 export const APPROVER_FLOW_LABELS: Record<ApproverFlow, string> = {

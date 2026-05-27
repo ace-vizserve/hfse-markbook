@@ -45,9 +45,12 @@ export function RecentActivityFeed({ rows }: { rows: RecentActivityRow[] }) {
         {empty ? (
           <div className="flex h-[200px] flex-col items-center justify-center gap-2 text-center">
             <Activity className="size-6 text-muted-foreground/60" />
-            <p className="text-sm font-medium text-foreground">No recent activity</p>
+            <p className="text-sm font-medium text-foreground">
+              No recent activity
+            </p>
             <p className="max-w-xs text-xs text-muted-foreground">
-              Edits to profiles, family, pipeline stages, and documents appear here.
+              Edits to profiles, family, pipeline stages, and documents appear
+              here.
             </p>
           </div>
         ) : (
@@ -56,7 +59,9 @@ export function RecentActivityFeed({ rows }: { rows: RecentActivityRow[] }) {
               const { Icon, label, tint } = describeAction(r.action);
               return (
                 <li key={r.id} className="flex items-start gap-3 px-5 py-3">
-                  <div className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${tint}`}>
+                  <div
+                    className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${tint}`}
+                  >
                     <Icon className="size-3.5" />
                   </div>
                   <div className="min-w-0 flex-1 space-y-0.5">
@@ -96,15 +101,50 @@ export function RecentActivityFeed({ rows }: { rows: RecentActivityRow[] }) {
   );
 }
 
-const ACTION_MAP: Record<string, { label: string; Icon: LucideIcon; tint: string }> = {
-  'sis.profile.update': { label: 'Profile updated', Icon: UserCircle2, tint: 'bg-accent text-brand-indigo-deep' },
-  'sis.family.update': { label: 'Family updated', Icon: Users, tint: 'bg-accent text-brand-indigo-deep' },
-  'sis.stage.update': { label: 'Stage advanced', Icon: Workflow, tint: 'bg-accent text-brand-indigo-deep' },
-  'sis.document.approve': { label: 'Document approved', Icon: FileCheck2, tint: 'bg-brand-mint/30 text-ink' },
-  'sis.document.reject': { label: 'Document rejected', Icon: FileX, tint: 'bg-destructive/10 text-destructive' },
-  'sis.discount_code.create': { label: 'Discount code created', Icon: Tag, tint: 'bg-accent text-brand-indigo-deep' },
-  'sis.discount_code.update': { label: 'Discount code updated', Icon: Tag, tint: 'bg-accent text-brand-indigo-deep' },
-  'sis.discount_code.expire': { label: 'Discount code expired', Icon: Tag, tint: 'bg-muted text-muted-foreground' },
+const ACTION_MAP: Record<
+  string,
+  { label: string; Icon: LucideIcon; tint: string }
+> = {
+  'sis.profile.update': {
+    label: 'Profile updated',
+    Icon: UserCircle2,
+    tint: 'bg-accent text-brand-indigo-deep',
+  },
+  'sis.family.update': {
+    label: 'Family updated',
+    Icon: Users,
+    tint: 'bg-accent text-brand-indigo-deep',
+  },
+  'sis.stage.update': {
+    label: 'Stage advanced',
+    Icon: Workflow,
+    tint: 'bg-accent text-brand-indigo-deep',
+  },
+  'sis.document.approve': {
+    label: 'Document approved',
+    Icon: FileCheck2,
+    tint: 'bg-brand-mint/30 text-ink',
+  },
+  'sis.document.reject': {
+    label: 'Document rejected',
+    Icon: FileX,
+    tint: 'bg-destructive/10 text-destructive',
+  },
+  'sis.discount_code.create': {
+    label: 'Discount code created',
+    Icon: Tag,
+    tint: 'bg-accent text-brand-indigo-deep',
+  },
+  'sis.discount_code.update': {
+    label: 'Discount code updated',
+    Icon: Tag,
+    tint: 'bg-accent text-brand-indigo-deep',
+  },
+  'sis.discount_code.expire': {
+    label: 'Discount code expired',
+    Icon: Tag,
+    tint: 'bg-muted text-muted-foreground',
+  },
 };
 
 function describeAction(action: string) {
@@ -129,5 +169,8 @@ function formatRelative(iso: string): string {
   if (diffHr < 24) return `${diffHr}h ago`;
   const diffDay = Math.round(diffHr / 24);
   if (diffDay < 7) return `${diffDay}d ago`;
-  return new Date(iso).toLocaleDateString('en-SG', { month: 'short', day: 'numeric' });
+  return new Date(iso).toLocaleDateString('en-SG', {
+    month: 'short',
+    day: 'numeric',
+  });
 }

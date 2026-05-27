@@ -7,6 +7,7 @@
 Every module's dashboard landing page composes from **one** vocabulary:
 
 **Shared primitives (`components/dashboard/`):**
+
 - `dashboard-hero.tsx` — canonical hero pattern (§8 hero header)
 - `comparison-toolbar.tsx` — AY + date range + comparison period picker
 - `priority-panel.tsx` — top-of-fold "what to act on right now?" banner (operational archetype only — see Layout archetypes below)
@@ -20,6 +21,7 @@ Every module's dashboard landing page composes from **one** vocabulary:
 - `charts/sparkline-chart.tsx` — inline 40px area line
 
 **Shared lib (`lib/dashboard/`):**
+
 - `range.ts` — preset resolution + delta math + shared types (`RangeInput`, `RangeResult<T>`)
 - `windows.ts` — server-side term + AY window resolver (uses service client to stay inside `unstable_cache`)
 - `insights.ts` — 7 module-specific insight generators (pure, data-driven)
@@ -27,16 +29,16 @@ Every module's dashboard landing page composes from **one** vocabulary:
 
 **Cross-module lifecycle widget on `/sis`** (Sprint 27, 2026-04-27): `<LifecycleAggregateCard>` reads `lib/sis/process.ts::getLifecycleAggregate(ayCode)` and renders 8 per-blocker buckets:
 
-| Bucket | Counts rows where… | Severity |
-|---|---|---|
-| Awaiting fee payment | `feeStatus !== 'Paid'` AND in active funnel (`Submitted`/`Ongoing Verification`/`Processing`) | warn |
-| Awaiting document revalidation | any document slot is `'Rejected'` OR `'Expired'` | bad |
-| Awaiting document validation (NEW) | any document slot is `'Uploaded'` (registrar action needed) — see KD #60 for the expiring vs non-expiring workflow | warn |
-| Awaiting assessment schedule | `assessmentStatus='Pending'` AND `assessmentSchedule IS NULL` | info |
-| Awaiting contract signature | `contractStatus IN ('Generated', 'Sent')` | info |
-| Missing class assignment | `applicationStatus='Enrolled'` AND `classSection IS NULL` | bad |
-| Ungated to enroll | all 5 prereq stages at terminal status, but `applicationStatus !== 'Enrolled'` (one click away) | good |
-| New applications | `applicationStatus='Submitted'` (also surfaced via the `<NewApplicationsPriority>` panel on `/admissions`) | info |
+| Bucket                             | Counts rows where…                                                                                                 | Severity |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------- |
+| Awaiting fee payment               | `feeStatus !== 'Paid'` AND in active funnel (`Submitted`/`Ongoing Verification`/`Processing`)                      | warn     |
+| Awaiting document revalidation     | any document slot is `'Rejected'` OR `'Expired'`                                                                   | bad      |
+| Awaiting document validation (NEW) | any document slot is `'Uploaded'` (registrar action needed) — see KD #60 for the expiring vs non-expiring workflow | warn     |
+| Awaiting assessment schedule       | `assessmentStatus='Pending'` AND `assessmentSchedule IS NULL`                                                      | info     |
+| Awaiting contract signature        | `contractStatus IN ('Generated', 'Sent')`                                                                          | info     |
+| Missing class assignment           | `applicationStatus='Enrolled'` AND `classSection IS NULL`                                                          | bad      |
+| Ungated to enroll                  | all 5 prereq stages at terminal status, but `applicationStatus !== 'Enrolled'` (one click away)                    | good     |
+| New applications                   | `applicationStatus='Submitted'` (also surfaced via the `<NewApplicationsPriority>` panel on `/admissions`)         | info     |
 
 Each row is click-drillable in principle (drill API wiring deferred to a future iteration). Cache: 60s `unstable_cache`, tag `sis:${ayCode}` per KD #46.
 
@@ -57,8 +59,13 @@ Module-specific secondary filters (`?level=P3`, `?status=pending`, `?term=1`) st
 Every `lib/<module>/dashboard.ts` file adds `*Range` sibling functions next to any AY-scoped existing functions:
 
 ```ts
-export function getRevisionsOverTime(ayCode: string, weeks = 12): Promise<RevisionWeek[]>;                    // existing
-export function getRevisionsOverTimeRange(input: RangeInput): Promise<RangeResult<RevisionWeek[]>>;          // added
+export function getRevisionsOverTime(
+  ayCode: string,
+  weeks = 12
+): Promise<RevisionWeek[]>; // existing
+export function getRevisionsOverTimeRange(
+  input: RangeInput
+): Promise<RangeResult<RevisionWeek[]>>; // added
 ```
 
 Hoist `load*Uncached` at module scope (KD #46), wrap per-call with `unstable_cache` using cache key `['module', 'fn-name', ayCode, from, to, cmpFrom, cmpTo]` and tag = the existing per-AY tag.
@@ -67,37 +74,39 @@ Hoist `load*Uncached` at module scope (KD #46), wrap per-call with `unstable_cac
 
 Not every dashboard does the same job. The layout depends on what the user is trying to do when they arrive — **not** on what data the system happens to have. We classify each dashboard into one of three archetypes (Stephen Few taxonomy) and compose the top-of-fold accordingly.
 
-| Archetype | Primary user task | Top-of-fold answer |
-|---|---|---|
+| Archetype       | Primary user task                             | Top-of-fold answer                                            |
+| --------------- | --------------------------------------------- | ------------------------------------------------------------- |
 | **Operational** | "What do I owe / who needs action right now?" | A `PriorityPanel` headlining the single most important action |
-| **Analytical** | "Is the funnel / cohort healthy?" | A 4-up `MetricCard` strip + `InsightsPanel` |
-| **Hub** | "What configuration surface do I need?" | Admin nav cards. KPIs are *opt-in* via `?view=audit` |
+| **Analytical**  | "Is the funnel / cohort healthy?"             | A 4-up `MetricCard` strip + `InsightsPanel`                   |
+| **Hub**         | "What configuration surface do I need?"       | Admin nav cards. KPIs are _opt-in_ via `?view=audit`          |
 
 ### Module assignments
 
-| Module | Archetype | Notes |
-|---|---|---|
-| `/markbook` (registrar view) | Operational | Lock-completion + change-request decision queue |
-| `/markbook` (teacher view) | Operational | Sheets needing entry + assigned-section chips |
-| `/attendance` | Operational | Sections that haven't marked today + compassionate-quota alerts |
-| `/p-files` | Operational | Documents expiring + missing for newly enrolled |
-| `/records` | Analytical | New enrolments / withdrawals / doc-expiry flow |
-| `/admissions` | Analytical | Funnel conversion + time-to-enroll |
-| `/evaluation` (registrar view) | Analytical | Submission velocity by section/term |
-| `/evaluation` (teacher view) | Operational | Writeups due in current term + assigned-section chips |
-| `/sis` | Hub | Admin nav cards; audit metrics live behind `?view=audit` |
+| Module                         | Archetype   | Notes                                                           |
+| ------------------------------ | ----------- | --------------------------------------------------------------- |
+| `/markbook` (registrar view)   | Operational | Lock-completion + change-request decision queue                 |
+| `/markbook` (teacher view)     | Operational | Sheets needing entry + assigned-section chips                   |
+| `/attendance`                  | Operational | Sections that haven't marked today + compassionate-quota alerts |
+| `/p-files`                     | Operational | Documents expiring + missing for newly enrolled                 |
+| `/records`                     | Analytical  | New enrolments / withdrawals / doc-expiry flow                  |
+| `/admissions`                  | Analytical  | Funnel conversion + time-to-enroll                              |
+| `/evaluation` (registrar view) | Analytical  | Submission velocity by section/term                             |
+| `/evaluation` (teacher view)   | Operational | Writeups due in current term + assigned-section chips           |
+| `/sis`                         | Hub         | Admin nav cards; audit metrics live behind `?view=audit`        |
 
 ### Composition per archetype
 
 **Operational** (top-to-bottom):
+
 1. `DashboardHero`
 2. `PriorityPanel` (the headline answer — must fit in the first ~240px)
 3. `ComparisonToolbar` (compact)
-4. `MetricCard` strip — *secondary*, no sparklines (or omit entirely if PriorityPanel already covers the same metric)
+4. `MetricCard` strip — _secondary_, no sparklines (or omit entirely if PriorityPanel already covers the same metric)
 5. Drill table (the work surface)
 6. Charts (de-emphasized, below the fold)
 
 **Analytical** (the original Sprint 21 F-pattern row order):
+
 1. `DashboardHero` + `ComparisonToolbar`
 2. `InsightsPanel`
 3. 4 `MetricCard`s (SectionCards grid, with sparklines)
@@ -108,9 +117,10 @@ Not every dashboard does the same job. The layout depends on what the user is tr
 8. Trust strip
 
 **Hub** (top-to-bottom):
+
 1. `DashboardHero` + system-health strip (if relevant)
 2. Admin nav cards (the navigation IS the page)
-3. *(Optional)* tabbed entry to KPIs / audit metrics via `?view=audit`
+3. _(Optional)_ tabbed entry to KPIs / audit metrics via `?view=audit`
 
 Chart budget ≤ 8 per screen for analytical; operational and hub typically use ≤ 3 charts.
 
@@ -127,14 +137,14 @@ The two views live in `components/<module>/<module>-{teacher,registrar}-view.tsx
 
 ### Page-level role differentiation (KD #74)
 
-Beyond the teacher/registrar split, four module dashboards differentiate operational roles from read-only oversight roles by gating only the *operational top-of-fold tiles* (PriorityPanel, chase strip, ActionList, readiness card, etc.) without splitting into per-role views. The page RSC computes a single `isOperational` (or `isOfficer`) boolean and branches inline:
+Beyond the teacher/registrar split, four module dashboards differentiate operational roles from read-only oversight roles by gating only the _operational top-of-fold tiles_ (PriorityPanel, chase strip, ActionList, readiness card, etc.) without splitting into per-role views. The page RSC computes a single `isOperational` (or `isOfficer`) boolean and branches inline:
 
-| Module | Operational role(s) | Oversight role(s) | What gets gated |
-|---|---|---|---|
-| `/p-files` | `p-file`, `superadmin` (`isOfficer`) | `school_admin`, `admin` | `<PriorityPanel>` + `<DocumentChaseQueueStrip>` + bulk-notify; hero copy reframed for oversight |
-| `/records` | `registrar` (`isOperational`) | `school_admin`, `admin`, `superadmin` | `<DocumentChaseQueueStrip>` + "Documents to collect" `ActionList` + `<ClassAssignmentReadinessCard>` |
-| `/admissions` | `admissions`, `registrar` (`isOperational`) | `school_admin`, `admin`, `superadmin` | `<NewApplicationsPriority>` + chase strip + chase `<PriorityPanel>` + chaseInsights |
-| `/sis` | `superadmin` (full hub access) | `admin`, `school_admin` | Access + System nav sections (Approvers / School Config / Users / Settings) **hidden entirely** for non-superadmin instead of greyed-out; hero copy branches by access tier |
+| Module        | Operational role(s)                         | Oversight role(s)                     | What gets gated                                                                                                                                                             |
+| ------------- | ------------------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/p-files`    | `p-file`, `superadmin` (`isOfficer`)        | `school_admin`, `admin`               | `<PriorityPanel>` + `<DocumentChaseQueueStrip>` + bulk-notify; hero copy reframed for oversight                                                                             |
+| `/records`    | `registrar` (`isOperational`)               | `school_admin`, `admin`, `superadmin` | `<DocumentChaseQueueStrip>` + "Documents to collect" `ActionList` + `<ClassAssignmentReadinessCard>`                                                                        |
+| `/admissions` | `admissions`, `registrar` (`isOperational`) | `school_admin`, `admin`, `superadmin` | `<NewApplicationsPriority>` + chase strip + chase `<PriorityPanel>` + chaseInsights                                                                                         |
+| `/sis`        | `superadmin` (full hub access)              | `admin`, `school_admin`               | Access + System nav sections (Approvers / School Config / Users / Settings) **hidden entirely** for non-superadmin instead of greyed-out; hero copy branches by access tier |
 
 Oversight roles always keep the analytical surface (KPIs, charts, drill cards) — the gating subtracts the work-surface tiles only. This pattern is **not** the same as the teacher/registrar split above; it's an in-place subtraction at one URL, not a per-role view component. KD #57 archetype assignment is unchanged — the dashboard's archetype (operational / analytical / hub) reflects the operational role's task; the oversight roles see a degraded version.
 

@@ -14,26 +14,27 @@
 
 ## File Map
 
-| File | Action | Responsibility |
-|---|---|---|
-| `supabase/migrations/059_sow_hard_gate.sql` | Create | New RPC + schema column |
-| `lib/sis/sow/queries.ts` | Modify | Add `has_partial_rebaseline` to type + new helpers |
-| `lib/sis/sow/mutations.ts` | Modify | `createOrUpdateClassInstance` param; new merge helpers; update `applyInstanceToSection` |
-| `app/api/grading-sheets/bulk-create/route.ts` | Modify | Replace `applySowForSheets` with `gateAndActivateScopes` |
-| `app/api/sis/admin/sow/apply/route.ts` | Modify | Auto-trigger sheet creation + impact detection + merge |
-| `lib/sis/readiness.ts` | Modify | Add `checkSow`; update types + step numbers |
-| `components/sis/ay-readiness-pill.tsx` | Modify | Add "sow" step icon + grading-sheets dependency copy |
-| `app/(evaluation)/evaluation/sections/[sectionId]/page.tsx` | Modify | Locked empty state when no SOW |
-| `components/markbook/bulk-create-sheets-button.tsx` | Modify | Amber toast for blocked scopes |
-| `components/sis/generate-sheets-dialog.tsx` | Modify | Amber toast for blocked scopes |
-| `components/grading/score-entry-grid.tsx` | Modify | Amber SOW chip when `sowPartialRebaseline` |
-| `app/(markbook)/markbook/grading/[id]/page.tsx` | Modify | Pass `sowPartialRebaseline` prop |
+| File                                                        | Action | Responsibility                                                                          |
+| ----------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------- |
+| `supabase/migrations/059_sow_hard_gate.sql`                 | Create | New RPC + schema column                                                                 |
+| `lib/sis/sow/queries.ts`                                    | Modify | Add `has_partial_rebaseline` to type + new helpers                                      |
+| `lib/sis/sow/mutations.ts`                                  | Modify | `createOrUpdateClassInstance` param; new merge helpers; update `applyInstanceToSection` |
+| `app/api/grading-sheets/bulk-create/route.ts`               | Modify | Replace `applySowForSheets` with `gateAndActivateScopes`                                |
+| `app/api/sis/admin/sow/apply/route.ts`                      | Modify | Auto-trigger sheet creation + impact detection + merge                                  |
+| `lib/sis/readiness.ts`                                      | Modify | Add `checkSow`; update types + step numbers                                             |
+| `components/sis/ay-readiness-pill.tsx`                      | Modify | Add "sow" step icon + grading-sheets dependency copy                                    |
+| `app/(evaluation)/evaluation/sections/[sectionId]/page.tsx` | Modify | Locked empty state when no SOW                                                          |
+| `components/markbook/bulk-create-sheets-button.tsx`         | Modify | Amber toast for blocked scopes                                                          |
+| `components/sis/generate-sheets-dialog.tsx`                 | Modify | Amber toast for blocked scopes                                                          |
+| `components/grading/score-entry-grid.tsx`                   | Modify | Amber SOW chip when `sowPartialRebaseline`                                              |
+| `app/(markbook)/markbook/grading/[id]/page.tsx`             | Modify | Pass `sowPartialRebaseline` prop                                                        |
 
 ---
 
 ## Task 1: Migration 059 — schema column + selective RPC
 
 **Files:**
+
 - Create: `supabase/migrations/059_sow_hard_gate.sql`
 
 - [ ] **Step 1: Write the migration file**
@@ -136,12 +137,14 @@ Expected: migration applies without error.
 - [ ] **Step 3: Verify the RPC works**
 
 Run in Supabase SQL editor (use real UUIDs from your test environment):
+
 ```sql
 SELECT create_grading_sheets_for_scopes('[]'::jsonb);
 -- Expected: {"inserted": 0}
 ```
 
 Also verify the column exists:
+
 ```sql
 SELECT column_name, data_type, column_default
 FROM information_schema.columns
@@ -162,6 +165,7 @@ git commit -m "feat(migration): 059 — SOW hard gate: selective sheet RPC + has
 ## Task 2: Update `SowClassInstanceRow` type + `sowExistsForSection`
 
 **Files:**
+
 - Modify: `lib/sis/sow/queries.ts`
 
 - [ ] **Step 1: Add `has_partial_rebaseline` to `SowClassInstanceRow`**
@@ -175,7 +179,7 @@ export type SowClassInstanceRow = {
   subject_id: string;
   term_id: string;
   published_version_id: string;
-  has_partial_rebaseline: boolean;  // ADD THIS
+  has_partial_rebaseline: boolean; // ADD THIS
   created_at: string;
   updated_at: string;
 };
@@ -189,12 +193,21 @@ Replace the existing `sowExistsForSection` function:
 export async function sowExistsForSection(
   section_id: string,
   subject_id: string,
-  term_id: string,
-): Promise<{ exists: boolean; version: SowPublishedVersionRow | null; partial_rebaseline: boolean }> {
+  term_id: string
+): Promise<{
+  exists: boolean;
+  version: SowPublishedVersionRow | null;
+  partial_rebaseline: boolean;
+}> {
   const instance = await getClassInstance(section_id, subject_id, term_id);
-  if (!instance) return { exists: false, version: null, partial_rebaseline: false };
+  if (!instance)
+    return { exists: false, version: null, partial_rebaseline: false };
   const version = await getPublishedVersionById(instance.published_version_id);
-  return { exists: true, version, partial_rebaseline: instance.has_partial_rebaseline };
+  return {
+    exists: true,
+    version,
+    partial_rebaseline: instance.has_partial_rebaseline,
+  };
 }
 ```
 
@@ -218,6 +231,7 @@ git commit -m "feat(sow): expose has_partial_rebaseline from sowExistsForSection
 ## Task 3: New query helpers — `hasGradingScores`, `hasEvaluationResponses`, `detectSowChangeImpact`
 
 **Files:**
+
 - Modify: `lib/sis/sow/queries.ts`
 
 These helpers are used by the SOW apply route (Task 7) to decide clean vs merge path.
@@ -230,7 +244,7 @@ These helpers are used by the SOW apply route (Task 7) to decide clean vs merge 
 /** True if any student in the sheet has a non-null WW or PT score. */
 export async function hasGradingScores(
   service: ReturnType<typeof createServiceClient>,
-  sheetId: string,
+  sheetId: string
 ): Promise<boolean> {
   const { data: entries } = await service
     .from('grade_entries')
@@ -240,14 +254,19 @@ export async function hasGradingScores(
   return (entries ?? []).some(
     (e) =>
       ((e.ww_scores ?? []) as (number | null)[]).some((s) => s !== null) ||
-      ((e.pt_scores ?? []) as (number | null)[]).some((s) => s !== null),
+      ((e.pt_scores ?? []) as (number | null)[]).some((s) => s !== null)
   );
 }
 
 /** True if any evaluation checklist item in this scope has a non-null rating. */
 export async function hasEvaluationResponses(
   service: ReturnType<typeof createServiceClient>,
-  scope: { term_id: string; subject_id: string; level_id: string; curriculum_track: string },
+  scope: {
+    term_id: string;
+    subject_id: string;
+    level_id: string;
+    curriculum_track: string;
+  }
 ): Promise<boolean> {
   const { data: items } = await service
     .from('evaluation_checklist_items')
@@ -262,7 +281,10 @@ export async function hasEvaluationResponses(
   const { count } = await service
     .from('evaluation_checklist_responses')
     .select('id', { count: 'exact', head: true })
-    .in('item_id', items.map((i) => i.id))
+    .in(
+      'item_id',
+      items.map((i) => i.id)
+    )
     .not('rating', 'is', null);
 
   return (count ?? 0) > 0;
@@ -275,7 +297,7 @@ export async function detectSowChangeImpact(
   subjectId: string,
   termId: string,
   levelId: string,
-  curriculumTrack: string,
+  curriculumTrack: string
 ): Promise<{ hasGradingScores: boolean; hasEvaluationResponses: boolean }> {
   const { data: sheet } = await service
     .from('grading_sheets')
@@ -287,7 +309,12 @@ export async function detectSowChangeImpact(
 
   const [scores, responses] = await Promise.all([
     sheet ? hasGradingScores(service, sheet.id) : Promise.resolve(false),
-    hasEvaluationResponses(service, { term_id: termId, subject_id: subjectId, level_id: levelId, curriculum_track: curriculumTrack }),
+    hasEvaluationResponses(service, {
+      term_id: termId,
+      subject_id: subjectId,
+      level_id: levelId,
+      curriculum_track: curriculumTrack,
+    }),
   ]);
 
   return { hasGradingScores: scores, hasEvaluationResponses: responses };
@@ -314,6 +341,7 @@ git commit -m "feat(sow): add hasGradingScores, hasEvaluationResponses, detectSo
 ## Task 4: Update `createOrUpdateClassInstance` + new merge mutation helpers
 
 **Files:**
+
 - Modify: `lib/sis/sow/mutations.ts`
 
 - [ ] **Step 1: Add `has_partial_rebaseline` parameter to `createOrUpdateClassInstance`**
@@ -326,7 +354,7 @@ export async function createOrUpdateClassInstance(
   subject_id: string,
   term_id: string,
   published_version_id: string,
-  has_partial_rebaseline = false,  // NEW — defaults false for first apply
+  has_partial_rebaseline = false // NEW — defaults false for first apply
 ): Promise<{ data: SowClassInstanceRow | null; error: string | null }> {
   const service = createServiceClient();
 
@@ -341,7 +369,11 @@ export async function createOrUpdateClassInstance(
   if (existing?.id) {
     const { data: updated, error } = await service
       .from('sow_class_instances')
-      .update({ published_version_id, has_partial_rebaseline, updated_at: new Date().toISOString() })
+      .update({
+        published_version_id,
+        has_partial_rebaseline,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', existing.id)
       .select('*')
       .single();
@@ -351,7 +383,13 @@ export async function createOrUpdateClassInstance(
 
   const { data: inserted, error } = await service
     .from('sow_class_instances')
-    .insert({ section_id, subject_id, term_id, published_version_id, has_partial_rebaseline })
+    .insert({
+      section_id,
+      subject_id,
+      term_id,
+      published_version_id,
+      has_partial_rebaseline,
+    })
     .select('*')
     .single();
   if (error) return { data: null, error: error.message };
@@ -386,7 +424,7 @@ export async function mergeGradingSheetSlots(
   service: ReturnType<typeof createServiceClient>,
   sheetId: string,
   newWw: (SowSlotDescriptor | null)[],
-  newPt: (SowSlotDescriptor | null)[],
+  newPt: (SowSlotDescriptor | null)[]
 ): Promise<void> {
   const { data: sheet } = await service
     .from('grading_sheets')
@@ -400,12 +438,20 @@ export async function mergeGradingSheetSlots(
     .select('ww_scores, pt_scores')
     .eq('grading_sheet_id', sheetId);
 
-  const current = ((sheet.slot_labels ?? { ww: [], pt: [], qa: null }) as SlotLabels);
+  const current = (sheet.slot_labels ?? {
+    ww: [],
+    pt: [],
+    qa: null,
+  }) as SlotLabels;
 
   const wwHasScore = (i: number) =>
-    (entries ?? []).some((e) => ((e.ww_scores ?? []) as (number | null)[])[i] != null);
+    (entries ?? []).some(
+      (e) => ((e.ww_scores ?? []) as (number | null)[])[i] != null
+    );
   const ptHasScore = (i: number) =>
-    (entries ?? []).some((e) => ((e.pt_scores ?? []) as (number | null)[])[i] != null);
+    (entries ?? []).some(
+      (e) => ((e.pt_scores ?? []) as (number | null)[])[i] != null
+    );
 
   const mergedWw = ((sheet.ww_totals ?? []) as number[]).map((_, i) => {
     if (i < newWw.length && newWw[i] !== null) return newWw[i];
@@ -438,8 +484,13 @@ export async function mergeGradingSheetSlots(
  */
 export async function mergeEvaluationTopics(
   service: ReturnType<typeof createServiceClient>,
-  scope: { term_id: string; subject_id: string; level_id: string; curriculum_track: string },
-  newTopics: SowTopic[],
+  scope: {
+    term_id: string;
+    subject_id: string;
+    level_id: string;
+    curriculum_track: string;
+  },
+  newTopics: SowTopic[]
 ): Promise<{ preserved: number; deleted: number; inserted: number }> {
   const { data: existingItems } = await service
     .from('evaluation_checklist_items')
@@ -461,7 +512,7 @@ export async function mergeEvaluationTopics(
           item_text: t.text,
           sort_order: t.sort_order,
           sow_class_instance_id: null,
-        })),
+        }))
       );
     }
     return { preserved: 0, deleted: 0, inserted: newTopics.length };
@@ -471,7 +522,10 @@ export async function mergeEvaluationTopics(
   const { data: responses } = await service
     .from('evaluation_checklist_responses')
     .select('item_id')
-    .in('item_id', existingItems.map((i) => i.id))
+    .in(
+      'item_id',
+      existingItems.map((i) => i.id)
+    )
     .not('rating', 'is', null);
 
   const respondedIds = new Set((responses ?? []).map((r) => r.item_id));
@@ -482,7 +536,10 @@ export async function mergeEvaluationTopics(
     await service
       .from('evaluation_checklist_items')
       .delete()
-      .in('id', toDelete.map((i) => i.id));
+      .in(
+        'id',
+        toDelete.map((i) => i.id)
+      );
   }
 
   // Insert new topics not already in the kept set (matched by text)
@@ -499,11 +556,15 @@ export async function mergeEvaluationTopics(
         item_text: t.text,
         sort_order: t.sort_order,
         sow_class_instance_id: null,
-      })),
+      }))
     );
   }
 
-  return { preserved: toKeep.length, deleted: toDelete.length, inserted: toInsert.length };
+  return {
+    preserved: toKeep.length,
+    deleted: toDelete.length,
+    inserted: toInsert.length,
+  };
 }
 ```
 
@@ -530,32 +591,45 @@ export async function applyInstanceToSection(
   level_id: string,
   curriculum_track: string,
   published_version_id: string,
-  version: { ww: (SowSlotDescriptor | null)[]; pt: (SowSlotDescriptor | null)[]; topics: SowTopic[] },
-  impactMode: ApplyMode = 'clean',
+  version: {
+    ww: (SowSlotDescriptor | null)[];
+    pt: (SowSlotDescriptor | null)[];
+    topics: SowTopic[];
+  },
+  impactMode: ApplyMode = 'clean'
 ): Promise<{ data: ApplyResult | null; error: string | null }> {
   const service = createServiceClient();
 
   // Step 1: Create or update class instance
-  const { data: instance, error: instanceErr } = await createOrUpdateClassInstance(
-    section_id, subject_id, term_id, published_version_id,
-    impactMode === 'partial-rebaseline',
-  );
-  if (instanceErr || !instance) return { data: null, error: instanceErr ?? 'instance create failed' };
+  const { data: instance, error: instanceErr } =
+    await createOrUpdateClassInstance(
+      section_id,
+      subject_id,
+      term_id,
+      published_version_id,
+      impactMode === 'partial-rebaseline'
+    );
+  if (instanceErr || !instance)
+    return { data: null, error: instanceErr ?? 'instance create failed' };
 
   let sheetsSync = 0;
   let preservedSlots = 0;
 
   if (impactMode === 'clean') {
     // Full slot label replacement (existing RPC — only touches unlocked sheets)
-    const { data: syncResult } = await service.rpc('sync_grading_sheets_from_sow', {
-      p_term_id: term_id,
-      p_subject_id: subject_id,
-      p_level_id: level_id,
-      p_curriculum_track: curriculum_track,
-      p_ww: version.ww,
-      p_pt: version.pt,
-    });
-    sheetsSync = (syncResult as { rows_synced?: number } | null)?.rows_synced ?? 0;
+    const { data: syncResult } = await service.rpc(
+      'sync_grading_sheets_from_sow',
+      {
+        p_term_id: term_id,
+        p_subject_id: subject_id,
+        p_level_id: level_id,
+        p_curriculum_track: curriculum_track,
+        p_ww: version.ww,
+        p_pt: version.pt,
+      }
+    );
+    sheetsSync =
+      (syncResult as { rows_synced?: number } | null)?.rows_synced ?? 0;
   } else {
     // Merge: update labels slot-by-slot preserving scored positions
     const { data: sheet } = await service
@@ -566,13 +640,13 @@ export async function applyInstanceToSection(
       .eq('term_id', term_id)
       .maybeSingle();
 
-    if (sheet && !await isSheetLocked(service, sheet.id)) {
+    if (sheet && !(await isSheetLocked(service, sheet.id))) {
       await mergeGradingSheetSlots(service, sheet.id, version.ww, version.pt);
       sheetsSync = 1;
     }
     // Count preserved slots: positions where the new SOW had no slot but existing scores exist
     // (approximated as ww_totals.length - newWw non-null count for a scored sheet)
-    preservedSlots = Math.max(0, (version.ww.filter(s => s === null).length));
+    preservedSlots = Math.max(0, version.ww.filter((s) => s === null).length);
   }
 
   // Step 3: Sync evaluation topics (conditional)
@@ -591,7 +665,10 @@ export async function applyInstanceToSection(
 
     if (version.topics.length > 0) {
       const rows = version.topics.map((topic) => ({
-        term_id, subject_id, level_id, curriculum_track,
+        term_id,
+        subject_id,
+        level_id,
+        curriculum_track,
         sow_class_instance_id: null,
         item_text: topic.text,
         sort_order: topic.sort_order,
@@ -607,7 +684,7 @@ export async function applyInstanceToSection(
     const result = await mergeEvaluationTopics(
       service,
       { term_id, subject_id, level_id, curriculum_track },
-      version.topics,
+      version.topics
     );
     checklistCount = result.inserted;
     preservedTopics = result.preserved;
@@ -629,7 +706,7 @@ export async function applyInstanceToSection(
 /** Helper: check if a grading sheet is locked (merge mode skips locked sheets). */
 async function isSheetLocked(
   service: ReturnType<typeof createServiceClient>,
-  sheetId: string,
+  sheetId: string
 ): Promise<boolean> {
   const { data } = await service
     .from('grading_sheets')
@@ -660,6 +737,7 @@ git commit -m "feat(sow): merge helpers + applyInstanceToSection impact mode"
 ## Task 5: Restructure bulk-create route
 
 **Files:**
+
 - Modify: `app/api/grading-sheets/bulk-create/route.ts`
 
 Replace the `applySowForSheets` function with `gateAndActivateScopes` which pre-checks SOW before creating sheets.
@@ -705,9 +783,14 @@ type GateResult = {
 async function gateAndActivateScopes(
   service: ServiceClient,
   sectionIds: string[],
-  ayId: string,
+  ayId: string
 ): Promise<GateResult> {
-  const empty: GateResult = { inserted: 0, sow_scopes_applied: 0, sow_scopes_blocked: 0, blocked_subjects: [] };
+  const empty: GateResult = {
+    inserted: 0,
+    sow_scopes_applied: 0,
+    sow_scopes_blocked: 0,
+    blocked_subjects: [],
+  };
   if (!sectionIds.length) return empty;
 
   // 1. Load sections with level + curriculum_track
@@ -717,7 +800,12 @@ async function gateAndActivateScopes(
     .in('id', sectionIds);
   if (!sections?.length) return empty;
 
-  const sectionMap = new Map(sections.map((s) => [s.id, s as { id: string; level_id: string; curriculum_track: string }]));
+  const sectionMap = new Map(
+    sections.map((s) => [
+      s.id,
+      s as { id: string; level_id: string; curriculum_track: string },
+    ])
+  );
   const levelIds = [...new Set(sections.map((s) => s.level_id))];
 
   // 2. Load subject configs and terms for this AY
@@ -727,10 +815,7 @@ async function gateAndActivateScopes(
       .select('subject_id, level_id')
       .eq('academic_year_id', ayId)
       .in('level_id', levelIds),
-    service
-      .from('terms')
-      .select('id')
-      .eq('academic_year_id', ayId),
+    service.from('terms').select('id').eq('academic_year_id', ayId),
   ]);
 
   if (!configs?.length || !terms?.length) return empty;
@@ -738,8 +823,9 @@ async function gateAndActivateScopes(
   // 3. Build scope groups: (term × subject × level × curriculum_track) → Set<section_id>
   const scopeGroups = new Map<string, ScopeGroup>();
   for (const sec of sections) {
-    const secConfigs = (configs as { subject_id: string; level_id: string }[])
-      .filter((c) => c.level_id === sec.level_id);
+    const secConfigs = (
+      configs as { subject_id: string; level_id: string }[]
+    ).filter((c) => c.level_id === sec.level_id);
     for (const term of terms as { id: string }[]) {
       for (const cfg of secConfigs) {
         const key = `${term.id}:${cfg.subject_id}:${sec.level_id}:${sec.curriculum_track}`;
@@ -761,21 +847,31 @@ async function gateAndActivateScopes(
   const scopeVersions = await Promise.all(
     [...scopeGroups.values()].map(async (scope) => {
       const version = await getLatestPublished(
-        scope.term_id, scope.subject_id, scope.level_id,
-        scope.curriculum_track as CurriculumTrack,
+        scope.term_id,
+        scope.subject_id,
+        scope.level_id,
+        scope.curriculum_track as CurriculumTrack
       );
       return { scope, version };
-    }),
+    })
   );
 
   // 5. Split allowed (has SOW) vs blocked (no SOW)
-  const allowedScopes: { section_id: string; subject_id: string; term_id: string }[] = [];
+  const allowedScopes: {
+    section_id: string;
+    subject_id: string;
+    term_id: string;
+  }[] = [];
   const blockedScopeGroups: ScopeGroup[] = [];
 
   for (const { scope, version } of scopeVersions) {
     if (version) {
       for (const sectionId of scope.sectionIds) {
-        allowedScopes.push({ section_id: sectionId, subject_id: scope.subject_id, term_id: scope.term_id });
+        allowedScopes.push({
+          section_id: sectionId,
+          subject_id: scope.subject_id,
+          term_id: scope.term_id,
+        });
       }
     } else {
       blockedScopeGroups.push(scope);
@@ -785,9 +881,12 @@ async function gateAndActivateScopes(
   // 6. Create sheets for allowed scopes via selective RPC
   let inserted = 0;
   if (allowedScopes.length > 0) {
-    const { data: rpcResult } = await service.rpc('create_grading_sheets_for_scopes', {
-      p_scopes: allowedScopes,
-    });
+    const { data: rpcResult } = await service.rpc(
+      'create_grading_sheets_for_scopes',
+      {
+        p_scopes: allowedScopes,
+      }
+    );
     inserted = (rpcResult as { inserted?: number } | null)?.inserted ?? 0;
   }
 
@@ -798,8 +897,14 @@ async function gateAndActivateScopes(
       .map(async ({ scope, version }) => {
         await Promise.all(
           [...scope.sectionIds].map((sid) =>
-            createOrUpdateClassInstance(sid, scope.subject_id, scope.term_id, version!.id, false),
-          ),
+            createOrUpdateClassInstance(
+              sid,
+              scope.subject_id,
+              scope.term_id,
+              version!.id,
+              false
+            )
+          )
         );
 
         await service.rpc('sync_grading_sheets_from_sow', {
@@ -830,14 +935,16 @@ async function gateAndActivateScopes(
               item_text: t.text,
               sort_order: t.sort_order,
               sow_class_instance_id: null,
-            })),
+            }))
           );
         }
-      }),
+      })
   );
 
   // 8. Resolve human-readable labels for blocked scopes
-  const blockedSubjectIds = [...new Set(blockedScopeGroups.map((s) => s.subject_id))];
+  const blockedSubjectIds = [
+    ...new Set(blockedScopeGroups.map((s) => s.subject_id)),
+  ];
   const blockedTermIds = [...new Set(blockedScopeGroups.map((s) => s.term_id))];
 
   const [{ data: subjectRows }, { data: termRows }] = await Promise.all([
@@ -845,18 +952,26 @@ async function gateAndActivateScopes(
     service.from('terms').select('id, label').in('id', blockedTermIds),
   ]);
 
-  const subjectName = new Map((subjectRows ?? []).map((s) => [s.id, s.name as string]));
-  const termLabel = new Map((termRows ?? []).map((t) => [t.id, t.label as string]));
+  const subjectName = new Map(
+    (subjectRows ?? []).map((s) => [s.id, s.name as string])
+  );
+  const termLabel = new Map(
+    (termRows ?? []).map((t) => [t.id, t.label as string])
+  );
 
-  const uniqueBlockedLabels = [...new Set(
-    blockedScopeGroups.map((s) =>
-      `${subjectName.get(s.subject_id) ?? s.subject_id} · ${termLabel.get(s.term_id) ?? s.term_id}`,
+  const uniqueBlockedLabels = [
+    ...new Set(
+      blockedScopeGroups.map(
+        (s) =>
+          `${subjectName.get(s.subject_id) ?? s.subject_id} · ${termLabel.get(s.term_id) ?? s.term_id}`
+      )
     ),
-  )];
+  ];
 
   return {
     inserted,
-    sow_scopes_applied: scopeVersions.filter(({ version }) => version !== null).length,
+    sow_scopes_applied: scopeVersions.filter(({ version }) => version !== null)
+      .length,
     sow_scopes_blocked: blockedScopeGroups.length,
     blocked_subjects: uniqueBlockedLabels,
   };
@@ -867,9 +982,10 @@ export async function POST(request: NextRequest) {
   const auth = await requireRole(['registrar', 'school_admin', 'superadmin']);
   if ('error' in auth) return auth.error;
 
-  const body = (await request.json().catch(() => null)) as
-    | { ay_id?: string; section_id?: string }
-    | null;
+  const body = (await request.json().catch(() => null)) as {
+    ay_id?: string;
+    section_id?: string;
+  } | null;
 
   const ayId = body?.ay_id ?? null;
   const sectionId = body?.section_id ?? null;
@@ -879,7 +995,7 @@ export async function POST(request: NextRequest) {
   if (hasAy === hasSection) {
     return NextResponse.json(
       { error: 'Provide exactly one of ay_id or section_id' },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -895,19 +1011,26 @@ export async function POST(request: NextRequest) {
       .from('sections')
       .select('id')
       .eq('academic_year_id', ayId);
-    targetSectionIds = ((aySections ?? []) as { id: string }[]).map((s) => s.id);
+    targetSectionIds = ((aySections ?? []) as { id: string }[]).map(
+      (s) => s.id
+    );
   } else {
     const { data: sec } = await service
       .from('sections')
       .select('id, academic_year_id')
       .eq('id', sectionId)
       .single();
-    if (!sec) return NextResponse.json({ error: 'section not found' }, { status: 404 });
+    if (!sec)
+      return NextResponse.json({ error: 'section not found' }, { status: 404 });
     targetSectionIds = [sectionId!];
     resolvedAyId = (sec as { academic_year_id: string }).academic_year_id;
   }
 
-  const result = await gateAndActivateScopes(service, targetSectionIds, resolvedAyId);
+  const result = await gateAndActivateScopes(
+    service,
+    targetSectionIds,
+    resolvedAyId
+  );
 
   await logAction({
     service,
@@ -958,6 +1081,7 @@ git commit -m "feat(markbook): bulk-create gates sheet creation on approved SOW 
 ## Task 6: Update SOW apply route — auto-trigger + merge strategy
 
 **Files:**
+
 - Modify: `app/api/sis/admin/sow/apply/route.ts`
 
 - [ ] **Step 1: Rewrite the POST handler**
@@ -969,7 +1093,11 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { requireRole } from '@/lib/auth/require-role';
 import { createServiceClient } from '@/lib/supabase/service';
 import { SowApplySchema } from '@/lib/schemas/sow';
-import { getPublishedVersionById, getMasterById, detectSowChangeImpact } from '@/lib/sis/sow/queries';
+import {
+  getPublishedVersionById,
+  getMasterById,
+  detectSowChangeImpact,
+} from '@/lib/sis/sow/queries';
 import { applyInstanceToSection } from '@/lib/sis/sow/mutations';
 import { logAction } from '@/lib/audit/log-action';
 import type { SowSlotDescriptor } from '@/lib/schemas/grading-sheet';
@@ -984,16 +1112,27 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const parsed = SowApplySchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'invalid body', issues: parsed.error.issues }, { status: 400 });
+    return NextResponse.json(
+      { error: 'invalid body', issues: parsed.error.issues },
+      { status: 400 }
+    );
   }
 
   const { published_version_id } = parsed.data;
 
   const version = await getPublishedVersionById(published_version_id);
-  if (!version) return NextResponse.json({ error: 'published version not found' }, { status: 404 });
+  if (!version)
+    return NextResponse.json(
+      { error: 'published version not found' },
+      { status: 404 }
+    );
 
   const master = await getMasterById(version.master_id);
-  if (!master) return NextResponse.json({ error: 'master template not found' }, { status: 500 });
+  if (!master)
+    return NextResponse.json(
+      { error: 'master template not found' },
+      { status: 500 }
+    );
 
   const service = createServiceClient();
 
@@ -1005,7 +1144,13 @@ export async function POST(request: NextRequest) {
     .eq('curriculum_track', master.curriculum_track);
 
   if (!sections || sections.length === 0) {
-    return NextResponse.json({ ok: true, sections_targeted: 0, sheets_created: 0, total_sheets_synced: 0, total_checklist_items: 0 });
+    return NextResponse.json({
+      ok: true,
+      sections_targeted: 0,
+      sheets_created: 0,
+      total_sheets_synced: 0,
+      total_checklist_items: 0,
+    });
   }
 
   const versionPayload = {
@@ -1021,10 +1166,14 @@ export async function POST(request: NextRequest) {
     term_id: master.term_id,
   }));
 
-  const { data: sheetResult } = await service.rpc('create_grading_sheets_for_scopes', {
-    p_scopes: sheetScopes,
-  });
-  const sheetsCreated = (sheetResult as { inserted?: number } | null)?.inserted ?? 0;
+  const { data: sheetResult } = await service.rpc(
+    'create_grading_sheets_for_scopes',
+    {
+      p_scopes: sheetScopes,
+    }
+  );
+  const sheetsCreated =
+    (sheetResult as { inserted?: number } | null)?.inserted ?? 0;
 
   let totalSheetsSynced = 0;
   let totalChecklistItems = 0;
@@ -1041,13 +1190,13 @@ export async function POST(request: NextRequest) {
         master.subject_id,
         master.term_id,
         master.level_id,
-        master.curriculum_track,
+        master.curriculum_track
       );
 
       const impactMode =
         impact.hasGradingScores || impact.hasEvaluationResponses
-          ? 'partial-rebaseline' as const
-          : 'clean' as const;
+          ? ('partial-rebaseline' as const)
+          : ('clean' as const);
 
       const { data, error } = await applyInstanceToSection(
         section.id,
@@ -1057,11 +1206,11 @@ export async function POST(request: NextRequest) {
         master.curriculum_track,
         published_version_id,
         versionPayload,
-        impactMode,
+        impactMode
       );
       if (error || !data) return null;
       return data;
-    }),
+    })
   );
 
   for (const r of results) {
@@ -1077,8 +1226,12 @@ export async function POST(request: NextRequest) {
 
   const rebaselineReason = anyPartialRebaseline
     ? [
-        totalPreservedSlots > 0 ? `WW/PT: ${totalPreservedSlots} slot(s) preserved (scores exist)` : '',
-        totalPreservedTopics > 0 ? `Topics: ${totalPreservedTopics} item(s) preserved (ratings exist)` : '',
+        totalPreservedSlots > 0
+          ? `WW/PT: ${totalPreservedSlots} slot(s) preserved (scores exist)`
+          : '',
+        totalPreservedTopics > 0
+          ? `Topics: ${totalPreservedTopics} item(s) preserved (ratings exist)`
+          : '',
       ]
         .filter(Boolean)
         .join('; ')
@@ -1139,23 +1292,24 @@ git commit -m "feat(sow): apply route auto-creates sheets + merge strategy for m
 ## Task 7: Add "sow" readiness step to `lib/sis/readiness.ts`
 
 **Files:**
+
 - Modify: `lib/sis/readiness.ts`
 
 - [ ] **Step 1: Update `ReadinessStepId` and `AyReadiness.total`**
 
 ```typescript
 export type ReadinessStepId =
-  | "ay-setup"
-  | "calendar"
-  | "sections"
-  | "sow"          // NEW — inserted between sections and grading-sheets
-  | "grading-sheets";
+  | 'ay-setup'
+  | 'calendar'
+  | 'sections'
+  | 'sow' // NEW — inserted between sections and grading-sheets
+  | 'grading-sheets';
 
 export type AyReadiness = {
   ayCode: string;
   steps: ReadinessStep[];
   complete: number;
-  total: 5;        // WAS 4
+  total: 5; // WAS 4
 };
 ```
 
@@ -1164,36 +1318,54 @@ export type AyReadiness = {
 Add after `checkSections`:
 
 ```typescript
-async function checkSow(db: SupabaseClient, ayId: string): Promise<ReadinessStep> {
-  const base: Omit<ReadinessStep, "status" | "description" | "fraction"> = {
-    id: "sow",
+async function checkSow(
+  db: SupabaseClient,
+  ayId: string
+): Promise<ReadinessStep> {
+  const base: Omit<ReadinessStep, 'status' | 'description' | 'fraction'> = {
+    id: 'sow',
     step: 4,
-    label: "Scheme of Work",
-    href: "/sis/admin/sow",
+    label: 'Scheme of Work',
+    href: '/sis/admin/sow',
   };
 
   const [{ data: sections }, { data: terms }] = await Promise.all([
-    db.from("sections").select("level_id, curriculum_track").eq("academic_year_id", ayId),
-    db.from("terms").select("id").eq("academic_year_id", ayId),
+    db
+      .from('sections')
+      .select('level_id, curriculum_track')
+      .eq('academic_year_id', ayId),
+    db.from('terms').select('id').eq('academic_year_id', ayId),
   ]);
 
   if (!sections?.length || !terms?.length) {
-    return { ...base, status: "not_started", description: "Create sections and terms first", fraction: { done: 0, total: 0 } };
+    return {
+      ...base,
+      status: 'not_started',
+      description: 'Create sections and terms first',
+      fraction: { done: 0, total: 0 },
+    };
   }
 
   const levelTracks = [
-    ...new Map(sections.map((s) => [`${s.level_id}:${s.curriculum_track}`, s])).values(),
+    ...new Map(
+      sections.map((s) => [`${s.level_id}:${s.curriculum_track}`, s])
+    ).values(),
   ];
   const levelIds = [...new Set(levelTracks.map((s) => s.level_id))];
 
   const { data: configs } = await db
-    .from("subject_configs")
-    .select("subject_id, level_id")
-    .eq("academic_year_id", ayId)
-    .in("level_id", levelIds);
+    .from('subject_configs')
+    .select('subject_id, level_id')
+    .eq('academic_year_id', ayId)
+    .in('level_id', levelIds);
 
   if (!configs?.length) {
-    return { ...base, status: "not_started", description: "No subjects configured for this AY", fraction: { done: 0, total: 0 } };
+    return {
+      ...base,
+      status: 'not_started',
+      description: 'No subjects configured for this AY',
+      fraction: { done: 0, total: 0 },
+    };
   }
 
   // Build the full needed scope set
@@ -1201,25 +1373,41 @@ async function checkSow(db: SupabaseClient, ayId: string): Promise<ReadinessStep
   for (const lt of levelTracks) {
     for (const term of terms) {
       for (const cfg of configs.filter((c) => c.level_id === lt.level_id)) {
-        neededKeys.add(`${term.id}:${cfg.subject_id}:${lt.level_id}:${lt.curriculum_track}`);
+        neededKeys.add(
+          `${term.id}:${cfg.subject_id}:${lt.level_id}:${lt.curriculum_track}`
+        );
       }
     }
   }
   const total = neededKeys.size;
   if (total === 0) {
-    return { ...base, status: "not_started", description: "No SOW scopes to cover", fraction: { done: 0, total: 0 } };
+    return {
+      ...base,
+      status: 'not_started',
+      description: 'No SOW scopes to cover',
+      fraction: { done: 0, total: 0 },
+    };
   }
 
   // Get all masters with at least one published version for this AY
   const { data: masters } = await db
-    .from("sow_master_templates")
-    .select("term_id, subject_id, level_id, curriculum_track, sow_published_versions(id)")
-    .eq("ay_id", ayId);
+    .from('sow_master_templates')
+    .select(
+      'term_id, subject_id, level_id, curriculum_track, sow_published_versions(id)'
+    )
+    .eq('ay_id', ayId);
 
   const publishedKeys = new Set(
     (masters ?? [])
-      .filter((m) => ((m.sow_published_versions as { id: string }[] | null)?.length ?? 0) > 0)
-      .map((m) => `${m.term_id}:${m.subject_id}:${m.level_id}:${m.curriculum_track}`),
+      .filter(
+        (m) =>
+          ((m.sow_published_versions as { id: string }[] | null)?.length ?? 0) >
+          0
+      )
+      .map(
+        (m) =>
+          `${m.term_id}:${m.subject_id}:${m.level_id}:${m.curriculum_track}`
+      )
   );
 
   const done = [...neededKeys].filter((k) => publishedKeys.has(k)).length;
@@ -1227,9 +1415,9 @@ async function checkSow(db: SupabaseClient, ayId: string): Promise<ReadinessStep
 
   return {
     ...base,
-    status: allDone ? "done" : done > 0 ? "partial" : "not_started",
+    status: allDone ? 'done' : done > 0 ? 'partial' : 'not_started',
     description: allDone
-      ? "All subject-term scopes have approved SOW"
+      ? 'All subject-term scopes have approved SOW'
       : `${done} of ${total} subject-term scopes have approved SOW`,
     fraction: { done, total },
   };
@@ -1241,11 +1429,11 @@ async function checkSow(db: SupabaseClient, ayId: string): Promise<ReadinessStep
 In `checkGradingSheets`, update the `base` object:
 
 ```typescript
-const base: Omit<ReadinessStep, "status" | "description" | "fraction"> = {
-  id: "grading-sheets",
-  step: 5,          // WAS 4
-  label: "Grading Sheets",
-  href: "/markbook/sections",
+const base: Omit<ReadinessStep, 'status' | 'description' | 'fraction'> = {
+  id: 'grading-sheets',
+  step: 5, // WAS 4
+  label: 'Grading Sheets',
+  href: '/markbook/sections',
 };
 ```
 
@@ -1254,11 +1442,48 @@ const base: Omit<ReadinessStep, "status" | "description" | "fraction"> = {
 ```typescript
 function buildAllNotStarted(ayCode: string): AyReadiness {
   const steps: ReadinessStep[] = [
-    { id: "ay-setup", step: 1, label: "AY Setup", href: "/sis/ay-setup", status: "not_started", description: "Create the academic year and define term dates" },
-    { id: "calendar", step: 2, label: "School Calendar", href: "/sis/calendar", status: "not_started", description: "Generate school days for all terms" },
-    { id: "sections", step: 3, label: "Sections", href: "/sis/sections", status: "not_started", description: "Create sections and assign form advisers" },
-    { id: "sow", step: 4, label: "Scheme of Work", href: "/sis/admin/sow", status: "not_started", description: "Publish SOW for all subject-term scopes", fraction: { done: 0, total: 0 } },
-    { id: "grading-sheets", step: 5, label: "Grading Sheets", href: "/markbook/sections", status: "not_started", description: "Bulk-create grading sheets in Markbook → Sections", fraction: { done: 0, total: 0 } },
+    {
+      id: 'ay-setup',
+      step: 1,
+      label: 'AY Setup',
+      href: '/sis/ay-setup',
+      status: 'not_started',
+      description: 'Create the academic year and define term dates',
+    },
+    {
+      id: 'calendar',
+      step: 2,
+      label: 'School Calendar',
+      href: '/sis/calendar',
+      status: 'not_started',
+      description: 'Generate school days for all terms',
+    },
+    {
+      id: 'sections',
+      step: 3,
+      label: 'Sections',
+      href: '/sis/sections',
+      status: 'not_started',
+      description: 'Create sections and assign form advisers',
+    },
+    {
+      id: 'sow',
+      step: 4,
+      label: 'Scheme of Work',
+      href: '/sis/admin/sow',
+      status: 'not_started',
+      description: 'Publish SOW for all subject-term scopes',
+      fraction: { done: 0, total: 0 },
+    },
+    {
+      id: 'grading-sheets',
+      step: 5,
+      label: 'Grading Sheets',
+      href: '/markbook/sections',
+      status: 'not_started',
+      description: 'Bulk-create grading sheets in Markbook → Sections',
+      fraction: { done: 0, total: 0 },
+    },
   ];
   return { ayCode, steps, complete: 0, total: 5 };
 }
@@ -1271,9 +1496,9 @@ async function getAyReadinessUncached(ayCode: string): Promise<AyReadiness> {
   const db = createServiceClient();
 
   const { data: ay } = await db
-    .from("academic_years")
-    .select("id")
-    .eq("ay_code", ayCode)
+    .from('academic_years')
+    .select('id')
+    .eq('ay_code', ayCode)
     .maybeSingle();
 
   if (!ay) return buildAllNotStarted(ayCode);
@@ -1287,7 +1512,7 @@ async function getAyReadinessUncached(ayCode: string): Promise<AyReadiness> {
   ]);
 
   const steps = [step1, step2, step3, step4, step5];
-  const complete = steps.filter((s) => s.status === "done").length;
+  const complete = steps.filter((s) => s.status === 'done').length;
   return { ayCode, steps, complete, total: 5 };
 }
 ```
@@ -1312,6 +1537,7 @@ git commit -m "feat(readiness): add SOW step between sections and grading-sheets
 ## Task 8: Update `AyReadinessPill` — add "sow" step icon
 
 **Files:**
+
 - Modify: `components/sis/ay-readiness-pill.tsx`
 
 - [ ] **Step 1: Add `ScrollText` import and update `STEP_ICONS`**
@@ -1328,19 +1554,19 @@ import {
   ClipboardCheck,
   LayoutGrid,
   Minus,
-  ScrollText,     // ADD THIS
+  ScrollText, // ADD THIS
   TableProperties,
   type LucideIcon,
-} from "lucide-react";
+} from 'lucide-react';
 ```
 
 ```typescript
 const STEP_ICONS: Record<ReadinessStepId, LucideIcon> = {
-  "ay-setup": CalendarCog,
-  "calendar": CalendarDays,
-  "sections": LayoutGrid,
-  "sow": ScrollText,            // ADD THIS
-  "grading-sheets": TableProperties,
+  'ay-setup': CalendarCog,
+  calendar: CalendarDays,
+  sections: LayoutGrid,
+  sow: ScrollText, // ADD THIS
+  'grading-sheets': TableProperties,
 };
 ```
 
@@ -1359,35 +1585,35 @@ async function checkGradingSheets(db: SupabaseClient, ayId: string, sowDone: boo
 At the end of `checkGradingSheets`, update the `not_started` description:
 
 ```typescript
-  // When sow step is incomplete, guide the admin to approve SOW first
-  const notStartedDesc = sowDone
-    ? "Bulk-create grading sheets in Markbook → Sections"
-    : "Approve SOW first — grading sheets will be generated automatically on apply";
+// When sow step is incomplete, guide the admin to approve SOW first
+const notStartedDesc = sowDone
+  ? 'Bulk-create grading sheets in Markbook → Sections'
+  : 'Approve SOW first — grading sheets will be generated automatically on apply';
 
-  return {
-    ...base,
-    status: done ? "done" : sectionsWithSheets > 0 ? "partial" : "not_started",
-    description: done
-      ? "Grading sheets created for all sections"
-      : sectionsWithSheets > 0
-        ? `${sectionsWithSheets} of ${totalSections} sections have grading sheets`
-        : notStartedDesc,
-    fraction: { done: sectionsWithSheets, total: totalSections },
-  };
+return {
+  ...base,
+  status: done ? 'done' : sectionsWithSheets > 0 ? 'partial' : 'not_started',
+  description: done
+    ? 'Grading sheets created for all sections'
+    : sectionsWithSheets > 0
+      ? `${sectionsWithSheets} of ${totalSections} sections have grading sheets`
+      : notStartedDesc,
+  fraction: { done: sectionsWithSheets, total: totalSections },
+};
 ```
 
 Update `getAyReadinessUncached` to pass `sowDone`:
 
 ```typescript
-  const [step1, step2, step3, step4] = await Promise.all([
-    checkAySetup(db, ay.id),
-    checkCalendar(db, ay.id),
-    checkSections(db, ay.id),
-    checkSow(db, ay.id),
-  ]);
-  const step5 = await checkGradingSheets(db, ay.id, step4.status === 'done');
+const [step1, step2, step3, step4] = await Promise.all([
+  checkAySetup(db, ay.id),
+  checkCalendar(db, ay.id),
+  checkSections(db, ay.id),
+  checkSow(db, ay.id),
+]);
+const step5 = await checkGradingSheets(db, ay.id, step4.status === 'done');
 
-  const steps = [step1, step2, step3, step4, step5];
+const steps = [step1, step2, step3, step4, step5];
 ```
 
 Note: `step5` is now sequential (depends on `step4.status`) — update accordingly.
@@ -1413,6 +1639,7 @@ git commit -m "feat(readiness-pill): add SOW step with ScrollText icon + grading
 ## Task 9: Evaluation locked state
 
 **Files:**
+
 - Modify: `app/(evaluation)/evaluation/sections/[sectionId]/page.tsx`
 
 - [ ] **Step 1: Add the locked empty state**
@@ -1421,45 +1648,61 @@ Find the `ChecklistRosterClient` render in the Checklists tab content (the JSX t
 
 ```tsx
 // At the top of the file, add Lock to existing lucide imports:
-import { AlertTriangle, ArrowLeft, ArrowUpRight, CalendarClock, ClipboardList, Lock, MessageCircle, Sparkle, SquarePen } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowUpRight,
+  CalendarClock,
+  ClipboardList,
+  Lock,
+  MessageCircle,
+  Sparkle,
+  SquarePen,
+} from 'lucide-react';
 ```
 
 In the JSX where `<ChecklistRosterClient>` is rendered, replace with:
 
 ```tsx
-{!sowCheck.exists ? (
-  // SOW not yet approved for this subject — locked state
-  <div className="flex flex-col items-center gap-5 py-16">
-    <div className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-amber to-brand-amber/60 shadow-md">
-      <Lock className="size-6 text-white" />
+{
+  !sowCheck.exists ? (
+    // SOW not yet approved for this subject — locked state
+    <div className="flex flex-col items-center gap-5 py-16">
+      <div className="flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-amber to-brand-amber/60 shadow-md">
+        <Lock className="size-6 text-white" />
+      </div>
+      <div className="space-y-1.5 text-center">
+        <p className="font-serif text-xl font-semibold text-foreground">
+          SOW not yet approved
+        </p>
+        <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
+          Topics for{' '}
+          <span className="font-medium text-foreground">
+            {visibleSubjects.find((s) => s.id === selectedSubjectId)?.name ??
+              'this subject'}
+          </span>{' '}
+          · {selectedTerm?.label} will appear here once the administrator
+          publishes and applies the Scheme of Work.
+        </p>
+      </div>
+      {(sessionUser.role === 'registrar' ||
+        sessionUser.role === 'school_admin' ||
+        sessionUser.role === 'superadmin') && (
+        <Link
+          href="/sis/admin/sow"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:underline"
+        >
+          Open SOW builder
+          <ArrowUpRight className="size-3.5" />
+        </Link>
+      )}
     </div>
-    <div className="space-y-1.5 text-center">
-      <p className="font-serif text-xl font-semibold text-foreground">SOW not yet approved</p>
-      <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
-        Topics for{" "}
-        <span className="font-medium text-foreground">
-          {visibleSubjects.find((s) => s.id === selectedSubjectId)?.name ?? "this subject"}
-        </span>{" "}
-        · {selectedTerm?.label} will appear here once the administrator publishes and applies the Scheme of Work.
-      </p>
-    </div>
-    {(sessionUser.role === "registrar" ||
-      sessionUser.role === "school_admin" ||
-      sessionUser.role === "superadmin") && (
-      <Link
-        href="/sis/admin/sow"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:underline"
-      >
-        Open SOW builder
-        <ArrowUpRight className="size-3.5" />
-      </Link>
-    )}
-  </div>
-) : (
-  <ChecklistRosterClient
+  ) : (
+    <ChecklistRosterClient
     // ... existing props unchanged ...
-  />
-)}
+    />
+  );
+}
 ```
 
 - [ ] **Step 2: Type-check**
@@ -1482,6 +1725,7 @@ git commit -m "feat(evaluation): locked empty state for Checklists tab when SOW 
 ## Task 10: Update bulk-create UI — amber toast for blocked scopes
 
 **Files:**
+
 - Modify: `components/markbook/bulk-create-sheets-button.tsx`
 - Modify: `components/sis/generate-sheets-dialog.tsx`
 
@@ -1495,16 +1739,18 @@ const blockedCount = body.sow_scopes_blocked ?? 0;
 const blockedSubjects: string[] = body.blocked_subjects ?? [];
 
 if (inserted === 0 && blockedCount === 0) {
-  toast.info(`No new sheets needed for ${ayCode} — every (section × subject × term) is already covered.`);
+  toast.info(
+    `No new sheets needed for ${ayCode} — every (section × subject × term) is already covered.`
+  );
 } else {
   if (inserted > 0) {
     toast.success(
-      `Created ${inserted.toLocaleString('en-SG')} sheet${inserted === 1 ? '' : 's'} for ${ayCode}.`,
+      `Created ${inserted.toLocaleString('en-SG')} sheet${inserted === 1 ? '' : 's'} for ${ayCode}.`
     );
   }
   if (blockedCount > 0) {
     toast.warning(
-      `${blockedCount} scope${blockedCount === 1 ? '' : 's'} skipped — no approved SOW: ${blockedSubjects.slice(0, 3).join(', ')}${blockedSubjects.length > 3 ? ` +${blockedSubjects.length - 3} more` : ''}.`,
+      `${blockedCount} scope${blockedCount === 1 ? '' : 's'} skipped — no approved SOW: ${blockedSubjects.slice(0, 3).join(', ')}${blockedSubjects.length > 3 ? ` +${blockedSubjects.length - 3} more` : ''}.`
     );
   }
 }
@@ -1520,7 +1766,7 @@ const blockedSubjects: string[] = json?.blocked_subjects ?? [];
 
 if (blockedCount > 0) {
   toast.warning(
-    `${blockedCount} scope${blockedCount === 1 ? '' : 's'} skipped — no approved SOW: ${blockedSubjects.slice(0, 3).join(', ')}${blockedSubjects.length > 3 ? ` +${blockedSubjects.length - 3} more` : ''}.`,
+    `${blockedCount} scope${blockedCount === 1 ? '' : 's'} skipped — no approved SOW: ${blockedSubjects.slice(0, 3).join(', ')}${blockedSubjects.length > 3 ? ` +${blockedSubjects.length - 3} more` : ''}.`
   );
 }
 ```
@@ -1543,6 +1789,7 @@ git commit -m "feat(markbook): show amber toast for SOW-blocked scopes in bulk-c
 ## Task 11: SOW chip amber variant for partial rebaseline
 
 **Files:**
+
 - Modify: `components/grading/score-entry-grid.tsx`
 - Modify: `app/(markbook)/markbook/grading/[id]/page.tsx`
 
@@ -1555,7 +1802,7 @@ type Props = {
   // ... existing props ...
   sowSourced?: boolean;
   sowVersion?: number | null;
-  sowPartialRebaseline?: boolean;  // ADD THIS
+  sowPartialRebaseline?: boolean; // ADD THIS
 };
 ```
 
@@ -1576,7 +1823,7 @@ Pass it through to the `ActivityLabelsForm` call:
   labels={labels}
   sowSourced={sowSourced}
   sowVersion={sowVersion}
-  sowPartialRebaseline={sowPartialRebaseline}   // ADD THIS
+  sowPartialRebaseline={sowPartialRebaseline} // ADD THIS
 />
 ```
 
@@ -1604,23 +1851,25 @@ Update the destructuring:
 Replace the SOW chip render (lines ~438-442):
 
 ```tsx
-{sowSourced && (
-  <span
-    title={
-      sowPartialRebaseline
-        ? "SOW updated mid-year. Some slots or topics were preserved because scores already existed."
-        : undefined
-    }
-    className={
-      sowPartialRebaseline
-        ? "font-mono text-[10px] uppercase tracking-[0.12em] text-brand-amber"
-        : "font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/60"
-    }
-  >
-    · SOW{sowVersion != null ? ` v${sowVersion}` : ""}
-    {sowPartialRebaseline && " ⚠"}
-  </span>
-)}
+{
+  sowSourced && (
+    <span
+      title={
+        sowPartialRebaseline
+          ? 'SOW updated mid-year. Some slots or topics were preserved because scores already existed.'
+          : undefined
+      }
+      className={
+        sowPartialRebaseline
+          ? 'font-mono text-[10px] uppercase tracking-[0.12em] text-brand-amber'
+          : 'font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/60'
+      }
+    >
+      · SOW{sowVersion != null ? ` v${sowVersion}` : ''}
+      {sowPartialRebaseline && ' ⚠'}
+    </span>
+  );
+}
 ```
 
 - [ ] **Step 3: Update the grading page to pass `sowPartialRebaseline`**
@@ -1636,11 +1885,25 @@ In `app/(markbook)/markbook/grading/[id]/page.tsx`, update the `ScoreEntryGrid` 
   rows={rows}
   readOnly={readOnly}
   requireApproval={requireApproval}
-  slotLabels={sheet.slot_labels as { ww?: ({ label?: string | null; date?: string | null; page?: string | null } | null)[]; pt?: ({ label?: string | null; date?: string | null; page?: string | null } | null)[]; qa?: string | null } | null ?? undefined}
+  slotLabels={
+    (sheet.slot_labels as {
+      ww?: ({
+        label?: string | null;
+        date?: string | null;
+        page?: string | null;
+      } | null)[];
+      pt?: ({
+        label?: string | null;
+        date?: string | null;
+        page?: string | null;
+      } | null)[];
+      qa?: string | null;
+    } | null) ?? undefined
+  }
   letterDisplay={!isExaminable}
   sowSourced={sowSourced}
   sowVersion={sowCheck.version?.version_number ?? null}
-  sowPartialRebaseline={sowCheck.partial_rebaseline}   // ADD THIS
+  sowPartialRebaseline={sowCheck.partial_rebaseline} // ADD THIS
 />
 ```
 
@@ -1666,22 +1929,22 @@ git commit -m "feat(markbook): amber SOW chip variant when sheet has partial reb
 
 **Spec coverage check:**
 
-| Spec requirement | Task |
-|---|---|
-| Migration 059: `create_grading_sheets_for_scopes` RPC | Task 1 |
-| Migration 059: `has_partial_rebaseline` column | Task 1 |
-| Bulk-create gates on SOW per scope | Task 5 |
-| Bulk-create blocked scopes in response + toast | Task 5, Task 10 |
-| SOW apply auto-triggers sheet creation | Task 6 |
-| SOW apply: impact detection (hasGradingScores, hasEvaluationResponses) | Task 3, Task 6 |
-| SOW apply: clean vs merge path for slot labels | Task 4, Task 6 |
-| SOW apply: clean vs merge path for evaluation topics | Task 4, Task 6 |
-| SOW apply: audit trail with mode + reason + preserved counts | Task 6 |
-| `has_partial_rebaseline` set on class instance | Task 4, Task 6 |
-| Amber SOW chip when partial rebaseline | Task 11 |
-| AY Readiness: "sow" step between sections + grading-sheets | Task 7, Task 8 |
-| Grading-sheets dependency copy when sow incomplete | Task 8 |
-| Evaluation Checklists: locked empty state when no SOW | Task 9 |
-| Existing sheets unaffected (gate on new creation only) | Task 5 (gateAndActivateScopes checks SOW before creating, never touches existing sheets) |
+| Spec requirement                                                       | Task                                                                                     |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Migration 059: `create_grading_sheets_for_scopes` RPC                  | Task 1                                                                                   |
+| Migration 059: `has_partial_rebaseline` column                         | Task 1                                                                                   |
+| Bulk-create gates on SOW per scope                                     | Task 5                                                                                   |
+| Bulk-create blocked scopes in response + toast                         | Task 5, Task 10                                                                          |
+| SOW apply auto-triggers sheet creation                                 | Task 6                                                                                   |
+| SOW apply: impact detection (hasGradingScores, hasEvaluationResponses) | Task 3, Task 6                                                                           |
+| SOW apply: clean vs merge path for slot labels                         | Task 4, Task 6                                                                           |
+| SOW apply: clean vs merge path for evaluation topics                   | Task 4, Task 6                                                                           |
+| SOW apply: audit trail with mode + reason + preserved counts           | Task 6                                                                                   |
+| `has_partial_rebaseline` set on class instance                         | Task 4, Task 6                                                                           |
+| Amber SOW chip when partial rebaseline                                 | Task 11                                                                                  |
+| AY Readiness: "sow" step between sections + grading-sheets             | Task 7, Task 8                                                                           |
+| Grading-sheets dependency copy when sow incomplete                     | Task 8                                                                                   |
+| Evaluation Checklists: locked empty state when no SOW                  | Task 9                                                                                   |
+| Existing sheets unaffected (gate on new creation only)                 | Task 5 (gateAndActivateScopes checks SOW before creating, never touches existing sheets) |
 
 All spec requirements covered. ✅

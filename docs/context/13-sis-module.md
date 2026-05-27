@@ -17,7 +17,7 @@ A comprehensive records surface for admissions and registrar staff. Primary jobs
 - **Find a student.** Search by name, student number, enrolee number, section, level.
 - **View the full record.** Demographics, family contacts, siblings, enrollment status, documents, discounts, medical/allergy flags.
 - **Edit the record.** Update demographics, parent emails, class assignment, withdrawal status, etc.
-- **Manage the discount code catalogue.** Create / edit / expire codes on `ay{YY}_discount_codes`. Per-student *grants* are handled by the enrolment portal, which writes the `discount1` / `discount2` / `discount3` slot columns on `ay{YY}_enrolment_applications` directly — SIS only edits those slot strings via the Phase 2 profile sheet; there is no separate grants ledger.
+- **Manage the discount code catalogue.** Create / edit / expire codes on `ay{YY}_discount_codes`. Per-student _grants_ are handled by the enrolment portal, which writes the `discount1` / `discount2` / `discount3` slot columns on `ay{YY}_enrolment_applications` directly — SIS only edits those slot strings via the Phase 2 profile sheet; there is no separate grants ledger.
 - **Replace Directus** as the day-to-day admissions tool. No data migration — the tables are already in Supabase.
 
 ## Access
@@ -27,6 +27,7 @@ A comprehensive records surface for admissions and registrar staff. Primary jobs
 - **Teachers, parents, `p-file` officer:** no access (not their workflow)
 
 Role strategy — two options, TBD:
+
 - (a) grant SIS to existing `registrar` / `admin` / `superadmin` roles (simpler, no new role)
 - (b) add a new `sis` role for admissions staff who should see SIS but not grading (stricter, needs role-assignment UX)
 
@@ -39,6 +40,7 @@ The app already has two modules: **Markbook** (grading) and **P-Files** (documen
 Separate route group `/(sis)/sis/*` with its own sidebar and layout, parallel to the existing `/(p-files)/`.
 
 **Why:**
+
 - Different audience (admissions records vs. academic workflow) — putting SIS under `/admin/*` would crowd the Markbook sidebar with unrelated concerns.
 - Directus was already standalone, so users think of "the SIS" as its own tool; preserve the mental model.
 - Scope grows fast — demographics, discounts, medical, scholarships, outreach logs. `/admin/admissions` can't absorb that.
@@ -46,6 +48,7 @@ Separate route group `/(sis)/sis/*` with its own sidebar and layout, parallel to
 ### 2. P-Files stays separate — it does NOT fold into SIS
 
 **Why:**
+
 - The `p-file` officer has a distinct job (document verification) and shouldn't see discounts / demographics / medical records. Noise and unnecessary access surface.
 - Just shipped as Sprint 8 (2026-04-17) — breaking the module boundary immediately would reset user muscle memory.
 - Specialization is fine when the tasks are genuinely distinct. P-Files asks "does this student have a valid birth cert?"; SIS asks "what is this student's complete record?"
@@ -54,20 +57,21 @@ Separate route group `/(sis)/sis/*` with its own sidebar and layout, parallel to
 
 Three modules share the admissions tables. The rule: **each table has one primary writer.**
 
-| Table | SIS | P-Files | Markbook |
-|---|---|---|---|
-| `ay{YY}_enrolment_applications` | **Write** (demographics, parent emails) | Write (passport# / pass type via upload dialog — Key Decision #34) | Read (parent→student lookup) |
-| `ay{YY}_enrolment_status` | **Write** (class assignment, withdrawal, etc.) | Read | Read (filter enrolled) |
-| `ay{YY}_enrolment_documents.{slotKey}` (URL) | Read | **Write** (canonical file URL) | — |
-| `ay{YY}_enrolment_documents.{slotKey}Status` | **Write** (approve / reject — validation call) | Write on staff upload (sets to `'Valid'`) | — |
-| `ay{YY}_enrolment_documents.{slotKey}Expiry` | Read / edit | **Write** (from upload dialog metadata) | — |
-| `p_file_revisions` | Read (historical context per student) | **Write** (appended on replace, Key Decision #36) | — |
-| `ay{YY}_discount_codes` | **Write** (exclusive — Phase 3 catalogue CRUD) | — | — |
-| `ay{YY}_enrolment_applications.discount{1,2,3}` | Write (via Phase 2 profile sheet) | — | Read |
+| Table                                           | SIS                                            | P-Files                                                            | Markbook                     |
+| ----------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------ | ---------------------------- |
+| `ay{YY}_enrolment_applications`                 | **Write** (demographics, parent emails)        | Write (passport# / pass type via upload dialog — Key Decision #34) | Read (parent→student lookup) |
+| `ay{YY}_enrolment_status`                       | **Write** (class assignment, withdrawal, etc.) | Read                                                               | Read (filter enrolled)       |
+| `ay{YY}_enrolment_documents.{slotKey}` (URL)    | Read                                           | **Write** (canonical file URL)                                     | —                            |
+| `ay{YY}_enrolment_documents.{slotKey}Status`    | **Write** (approve / reject — validation call) | Write on staff upload (sets to `'Valid'`)                          | —                            |
+| `ay{YY}_enrolment_documents.{slotKey}Expiry`    | Read / edit                                    | **Write** (from upload dialog metadata)                            | —                            |
+| `p_file_revisions`                              | Read (historical context per student)          | **Write** (appended on replace, Key Decision #36)                  | —                            |
+| `ay{YY}_discount_codes`                         | **Write** (exclusive — Phase 3 catalogue CRUD) | —                                                                  | —                            |
+| `ay{YY}_enrolment_applications.discount{1,2,3}` | Write (via Phase 2 profile sheet)              | —                                                                  | Read                         |
 
-*Per-student discount grants are written by the external enrolment portal, not by SIS. SIS only manages the code catalogue and edits the 3 slot strings on the student's application row.*
+_Per-student discount grants are written by the external enrolment portal, not by SIS. SIS only manages the code catalogue and edits the 3 slot strings on the student's application row._
 
 Coordination notes:
+
 - **Document validation (approve/reject) is SIS's job, not P-Files's.** P-Files is a repository — it shows files, archives prior versions, and never mutates a status to `Rejected`. SIS is the sole writer of "rejected" and is the intended surface to send a document back to the parent for re-upload.
 - SIS must NOT re-implement document upload — it links out to P-Files for that. An "Upload / Replace" button in SIS's Documents tab should open the P-Files student detail page.
 - The P-Files upload route already co-writes passport number / pass type to `enrolment_applications` (Key Decision #34). SIS write forms on the same fields need to respect that shared surface — use zod schemas in `lib/schemas/` if this ever becomes contentious.
@@ -125,6 +129,7 @@ Full workflow + UI placement + the per-student STP tracker view: see `21-stp-app
 The Profile sheet's `ProfileUpdateSchema` in `lib/schemas/sis.ts` does **not** cover all real columns on `ay{YY}_enrolment_applications` yet. Sibling fields (`siblingFullName1..5`, `siblingBirthDay1..5`, `siblingReligion1..5`, `siblingEducationOccupation1..5`, `siblingSchoolCompany1..5`), structured medical flags (`allergies` / `allergyDetails` / `asthma` / `foodAllergies` / `foodAllergyDetails` / `heartConditions` / `epilepsy` / `diabetes` / `eczema` / `otherMedicalConditions` / `paracetamolConsent` / `dietaryRestrictions`), consent flags (`socialMediaConsent` / `feedbackConsent` / `motherWhatsappTeamsConsent` / `fatherWhatsappTeamsConsent` / `guardianWhatsappTeamsConsent`), `vizSchoolProgram`, and the feedback workflow (`feedbackRating` / `feedbackComments` / `feedbackSubmittedAt` / `preCourseAnswer` / `preCourseDate` / `preCourseAcknowledgedAt`) are all real production columns but **not editable via the SIS Profile sheet today**. P2 future work — extend the schema + add the corresponding form fields.
 
 Type-mismatch drift to flag separately:
+
 - `availSchoolBus` / `availUniform` / `availStudentCare` — real DB stores Yes/No **strings**, schema treats as `optionalBool`.
 - `postalCode` / `homePhone` / `contactPersonNumber` / `*Mobile` — real DB stores **numbers (bigint)**, schema treats as `optionalText`.
 

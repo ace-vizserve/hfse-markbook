@@ -1,9 +1,9 @@
-import "server-only";
+import 'server-only';
 
-import { unstable_cache } from "next/cache";
+import { unstable_cache } from 'next/cache';
 
-import { createServiceClient } from "@/lib/supabase/service";
-import { DOCUMENT_SLOTS } from "@/lib/sis/queries";
+import { createServiceClient } from '@/lib/supabase/service';
+import { DOCUMENT_SLOTS } from '@/lib/sis/queries';
 
 // Loader for the P-Files document validation page.
 // Scans enrolled students and fans across the 13 document slots to build two
@@ -14,7 +14,7 @@ import { DOCUMENT_SLOTS } from "@/lib/sis/queries";
 // Scope (KD #71 + KD #91): applicationStatus IN ('Enrolled', 'Enrolled (Conditional)').
 // Cache tag: p-files-drill:${ayCode} — existing PATCH routes already invalidate this.
 
-export type PFileValidationOwner = "Student" | "Mother" | "Father" | "Guardian";
+export type PFileValidationOwner = 'Student' | 'Mother' | 'Father' | 'Guardian';
 
 export type PFileValidationRow = {
   enroleeNumber: string;
@@ -33,13 +33,13 @@ export type PFileValidationRow = {
 };
 
 function deriveOwner(slotKey: string): PFileValidationOwner {
-  if (slotKey.startsWith("mother")) return "Mother";
-  if (slotKey.startsWith("father")) return "Father";
-  if (slotKey.startsWith("guardian")) return "Guardian";
-  return "Student";
+  if (slotKey.startsWith('mother')) return 'Mother';
+  if (slotKey.startsWith('father')) return 'Father';
+  if (slotKey.startsWith('guardian')) return 'Guardian';
+  return 'Student';
 }
 
-const ENROLLED_STATUSES = ["Enrolled", "Enrolled (Conditional)"] as const;
+const ENROLLED_STATUSES = ['Enrolled', 'Enrolled (Conditional)'] as const;
 
 const NON_EXPIRING_SLOTS = DOCUMENT_SLOTS.filter((s) => !s.expiryCol);
 const EXPIRING_SLOTS = DOCUMENT_SLOTS.filter((s) => !!s.expiryCol);
@@ -55,7 +55,7 @@ async function loadEnrolledDocs(ayCode: string): Promise<{
   statusByEnrolee: Map<string, string>;
   docsByEnrolee: Map<string, Record<string, string | null>>;
 }> {
-  const year = ayCode.replace(/^AY/i, "").toLowerCase();
+  const year = ayCode.replace(/^AY/i, '').toLowerCase();
   const appsTable = `ay${year}_enrolment_applications`;
   const statusTable = `ay${year}_enrolment_status`;
   const docsTable = `ay${year}_enrolment_documents`;
@@ -63,22 +63,24 @@ async function loadEnrolledDocs(ayCode: string): Promise<{
   const supabase = createServiceClient();
 
   const docsSelect = [
-    "enroleeNumber",
-    ...DOCUMENT_SLOTS.flatMap((s) =>
-      [s.statusCol, s.urlCol, s.expiryCol].filter(Boolean) as string[],
+    'enroleeNumber',
+    ...DOCUMENT_SLOTS.flatMap(
+      (s) => [s.statusCol, s.urlCol, s.expiryCol].filter(Boolean) as string[]
     ),
-  ].join(", ");
+  ].join(', ');
 
   const [appsRes, statusRes, docsRes] = await Promise.all([
     supabase
       .from(appsTable)
-      .select("enroleeNumber, studentNumber, enroleeFullName, levelApplied"),
-    supabase.from(statusTable).select("enroleeNumber, applicationStatus, classSection"),
+      .select('enroleeNumber, studentNumber, enroleeFullName, levelApplied'),
+    supabase
+      .from(statusTable)
+      .select('enroleeNumber, applicationStatus, classSection'),
     supabase.from(docsTable).select(docsSelect),
   ]);
 
   if (appsRes.error || statusRes.error || docsRes.error) {
-    console.error("[p-files doc-validation] fetch error", {
+    console.error('[p-files doc-validation] fetch error', {
       apps: appsRes.error?.message,
       status: statusRes.error?.message,
       docs: docsRes.error?.message,
@@ -92,24 +94,31 @@ async function loadEnrolledDocs(ayCode: string): Promise<{
     enroleeFullName: string | null;
     levelApplied: string | null;
   };
-  type StatusRow = { enroleeNumber: string | null; applicationStatus: string | null; classSection: string | null };
+  type StatusRow = {
+    enroleeNumber: string | null;
+    applicationStatus: string | null;
+    classSection: string | null;
+  };
 
   const rawApps = (appsRes.data ?? []) as AppRow[];
   const rawStatuses = (statusRes.data ?? []) as StatusRow[];
-  const rawDocs = (docsRes.data ?? []) as unknown as Array<Record<string, string | null>>;
+  const rawDocs = (docsRes.data ?? []) as unknown as Array<
+    Record<string, string | null>
+  >;
 
   const statusByEnrolee = new Map<string, string>();
   const classSectionByEnrolee = new Map<string, string | null>();
   for (const s of rawStatuses) {
     if (s.enroleeNumber) {
-      if (s.applicationStatus) statusByEnrolee.set(s.enroleeNumber, s.applicationStatus);
+      if (s.applicationStatus)
+        statusByEnrolee.set(s.enroleeNumber, s.applicationStatus);
       classSectionByEnrolee.set(s.enroleeNumber, s.classSection ?? null);
     }
   }
 
   const docsByEnrolee = new Map<string, Record<string, string | null>>();
   for (const d of rawDocs) {
-    const num = d["enroleeNumber"];
+    const num = d['enroleeNumber'];
     if (num) docsByEnrolee.set(num, d);
   }
 
@@ -133,7 +142,7 @@ async function loadEnrolledDocs(ayCode: string): Promise<{
 }
 
 async function loadAwaitingVerificationUncached(
-  ayCode: string,
+  ayCode: string
 ): Promise<PFileValidationRow[]> {
   const { apps, docsByEnrolee } = await loadEnrolledDocs(ayCode);
 
@@ -147,7 +156,7 @@ async function loadAwaitingVerificationUncached(
 
     for (const slot of NON_EXPIRING_SLOTS) {
       const status = docRow[slot.statusCol];
-      if (status !== "Uploaded") continue;
+      if (status !== 'Uploaded') continue;
       const fileUrl = docRow[slot.urlCol];
       if (!fileUrl) continue;
 
@@ -176,7 +185,7 @@ async function loadAwaitingVerificationUncached(
 
 async function loadExpiringSoonUncached(
   ayCode: string,
-  windowDays = 90,
+  windowDays = 90
 ): Promise<PFileValidationRow[]> {
   const { apps, docsByEnrolee } = await loadEnrolledDocs(ayCode);
 
@@ -195,7 +204,7 @@ async function loadExpiringSoonUncached(
     for (const slot of EXPIRING_SLOTS) {
       if (!slot.expiryCol) continue;
       const status = docRow[slot.statusCol];
-      if (status !== "Valid") continue;
+      if (status !== 'Valid') continue;
       const fileUrl = docRow[slot.urlCol];
       if (!fileUrl) continue;
       const expiryIso = docRow[slot.expiryCol];
@@ -204,10 +213,10 @@ async function loadExpiringSoonUncached(
       const expiryDate = new Date(expiryIso);
       expiryDate.setHours(0, 0, 0, 0);
       if (expiryDate > cutoff) continue; // outside window
-      if (expiryDate < today) continue;  // already expired (Expired status would cover those)
+      if (expiryDate < today) continue; // already expired (Expired status would cover those)
 
       const daysUntilExpiry = Math.round(
-        (expiryDate.getTime() - today.getTime()) / 86_400_000,
+        (expiryDate.getTime() - today.getTime()) / 86_400_000
       );
 
       rows.push({
@@ -237,27 +246,29 @@ async function loadExpiringSoonUncached(
 }
 
 export async function loadAwaitingVerification(
-  ayCode: string,
+  ayCode: string
 ): Promise<PFileValidationRow[]> {
   return unstable_cache(
     () => loadAwaitingVerificationUncached(ayCode),
-    ["p-files", "doc-validation", "awaiting", ayCode],
-    { tags: [`p-files-drill:${ayCode}`], revalidate: 60 },
+    ['p-files', 'doc-validation', 'awaiting', ayCode],
+    { tags: [`p-files-drill:${ayCode}`], revalidate: 60 }
   )();
 }
 
 export async function loadExpiringSoon(
   ayCode: string,
-  windowDays = 90,
+  windowDays = 90
 ): Promise<PFileValidationRow[]> {
   return unstable_cache(
     () => loadExpiringSoonUncached(ayCode, windowDays),
-    ["p-files", "doc-validation", "expiring", ayCode],
-    { tags: [`p-files-drill:${ayCode}`], revalidate: 60 },
+    ['p-files', 'doc-validation', 'expiring', ayCode],
+    { tags: [`p-files-drill:${ayCode}`], revalidate: 60 }
   )();
 }
 
-export async function countAwaitingVerification(ayCode: string): Promise<number> {
+export async function countAwaitingVerification(
+  ayCode: string
+): Promise<number> {
   const rows = await loadAwaitingVerification(ayCode);
   return rows.length;
 }
