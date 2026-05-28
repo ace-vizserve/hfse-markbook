@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { seedDemoExtras, type DemoExtrasResult } from './demo-extras';
 import { seedTestAy } from './students';
 import { seedMovements } from './movements';
+import { seedEdgeCases, type EdgeCaseResult } from './edge-cases';
 import { hashString, mulberry32, prefixFor } from './random';
 
 import { computeQuarterly } from '@/lib/compute/quarterly';
@@ -47,6 +48,7 @@ export type PopulatedSeedResult = {
   publications_inserted: number;
   documents_inserted: number;
   movements_inserted: number;
+  edge_cases_inserted: number;
   demo_extras: DemoExtrasResult | null;
 };
 
@@ -134,6 +136,7 @@ export async function seedPopulated(
     publications_inserted: 0,
     documents_inserted: 0,
     movements_inserted: 0,
+    edge_cases_inserted: 0,
     demo_extras: null,
   };
 
@@ -274,7 +277,16 @@ export async function seedPopulated(
   result.demo_extras = demoExtras;
   result.movements_inserted = movementsInserted;
 
-  // ---- 12. Bust the per-AY drill caches so a freshly-seeded environment
+  // ---- 13. School-realistic edge cases (late enrollees, withdrawals,
+  //          change requests, P-Files chase, compassionate quota, GA 88.4,
+  //          mid-year section transfer) — only when all terms are full so
+  //          there are locked sheets to file change requests against.
+  if (allTermsFull) {
+    const ec = await seedEdgeCases(service, testAy);
+    result.edge_cases_inserted = ec.edge_cases_inserted;
+  }
+
+  // ---- 14. Bust the per-AY drill caches so a freshly-seeded environment
   //          renders without waiting for the 60s unstable_cache TTL.
   //          Critical for the Top-absent dashboard tile, which reads from
   //          buildAllRowSets — a stale snapshot would show 0 absences while
@@ -2256,7 +2268,7 @@ async function seedEnrolledAdmissionsRows(
         )
       `
     )
-    .like('student.student_number', 'TEST-%');
+    .like('student.student_number', 'H270%');
 
   type EnrolRow = {
     id: string;
