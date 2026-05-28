@@ -4,6 +4,8 @@ import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/require-role';
 import { logAction } from '@/lib/audit/log-action';
 import {
+  APPLICATION_TERMINAL_REASON_VALUES,
+  APPLICATION_TERMINAL_STATUSES,
   ENROLLED_PREREQ_STAGES,
   STAGE_COLUMN_MAP,
   STAGE_KEYS,
@@ -436,6 +438,39 @@ export async function PATCH(
     classAutoAssigned = true;
   }
 
+  // 2c) Terminal-status reason gate.
+  // When the application stage flips to a terminal status, require a reason.
+  if (
+    stageKey === 'application' &&
+    (APPLICATION_TERMINAL_STATUSES as readonly string[]).includes(status ?? '')
+  ) {
+    const reason = (extras as Record<string, unknown> | undefined)
+      ?.terminalReason as string | undefined;
+    const notes = (extras as Record<string, unknown> | undefined)
+      ?.terminalNotes as string | undefined;
+
+    if (
+      !reason ||
+      !(APPLICATION_TERMINAL_REASON_VALUES as readonly string[]).includes(
+        reason
+      )
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'Reason is required when cancelling or withdrawing an application.',
+        },
+        { status: 422 }
+      );
+    }
+    if (reason === 'other' && !notes?.trim()) {
+      return NextResponse.json(
+        { error: 'Notes are required when reason is "Other".' },
+        { status: 422 }
+      );
+    }
+  }
+
   const { error: upErr } = await supabase
     .from(statusTable)
     .update(update)
@@ -467,6 +502,14 @@ export async function PATCH(
       stage: stageKey,
       stage_label: STAGE_LABELS[stageKey],
       changes,
+      ...(stageKey === 'application' && {
+        terminalReason:
+          (extras as Record<string, unknown> | undefined)?.terminalReason ??
+          null,
+        terminalNotes:
+          (extras as Record<string, unknown> | undefined)?.terminalNotes ??
+          null,
+      }),
     },
   });
 
