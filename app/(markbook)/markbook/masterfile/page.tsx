@@ -180,7 +180,8 @@ export default async function MasterfilePage({
           Cross-subject grid for the whole level. Subject Award and Overall
           Academic Award badges compute server-side from the locked grading
           sheets. Letter-graded subject columns (Music, Arts, PE, Health, etc.)
-          stay empty this sprint — letter entry ships in Phase 2.
+          show the derived letter from quarterly scores; registrars can set the
+          year-end Final grade directly on the T4 cell.
         </p>
       </header>
 

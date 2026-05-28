@@ -183,7 +183,7 @@ export function ReportCardDocument({
                       General Average
                     </td>
                     <td className="py-2.5 text-center font-serif text-base font-semibold tabular-nums text-ink">
-                      {generalAverage}
+                      {generalAverage.toFixed(1)}
                     </td>
                   </tr>
                 </tfoot>

@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import Link from 'next/link';
 
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,7 @@ import type {
   MasterfileStudentRow,
   MasterfileSubjectRow,
 } from '@/lib/markbook/masterfile';
+import type { OverallAwardLabel } from '@/lib/compute/awards';
 import { cn } from '@/lib/utils';
 import { resolveNonExaminableLetter } from '@/lib/compute/letter-grade';
 
@@ -34,7 +35,11 @@ import { resolveNonExaminableLetter } from '@/lib/compute/letter-grade';
 // level and varies by examinable/non-examinable, which doesn't map onto the
 // shell's static column-def shape. Precedent: attendance wide-grid.
 
+type AwardFilter = OverallAwardLabel | 'all';
+
 export function MasterfileGrid({ payload }: { payload: MasterfilePayload }) {
+  const [awardFilter, setAwardFilter] = useState<AwardFilter>('all');
+
   const examinableSubjects = useMemo(
     () => payload.subjects.filter((s) => s.isExaminable),
     [payload.subjects]
@@ -42,6 +47,27 @@ export function MasterfileGrid({ payload }: { payload: MasterfilePayload }) {
   const nonExaminableSubjects = useMemo(
     () => payload.subjects.filter((s) => !s.isExaminable),
     [payload.subjects]
+  );
+
+  const goldCount = useMemo(
+    () => payload.rows.filter((r) => r.overallAward === 'Gold').length,
+    [payload.rows]
+  );
+  const silverCount = useMemo(
+    () => payload.rows.filter((r) => r.overallAward === 'Silver').length,
+    [payload.rows]
+  );
+  const bronzeCount = useMemo(
+    () => payload.rows.filter((r) => r.overallAward === 'Bronze').length,
+    [payload.rows]
+  );
+
+  const filteredRows = useMemo(
+    () =>
+      awardFilter === 'all'
+        ? payload.rows
+        : payload.rows.filter((r) => r.overallAward === awardFilter),
+    [payload.rows, awardFilter]
   );
 
   if (payload.rows.length === 0) {
@@ -55,6 +81,41 @@ export function MasterfileGrid({ payload }: { payload: MasterfilePayload }) {
 
   return (
     <TooltipProvider>
+      {/* Award filter chips */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          Filter by award:
+        </span>
+        <AwardFilterChip
+          label="All"
+          count={payload.rows.length}
+          active={awardFilter === 'all'}
+          onClick={() => setAwardFilter('all')}
+          colorClass="bg-gradient-to-b from-primary to-primary/80 text-primary-foreground"
+        />
+        <AwardFilterChip
+          label="Gold"
+          count={goldCount}
+          active={awardFilter === 'Gold'}
+          onClick={() => setAwardFilter('Gold')}
+          colorClass="bg-gradient-to-b from-brand-amber to-brand-amber/80 text-white"
+        />
+        <AwardFilterChip
+          label="Silver"
+          count={silverCount}
+          active={awardFilter === 'Silver'}
+          onClick={() => setAwardFilter('Silver')}
+          colorClass="bg-gradient-to-b from-brand-sky to-brand-indigo text-white"
+        />
+        <AwardFilterChip
+          label="Bronze"
+          count={bronzeCount}
+          active={awardFilter === 'Bronze'}
+          onClick={() => setAwardFilter('Bronze')}
+          colorClass="bg-gradient-to-b from-brand-mint to-brand-mint/70 text-white"
+        />
+      </div>
+
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
         <table className="w-max min-w-full border-separate border-spacing-0 text-sm">
           {/* Two-row header — first row is subject groupings, second is per-term sub-headers */}
@@ -201,7 +262,7 @@ export function MasterfileGrid({ payload }: { payload: MasterfilePayload }) {
           </thead>
 
           <tbody>
-            {payload.rows.map((row, idx) => (
+            {filteredRows.map((row, idx) => (
               <StudentRowView
                 key={row.studentId}
                 row={row}
@@ -211,10 +272,56 @@ export function MasterfileGrid({ payload }: { payload: MasterfilePayload }) {
                 termsCount={payload.terms.length}
               />
             ))}
+            {filteredRows.length === 0 && (
+              <tr>
+                <td
+                  colSpan={999}
+                  className="py-10 text-center text-sm text-muted-foreground"
+                >
+                  No students with a {awardFilter} award at this level.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
     </TooltipProvider>
+  );
+}
+
+function AwardFilterChip({
+  label,
+  count,
+  active,
+  onClick,
+  colorClass,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+  colorClass: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-all',
+        active
+          ? colorClass
+          : 'border border-border bg-card text-muted-foreground hover:bg-accent hover:text-foreground'
+      )}
+    >
+      {label}
+      <span
+        className={cn(
+          'rounded-full px-1.5 py-px font-mono text-[10px]',
+          active ? 'bg-white/20' : 'bg-muted'
+        )}
+      >
+        {count}
+      </span>
+    </button>
   );
 }
 
