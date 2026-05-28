@@ -90,6 +90,6 @@ export async function POST(request: NextRequest) {
     run_date: runDate,
     total_candidates: candidates.length,
     by_outcome: byCounts,
-    errors,
+    error_count: errors.length,
   });
 }
