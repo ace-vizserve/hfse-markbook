@@ -31,6 +31,7 @@ const MARKBOOK_AUDIT_ALLOWLIST = [
   'sheet.unlock_force_with_pending_crs',
   'sheet.unlock_force_deadline_passed',
   'sheet.lock_overdue_batch',
+  'sheet.labels.update',
   'entry.update',
   'totals.update',
   'comment.update',
