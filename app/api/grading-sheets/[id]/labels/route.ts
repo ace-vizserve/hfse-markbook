@@ -8,9 +8,9 @@ import { logAction } from '@/lib/audit/log-action';
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // PATCH /api/grading-sheets/[id]/labels
-// Updates the slot_labels on a grading sheet. No lock enforcement — labels
-// are activity metadata (display-side), not grade values.
-// Teachers may only label their own sheet; registrar+ may label any sheet.
+// Updates slot_labels on a grading sheet. Teachers are blocked when the sheet
+// is locked; registrar/school_admin/superadmin may label any sheet regardless
+// of lock state. Teachers may only label their own sheet.
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
