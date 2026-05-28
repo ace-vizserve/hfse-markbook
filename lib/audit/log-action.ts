@@ -19,6 +19,7 @@ export type AuditAction =
   | 'student.withdrawal.cascade'
   | 'student.reenrolment.cascade'
   | 'sis.student.assign_section'
+  | 'sis.student.auto_sync_batch'
   | 'enrolment.metadata.update'
   | 'assignment.create'
   | 'assignment.delete'
