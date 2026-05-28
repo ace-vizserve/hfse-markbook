@@ -1,11 +1,24 @@
 'use client';
 
-import { ShieldCheck, Users } from 'lucide-react';
+import { Trash2, Users } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import type { ColumnDef } from '@tanstack/react-table';
 
 import { ApproverAssignDialog } from '@/components/sis/approver-assign-dialog';
-import { ApproverRevokeButton } from '@/components/sis/approver-revoke-button';
-import { DataTable } from '@/components/ui/data-table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { DataTable, RowActionsMenu } from '@/components/ui/data-table';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { TABLE_COPY } from '@/lib/copy/data-table';
 import {
@@ -16,6 +29,83 @@ import type {
   AllApproversByFlow,
   ApproverUser,
 } from '@/lib/sis/approvers/queries';
+
+// ─── Per-row actions (revoke via overflow menu) ───────────────────────────────
+
+function ApproverRowActions({
+  assignmentId,
+  email,
+  flowLabel,
+}: {
+  assignmentId: string;
+  email: string;
+  flowLabel: string;
+}) {
+  const router = useRouter();
+  const [revokeOpen, setRevokeOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function onConfirm(e: React.MouseEvent<HTMLButtonElement>) {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/sis/admin/approvers/${assignmentId}`, {
+        method: 'DELETE',
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? 'Failed to revoke approver');
+      toast.success(`${email} removed from ${flowLabel}`);
+      setRevokeOpen(false);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to revoke');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <>
+      <RowActionsMenu>
+        <DropdownMenuItem
+          onSelect={(e) => {
+            e.preventDefault();
+            setRevokeOpen(true);
+          }}
+          className="text-destructive focus:text-destructive"
+        >
+          <Trash2 className="size-3.5" />
+          Remove
+        </DropdownMenuItem>
+      </RowActionsMenu>
+
+      <AlertDialog open={revokeOpen} onOpenChange={setRevokeOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {email} as an approver?</AlertDialogTitle>
+            <AlertDialogDescription>
+              They&apos;ll stop receiving new requests for {flowLabel} and
+              won&apos;t see new ones in their inbox. Pending requests that
+              already designated them as primary or secondary stay in their
+              inbox until resolved — revocation only affects future teacher
+              submissions.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={submitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={onConfirm}
+              disabled={submitting}
+              className="bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
 
 // ─── Flat row type ────────────────────────────────────────────────────────────
 
@@ -94,7 +184,7 @@ const columns: ColumnDef<ApproverRow>[] = [
     enableSorting: false,
     enableHiding: false,
     cell: ({ row }) => (
-      <ApproverRevokeButton
+      <ApproverRowActions
         assignmentId={row.original.assignment_id}
         email={row.original.email}
         flowLabel={row.original.flowLabel}

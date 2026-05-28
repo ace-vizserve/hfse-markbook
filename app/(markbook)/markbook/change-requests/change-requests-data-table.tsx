@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarIcon, X } from 'lucide-react';
+import { CalendarIcon, ExternalLink, RotateCcw, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import * as React from 'react';
@@ -11,12 +11,16 @@ import { type ColumnDef } from '@tanstack/react-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
-import { DataTable } from '@/components/ui/data-table';
+import { DataTable, RowActionsMenu } from '@/components/ui/data-table';
 import {
   type FacetConfig,
   type MeScopeConfig,
   type StatusTabConfig,
 } from '@/components/ui/data-table/types';
+import {
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import {
   Popover,
   PopoverContent,
@@ -29,8 +33,97 @@ import {
 } from '@/lib/markbook/change-request-status';
 import { TABLE_COPY } from '@/lib/copy/data-table';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { ChangeRequestDecisionButtons } from './decision-buttons';
-import { UndoRejectionButton } from './undo-rejection-button';
+
+// Inline menu-item version of UndoRejectionButton — triggers the same dialog
+// but from a DropdownMenuItem so it fits inside RowActionsMenu.
+function UndoRejectionMenuItem({ requestId }: { requestId: string }) {
+  const router = useRouter();
+  const [open, setOpen] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+
+  async function handleUndo() {
+    setBusy(true);
+    try {
+      const res = await fetch(
+        `/api/change-requests/${encodeURIComponent(requestId)}`,
+        {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ action: 'undo_rejection' }),
+        }
+      );
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        toast.error(body.error ?? 'Could not undo the decline.');
+        return;
+      }
+      toast.success('Decline undone — the request is back to Awaiting Review.');
+      setOpen(false);
+      router.refresh();
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : 'Could not undo the decline.'
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <DropdownMenuItem
+        onSelect={(e) => {
+          e.preventDefault();
+          setOpen(true);
+        }}
+        className="text-destructive focus:text-destructive"
+      >
+        <RotateCcw className="size-3.5" />
+        Undo decline
+      </DropdownMenuItem>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Undo this decline?</DialogTitle>
+            <DialogDescription>
+              The request will go back to Awaiting Review. The teacher will see
+              the change. You have a 2-hour window from when you declined.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setOpen(false)}
+              disabled={busy}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              onClick={() => void handleUndo()}
+              disabled={busy}
+            >
+              {busy ? 'Undoing…' : 'Undo decline'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
 export type AdminRequestRow = {
   id: string;
@@ -473,6 +566,9 @@ export function ChangeRequestsDataTable({
             r.primary_reviewed_by_email === actorEmail &&
             r.primary_reviewed_at != null &&
             Date.now() - Date.parse(r.primary_reviewed_at) < 2 * 60 * 60 * 1000;
+
+          const hasSecondaryActions = r.status === 'approved' || undoVisible;
+
           return (
             <div
               id={`change-request-row-${r.id}`}
@@ -485,14 +581,24 @@ export function ChangeRequestsDataTable({
                   onControlledOpenConsumed={() => consumeControlledFor(r.id)}
                 />
               )}
-              {r.status === 'approved' && (
-                <Button asChild variant="outline" size="sm" className="h-8">
-                  <Link href={`/markbook/grading/${r.grading_sheet_id}`}>
-                    Open sheet
-                  </Link>
-                </Button>
+              {hasSecondaryActions && (
+                <RowActionsMenu>
+                  {r.status === 'approved' && (
+                    <DropdownMenuItem asChild>
+                      <Link href={`/markbook/grading/${r.grading_sheet_id}`}>
+                        <ExternalLink className="size-3.5" />
+                        Open sheet
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  {undoVisible && (
+                    <>
+                      {r.status === 'approved' && <DropdownMenuSeparator />}
+                      <UndoRejectionMenuItem requestId={r.id} />
+                    </>
+                  )}
+                </RowActionsMenu>
               )}
-              {undoVisible && <UndoRejectionButton requestId={r.id} />}
             </div>
           );
         },

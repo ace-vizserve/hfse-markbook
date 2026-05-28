@@ -1,6 +1,13 @@
 'use client';
 
-import { ArrowRight, CalendarIcon, Download, History, X } from 'lucide-react';
+import {
+  ArrowRight,
+  CalendarIcon,
+  Download,
+  ExternalLink,
+  History,
+  X,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
@@ -10,7 +17,7 @@ import { type ColumnDef } from '@tanstack/react-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
-import { DataTable } from '@/components/ui/data-table';
+import { DataTable, RowActionsMenu } from '@/components/ui/data-table';
 import { type FacetConfig } from '@/components/ui/data-table/types';
 import {
   Dialog,
@@ -20,7 +27,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { IdentifierLink } from '@/components/ui/identifier-link';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import {
   Popover,
   PopoverContent,
@@ -137,16 +144,19 @@ const COLUMNS: ColumnDef<MergedRow>[] = [
   {
     id: 'open',
     header: () => <span className="sr-only">Open sheet</span>,
-    cell: ({ row }) =>
-      row.original.sheet_id ? (
-        <div className="text-right">
-          <IdentifierLink href={`/markbook/grading/${row.original.sheet_id}`}>
-            Sheet
-          </IdentifierLink>
-        </div>
-      ) : (
-        <div className="text-right text-xs text-muted-foreground">—</div>
-      ),
+    cell: ({ row }) => {
+      if (!row.original.sheet_id) return null;
+      return (
+        <RowActionsMenu>
+          <DropdownMenuItem asChild>
+            <Link href={`/markbook/grading/${row.original.sheet_id}`}>
+              <ExternalLink className="size-3.5" />
+              Open sheet
+            </Link>
+          </DropdownMenuItem>
+        </RowActionsMenu>
+      );
+    },
     enableSorting: false,
     enableHiding: false,
   },

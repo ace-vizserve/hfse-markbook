@@ -4,7 +4,6 @@ import { useState } from 'react';
 import {
   CalendarRange,
   FilePlus2,
-  MoreHorizontal,
   RefreshCw,
   Trash2,
   UserCheck,
@@ -18,13 +17,10 @@ import { GenerateSheetsDialog } from '@/components/sis/generate-sheets-dialog';
 import { CopyTeacherAssignmentsDialog } from '@/components/sis/copy-teacher-assignments-dialog';
 import { TermDatesEditor } from '@/components/sis/term-dates-editor';
 import { Button } from '@/components/ui/button';
-import { DataTable } from '@/components/ui/data-table';
+import { DataTable, RowActionsMenu } from '@/components/ui/data-table';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { TABLE_COPY } from '@/lib/copy/data-table';
@@ -212,58 +208,46 @@ function AyRowActions({ row }: { row: AyTableRow }) {
 
       {/* Dropdown: rare / scope-changing / destructive actions */}
       {hasMoreActions && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="size-8 p-0"
-              aria-label={`More actions for ${row.ay_code}`}
-            >
-              <MoreHorizontal className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-[200px]">
-            {canCopy && (
-              <DropdownMenuItem onSelect={() => setOpenDialog('copy')}>
-                <UserCheck className="size-4" />
-                {TABLE_COPY.copyTeacherAssignments}
+        <RowActionsMenu>
+          {canCopy && (
+            <DropdownMenuItem onSelect={() => setOpenDialog('copy')}>
+              <UserCheck className="size-4" />
+              {TABLE_COPY.copyTeacherAssignments}
+            </DropdownMenuItem>
+          )}
+          {canGenerate && (
+            <DropdownMenuItem onSelect={() => setOpenDialog('generate')}>
+              <FilePlus2 className="size-4" />
+              {TABLE_COPY.createGradingSheets}
+            </DropdownMenuItem>
+          )}
+          {canSwitch && (
+            <>
+              {(canCopy || canGenerate) && <DropdownMenuSeparator />}
+              <DropdownMenuItem onSelect={() => setOpenDialog('switch')}>
+                <RefreshCw className="size-4" />
+                {TABLE_COPY.setAsCurrentAy}
               </DropdownMenuItem>
-            )}
-            {canGenerate && (
-              <DropdownMenuItem onSelect={() => setOpenDialog('generate')}>
-                <FilePlus2 className="size-4" />
-                {TABLE_COPY.createGradingSheets}
+            </>
+          )}
+          {canDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={() => setOpenDialog('delete')}
+                className="text-destructive focus:text-destructive"
+                title={
+                  row.blockers.length > 0
+                    ? `Cannot delete: ${row.blockers.join(', ')}`
+                    : undefined
+                }
+              >
+                <Trash2 className="size-4" />
+                Delete AY
               </DropdownMenuItem>
-            )}
-            {canSwitch && (
-              <>
-                {(canCopy || canGenerate) && <DropdownMenuSeparator />}
-                <DropdownMenuItem onSelect={() => setOpenDialog('switch')}>
-                  <RefreshCw className="size-4" />
-                  {TABLE_COPY.setAsCurrentAy}
-                </DropdownMenuItem>
-              </>
-            )}
-            {canDelete && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onSelect={() => setOpenDialog('delete')}
-                  className="text-destructive focus:text-destructive"
-                  title={
-                    row.blockers.length > 0
-                      ? `Cannot delete: ${row.blockers.join(', ')}`
-                      : undefined
-                  }
-                >
-                  <Trash2 className="size-4" />
-                  Delete AY
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </>
+          )}
+        </RowActionsMenu>
       )}
 
       {/* Controlled dialogs — rendered outside the dropdown so they survive

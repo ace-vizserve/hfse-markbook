@@ -44,6 +44,8 @@ import { DataTablePagination } from './pagination';
 import type { DataTableProps } from './types';
 import { useUrlState } from './use-url-state';
 
+export { RowActionsMenu } from './row-actions-menu';
+
 export function DataTable<TRow>(props: DataTableProps<TRow>) {
   const {
     data,

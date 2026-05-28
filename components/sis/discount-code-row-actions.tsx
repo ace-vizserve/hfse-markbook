@@ -1,6 +1,6 @@
 'use client';
 
-import { Clock, MoreHorizontal, Pencil } from 'lucide-react';
+import { Clock, Pencil } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -17,13 +17,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { RowActionsMenu } from '@/components/ui/data-table';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import type { DiscountCode } from '@/lib/sis/queries';
 import type { DiscountCodeInput, DiscountEnroleeType } from '@/lib/schemas/sis';
 
@@ -82,39 +77,31 @@ export function DiscountCodeRowActions({ ayCode, code }: Props) {
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="size-7">
-            <MoreHorizontal className="size-4" />
-            <span className="sr-only">Actions</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <EditDiscountCodeDialog
-            ayCode={ayCode}
-            mode="edit"
-            id={code.id}
-            initial={initial}
+      <RowActionsMenu>
+        <EditDiscountCodeDialog
+          ayCode={ayCode}
+          mode="edit"
+          id={code.id}
+          initial={initial}
+        >
+          <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+            <Pencil className="size-3.5" />
+            Edit
+          </DropdownMenuItem>
+        </EditDiscountCodeDialog>
+        {!alreadyExpired && (
+          <DropdownMenuItem
+            onSelect={(e) => {
+              e.preventDefault();
+              setExpireOpen(true);
+            }}
+            className="text-destructive focus:text-destructive"
           >
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-              <Pencil className="size-3.5" />
-              Edit
-            </DropdownMenuItem>
-          </EditDiscountCodeDialog>
-          {!alreadyExpired && (
-            <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault();
-                setExpireOpen(true);
-              }}
-              className="text-destructive focus:text-destructive"
-            >
-              <Clock className="size-3.5" />
-              Expire
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+            <Clock className="size-3.5" />
+            Expire
+          </DropdownMenuItem>
+        )}
+      </RowActionsMenu>
 
       <AlertDialog open={expireOpen} onOpenChange={setExpireOpen}>
         <AlertDialogContent>

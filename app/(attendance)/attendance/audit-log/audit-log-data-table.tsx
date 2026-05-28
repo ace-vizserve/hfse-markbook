@@ -3,13 +3,14 @@
 import * as React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
-import { X } from 'lucide-react';
+import { ExternalLink, X } from 'lucide-react';
+import Link from 'next/link';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { DataTable } from '@/components/ui/data-table';
+import { DataTable, RowActionsMenu } from '@/components/ui/data-table';
 import { DatePicker } from '@/components/ui/date-picker';
-import { IdentifierLink } from '@/components/ui/identifier-link';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import {
   Select,
   SelectContent,
@@ -274,14 +275,16 @@ const COLUMNS: ColumnDef<AttendanceAuditRow>[] = [
     header: () => <span className="sr-only">Open section</span>,
     cell: ({ row }) => {
       const href = getSectionLink(row.original);
-      if (!href)
-        return (
-          <div className="text-right text-xs text-muted-foreground">—</div>
-        );
+      if (!href) return null;
       return (
-        <div className="text-right">
-          <IdentifierLink href={href}>Section</IdentifierLink>
-        </div>
+        <RowActionsMenu>
+          <DropdownMenuItem asChild>
+            <Link href={href}>
+              <ExternalLink className="size-3.5" />
+              Open section
+            </Link>
+          </DropdownMenuItem>
+        </RowActionsMenu>
       );
     },
     enableSorting: false,
