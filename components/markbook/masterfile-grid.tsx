@@ -2,6 +2,9 @@
 
 import { memo, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { Search, X } from 'lucide-react';
+
+import { Input } from '@/components/ui/input';
 
 import { Badge } from '@/components/ui/badge';
 import {
@@ -36,9 +39,12 @@ import { resolveNonExaminableLetter } from '@/lib/compute/letter-grade';
 // shell's static column-def shape. Precedent: attendance wide-grid.
 
 type AwardFilter = OverallAwardLabel | 'all';
+type StatusFilter = 'all' | 'active' | 'late_enrollee' | 'withdrawn';
 
 export function MasterfileGrid({ payload }: { payload: MasterfilePayload }) {
   const [awardFilter, setAwardFilter] = useState<AwardFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [nameSearch, setNameSearch] = useState('');
 
   const examinableSubjects = useMemo(
     () => payload.subjects.filter((s) => s.isExaminable),
@@ -61,13 +67,68 @@ export function MasterfileGrid({ payload }: { payload: MasterfilePayload }) {
     () => payload.rows.filter((r) => r.overallAward === 'Bronze').length,
     [payload.rows]
   );
-
-  const filteredRows = useMemo(
+  const neCount = useMemo(
     () =>
-      awardFilter === 'all'
-        ? payload.rows
-        : payload.rows.filter((r) => r.overallAward === awardFilter),
-    [payload.rows, awardFilter]
+      payload.rows.filter(
+        (r) =>
+          r.overallAward === 'Not eligible for Overall Award' ||
+          r.overallAward == null
+      ).length,
+    [payload.rows]
+  );
+
+  const filteredRows = useMemo(() => {
+    let rows = payload.rows;
+    if (awardFilter !== 'all') {
+      if (awardFilter === 'Not eligible for Overall Award') {
+        rows = rows.filter(
+          (r) =>
+            r.overallAward === 'Not eligible for Overall Award' ||
+            r.overallAward == null
+        );
+      } else {
+        rows = rows.filter((r) => r.overallAward === awardFilter);
+      }
+    }
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'active') {
+        rows = rows.filter(
+          (r) =>
+            r.enrollmentStatus !== 'withdrawn' &&
+            r.enrollmentStatus !== 'late_enrollee'
+        );
+      } else {
+        rows = rows.filter((r) => r.enrollmentStatus === statusFilter);
+      }
+    }
+    if (nameSearch.trim()) {
+      const q = nameSearch.trim().toLowerCase();
+      rows = rows.filter(
+        (r) =>
+          (r.fullName ?? '').toLowerCase().includes(q) ||
+          r.studentNumber.toLowerCase().includes(q)
+      );
+    }
+    return rows;
+  }, [payload.rows, awardFilter, statusFilter, nameSearch]);
+
+  const activeCount = useMemo(
+    () =>
+      payload.rows.filter(
+        (r) =>
+          r.enrollmentStatus !== 'withdrawn' &&
+          r.enrollmentStatus !== 'late_enrollee'
+      ).length,
+    [payload.rows]
+  );
+  const lateCount = useMemo(
+    () =>
+      payload.rows.filter((r) => r.enrollmentStatus === 'late_enrollee').length,
+    [payload.rows]
+  );
+  const withdrawnCount = useMemo(
+    () => payload.rows.filter((r) => r.enrollmentStatus === 'withdrawn').length,
+    [payload.rows]
   );
 
   if (payload.rows.length === 0) {
@@ -81,39 +142,105 @@ export function MasterfileGrid({ payload }: { payload: MasterfilePayload }) {
 
   return (
     <TooltipProvider>
-      {/* Award filter chips */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          Filter by award:
-        </span>
-        <AwardFilterChip
-          label="All"
-          count={payload.rows.length}
-          active={awardFilter === 'all'}
-          onClick={() => setAwardFilter('all')}
-          colorClass="bg-gradient-to-b from-primary to-primary/80 text-primary-foreground"
-        />
-        <AwardFilterChip
-          label="Gold"
-          count={goldCount}
-          active={awardFilter === 'Gold'}
-          onClick={() => setAwardFilter('Gold')}
-          colorClass="bg-gradient-to-b from-brand-amber to-brand-amber/80 text-white"
-        />
-        <AwardFilterChip
-          label="Silver"
-          count={silverCount}
-          active={awardFilter === 'Silver'}
-          onClick={() => setAwardFilter('Silver')}
-          colorClass="bg-gradient-to-b from-brand-sky to-brand-indigo text-white"
-        />
-        <AwardFilterChip
-          label="Bronze"
-          count={bronzeCount}
-          active={awardFilter === 'Bronze'}
-          onClick={() => setAwardFilter('Bronze')}
-          colorClass="bg-gradient-to-b from-brand-mint to-brand-mint/70 text-white"
-        />
+      {/* Filter bar */}
+      <div className="flex flex-col gap-3">
+        {/* Name search */}
+        <div className="relative w-64">
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={nameSearch}
+            onChange={(e) => setNameSearch(e.target.value)}
+            placeholder="Search by name or student no."
+            className="h-8 pl-8 pr-7 text-xs"
+          />
+          {nameSearch && (
+            <button
+              onClick={() => setNameSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Award chips */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Award:
+          </span>
+          <AwardFilterChip
+            label="All"
+            count={payload.rows.length}
+            active={awardFilter === 'all'}
+            onClick={() => setAwardFilter('all')}
+            colorClass="bg-gradient-to-b from-primary to-primary/80 text-primary-foreground"
+          />
+          <AwardFilterChip
+            label="Gold"
+            count={goldCount}
+            active={awardFilter === 'Gold'}
+            onClick={() => setAwardFilter('Gold')}
+            colorClass="bg-gradient-to-b from-brand-amber to-brand-amber/80 text-white"
+          />
+          <AwardFilterChip
+            label="Silver"
+            count={silverCount}
+            active={awardFilter === 'Silver'}
+            onClick={() => setAwardFilter('Silver')}
+            colorClass="bg-gradient-to-b from-brand-sky to-brand-indigo text-white"
+          />
+          <AwardFilterChip
+            label="Bronze"
+            count={bronzeCount}
+            active={awardFilter === 'Bronze'}
+            onClick={() => setAwardFilter('Bronze')}
+            colorClass="bg-gradient-to-b from-brand-mint to-brand-mint/70 text-white"
+          />
+          <AwardFilterChip
+            label="Not eligible"
+            count={neCount}
+            active={awardFilter === 'Not eligible for Overall Award'}
+            onClick={() => setAwardFilter('Not eligible for Overall Award')}
+            colorClass="bg-gradient-to-b from-muted-foreground to-muted-foreground/80 text-white"
+          />
+        </div>
+
+        {/* Status chips */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Status:
+          </span>
+          <AwardFilterChip
+            label="All"
+            count={payload.rows.length}
+            active={statusFilter === 'all'}
+            onClick={() => setStatusFilter('all')}
+            colorClass="bg-gradient-to-b from-primary to-primary/80 text-primary-foreground"
+          />
+          <AwardFilterChip
+            label="Active"
+            count={activeCount}
+            active={statusFilter === 'active'}
+            onClick={() => setStatusFilter('active')}
+            colorClass="bg-gradient-to-b from-brand-mint to-brand-mint/80 text-white"
+          />
+          <AwardFilterChip
+            label="Late Enrolment"
+            count={lateCount}
+            active={statusFilter === 'late_enrollee'}
+            onClick={() => setStatusFilter('late_enrollee')}
+            colorClass="bg-gradient-to-b from-brand-amber to-brand-amber/80 text-white"
+          />
+          {withdrawnCount > 0 && (
+            <AwardFilterChip
+              label="Withdrawn"
+              count={withdrawnCount}
+              active={statusFilter === 'withdrawn'}
+              onClick={() => setStatusFilter('withdrawn')}
+              colorClass="bg-gradient-to-b from-muted-foreground to-muted-foreground/80 text-white"
+            />
+          )}
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-border bg-card">
@@ -278,7 +405,7 @@ export function MasterfileGrid({ payload }: { payload: MasterfilePayload }) {
                   colSpan={999}
                   className="py-10 text-center text-sm text-muted-foreground"
                 >
-                  No students with a {awardFilter} award at this level.
+                  No students match the current filters.
                 </td>
               </tr>
             )}

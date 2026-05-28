@@ -542,8 +542,8 @@ async function loadMasterfileUncached(
 
     // General Average across examinable subject overalls (1dp per spec).
     const examinableOveralls = subjectRows
-      .map((r, idx) => (subjects[idx]?.isExaminable ? r.overall : null))
-      .filter((v): v is number | null => v !== undefined);
+      .filter((_, idx) => subjects[idx]?.isExaminable)
+      .map((r) => r.overall);
     const generalAverage = computeGeneralAverage(examinableOveralls);
 
     const overallEligibility: AwardEligibility = {
