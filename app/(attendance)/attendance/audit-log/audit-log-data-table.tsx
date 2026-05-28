@@ -1,14 +1,21 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
+import { X } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
-import { type FacetConfig } from '@/components/ui/data-table/types';
 import { IdentifierLink } from '@/components/ui/identifier-link';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { SortableHeader } from '@/components/ui/data-table/sortable-header';
 import {
   Tooltip,
@@ -42,6 +49,12 @@ type PaginationInfo = {
 type Props = {
   rows: AttendanceAuditRow[];
   pagination?: PaginationInfo;
+  actionOptions: string[];
+  actorOptions: string[];
+  currentAction: string | null;
+  currentActor: string | null;
+  currentFrom: string | null;
+  currentTo: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -65,6 +78,34 @@ const ACTION_LABELS: Record<string, AttendanceActionLabel> = {
     tone: 'info',
     tooltip: TABLE_COPY.termSummaryTooltip,
   },
+  'attendance.calendar.upsert': { label: 'Calendar · update', tone: 'info' },
+  'attendance.calendar.delete': { label: 'Calendar · delete', tone: 'warn' },
+  'attendance.calendar.autoseed': {
+    label: 'Calendar · auto-seed',
+    tone: 'info',
+  },
+  'attendance.calendar.copy_from_prior_ay': {
+    label: 'Calendar · copy from prior AY',
+    tone: 'info',
+  },
+  'attendance.event.create': { label: 'Event · create', tone: 'info' },
+  'attendance.event.update': { label: 'Event · update', tone: 'info' },
+  'attendance.event.delete': { label: 'Event · delete', tone: 'warn' },
+};
+
+// Human-readable labels for the action filter dropdown
+const ACTION_DISPLAY_LABELS: Record<string, string> = {
+  'attendance.update': 'Term summary update',
+  'attendance.daily.update': 'Daily mark',
+  'attendance.daily.correct': 'Daily correction',
+  'attendance.import.bulk': 'Bulk import',
+  'attendance.calendar.upsert': 'Calendar update',
+  'attendance.calendar.delete': 'Calendar delete',
+  'attendance.calendar.autoseed': 'Calendar auto-seed',
+  'attendance.calendar.copy_from_prior_ay': 'Calendar copy from prior year',
+  'attendance.event.create': 'Event create',
+  'attendance.event.update': 'Event update',
+  'attendance.event.delete': 'Event delete',
 };
 
 // §9.3 wash recipes — brand tokens only.
@@ -175,13 +216,8 @@ function ActionBadge({ action }: { action: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Columns
+// Columns — no client-side facet filtering (server already filtered)
 // ---------------------------------------------------------------------------
-
-const FACETS: FacetConfig[] = [
-  { columnId: 'action', label: 'Action' },
-  { columnId: 'actor_display', label: 'Actor' },
-];
 
 const COLUMNS: ColumnDef<AttendanceAuditRow>[] = [
   {
@@ -218,12 +254,6 @@ const COLUMNS: ColumnDef<AttendanceAuditRow>[] = [
         )}
       </div>
     ),
-    filterFn: (row, id, value) => {
-      if (!value || (Array.isArray(value) && value.length === 0)) return true;
-      return Array.isArray(value)
-        ? value.includes(row.getValue(id))
-        : row.getValue(id) === value;
-    },
   },
   {
     accessorKey: 'action',
@@ -231,12 +261,6 @@ const COLUMNS: ColumnDef<AttendanceAuditRow>[] = [
       <SortableHeader column={column}>Action</SortableHeader>
     ),
     cell: ({ row }) => <ActionBadge action={row.original.action} />,
-    filterFn: (row, id, value) => {
-      if (!value || (Array.isArray(value) && value.length === 0)) return true;
-      return Array.isArray(value)
-        ? value.includes(row.getValue(id))
-        : row.getValue(id) === value;
-    },
   },
   {
     id: 'details',
@@ -265,10 +289,153 @@ const COLUMNS: ColumnDef<AttendanceAuditRow>[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Server-filter toolbar
+// ---------------------------------------------------------------------------
+
+function AuditFilterToolbar({
+  actionOptions,
+  actorOptions,
+  currentAction,
+  currentActor,
+  currentFrom,
+  currentTo,
+}: {
+  actionOptions: string[];
+  actorOptions: string[];
+  currentAction: string | null;
+  currentActor: string | null;
+  currentFrom: string | null;
+  currentTo: string | null;
+}) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const pushFilter = React.useCallback(
+    (updates: Record<string, string | null>) => {
+      const params = new URLSearchParams(searchParams.toString());
+      // Reset page to 1 whenever a filter changes
+      params.delete('page');
+      for (const [key, value] of Object.entries(updates)) {
+        if (value === null || value === '') {
+          params.delete(key);
+        } else {
+          params.set(key, value);
+        }
+      }
+      router.push(`?${params.toString()}`);
+    },
+    [router, searchParams]
+  );
+
+  const hasAnyFilter = !!(
+    currentAction ||
+    currentActor ||
+    currentFrom ||
+    currentTo
+  );
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {/* Action filter */}
+      <Select
+        value={currentAction ?? '__all__'}
+        onValueChange={(v) =>
+          pushFilter({ action: v === '__all__' ? null : v })
+        }
+      >
+        <SelectTrigger className="h-8 w-[200px] text-xs">
+          <SelectValue placeholder="All actions" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__all__">All actions</SelectItem>
+          {actionOptions.map((a) => (
+            <SelectItem key={a} value={a} className="font-mono text-[11px]">
+              {ACTION_DISPLAY_LABELS[a] ?? a}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {/* Actor filter */}
+      <Select
+        value={currentActor ?? '__all__'}
+        onValueChange={(v) => pushFilter({ actor: v === '__all__' ? null : v })}
+      >
+        <SelectTrigger className="h-8 w-[200px] text-xs">
+          <SelectValue placeholder="All staff" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__all__">All staff</SelectItem>
+          {actorOptions.map((email) => (
+            <SelectItem
+              key={email}
+              value={email}
+              className="font-mono text-[11px]"
+            >
+              {email}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {/* Date from */}
+      <div className="flex items-center gap-1">
+        <label className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+          From
+        </label>
+        <input
+          type="date"
+          value={currentFrom ?? ''}
+          onChange={(e) => pushFilter({ from: e.target.value || null })}
+          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+      </div>
+
+      {/* Date to */}
+      <div className="flex items-center gap-1">
+        <label className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+          To
+        </label>
+        <input
+          type="date"
+          value={currentTo ?? ''}
+          onChange={(e) => pushFilter({ to: e.target.value || null })}
+          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+      </div>
+
+      {/* Clear all filters */}
+      {hasAnyFilter && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 gap-1.5 px-2 text-xs"
+          onClick={() =>
+            pushFilter({ action: null, actor: null, from: null, to: null })
+          }
+        >
+          <X className="h-3 w-3" />
+          Clear filters
+        </Button>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Public component
 // ---------------------------------------------------------------------------
 
-export function AttendanceAuditLogDataTable({ rows, pagination }: Props) {
+export function AttendanceAuditLogDataTable({
+  rows,
+  pagination,
+  actionOptions,
+  actorOptions,
+  currentAction,
+  currentActor,
+  currentFrom,
+  currentTo,
+}: Props) {
   const router = useRouter();
 
   const handlePageChange = React.useCallback(
@@ -280,6 +447,17 @@ export function AttendanceAuditLogDataTable({ rows, pagination }: Props) {
     [router]
   );
 
+  const toolbarLeading = (
+    <AuditFilterToolbar
+      actionOptions={actionOptions}
+      actorOptions={actorOptions}
+      currentAction={currentAction}
+      currentActor={currentActor}
+      currentFrom={currentFrom}
+      currentTo={currentTo}
+    />
+  );
+
   return (
     <>
       <DataTable<AttendanceAuditRow>
@@ -288,10 +466,10 @@ export function AttendanceAuditLogDataTable({ rows, pagination }: Props) {
         getRowId={(row) => row.id}
         searchKeys={['actor_display', 'actor_email', 'action', 'entity_type']}
         searchPlaceholder="Search actor, action, details…"
-        facets={FACETS}
+        toolbarLeading={toolbarLeading}
         initialSort={[{ id: 'at', desc: true }]}
         pageSize={pagination ? Math.max(rows.length, 1) : 25}
-        url={{ enabled: true }}
+        url={{ enabled: false }}
         csv={{ filename: 'attendance-audit-log.csv' }}
         emptyState={{
           title: 'No audit entries yet.',
@@ -299,7 +477,7 @@ export function AttendanceAuditLogDataTable({ rows, pagination }: Props) {
         }}
         emptyFilteredState={{
           title: 'No entries match the current filters.',
-          body: 'Try clearing the action or actor filter.',
+          body: 'Try clearing the action, actor, or date filters.',
         }}
       />
       {pagination && (

@@ -24,10 +24,37 @@ import {
   type AttendanceAuditRow,
 } from './audit-log-data-table';
 
+// ---------------------------------------------------------------------------
+// Explicit allowlist — every action emitted by the attendance module.
+// Uses .in() instead of .like() per KD #9 allowlist discipline.
+// ---------------------------------------------------------------------------
+export const ATTENDANCE_AUDIT_ACTIONS = [
+  'attendance.update',
+  'attendance.daily.update',
+  'attendance.daily.correct',
+  'attendance.import.bulk',
+  'attendance.calendar.upsert',
+  'attendance.calendar.delete',
+  'attendance.calendar.autoseed',
+  'attendance.calendar.copy_from_prior_ay',
+  'attendance.event.create',
+  'attendance.event.update',
+  'attendance.event.delete',
+] as const satisfies readonly string[];
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 export default async function AttendanceAuditLogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; pageSize?: string }>;
+  searchParams: Promise<{
+    page?: string;
+    pageSize?: string;
+    action?: string;
+    actor?: string;
+    from?: string;
+    to?: string;
+  }>;
 }) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
@@ -42,23 +69,57 @@ export default async function AttendanceAuditLogPage({
   const params = await searchParams;
   const PAGE_SIZE = Math.min(Number(params.pageSize ?? 50), 200);
   const page = Math.max(Number(params.page ?? 1), 1);
-  const from = (page - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
+  const rangeFrom = (page - 1) * PAGE_SIZE;
+  const rangeTo = rangeFrom + PAGE_SIZE - 1;
+
+  // Validate and extract filter params
+  const actionFilter =
+    params.action && ATTENDANCE_AUDIT_ACTIONS.includes(params.action as never)
+      ? params.action
+      : null;
+  const actorFilter =
+    params.actor && params.actor.trim().length > 0 ? params.actor.trim() : null;
+  const fromFilter =
+    params.from && DATE_RE.test(params.from) ? params.from : null;
+  const toFilter = params.to && DATE_RE.test(params.to) ? params.to : null;
 
   const supabase = await createClient();
 
-  const [{ data: rows, count, error }, staffEntries] = await Promise.all([
-    supabase
-      .from('audit_log')
-      .select(
-        'id, actor_email, action, entity_type, entity_id, context, created_at',
-        { count: 'exact' }
-      )
-      .like('action', 'attendance.%')
-      .order('created_at', { ascending: false })
-      .range(from, to),
-    getStaffDisplayEntries(),
-  ]);
+  // Build the main query with server-side filters
+  let q = supabase
+    .from('audit_log')
+    .select(
+      'id, actor_email, action, entity_type, entity_id, context, created_at',
+      { count: 'exact' }
+    )
+    .in('action', ATTENDANCE_AUDIT_ACTIONS);
+
+  if (actionFilter) q = q.eq('action', actionFilter);
+  if (actorFilter) q = q.ilike('actor_email', `%${actorFilter}%`);
+  if (fromFilter) q = q.gte('created_at', fromFilter);
+  if (toFilter) q = q.lte('created_at', `${toFilter}T23:59:59.999Z`);
+
+  const [{ data: rows, count, error }, staffEntries, actorEmailsResult] =
+    await Promise.all([
+      q.order('created_at', { ascending: false }).range(rangeFrom, rangeTo),
+      getStaffDisplayEntries(),
+      // Fetch distinct actor emails for the dropdown (scoped to allowlist)
+      supabase
+        .from('audit_log')
+        .select('actor_email')
+        .in('action', ATTENDANCE_AUDIT_ACTIONS)
+        .order('actor_email')
+        .limit(200),
+    ]);
+
+  // Dedupe actor emails
+  const actorOptions = Array.from(
+    new Set(
+      (actorEmailsResult.data ?? [])
+        .map((r: { actor_email: string }) => r.actor_email)
+        .filter(Boolean)
+    )
+  ).sort();
 
   const totalPages = count ? Math.ceil(count / PAGE_SIZE) : 1;
 
@@ -173,6 +234,12 @@ export default async function AttendanceAuditLogPage({
           totalPages,
           total: count ?? 0,
         }}
+        actionOptions={[...ATTENDANCE_AUDIT_ACTIONS]}
+        actorOptions={actorOptions}
+        currentAction={actionFilter}
+        currentActor={actorFilter}
+        currentFrom={fromFilter}
+        currentTo={toFilter}
       />
     </PageShell>
   );
