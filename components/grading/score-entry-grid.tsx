@@ -1,7 +1,7 @@
 'use client';
 
 import { AlertTriangle, ChevronRight, Loader2 } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { SlotMeta, SlotLabels } from '@/lib/schemas/grading-sheet';
 
@@ -121,6 +121,14 @@ export function ScoreEntryGrid({
     pt: slotLabels?.pt ?? [],
     qa: slotLabels?.qa ?? null,
   });
+
+  useEffect(() => {
+    setLabels({
+      ww: slotLabels?.ww ?? [],
+      pt: slotLabels?.pt ?? [],
+      qa: slotLabels?.qa ?? null,
+    });
+  }, [slotLabels]);
 
   const locked = readOnly && !requireApproval;
 

@@ -33,7 +33,9 @@ import { PageShell } from '@/components/ui/page-shell';
 import { ScoreEntryGrid } from '@/components/grading/score-entry-grid';
 import { LockToggle } from '@/components/grading/lock-toggle';
 import { TotalsEditor } from '@/components/grading/totals-editor';
+import { ActivityLabelsDialog } from '@/components/grading/activity-labels-dialog';
 import { listApproversForFlow } from '@/lib/sis/approvers/queries';
+import type { SlotLabels } from '@/lib/schemas/grading-sheet';
 import { RequestEditButton } from './request-edit-button';
 
 /**
@@ -391,6 +393,14 @@ export default async function GradingSheetPage({
               wwMaxSlots={Number(config?.ww_max_slots ?? 5)}
               ptMaxSlots={Number(config?.pt_max_slots ?? 5)}
               isLocked={sheet.is_locked}
+            />
+          )}
+          {((isAssignedTeacher && !sheet.is_locked) || canManage) && (
+            <ActivityLabelsDialog
+              sheetId={sheet.id}
+              wwCount={(sheet.ww_totals ?? []).length}
+              ptCount={(sheet.pt_totals ?? []).length}
+              initialLabels={(sheet.slot_labels as SlotLabels) ?? {}}
             />
           )}
           {canManage && (
