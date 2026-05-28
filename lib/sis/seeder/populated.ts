@@ -1,10 +1,7 @@
-// Currently unused — will be rewritten in a follow-up pass for realistic
-// volume (section_students / grades / attendance / evaluation / publications).
-// Do not call from switchEnvironment or ensureTestAy until rewritten.
-
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { seedDemoExtras, type DemoExtrasResult } from './demo-extras';
+import { seedTestAy } from './students';
 import { seedMovements } from './movements';
 import { hashString, mulberry32, prefixFor } from './random';
 
@@ -35,6 +32,8 @@ import { pickNames } from './names';
 // in JS before insert.
 
 export type PopulatedSeedResult = {
+  students_inserted: number;
+  enrolments_inserted: number;
   grade_entries_inserted: number;
   attendance_daily_inserted: number;
   attendance_rollups_built: number;
@@ -120,6 +119,8 @@ export async function seedPopulated(
 ): Promise<PopulatedSeedResult> {
   const { allTermsFull = false } = options;
   const result: PopulatedSeedResult = {
+    students_inserted: 0,
+    enrolments_inserted: 0,
     grade_entries_inserted: 0,
     attendance_daily_inserted: 0,
     attendance_rollups_built: 0,
@@ -135,6 +136,49 @@ export async function seedPopulated(
     movements_inserted: 0,
     demo_extras: null,
   };
+
+  // ---- 0. Seed enrolled roster (public.students + section_students) ----
+  // Find P6 Grit, P6 Loyalty, S4 Excellence sections and seed 13/12/25
+  // students respectively.  All downstream steps (grades, attendance,
+  // evaluation) depend on section_students existing.
+  {
+    const { data: sectionRows } = await service
+      .from('sections')
+      .select('id, name, levels(code)')
+      .eq('academic_year_id', testAy.id);
+    const sections = (sectionRows ?? []) as Array<{
+      id: string;
+      name: string;
+      levels: { code: string } | { code: string }[] | null;
+    }>;
+    const levelCodeOf = (s: (typeof sections)[number]) =>
+      Array.isArray(s.levels) ? s.levels[0]?.code : s.levels?.code;
+    const grit = sections.find(
+      (s) => s.name === 'Grit' && levelCodeOf(s) === 'P6'
+    );
+    const loyalty = sections.find(
+      (s) => s.name === 'Loyalty' && levelCodeOf(s) === 'P6'
+    );
+    const excellence = sections.find(
+      (s) => s.name === 'Excellence' && levelCodeOf(s) === 'S4'
+    );
+    const perSection: Array<{ sectionId: string; count: number }> = [];
+    if (grit) perSection.push({ sectionId: grit.id, count: 13 });
+    if (loyalty) perSection.push({ sectionId: loyalty.id, count: 12 });
+    if (excellence) perSection.push({ sectionId: excellence.id, count: 25 });
+    if (perSection.length > 0) {
+      const rosterResult = await seedTestAy(
+        service,
+        testAy.id,
+        testAy.ay_code,
+        {
+          perSection,
+        }
+      );
+      result.students_inserted = rosterResult.students_inserted;
+      result.enrolments_inserted = rosterResult.students_inserted; // 1:1 with students
+    }
+  }
 
   // ---- 1. Grade entries ----
   result.grade_entries_inserted = await seedGradeEntries(
@@ -198,7 +242,7 @@ export async function seedPopulated(
   );
 
   // ---- 5. Enrolled-stage admissions rows (Records/Admissions detail pages
-  //        need these to resolve for the seeded TEST-% students) ----
+  //        need these to resolve for the seeded H270-prefixed students) ----
   result.enrolled_applications_inserted = await seedEnrolledAdmissionsRows(
     service,
     testAy
@@ -210,8 +254,12 @@ export async function seedPopulated(
   // ---- 7. Discount codes ----
   result.discount_codes_inserted = await seedDiscountCodes(service, testAy);
 
-  // ---- 8. One demo publication window ----
-  result.publications_inserted = await seedPublication(service, testAy);
+  // ---- 8. Publication windows (all seeded sections × all target terms) ----
+  result.publications_inserted = await seedPublication(
+    service,
+    testAy,
+    allTermsFull
+  );
 
   // ---- 9. Admissions documents (P-Files dashboards + lifecycle widget) ----
   result.documents_inserted = await seedAdmissionsDocuments(service, testAy);
@@ -337,7 +385,7 @@ async function seedGradeEntries(
   const configIds = [...new Set(targetSheets.map((s) => s.subject_config_id))];
   const { data: cfgs } = await service
     .from('subject_configs')
-    .select('id, ww_weight, pt_weight, qa_weight')
+    .select('id, ww_weight, pt_weight, qa_weight, subjects(is_examinable)')
     .in('id', configIds);
   const configById = new Map(
     (
@@ -346,8 +394,15 @@ async function seedGradeEntries(
         ww_weight: number;
         pt_weight: number;
         qa_weight: number;
+        subjects:
+          | { is_examinable: boolean }
+          | { is_examinable: boolean }[]
+          | null;
       }>
-    ).map((c) => [c.id, c])
+    ).map((c) => {
+      const subj = Array.isArray(c.subjects) ? c.subjects[0] : c.subjects;
+      return [c.id, { ...c, is_examinable: subj?.is_examinable ?? true }];
+    })
   );
 
   type InsertRow = {
@@ -362,6 +417,8 @@ async function seedGradeEntries(
     initial_grade: number | null;
     quarterly_grade: number | null;
     is_na: boolean;
+    letter_grade: string | null;
+    annual_letter_grade: string | null;
     created_at: string;
   };
   const inserts: InsertRow[] = [];
@@ -437,14 +494,21 @@ async function seedGradeEntries(
     if (!cfg) continue;
 
     const ww_totals =
-      (sheet.ww_totals ?? [10, 10]).length > 0 ? sheet.ww_totals! : [10, 10];
+      (sheet.ww_totals ?? []).length > 0
+        ? (sheet.ww_totals as number[])
+        : [10, 10];
     const pt_totals =
-      (sheet.pt_totals ?? [10, 10, 10]).length > 0
-        ? sheet.pt_totals!
+      (sheet.pt_totals ?? []).length > 0
+        ? (sheet.pt_totals as number[])
         : [10, 10, 10];
     const qa_total = sheet.qa_total ?? 30;
 
     const isFullTerm = fullTermIds.has(sheet.term_id);
+    const isNonExam = !(
+      configById.get(sheet.subject_config_id)?.is_examinable ?? true
+    );
+    const isT4 = t4 != null && sheet.term_id === t4.id;
+    const ANNUAL_LETTER_POOL = ['A', 'B', 'C', 'Passed', 'A', 'B'] as const;
 
     for (const e of enrolments) {
       if (isFullTerm) {
@@ -466,18 +530,26 @@ async function seedGradeEntries(
           qa_weight: cfg.qa_weight,
         });
 
+        const naRoll = isNonExam && rand() < 0.05;
         inserts.push({
           grading_sheet_id: sheet.id,
           section_student_id: e.id,
-          ww_scores,
-          pt_scores,
-          qa_score,
-          ww_ps: computed.ww_ps,
-          pt_ps: computed.pt_ps,
-          qa_ps: computed.qa_ps,
-          initial_grade: computed.initial_grade,
-          quarterly_grade: computed.quarterly_grade,
-          is_na: false,
+          ww_scores: naRoll ? [] : ww_scores,
+          pt_scores: naRoll ? [] : pt_scores,
+          qa_score: naRoll ? null : qa_score,
+          ww_ps: naRoll ? null : computed.ww_ps,
+          pt_ps: naRoll ? null : computed.pt_ps,
+          qa_ps: naRoll ? null : computed.qa_ps,
+          initial_grade: naRoll ? null : computed.initial_grade,
+          quarterly_grade: naRoll ? null : computed.quarterly_grade,
+          is_na: naRoll,
+          letter_grade: null,
+          annual_letter_grade:
+            isNonExam && isT4 && !naRoll
+              ? ANNUAL_LETTER_POOL[
+                  Math.floor(rand() * ANNUAL_LETTER_POOL.length)
+                ]
+              : null,
           created_at: createdAtForTerm(sheet.term_id),
         });
       } else {
@@ -514,6 +586,8 @@ async function seedGradeEntries(
           initial_grade: computed.initial_grade,
           quarterly_grade: computed.quarterly_grade,
           is_na: false,
+          letter_grade: null,
+          annual_letter_grade: null,
           created_at: createdAtForTerm(sheet.term_id),
         });
       }
@@ -608,12 +682,13 @@ async function seedAttendanceSummary(
   // also get an `ex_reason` from the migration-015 enum so the donut /
   // compassionate-quota drill have meaningful spread (KD #50).
   const rand = mulberry32(hashString(`${testAy.ay_code}:attendance-daily`));
-  type ExReason = 'mc' | 'compassionate' | 'school_activity';
+  type ExReason = 'mc' | 'compassionate' | 'school_activity' | 'vacation';
   function pickExReason(): ExReason {
     const r = rand();
-    if (r < 0.6) return 'mc';
-    if (r < 0.85) return 'school_activity';
-    return 'compassionate';
+    if (r < 0.5) return 'mc';
+    if (r < 0.7) return 'school_activity';
+    if (r < 0.85) return 'compassionate';
+    return 'vacation';
   }
   function pickStatus(): {
     status: 'P' | 'L' | 'A' | 'EX';
@@ -815,13 +890,12 @@ async function seedEvaluationWriteups(
   ).toISOString();
 
   for (const sectionId of sectionIds) {
-    // T1 — 5 submitted writeups per section (end-of-term snapshot).
+    // T1 — all enrolled students' submitted writeups per section (end-of-term snapshot).
     if (t1) {
       const { data: enrolments } = await service
         .from('section_students')
         .select('student_id')
-        .eq('section_id', sectionId)
-        .limit(5);
+        .eq('section_id', sectionId);
       const students = (enrolments ?? []) as Array<{ student_id: string }>;
       for (const s of students) {
         const tmpl = TEMPLATES[Math.floor(rand() * TEMPLATES.length)];
@@ -836,15 +910,16 @@ async function seedEvaluationWriteups(
       }
     }
 
-    // T2 — closed-AY: 5 submitted writeups (term-end snapshot, mirrors T1).
+    // T2 — closed-AY: all enrolled students' submitted writeups (term-end snapshot, mirrors T1).
     //      active-AY: 3 writeups, 2 submitted ~7 days ago + 1 still draft.
     if (t2) {
-      const t2Limit = allTermsFull ? 5 : 3;
-      const { data: enrolments } = await service
+      const enrolQuery = service
         .from('section_students')
         .select('student_id')
-        .eq('section_id', sectionId)
-        .limit(t2Limit);
+        .eq('section_id', sectionId);
+      const { data: enrolments } = allTermsFull
+        ? await enrolQuery
+        : await enrolQuery.limit(3);
       const students = (enrolments ?? []) as Array<{ student_id: string }>;
       const t2EndStamp =
         allTermsFull && t2.end_date
@@ -864,13 +939,12 @@ async function seedEvaluationWriteups(
       });
     }
 
-    // T3 (closed-AY only) — 5 submitted writeups, mirrors T1.
+    // T3 (closed-AY only) — all enrolled students' submitted writeups, mirrors T1.
     if (allTermsFull && t3) {
       const { data: enrolments } = await service
         .from('section_students')
         .select('student_id')
-        .eq('section_id', sectionId)
-        .limit(5);
+        .eq('section_id', sectionId);
       const students = (enrolments ?? []) as Array<{ student_id: string }>;
       const t3EndStamp = t3.end_date
         ? `${t3.end_date}T17:00:00+08:00`
@@ -1889,47 +1963,83 @@ async function seedDiscountCodes(
   return rowsToInsert.length;
 }
 
-// Creates one publish-window for the first section × T1 so the parent
-// portal + publish-checklist have something to demo.
+// Creates publish-windows for all seeded sections × all target terms so the
+// parent portal + publish-checklist have realistic data to demo.
+// allTermsFull=true → seeds T1–T4 for every section that has enrolled students.
+// allTermsFull=false → seeds T1 only for the first section (minimal demo).
 async function seedPublication(
   service: SupabaseClient,
-  testAy: { id: string; ay_code: string }
+  testAy: { id: string; ay_code: string },
+  allTermsFull: boolean
 ): Promise<number> {
-  const { data: t1 } = await service
+  const targetTermNumbers = allTermsFull ? [1, 2, 3, 4] : [1];
+
+  const { data: termRows } = await service
     .from('terms')
-    .select('id')
+    .select('id, term_number, end_date')
     .eq('academic_year_id', testAy.id)
-    .eq('term_number', 1)
-    .maybeSingle();
-  if (!t1) return 0;
-  const termId = (t1 as { id: string }).id;
+    .in('term_number', targetTermNumbers)
+    .order('term_number');
+  const terms = (termRows ?? []) as Array<{
+    id: string;
+    term_number: number;
+    end_date: string | null;
+  }>;
+  if (terms.length === 0) return 0;
 
-  const { data: firstSection } = await service
-    .from('sections')
-    .select('id')
-    .eq('academic_year_id', testAy.id)
-    .order('name')
-    .limit(1)
-    .maybeSingle();
-  if (!firstSection) return 0;
-  const sectionId = (firstSection as { id: string }).id;
+  // Only seed publications for sections that actually have enrolled students —
+  // keeps the publication list clean (no empty-section publication windows).
+  const { data: enroledRows } = await service
+    .from('section_students')
+    .select('section_id')
+    .in(
+      'section_id',
+      (
+        await service
+          .from('sections')
+          .select('id')
+          .eq('academic_year_id', testAy.id)
+      ).data?.map((r) => (r as { id: string }).id) ?? []
+    );
+  const seededSectionIds = [
+    ...new Set(
+      (enroledRows ?? []).map((r) => (r as { section_id: string }).section_id)
+    ),
+  ];
+  if (seededSectionIds.length === 0) return 0;
 
-  // Idempotent: migration-007 unique `(section_id, term_id)` lets the
-  // upsert below silently drop the duplicate on re-run.
-  const from = new Date();
-  const until = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+  const publications: Array<{
+    section_id: string;
+    term_id: string;
+    publish_from: string;
+    publish_until: string;
+    published_by: string;
+  }> = [];
+
+  for (const sectionId of seededSectionIds) {
+    for (const term of terms) {
+      const baseDate = term.end_date
+        ? new Date(`${term.end_date}T08:00:00+08:00`)
+        : new Date();
+      const publishUntil = new Date(
+        baseDate.getTime() + 90 * 24 * 60 * 60 * 1000
+      );
+      publications.push({
+        section_id: sectionId,
+        term_id: term.id,
+        publish_from: baseDate.toISOString(),
+        publish_until: publishUntil.toISOString(),
+        published_by: 'test-seeder@hfse.edu.sg',
+      });
+    }
+  }
+
   const { error, data } = await service
     .from('report_card_publications')
-    .upsert(
-      {
-        section_id: sectionId,
-        term_id: termId,
-        publish_from: from.toISOString(),
-        publish_until: until.toISOString(),
-        published_by: 'test-seeder@hfse.edu.sg',
-      },
-      { onConflict: 'section_id,term_id', ignoreDuplicates: true }
-    )
+    .upsert(publications, {
+      onConflict: 'section_id,term_id',
+      ignoreDuplicates: true,
+    })
     .select('id');
   if (error) {
     console.error(
