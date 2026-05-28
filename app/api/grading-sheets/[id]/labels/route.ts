@@ -3,6 +3,7 @@ import { requireRole } from '@/lib/auth/require-role';
 import { createServiceClient } from '@/lib/supabase/service';
 import { createClient } from '@/lib/supabase/server';
 import type { SlotMeta } from '@/lib/schemas/grading-sheet';
+import { logAction } from '@/lib/audit/log-action';
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -45,14 +46,18 @@ export async function PATCH(
     const supabase = await createClient();
     const { data: sheetRaw } = await supabase
       .from('grading_sheets')
-      .select('id, section:sections(id), subject:subjects(id)')
+      .select('id, is_locked, section:sections(id), subject:subjects(id)')
       .eq('id', id)
       .single();
     if (!sheetRaw) {
       return NextResponse.json({ error: 'sheet not found' }, { status: 404 });
     }
     type IdRow = { id: string } | { id: string }[] | null;
-    const sheet = sheetRaw as unknown as { section: IdRow; subject: IdRow };
+    const sheet = sheetRaw as unknown as {
+      is_locked: boolean;
+      section: IdRow;
+      subject: IdRow;
+    };
     const sectionRaw = Array.isArray(sheet.section)
       ? sheet.section[0]
       : sheet.section;
@@ -77,6 +82,9 @@ export async function PATCH(
         { error: 'not assigned to this sheet' },
         { status: 403 }
       );
+    }
+    if (sheet.is_locked) {
+      return NextResponse.json({ error: 'sheet is locked' }, { status: 423 });
     }
   }
 
@@ -133,6 +141,14 @@ export async function PATCH(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  await logAction({
+    service,
+    actor: { id: auth.user.id, email: auth.user.email ?? null },
+    action: 'sheet.labels.update',
+    entityType: 'grading_sheet',
+    entityId: id,
+  });
 
   return NextResponse.json({ ok: true, slot_labels: merged });
 }
