@@ -8,6 +8,7 @@ import { X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
+import { DatePicker } from '@/components/ui/date-picker';
 import { IdentifierLink } from '@/components/ui/identifier-link';
 import {
   Select,
@@ -383,11 +384,11 @@ function AuditFilterToolbar({
         <label className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
           From
         </label>
-        <input
-          type="date"
+        <DatePicker
           value={currentFrom ?? ''}
-          onChange={(e) => pushFilter({ from: e.target.value || null })}
-          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          onChange={(v) => pushFilter({ from: v || null })}
+          placeholder="From date"
+          className="h-8 w-[140px] text-xs"
         />
       </div>
 
@@ -396,11 +397,11 @@ function AuditFilterToolbar({
         <label className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
           To
         </label>
-        <input
-          type="date"
+        <DatePicker
           value={currentTo ?? ''}
-          onChange={(e) => pushFilter({ to: e.target.value || null })}
-          className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          onChange={(v) => pushFilter({ to: v || null })}
+          placeholder="To date"
+          className="h-8 w-[140px] text-xs"
         />
       </div>
 
