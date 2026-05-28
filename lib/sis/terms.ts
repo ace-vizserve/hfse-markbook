@@ -109,3 +109,37 @@ export function termForDateInPreloaded(
   if (!match) return null;
   return { termNumber: match.termNumber, termLabel: `T${match.termNumber}` };
 }
+
+export type ResolvedLateEnrolleeTerm = {
+  termNumber: number;
+  termLabel: string;
+  source: 'override' | 'derived';
+} | null;
+
+/**
+ * Determines a late-enrollee's joining term.
+ * If `late_enrollee_term_number` is set, that is the registrar's explicit
+ * correction (source='override'). Otherwise derives from `enrollment_date`
+ * via `getTermForDate` (source='derived'). Returns null when neither is
+ * available or the date falls outside all term windows.
+ */
+export async function resolveLateEnrolleeTerm(
+  row: {
+    enrollment_date: string | null;
+    late_enrollee_term_number: number | null;
+  },
+  ayCode: string
+): Promise<ResolvedLateEnrolleeTerm> {
+  if (row.late_enrollee_term_number !== null) {
+    const n = row.late_enrollee_term_number;
+    return { termNumber: n, termLabel: `T${n}`, source: 'override' };
+  }
+  if (!row.enrollment_date) return null;
+  const term = await getTermForDate(row.enrollment_date, ayCode);
+  if (!term) return null;
+  return {
+    termNumber: term.termNumber,
+    termLabel: term.termLabel,
+    source: 'derived',
+  };
+}
