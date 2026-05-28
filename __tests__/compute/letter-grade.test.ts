@@ -59,20 +59,6 @@ describe('resolveNonExaminableLetter', () => {
     expect(
       resolveNonExaminableLetter({
         isNa: false,
-        letterOverride: 'INC',
-        quarterly: 95,
-      })
-    ).toBe('INC');
-    expect(
-      resolveNonExaminableLetter({
-        isNa: false,
-        letterOverride: 'CO',
-        quarterly: 95,
-      })
-    ).toBe('CO');
-    expect(
-      resolveNonExaminableLetter({
-        isNa: false,
         letterOverride: 'E',
         quarterly: 95,
       })
@@ -107,13 +93,13 @@ describe('resolveNonExaminableLetter', () => {
   });
 
   it('override takes precedence over derived letter (override beats quarterly)', () => {
-    // quarterly would derive 'A' but the override is 'INC'
+    // quarterly would derive 'A' but the override is 'UG'
     expect(
       resolveNonExaminableLetter({
         isNa: false,
-        letterOverride: 'INC',
+        letterOverride: 'UG',
         quarterly: 95,
       })
-    ).toBe('INC');
+    ).toBe('UG');
   });
 });

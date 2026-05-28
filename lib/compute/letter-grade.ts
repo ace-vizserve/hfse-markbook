@@ -1,18 +1,13 @@
 // KD #104 — Non-examinable grading letter-display converter.
-// A/B/C/IP are derived from the numeric Quarterly. UG/INC/CO/E are manual
+// A/B/C/IP are derived from the numeric Quarterly. UG/E are manual
 // override codes stored in grade_entries.letter_grade. NA is the is_na flag.
 // Self-test runs at module load; any boundary regression throws immediately.
 
 export type DerivedLetter = 'A' | 'B' | 'C' | 'IP';
-export type OverrideLetter = 'UG' | 'INC' | 'CO' | 'E';
+export type OverrideLetter = 'UG' | 'E';
 export type NonExaminableLetter = DerivedLetter | OverrideLetter | 'NA';
 
-export const OVERRIDE_LETTERS: readonly OverrideLetter[] = [
-  'UG',
-  'INC',
-  'CO',
-  'E',
-] as const;
+export const OVERRIDE_LETTERS: readonly OverrideLetter[] = ['UG', 'E'] as const;
 
 export const LEGEND_LEFT = [
   {
@@ -24,7 +19,7 @@ export const LEGEND_LEFT = [
   { code: 'C', desc: 'Fairly demonstrated the skill required', range: '80–84' },
   {
     code: 'IP',
-    desc: 'Did not demonstrate the skill required',
+    desc: 'In Progress',
     range: '79 and below',
   },
 ] as const;
@@ -32,8 +27,6 @@ export const LEGEND_LEFT = [
 export const LEGEND_RIGHT = [
   { code: 'NA', desc: 'Not Applicable' },
   { code: 'UG', desc: 'Ungraded' },
-  { code: 'INC', desc: 'Incomplete' },
-  { code: 'CO', desc: 'Complete' },
   { code: 'E', desc: 'Exempted' },
 ] as const;
 
