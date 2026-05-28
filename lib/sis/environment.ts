@@ -8,6 +8,7 @@ import {
   ensureTestStructure,
   type StructureSeedResult,
 } from './seeder/structural';
+import { seedPopulated, type PopulatedSeedResult } from './seeder/populated';
 
 // Environment abstraction over the AY switcher. UI-side, users pick
 // "Production" or "Test"; internally this maps to flipping is_current
@@ -147,6 +148,7 @@ export type SwitchResult = {
   toEnvironment: Environment;
   structure: StructureSeedResult | null;
   admissions: AdmissionsMinimalResult | null;
+  populated: PopulatedSeedResult | null;
 };
 
 export async function switchEnvironment(
@@ -175,12 +177,17 @@ export async function switchEnvironment(
     //    expiring), plus STP variants and KD #69 single-mother case.
     const admissions = await seedAdmissionsMinimal(service, testAy);
 
+    const populated = await seedPopulated(service, testAy, {
+      allTermsFull: true,
+    });
+
     return {
       fromAyCode: flip.fromAyCode,
       toAyCode: flip.toAyCode,
       toEnvironment: 'test',
       structure,
       admissions,
+      populated,
     };
   }
 
@@ -214,6 +221,7 @@ export async function switchEnvironment(
     toEnvironment: 'production',
     structure: null,
     admissions: null,
+    populated: null,
   };
 }
 

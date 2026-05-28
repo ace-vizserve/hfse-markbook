@@ -182,7 +182,11 @@
       "Bash(Remove-Item -Recurse -Force \"C:\\\\Users\\\\Ace\\\\OneDrive - HFSE International School\\\\Desktop\\\\hfse-vizserve projects\\\\hfse-markbook\\\\app\\\\api\\\\parent\\\\exit\")",
       "Bash(Remove-Item -Recurse -Force \"C:\\\\Users\\\\Ace\\\\OneDrive - HFSE International School\\\\Desktop\\\\hfse-vizserve projects\\\\hfse-markbook\\\\lib\\\\parent\")",
       "Bash(Remove-Item -Recurse -Force .next)",
-      "Bash(npx prettier *)"
+      "Bash(npx prettier *)",
+      "Bash(npm --version)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Ace\\\\OneDrive - HFSE International School\\\\Desktop\\\\hfse-vizserve projects\\\\hfse-markbook\" -Recurse -Filter \"*audit*\" -ErrorAction SilentlyContinue)",
+      "Bash(npx vitest *)",
+      "Bash(C:/Users/Ace/.claude/plugins/cache/claude-plugins-official/superpowers/5.1.0/skills/brainstorming/scripts/start-server.sh *)"
     ],
     "deny": ["Read(./.env.local)"]
   },

@@ -55,12 +55,12 @@ The publish-readiness `slot_dates` soft warning reads `slot_labels[*].date` — 
 
 **Props:**
 
-| Prop | Type | Notes |
-|------|------|-------|
-| `sheetId` | `string` | Grading sheet UUID |
-| `wwCount` | `number` | `(sheet.ww_totals ?? []).length` |
-| `ptCount` | `number` | `(sheet.pt_totals ?? []).length` |
-| `initialLabels` | `SlotLabels` | Cast from `sheet.slot_labels` |
+| Prop            | Type         | Notes                            |
+| --------------- | ------------ | -------------------------------- |
+| `sheetId`       | `string`     | Grading sheet UUID               |
+| `wwCount`       | `number`     | `(sheet.ww_totals ?? []).length` |
+| `ptCount`       | `number`     | `(sheet.pt_totals ?? []).length` |
+| `initialLabels` | `SlotLabels` | Cast from `sheet.slot_labels`    |
 
 **Trigger:** An `outline` variant `Button` labelled **"Activity Labels"** that opens a shadcn `Dialog`.
 
@@ -68,11 +68,11 @@ The publish-readiness `slot_dates` soft warning reads `slot_labels[*].date` — 
 
 A compact table with four columns:
 
-| Slot | Description | Page # | Date Administered |
-|------|-------------|--------|-------------------|
-| W1…W{wwCount} | `Input` (max 120) | `Input` (max 40) | `<DatePicker>` |
-| PT1…PT{ptCount} | `Input` (max 120) | `Input` (max 40) | `<DatePicker>` |
-| QA | `Input` (max 120) | — | — |
+| Slot            | Description       | Page #           | Date Administered |
+| --------------- | ----------------- | ---------------- | ----------------- |
+| W1…W{wwCount}   | `Input` (max 120) | `Input` (max 40) | `<DatePicker>`    |
+| PT1…PT{ptCount} | `Input` (max 120) | `Input` (max 40) | `<DatePicker>`    |
+| QA              | `Input` (max 120) | —                | —                 |
 
 - WW and PT rows are grouped under a `font-mono text-[10px] uppercase` section label.
 - `<DatePicker>` from `components/ui/date-picker.tsx` (KD #44 — native `<input type="date">` is banned). Value is an ISO `yyyy-MM-dd` string; empty string → `null` on save.
@@ -151,17 +151,20 @@ File: `app/(markbook)/markbook/audit-log/page.tsx` (or its loader).
 **Render** inside the `flex flex-wrap items-center gap-2` header div, between `TotalsEditor` and `LockToggle`:
 
 ```tsx
-{((isAssignedTeacher && !sheet.is_locked) || canManage) && (
-  <ActivityLabelsDialog
-    sheetId={sheet.id}
-    wwCount={(sheet.ww_totals ?? []).length}
-    ptCount={(sheet.pt_totals ?? []).length}
-    initialLabels={(sheet.slot_labels as SlotLabels) ?? {}}
-  />
-)}
+{
+  ((isAssignedTeacher && !sheet.is_locked) || canManage) && (
+    <ActivityLabelsDialog
+      sheetId={sheet.id}
+      wwCount={(sheet.ww_totals ?? []).length}
+      ptCount={(sheet.pt_totals ?? []).length}
+      initialLabels={(sheet.slot_labels as SlotLabels) ?? {}}
+    />
+  );
+}
 ```
 
 Visibility rules:
+
 - **Registrar / school_admin / superadmin** (`canManage`): always visible.
 - **Assigned subject teacher** (`isAssignedTeacher`): visible only when `!sheet.is_locked`.
 - **Locked sheet + teacher**: button hidden; teacher sees no edit path.
@@ -215,12 +218,12 @@ User clicks Save
 
 ## Files Touched
 
-| File | Change |
-|------|--------|
-| `components/grading/activity-labels-dialog.tsx` | **New** |
-| `app/(markbook)/markbook/grading/[id]/page.tsx` | Add dialog to header |
-| `app/api/grading-sheets/[id]/labels/route.ts` | Lock guard + audit log |
-| `lib/audit/log-action.ts` | Add `'sheet.labels.update'` |
-| `app/(markbook)/markbook/audit-log/page.tsx` (or loader) | Allowlist update |
-| `components/grading/score-entry-grid.tsx` | `useEffect` prop sync; re-export `SlotLabels` from schema |
-| `lib/schemas/grading-sheet.ts` | Move `SlotLabels` type here (currently in score-entry-grid) |
+| File                                                     | Change                                                      |
+| -------------------------------------------------------- | ----------------------------------------------------------- |
+| `components/grading/activity-labels-dialog.tsx`          | **New**                                                     |
+| `app/(markbook)/markbook/grading/[id]/page.tsx`          | Add dialog to header                                        |
+| `app/api/grading-sheets/[id]/labels/route.ts`            | Lock guard + audit log                                      |
+| `lib/audit/log-action.ts`                                | Add `'sheet.labels.update'`                                 |
+| `app/(markbook)/markbook/audit-log/page.tsx` (or loader) | Allowlist update                                            |
+| `components/grading/score-entry-grid.tsx`                | `useEffect` prop sync; re-export `SlotLabels` from schema   |
+| `lib/schemas/grading-sheet.ts`                           | Move `SlotLabels` type here (currently in score-entry-grid) |

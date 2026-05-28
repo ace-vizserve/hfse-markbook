@@ -12,14 +12,14 @@
 
 ## File Map
 
-| File | Action | Responsibility |
-|------|--------|----------------|
-| `components/grading/score-entry-grid.tsx` | Modify | Remove duplicate local `SlotMeta`/`SlotLabels` types; import from schema; add `useEffect` prop sync |
-| `lib/audit/log-action.ts` | Modify | Add `'sheet.labels.update'` to `AuditAction` union |
-| `app/api/grading-sheets/[id]/labels/route.ts` | Modify | Add teacher lock guard + `logAction` call |
-| `app/(markbook)/markbook/audit-log/page.tsx` | Modify | Add `'sheet.labels.update'` to `MARKBOOK_AUDIT_ALLOWLIST` |
-| `components/grading/activity-labels-dialog.tsx` | **Create** | Dialog component — form, PATCH, router.refresh |
-| `app/(markbook)/markbook/grading/[id]/page.tsx` | Modify | Import and render `ActivityLabelsDialog` in header |
+| File                                            | Action     | Responsibility                                                                                      |
+| ----------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------- |
+| `components/grading/score-entry-grid.tsx`       | Modify     | Remove duplicate local `SlotMeta`/`SlotLabels` types; import from schema; add `useEffect` prop sync |
+| `lib/audit/log-action.ts`                       | Modify     | Add `'sheet.labels.update'` to `AuditAction` union                                                  |
+| `app/api/grading-sheets/[id]/labels/route.ts`   | Modify     | Add teacher lock guard + `logAction` call                                                           |
+| `app/(markbook)/markbook/audit-log/page.tsx`    | Modify     | Add `'sheet.labels.update'` to `MARKBOOK_AUDIT_ALLOWLIST`                                           |
+| `components/grading/activity-labels-dialog.tsx` | **Create** | Dialog component — form, PATCH, router.refresh                                                      |
+| `app/(markbook)/markbook/grading/[id]/page.tsx` | Modify     | Import and render `ActivityLabelsDialog` in header                                                  |
 
 ---
 
@@ -28,6 +28,7 @@
 `score-entry-grid.tsx` defines `SlotMeta` (lines 55–59) and `SlotLabels` (lines 61–65) locally. Identical types already exist in `lib/schemas/grading-sheet.ts`. Remove the duplicates and import from the schema.
 
 **Files:**
+
 - Modify: `components/grading/score-entry-grid.tsx`
 
 - [ ] **Step 1: Remove local type definitions and add schema import**
@@ -56,6 +57,7 @@ import type { SlotMeta, SlotLabels } from '@/lib/schemas/grading-sheet';
 ```
 
 The file imports are currently:
+
 ```typescript
 import { AlertTriangle, ChevronRight, Loader2 } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -63,6 +65,7 @@ import { toast } from 'sonner';
 ```
 
 After edit:
+
 ```typescript
 import { AlertTriangle, ChevronRight, Loader2 } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -92,6 +95,7 @@ git commit -m "refactor(grading): import SlotMeta/SlotLabels from schema, remove
 Add `'sheet.labels.update'` to the audit enum, then update the PATCH route with (a) a teacher-lock guard and (b) an audit log call.
 
 **Files:**
+
 - Modify: `lib/audit/log-action.ts`
 - Modify: `app/api/grading-sheets/[id]/labels/route.ts`
 
@@ -186,6 +190,7 @@ if (sheet.is_locked) {
 ```
 
 The full teacher block now reads:
+
 ```typescript
 if (!isManager) {
   const supabase = await createClient();
@@ -239,29 +244,29 @@ if (!isManager) {
 The current end of the route:
 
 ```typescript
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+if (error) {
+  return NextResponse.json({ error: error.message }, { status: 500 });
+}
 
-  return NextResponse.json({ ok: true, slot_labels: merged });
+return NextResponse.json({ ok: true, slot_labels: merged });
 ```
 
 Replace with:
 
 ```typescript
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+if (error) {
+  return NextResponse.json({ error: error.message }, { status: 500 });
+}
 
-  await logAction({
-    service,
-    actor: { id: auth.user.id, email: auth.user.email ?? null },
-    action: 'sheet.labels.update',
-    entityType: 'grading_sheet',
-    entityId: id,
-  });
+await logAction({
+  service,
+  actor: { id: auth.user.id, email: auth.user.email ?? null },
+  action: 'sheet.labels.update',
+  entityType: 'grading_sheet',
+  entityId: id,
+});
 
-  return NextResponse.json({ ok: true, slot_labels: merged });
+return NextResponse.json({ ok: true, slot_labels: merged });
 ```
 
 - [ ] **Step 6: Verify TypeScript is clean**
@@ -286,6 +291,7 @@ git commit -m "feat(labels): teacher lock guard + audit logging on PATCH labels 
 Add `'sheet.labels.update'` to `MARKBOOK_AUDIT_ALLOWLIST` so the action appears in the markbook audit log.
 
 **Files:**
+
 - Modify: `app/(markbook)/markbook/audit-log/page.tsx`
 
 - [ ] **Step 1: Add to allowlist**
@@ -341,6 +347,7 @@ git commit -m "feat(audit): add sheet.labels.update to markbook audit-log allowl
 New client component that renders the trigger button and the dialog form.
 
 **Files:**
+
 - Create: `components/grading/activity-labels-dialog.tsx`
 
 - [ ] **Step 1: Create the component**
@@ -653,6 +660,7 @@ git commit -m "feat(grading): ActivityLabelsDialog — edit WW/PT/QA slot labels
 Render the dialog in the grading sheet header and add a `useEffect` so the Activity Guide panel stays in sync after `router.refresh()`.
 
 **Files:**
+
 - Modify: `app/(markbook)/markbook/grading/[id]/page.tsx`
 - Modify: `components/grading/score-entry-grid.tsx`
 
@@ -782,6 +790,7 @@ npx next dev
 ```
 
 Verify:
+
 1. Open a grading sheet as a **teacher on an unlocked sheet** → "Activity Labels" button appears in header.
 2. Open the dialog → WW and PT rows match the sheet's slot count; QA row shows one Description field.
 3. Fill in a description, page number, and date (via the date picker popover) for W1.
