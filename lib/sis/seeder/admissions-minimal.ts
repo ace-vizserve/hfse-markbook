@@ -3034,6 +3034,8 @@ const PERSONAS: Persona[] = [
     documentUpdateDateOffset: -48,
     assessmentStatus: 'Finished',
     assessmentUpdateDateOffset: -38,
+    assessmentGradeMath: 'A',
+    assessmentGradeEnglish: 'A',
     contractStatus: 'Signed',
     contractUpdateDateOffset: -22,
     feeStatus: 'Paid',
