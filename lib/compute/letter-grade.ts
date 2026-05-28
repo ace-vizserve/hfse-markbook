@@ -9,6 +9,11 @@ export type NonExaminableLetter = DerivedLetter | OverrideLetter | 'NA';
 
 export const OVERRIDE_LETTERS: readonly OverrideLetter[] = ['UG', 'E'] as const;
 
+// Annual Final Grade values for non-examinable subjects (KD #100).
+// 'Passed' is the standard year-end value; UG/E/NA are override codes.
+export const ANNUAL_LETTER_VALUES = ['Passed', 'UG', 'E', 'NA'] as const;
+export type AnnualLetterGrade = (typeof ANNUAL_LETTER_VALUES)[number];
+
 export const LEGEND_LEFT = [
   {
     code: 'A',

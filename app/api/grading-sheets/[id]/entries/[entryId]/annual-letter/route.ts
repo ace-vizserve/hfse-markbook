@@ -5,6 +5,7 @@ import { logAction } from '@/lib/audit/log-action';
 import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 import { requireCurrentAyCode } from '@/lib/academic-year';
 import { notifyAnnualLetterChanged } from '@/lib/notifications/email-annual-letter';
+import { ANNUAL_LETTER_VALUES } from '@/lib/compute/letter-grade';
 
 // PATCH /api/grading-sheets/[id]/entries/[entryId]/annual-letter
 // Registrar-only: sets the freeform annual_letter_grade on a non-examinable
@@ -27,23 +28,30 @@ export async function PATCH(
     return NextResponse.json({ error: 'invalid body' }, { status: 400 });
   }
 
-  const newValue =
+  const rawValue =
     typeof body.annual_letter_grade === 'string' &&
     body.annual_letter_grade.trim() !== ''
       ? body.annual_letter_grade.trim()
       : null;
+
+  if (
+    rawValue !== null &&
+    !(ANNUAL_LETTER_VALUES as readonly string[]).includes(rawValue)
+  ) {
+    return NextResponse.json(
+      {
+        error: `invalid value — must be one of ${ANNUAL_LETTER_VALUES.join(', ')}`,
+      },
+      { status: 422 }
+    );
+  }
+  const newValue = rawValue;
+
   const correctionNote =
     typeof body.correction_note === 'string' &&
     body.correction_note.trim() !== ''
       ? body.correction_note.trim()
       : null;
-
-  if (!correctionNote) {
-    return NextResponse.json(
-      { error: 'correction_note is required' },
-      { status: 422 }
-    );
-  }
 
   const service = createServiceClient();
 
@@ -136,6 +144,16 @@ export async function PATCH(
     );
   }
 
+  // correction_note only required when changing an existing value (first-time
+  // entry null → Passed is routine annual workflow, not a correction).
+  const existingValue = entry.annual_letter_grade;
+  if (existingValue !== null && !correctionNote) {
+    return NextResponse.json(
+      { error: 'correction_note is required when changing an existing value' },
+      { status: 422 }
+    );
+  }
+
   const { error: updateError } = await service
     .from('grade_entries')
     .update({ annual_letter_grade: newValue })
@@ -214,42 +232,45 @@ export async function PATCH(
 
   invalidateDrillTags('markbook', ayCode);
 
-  // Notify all school_admin + superadmin users except the actor (best-effort).
-  void (async () => {
-    try {
-      const { data: { users } = { users: [] } } =
-        await service.auth.admin.listUsers({ perPage: 200 });
-      const recipients = users
-        .filter((u) => {
-          const role = (u.app_metadata as Record<string, unknown>)?.role as
-            | string
-            | undefined;
-          return (
-            (role === 'school_admin' || role === 'superadmin') &&
-            u.email &&
-            u.email !== auth.user.email
+  // Notify admins when changing an existing value (not on initial entry —
+  // setting "Passed" for the first time is routine, not a correction).
+  if (existingValue !== null && correctionNote) {
+    void (async () => {
+      try {
+        const { data: { users } = { users: [] } } =
+          await service.auth.admin.listUsers({ perPage: 200 });
+        const recipients = users
+          .filter((u) => {
+            const role = (u.app_metadata as Record<string, unknown>)?.role as
+              | string
+              | undefined;
+            return (
+              (role === 'school_admin' || role === 'superadmin') &&
+              u.email &&
+              u.email !== auth.user.email
+            );
+          })
+          .map((u) => u.email as string);
+        if (recipients.length > 0) {
+          await notifyAnnualLetterChanged(
+            {
+              studentName,
+              subjectCode: subjectData.subject_code,
+              sectionName,
+              termLabel,
+              before: existingValue,
+              after: newValue,
+              reason: correctionNote,
+              actorEmail: auth.user.email ?? '(unknown)',
+            },
+            recipients
           );
-        })
-        .map((u) => u.email as string);
-      if (recipients.length > 0) {
-        await notifyAnnualLetterChanged(
-          {
-            studentName,
-            subjectCode: subjectData.subject_code,
-            sectionName,
-            termLabel,
-            before: entry.annual_letter_grade,
-            after: newValue,
-            reason: correctionNote,
-            actorEmail: auth.user.email ?? '(unknown)',
-          },
-          recipients
-        );
+        }
+      } catch (e) {
+        console.error('[annual-letter] notification failed:', e);
       }
-    } catch (e) {
-      console.error('[annual-letter] notification failed:', e);
-    }
-  })();
+    })();
+  }
 
   return NextResponse.json({ ok: true });
 }

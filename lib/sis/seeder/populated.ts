@@ -520,7 +520,6 @@ async function seedGradeEntries(
       configById.get(sheet.subject_config_id)?.is_examinable ?? true
     );
     const isT4 = t4 != null && sheet.term_id === t4.id;
-    const ANNUAL_LETTER_POOL = ['A', 'B', 'C', 'Passed', 'A', 'B'] as const;
 
     for (const e of enrolments) {
       if (isFullTerm) {
@@ -556,12 +555,9 @@ async function seedGradeEntries(
           quarterly_grade: naRoll ? null : computed.quarterly_grade,
           is_na: naRoll,
           letter_grade: null,
-          annual_letter_grade:
-            isNonExam && isT4 && !naRoll
-              ? ANNUAL_LETTER_POOL[
-                  Math.floor(rand() * ANNUAL_LETTER_POOL.length)
-                ]
-              : null,
+          // T4 non-examinable: always seed 'Passed' (standard year-end final
+          // grade per KD #100). N/A rows stay null — they have no final grade.
+          annual_letter_grade: isNonExam && isT4 && !naRoll ? 'Passed' : null,
           created_at: createdAtForTerm(sheet.term_id),
         });
       } else {

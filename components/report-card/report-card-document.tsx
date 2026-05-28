@@ -151,7 +151,6 @@ export function ReportCardDocument({
                                 sheetId={row.t4_sheet_id}
                                 entryId={row.t4_entry_id}
                                 initialValue={row.annual_letter_override}
-                                derivedLetter={row.annual_letter_derived}
                               />
                             </span>
                           </>

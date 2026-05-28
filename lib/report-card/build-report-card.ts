@@ -344,9 +344,7 @@ export async function buildReportCard(
           }))
         )
       : null;
-    const annual_letter = !sub.is_examinable
-      ? (annual_letter_override ?? annual_letter_derived)
-      : null;
+    const annual_letter = !sub.is_examinable ? annual_letter_override : null;
     const annual = sub.is_examinable
       ? computeAnnualGrade(
           byTerm[1]?.quarterly ?? null,

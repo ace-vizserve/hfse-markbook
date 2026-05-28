@@ -815,16 +815,17 @@ export function PublishWindowPanel({
                     passed={nonExamOk}
                     icon={GraduationCap}
                     eyebrow="Markbook · Non-examinable"
-                    title="Letter grades"
+                    title="Final grades confirmed"
                     summary={
                       nonExamOk
-                        ? 'All present'
-                        : `${checklist.t4_readiness.non_examinable_readiness.missing_count} missing`
+                        ? 'All confirmed'
+                        : `${checklist.t4_readiness.non_examinable_readiness.missing_count} not confirmed`
                     }
                     detail={
                       nonExamOk
-                        ? 'All non-examinable subjects (PE, Music, Arts, etc.) have a grade or N/A on record.'
-                        : checklist.t4_readiness.non_examinable_readiness.missing
+                        ? 'All non-examinable subjects (PE, Music, Arts, etc.) have a Final Grade confirmed for the year-end report card.'
+                        : 'The Final Grade column in the Masterfile must be confirmed for each student before publishing. ' +
+                          checklist.t4_readiness.non_examinable_readiness.missing
                             .slice(0, 5)
                             .map((g) => `${g.student_name} — ${g.subject_name}`)
                             .join('; ') +
@@ -834,7 +835,7 @@ export function PublishWindowPanel({
                             : '')
                     }
                     href="/markbook/masterfile"
-                    actionLabel={nonExamOk ? 'View' : 'Enter grades'}
+                    actionLabel={nonExamOk ? 'View' : 'Confirm final grades'}
                   />
 
                   <ChecklistRow

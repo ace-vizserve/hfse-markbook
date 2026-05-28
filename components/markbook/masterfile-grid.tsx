@@ -443,7 +443,6 @@ const StudentRowView = memo(function StudentRowView({
                 sheetId={sr.annualLetterSheetId}
                 entryId={sr.annualLetterEntryId}
                 initialValue={sr.annualLetter}
-                derivedLetter={sr.derivedAnnualLetter}
               />
             ) : (
               <Tooltip>

@@ -325,27 +325,25 @@ export async function GET(
       }
     }
 
-    // Check non-examinable subjects: at least one of (quarterly / letter_grade override /
-    // is_na / annual_letter_grade) must be present across T1–T4 for each (student × subject).
-    // A row with none of these will render "—" in the Final Grade cell on the published card
-    // (KD #104). Mirrors the precedence of resolveNonExaminableLetter.
+    // Check non-examinable subjects: the T4 entry must have annual_letter_grade
+    // set (KD #100). This is the registrar-confirmed Final Grade that appears
+    // in the Final column on the published report card. N/A rows (is_na=true)
+    // are exempt — they have no Final Grade by definition.
     type NonExamKey = string; // `${studentId}::${subjName}`
-    const nonExamHasData = new Map<NonExamKey, boolean>();
+    const t4TermId = (allTerms ?? []).find((t) => t.term_number === 4)?.id;
+    const nonExamHasAnnualGrade = new Map<NonExamKey, boolean>();
     for (const e of entries) {
       const gs = Array.isArray(e.grading_sheet)
         ? e.grading_sheet[0]
         : e.grading_sheet;
-      if (!gs) continue;
+      if (!gs || gs.term_id !== t4TermId) continue;
       const subj = Array.isArray(gs.subject) ? gs.subject[0] : gs.subject;
       if (!subj || subj.is_examinable) continue;
       const key: NonExamKey = `${e.student_id}::${subj.name}`;
-      if (!nonExamHasData.has(key)) nonExamHasData.set(key, false);
-      const hasValue =
-        e.quarterly_grade !== null ||
-        (e.letter_grade !== null && e.letter_grade.trim() !== '') ||
+      const hasGrade =
         e.is_na === true ||
         (e.annual_letter_grade !== null && e.annual_letter_grade.trim() !== '');
-      if (hasValue) nonExamHasData.set(key, true);
+      nonExamHasAnnualGrade.set(key, hasGrade);
     }
 
     const missingNonExam: { student_name: string; subject_name: string }[] = [];
@@ -353,7 +351,7 @@ export async function GET(
       if (!s.studentId) continue;
       for (const subjName of nonExaminableSubjectNames) {
         const key: NonExamKey = `${s.studentId}::${subjName}`;
-        if (!nonExamHasData.get(key)) {
+        if (!nonExamHasAnnualGrade.get(key)) {
           missingNonExam.push({ student_name: s.name, subject_name: subjName });
         }
       }

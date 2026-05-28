@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Popover,
@@ -17,39 +16,47 @@ import { cn } from '@/lib/utils';
 
 // Inline popover for editing grade_entries.annual_letter_grade (KD #100).
 // Registrar/school_admin/superadmin only — the server route enforces this.
-// Shows a pencil button with the current value; opens a popover to override.
-// When the override is cleared, the auto-derived letter is used instead.
+// First-time entry (null → value) saves immediately without a note.
+// Changing an existing value requires a correction note (audit trail).
+
+const OPTIONS = [
+  { value: 'Passed', label: 'Passed' },
+  { value: 'UG', label: 'UG' },
+  { value: 'E', label: 'E' },
+  { value: 'NA', label: 'N.A.' },
+] as const;
 
 export function AnnualLetterInput({
   sheetId,
   entryId,
   initialValue,
-  derivedLetter,
   readOnly = false,
 }: {
   sheetId: string;
   entryId: string;
   initialValue: string | null;
-  derivedLetter: string | null;
   readOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState(initialValue ?? '');
+  const [saved, setSaved] = useState<string | null>(initialValue);
+  const [selected, setSelected] = useState<string | null>(null);
   const [note, setNote] = useState('');
-  const [saved, setSaved] = useState(initialValue ?? '');
   const [saving, setSaving] = useState(false);
 
-  const displayValue = saved.trim() || derivedLetter;
-  const isOverride = !!saved.trim();
-  const overrideDiffersFromDerived =
-    isOverride && saved.trim() !== (derivedLetter ?? '');
+  const isFirstEntry = saved === null;
+  const showNoteField =
+    !isFirstEntry && selected !== null && selected !== saved;
+  const canSave = showNoteField && note.trim() !== '';
 
-  async function handleSave() {
-    const trimmed = draft.trim();
-    if (trimmed === saved.trim()) {
-      setOpen(false);
-      return;
+  function handleOpenChange(next: boolean) {
+    if (next) {
+      setSelected(saved);
+      setNote('');
     }
+    setOpen(next);
+  }
+
+  async function doSave(value: string | null, correctionNote: string | null) {
     setSaving(true);
     try {
       const res = await fetch(
@@ -58,8 +65,8 @@ export function AnnualLetterInput({
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
-            annual_letter_grade: trimmed || null,
-            correction_note: note.trim() || null,
+            annual_letter_grade: value,
+            correction_note: correctionNote,
           }),
         }
       );
@@ -68,7 +75,7 @@ export function AnnualLetterInput({
         toast.error((body as { error?: string })?.error ?? 'Failed to save');
         return;
       }
-      setSaved(trimmed);
+      setSaved(value);
       setNote('');
       setOpen(false);
     } catch {
@@ -78,12 +85,21 @@ export function AnnualLetterInput({
     }
   }
 
-  function handleOpenChange(next: boolean) {
-    if (next) {
-      setDraft(saved);
-      setNote('');
+  async function handleOptionClick(value: string) {
+    if (saving) return;
+    if (isFirstEntry) {
+      await doSave(value, null);
+      return;
     }
-    setOpen(next);
+    setSelected(value);
+  }
+
+  async function handleSave() {
+    if (!selected || selected === saved) {
+      setOpen(false);
+      return;
+    }
+    await doSave(selected, note.trim() || null);
   }
 
   if (readOnly) {
@@ -91,10 +107,10 @@ export function AnnualLetterInput({
       <span
         className={cn(
           'inline-flex h-7 w-16 items-center justify-center font-mono text-[11px] tabular-nums',
-          displayValue ? 'text-foreground font-medium' : 'text-muted-foreground'
+          saved ? 'font-medium text-foreground' : 'text-muted-foreground'
         )}
       >
-        {displayValue ?? '—'}
+        {saved ?? '—'}
       </span>
     );
   }
@@ -106,89 +122,87 @@ export function AnnualLetterInput({
           type="button"
           className={cn(
             'flex h-7 w-16 items-center justify-center gap-1 rounded border font-mono text-[11px] tabular-nums transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-            overrideDiffersFromDerived
-              ? 'border-brand-amber/60 text-brand-amber'
-              : isOverride
-                ? 'border-border text-foreground'
-                : 'border-border text-muted-foreground'
+            saved
+              ? 'border-border font-medium text-foreground'
+              : 'border-dashed border-border text-muted-foreground'
           )}
         >
-          <span>{displayValue ?? '—'}</span>
+          <span>{saved ?? '—'}</span>
           <Pencil className="h-2.5 w-2.5 shrink-0 opacity-50" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-3" align="center" side="left">
+      <PopoverContent className="w-64 p-3" align="center" side="left">
         <div className="space-y-3">
-          <div className="space-y-1">
+          <div>
             <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Final Grade Override
+              Final Grade
             </Label>
-            {derivedLetter && (
-              <p className="text-xs text-muted-foreground">
-                Auto-derived:{' '}
+            {saved && (
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                Current:{' '}
                 <span className="font-mono font-medium text-foreground">
-                  {derivedLetter}
+                  {saved}
                 </span>
               </p>
             )}
           </div>
-          <div className="space-y-1">
-            <Label htmlFor={`override-${entryId}`} className="text-xs">
-              Override value
-            </Label>
-            <Input
-              id={`override-${entryId}`}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleSave();
-                }
-              }}
-              placeholder={derivedLetter ?? 'e.g. A'}
-              className="h-7 font-mono text-center text-[11px]"
-            />
-            <p className="text-[10px] text-muted-foreground">
-              Leave blank to use the auto-derived letter
-            </p>
+
+          <div className="grid grid-cols-4 gap-1">
+            {OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                disabled={saving}
+                onClick={() => handleOptionClick(opt.value)}
+                className={cn(
+                  'rounded-md border py-1.5 font-mono text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50',
+                  selected === opt.value
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border text-foreground hover:bg-muted/50'
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
-          <div className="rounded-md border border-brand-amber/40 bg-brand-amber/10 px-3 py-2 text-[11px] leading-relaxed text-brand-amber">
-            This updates the student&rsquo;s year-end Final Grade on the report
-            card. The change will be logged and all school admins and
-            superadmins will be notified.
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor={`note-${entryId}`} className="text-xs">
-              Reason for change <span className="text-destructive">*</span>
-            </Label>
-            <Textarea
-              id={`note-${entryId}`}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Why is this Final Grade being changed?"
-              rows={2}
-              className="resize-none text-xs"
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleSave}
-              disabled={saving || !note.trim()}
-            >
-              {saving ? 'Saving…' : 'Save'}
-            </Button>
-          </div>
+
+          {showNoteField && (
+            <div className="space-y-1">
+              <Label htmlFor={`note-${entryId}`} className="text-xs">
+                Reason for change <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                id={`note-${entryId}`}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Why is this Final Grade being changed?"
+                rows={2}
+                className="resize-none text-xs"
+              />
+            </div>
+          )}
+
+          {!isFirstEntry && (
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setOpen(false)}
+                disabled={saving}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleSave}
+                disabled={saving || !canSave}
+              >
+                {saving ? 'Saving…' : 'Save'}
+              </Button>
+            </div>
+          )}
         </div>
       </PopoverContent>
     </Popover>
