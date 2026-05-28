@@ -3,6 +3,7 @@
 import { AlertTriangle, ChevronRight, Loader2 } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import type { SlotMeta, SlotLabels } from '@/lib/schemas/grading-sheet';
 
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -50,18 +51,6 @@ type PriorTermGrade = {
   term_number: number;
   term_label: string;
   quarterly_grade: number | null;
-};
-
-export type SlotMeta = {
-  label?: string | null;
-  date?: string | null;
-  page?: string | null;
-};
-
-export type SlotLabels = {
-  ww?: (SlotMeta | null)[];
-  pt?: (SlotMeta | null)[];
-  qa?: string | null;
 };
 
 type Props = {
