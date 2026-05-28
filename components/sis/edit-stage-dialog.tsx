@@ -38,12 +38,16 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import {
+  APPLICATION_TERMINAL_REASON_VALUES,
+  APPLICATION_TERMINAL_REASON_LABELS,
+  APPLICATION_TERMINAL_STATUSES,
   ENROLLED_PREREQ_STAGES,
   STAGE_COLUMN_MAP,
   STAGE_LABELS,
   STAGE_STATUS_OPTIONS,
   STAGE_TERMINAL_STATUS,
   StageUpdateSchema,
+  type ApplicationTerminalReason,
   type StageKey,
   type StageUpdateInput,
 } from '@/lib/schemas/sis';
@@ -159,14 +163,37 @@ export function EditStageDialog({
     : [];
   const incompleteCount = prereqRows.filter((r) => !r.ok).length;
 
+  const isTerminalStatus = (
+    APPLICATION_TERMINAL_STATUSES as readonly string[]
+  ).includes(effectiveStatus ?? '');
+  const [terminalReason, setTerminalReason] = useState<
+    ApplicationTerminalReason | ''
+  >('');
+  const [terminalNotes, setTerminalNotes] = useState('');
+
+  useEffect(() => {
+    if (!isTerminalStatus) {
+      setTerminalReason('');
+      setTerminalNotes('');
+    }
+  }, [isTerminalStatus]);
+
   async function onSubmit(values: StageUpdateInput) {
     try {
+      const extrasPayload = {
+        ...values.extras,
+        ...(stageKey === 'application' &&
+          isTerminalStatus && {
+            terminalReason: terminalReason || undefined,
+            terminalNotes: terminalNotes.trim() || undefined,
+          }),
+      };
       const res = await fetch(
         `/api/sis/students/${encodeURIComponent(enroleeNumber)}/stage/${stageKey}?ay=${encodeURIComponent(ayCode)}`,
         {
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(values),
+          body: JSON.stringify({ ...values, extras: extrasPayload }),
         }
       );
       const body = await res.json().catch(() => ({}));
@@ -344,10 +371,11 @@ export function EditStageDialog({
                 className="mt-0.5"
               />
               <span>
-                Mark this student as a <strong>late enrollee</strong>
-                <span className="mt-0.5 block text-xs text-muted-foreground">
-                  Assessments dated before today will be marked N/A on this
-                  student&apos;s report card and grading sheets.
+                The system detected this student is enrolling in{' '}
+                <strong>{pendingMidTerm.termLabel}</strong> — they will be
+                tagged as a late enrollee.{' '}
+                <span className="text-muted-foreground">
+                  Untick only if this is not a late enrolment.
                 </span>
               </span>
             </label>
@@ -385,6 +413,7 @@ export function EditStageDialog({
                         headers: { 'content-type': 'application/json' },
                         body: JSON.stringify({
                           enrollment_status: 'late_enrollee',
+                          late_enrollee_term_number: pendingMidTerm.termNumber,
                         }),
                       }
                     );
@@ -582,6 +611,53 @@ export function EditStageDialog({
                   )}
                 />
 
+                {stageKey === 'application' && isTerminalStatus && (
+                  <div className="space-y-4 rounded-lg border border-hairline p-4">
+                    <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                      Reason for ending the application
+                    </p>
+
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-foreground">
+                        Category <span className="text-destructive">*</span>
+                      </label>
+                      <Select
+                        value={terminalReason}
+                        onValueChange={(v) =>
+                          setTerminalReason(v as ApplicationTerminalReason)
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a reason..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {APPLICATION_TERMINAL_REASON_VALUES.map((v) => (
+                            <SelectItem key={v} value={v}>
+                              {APPLICATION_TERMINAL_REASON_LABELS[v]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-medium text-foreground">
+                        Notes
+                        {terminalReason === 'other' && (
+                          <span className="text-destructive"> *</span>
+                        )}
+                      </label>
+                      <Textarea
+                        value={terminalNotes}
+                        onChange={(e) => setTerminalNotes(e.target.value)}
+                        placeholder="Optional additional context..."
+                        maxLength={200}
+                        rows={2}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <DialogFooter className="gap-2">
                   <Button
                     type="button"
@@ -592,7 +668,18 @@ export function EditStageDialog({
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" size="sm" disabled={busy}>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={
+                      busy ||
+                      (stageKey === 'application' &&
+                        isTerminalStatus &&
+                        (!terminalReason ||
+                          (terminalReason === 'other' &&
+                            !terminalNotes.trim())))
+                    }
+                  >
                     {busy && <Loader2 className="size-3.5 animate-spin" />}
                     {busy ? 'Saving…' : 'Save changes'}
                   </Button>
