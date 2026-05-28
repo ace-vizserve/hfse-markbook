@@ -182,7 +182,7 @@ export function sgToday(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Singapore' });
 }
 
-function resolveDiscussedTermId(
+export function resolveDiscussedTermId(
   ptcStartDate: string,
   writeupTerms: Array<{ id: string; end_date: string | null }>
 ): string | null {
