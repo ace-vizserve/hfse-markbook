@@ -5,15 +5,11 @@ import { requireCurrentAyCode } from '@/lib/academic-year';
 import { logAction } from '@/lib/audit/log-action';
 import { invalidateDrillTags } from '@/lib/cache/invalidate-drill-tags';
 import { createServiceClient } from '@/lib/supabase/service';
-import { mergeGradingSheetSlots } from '@/lib/sis/sow/mutations';
-import type { SowLabel } from '@/lib/sis/sow/queries';
 
 // POST /api/grading-sheets/bulk-create
 // Body: either { ay_id: uuid } or { section_id: uuid } (exactly one).
 //
-// Creates grading sheets for all (section × subject × term) scopes with no SOW
-// gate. After creation, SOW labels are soft-synced from sow_class_instances
-// when a matching row exists — missing SOW is logged but never blocks creation.
+// Creates grading sheets for all (section × subject × term) scopes.
 //
 // Registrar+ only.
 export async function POST(request: NextRequest) {
@@ -65,11 +61,10 @@ export async function POST(request: NextRequest) {
   }
 
   if (!targetSectionIds.length) {
-    return NextResponse.json({ ok: true, inserted: 0, sow_applied: 0 });
+    return NextResponse.json({ ok: true, inserted: 0 });
   }
 
   let inserted = 0;
-  let sowApplied = 0;
 
   try {
     // 1. Load sections with their levels
@@ -77,8 +72,7 @@ export async function POST(request: NextRequest) {
       .from('sections')
       .select('id, level_id')
       .in('id', targetSectionIds);
-    if (!sections?.length)
-      return NextResponse.json({ ok: true, inserted: 0, sow_applied: 0 });
+    if (!sections?.length) return NextResponse.json({ ok: true, inserted: 0 });
 
     const levelIds = [
       ...new Set(
@@ -97,7 +91,7 @@ export async function POST(request: NextRequest) {
     ]);
 
     if (!configs?.length || !terms?.length) {
-      return NextResponse.json({ ok: true, inserted: 0, sow_applied: 0 });
+      return NextResponse.json({ ok: true, inserted: 0 });
     }
 
     // 3. Build flat scope list: one entry per (section × subject × term)
@@ -131,58 +125,6 @@ export async function POST(request: NextRequest) {
       );
       inserted = (rpcResult as { inserted?: number } | null)?.inserted ?? 0;
     }
-
-    // 5. Soft SOW sync: find teacher-authored SOW instances for these sections
-    const { data: sowRows } = await service
-      .from('sow_class_instances')
-      .select('id, section_id, subject_id, term_id, ww_labels, pt_labels')
-      .in('section_id', targetSectionIds);
-
-    if (sowRows?.length) {
-      // 6. Fetch grading sheets for the target sections
-      const { data: sheets } = await service
-        .from('grading_sheets')
-        .select('id, section_id, subject_id, term_id')
-        .in('section_id', targetSectionIds);
-
-      const sheetByKey = new Map(
-        (sheets ?? []).map((s) => {
-          const r = s as {
-            id: string;
-            section_id: string;
-            subject_id: string;
-            term_id: string;
-          };
-          return [`${r.section_id}:${r.subject_id}:${r.term_id}`, r.id];
-        })
-      );
-
-      // 7. Sync labels for each SOW that has a matching sheet
-      await Promise.all(
-        (
-          sowRows as {
-            id: string;
-            section_id: string;
-            subject_id: string;
-            term_id: string;
-            ww_labels: SowLabel[];
-            pt_labels: SowLabel[];
-          }[]
-        ).map(async (sow) => {
-          const sheetId = sheetByKey.get(
-            `${sow.section_id}:${sow.subject_id}:${sow.term_id}`
-          );
-          if (!sheetId) return;
-          const { error } = await mergeGradingSheetSlots(
-            service,
-            sheetId,
-            sow.ww_labels ?? [],
-            sow.pt_labels ?? []
-          );
-          if (!error) sowApplied++;
-        })
-      );
-    }
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'internal error' },
@@ -201,11 +143,10 @@ export async function POST(request: NextRequest) {
       ay_id: ayId,
       section_id: sectionId,
       inserted,
-      sow_applied: sowApplied,
     },
   });
 
   invalidateDrillTags('markbook', await requireCurrentAyCode(service));
 
-  return NextResponse.json({ ok: true, inserted, sow_applied: sowApplied });
+  return NextResponse.json({ ok: true, inserted });
 }

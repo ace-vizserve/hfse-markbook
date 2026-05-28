@@ -25,7 +25,6 @@ import {
   listChecklistItems,
   listTeacherSubjectsForSection,
 } from '@/lib/evaluation/checklist';
-import { createServiceClient } from '@/lib/supabase/service';
 import {
   getEvaluationTermConfig,
   getSectionRoster,
@@ -217,8 +216,7 @@ export default async function EvaluationSectionRosterPage({
   const teacherCanEditTopics =
     sessionUser.role !== 'teacher' || teacherSubjectIds.length > 0;
 
-  const service = createServiceClient();
-  const [items, responseMap, commentMap, sowInstance] = selectedSubjectId
+  const [items, responseMap, commentMap] = selectedSubjectId
     ? await Promise.all([
         listChecklistItems(selectedTerm.id, selectedSubjectId, sectionId),
         getResponsesBySectionTerm(sectionId, selectedTerm.id),
@@ -227,19 +225,8 @@ export default async function EvaluationSectionRosterPage({
           selectedTerm.id,
           selectedSubjectId
         ),
-        service
-          .from('sow_class_instances')
-          .select('id, topics')
-          .eq('section_id', sectionId)
-          .eq('subject_id', selectedSubjectId)
-          .eq('term_id', selectedTerm.id)
-          .maybeSingle()
-          .then((r) => r.data as { id: string; topics: unknown[] } | null),
       ])
-    : [[], new Map(), new Map(), null];
-
-  const sowInstanceId = sowInstance?.id ?? null;
-  const sowHasTopics = (sowInstance?.topics?.length ?? 0) > 0;
+    : [[], new Map(), new Map()];
 
   const responsesForClient = new Map<string, number | null>();
   for (const [k, row] of responseMap.entries()) {
@@ -314,7 +301,7 @@ export default async function EvaluationSectionRosterPage({
           </div>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
             {isSubjectTeacherOnly
-              ? 'Rate each student 1–5 on the SOW-prescribed topics for the selected subject.'
+              ? 'Rate each student 1–5 on the evaluation topics for the selected subject.'
               : `${submittedCount} of ${totalCount} write-ups submitted. Autosaves per keystroke; Submit stamps a write-up as finalised (edits stay possible).`}
           </p>
         </div>
@@ -513,8 +500,6 @@ export default async function EvaluationSectionRosterPage({
                 initialComments={commentsForClient}
                 canEdit={canEdit}
                 canEditTopics={teacherCanEditTopics}
-                sowInstanceId={sowInstanceId}
-                sowHasTopics={sowHasTopics}
               />
             )}
           </TabsContent>

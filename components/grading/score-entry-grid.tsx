@@ -74,8 +74,6 @@ type Props = {
   requireApproval?: boolean;
   /** Teacher-authored activity metadata per column. */
   slotLabels?: SlotLabels;
-  /** SOW-sourced labels — used as fallback in the "View activities" dialog when slot_labels haven't been synced yet. */
-  sowLabels?: { ww: SlotMeta[]; pt: SlotMeta[] };
   /** Subject weights as decimals (e.g. 0.40 for 40%). Used to compute WS columns. */
   wwWeight: number;
   ptWeight: number;
@@ -107,7 +105,6 @@ export function ScoreEntryGrid({
   readOnly = false,
   requireApproval = false,
   slotLabels,
-  sowLabels,
   wwWeight,
   ptWeight,
   qaWeight,
@@ -286,7 +283,6 @@ export function ScoreEntryGrid({
         ptTotals={ptTotals}
         qaTotal={qaTotal}
         labels={labels}
-        sowLabels={sowLabels}
         wwPct={wwPct}
         ptPct={ptPct}
         qaPct={qaPct}
@@ -786,7 +782,6 @@ function ScoringGuide({
   ptTotals,
   qaTotal,
   labels,
-  sowLabels,
   wwPct,
   ptPct,
   qaPct,
@@ -795,7 +790,6 @@ function ScoringGuide({
   ptTotals: number[];
   qaTotal: number | null;
   labels: Required<SlotLabels>;
-  sowLabels?: { ww: SlotMeta[]; pt: SlotMeta[] };
   wwPct: number;
   ptPct: number;
   qaPct: number;
@@ -803,14 +797,10 @@ function ScoringGuide({
   const [expanded, setExpanded] = useState(false);
 
   const effectiveWw = (i: number): SlotMeta | null => {
-    const sl = labels.ww[i] ?? null;
-    if (sl?.label) return sl;
-    return sowLabels?.ww[i] ?? null;
+    return labels.ww[i] ?? null;
   };
   const effectivePt = (i: number): SlotMeta | null => {
-    const sl = labels.pt[i] ?? null;
-    if (sl?.label) return sl;
-    return sowLabels?.pt[i] ?? null;
+    return labels.pt[i] ?? null;
   };
 
   const summaryParts = [

@@ -182,7 +182,7 @@ export default async function EvaluationHub({
       <DashboardHero
         eyebrow="Student Evaluation · Hub"
         title="Form class adviser write-ups"
-        description="FCA write-ups, SOW-topic ratings by subject teachers, and PTC notes — one term at a time. Sole source for T1–T3 report card comments. T4 is FCA-inactive."
+        description="FCA write-ups, per-topic ratings by subject teachers, and PTC notes — one term at a time. Sole source for T1–T3 report card comments. T4 is FCA-inactive."
         badges={ayCode ? [{ label: ayCode }] : []}
       />
 

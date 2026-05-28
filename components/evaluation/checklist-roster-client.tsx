@@ -11,8 +11,6 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 import {
@@ -78,8 +76,6 @@ export function ChecklistRosterClient({
   initialComments,
   canEdit,
   canEditTopics,
-  sowInstanceId,
-  sowHasTopics,
 }: {
   termId: string;
   sectionId: string;
@@ -93,12 +89,7 @@ export function ChecklistRosterClient({
   // True when the viewer is the subject_teacher for this (section × subject)
   // — gates the inline add / edit / delete / reorder affordances.
   canEditTopics: boolean;
-  // SOW instance for this (section × subject × term), used to power the
-  // "Seed topics from your SOW" CTA when the checklist is empty.
-  sowInstanceId: string | null;
-  sowHasTopics: boolean;
 }) {
-  const router = useRouter();
   const [subjectId, setSubjectId] = useState(initialSubjectId);
 
   const [state, setState] = useState<ChecklistState>(() => ({
@@ -125,7 +116,6 @@ export function ChecklistRosterClient({
   const [deleteConfirm, setDeleteConfirm] = useState<ChecklistItem | null>(
     null
   );
-  const [seedBusy, setSeedBusy] = useState(false);
   const newTopicInputRef = useRef<HTMLInputElement | null>(null);
 
   const commentTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(
@@ -410,29 +400,6 @@ export function ChecklistRosterClient({
     }
   }
 
-  async function seedFromSow() {
-    if (!sowInstanceId || seedBusy) return;
-    setSeedBusy(true);
-    try {
-      const res = await fetch(
-        `/api/sow/${encodeURIComponent(sowInstanceId)}/sync-to-eval`,
-        {
-          method: 'POST',
-        }
-      );
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body?.error ?? 'Could not seed topics');
-      toast.success(
-        `${body.inserted ?? 0} topic${body.inserted === 1 ? '' : 's'} seeded from your SOW`
-      );
-      router.refresh();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not seed topics');
-    } finally {
-      setSeedBusy(false);
-    }
-  }
-
   // Subject-switching reloads via a full URL update (the page RSC re-fetches
   // items + responses + comments for the new subject).
   function switchSubject(next: string) {
@@ -537,44 +504,10 @@ export function ChecklistRosterClient({
       {totalItems === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
           {canEditTopics ? (
-            sowInstanceId && sowHasTopics ? (
-              <div className="flex flex-col items-center gap-3">
-                <p>No topics yet — your SOW has topics ready to import.</p>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => void seedFromSow()}
-                  disabled={seedBusy}
-                >
-                  {seedBusy ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : null}
-                  Seed topics from your SOW
-                </Button>
-              </div>
-            ) : sowInstanceId ? (
-              <p>
-                No topics yet. Use {'"'}+ Add topic{'"'} above, or{' '}
-                <Link
-                  href={`/markbook/sow/${sectionId}/${subjectId}/${termId}`}
-                  className="underline underline-offset-2 hover:text-foreground"
-                >
-                  author topics on your SOW
-                </Link>{' '}
-                first.
-              </p>
-            ) : (
-              <p>
-                No topics yet. Use {'"'}+ Add topic{'"'} above, or{' '}
-                <Link
-                  href={`/markbook/sow/${sectionId}/${subjectId}/${termId}`}
-                  className="underline underline-offset-2 hover:text-foreground"
-                >
-                  start your SOW for this class
-                </Link>
-                .
-              </p>
-            )
+            <p>
+              No topics yet. Use {'"'}+ Add topic{'"'} above to add topics for
+              this subject.
+            </p>
           ) : (
             'No topics yet. The subject teacher will add them from their Evaluation view.'
           )}

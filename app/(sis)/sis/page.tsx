@@ -2,7 +2,6 @@ import {
   Activity,
   ArrowUpRight,
   BookOpen,
-  BookOpenCheck,
   Building2,
   CalendarCog,
   CalendarDays,
@@ -390,16 +389,6 @@ export default async function SisAdminHub({
               Organisation
             </h2>
             <div className="grid gap-4 md:grid-cols-2">
-              <AdminCard
-                href="/sis/admin/sow"
-                icon={BookOpenCheck}
-                eyebrow="Curriculum"
-                title="SOW Review"
-                description="Spot-check teacher-authored Scheme of Work entries across sections. Teachers author and maintain their own SOW at Markbook → Scheme of Work."
-                cta="Review SOW"
-                role={role}
-                allowedRoles={['school_admin', 'superadmin']}
-              />
               <AdminCard
                 href="/sis/admin/discount-codes"
                 icon={Tag}

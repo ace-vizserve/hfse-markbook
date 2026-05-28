@@ -69,23 +69,15 @@ export function GenerateSheetsDialog({
       if (!res.ok) throw new Error(json?.error ?? 'generation failed');
 
       const inserted = Number(json?.inserted ?? 0);
-      const blockedCount = Number(json?.sow_scopes_blocked ?? 0);
-      const blockedSubjects: string[] = json?.blocked_subjects ?? [];
       const label = scope.kind === 'ay' ? scope.ayCode : scope.sectionLabel;
 
       if (inserted > 0) {
         toast.success(
           `Generated ${inserted.toLocaleString('en-SG')} sheet${inserted === 1 ? '' : 's'} for ${label}.`
         );
-      } else if (blockedCount === 0) {
+      } else {
         toast.info(
           `${label} is already fully configured — every sheet has totals + every roster row has an entry.`
-        );
-      }
-
-      if (blockedCount > 0) {
-        toast.warning(
-          `${blockedCount} scope${blockedCount === 1 ? '' : 's'} skipped — no approved SOW: ${blockedSubjects.slice(0, 3).join(', ')}${blockedSubjects.length > 3 ? ` +${blockedSubjects.length - 3} more` : ''}.`
         );
       }
 

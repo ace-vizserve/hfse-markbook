@@ -11,7 +11,6 @@ import {
   Users,
 } from 'lucide-react';
 import { createClient, getSessionUser } from '@/lib/supabase/server';
-import { createServiceClient } from '@/lib/supabase/service';
 import {
   loadPriorTermGrades,
   type PriorTermGrade,
@@ -236,36 +235,6 @@ export default async function GradingSheetPage({
     sheet.subject_config as SubjectConfig | SubjectConfig[] | null
   );
   const isExaminable = subject?.is_examinable !== false;
-
-  // Fetch the SOW instance so the "View activities" dialog can show activity
-  // names even when the teacher hasn't yet clicked "Sync labels to grading sheet".
-  type SowLabel = { label: string; page: string | null };
-  const { data: sowInstanceRaw } =
-    section?.id && subject?.id && term?.id
-      ? await createServiceClient()
-          .from('sow_class_instances')
-          .select('ww_labels, pt_labels')
-          .eq('section_id', section.id)
-          .eq('subject_id', subject.id)
-          .eq('term_id', term.id)
-          .maybeSingle()
-      : { data: null };
-  const sowInst = sowInstanceRaw as {
-    ww_labels?: SowLabel[];
-    pt_labels?: SowLabel[];
-  } | null;
-  const sowLabels = sowInst
-    ? {
-        ww: (sowInst.ww_labels ?? []).map((l) => ({
-          label: l.label,
-          page: l.page,
-        })),
-        pt: (sowInst.pt_labels ?? []).map((l) => ({
-          label: l.label,
-          page: l.page,
-        })),
-      }
-    : undefined;
 
   // Teacher assignment gate — already fetched concurrently above.
   const isAssignedTeacher =
@@ -658,7 +627,6 @@ export default async function GradingSheetPage({
             qa?: string | null;
           } | null) ?? undefined
         }
-        sowLabels={sowLabels}
         letterDisplay={!isExaminable}
         priorGrades={priorGrades}
         currentTermNumber={term?.term_number ?? 1}

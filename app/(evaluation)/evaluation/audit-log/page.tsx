@@ -37,10 +37,6 @@ const EVALUATION_AUDIT_ALLOWLIST = [
   'evaluation.checklist_response.save',
   'evaluation.subject_comment.save',
   'evaluation.ptc_feedback.save',
-  // Scheme of Work — evaluation-affecting actions (KD #110)
-  'sow.instance.save',
-  'sow.instance.import_from',
-  'sow.topics.synced',
 ] as const;
 
 export default async function EvaluationAuditLogPage({

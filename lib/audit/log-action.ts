@@ -112,17 +112,7 @@ export type AuditAction =
   | 'grade_entry.annual_letter.update'
   | 'user.login'
   | 'parent.session.issued'
-  | 'parent.session.cleared'
-  | 'sow.master.upsert'
-  | 'sow.version.publish'
-  | 'sow.instance.apply'
-  | 'sow.scope.add'
-  | 'sow.scope.remove'
-  // Teacher-owned SOW (KD #110)
-  | 'sow.instance.save'
-  | 'sow.instance.import_from'
-  | 'sow.labels.synced'
-  | 'sow.topics.synced';
+  | 'parent.session.cleared';
 
 export type AuditEntityType =
   | 'grading_sheet'
@@ -157,11 +147,7 @@ export type AuditEntityType =
   | 'evaluation_checklist_item'
   | 'evaluation_checklist_response'
   | 'evaluation_subject_comment'
-  | 'evaluation_ptc_feedback'
-  | 'sow_master_template'
-  | 'sow_published_version'
-  | 'sow_class_instance'
-  | 'sow_subject_scope';
+  | 'evaluation_ptc_feedback';
 
 type LogActionParams = {
   service: SupabaseClient;

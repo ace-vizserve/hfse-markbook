@@ -49,11 +49,6 @@ const SIS_AUDIT_ALLOWLIST = [
   'section.realphabetize',
   'assignment.create',
   'assignment.delete',
-  // Scheme of Work — teacher-owned model (KD #110)
-  'sow.instance.save',
-  'sow.instance.import_from',
-  'sow.labels.synced',
-  'sow.topics.synced',
   // School calendar (/sis/calendar)
   'attendance.calendar.upsert',
   'attendance.calendar.delete',

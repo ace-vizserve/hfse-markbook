@@ -22,14 +22,6 @@ export const SlotLabelsSchema = z.object({
 
 export type SlotLabels = z.infer<typeof SlotLabelsSchema>;
 
-// SOW-sourced descriptor — label + page only (no date; date is teacher-entered)
-export const SowSlotDescriptorSchema = z.object({
-  label: z.string().max(120).nullable().optional(),
-  page: z.string().max(40).nullable().optional(),
-});
-
-export type SowSlotDescriptor = z.infer<typeof SowSlotDescriptorSchema>;
-
 export const SlotMetaPatchSchema = z.object({
   ww: z.array(SlotMetaSchema.nullable()).optional(),
   pt: z.array(SlotMetaSchema.nullable()).optional(),

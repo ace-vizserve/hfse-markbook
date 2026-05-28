@@ -10,9 +10,7 @@ import {
 
 type SubjectOption = { id: string; code: string; name: string };
 
-// Standalone subject picker for the Checklists tab. Renders above the
-// SOW-locked state so the user can still switch subjects even when the
-// currently-selected subject has no approved SOW class instance.
+// Standalone subject picker for the Checklists tab.
 export function ChecklistSubjectPicker({
   subjects,
   selectedSubjectId,

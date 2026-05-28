@@ -11,7 +11,6 @@ export type ChecklistItemRow = {
   subject_id: string;
   // Scope is per-section (teacher-owned, KD #110). section_id added in migration 061.
   section_id: string;
-  sow_instance_id: string | null;
   item_text: string;
   sort_order: number;
 };
@@ -52,9 +51,7 @@ export async function listChecklistItems(
   const service = createServiceClient();
   const { data, error } = await service
     .from('evaluation_checklist_items')
-    .select(
-      'id, term_id, subject_id, section_id, sow_instance_id, item_text, sort_order'
-    )
+    .select('id, term_id, subject_id, section_id, item_text, sort_order')
     .eq('term_id', termId)
     .eq('subject_id', subjectId)
     .eq('section_id', sectionId)
@@ -64,29 +61,6 @@ export async function listChecklistItems(
     return [];
   }
   return (data ?? []) as ChecklistItemRow[];
-}
-
-// Returns peer sections the teacher could import SOW topics from (same level × subject × term).
-// Implemented via the lib/sis/sow/queries helper; this re-export keeps the call site stable.
-export async function getSectionsTeacherCanCopyFrom(
-  _userId: string,
-  termId: string,
-  subjectId: string,
-  currentSectionId: string
-): Promise<
-  Array<{ section_id: string; section_name: string; item_count: number }>
-> {
-  const { listImportableSowSources } = await import('@/lib/sis/sow/queries');
-  const sources = await listImportableSowSources(
-    currentSectionId,
-    subjectId,
-    termId
-  );
-  return sources.map((s) => ({
-    section_id: s.section_id,
-    section_name: s.section_name,
-    item_count: s.topic_count,
-  }));
 }
 
 // Decorates each checklist item with the creator's display name (or
@@ -107,7 +81,7 @@ export async function listChecklistItemsWithCreator(
   const { data } = await service
     .from('evaluation_checklist_items')
     .select(
-      'id, term_id, subject_id, section_id, sow_instance_id, item_text, sort_order, created_by, created_at'
+      'id, term_id, subject_id, section_id, item_text, sort_order, created_by, created_at'
     )
     .eq('term_id', termId)
     .eq('subject_id', subjectId)

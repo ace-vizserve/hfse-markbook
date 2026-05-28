@@ -412,11 +412,6 @@ const SIS_NAV: NavSection[] = [
     label: 'Organisation',
     items: [
       {
-        href: '/sis/admin/sow',
-        label: 'Scheme of Work',
-        requiresRoles: ['school_admin', 'superadmin'],
-      },
-      {
         href: '/sis/admin/discount-codes',
         label: 'Discount Codes',
         requiresRoles: ['registrar', 'school_admin', 'superadmin'],
@@ -493,10 +488,6 @@ export const NAV_BY_MODULE: {
     teacher: [
       { items: [{ href: '/markbook', label: 'Dashboard' }] },
       {
-        label: 'Planning',
-        items: [{ href: '/markbook/sow', label: 'Scheme of Work' }],
-      },
-      {
         label: 'Grading',
         items: [
           { href: '/markbook/grading', label: 'My Sheets' },
@@ -514,10 +505,6 @@ export const NAV_BY_MODULE: {
           { href: '/markbook', label: 'Dashboard' },
           { href: '/markbook/compare', label: 'Compare' },
         ],
-      },
-      {
-        label: 'Planning',
-        items: [{ href: '/markbook/sow', label: 'Scheme of Work' }],
       },
       {
         label: 'Grading',
@@ -559,10 +546,6 @@ export const NAV_BY_MODULE: {
         ],
       },
       {
-        label: 'Planning',
-        items: [{ href: '/markbook/sow', label: 'Scheme of Work' }],
-      },
-      {
         label: 'Students',
         items: [{ href: '/markbook/sections', label: 'Sections' }],
       },
@@ -590,10 +573,6 @@ export const NAV_BY_MODULE: {
           { href: '/markbook', label: 'Dashboard' },
           { href: '/markbook/compare', label: 'Compare' },
         ],
-      },
-      {
-        label: 'Planning',
-        items: [{ href: '/markbook/sow', label: 'Scheme of Work' }],
       },
       {
         label: 'Grading',
