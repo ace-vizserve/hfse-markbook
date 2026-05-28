@@ -365,6 +365,37 @@ export const STAGE_TERMINAL_STATUS: Partial<Record<StageKey, string>> = {
   // class gets 'Finished' set by the auto-assign algorithm, not a prereq.
 };
 
+export const APPLICATION_TERMINAL_REASON_VALUES = [
+  'chose_another_school',
+  'visa_denied',
+  'lost_interest',
+  'financial',
+  'family_relocation',
+  'health',
+  'other',
+] as const;
+export type ApplicationTerminalReason =
+  (typeof APPLICATION_TERMINAL_REASON_VALUES)[number];
+
+export const APPLICATION_TERMINAL_REASON_LABELS: Record<
+  ApplicationTerminalReason,
+  string
+> = {
+  chose_another_school: 'Chose another school',
+  visa_denied: 'Pass / visa application denied',
+  lost_interest: 'Lost interest / no response',
+  financial: 'Financial reasons',
+  family_relocation: 'Family relocating overseas',
+  health: 'Health / personal',
+  other: 'Other',
+};
+
+// Statuses on the application stage that require a terminal reason.
+export const APPLICATION_TERMINAL_STATUSES = [
+  'Cancelled',
+  'Withdrawn',
+] as const;
+
 // Each stage maps to status / remarks / extras column names on enrolment_status.
 // The route reads this map to know which columns to write.
 export type StageColumns = {
@@ -388,7 +419,20 @@ export const STAGE_COLUMN_MAP: Record<StageKey, StageColumns> = {
     remarksCol: 'applicationRemarks',
     updatedDateCol: 'applicationUpdatedDate',
     updatedByCol: 'applicationUpdatedBy',
-    extras: [],
+    extras: [
+      {
+        fieldKey: 'terminalReason',
+        columnName: 'applicationTerminalReason',
+        kind: 'text' as const,
+        label: 'Reason',
+      },
+      {
+        fieldKey: 'terminalNotes',
+        columnName: 'applicationTerminalNotes',
+        kind: 'text' as const,
+        label: 'Notes',
+      },
+    ],
   },
   // Non-camelCase oddities below are the ACTUAL production column names on
   // `ay{YYYY}_enrolment_status` (see docs/context/10a-parent-portal-ddl.md

@@ -159,8 +159,12 @@ export async function PATCH(
             lateEnrolleeTermLabel: lateEnrolleeTerm?.termLabel ?? null,
           }
         : {}),
-      ...(parsed.data.enrollment_status === 'withdrawn' && parsed.data.reason
-        ? { reason: parsed.data.reason }
+      ...(parsed.data.enrollment_status === 'withdrawn' &&
+      (parsed.data.withdrawal_reason || parsed.data.withdrawal_notes)
+        ? {
+            withdrawal_reason: parsed.data.withdrawal_reason ?? null,
+            withdrawal_notes: parsed.data.withdrawal_notes ?? null,
+          }
         : {}),
       ...(isReEnrolment ? { reEnrolment: true } : {}),
     },
