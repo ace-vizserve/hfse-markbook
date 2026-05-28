@@ -1,3 +1,4 @@
+import { revalidateTag } from 'next/cache';
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { requireCurrentAyCode } from '@/lib/academic-year';
@@ -78,6 +79,7 @@ export async function POST(request: NextRequest) {
     },
   });
 
+  revalidateTag(`sis:${ayCode}`, 'max');
   invalidateAllOperationalDrills(ayCode);
 
   console.info(
