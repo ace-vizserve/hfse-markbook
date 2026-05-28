@@ -60,18 +60,18 @@ here — they live in `.claude/rules/*.md`. Sprint-by-sprint history lives in
 `docs/sprints/development-plan.md` + `git log`.
 -->
 
-**Current state (2026-05-25):** Sprint 42 — teacher-owned SOW model (KD #110). Migration 061 shipped: reshapes `sow_class_instances` to teacher-owned `(ww_labels, pt_labels, topics, copied_from_section_id, copied_at, created_by)`; re-scopes `evaluation_checklist_items` back to `section_id`; drops `sync_grading_sheets_from_sow` RPC. SOW authoring moves to `/markbook/sow` (teacher index + editor per section×subject×term). `/sis/admin/sow` converted to coordinator read-only review (`<SowReviewTable>`). AY Readiness Pill trimmed to 4 steps (SOW step removed — no longer a gate). Evaluation checklist CRUD un-410'd. `sow_master_templates` + `sow_published_versions` vestigial. **Dev DB state**: migrations through 061 ready to apply. TypeScript clean (120 pages, clean build).
+**Current state (2026-05-28):** Sprint 43 — enterprise production readiness. Prettier + Husky + GitHub Actions CI (prettier → tsc → vitest → next build); `app/global-error.tsx` RSC error boundary; 73 Vitest tests across 5 files (all pure compute functions covered). `tsc --noEmit` clean. `npm run format:check` clean. **Pending**: push to GitHub + add Secrets + enable branch protection on `main` (manual GitHub UI step). Migration 061 applied to production. TypeScript clean (120 pages).
 
-**Future work:** Honors tiers; Sec 4 Economics card; T4 GA row render verification; self-serve invite flow (KD #87 with `/auth/setup`); per-row overflow menus; attendance audit-log server-side pagination; cron auto-sync trigger (KD #90); VL bulk import parser (KD #94 follow-up); Joann legend confirmation for non-examinable letter values (UG/INC/CO/E); cleanup migration to drop `sow_master_templates` + `sow_published_versions`; optional coordinator annotation feature on `sow_class_instances`. **Pending Wynne/Joann clarifications**: (1) who encodes PTC comments — teacher or registrar? (2) grade proration formula for missing terms (Wynne). PTC comment encoding surface deferred pending #1.
+**Future work:** Honors tiers; Sec 4 Economics card; T4 GA row render verification; self-serve invite flow (KD #87 with `/auth/setup`); per-row overflow menus; attendance audit-log server-side pagination; cron auto-sync trigger (KD #90); VL bulk import parser (KD #94 follow-up); Joann legend confirmation for non-examinable letter values (UG/INC/CO/E); cleanup migration to drop `sow_master_templates` + `sow_published_versions`; optional coordinator annotation feature on `sow_class_instances`. **Pending Wynne/Joann clarifications**: (1) who encodes PTC comments — teacher or registrar? PTC comment encoding surface deferred pending #1.
 
 **Recent sprints** (full history in `docs/sprints/development-plan.md`; per-pass detail in `git log`):
 
+- Sprint 43 (2026-05-28): enterprise production readiness — Prettier + Husky + CI, global error boundary, 73 Vitest tests, tsc clean.
 - Sprint 42 (2026-05-25): teacher-owned SOW model (migration 061, KD #110) — `/markbook/sow` editor + coordinator read-only review + 4-step readiness pill + evaluation checklist CRUD un-410'd.
 - Sprint 41 (2026-05-24): SOW hard gate (migrations 059–060, KD #108) + AY Readiness Pill (KD #109) + SOW section-scoped builder + Subject Scope Manager + evaluation-checklists page removed.
 - Sprint 40 (2026-05-20): SOW Definition/Version/Instance model migration 058 (KD #108) + SOW version attribution on grading sheets + evaluation topics + subject weights slot-reduction warning + SIS Admin audit log coverage.
 - Sprint 39 (2026-05-20): slot metadata migration 057 (KD #105) + evaluation subject-teacher nav fix (KD #106) + evaluation topic ownership confirmed admin-prescribed (KD #107).
-- Sprint 38+ (2026-05-15 → 19): post-demo refinement — migrations 050–056 + admissions feedback + audit-log coverage + letterhead config + HBL overlay + annual letter + PTC feedback + non-examinable score entry + publish checklist hardening (KDs #98–104).
-- Sprints 28–38 (2026-04-29 → 2026-05-14): see development-plan.md. Highlights: KDs #63–95 + migrations 030–049.
+- Sprints 28–41 (2026-04-29 → 2026-05-24): see development-plan.md. Highlights: KDs #63–110 + migrations 030–061.
 
 ## Cross-reference note
 
