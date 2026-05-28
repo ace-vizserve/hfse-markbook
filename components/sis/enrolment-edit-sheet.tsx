@@ -115,6 +115,8 @@ export function EnrolmentEditSheet({
       setLateTermOverride(initial.late_enrollee_term_number);
       setShowTermOverride(false);
       setPendingMidTerm(null);
+      setSaving(false);
+      setApplyingLate(false);
     }
   }
 

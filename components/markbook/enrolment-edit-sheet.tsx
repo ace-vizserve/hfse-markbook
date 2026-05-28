@@ -101,6 +101,8 @@ export function EnrolmentEditSheet({
       setWithdrawalNotes(initial.withdrawal_notes ?? '');
       setLateTermOverride(initial.late_enrollee_term_number);
       setShowTermOverride(false);
+      setSaving(false);
+      setConfirmWithdraw(false);
     }
   }
 
