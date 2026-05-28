@@ -67,6 +67,13 @@ export function ActivityLabelsDialog({
     setOpen(true);
   }
 
+  function closeDialog() {
+    setWwDraft([]);
+    setPtDraft([]);
+    setQaDraft('');
+    setOpen(false);
+  }
+
   async function handleSave() {
     setSaving(true);
     try {
@@ -107,12 +114,8 @@ export function ActivityLabelsDialog({
       <Dialog
         open={open}
         onOpenChange={(isOpen) => {
-          if (!isOpen) {
-            setWwDraft([]);
-            setPtDraft([]);
-            setQaDraft('');
-          }
-          setOpen(isOpen);
+          if (!isOpen) closeDialog();
+          else setOpen(true);
         }}
       >
         <DialogContent className="max-w-2xl">
@@ -274,11 +277,7 @@ export function ActivityLabelsDialog({
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setOpen(false)}
-              disabled={saving}
-            >
+            <Button variant="outline" onClick={closeDialog} disabled={saving}>
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={saving}>
