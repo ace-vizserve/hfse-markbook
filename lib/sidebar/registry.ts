@@ -280,6 +280,7 @@ export const SIDEBAR_REGISTRY: Record<SidebarModule, ModuleSidebarConfig> = {
       '/sis/admin/discount-codes': Tag,
       '/sis/admin/subjects': Scale,
       '/sis/admin/approvers': ShieldCheck,
+      '/sis/admin/staff': Users,
       '/sis/admin/template': Copy,
       '/sis/admin/school-config': Building2,
       '/sis/admin/users': UserCog,
