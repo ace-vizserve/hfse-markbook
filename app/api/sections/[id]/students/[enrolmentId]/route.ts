@@ -42,7 +42,7 @@ export async function PATCH(
   const { data: before, error: loadErr } = await service
     .from('section_students')
     .select(
-      'id, section_id, bus_no, classroom_officer_role, enrollment_status, enrollment_date, withdrawal_date'
+      'id, section_id, bus_no, classroom_officer_role, enrollment_status, enrollment_date, withdrawal_date, withdrawal_reason, withdrawal_notes, late_enrollee_term_number'
     )
     .eq('id', enrolmentId)
     .maybeSingle();
@@ -56,6 +56,10 @@ export async function PATCH(
       { status: 400 }
     );
   }
+
+  // Flag set inside the withdrawal cascade when the admissions row already
+  // has a terminal reason — lets us skip overwriting it and record why.
+  let terminalCascadeSkipped = false;
 
   // Build the update payload. Only touch fields actually provided.
   const patch: Record<string, unknown> = {};
@@ -74,10 +78,15 @@ export async function PATCH(
       !before.withdrawal_date
     ) {
       patch.withdrawal_date = new Date().toISOString().slice(0, 10);
+      // Persist structured withdrawal reason + notes on the → withdrawn boundary.
+      patch.withdrawal_reason = parsed.data.withdrawal_reason ?? null;
+      patch.withdrawal_notes = parsed.data.withdrawal_notes ?? null;
     } else if (
       parsed.data.enrollment_status !== 'withdrawn' &&
       before.withdrawal_date
     ) {
+      // Reactivation: only clear withdrawal_date. Withdrawal reason + notes are
+      // intentionally preserved so the audit history stays intact.
       patch.withdrawal_date = null;
     }
     // Late-enrollee transition: refresh enrollment_date to today so the
@@ -85,13 +94,28 @@ export async function PATCH(
     // student as a late enrollee (not the row's original creation date).
     // Only fires on the boundary (active → late_enrollee), not on idempotent
     // re-saves, so the date stays stable once set.
-    if (
-      parsed.data.enrollment_status === 'late_enrollee' &&
-      before.enrollment_status !== 'late_enrollee'
-    ) {
-      patch.enrollment_date = new Date().toISOString().slice(0, 10);
-      lateEnrolleeTransition = true;
+    if (parsed.data.enrollment_status === 'late_enrollee') {
+      if (before.enrollment_status !== 'late_enrollee') {
+        patch.enrollment_date = new Date().toISOString().slice(0, 10);
+        lateEnrolleeTransition = true;
+      }
+      // Always persist an explicit term override if provided (null clears it).
+      if (parsed.data.late_enrollee_term_number !== undefined) {
+        patch.late_enrollee_term_number =
+          parsed.data.late_enrollee_term_number ?? null;
+      }
     }
+  }
+
+  // Standalone late_enrollee_term_number correction: the registrar is correcting
+  // the term without changing enrollment_status (student is already late_enrollee).
+  if (
+    parsed.data.late_enrollee_term_number !== undefined &&
+    parsed.data.enrollment_status === undefined &&
+    before.enrollment_status === 'late_enrollee'
+  ) {
+    patch.late_enrollee_term_number =
+      parsed.data.late_enrollee_term_number ?? null;
   }
 
   if (Object.keys(patch).length === 0) {
@@ -136,39 +160,6 @@ export async function PATCH(
     before.enrollment_status === 'withdrawn' &&
     parsed.data.enrollment_status !== undefined &&
     parsed.data.enrollment_status !== 'withdrawn';
-
-  await logAction({
-    service,
-    actor: { id: auth.user.id, email: auth.user.email ?? null },
-    action: 'enrolment.metadata.update',
-    entityType: 'section_student',
-    entityId: enrolmentId,
-    context: {
-      section_id: sectionId,
-      before: {
-        bus_no: before.bus_no ?? null,
-        classroom_officer_role: before.classroom_officer_role ?? null,
-        enrollment_status: before.enrollment_status,
-      },
-      after: patch,
-      ...(lateEnrolleeTransition
-        ? {
-            lateEnrolleeTransition: true,
-            lateEnrolleeTransitionAt: new Date().toISOString(),
-            lateEnrolleeTermNumber: lateEnrolleeTerm?.termNumber ?? null,
-            lateEnrolleeTermLabel: lateEnrolleeTerm?.termLabel ?? null,
-          }
-        : {}),
-      ...(parsed.data.enrollment_status === 'withdrawn' &&
-      (parsed.data.withdrawal_reason || parsed.data.withdrawal_notes)
-        ? {
-            withdrawal_reason: parsed.data.withdrawal_reason ?? null,
-            withdrawal_notes: parsed.data.withdrawal_notes ?? null,
-          }
-        : {}),
-      ...(isReEnrolment ? { reEnrolment: true } : {}),
-    },
-  });
 
   // Reverse cascade: when the registrar flips this row to 'withdrawn' from
   // an active state, propagate to admissions so the applicationStatus also
@@ -221,13 +212,48 @@ export async function PATCH(
       const prefix = `ay${ayCode.replace(/^AY/i, '').toLowerCase()}`;
       const admissions = createAdmissionsClient();
       const todayIso = new Date().toISOString();
+      const actorEmail = auth.user.email ?? '(unknown)';
+
+      // Fetch current admissions terminal reason before overwriting so we
+      // can skip writing over an already-set reason (e.g. admissions team
+      // already marked the student Cancelled with a reason before the SIS
+      // withdrawal was recorded).
+      const { data: currentAdmRow } = await admissions
+        .from(
+          `${prefix}_enrolment_status` as Parameters<typeof admissions.from>[0]
+        )
+        .select('"applicationTerminalReason"')
+        .eq('enroleeNumber', enroleeNumber)
+        .maybeSingle();
+
+      const admissionsAlreadyTerminal =
+        (
+          currentAdmRow as {
+            applicationTerminalReason: string | null;
+          } | null
+        )?.applicationTerminalReason != null;
+
+      if (admissionsAlreadyTerminal) {
+        terminalCascadeSkipped = true;
+      }
+
+      const statusUpdate: Record<string, unknown> = {
+        applicationStatus: 'Withdrawn',
+        applicationUpdatedDate: todayIso,
+        applicationUpdatedBy: actorEmail,
+      };
+      // Only write the reason to admissions when none is already recorded.
+      if (!admissionsAlreadyTerminal && parsed.data.withdrawal_reason) {
+        statusUpdate.applicationTerminalReason = parsed.data.withdrawal_reason;
+        statusUpdate.applicationTerminalNotes =
+          parsed.data.withdrawal_notes ?? null;
+      }
+
       const { error: admErr } = await admissions
-        .from(`${prefix}_enrolment_status`)
-        .update({
-          applicationStatus: 'Withdrawn',
-          applicationUpdatedDate: todayIso,
-          applicationUpdatedBy: auth.user.email ?? '(unknown)',
-        })
+        .from(
+          `${prefix}_enrolment_status` as Parameters<typeof admissions.from>[0]
+        )
+        .update(statusUpdate)
         .eq('enroleeNumber', enroleeNumber);
       if (admErr) {
         console.warn(
@@ -249,6 +275,9 @@ export async function PATCH(
             section_student_id: enrolmentId,
             section_id: sectionId,
             applicationStatus_after: 'Withdrawn',
+            ...(terminalCascadeSkipped
+              ? { terminalCascadeSkipped: 'admissions-already-terminal' }
+              : {}),
           },
         });
       }
@@ -335,6 +364,53 @@ export async function PATCH(
       }
     }
   }
+
+  // Primary audit log — placed after the cascade so terminalCascadeSkipped is
+  // accurate (the cascade sets it when it discovers an existing terminal reason).
+  await logAction({
+    service,
+    actor: { id: auth.user.id, email: auth.user.email ?? null },
+    action: 'enrolment.metadata.update',
+    entityType: 'section_student',
+    entityId: enrolmentId,
+    context: {
+      section_id: sectionId,
+      before: {
+        bus_no: before.bus_no ?? null,
+        classroom_officer_role: before.classroom_officer_role ?? null,
+        enrollment_status: before.enrollment_status,
+      },
+      after: patch,
+      ...(lateEnrolleeTransition
+        ? {
+            lateEnrolleeTransition: true,
+            lateEnrolleeTransitionAt: new Date().toISOString(),
+            lateEnrolleeTermNumber: lateEnrolleeTerm?.termNumber ?? null,
+            lateEnrolleeTermLabel: lateEnrolleeTerm?.termLabel ?? null,
+          }
+        : {}),
+      ...(parsed.data.enrollment_status === 'withdrawn' &&
+      (parsed.data.withdrawal_reason || parsed.data.withdrawal_notes)
+        ? {
+            withdrawal_reason: parsed.data.withdrawal_reason ?? null,
+            withdrawal_notes: parsed.data.withdrawal_notes ?? null,
+          }
+        : {}),
+      ...(parsed.data.withdrawal_reason !== undefined
+        ? {
+            withdrawalReason: parsed.data.withdrawal_reason,
+            withdrawalNotes: parsed.data.withdrawal_notes ?? null,
+          }
+        : {}),
+      ...(parsed.data.late_enrollee_term_number !== undefined
+        ? { lateEnrolleeTermOverride: parsed.data.late_enrollee_term_number }
+        : {}),
+      ...(terminalCascadeSkipped
+        ? { terminalCascadeSkipped: 'admissions-already-terminal' }
+        : {}),
+      ...(isReEnrolment ? { reEnrolment: true } : {}),
+    },
+  });
 
   // Resolve the section's AY so we invalidate the right operational drills.
   // Reuse the join we already do on late-enrollee transitions; cheap when not.
