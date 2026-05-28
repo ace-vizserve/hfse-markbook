@@ -30,9 +30,7 @@ const WRITEUP_TERMS = [
 const makePtcEvent = (
   overrides: Partial<PtcEvent> & { startDate: string; eventId: string }
 ): PtcEvent => ({
-  eventId: overrides.eventId,
   termId: 'term-t2',
-  startDate: overrides.startDate,
   endDate: overrides.startDate,
   label: 'Parent-Teacher Conference',
   audience: 'all',
