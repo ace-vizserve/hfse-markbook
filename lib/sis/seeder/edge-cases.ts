@@ -79,42 +79,45 @@ export async function seedEdgeCases(
   const excellenceSS = allSS.filter((r) => r.section_id === excellence.id);
   if (allSS.length === 0) return { edge_cases_inserted: 0 };
 
-  // Deterministic picks — fixed index positions so re-runs are stable.
-  // Indices are non-overlapping within each section:
-  //   Grit:       1(transfer), 2(late), 4(withdrawn), 7(changeReq1), 9(pfile1)
-  //   Loyalty:    5(changeReq2)
-  //   Excellence: 10(ga88.4), 12(appliedCR), 15(compassionate), 16(pfile2),
-  //               18(PE E-override), 20(late), 22(withdrawn)
-  const gritLate = gritSS[2] ?? gritSS[0];
-  const excellenceLate = excellenceSS[20] ?? excellenceSS[0];
-  const gritWithdrawn = gritSS[4] ?? gritSS[0];
-  const excellenceWithdrawn = excellenceSS[22] ?? excellenceSS[0];
-  const gaStudent = excellenceSS[10] ?? excellenceSS[0];
-  const compassionateStudent = excellenceSS[15] ?? excellenceSS[0];
-  const peStudentRow = excellenceSS[18] ?? excellenceSS[0];
-  const changeReq1 = gritSS[7] ?? gritSS[0];
-  const changeReq2 = loyaltySS[5] ?? loyaltySS[0];
-  const appliedCR = excellenceSS[12] ?? excellenceSS[0];
-  const pfileStudent1 = gritSS[9] ?? gritSS[0];
-  const pfileStudent2 = excellenceSS[16] ?? excellenceSS[0];
-  const transferStudent = gritSS[1] ?? gritSS[0];
-
-  // Consume some entropy from the seeded PRNG (kept for future deterministic
-  // extensions without changing the hash seed).
-  const _rand = mulberry32(hashString(`${testAy.ay_code}:edge-cases`));
-  _rand();
-  _rand(); // reserved entropy slots
+  // Deterministic picks — PRNG-driven so picks stay stable across section-size
+  // changes without hardcoding positional indices.
+  const rand = mulberry32(hashString(`${testAy.ay_code}:edge-cases`));
+  const gritLate = gritSS[Math.floor(rand() * gritSS.length)] ?? gritSS[0];
+  const excellenceLate =
+    excellenceSS[Math.floor(rand() * excellenceSS.length)] ?? excellenceSS[0];
+  const gritWithdrawn = gritSS[Math.floor(rand() * gritSS.length)] ?? gritSS[0];
+  const excellenceWithdrawn =
+    excellenceSS[Math.floor(rand() * excellenceSS.length)] ?? excellenceSS[0];
+  const gaStudent =
+    excellenceSS[Math.floor(rand() * excellenceSS.length)] ?? excellenceSS[0];
+  const compassionateStudent =
+    excellenceSS[Math.floor(rand() * excellenceSS.length)] ?? excellenceSS[0];
+  const peStudentRow =
+    excellenceSS[Math.floor(rand() * excellenceSS.length)] ?? excellenceSS[0];
+  const changeReq1 = gritSS[Math.floor(rand() * gritSS.length)] ?? gritSS[0];
+  const changeReq2 =
+    loyaltySS[Math.floor(rand() * loyaltySS.length)] ?? loyaltySS[0];
+  const appliedCR =
+    excellenceSS[Math.floor(rand() * excellenceSS.length)] ?? excellenceSS[0];
+  const pfileStudent1 = gritSS[Math.floor(rand() * gritSS.length)] ?? gritSS[0];
+  const pfileStudent2 =
+    excellenceSS[Math.floor(rand() * excellenceSS.length)] ?? excellenceSS[0];
+  const transferStudent =
+    gritSS[Math.floor(rand() * gritSS.length)] ?? gritSS[0];
 
   // ── EC1 & EC2 — Late enrollees ─────────────────────────────────────────────
   try {
     const t2Start = t2.start_date ?? new Date().toISOString().slice(0, 10);
+    const lateEnrollDate = new Date(t2Start);
+    lateEnrollDate.setDate(lateEnrollDate.getDate() + 7);
+    const t2EnrollDate = lateEnrollDate.toISOString().slice(0, 10);
     for (const ss of [gritLate, excellenceLate].filter(Boolean)) {
       if (!ss || ss.enrollment_status === 'late_enrollee') continue;
       const { error } = await service
         .from('section_students')
         .update({
           enrollment_status: 'late_enrollee',
-          enrollment_date: t2Start,
+          enrollment_date: t2EnrollDate,
         })
         .eq('id', ss.id)
         .eq('enrollment_status', 'active');
