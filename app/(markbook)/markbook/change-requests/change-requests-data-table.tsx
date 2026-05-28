@@ -17,10 +17,7 @@ import {
   type MeScopeConfig,
   type StatusTabConfig,
 } from '@/components/ui/data-table/types';
-import {
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import {
   Popover,
   PopoverContent,
@@ -591,12 +588,7 @@ export function ChangeRequestsDataTable({
                       </Link>
                     </DropdownMenuItem>
                   )}
-                  {undoVisible && (
-                    <>
-                      {r.status === 'approved' && <DropdownMenuSeparator />}
-                      <UndoRejectionMenuItem requestId={r.id} />
-                    </>
-                  )}
+                  {undoVisible && <UndoRejectionMenuItem requestId={r.id} />}
                 </RowActionsMenu>
               )}
             </div>
