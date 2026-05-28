@@ -93,7 +93,7 @@ export function ActivityLabelsDialog({
         throw new Error(body.error ?? `HTTP ${res.status}`);
       }
       toast.success('Activity labels saved.');
-      setOpen(false);
+      closeDialog();
       router.refresh();
     } catch (err) {
       toast.error(
