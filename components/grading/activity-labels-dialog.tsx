@@ -104,7 +104,17 @@ export function ActivityLabelsDialog({
         Activity Labels
       </Button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setWwDraft([]);
+            setPtDraft([]);
+            setQaDraft('');
+          }
+          setOpen(isOpen);
+        }}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="font-serif text-lg">
@@ -119,7 +129,9 @@ export function ActivityLabelsDialog({
                   <th className={`w-14 ${COL_HEADER_CLASS}`}>Slot</th>
                   <th className={COL_HEADER_CLASS}>Description</th>
                   <th className={`w-24 ${COL_HEADER_CLASS}`}>Page #</th>
-                  <th className={`w-40 ${COL_HEADER_CLASS}`}>Date</th>
+                  <th className={`w-40 ${COL_HEADER_CLASS}`}>
+                    Date Administered
+                  </th>
                 </tr>
               </thead>
               <tbody>
