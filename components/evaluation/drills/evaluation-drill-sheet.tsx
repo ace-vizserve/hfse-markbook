@@ -432,7 +432,7 @@ export function EvaluationDrillSheet(props: EvaluationDrillSheetProps) {
     if (kind === 'bucket') return undefined;
     const s = new Set<string>();
     for (const r of rows)
-      s.add((r as { level?: string | null }).level ?? null ?? 'Unknown');
+      s.add((r as { level?: string | null }).level ?? 'Unknown');
     const arr = Array.from(s);
     arr.sort(compareLevels);
     return arr;
@@ -447,7 +447,7 @@ export function EvaluationDrillSheet(props: EvaluationDrillSheetProps) {
     if (selectedLevels.length > 0 && kind !== 'bucket') {
       const set = new Set(selectedLevels);
       out = out.filter((r) =>
-        set.has((r as { level?: string | null }).level ?? null ?? 'Unknown')
+        set.has((r as { level?: string | null }).level ?? 'Unknown')
       );
     }
     return out;

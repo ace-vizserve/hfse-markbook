@@ -814,7 +814,7 @@ export function AttendanceDrillSheet(props: AttendanceDrillSheetProps) {
     if (selectedLevels.length > 0 && kind !== 'calendar-day') {
       const set = new Set(selectedLevels);
       out = out.filter((r) =>
-        set.has((r as { level?: string | null }).level ?? null ?? 'Unknown')
+        set.has((r as { level?: string | null }).level ?? 'Unknown')
       );
     }
     return out;
