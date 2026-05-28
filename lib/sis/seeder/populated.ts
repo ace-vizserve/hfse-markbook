@@ -2034,13 +2034,12 @@ async function seedPublication(
     }
   }
 
-  const { error, data } = await service
+  const { error } = await service
     .from('report_card_publications')
     .upsert(publications, {
       onConflict: 'section_id,term_id',
       ignoreDuplicates: true,
-    })
-    .select('id');
+    });
   if (error) {
     console.error(
       '[populated seeder] publication insert failed:',
@@ -2048,7 +2047,7 @@ async function seedPublication(
     );
     return 0;
   }
-  return data?.length ?? 0;
+  return publications.length;
 }
 
 // Round-robin assigns existing staff users as form_advisers + subject_teachers
