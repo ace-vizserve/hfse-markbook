@@ -540,6 +540,20 @@ export async function seedEdgeCases(
           const ptTotals = (sheetRow.pt_totals ?? [10, 10, 10]).map(() => 10);
           const qaTotalVal = sheetRow.qa_total ?? 30;
 
+          // Guard: skip subjects whose slot counts or qa_total differ from the
+          // 88.4 score plan (ww=2, pt=3, qa=30). Logs a warning so the mismatch
+          // is visible without aborting the whole seeder.
+          if (
+            wwTotals.length !== 2 ||
+            ptTotals.length !== 3 ||
+            qaTotalVal !== 30
+          ) {
+            console.warn(
+              `[edge-cases] EC11 skip subject_config ${cfg.id}: unexpected slot counts or qa_total (ww=${wwTotals.length}, pt=${ptTotals.length}, qa=${qaTotalVal})`
+            );
+            continue;
+          }
+
           const wwScores = wwTotals.map(() => 9);
           const ptScores = ptTotals.map(() => 9);
           const qaScore = isT4 ? 26 : 25;
@@ -578,7 +592,19 @@ export async function seedEdgeCases(
 
   // ── EC12 — Mid-year section transfer (P6 Grit → P6 Loyalty) ──────────────
   try {
-    if (transferStudent && transferStudent.enrollment_status === 'active') {
+    // Re-fetch live status — PRNG picks can collide with EC3's withdrawn student.
+    const { data: liveTransfer } = transferStudent
+      ? await service
+          .from('section_students')
+          .select('enrollment_status')
+          .eq('id', transferStudent.id)
+          .maybeSingle()
+      : { data: null };
+    if (
+      transferStudent &&
+      (liveTransfer as { enrollment_status: string } | null)
+        ?.enrollment_status === 'active'
+    ) {
       const t2Start = t2.start_date ?? new Date().toISOString().slice(0, 10);
       const transferDate = new Date(
         new Date(t2Start).getTime() + 3 * 24 * 60 * 60 * 1000
