@@ -187,14 +187,14 @@ export function MasterfileGrid({ payload }: { payload: MasterfilePayload }) {
             count={silverCount}
             active={awardFilter === 'Silver'}
             onClick={() => setAwardFilter('Silver')}
-            colorClass="bg-gradient-to-b from-brand-sky to-brand-indigo text-white"
+            colorClass="bg-gradient-to-b from-ink-4 to-ink-3 text-white"
           />
           <AwardFilterChip
             label="Bronze"
             count={bronzeCount}
             active={awardFilter === 'Bronze'}
             onClick={() => setAwardFilter('Bronze')}
-            colorClass="bg-gradient-to-b from-brand-mint to-brand-mint/70 text-white"
+            colorClass="bg-gradient-to-b from-brand-bronze to-brand-bronze/80 text-white"
           />
           <AwardFilterChip
             label="Not eligible"
@@ -701,7 +701,7 @@ function SubjectAwardBadge({
     return (
       <Badge
         variant="default"
-        className="bg-gradient-to-b from-brand-sky to-brand-indigo text-white"
+        className="bg-gradient-to-b from-ink-4 to-ink-3 text-white"
       >
         Silver
       </Badge>
@@ -710,7 +710,7 @@ function SubjectAwardBadge({
     return (
       <Badge
         variant="default"
-        className="bg-gradient-to-b from-brand-mint to-brand-mint/70 text-white"
+        className="bg-gradient-to-b from-brand-bronze to-brand-bronze/80 text-white"
       >
         Bronze
       </Badge>
@@ -737,7 +737,7 @@ function OverallAwardBadge({
     return (
       <Badge
         variant="default"
-        className="bg-gradient-to-b from-brand-sky to-brand-indigo text-white"
+        className="bg-gradient-to-b from-ink-4 to-ink-3 text-white"
       >
         Silver
       </Badge>
@@ -746,7 +746,7 @@ function OverallAwardBadge({
     return (
       <Badge
         variant="default"
-        className="bg-gradient-to-b from-brand-mint to-brand-mint/70 text-white"
+        className="bg-gradient-to-b from-brand-bronze to-brand-bronze/80 text-white"
       >
         Bronze
       </Badge>

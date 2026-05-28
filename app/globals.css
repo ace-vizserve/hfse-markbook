@@ -76,6 +76,7 @@
   --av-mint: #a5f3b7;
   --av-amber: #f59e0b;
   --av-amber-light: #fef3c7;
+  --av-bronze: #cd7f32;
   --av-ink: #0f172a;
   --av-ink-2: #334155;
   --av-ink-3: #475569;
@@ -229,6 +230,7 @@
   --color-brand-mint: var(--av-mint);
   --color-brand-amber: var(--av-amber);
   --color-brand-amber-light: var(--av-amber-light);
+  --color-brand-bronze: var(--av-bronze);
   --color-ink: var(--av-ink);
   --color-ink-2: var(--av-ink-2);
   --color-ink-3: var(--av-ink-3);
