@@ -60,18 +60,17 @@ here — they live in `.claude/rules/*.md`. Sprint-by-sprint history lives in
 `docs/sprints/development-plan.md` + `git log`.
 -->
 
-**Current state (2026-05-28):** Sprint 43 — enterprise production readiness. Prettier + Husky + GitHub Actions CI (prettier → tsc → vitest → next build); `app/global-error.tsx` RSC error boundary; 73 Vitest tests across 5 files (all pure compute functions covered). `tsc --noEmit` clean. `npm run format:check` clean. **Pending**: push to GitHub + add Secrets + enable branch protection on `main` (manual GitHub UI step). Migration 061 applied to production. TypeScript clean (120 pages).
+**Current state (2026-05-28):** Sprint 44 — Markbook polish pass. SOW schema fully torn down (migrations 062–066). Non-examinable Final Grade controlled to `Passed/UG/E/NA` (KD #100 updated). INC/CO removed from letter-grade spec (confirmed HFSE legend: A/B/C/IP derived + UG/E override + NA). ActivityLabelsDialog wired into sheet header. Test-env seeder: 10 additional admissions personas + 9 school-realistic edge cases. Masterfile: award filter bug fixed + name/status filters + cross-filtering + correct award colours (`brand-bronze` token added). Build clean (112 pages). **Pending**: push to GitHub + branch protection on `main` (manual UI step).
 
-**Future work:** Honors tiers; Sec 4 Economics card; T4 GA row render verification; self-serve invite flow (KD #87 with `/auth/setup`); per-row overflow menus; attendance audit-log server-side pagination; cron auto-sync trigger (KD #90); VL bulk import parser (KD #94 follow-up); Joann legend confirmation for non-examinable letter values (UG/INC/CO/E); cleanup migration to drop `sow_master_templates` + `sow_published_versions`; optional coordinator annotation feature on `sow_class_instances`. **Pending Wynne/Joann clarifications**: (1) who encodes PTC comments — teacher or registrar? PTC comment encoding surface deferred pending #1.
+**Future work:** Honors tiers; Sec 4 Economics card; T4 GA row render verification; self-serve invite flow (KD #87 with `/auth/setup`); per-row overflow menus; attendance audit-log server-side pagination; cron auto-sync trigger (KD #90); VL bulk import parser (KD #94 follow-up); optional coordinator annotation on SOW. **Pending Wynne/Joann clarifications**: (1) who encodes PTC comments — teacher or registrar? PTC comment encoding surface deferred pending #1.
 
 **Recent sprints** (full history in `docs/sprints/development-plan.md`; per-pass detail in `git log`):
 
+- Sprint 44 (2026-05-28): Markbook polish — SOW teardown (062–066), non-exam Final Grade picker, letter-grade spec fix, ActivityLabelsDialog, seeder edge cases, masterfile filters + cross-filter + award colours.
 - Sprint 43 (2026-05-28): enterprise production readiness — Prettier + Husky + CI, global error boundary, 73 Vitest tests, tsc clean.
 - Sprint 42 (2026-05-25): teacher-owned SOW model (migration 061, KD #110) — `/markbook/sow` editor + coordinator read-only review + 4-step readiness pill + evaluation checklist CRUD un-410'd.
 - Sprint 41 (2026-05-24): SOW hard gate (migrations 059–060, KD #108) + AY Readiness Pill (KD #109) + SOW section-scoped builder + Subject Scope Manager + evaluation-checklists page removed.
-- Sprint 40 (2026-05-20): SOW Definition/Version/Instance model migration 058 (KD #108) + SOW version attribution on grading sheets + evaluation topics + subject weights slot-reduction warning + SIS Admin audit log coverage.
-- Sprint 39 (2026-05-20): slot metadata migration 057 (KD #105) + evaluation subject-teacher nav fix (KD #106) + evaluation topic ownership confirmed admin-prescribed (KD #107).
-- Sprints 28–41 (2026-04-29 → 2026-05-24): see development-plan.md. Highlights: KDs #63–110 + migrations 030–061.
+- Sprints 28–42 (2026-04-29 → 2026-05-25): see development-plan.md. Highlights: KDs #63–110 + migrations 030–061.
 
 ## Cross-reference note
 
