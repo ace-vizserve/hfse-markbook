@@ -41,8 +41,10 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   ENROLLMENT_STATUS_LABELS,
   ENROLLMENT_STATUS_VALUES,
-  WITHDRAWAL_REASON_MAX,
+  WITHDRAWAL_REASON_VALUES,
+  WITHDRAWAL_REASON_LABELS,
   type EnrollmentStatus,
+  type WithdrawalReason,
 } from '@/lib/schemas/enrolment';
 
 type MidTermPayload = {
@@ -66,6 +68,9 @@ export function EnrolmentEditSheet({
     bus_no: string | null;
     classroom_officer_role: string | null;
     enrollment_status: EnrollmentStatus;
+    withdrawal_reason: string | null;
+    withdrawal_notes: string | null;
+    late_enrollee_term_number: number | null;
   };
   studentName: string;
   indexNumber: number;
@@ -78,7 +83,16 @@ export function EnrolmentEditSheet({
   const [status, setStatus] = useState<EnrollmentStatus>(
     initial.enrollment_status
   );
-  const [reason, setReason] = useState('');
+  const [withdrawalReason, setWithdrawalReason] = useState<
+    WithdrawalReason | ''
+  >((initial.withdrawal_reason as WithdrawalReason) ?? '');
+  const [withdrawalNotes, setWithdrawalNotes] = useState(
+    initial.withdrawal_notes ?? ''
+  );
+  const [lateTermOverride, setLateTermOverride] = useState<number | null>(
+    initial.late_enrollee_term_number
+  );
+  const [showTermOverride, setShowTermOverride] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
   const [confirmReEnrol, setConfirmReEnrol] = useState(false);
@@ -94,7 +108,12 @@ export function EnrolmentEditSheet({
       setBusNo(initial.bus_no ?? '');
       setOfficer(initial.classroom_officer_role ?? '');
       setStatus(initial.enrollment_status);
-      setReason('');
+      setWithdrawalReason(
+        (initial.withdrawal_reason as WithdrawalReason) ?? ''
+      );
+      setWithdrawalNotes(initial.withdrawal_notes ?? '');
+      setLateTermOverride(initial.late_enrollee_term_number);
+      setShowTermOverride(false);
       setPendingMidTerm(null);
     }
   }
@@ -127,8 +146,9 @@ export function EnrolmentEditSheet({
         classroom_officer_role: officer,
         enrollment_status: status,
       };
-      if (isWithdrawing && reason.trim()) {
-        body.reason = reason.trim();
+      if (isWithdrawing) {
+        body.withdrawal_reason = withdrawalReason || null;
+        body.withdrawal_notes = withdrawalNotes.trim() || null;
       }
       const res = await fetch(
         `/api/sections/${sectionId}/students/${enrolmentId}`,
@@ -181,6 +201,30 @@ export function EnrolmentEditSheet({
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'save failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleTermOverride(termNumber: number) {
+    setSaving(true);
+    try {
+      const res = await fetch(
+        `/api/sections/${sectionId}/students/${enrolmentId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ late_enrollee_term_number: termNumber }),
+        }
+      );
+      if (!res.ok) {
+        const e = (await res.json()) as { error?: string };
+        toast.error(e.error ?? 'Failed to update joining term');
+        setLateTermOverride(initial.late_enrollee_term_number);
+      } else {
+        toast.success(`Joining term updated to T${termNumber}`);
+        router.refresh();
+      }
     } finally {
       setSaving(false);
     }
@@ -255,6 +299,60 @@ export function EnrolmentEditSheet({
                   post-withdrawal scores stay as N/A.
                 </p>
               </div>
+
+              {initial.enrollment_status === 'late_enrollee' && (
+                <div className="space-y-1.5">
+                  <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    Joining term
+                  </p>
+                  {!showTermOverride ? (
+                    <div className="flex items-center justify-between rounded-lg border border-hairline px-3 py-2">
+                      <span className="text-sm text-foreground">
+                        {lateTermOverride !== null
+                          ? `T${lateTermOverride} (corrected)`
+                          : 'Derived from enrolment date'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowTermOverride(true)}
+                        className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                      >
+                        Wrong term?
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={String(lateTermOverride ?? '')}
+                        onValueChange={(v) => {
+                          const n = Number(v);
+                          setLateTermOverride(n);
+                          setShowTermOverride(false);
+                          void handleTermOverride(n);
+                        }}
+                      >
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Select term..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[1, 2, 3, 4].map((n) => (
+                            <SelectItem key={n} value={String(n)}>
+                              T{n}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <button
+                        type="button"
+                        onClick={() => setShowTermOverride(false)}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <SheetFooter className="flex-row justify-end gap-2 border-t border-border p-6">
@@ -293,32 +391,57 @@ export function EnrolmentEditSheet({
               and use the Move action.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="px-6 pb-2 space-y-1.5">
-            <Label htmlFor="withdrawReason" className="text-sm font-medium">
-              Reason{' '}
-              <span className="text-muted-foreground font-normal">
-                (optional)
-              </span>
-            </Label>
-            <Textarea
-              id="withdrawReason"
-              value={reason}
-              onChange={(e) =>
-                setReason(e.target.value.slice(0, WITHDRAWAL_REASON_MAX))
-              }
-              placeholder="e.g. Family relocation to another country"
-              rows={3}
-              className="resize-none text-sm"
-            />
-            <p className="text-[11px] text-muted-foreground">
-              {reason.length} / {WITHDRAWAL_REASON_MAX} · Optional. Captured in
-              the movements log for future reference.
-            </p>
+          <div className="px-6 pb-2 space-y-4">
+            {/* Required reason picker */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Reason <span className="text-destructive">*</span>
+              </label>
+              <Select
+                value={withdrawalReason}
+                onValueChange={(v) =>
+                  setWithdrawalReason(v as WithdrawalReason)
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a reason..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {WITHDRAWAL_REASON_VALUES.map((v) => (
+                    <SelectItem key={v} value={v}>
+                      {WITHDRAWAL_REASON_LABELS[v]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Optional notes — required when reason is 'other' */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Notes
+                {withdrawalReason === 'other' && (
+                  <span className="text-destructive"> *</span>
+                )}
+              </label>
+              <Textarea
+                value={withdrawalNotes}
+                onChange={(e) => setWithdrawalNotes(e.target.value)}
+                placeholder="Additional context..."
+                maxLength={200}
+                rows={3}
+              />
+            </div>
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={
+                !withdrawalReason ||
+                (withdrawalReason === 'other' && !withdrawalNotes.trim()) ||
+                saving
+              }
               onClick={() => void doSave()}
             >
               Withdraw

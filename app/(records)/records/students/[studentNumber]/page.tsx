@@ -670,6 +670,10 @@ function PlacementSection({
                                 bus_no: r.busNo,
                                 classroom_officer_role: r.classroomOfficerRole,
                                 enrollment_status: r.enrollmentStatus,
+                                withdrawal_reason: r.withdrawalReason ?? null,
+                                withdrawal_notes: r.withdrawalNotes ?? null,
+                                late_enrollee_term_number:
+                                  r.lateEnrolleTermNumber ?? null,
                               }}
                             >
                               <Button

@@ -29,6 +29,9 @@ export type PlacementRow = {
   withdrawalDate: string | null;
   busNo: string | null;
   classroomOfficerRole: string | null;
+  withdrawalReason: string | null;
+  withdrawalNotes: string | null;
+  lateEnrolleTermNumber: number | null;
 };
 
 export type AcademicTermRow = {
@@ -94,6 +97,7 @@ export async function getPlacementHistory(
       `
         id, enrollment_status, enrollment_date, withdrawal_date, index_number,
         bus_no, classroom_officer_role,
+        withdrawal_reason, withdrawal_notes, late_enrollee_term_number,
         section:sections(
           id, name,
           level:levels(code, label),
@@ -111,6 +115,9 @@ export async function getPlacementHistory(
     index_number: number;
     bus_no: string | null;
     classroom_officer_role: string | null;
+    withdrawal_reason: string | null;
+    withdrawal_notes: string | null;
+    late_enrollee_term_number: number | null;
     section: {
       id: string;
       name: string;
@@ -151,6 +158,9 @@ export async function getPlacementHistory(
         withdrawalDate: r.withdrawal_date,
         busNo: r.bus_no,
         classroomOfficerRole: r.classroom_officer_role,
+        withdrawalReason: r.withdrawal_reason,
+        withdrawalNotes: r.withdrawal_notes,
+        lateEnrolleTermNumber: r.late_enrollee_term_number,
       } satisfies PlacementRow;
     })
     .filter((r): r is PlacementRow => r !== null)

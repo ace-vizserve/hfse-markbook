@@ -24,6 +24,9 @@ export type SectionRosterRow = {
   enrollmentStatus: 'active' | 'late_enrollee' | 'withdrawn';
   busNo?: string | null;
   classroomOfficerRole?: string | null;
+  withdrawalReason?: string | null;
+  withdrawalNotes?: string | null;
+  lateEnrolleTermNumber?: number | null;
   // Optional date fields — promoted to hidden-by-default columns (KD #68 pattern).
   // Pages that query enrollment_date + withdrawal_date from section_students
   // can pass them; components that don't will see "—" in those columns.
@@ -183,6 +186,9 @@ export function SectionRosterTable({
                   bus_no: r.busNo ?? null,
                   classroom_officer_role: r.classroomOfficerRole ?? null,
                   enrollment_status: r.enrollmentStatus,
+                  withdrawal_reason: r.withdrawalReason ?? null,
+                  withdrawal_notes: r.withdrawalNotes ?? null,
+                  late_enrollee_term_number: r.lateEnrolleTermNumber ?? null,
                 }}
               >
                 <Button
