@@ -1,11 +1,12 @@
 'use client';
 
-import { memo, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { Search, X } from 'lucide-react';
+import Link from 'next/link';
+import { memo, useMemo, useState } from 'react';
 
 import { Input } from '@/components/ui/input';
 
+import { AnnualLetterInput } from '@/components/grading/annual-letter-input';
 import { Badge } from '@/components/ui/badge';
 import {
   Tooltip,
@@ -13,15 +14,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { AnnualLetterInput } from '@/components/grading/annual-letter-input';
+import type { OverallAwardLabel } from '@/lib/compute/awards';
+import { resolveNonExaminableLetter } from '@/lib/compute/letter-grade';
 import type {
   MasterfilePayload,
   MasterfileStudentRow,
   MasterfileSubjectRow,
 } from '@/lib/markbook/masterfile';
-import type { OverallAwardLabel } from '@/lib/compute/awards';
 import { cn } from '@/lib/utils';
-import { resolveNonExaminableLetter } from '@/lib/compute/letter-grade';
 
 // HFSE Masterfile grid (KD #95). Wide cross-subject roster mirroring the
 // AY2025 Final Report Book Masterfile sheet.
@@ -55,81 +55,108 @@ export function MasterfileGrid({ payload }: { payload: MasterfilePayload }) {
     [payload.subjects]
   );
 
+  // Apply a name search to an array of rows (shared helper).
+  const applyName = (
+    rows: MasterfileStudentRow[],
+    q: string
+  ): MasterfileStudentRow[] => {
+    if (!q.trim()) return rows;
+    const lq = q.trim().toLowerCase();
+    return rows.filter(
+      (r) =>
+        (r.fullName ?? '').toLowerCase().includes(lq) ||
+        r.studentNumber.toLowerCase().includes(lq)
+    );
+  };
+
+  // Rows after status + name — used for award chip counts (cross-filter).
+  const rowsForAwardCounts = useMemo(() => {
+    let rows = payload.rows;
+    if (statusFilter === 'active') {
+      rows = rows.filter(
+        (r) =>
+          r.enrollmentStatus !== 'withdrawn' &&
+          r.enrollmentStatus !== 'late_enrollee'
+      );
+    } else if (statusFilter !== 'all') {
+      rows = rows.filter((r) => r.enrollmentStatus === statusFilter);
+    }
+    return applyName(rows, nameSearch);
+  }, [payload.rows, statusFilter, nameSearch]);
+
+  // Rows after award + name — used for status chip counts (cross-filter).
+  const rowsForStatusCounts = useMemo(() => {
+    let rows = payload.rows;
+    if (awardFilter === 'Not eligible for Overall Award') {
+      rows = rows.filter(
+        (r) =>
+          r.overallAward === 'Not eligible for Overall Award' ||
+          r.overallAward == null
+      );
+    } else if (awardFilter !== 'all') {
+      rows = rows.filter((r) => r.overallAward === awardFilter);
+    }
+    return applyName(rows, nameSearch);
+  }, [payload.rows, awardFilter, nameSearch]);
+
   const goldCount = useMemo(
-    () => payload.rows.filter((r) => r.overallAward === 'Gold').length,
-    [payload.rows]
+    () => rowsForAwardCounts.filter((r) => r.overallAward === 'Gold').length,
+    [rowsForAwardCounts]
   );
   const silverCount = useMemo(
-    () => payload.rows.filter((r) => r.overallAward === 'Silver').length,
-    [payload.rows]
+    () => rowsForAwardCounts.filter((r) => r.overallAward === 'Silver').length,
+    [rowsForAwardCounts]
   );
   const bronzeCount = useMemo(
-    () => payload.rows.filter((r) => r.overallAward === 'Bronze').length,
-    [payload.rows]
+    () => rowsForAwardCounts.filter((r) => r.overallAward === 'Bronze').length,
+    [rowsForAwardCounts]
   );
   const neCount = useMemo(
     () =>
-      payload.rows.filter(
+      rowsForAwardCounts.filter(
         (r) =>
           r.overallAward === 'Not eligible for Overall Award' ||
           r.overallAward == null
       ).length,
-    [payload.rows]
+    [rowsForAwardCounts]
   );
-
-  const filteredRows = useMemo(() => {
-    let rows = payload.rows;
-    if (awardFilter !== 'all') {
-      if (awardFilter === 'Not eligible for Overall Award') {
-        rows = rows.filter(
-          (r) =>
-            r.overallAward === 'Not eligible for Overall Award' ||
-            r.overallAward == null
-        );
-      } else {
-        rows = rows.filter((r) => r.overallAward === awardFilter);
-      }
-    }
-    if (statusFilter !== 'all') {
-      if (statusFilter === 'active') {
-        rows = rows.filter(
-          (r) =>
-            r.enrollmentStatus !== 'withdrawn' &&
-            r.enrollmentStatus !== 'late_enrollee'
-        );
-      } else {
-        rows = rows.filter((r) => r.enrollmentStatus === statusFilter);
-      }
-    }
-    if (nameSearch.trim()) {
-      const q = nameSearch.trim().toLowerCase();
-      rows = rows.filter(
-        (r) =>
-          (r.fullName ?? '').toLowerCase().includes(q) ||
-          r.studentNumber.toLowerCase().includes(q)
-      );
-    }
-    return rows;
-  }, [payload.rows, awardFilter, statusFilter, nameSearch]);
 
   const activeCount = useMemo(
     () =>
-      payload.rows.filter(
+      rowsForStatusCounts.filter(
         (r) =>
           r.enrollmentStatus !== 'withdrawn' &&
           r.enrollmentStatus !== 'late_enrollee'
       ).length,
-    [payload.rows]
+    [rowsForStatusCounts]
   );
   const lateCount = useMemo(
     () =>
-      payload.rows.filter((r) => r.enrollmentStatus === 'late_enrollee').length,
-    [payload.rows]
+      rowsForStatusCounts.filter((r) => r.enrollmentStatus === 'late_enrollee')
+        .length,
+    [rowsForStatusCounts]
   );
   const withdrawnCount = useMemo(
-    () => payload.rows.filter((r) => r.enrollmentStatus === 'withdrawn').length,
-    [payload.rows]
+    () =>
+      rowsForStatusCounts.filter((r) => r.enrollmentStatus === 'withdrawn')
+        .length,
+    [rowsForStatusCounts]
   );
+
+  const filteredRows = useMemo(() => {
+    // Start from the award-filtered base and add the status layer on top.
+    let rows = rowsForAwardCounts;
+    if (statusFilter === 'active') {
+      rows = rows.filter(
+        (r) =>
+          r.enrollmentStatus !== 'withdrawn' &&
+          r.enrollmentStatus !== 'late_enrollee'
+      );
+    } else if (statusFilter !== 'all') {
+      rows = rows.filter((r) => r.enrollmentStatus === statusFilter);
+    }
+    return rows;
+  }, [rowsForAwardCounts, statusFilter]);
 
   if (payload.rows.length === 0) {
     return (
@@ -170,7 +197,7 @@ export function MasterfileGrid({ payload }: { payload: MasterfilePayload }) {
           </span>
           <AwardFilterChip
             label="All"
-            count={payload.rows.length}
+            count={rowsForAwardCounts.length}
             active={awardFilter === 'all'}
             onClick={() => setAwardFilter('all')}
             colorClass="bg-gradient-to-b from-primary to-primary/80 text-primary-foreground"
@@ -212,7 +239,7 @@ export function MasterfileGrid({ payload }: { payload: MasterfilePayload }) {
           </span>
           <AwardFilterChip
             label="All"
-            count={payload.rows.length}
+            count={rowsForStatusCounts.length}
             active={statusFilter === 'all'}
             onClick={() => setStatusFilter('all')}
             colorClass="bg-gradient-to-b from-primary to-primary/80 text-primary-foreground"
@@ -751,20 +778,12 @@ function OverallAwardBadge({
         Bronze
       </Badge>
     );
-  return (
-    <Badge variant="muted" className="text-muted-foreground">
-      Not eligible
-    </Badge>
-  );
+  return <Badge variant="muted">Not eligible</Badge>;
 }
 
 function StatusPill({ status, label }: { status: string; label: string }) {
   if (status === 'withdrawn') {
-    return (
-      <Badge variant="muted" className="text-muted-foreground">
-        {label}
-      </Badge>
-    );
+    return <Badge variant="muted">{label}</Badge>;
   }
   if (status === 'late_enrollee') {
     return <Badge variant="warning">{label}</Badge>;
