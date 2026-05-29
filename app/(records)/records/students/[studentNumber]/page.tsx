@@ -1017,10 +1017,11 @@ function AcademicSection({
               }
             }
 
-            // Compute GA from examinable annuals (only non-null values qualify).
-            const examinableAnnuals = [...subjectAnnuals.values()].filter(
-              (v): v is number => v !== null
-            );
+            // Pass all examinable annuals including nulls — computeGeneralAverage
+            // returns null when any grade is null (incomplete year), which is the
+            // correct behaviour. Filtering nulls first would produce a misleading
+            // GA from only the subjects whose T4 grades have been entered.
+            const examinableAnnuals = [...subjectAnnuals.values()];
             const ga = computeGeneralAverage(examinableAnnuals);
 
             const effectiveThresholds = awardThresholds;
