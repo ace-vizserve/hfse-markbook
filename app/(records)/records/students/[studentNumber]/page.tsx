@@ -936,11 +936,16 @@ function AcademicSection({
                   ]);
                   subjectMeta.set(s.subjectCode, {
                     isExaminable: s.isExaminable,
-                    annualLetterGrade: s.annualLetterGrade,
+                    annualLetterGrade: null,
                   });
                 }
                 const arr = subjectQuarterlies.get(s.subjectCode)!;
                 arr[term.termNumber - 1] = s.quarterlyGrade;
+                // Always take the non-null annualLetterGrade — T4 row carries the real value
+                if (s.annualLetterGrade !== null) {
+                  subjectMeta.get(s.subjectCode)!.annualLetterGrade =
+                    s.annualLetterGrade;
+                }
               }
             }
 
