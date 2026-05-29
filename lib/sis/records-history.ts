@@ -39,8 +39,10 @@ export type AcademicTermRow = {
   subjects: Array<{
     subjectCode: string;
     subjectName: string;
+    isExaminable: boolean;
     initialGrade: number | null;
     quarterlyGrade: number | null;
+    annualLetterGrade: string | null; // T4 row only; null for examinable subjects + T1-T3 rows
   }>;
 };
 
@@ -59,6 +61,13 @@ export type AttendanceHistoryRow = {
     daysPresent: number | null;
     daysLate: number | null;
   }>;
+};
+
+export type EvaluationWriteupEntry = {
+  termNumber: number;
+  termLabel: string;
+  virtueTheme: string | null;
+  writeup: string | null;
 };
 
 export async function findStudentByNumber(
@@ -175,9 +184,9 @@ export async function getAcademicHistory(
     .from('grade_entries')
     .select(
       `
-        initial_grade, quarterly_grade,
+        initial_grade, quarterly_grade, annual_letter_grade,
         grading_sheet:grading_sheets(
-          subject:subjects(code, name),
+          subject:subjects(code, name, is_examinable),
           term:terms(
             term_number,
             academic_year:academic_years(ay_code, label)
@@ -190,10 +199,11 @@ export async function getAcademicHistory(
   type Row = {
     initial_grade: number | null;
     quarterly_grade: number | null;
+    annual_letter_grade: string | null;
     grading_sheet: {
       subject:
-        | { code: string; name: string }
-        | { code: string; name: string }[]
+        | { code: string; name: string; is_examinable: boolean }
+        | { code: string; name: string; is_examinable: boolean }[]
         | null;
       term:
         | {
@@ -244,8 +254,10 @@ export async function getAcademicHistory(
     ayEntry.terms.get(term.term_number)!.push({
       subjectCode: subject.code,
       subjectName: subject.name,
+      isExaminable: subject.is_examinable ?? true,
       initialGrade: r.initial_grade,
       quarterlyGrade: r.quarterly_grade,
+      annualLetterGrade: r.annual_letter_grade ?? null,
     });
   }
 
@@ -349,6 +361,53 @@ export async function getAttendanceHistory(
   }
   out.sort((a, b) => b.ayCode.localeCompare(a.ayCode));
   return out;
+}
+
+/**
+ * Returns FCA evaluation writeups for a student in a given AY.
+ * Always returns exactly 3 entries (T1, T2, T3) — writeup is null when not yet recorded.
+ * T4 is excluded per KD #49.
+ */
+export async function getEvaluationWriteupsForStudent(
+  studentId: string,
+  ayCode: string
+): Promise<EvaluationWriteupEntry[]> {
+  const service = createServiceClient();
+
+  const { data } = await service
+    .from('evaluation_writeups')
+    .select(
+      `writeup, terms!inner ( term_number, virtue_theme, academic_years!inner ( ay_code ) )`
+    )
+    .eq('student_id', studentId)
+    .eq('terms.academic_years.ay_code', ayCode);
+
+  type WriteupRow = {
+    writeup: string | null;
+    terms:
+      | { term_number: number; virtue_theme: string | null }
+      | { term_number: number; virtue_theme: string | null }[]
+      | null;
+  };
+  const byTerm = new Map<
+    number,
+    { writeup: string | null; virtueTheme: string | null }
+  >();
+  for (const row of (data ?? []) as unknown as WriteupRow[]) {
+    const term = Array.isArray(row.terms) ? row.terms[0] : row.terms;
+    if (!term) continue;
+    const n = term.term_number;
+    if (n >= 1 && n <= 3) {
+      byTerm.set(n, { writeup: row.writeup, virtueTheme: term.virtue_theme });
+    }
+  }
+
+  return [1, 2, 3].map((n) => ({
+    termNumber: n,
+    termLabel: `T${n}`,
+    virtueTheme: byTerm.get(n)?.virtueTheme ?? null,
+    writeup: byTerm.get(n)?.writeup ?? null,
+  }));
 }
 
 // Given an enroleeNumber (AY-scoped), walk every ay{YY}_enrolment_applications
