@@ -60,17 +60,17 @@ here — they live in `.claude/rules/*.md`. Sprint-by-sprint history lives in
 `docs/sprints/development-plan.md` + `git log`.
 -->
 
-**Current state (2026-05-29):** Sprint 45 — Records student detail enhancements. Migration 067: `withdrawal_reason`, `withdrawal_notes`, `late_enrollee_term_number` on `section_students`; `applicationTerminalReason`/`Notes` on `ay{YYYY}_enrolment_status`. Records student page: withdrawal reason sub-row + operational strip (Placements tab); Annual grades column + GA footer + FCA comments card (Academic tab); DocumentStatusStrip above QuickActionsStrip (Overview). KDs #111–112 added. Build clean (114 pages). 77 tests passing.
+**Current state (2026-05-29):** Sprint 46 — Cross-module edge case hardening + attendance proration. 11 bug fixes across 7 modules (bulk-create reason field, NoCurrentAyCard, P-Files unsynced student state, eval late_enrollee counts, attendance withdrawn visual, P-Files no-email guidance, first-AY guidance, expiry same-day). Migration 068: `recompute_attendance_rollup` filters pre-enrollment dates for late enrollees; wide-grid dims pre-enrollment cells. KD #113 added. 77 tests passing. SIS Admin staff page redesigned + sidebar wired.
 
 **Future work:** Honors tiers; Sec 4 Economics card; self-serve invite flow (KD #87 with `/auth/setup`); per-row overflow menus; attendance audit-log server-side pagination; cron auto-sync trigger (KD #90); VL bulk import parser (KD #94 follow-up); optional coordinator annotation on SOW. **Pending Wynne/Joann clarifications**: (1) who encodes PTC comments — teacher or registrar? PTC comment encoding surface deferred pending #1.
 
 **Recent sprints** (full history in `docs/sprints/development-plan.md`; per-pass detail in `git log`):
 
+- Sprint 46 (2026-05-29): Edge case hardening + attendance proration — 11 fixes across 7 modules + migration 068 (KD #113) + SIS Admin staff redesign/sidebar.
 - Sprint 45 (2026-05-29): Records student detail — withdrawal sub-row, operational strip, late-term override, annual grades + GA + award tiers, FCA comments card, DocumentStatusStrip (KDs #111–112, migration 067).
 - Sprint 44 (2026-05-28): Markbook polish — SOW teardown (062–066), non-exam Final Grade picker, letter-grade spec fix, ActivityLabelsDialog, seeder edge cases, masterfile filters + cross-filter + award colours.
 - Sprint 43 (2026-05-28): enterprise production readiness — Prettier + Husky + CI, global error boundary, 73 Vitest tests, tsc clean.
-- Sprint 42 (2026-05-25): teacher-owned SOW model (migration 061, KD #110) — `/markbook/sow` editor + coordinator read-only review + 4-step readiness pill + evaluation checklist CRUD un-410'd.
-- Sprints 28–42 (2026-04-29 → 2026-05-25): see development-plan.md. Highlights: KDs #63–110 + migrations 030–061.
+- Sprints 28–43 (2026-04-29 → 2026-05-28): see development-plan.md. Highlights: KDs #63–112 + migrations 030–067.
 
 ## Cross-reference note
 
