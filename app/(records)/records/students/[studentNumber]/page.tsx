@@ -2385,45 +2385,71 @@ function DocumentStatusStrip({
   const total = documents.length;
   const allValid = valid === total;
 
+  const state = needsRenewal > 0 ? 'warn' : allValid ? 'ok' : 'info';
+
+  const cardBg = {
+    ok: 'border-brand-mint/30 bg-gradient-to-r from-brand-mint/10 to-card',
+    warn: 'border-brand-amber/30 bg-gradient-to-r from-brand-amber/10 to-card',
+    info: 'border-hairline bg-gradient-to-t from-primary/5 to-card',
+  }[state];
+
+  const iconCraft = {
+    ok: 'bg-gradient-to-br from-brand-mint to-brand-mint/60 text-ink shadow-brand-tile-mint',
+    warn: 'bg-gradient-to-br from-brand-amber to-brand-amber/70 text-ink shadow-brand-tile-amber',
+    info: 'bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile',
+  }[state];
+
+  const StateIcon = { ok: ShieldCheck, warn: AlertTriangle, info: FolderOpen }[
+    state
+  ];
+
   return (
     <Link
       href={`/p-files/${enroleeNumber}?ay=${ayCode}`}
-      className="flex flex-wrap items-center gap-3 rounded-xl border border-hairline bg-card px-4 py-3 text-sm transition-colors hover:border-brand-indigo/40 hover:bg-muted/30"
+      className={`group flex items-center gap-4 rounded-xl border px-4 py-3.5 transition-all hover:-translate-y-px hover:shadow-md ${cardBg}`}
     >
-      <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-        Documents
-      </span>
-      {allValid ? (
-        <span className="flex items-center gap-1.5 text-brand-mint">
-          <CheckCircle2 className="size-3.5" />
-          <span className="font-medium">All {total} documents on file</span>
-        </span>
-      ) : (
-        <>
-          <span className="flex items-center gap-1.5 text-brand-mint">
-            <CheckCircle2 className="size-3.5" />
-            <span>{valid} valid</span>
-          </span>
-          {needsRenewal > 0 && (
-            <span className="flex items-center gap-1.5 text-brand-amber">
-              <AlertTriangle className="size-3.5" />
-              <span>{needsRenewal} need renewal</span>
+      <div
+        className={`flex size-9 shrink-0 items-center justify-center rounded-xl ${iconCraft}`}
+      >
+        <StateIcon className="size-4" aria-hidden />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          Documents · {total} slots
+        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm">
+          {allValid ? (
+            <span className="font-semibold text-foreground">
+              All documents on file
             </span>
+          ) : (
+            <>
+              <span className="tabular-nums">
+                <span className="font-semibold text-foreground">{valid}</span>{' '}
+                <span className="text-muted-foreground">valid</span>
+              </span>
+              {needsRenewal > 0 && (
+                <span className="font-semibold tabular-nums text-brand-amber">
+                  {needsRenewal} need renewal
+                </span>
+              )}
+              {pending > 0 && (
+                <span className="tabular-nums text-muted-foreground">
+                  {pending} pending
+                </span>
+              )}
+              {missing > 0 && (
+                <span className="tabular-nums text-muted-foreground">
+                  {missing} missing
+                </span>
+              )}
+            </>
           )}
-          {pending > 0 && (
-            <span className="flex items-center gap-1.5 text-muted-foreground">
-              <Clock className="size-3.5" />
-              <span>{pending} pending</span>
-            </span>
-          )}
-          {missing > 0 && (
-            <span className="flex items-center gap-1.5 text-muted-foreground">
-              <Circle className="size-3.5" />
-              <span>{missing} missing</span>
-            </span>
-          )}
-        </>
-      )}
+        </div>
+      </div>
+
+      <ArrowUpRight className="size-4 shrink-0 text-muted-foreground opacity-50 transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:opacity-100" />
     </Link>
   );
 }
