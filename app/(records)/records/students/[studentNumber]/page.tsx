@@ -10,6 +10,8 @@ import {
   Bus,
   CalendarCheck,
   Check,
+  CheckCircle2,
+  Circle,
   ClipboardList,
   CreditCard,
   ExternalLink,
@@ -69,7 +71,9 @@ import {
 import {
   getEnrollmentHistory,
   getStudentDetail,
+  DOCUMENT_SLOTS,
   type ApplicationRow,
+  type DocumentSlot,
   type StatusRow,
 } from '@/lib/sis/queries';
 import {
@@ -400,12 +404,19 @@ export default async function RecordsStudentCrossYearPage({
       </section>
 
       {currentAyDetail && (
-        <QuickActionsStrip
-          enroleeNumber={currentAyDetail.application.enroleeNumber}
-          ayCode={currentAyDetail.ayCode}
-          studentId={student.studentId}
-          studentNumber={studentNumber}
-        />
+        <div className="space-y-3">
+          <DocumentStatusStrip
+            documents={currentAyDetail.documents}
+            enroleeNumber={currentAyDetail.application.enroleeNumber}
+            ayCode={currentAyDetail.ayCode}
+          />
+          <QuickActionsStrip
+            enroleeNumber={currentAyDetail.application.enroleeNumber}
+            ayCode={currentAyDetail.ayCode}
+            studentId={student.studentId}
+            studentNumber={studentNumber}
+          />
+        </div>
       )}
 
       <Tabs defaultValue={tab} className="space-y-6">
@@ -2289,6 +2300,74 @@ function FcaCommentsCard({
         ))}
       </CardContent>
     </Card>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Document status strip — compact at-a-glance tally of P-Files document
+// completeness. Counts Valid / needs-renewal (Expired|Rejected) / missing
+// slots across the 13 DOCUMENT_SLOTS and links through to /p-files.
+// Rendered above QuickActionsStrip so the registrar sees the document health
+// without opening a separate module.
+// ──────────────────────────────────────────────────────────────────────────
+
+function DocumentStatusStrip({
+  documents,
+  enroleeNumber,
+  ayCode,
+}: {
+  documents: DocumentSlot[];
+  enroleeNumber: string;
+  ayCode: string;
+}) {
+  let valid = 0;
+  let needsRenewal = 0;
+  let missing = 0;
+
+  for (const slot of documents) {
+    if (slot.status === 'Valid') valid++;
+    else if (slot.status === 'Expired' || slot.status === 'Rejected')
+      needsRenewal++;
+    else missing++;
+  }
+
+  const total = DOCUMENT_SLOTS.length;
+  const allValid = valid === total;
+
+  return (
+    <Link
+      href={`/p-files/${enroleeNumber}?ay=${ayCode}`}
+      className="flex flex-wrap items-center gap-3 rounded-xl border border-hairline bg-card px-4 py-3 text-sm transition-colors hover:border-brand-indigo/40 hover:bg-muted/30"
+    >
+      <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        Documents
+      </span>
+      {allValid ? (
+        <span className="flex items-center gap-1.5 text-brand-mint">
+          <CheckCircle2 className="size-3.5" />
+          <span className="font-medium">All {total} documents on file</span>
+        </span>
+      ) : (
+        <>
+          <span className="flex items-center gap-1.5 text-brand-mint">
+            <CheckCircle2 className="size-3.5" />
+            <span>{valid} valid</span>
+          </span>
+          {needsRenewal > 0 && (
+            <span className="flex items-center gap-1.5 text-brand-amber">
+              <AlertTriangle className="size-3.5" />
+              <span>{needsRenewal} need renewal</span>
+            </span>
+          )}
+          {missing > 0 && (
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <Circle className="size-3.5" />
+              <span>{missing} missing</span>
+            </span>
+          )}
+        </>
+      )}
+    </Link>
   );
 }
 
