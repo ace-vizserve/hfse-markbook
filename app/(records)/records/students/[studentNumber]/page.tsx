@@ -1,3 +1,4 @@
+import React from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import {
@@ -644,11 +645,10 @@ function PlacementSection({
                     r.enrollmentStatus === 'active' &&
                     currentEnroleeNumber !== null;
                   return (
-                    <>
-                      <tr
-                        key={`${r.ayCode}-${r.sectionName}-${r.indexNumber}`}
-                        className="border-b border-hairline last:border-0"
-                      >
+                    <React.Fragment
+                      key={`${r.ayCode}-${r.sectionName}-${r.indexNumber}`}
+                    >
+                      <tr className="border-b border-hairline last:border-0">
                         <td className="py-2 pr-3 font-mono tabular-nums">
                           <AyLink ayCode={r.ayCode} enroleeByAy={enroleeByAy} />
                         </td>
@@ -749,9 +749,12 @@ function PlacementSection({
                               <span className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <LogOut className="size-3 shrink-0" />
                                 <span className="font-medium text-foreground">
-                                  {WITHDRAWAL_REASON_LABELS[
-                                    r.withdrawalReason as WithdrawalReason
-                                  ] ?? r.withdrawalReason}
+                                  {r.withdrawalReason !== null &&
+                                  r.withdrawalReason in WITHDRAWAL_REASON_LABELS
+                                    ? WITHDRAWAL_REASON_LABELS[
+                                        r.withdrawalReason as WithdrawalReason
+                                      ]
+                                    : r.withdrawalReason}
                                 </span>
                                 {r.withdrawalNotes && (
                                   <>
@@ -781,7 +784,7 @@ function PlacementSection({
                             </td>
                           </tr>
                         )}
-                    </>
+                    </React.Fragment>
                   );
                 })}
               </tbody>
