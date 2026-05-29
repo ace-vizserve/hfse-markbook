@@ -8,6 +8,7 @@ import {
   History as HistoryIcon,
   Mail,
   ShieldAlert,
+  UserX,
   XCircle,
 } from 'lucide-react';
 
@@ -29,6 +30,14 @@ import {
   AlertTitle,
 } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { NoCurrentAyCard } from '@/components/ui/no-current-ay-card';
 import { PageShell } from '@/components/ui/page-shell';
 import { getCurrentAcademicYear, listAyCodes } from '@/lib/academic-year';
@@ -99,7 +108,35 @@ export default async function StudentDocumentDetailPage({
   if (!enrolled) notFound();
 
   const student = await getStudentDocumentDetail(selectedAy, enroleeNumber);
-  if (!student) notFound();
+  if (!student) {
+    return (
+      <PageShell>
+        <Card className="bg-gradient-to-t from-primary/5 to-card shadow-xs">
+          <CardHeader>
+            <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
+              Student not synced
+            </CardDescription>
+            <CardTitle className="font-serif text-xl font-semibold tracking-tight text-foreground">
+              Document record unavailable
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              This student is enrolled but has not been synced to the SIS yet.
+              Assign them to a section to complete the sync, then return here to
+              manage their documents.
+            </p>
+            <Button asChild size="sm">
+              <Link href="/records/unsynced">
+                <UserX className="mr-2 size-4" />
+                View unsynced students
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </PageShell>
+    );
+  }
 
   const docRow = student.rawDocRow;
   const canWrite =
