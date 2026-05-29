@@ -54,6 +54,7 @@ import {
   findStudentByNumber,
   getAcademicHistory,
   getAttendanceHistory,
+  getEvaluationWriteupsForStudent,
   getPlacementHistory,
   type AcademicHistoryRow,
   type AttendanceHistoryRow,
@@ -245,75 +246,89 @@ export default async function RecordsStudentCrossYearPage({
 
   // Parallel batch A — all independent of each other and of document freshness.
   // freshenAyDocuments runs here too so it completes before batch B reads docs.
-  const [sectionTransfers, termsByAy, allowanceResult, siblings] =
-    await Promise.all([
-      getSectionTransfersForStudent(
-        studentNumber,
-        history.map((h) => h.enroleeNumber)
-      ),
-      preloadTermsForAYs(placementAyCodes),
-      createServiceClient()
-        .from('students')
-        .select('urgent_compassionate_allowance')
-        .eq('id', student.studentId)
-        .maybeSingle(),
-      // Sibling sections: 3-query internal chain, returns SiblingSection[].
-      (async (): Promise<SiblingSection[]> => {
-        if (
-          !activePlacement ||
-          !currentAy ||
-          activePlacement.ayCode !== currentAy.ay_code
+  const [
+    sectionTransfers,
+    termsByAy,
+    allowanceResult,
+    siblings,
+    ,
+    awardThresholdsResult,
+  ] = await Promise.all([
+    getSectionTransfersForStudent(
+      studentNumber,
+      history.map((h) => h.enroleeNumber)
+    ),
+    preloadTermsForAYs(placementAyCodes),
+    createServiceClient()
+      .from('students')
+      .select('urgent_compassionate_allowance')
+      .eq('id', student.studentId)
+      .maybeSingle(),
+    // Sibling sections: 3-query internal chain, returns SiblingSection[].
+    (async (): Promise<SiblingSection[]> => {
+      if (
+        !activePlacement ||
+        !currentAy ||
+        activePlacement.ayCode !== currentAy.ay_code
+      )
+        return [];
+      const sibService = createServiceClient();
+      const { data: secRow } = await sibService
+        .from('sections')
+        .select('level_id, academic_year_id')
+        .eq('id', activePlacement.sectionId)
+        .maybeSingle();
+      if (!secRow) return [];
+      const { data: sibRows } = await sibService
+        .from('sections')
+        .select('id, name')
+        .eq(
+          'academic_year_id',
+          (secRow as { level_id: string; academic_year_id: string })
+            .academic_year_id
         )
-          return [];
-        const sibService = createServiceClient();
-        const { data: secRow } = await sibService
-          .from('sections')
-          .select('level_id, academic_year_id')
-          .eq('id', activePlacement.sectionId)
-          .maybeSingle();
-        if (!secRow) return [];
-        const { data: sibRows } = await sibService
-          .from('sections')
-          .select('id, name')
-          .eq(
-            'academic_year_id',
-            (secRow as { level_id: string; academic_year_id: string })
-              .academic_year_id
-          )
-          .eq(
-            'level_id',
-            (secRow as { level_id: string; academic_year_id: string }).level_id
-          )
-          .neq('id', activePlacement.sectionId);
-        const sibList = (sibRows ?? []) as Array<{ id: string; name: string }>;
-        if (sibList.length === 0) return [];
-        const sibIds = sibList.map((s) => s.id);
-        const { data: countRows } = await sibService
-          .from('section_students')
-          .select('section_id')
-          .eq('enrollment_status', 'active')
-          .in('section_id', sibIds);
-        const sibCounts = new Map<string, number>();
-        for (const cr of (countRows ?? []) as Array<{ section_id: string }>) {
-          sibCounts.set(cr.section_id, (sibCounts.get(cr.section_id) ?? 0) + 1);
-        }
-        return sibList
-          .map((s) => {
-            const c = sibCounts.get(s.id) ?? 0;
-            return {
-              id: s.id,
-              name: s.name,
-              activeCount: c,
-              isAtCapacity: c >= 50,
-            };
-          })
-          .sort((a, b) => a.name.localeCompare(b.name));
-      })(),
-      // freshenAyDocuments must complete before batch B reads doc statuses.
-      lifecycleEntry
-        ? freshenAyDocuments(lifecycleEntry.ayCode)
-        : Promise.resolve(undefined),
-    ]);
+        .eq(
+          'level_id',
+          (secRow as { level_id: string; academic_year_id: string }).level_id
+        )
+        .neq('id', activePlacement.sectionId);
+      const sibList = (sibRows ?? []) as Array<{ id: string; name: string }>;
+      if (sibList.length === 0) return [];
+      const sibIds = sibList.map((s) => s.id);
+      const { data: countRows } = await sibService
+        .from('section_students')
+        .select('section_id')
+        .eq('enrollment_status', 'active')
+        .in('section_id', sibIds);
+      const sibCounts = new Map<string, number>();
+      for (const cr of (countRows ?? []) as Array<{ section_id: string }>) {
+        sibCounts.set(cr.section_id, (sibCounts.get(cr.section_id) ?? 0) + 1);
+      }
+      return sibList
+        .map((s) => {
+          const c = sibCounts.get(s.id) ?? 0;
+          return {
+            id: s.id,
+            name: s.name,
+            activeCount: c,
+            isAtCapacity: c >= 50,
+          };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name));
+    })(),
+    // freshenAyDocuments must complete before batch B reads doc statuses.
+    lifecycleEntry
+      ? freshenAyDocuments(lifecycleEntry.ayCode)
+      : Promise.resolve(undefined),
+    // Award thresholds from school_config.
+    createServiceClient()
+      .from('school_config')
+      .select(
+        'subject_award_bronze_min, subject_award_silver_min, subject_award_gold_min, subject_award_max'
+      )
+      .eq('id', 1)
+      .maybeSingle(),
+  ]);
 
   const allowance =
     (
@@ -321,6 +336,23 @@ export default async function RecordsStudentCrossYearPage({
         urgent_compassionate_allowance: number | null;
       } | null
     )?.urgent_compassionate_allowance ?? 5;
+
+  const awardThresholds: AwardThresholds = (() => {
+    const cfg = awardThresholdsResult?.data as {
+      subject_award_bronze_min: number | null;
+      subject_award_silver_min: number | null;
+      subject_award_gold_min: number | null;
+      subject_award_max: number | null;
+    } | null;
+    return {
+      bronzeMin:
+        cfg?.subject_award_bronze_min ?? DEFAULT_AWARD_THRESHOLDS.bronzeMin,
+      silverMin:
+        cfg?.subject_award_silver_min ?? DEFAULT_AWARD_THRESHOLDS.silverMin,
+      goldMin: cfg?.subject_award_gold_min ?? DEFAULT_AWARD_THRESHOLDS.goldMin,
+      max: cfg?.subject_award_max ?? DEFAULT_AWARD_THRESHOLDS.max,
+    };
+  })();
 
   // Parallel batch B — lifecycle + detail depend on freshened doc state from batch A.
   const [lifecycleSnapshot, currentAyDetail] = await Promise.all([
@@ -331,6 +363,16 @@ export default async function RecordsStudentCrossYearPage({
       ? getStudentDetail(lifecycleEntry.ayCode, lifecycleEntry.enroleeNumber)
       : Promise.resolve(null),
   ]);
+
+  // Parallel batch C — evaluation writeups per AY (T1-T3 FCA comments).
+  const writeupsResults = await Promise.all(
+    academics.map((ay) =>
+      getEvaluationWriteupsForStudent(student.studentId, ay.ayCode)
+    )
+  );
+  const writeupsByAy = new Map<string, EvaluationWriteupEntry[]>(
+    academics.map((ay, i) => [ay.ayCode, writeupsResults[i]])
+  );
 
   return (
     <PageShell>
@@ -501,7 +543,12 @@ export default async function RecordsStudentCrossYearPage({
         </TabsContent>
 
         <TabsContent value="academic" className="space-y-6">
-          <AcademicSection rows={academics} enroleeByAy={enroleeByAy} />
+          <AcademicSection
+            rows={academics}
+            enroleeByAy={enroleeByAy}
+            awardThresholds={awardThresholds}
+            writeupsByAy={writeupsByAy}
+          />
           <AttendanceSection
             rows={attendance}
             enroleeByAy={enroleeByAy}
@@ -910,8 +957,8 @@ function AcademicSection({
 }: {
   rows: AcademicHistoryRow[];
   enroleeByAy: Map<string, string>;
-  awardThresholds?: AwardThresholds;
-  writeupsByAy?: Map<string, EvaluationWriteupEntry[]>;
+  awardThresholds: AwardThresholds;
+  writeupsByAy: Map<string, EvaluationWriteupEntry[]>;
 }) {
   return (
     <Card>
@@ -976,8 +1023,7 @@ function AcademicSection({
             );
             const ga = computeGeneralAverage(examinableAnnuals);
 
-            const effectiveThresholds =
-              awardThresholds ?? DEFAULT_AWARD_THRESHOLDS;
+            const effectiveThresholds = awardThresholds;
 
             return (
               <React.Fragment key={ay.ayCode}>
@@ -1142,7 +1188,7 @@ function AcademicSection({
                 </div>
                 <FcaCommentsCard
                   ayCode={ay.ayCode}
-                  writeups={(writeupsByAy ?? new Map()).get(ay.ayCode) ?? []}
+                  writeups={writeupsByAy.get(ay.ayCode) ?? []}
                 />
               </React.Fragment>
             );
