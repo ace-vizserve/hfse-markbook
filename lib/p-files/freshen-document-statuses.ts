@@ -19,7 +19,7 @@ import { DOCUMENT_SLOTS } from '@/lib/sis/queries';
 //
 // Each call runs 16 parallel idempotent UPDATEs (8 expiring slots × 2
 // directions):
-//   • expire:  `<slot>Status = 'Valid'`   AND `<slot>Expiry < today`  → 'Expired'
+//   • expire:  `<slot>Status = 'Valid'`   AND `<slot>Expiry <= today` → 'Expired'
 //   • revive:  `<slot>Status = 'Expired'` AND `<slot>Expiry >= today` → 'Valid'
 //
 // The revive direction is a backstop for cases where a future-dated expiry
@@ -96,7 +96,7 @@ async function freshenAyDocumentsUncached(
 
         const { data, error } =
           direction === 'expire'
-            ? await query.lt(slot.expiryCol!, today).select('enroleeNumber')
+            ? await query.lte(slot.expiryCol!, today).select('enroleeNumber')
             : await query.gte(slot.expiryCol!, today).select('enroleeNumber');
 
         if (error) {
