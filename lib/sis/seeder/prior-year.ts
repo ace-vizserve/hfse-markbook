@@ -31,13 +31,9 @@ export async function seedPriorYearTestAy(
     .eq('academic_year_id', priorTestAy.id);
   const sectionIds = (sectionRows ?? []).map((r) => (r as { id: string }).id);
   if (sectionIds.length > 0) {
-    const { count } = await service
-      .from('section_students')
-      .select('id', { count: 'exact', head: true })
-      .in('section_id', sectionIds);
-    if ((count ?? 0) === 0) {
-      await seedTestAy(service, priorTestAy.id, priorTestAy.ay_code);
-    }
+    await seedTestAy(service, priorTestAy.id, priorTestAy.ay_code, {
+      perSection: sectionIds.map((id) => ({ sectionId: id, count: 10 })),
+    });
   }
 
   // Populated data — seedPopulated is idempotent (per-row filters) so safe

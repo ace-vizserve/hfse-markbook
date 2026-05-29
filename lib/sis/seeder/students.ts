@@ -1,19 +1,6 @@
-// Currently unused — legacy TEST-NNN student seeder superseded by the
-// admissions-minimal seeder (E990NNN test-distinct personas). Do not call until the
-// populated seeder rewrite restores section_students seeding.
-
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { pickNames } from './names';
-
-// Auto-seeder for the test academic year. Fires on switch-to-Test from
-// /sis/admin/settings when the target AY has zero section-students.
-//
-// Hard-coded defaults by design — the whole point of the Settings UX is
-// "flip to Test, get a working UAT dataset, no further clicking." Change
-// `STUDENTS_PER_SECTION` here if 10/section turns out to be too many/few.
-
-const STUDENTS_PER_SECTION = 10;
 
 export type SeedResult = {
   students_inserted: number;
@@ -21,7 +8,7 @@ export type SeedResult = {
   section_ids: string[];
 };
 
-// Slugifies a section name into a segment safe for student_number
+// Slugifies a section name into a segment safe for legacy student_number formats
 // (uppercase, A-Z0-9 only; spaces/punct collapse to `-`).
 function slugSegment(s: string): string {
   return s
@@ -37,22 +24,41 @@ type SectionRow = {
   levels: { code: string } | { code: string }[] | null;
 };
 
-// Seeds the given academic year with STUDENTS_PER_SECTION test students
-// per section across every level that has sections. Idempotent-ish: any
-// section that already has students is skipped entirely (we never mix
-// seed rows into a partially-filled section to keep teardown trivial).
+// Seeds the given academic year with test students, using the caller-supplied
+// `perSection` list to control which sections are seeded and how many students
+// each gets. Student numbers follow the H270{ayDigits}{seq4} format (e.g.
+// H27099990001). The global sequence counter runs across all sections so
+// numbers never collide. Per-section idempotency: any section that already
+// has section_students rows is skipped; other sections proceed.
 export async function seedTestAy(
   service: SupabaseClient,
   ayId: string,
-  ayCode: string
+  ayCode: string,
+  opts: { perSection: Array<{ sectionId: string; count: number }> }
 ): Promise<SeedResult> {
-  // Pull every section in this AY with its level code (for the
-  // student_number slug). `levels.code` is e.g. 'P1' or 'S2'.
+  if (opts.perSection.length === 0) {
+    return { students_inserted: 0, section_count: 0, section_ids: [] };
+  }
+
+  // Fetch T1 start_date so enrollment_date reflects the beginning of the year,
+  // preventing KD #68's late-enrollee detector from misidentifying all seeded
+  // students as late-enrollees.
+  const { data: t1Row } = await service
+    .from('terms')
+    .select('start_date')
+    .eq('academic_year_id', ayId)
+    .eq('term_number', 1)
+    .maybeSingle();
+  const enrollDate =
+    (t1Row as { start_date: string } | null)?.start_date ??
+    new Date().toISOString().slice(0, 10);
+
+  // Load section metadata for every requested section.
+  const requestedIds = opts.perSection.map((p) => p.sectionId);
   const { data: sectionRows, error: sectionsErr } = await service
     .from('sections')
     .select('id, name, level_id, levels(code)')
-    .eq('academic_year_id', ayId)
-    .order('name');
+    .in('id', requestedIds);
 
   if (sectionsErr || !sectionRows) {
     throw new Error(
@@ -60,40 +66,46 @@ export async function seedTestAy(
     );
   }
 
-  const sections = sectionRows as unknown as SectionRow[];
-  if (sections.length === 0) {
-    return { students_inserted: 0, section_count: 0, section_ids: [] };
-  }
+  const sectionMap = new Map(
+    (sectionRows as unknown as SectionRow[]).map((s) => [s.id, s])
+  );
 
-  // Skip sections that already have any enrolments so teardown stays
-  // "DELETE FROM students WHERE student_number LIKE 'TEST-%'".
+  // Per-section skip: check which of the requested sections already have
+  // section_students rows. Only those specific sections are skipped.
   const { data: existingEnrol, error: enrolErr } = await service
     .from('section_students')
     .select('section_id')
-    .in(
-      'section_id',
-      sections.map((s) => s.id)
-    );
+    .in('section_id', requestedIds);
+
   if (enrolErr) {
     throw new Error(
       `seed: failed to check existing enrolments — ${enrolErr.message}`
     );
   }
+
   const occupiedSectionIds = new Set(
     (existingEnrol ?? []).map((r) => (r as { section_id: string }).section_id)
   );
-  const emptySections = sections.filter((s) => !occupiedSectionIds.has(s.id));
 
-  if (emptySections.length === 0) {
+  const toSeed = opts.perSection.filter(
+    (p) => !occupiedSectionIds.has(p.sectionId)
+  );
+
+  if (toSeed.length === 0) {
     return { students_inserted: 0, section_count: 0, section_ids: [] };
   }
 
-  // Build the insert payloads.
+  // Build student number prefix from the AY code (e.g. AY9999 → 9999).
+  const ayDigits = ayCode.replace(/^AY/i, '');
+
+  // Build insert payloads. The global sequence counter runs across all
+  // sections so H270{ayDigits}{seq4} values never collide within an AY.
   const studentInserts: Array<{
     student_number: string;
     first_name: string;
     last_name: string;
   }> = [];
+
   type Enrol = {
     section_id: string;
     student_number: string;
@@ -101,31 +113,33 @@ export async function seedTestAy(
   };
   const enrolPlans: Enrol[] = [];
 
-  for (const section of emptySections) {
-    const levelCode = Array.isArray(section.levels)
-      ? section.levels[0]?.code
-      : section.levels?.code;
-    const sectionSlug = `${levelCode ?? 'X'}-${slugSegment(section.name)}`;
-    const names = pickNames(`${ayCode}:${section.id}`, STUDENTS_PER_SECTION);
+  let globalSeq = 0;
 
-    for (let i = 0; i < STUDENTS_PER_SECTION; i++) {
-      const seq = String(i + 1).padStart(2, '0');
-      const studentNumber = `TEST-${ayCode}-${sectionSlug}-${seq}`;
+  for (const { sectionId, count } of toSeed) {
+    const section = sectionMap.get(sectionId);
+    if (!section) continue;
+
+    const names = pickNames(`${ayCode}:${sectionId}`, count);
+
+    for (let i = 0; i < count; i++) {
+      globalSeq += 1;
+      const seq4 = String(globalSeq).padStart(4, '0');
+      const studentNumber = `H270${ayDigits}${seq4}`;
+
       studentInserts.push({
         student_number: studentNumber,
         first_name: names[i].first_name,
         last_name: names[i].last_name,
       });
       enrolPlans.push({
-        section_id: section.id,
+        section_id: sectionId,
         student_number: studentNumber,
         index_number: i + 1,
       });
     }
   }
 
-  // Bulk insert students. `student_number` is unique; we use an upsert
-  // on conflict with ignoreDuplicates so a partial re-run doesn't 23505.
+  // Bulk upsert students (on conflict → update so a partial re-run is safe).
   const { data: insertedStudents, error: insertErr } = await service
     .from('students')
     .upsert(studentInserts, {
@@ -133,6 +147,7 @@ export async function seedTestAy(
       ignoreDuplicates: false,
     })
     .select('id, student_number');
+
   if (insertErr || !insertedStudents) {
     throw new Error(
       `seed: students insert failed — ${insertErr?.message ?? 'no data'}`
@@ -146,17 +161,26 @@ export async function seedTestAy(
     ])
   );
 
-  const enrolInserts = enrolPlans.map((e) => ({
-    section_id: e.section_id,
-    student_id: idByNumber.get(e.student_number)!,
-    index_number: e.index_number,
-    enrollment_status: 'active' as const,
-    enrollment_date: new Date().toISOString().slice(0, 10),
-  }));
+  const enrolInserts = enrolPlans.map((e) => {
+    const studentId = idByNumber.get(e.student_number);
+    if (!studentId) {
+      throw new Error(
+        `seed: student ${e.student_number} was not returned by upsert — partial result set`
+      );
+    }
+    return {
+      section_id: e.section_id,
+      student_id: studentId,
+      index_number: e.index_number,
+      enrollment_status: 'active' as const,
+      enrollment_date: enrollDate,
+    };
+  });
 
   const { error: enrolInsertErr } = await service
     .from('section_students')
     .insert(enrolInserts);
+
   if (enrolInsertErr) {
     throw new Error(
       `seed: section_students insert failed — ${enrolInsertErr.message}`
@@ -165,7 +189,7 @@ export async function seedTestAy(
 
   return {
     students_inserted: studentInserts.length,
-    section_count: emptySections.length,
-    section_ids: emptySections.map((s) => s.id),
+    section_count: toSeed.length,
+    section_ids: toSeed.map((p) => p.sectionId),
   };
 }
