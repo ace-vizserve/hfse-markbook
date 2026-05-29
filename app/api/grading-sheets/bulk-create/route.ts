@@ -158,7 +158,15 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  invalidateDrillTags('markbook', await requireCurrentAyCode(service));
+  const { data: ayRow } = await service
+    .from('academic_years')
+    .select('ay_code')
+    .eq('id', resolvedAyId)
+    .maybeSingle();
+  const ayCodeForInvalidation =
+    (ayRow as { ay_code: string } | null)?.ay_code ??
+    (await requireCurrentAyCode(service));
+  invalidateDrillTags('markbook', ayCodeForInvalidation);
 
   return NextResponse.json({
     ok: true,
