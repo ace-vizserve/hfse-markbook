@@ -42,11 +42,26 @@ export function BulkCreateSheetsButton({
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error ?? 'bulk create failed');
       const inserted: number = body.inserted ?? 0;
+      const reason: string = body.reason ?? 'already_covered';
 
       if (inserted === 0) {
-        toast.info(
-          `No new sheets needed for ${ayCode} — every (section × subject × term) is already covered.`
-        );
+        if (reason === 'no_sections') {
+          toast.warning(
+            `No sections configured for ${ayCode}. Create sections in SIS Admin → Sections first.`
+          );
+        } else if (reason === 'no_subjects') {
+          toast.warning(
+            `No subject weights configured for ${ayCode}. Apply the class template in SIS Admin → Class Template first.`
+          );
+        } else if (reason === 'no_terms') {
+          toast.warning(
+            `No terms configured for ${ayCode}. Complete AY Setup in SIS Admin first.`
+          );
+        } else {
+          toast.info(
+            `No new sheets needed for ${ayCode} — every (section × subject × term) is already covered.`
+          );
+        }
       } else {
         toast.success(
           `Created ${inserted.toLocaleString('en-SG')} sheet${inserted === 1 ? '' : 's'} for ${ayCode}.`

@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!targetSectionIds.length) {
-    return NextResponse.json({ ok: true, inserted: 0 });
+    return NextResponse.json({ ok: true, inserted: 0, reason: 'no_sections' });
   }
 
   let inserted = 0;
@@ -72,7 +72,12 @@ export async function POST(request: NextRequest) {
       .from('sections')
       .select('id, level_id')
       .in('id', targetSectionIds);
-    if (!sections?.length) return NextResponse.json({ ok: true, inserted: 0 });
+    if (!sections?.length)
+      return NextResponse.json({
+        ok: true,
+        inserted: 0,
+        reason: 'no_sections',
+      });
 
     const levelIds = [
       ...new Set(
@@ -90,8 +95,15 @@ export async function POST(request: NextRequest) {
       service.from('terms').select('id').eq('academic_year_id', resolvedAyId),
     ]);
 
-    if (!configs?.length || !terms?.length) {
-      return NextResponse.json({ ok: true, inserted: 0 });
+    if (!configs?.length) {
+      return NextResponse.json({
+        ok: true,
+        inserted: 0,
+        reason: 'no_subjects',
+      });
+    }
+    if (!terms?.length) {
+      return NextResponse.json({ ok: true, inserted: 0, reason: 'no_terms' });
     }
 
     // 3. Build flat scope list: one entry per (section × subject × term)
@@ -148,5 +160,9 @@ export async function POST(request: NextRequest) {
 
   invalidateDrillTags('markbook', await requireCurrentAyCode(service));
 
-  return NextResponse.json({ ok: true, inserted });
+  return NextResponse.json({
+    ok: true,
+    inserted,
+    reason: inserted === 0 ? 'already_covered' : 'created',
+  });
 }
