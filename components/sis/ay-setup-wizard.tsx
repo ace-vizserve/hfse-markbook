@@ -58,6 +58,11 @@ type Props = {
 
 type Step = 'identity' | 'review' | 'follow-up';
 
+type CreationSummary = {
+  sections_copied: number;
+  subject_configs_copied: number;
+};
+
 const BLANK: CreateAyInput = {
   ay_code: '',
   label: '',
@@ -69,6 +74,8 @@ function AySetupWizard({ preview, children }: Props) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>('identity');
   const [createdAyCode, setCreatedAyCode] = useState<string | null>(null);
+  const [creationSummary, setCreationSummary] =
+    useState<CreationSummary | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const form = useForm<CreateAyInput>({
@@ -80,6 +87,7 @@ function AySetupWizard({ preview, children }: Props) {
     form.reset(BLANK);
     setStep('identity');
     setCreatedAyCode(null);
+    setCreationSummary(null);
     setSubmitting(false);
   }
 
@@ -113,12 +121,33 @@ function AySetupWizard({ preview, children }: Props) {
       // as "completed" rather than "created" so the user understands
       // their existing admissions data wasn't disturbed.
       const ayExisted = body.summary?.ay_existed === true;
+      const sectionsCopied: number = body.summary?.sections_copied ?? 0;
+      const configsCopied: number = body.summary?.subject_configs_copied ?? 0;
       toast.success(
         ayExisted
           ? `${values.ay_code} setup completed`
           : `${values.ay_code} created`
       );
+      // First-AY case: the RPC had no prior AY or template to copy from,
+      // so sections and subject configs were not created. Guide the user to
+      // the class template so they don't wonder why the grading setup is
+      // empty.
+      if (sectionsCopied === 0 && configsCopied === 0) {
+        toast.info(
+          'No sections were copied — apply the class template to populate sections and subject weights.',
+          {
+            action: {
+              label: 'Open Class Template',
+              onClick: () => router.push('/sis/admin/template'),
+            },
+          }
+        );
+      }
       setCreatedAyCode(values.ay_code);
+      setCreationSummary({
+        sections_copied: sectionsCopied,
+        subject_configs_copied: configsCopied,
+      });
       setStep('follow-up');
       router.refresh();
     } catch (e) {
@@ -334,28 +363,67 @@ function AySetupWizard({ preview, children }: Props) {
                 {createdAyCode} created
               </DialogTitle>
               <DialogDescription>
-                The AY row, 4 terms, sections, subject configs, and 4 admissions
-                tables are live. The switcher now shows {createdAyCode} on every
-                AY-scoped page.
+                {creationSummary?.sections_copied === 0 &&
+                creationSummary?.subject_configs_copied === 0
+                  ? `The AY row, 4 terms, and 4 admissions tables are live. Sections and subject weights still need to be configured.`
+                  : `The AY row, 4 terms, sections, subject configs, and 4 admissions tables are live.`}{' '}
+                The switcher now shows {createdAyCode} on every AY-scoped page.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-2 text-sm">
+              {creationSummary?.sections_copied === 0 &&
+                creationSummary?.subject_configs_copied === 0 && (
+                  <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-[13px] leading-relaxed text-amber-700 dark:text-amber-400">
+                    <strong>Next step:</strong> Open the{' '}
+                    <button
+                      type="button"
+                      className="font-semibold underline underline-offset-2 hover:no-underline"
+                      onClick={() => {
+                        handleOpenChange(false);
+                        router.push('/sis/admin/template');
+                      }}
+                    >
+                      Class Template
+                    </button>{' '}
+                    and apply it to {createdAyCode} to create sections and
+                    subject weights. Without this step, teachers cannot access
+                    grading sheets.
+                  </div>
+                )}
               <p className="text-xs leading-relaxed text-muted-foreground">
                 When you&apos;re ready to make {createdAyCode} the live AY (the
                 one every module defaults to), use{' '}
-                <strong>Switch active</strong>
-                on its row. The new AY starts as{' '}
-                <code className="rounded bg-muted px-1 py-0.5">
-                  is_current=false
-                </code>{' '}
-                so nothing changes for existing users until you explicitly flip
-                it.
+                <strong>Switch active</strong> on its row. The new AY starts
+                inactive so nothing changes for existing users until you
+                explicitly flip it.
               </p>
             </div>
             <DialogFooter>
-              <Button type="button" onClick={() => handleOpenChange(false)}>
-                Done
-              </Button>
+              {creationSummary?.sections_copied === 0 &&
+              creationSummary?.subject_configs_copied === 0 ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleOpenChange(false)}
+                  >
+                    Done
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      handleOpenChange(false);
+                      router.push('/sis/admin/template');
+                    }}
+                  >
+                    Open Class Template
+                  </Button>
+                </>
+              ) : (
+                <Button type="button" onClick={() => handleOpenChange(false)}>
+                  Done
+                </Button>
+              )}
             </DialogFooter>
           </>
         )}
