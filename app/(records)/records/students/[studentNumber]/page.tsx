@@ -16,6 +16,7 @@ import {
   GraduationCap,
   Home,
   Layers,
+  LogOut,
   Mail,
   Pencil,
   Phone,
@@ -60,6 +61,10 @@ import {
   type ApplicationRow,
   type StatusRow,
 } from '@/lib/sis/queries';
+import {
+  WITHDRAWAL_REASON_LABELS,
+  type WithdrawalReason,
+} from '@/lib/schemas/enrolment';
 import { getStudentLifecycle } from '@/lib/sis/process';
 import {
   getSectionTransfersForStudent,
@@ -599,17 +604,35 @@ function PlacementSection({
               </thead>
               <tbody>
                 {rows.map((r) => {
-                  // Late enrollees: derive the joining term from the
-                  // enrollment_date (which the PATCH route refreshes to
-                  // today on the active → late_enrollee transition). Non-
-                  // late rows skip the lookup.
-                  const lateTerm =
-                    r.enrollmentStatus === 'late_enrollee' && r.enrollmentDate
-                      ? termForDateInPreloaded(
-                          r.enrollmentDate,
-                          r.ayCode,
-                          termsByAy
-                        )
+                  // Late enrollees: prefer the stored lateEnrolleTermNumber
+                  // override (set by the registrar in EnrolmentEditSheet);
+                  // fall back to date-derived term from enrollment_date
+                  // (which the PATCH route refreshes on the active →
+                  // late_enrollee transition). Non-late rows skip the lookup.
+                  const lateTermResult: {
+                    termNumber: number;
+                    termLabel: string;
+                    isOverride: boolean;
+                  } | null =
+                    r.enrollmentStatus === 'late_enrollee'
+                      ? r.lateEnrolleTermNumber !== null
+                        ? {
+                            termNumber: r.lateEnrolleTermNumber,
+                            termLabel: `T${r.lateEnrolleTermNumber}`,
+                            isOverride: true,
+                          }
+                        : (() => {
+                            const derived = r.enrollmentDate
+                              ? termForDateInPreloaded(
+                                  r.enrollmentDate,
+                                  r.ayCode,
+                                  termsByAy
+                                )
+                              : null;
+                            return derived
+                              ? { ...derived, isOverride: false }
+                              : null;
+                          })()
                       : null;
                   const isCurrentAy = r.ayCode === currentAyCode;
                   const isEditable =
@@ -621,94 +644,144 @@ function PlacementSection({
                     r.enrollmentStatus === 'active' &&
                     currentEnroleeNumber !== null;
                   return (
-                    <tr
-                      key={`${r.ayCode}-${r.sectionName}-${r.indexNumber}`}
-                      className="border-b border-hairline last:border-0"
-                    >
-                      <td className="py-2 pr-3 font-mono tabular-nums">
-                        <AyLink ayCode={r.ayCode} enroleeByAy={enroleeByAy} />
-                      </td>
-                      <td className="py-2 pr-3">{r.levelCode}</td>
-                      <td className="py-2 pr-3 text-foreground">
-                        {r.sectionName}
-                      </td>
-                      <td className="py-2 pr-3 text-right font-mono tabular-nums">
-                        #{r.indexNumber}
-                      </td>
-                      <td className="py-2 pr-3">
-                        <span className="inline-flex items-center gap-1.5">
-                          <StatusBadge status={r.enrollmentStatus} />
-                          {lateTerm && (
-                            <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-brand-amber">
-                              · {lateTerm.termLabel}
-                            </span>
-                          )}
-                          {r.enrollmentStatus === 'late_enrollee' &&
-                            !lateTerm &&
-                            r.enrollmentDate && (
-                              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                                · between terms
+                    <>
+                      <tr
+                        key={`${r.ayCode}-${r.sectionName}-${r.indexNumber}`}
+                        className="border-b border-hairline last:border-0"
+                      >
+                        <td className="py-2 pr-3 font-mono tabular-nums">
+                          <AyLink ayCode={r.ayCode} enroleeByAy={enroleeByAy} />
+                        </td>
+                        <td className="py-2 pr-3">{r.levelCode}</td>
+                        <td className="py-2 pr-3 text-foreground">
+                          {r.sectionName}
+                        </td>
+                        <td className="py-2 pr-3 text-right font-mono tabular-nums">
+                          #{r.indexNumber}
+                        </td>
+                        <td className="py-2 pr-3">
+                          <span className="inline-flex items-center gap-1.5">
+                            <StatusBadge status={r.enrollmentStatus} />
+                            {lateTermResult && (
+                              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-brand-amber">
+                                · {lateTermResult.termLabel}
+                                {lateTermResult.isOverride && (
+                                  <span className="ml-1 text-muted-foreground">
+                                    (corrected)
+                                  </span>
+                                )}
                               </span>
                             )}
-                        </span>
-                      </td>
-                      <td className="py-2 pr-3 font-mono text-xs tabular-nums text-muted-foreground">
-                        {r.enrollmentDate ?? '—'}
-                      </td>
-                      <td className="py-2 pr-3 font-mono text-xs tabular-nums text-muted-foreground">
-                        {r.withdrawalDate ?? '—'}
-                      </td>
-                      <td className="py-2">
-                        <div className="flex items-center gap-1">
-                          {isEditable && (
-                            <EnrolmentEditSheet
-                              sectionId={r.sectionId}
-                              enrolmentId={r.enrolmentId}
-                              studentName={r.sectionName}
-                              indexNumber={r.indexNumber}
-                              initial={{
-                                bus_no: r.busNo,
-                                classroom_officer_role: r.classroomOfficerRole,
-                                enrollment_status: r.enrollmentStatus,
-                                withdrawal_reason: r.withdrawalReason ?? null,
-                                withdrawal_notes: r.withdrawalNotes ?? null,
-                                late_enrollee_term_number:
-                                  r.lateEnrolleTermNumber ?? null,
-                              }}
-                            >
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 px-2"
-                                title="Edit enrolment details"
+                            {r.enrollmentStatus === 'late_enrollee' &&
+                              !lateTermResult &&
+                              r.enrollmentDate && (
+                                <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                                  · between terms
+                                </span>
+                              )}
+                          </span>
+                        </td>
+                        <td className="py-2 pr-3 font-mono text-xs tabular-nums text-muted-foreground">
+                          {r.enrollmentDate ?? '—'}
+                        </td>
+                        <td className="py-2 pr-3 font-mono text-xs tabular-nums text-muted-foreground">
+                          {r.withdrawalDate ?? '—'}
+                        </td>
+                        <td className="py-2">
+                          <div className="flex items-center gap-1">
+                            {isEditable && (
+                              <EnrolmentEditSheet
+                                sectionId={r.sectionId}
+                                enrolmentId={r.enrolmentId}
+                                studentName={r.sectionName}
+                                indexNumber={r.indexNumber}
+                                initial={{
+                                  bus_no: r.busNo,
+                                  classroom_officer_role:
+                                    r.classroomOfficerRole,
+                                  enrollment_status: r.enrollmentStatus,
+                                  withdrawal_reason: r.withdrawalReason ?? null,
+                                  withdrawal_notes: r.withdrawalNotes ?? null,
+                                  late_enrollee_term_number:
+                                    r.lateEnrolleTermNumber ?? null,
+                                }}
                               >
-                                <Pencil className="size-3" />
-                                <span className="sr-only">Edit enrolment</span>
-                              </Button>
-                            </EnrolmentEditSheet>
-                          )}
-                          {isTransferable && (
-                            <SectionTransferDialog
-                              enroleeNumber={currentEnroleeNumber!}
-                              studentName={r.sectionName}
-                              fromSectionName={r.sectionName}
-                              ayCode={r.ayCode}
-                              siblings={siblings}
-                              trigger={
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-7 gap-1 px-2 text-xs"
+                                  className="h-7 px-2"
+                                  title="Edit enrolment details"
                                 >
-                                  <ArrowRightLeft className="size-3" />
-                                  Move
+                                  <Pencil className="size-3" />
+                                  <span className="sr-only">
+                                    Edit enrolment
+                                  </span>
                                 </Button>
-                              }
-                            />
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                              </EnrolmentEditSheet>
+                            )}
+                            {isTransferable && (
+                              <SectionTransferDialog
+                                enroleeNumber={currentEnroleeNumber!}
+                                studentName={r.sectionName}
+                                fromSectionName={r.sectionName}
+                                ayCode={r.ayCode}
+                                siblings={siblings}
+                                trigger={
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 gap-1 px-2 text-xs"
+                                  >
+                                    <ArrowRightLeft className="size-3" />
+                                    Move
+                                  </Button>
+                                }
+                              />
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      {/* Withdrawal reason sub-row */}
+                      {r.enrollmentStatus === 'withdrawn' &&
+                        r.withdrawalReason && (
+                          <tr className="border-b border-hairline last:border-0">
+                            <td colSpan={8} className="py-1.5 pl-8 pr-3">
+                              <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <LogOut className="size-3 shrink-0" />
+                                <span className="font-medium text-foreground">
+                                  {WITHDRAWAL_REASON_LABELS[
+                                    r.withdrawalReason as WithdrawalReason
+                                  ] ?? r.withdrawalReason}
+                                </span>
+                                {r.withdrawalNotes && (
+                                  <>
+                                    <span className="text-border">·</span>
+                                    <span className="line-clamp-1">
+                                      {r.withdrawalNotes}
+                                    </span>
+                                  </>
+                                )}
+                              </span>
+                            </td>
+                          </tr>
+                        )}
+                      {/* Operational details sub-row */}
+                      {r.enrollmentStatus !== 'withdrawn' &&
+                        (r.busNo || r.classroomOfficerRole) && (
+                          <tr className="border-b border-hairline last:border-0">
+                            <td colSpan={8} className="py-1.5 pl-8 pr-3">
+                              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                                {[
+                                  r.busNo ? `Bus ${r.busNo}` : null,
+                                  r.classroomOfficerRole ?? null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </span>
+                            </td>
+                          </tr>
+                        )}
+                    </>
                   );
                 })}
               </tbody>
