@@ -118,6 +118,17 @@ export async function PATCH(
       parsed.data.late_enrollee_term_number ?? null;
   }
 
+  // Standalone withdrawal reason/notes correction: the row is already withdrawn
+  // and the registrar is correcting the reason without changing status.
+  if (
+    parsed.data.withdrawal_reason !== undefined &&
+    parsed.data.enrollment_status === undefined &&
+    before.enrollment_status === 'withdrawn'
+  ) {
+    patch.withdrawal_reason = parsed.data.withdrawal_reason ?? null;
+    patch.withdrawal_notes = parsed.data.withdrawal_notes ?? null;
+  }
+
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ ok: true, changed: false });
   }

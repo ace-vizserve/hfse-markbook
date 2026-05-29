@@ -168,8 +168,13 @@ export function EditStageDialog({
   ).includes(effectiveStatus ?? '');
   const [terminalReason, setTerminalReason] = useState<
     ApplicationTerminalReason | ''
-  >('');
-  const [terminalNotes, setTerminalNotes] = useState('');
+  >(
+    (initialExtras?.terminalReason as ApplicationTerminalReason | undefined) ??
+      ''
+  );
+  const [terminalNotes, setTerminalNotes] = useState(
+    (initialExtras?.terminalNotes as string | undefined) ?? ''
+  );
 
   useEffect(() => {
     if (!isTerminalStatus) {
@@ -332,6 +337,14 @@ export function EditStageDialog({
           );
           setStatusOther(
             initialStatus !== null && !initialIsCanonical ? initialStatus : ''
+          );
+          setTerminalReason(
+            (initialExtras?.terminalReason as
+              | ApplicationTerminalReason
+              | undefined) ?? ''
+          );
+          setTerminalNotes(
+            (initialExtras?.terminalNotes as string | undefined) ?? ''
           );
           form.reset({
             status: initialStatus,

@@ -152,6 +152,16 @@ export function EnrolmentEditSheet({
         body.withdrawal_reason = withdrawalReason || null;
         body.withdrawal_notes = withdrawalNotes.trim() || null;
       }
+      // Correction path: row is already withdrawn — allow the registrar to
+      // update the reason without a status change.
+      if (
+        !isWithdrawing &&
+        initial.enrollment_status === 'withdrawn' &&
+        withdrawalReason
+      ) {
+        body.withdrawal_reason = withdrawalReason || null;
+        body.withdrawal_notes = withdrawalNotes.trim() || null;
+      }
       const res = await fetch(
         `/api/sections/${sectionId}/students/${enrolmentId}`,
         {
@@ -301,6 +311,47 @@ export function EnrolmentEditSheet({
                   post-withdrawal scores stay as N/A.
                 </p>
               </div>
+
+              {/* Withdrawal reason — visible when already withdrawn for correction */}
+              {initial.enrollment_status === 'withdrawn' && (
+                <div className="space-y-3">
+                  <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    Withdrawal reason
+                  </p>
+                  <Select
+                    value={withdrawalReason}
+                    onValueChange={(v) =>
+                      setWithdrawalReason(v as WithdrawalReason)
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a reason..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {WITHDRAWAL_REASON_VALUES.map((v) => (
+                        <SelectItem key={v} value={v}>
+                          {WITHDRAWAL_REASON_LABELS[v]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground">
+                      Notes
+                      {withdrawalReason === 'other' && (
+                        <span className="text-destructive"> *</span>
+                      )}
+                    </label>
+                    <Textarea
+                      value={withdrawalNotes}
+                      onChange={(e) => setWithdrawalNotes(e.target.value)}
+                      placeholder="Additional context..."
+                      maxLength={200}
+                      rows={2}
+                    />
+                  </div>
+                </div>
+              )}
 
               {initial.enrollment_status === 'late_enrollee' && (
                 <div className="space-y-1.5">
