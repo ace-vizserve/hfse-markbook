@@ -54,8 +54,18 @@ import {
   getPlacementHistory,
   type AcademicHistoryRow,
   type AttendanceHistoryRow,
+  type EvaluationWriteupEntry,
   type PlacementRow,
 } from '@/lib/sis/records-history';
+import {
+  computeAnnualGrade,
+  computeGeneralAverage,
+} from '@/lib/compute/annual';
+import {
+  subjectAward,
+  type AwardThresholds,
+  DEFAULT_AWARD_THRESHOLDS,
+} from '@/lib/compute/awards';
 import {
   getEnrollmentHistory,
   getStudentDetail,
@@ -883,9 +893,13 @@ function SectionTransferSection({
 function AcademicSection({
   rows,
   enroleeByAy,
+  awardThresholds,
+  writeupsByAy,
 }: {
   rows: AcademicHistoryRow[];
   enroleeByAy: Map<string, string>;
+  awardThresholds?: AwardThresholds;
+  writeupsByAy?: Map<string, EvaluationWriteupEntry[]>;
 }) {
   return (
     <Card>
@@ -904,70 +918,218 @@ function AcademicSection({
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">No graded terms yet.</p>
         ) : (
-          rows.map((ay) => (
-            <div key={ay.ayCode} className="space-y-3">
-              <h3 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                <AyLink ayCode={ay.ayCode} enroleeByAy={enroleeByAy}>
-                  {ay.ayCode} · {ay.ayLabel}
-                </AyLink>
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-hairline text-left font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                      <th className="py-2 pr-3">Subject</th>
-                      {ay.terms.map((t) => (
-                        <th key={t.termNumber} className="py-2 pr-3 text-right">
-                          T{t.termNumber}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      // Collect the union of subjects across all terms in this AY.
-                      const subjMap = new Map<string, string>();
-                      for (const t of ay.terms) {
-                        for (const s of t.subjects) {
-                          if (!subjMap.has(s.subjectCode)) {
-                            subjMap.set(s.subjectCode, s.subjectName);
-                          }
-                        }
-                      }
-                      const subjects = [...subjMap.entries()].sort((a, b) =>
-                        a[1].localeCompare(b[1])
-                      );
-                      return subjects.map(([code, name]) => (
-                        <tr
-                          key={code}
-                          className="border-b border-hairline last:border-0"
-                        >
-                          <td className="py-2 pr-3 font-medium text-foreground">
-                            {name}
-                          </td>
-                          {ay.terms.map((t) => {
-                            const cell = t.subjects.find(
-                              (s) => s.subjectCode === code
-                            );
-                            return (
-                              <td
-                                key={t.termNumber}
-                                className="py-2 pr-3 text-right font-mono tabular-nums"
-                              >
-                                {cell?.quarterlyGrade != null
-                                  ? cell.quarterlyGrade.toFixed(0)
-                                  : '—'}
-                              </td>
-                            );
-                          })}
+          rows.map((ay) => {
+            // Build a map of subjectCode → quarterly grades across all terms in this AY.
+            const subjectQuarterlies = new Map<string, (number | null)[]>();
+            const subjectMeta = new Map<
+              string,
+              { isExaminable: boolean; annualLetterGrade: string | null }
+            >();
+            for (const term of ay.terms) {
+              for (const s of term.subjects) {
+                if (!subjectQuarterlies.has(s.subjectCode)) {
+                  subjectQuarterlies.set(s.subjectCode, [
+                    null,
+                    null,
+                    null,
+                    null,
+                  ]);
+                  subjectMeta.set(s.subjectCode, {
+                    isExaminable: s.isExaminable,
+                    annualLetterGrade: s.annualLetterGrade,
+                  });
+                }
+                const arr = subjectQuarterlies.get(s.subjectCode)!;
+                arr[term.termNumber - 1] = s.quarterlyGrade;
+              }
+            }
+
+            // Compute annual grade per examinable subject.
+            const subjectAnnuals = new Map<string, number | null>();
+            for (const [code, [t1, t2, t3, t4]] of subjectQuarterlies) {
+              const meta = subjectMeta.get(code)!;
+              if (meta.isExaminable) {
+                subjectAnnuals.set(code, computeAnnualGrade(t1, t2, t3, t4));
+              }
+            }
+
+            // Compute GA from examinable annuals (only non-null values qualify).
+            const examinableAnnuals = [...subjectAnnuals.values()].filter(
+              (v): v is number => v !== null
+            );
+            const ga = computeGeneralAverage(examinableAnnuals);
+
+            const effectiveThresholds =
+              awardThresholds ?? DEFAULT_AWARD_THRESHOLDS;
+
+            return (
+              <React.Fragment key={ay.ayCode}>
+                <div className="space-y-3">
+                  <h3 className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    <AyLink ayCode={ay.ayCode} enroleeByAy={enroleeByAy}>
+                      {ay.ayCode} · {ay.ayLabel}
+                    </AyLink>
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-hairline text-left font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                          <th className="py-2 pr-3">Subject</th>
+                          {ay.terms.map((t) => (
+                            <th
+                              key={t.termNumber}
+                              className="py-2 pr-3 text-right"
+                            >
+                              T{t.termNumber}
+                            </th>
+                          ))}
+                          <th className="py-2 text-right">Annual</th>
                         </tr>
-                      ));
-                    })()}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          // Collect the union of subjects across all terms in this AY.
+                          const subjMap = new Map<string, string>();
+                          for (const t of ay.terms) {
+                            for (const s of t.subjects) {
+                              if (!subjMap.has(s.subjectCode)) {
+                                subjMap.set(s.subjectCode, s.subjectName);
+                              }
+                            }
+                          }
+                          const subjects = [...subjMap.entries()].sort((a, b) =>
+                            a[1].localeCompare(b[1])
+                          );
+                          return subjects.map(([code, name]) => (
+                            <tr
+                              key={code}
+                              className="border-b border-hairline last:border-0"
+                            >
+                              <td className="py-2 pr-3 font-medium text-foreground">
+                                {name}
+                              </td>
+                              {ay.terms.map((t) => {
+                                const cell = t.subjects.find(
+                                  (s) => s.subjectCode === code
+                                );
+                                return (
+                                  <td
+                                    key={t.termNumber}
+                                    className="py-2 pr-3 text-right font-mono tabular-nums"
+                                  >
+                                    {cell?.quarterlyGrade != null
+                                      ? cell.quarterlyGrade.toFixed(0)
+                                      : '—'}
+                                  </td>
+                                );
+                              })}
+                              <td className="py-2 text-right">
+                                {(() => {
+                                  const meta = subjectMeta.get(code);
+                                  if (!meta)
+                                    return (
+                                      <span className="font-mono tabular-nums text-muted-foreground">
+                                        —
+                                      </span>
+                                    );
+                                  if (meta.isExaminable) {
+                                    const annual =
+                                      subjectAnnuals.get(code) ?? null;
+                                    if (annual === null)
+                                      return (
+                                        <span className="font-mono tabular-nums text-muted-foreground">
+                                          —
+                                        </span>
+                                      );
+                                    const award = subjectAward(
+                                      annual,
+                                      effectiveThresholds,
+                                      {
+                                        enrolled: true,
+                                        hasCompleteData: true,
+                                      }
+                                    );
+                                    const awardBadgeClass: Record<
+                                      string,
+                                      string
+                                    > = {
+                                      Gold: 'bg-gradient-to-b from-brand-amber to-brand-amber/80 text-white',
+                                      Silver:
+                                        'bg-gradient-to-b from-ink-4 to-ink-3 text-white',
+                                      Bronze:
+                                        'bg-gradient-to-b from-brand-bronze to-brand-bronze/80 text-white',
+                                    };
+                                    return (
+                                      <span className="inline-flex items-center gap-1.5">
+                                        <span className="font-mono tabular-nums">
+                                          {annual.toFixed(2)}
+                                        </span>
+                                        {award &&
+                                          award !==
+                                            'Not eligible for Subject Award' && (
+                                            <Badge
+                                              variant="default"
+                                              className={
+                                                awardBadgeClass[award] ??
+                                                'bg-muted text-muted-foreground'
+                                              }
+                                            >
+                                              {award}
+                                            </Badge>
+                                          )}
+                                      </span>
+                                    );
+                                  } else {
+                                    // Non-examinable: show annual_letter_grade from the T4 row.
+                                    const letter = meta.annualLetterGrade;
+                                    if (!letter)
+                                      return (
+                                        <span className="font-mono tabular-nums text-muted-foreground">
+                                          —
+                                        </span>
+                                      );
+                                    return (
+                                      <span className="inline-flex">
+                                        <Badge
+                                          variant="secondary"
+                                          className="font-mono text-[10px]"
+                                        >
+                                          {letter}
+                                        </Badge>
+                                      </span>
+                                    );
+                                  }
+                                })()}
+                              </td>
+                            </tr>
+                          ));
+                        })()}
+                      </tbody>
+                      {ga !== null && (
+                        <tfoot>
+                          <tr className="border-t border-hairline">
+                            <td className="py-2 pr-3 font-semibold text-foreground">
+                              General Average
+                            </td>
+                            {ay.terms.map((t) => (
+                              <td key={t.termNumber} className="py-2 pr-3" />
+                            ))}
+                            <td className="py-2 text-right font-semibold tabular-nums text-foreground">
+                              {ga.toFixed(1)}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                </div>
+                <FcaCommentsCard
+                  ayCode={ay.ayCode}
+                  writeups={(writeupsByAy ?? new Map()).get(ay.ayCode) ?? []}
+                />
+              </React.Fragment>
+            );
+          })
         )}
       </CardContent>
     </Card>
@@ -2068,6 +2230,60 @@ function DetailRow({
         </div>
       </div>
     </div>
+  );
+}
+
+// Form Class Adviser term comments per AY — rendered inside the Academic tab
+// after each AY's grade table. Returns null when no writeups have content so
+// AYs with no FCA data don't render an empty card.
+function FcaCommentsCard({
+  ayCode,
+  writeups,
+}: {
+  ayCode: string;
+  writeups: EvaluationWriteupEntry[];
+}) {
+  const hasAny = writeups.some((w) => w.writeup);
+  if (!hasAny) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
+          Form Class Adviser · {ayCode}
+        </CardDescription>
+        <CardTitle className="font-serif text-lg font-semibold tracking-tight text-foreground">
+          Term comments
+        </CardTitle>
+        <CardAction>
+          <ActionTile icon={ClipboardList} />
+        </CardAction>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {writeups.map((w) => (
+          <div key={w.termNumber} className="space-y-1.5">
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              {w.termLabel}
+              {w.virtueTheme && (
+                <span className="font-normal">
+                  {' '}
+                  · HFSE Virtues: {w.virtueTheme}
+                </span>
+              )}
+            </p>
+            {w.writeup ? (
+              <p className="text-sm leading-relaxed text-foreground">
+                {w.writeup}
+              </p>
+            ) : (
+              <p className="text-sm italic text-muted-foreground">
+                No comments recorded
+              </p>
+            )}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
