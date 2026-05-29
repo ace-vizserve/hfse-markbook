@@ -515,8 +515,8 @@ export function AttendanceWideGrid({
                       <TableCell className="overflow-hidden px-2 py-1">
                         <div
                           className={
-                            'truncate text-[12px] font-medium ' +
-                            (e.withdrawn ? 'line-through' : 'text-foreground')
+                            'truncate text-[12px] font-medium text-foreground ' +
+                            (e.withdrawn ? 'opacity-60 italic' : '')
                           }
                           title={e.studentName}
                         >
@@ -524,6 +524,14 @@ export function AttendanceWideGrid({
                         </div>
                         <div className="flex items-center gap-1.5 truncate font-mono text-[10px] text-muted-foreground">
                           <span>{e.studentNumber}</span>
+                          {e.withdrawn && (
+                            <Badge
+                              variant="secondary"
+                              className="border-0 px-1.5 py-0 font-mono text-[10px] font-normal shadow-none"
+                            >
+                              Withdrawn
+                            </Badge>
+                          )}
                           {e.busNo && (
                             <Badge
                               variant="secondary"
