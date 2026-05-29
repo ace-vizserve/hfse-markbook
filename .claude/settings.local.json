@@ -186,7 +186,9 @@
       "Bash(npm --version)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Ace\\\\OneDrive - HFSE International School\\\\Desktop\\\\hfse-vizserve projects\\\\hfse-markbook\" -Recurse -Filter \"*audit*\" -ErrorAction SilentlyContinue)",
       "Bash(npx vitest *)",
-      "Bash(C:/Users/Ace/.claude/plugins/cache/claude-plugins-official/superpowers/5.1.0/skills/brainstorming/scripts/start-server.sh *)"
+      "Bash(C:/Users/Ace/.claude/plugins/cache/claude-plugins-official/superpowers/5.1.0/skills/brainstorming/scripts/start-server.sh *)",
+      "Bash(powershell -Command \"\\(Get-Content 'C:\\\\Users\\\\Ace\\\\OneDrive - HFSE International School\\\\Desktop\\\\hfse-vizserve projects\\\\hfse-markbook\\\\app\\\\\\(records\\)\\\\records\\\\students\\\\[studentNumber]\\\\page.tsx'\\).Count\")",
+      "Bash(powershell -Command \"while \\(!\\(Get-Process -Id \\(Get-Content 'C:\\\\Users\\\\Ace\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Ace-OneDrive---HFSE-International-School-Desktop-hfse-vizserve-projects-hfse-markbook\\\\16bd9dd4-47fc-4296-ad85-98e302ff6f81\\\\tasks\\\\bqogmbty0.output' -ErrorAction SilentlyContinue | Measure-Object -Line\\).Lines -gt 1\\)\\) { Start-Sleep -Milliseconds 500 }; Write-Output 'TSC output ready'\")"
     ],
     "deny": ["Read(./.env.local)"]
   },
