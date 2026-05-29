@@ -112,7 +112,23 @@ export function NotifyDialog({
       );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(body.error ?? 'Failed to send reminder');
+        if (body.kind === 'no_recipients') {
+          toast.error(
+            'No parent or guardian email on file — update the contact record in Admissions to send a reminder.',
+            {
+              action: {
+                label: 'Open in Admissions',
+                onClick: () =>
+                  window.open(
+                    `/admissions/applications/${encodeURIComponent(enroleeNumber)}?tab=family`,
+                    '_blank'
+                  ),
+              },
+            }
+          );
+        } else {
+          toast.error(body.error ?? 'Failed to send reminder');
+        }
         return;
       }
       toast.success(

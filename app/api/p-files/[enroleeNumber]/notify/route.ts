@@ -86,7 +86,10 @@ export async function POST(
     }
     if (result.reason === 'no_recipients') {
       return NextResponse.json(
-        { error: 'No parent or guardian email is on file for this slot.' },
+        {
+          error: 'No parent or guardian email is on file for this slot.',
+          kind: 'no_recipients',
+        },
         { status: 422 }
       );
     }
