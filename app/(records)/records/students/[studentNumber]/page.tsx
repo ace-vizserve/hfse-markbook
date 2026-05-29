@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Circle,
   ClipboardList,
+  Clock,
   CreditCard,
   ExternalLink,
   FolderOpen,
@@ -2322,16 +2323,19 @@ function DocumentStatusStrip({
 }) {
   let valid = 0;
   let needsRenewal = 0;
+  let pending = 0;
   let missing = 0;
 
   for (const slot of documents) {
     if (slot.status === 'Valid') valid++;
     else if (slot.status === 'Expired' || slot.status === 'Rejected')
       needsRenewal++;
+    else if (slot.status === 'Uploaded' || slot.status === 'To follow')
+      pending++;
     else missing++;
   }
 
-  const total = DOCUMENT_SLOTS.length;
+  const total = documents.length;
   const allValid = valid === total;
 
   return (
@@ -2357,6 +2361,12 @@ function DocumentStatusStrip({
             <span className="flex items-center gap-1.5 text-brand-amber">
               <AlertTriangle className="size-3.5" />
               <span>{needsRenewal} need renewal</span>
+            </span>
+          )}
+          {pending > 0 && (
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <Clock className="size-3.5" />
+              <span>{pending} pending</span>
             </span>
           )}
           {missing > 0 && (
