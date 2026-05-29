@@ -87,7 +87,7 @@ async function loadWriteupsUncached(ayCode: string): Promise<{
           .from('section_students')
           .select('id', { count: 'exact', head: true })
           .in('section_id', sectionIds)
-          .eq('enrollment_status', 'active')
+          .neq('enrollment_status', 'withdrawn')
       : { count: 0 };
 
   const { data: rows } = await service
@@ -476,7 +476,7 @@ async function loadEvaluationTeacherPriorityUncached(
           .from('section_students')
           .select('id', { count: 'exact', head: true })
           .eq('section_id', sectionId)
-          .eq('enrollment_status', 'active'),
+          .neq('enrollment_status', 'withdrawn'),
         service
           .from('evaluation_writeups')
           .select('id', { count: 'exact', head: true })
@@ -620,7 +620,7 @@ async function loadEvaluationRegistrarPriorityUncached(
           .from('section_students')
           .select('id', { count: 'exact', head: true })
           .eq('section_id', s.id)
-          .eq('enrollment_status', 'active'),
+          .neq('enrollment_status', 'withdrawn'),
         service
           .from('evaluation_writeups')
           .select('id', { count: 'exact', head: true })
@@ -755,7 +755,7 @@ async function loadEvaluationRatingCompletenessRangeUncached(
           .from('section_students')
           .select('section_id')
           .in('section_id', sectionIds)
-          .eq('enrollment_status', 'active')
+          .neq('enrollment_status', 'withdrawn')
       : { data: [] };
 
   // Count active students per section — used to compute the total possible
@@ -893,7 +893,7 @@ async function loadEvaluationPtcFeedbackCompletenessRangeUncached(
           .from('section_students')
           .select('id', { count: 'exact', head: true })
           .in('section_id', sectionIds)
-          .eq('enrollment_status', 'active')
+          .neq('enrollment_status', 'withdrawn')
       : { count: 0 };
   const students = activeStudents ?? 0;
 
