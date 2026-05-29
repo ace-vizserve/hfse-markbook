@@ -1,8 +1,21 @@
-import { ArrowLeft } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle2,
+  Users2,
+  UserCheck,
+} from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { StaffTable } from '@/components/sis/staff-table';
+import {
+  Card,
+  CardAction,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
 import { getSectionStaffingCoverage } from '@/lib/sis/dashboard';
 import { loadStaffAssignments } from '@/lib/sis/staff';
@@ -61,41 +74,79 @@ export default async function StaffPage() {
       </header>
 
       {/* KPI strip */}
-      <div className="flex flex-wrap gap-3">
-        <div className="rounded-xl border border-hairline bg-card px-4 py-3">
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Teachers
-          </p>
-          <p className="text-2xl font-semibold tabular-nums text-foreground">
-            {totalTeachers}
-          </p>
-        </div>
-        <div className="rounded-xl border border-hairline bg-card px-4 py-3">
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            With FCA
-          </p>
-          <p className="text-2xl font-semibold tabular-nums text-foreground">
-            {withFca}
-          </p>
-        </div>
-        <div
-          className={`rounded-xl border px-4 py-3 ${
-            sectionsMissingFca > 0
-              ? 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30'
-              : 'border-hairline bg-card'
-          }`}
+      <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:shadow-xs sm:grid-cols-3">
+        <Card
+          data-slot="card"
+          className="bg-gradient-to-t from-primary/5 to-card"
         >
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Sections missing FCA
-          </p>
-          <p
-            className={`text-2xl font-semibold tabular-nums ${
-              sectionsMissingFca > 0 ? 'text-amber-600' : 'text-foreground'
-            }`}
-          >
-            {sectionsMissingFca}
-          </p>
-        </div>
+          <CardHeader>
+            <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
+              Active teachers
+            </CardDescription>
+            <CardTitle className="font-serif text-3xl tabular-nums text-foreground">
+              {totalTeachers}
+            </CardTitle>
+            <CardAction>
+              <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
+                <Users2 className="size-4" />
+              </div>
+            </CardAction>
+          </CardHeader>
+        </Card>
+
+        <Card
+          data-slot="card"
+          className="bg-gradient-to-t from-primary/5 to-card"
+        >
+          <CardHeader>
+            <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
+              Sections with FCA
+            </CardDescription>
+            <CardTitle className="font-serif text-3xl tabular-nums text-foreground">
+              {withFca}
+            </CardTitle>
+            <CardAction>
+              <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-mint to-brand-mint/60 text-ink shadow-brand-tile-mint">
+                <UserCheck className="size-4" />
+              </div>
+            </CardAction>
+          </CardHeader>
+        </Card>
+
+        <Card
+          data-slot="card"
+          className={
+            sectionsMissingFca > 0
+              ? 'border-brand-amber/30 bg-gradient-to-r from-brand-amber/10 to-card'
+              : 'bg-gradient-to-t from-primary/5 to-card'
+          }
+        >
+          <CardHeader>
+            <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
+              Sections missing FCA
+            </CardDescription>
+            <CardTitle
+              className={`font-serif text-3xl tabular-nums ${sectionsMissingFca > 0 ? 'text-brand-amber' : 'text-foreground'}`}
+            >
+              {sectionsMissingFca}
+            </CardTitle>
+            <CardAction>
+              <div
+                className={`flex size-9 items-center justify-center rounded-xl ${
+                  sectionsMissingFca > 0
+                    ? 'bg-gradient-to-br from-brand-amber to-brand-amber/70 text-ink shadow-brand-tile-amber'
+                    : 'bg-gradient-to-br from-brand-mint to-brand-mint/60 text-ink shadow-brand-tile-mint'
+                }`}
+              >
+                {sectionsMissingFca > 0 ? (
+                  <AlertTriangle className="size-4" />
+                ) : (
+                  <CheckCircle2 className="size-4" />
+                )}
+              </div>
+            </CardAction>
+          </CardHeader>
+        </Card>
       </div>
 
       <StaffTable rows={rows} ayCode={ayCode} />

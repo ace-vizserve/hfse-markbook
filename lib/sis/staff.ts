@@ -34,7 +34,10 @@ type RawAssignment = {
   section_id: string;
   subject_id: string | null;
   role: string;
-  subjects: { code: string; name: string } | null;
+  subjects:
+    | { code: string; name: string }
+    | { code: string; name: string }[]
+    | null;
 };
 
 async function loadStaffAssignmentsUncached(
@@ -85,7 +88,7 @@ async function loadStaffAssignmentsUncached(
     )
     .in('section_id', sectionIds);
 
-  const assignments = (assignmentRows ?? []) as unknown as RawAssignment[];
+  const assignments = (assignmentRows ?? []) as RawAssignment[];
 
   const teachers = await getTeacherList({ excludeDisabled: false });
 
@@ -99,11 +102,12 @@ async function loadStaffAssignmentsUncached(
       .filter((a) => a.role === 'subject_teacher')
       .map((a) => {
         const sec = sectionMeta.get(a.section_id);
+        const sub = Array.isArray(a.subjects) ? a.subjects[0] : a.subjects;
         return {
           assignmentId: a.id,
           subjectId: a.subject_id ?? '',
-          subjectCode: a.subjects?.code ?? '',
-          subjectName: a.subjects?.name ?? '',
+          subjectCode: sub?.code ?? '',
+          subjectName: sub?.name ?? '',
           sectionId: a.section_id,
           sectionName: sec?.name ?? '',
           levelCode: sec?.levelCode ?? '',

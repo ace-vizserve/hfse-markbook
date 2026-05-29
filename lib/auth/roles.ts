@@ -406,6 +406,11 @@ const SIS_NAV: NavSection[] = [
         label: 'Sections',
         requiresRoles: ['registrar', 'school_admin', 'superadmin'],
       },
+      {
+        href: '/sis/admin/staff',
+        label: 'Staff',
+        requiresRoles: ['registrar', 'school_admin', 'superadmin'],
+      },
     ],
   },
   {

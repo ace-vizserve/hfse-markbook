@@ -1,20 +1,20 @@
 'use client';
 
-import { useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { ChevronRight, Search, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { DataTable } from '@/components/ui/data-table';
-import { Input } from '@/components/ui/input';
 import {
   StaffAssignmentSheet,
   type StaffSheetTeacher,
 } from '@/components/sis/staff-assignment-sheet';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { DataTable } from '@/components/ui/data-table';
+import { Input } from '@/components/ui/input';
 import type { StaffRow } from '@/lib/sis/staff';
 
-type FcaFilter = 'all' | 'has-fca' | 'no-fca';
+type AssignmentFilter = 'all' | 'adviser' | 'subject-only' | 'unassigned';
 
 export function StaffTable({
   rows,
@@ -24,7 +24,8 @@ export function StaffTable({
   ayCode: string;
 }) {
   const [nameSearch, setNameSearch] = useState('');
-  const [fcaFilter, setFcaFilter] = useState<FcaFilter>('all');
+  const [assignmentFilter, setAssignmentFilter] =
+    useState<AssignmentFilter>('all');
   const [showDisabled, setShowDisabled] = useState(false);
   const [selectedTeacher, setSelectedTeacher] =
     useState<StaffSheetTeacher | null>(null);
@@ -40,13 +41,21 @@ export function StaffTable({
     setSheetOpen(true);
   }
 
-  // Counts for filter chips (from active/enabled teachers only).
+  // Counts computed from active (non-disabled) teachers only.
   const chipCounts = useMemo(() => {
     const active = rows.filter((r) => !r.disabled);
     return {
       all: active.length,
-      hasFca: active.filter((r) => r.fcaSection !== null).length,
-      noFca: active.filter((r) => r.fcaSection === null).length,
+      // Has a form class — may also have subject assignments.
+      adviser: active.filter((r) => r.fcaSection !== null).length,
+      // Has subject assignments but no form class.
+      subjectOnly: active.filter(
+        (r) => r.fcaSection === null && r.subjectAssignments.length > 0
+      ).length,
+      // No assignments of any kind — the actionable gap.
+      unassigned: active.filter(
+        (r) => r.fcaSection === null && r.subjectAssignments.length === 0
+      ).length,
     };
   }, [rows]);
 
@@ -60,10 +69,18 @@ export function StaffTable({
           row.email.toLowerCase().includes(q)
       );
     }
-    if (fcaFilter === 'has-fca') r = r.filter((row) => row.fcaSection !== null);
-    if (fcaFilter === 'no-fca') r = r.filter((row) => row.fcaSection === null);
+    if (assignmentFilter === 'adviser')
+      r = r.filter((row) => row.fcaSection !== null);
+    if (assignmentFilter === 'subject-only')
+      r = r.filter(
+        (row) => row.fcaSection === null && row.subjectAssignments.length > 0
+      );
+    if (assignmentFilter === 'unassigned')
+      r = r.filter(
+        (row) => row.fcaSection === null && row.subjectAssignments.length === 0
+      );
     return r;
-  }, [rows, nameSearch, fcaFilter, showDisabled]);
+  }, [rows, nameSearch, assignmentFilter, showDisabled]);
 
   const columns: ColumnDef<StaffRow>[] = [
     {
@@ -155,10 +172,25 @@ export function StaffTable({
     },
   ];
 
-  const chipDefs: { key: FcaFilter; label: string; count: number }[] = [
+  const chipDefs: {
+    key: AssignmentFilter;
+    label: string;
+    count: number;
+    warn?: boolean;
+  }[] = [
     { key: 'all', label: 'All', count: chipCounts.all },
-    { key: 'has-fca', label: 'Has FCA', count: chipCounts.hasFca },
-    { key: 'no-fca', label: 'No FCA', count: chipCounts.noFca },
+    { key: 'adviser', label: 'Form Adviser', count: chipCounts.adviser },
+    {
+      key: 'subject-only',
+      label: 'Subject Only',
+      count: chipCounts.subjectOnly,
+    },
+    {
+      key: 'unassigned',
+      label: 'Unassigned',
+      count: chipCounts.unassigned,
+      warn: chipCounts.unassigned > 0,
+    },
   ];
 
   return (
@@ -169,7 +201,7 @@ export function StaffTable({
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search teachers..."
+              placeholder="Search by name or email…"
               value={nameSearch}
               onChange={(e) => setNameSearch(e.target.value)}
               className="h-8 w-64 pl-8 text-sm"
@@ -186,29 +218,43 @@ export function StaffTable({
             )}
           </div>
 
-          <div className="flex items-center gap-1.5">
-            {chipDefs.map(({ key, label, count }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setFcaFilter(key)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  fcaFilter === key
-                    ? 'bg-foreground text-background'
-                    : 'bg-muted text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {label} {count}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {chipDefs.map(({ key, label, count, warn }) => {
+              const active = assignmentFilter === key;
+              const warnActive = warn && active;
+              const warnInactive = warn && !active;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setAssignmentFilter(key)}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[11px] font-semibold transition-colors ${
+                    warnActive
+                      ? 'border-brand-amber/50 bg-gradient-to-b from-brand-amber/20 to-brand-amber/8 text-brand-amber'
+                      : warnInactive
+                        ? 'border-brand-amber/30 bg-gradient-to-b from-brand-amber/10 to-brand-amber/4 text-brand-amber hover:border-brand-amber/50'
+                        : active
+                          ? 'border-brand-indigo/40 bg-gradient-to-b from-brand-indigo/15 to-brand-indigo/5 text-brand-indigo'
+                          : 'border-border bg-card text-muted-foreground hover:border-brand-indigo/40 hover:text-foreground'
+                  }`}
+                >
+                  {label}
+                  <span className="tabular-nums opacity-70">{count}</span>
+                </button>
+              );
+            })}
           </div>
 
           <button
             type="button"
             onClick={() => setShowDisabled((v) => !v)}
-            className="ml-auto text-xs text-muted-foreground underline-offset-4 hover:underline"
+            className={`ml-auto inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[11px] font-semibold transition-colors ${
+              showDisabled
+                ? 'border-brand-indigo/40 bg-gradient-to-b from-brand-indigo/15 to-brand-indigo/5 text-brand-indigo'
+                : 'border-border bg-card text-muted-foreground hover:border-brand-indigo/40 hover:text-foreground'
+            }`}
           >
-            {showDisabled ? 'Hide disabled accounts' : 'Show disabled accounts'}
+            {showDisabled ? 'Hide disabled' : 'Show disabled'}
           </button>
         </div>
 
