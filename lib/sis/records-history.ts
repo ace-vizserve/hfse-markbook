@@ -385,8 +385,16 @@ export async function getEvaluationWriteupsForStudent(
   type WriteupRow = {
     writeup: string | null;
     terms:
-      | { term_number: number; virtue_theme: string | null }
-      | { term_number: number; virtue_theme: string | null }[]
+      | {
+          term_number: number;
+          virtue_theme: string | null;
+          academic_years: { ay_code: string } | { ay_code: string }[] | null;
+        }
+      | {
+          term_number: number;
+          virtue_theme: string | null;
+          academic_years: { ay_code: string } | { ay_code: string }[] | null;
+        }[]
       | null;
   };
   const byTerm = new Map<
