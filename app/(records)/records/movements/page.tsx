@@ -55,16 +55,17 @@ export default async function MovementsPage({
   });
 
   // When a reason search is active, narrow to withdrawn events matching the
-  // substring (case-insensitive). KPI counts derive from the same filtered
-  // array so the cards always match the table (KD #83).
+  // substring (case-insensitive) against the human-readable label. Falling
+  // back to the raw reason code keeps old audit rows (no reasonLabel) searchable.
+  // KPI counts derive from the same filtered array so the cards always match
+  // the table (KD #83).
+  const q = reasonSearch.toLowerCase();
   const events = reasonSearch
-    ? allEvents.filter(
-        (e) =>
-          e.kind === 'withdrawn' &&
-          ((e as Extract<typeof e, { kind: 'withdrawn' }>).reason ?? '')
-            .toLowerCase()
-            .includes(reasonSearch.toLowerCase())
-      )
+    ? allEvents.filter((e) => {
+        if (e.kind !== 'withdrawn') return false;
+        const w = e as Extract<typeof e, { kind: 'withdrawn' }>;
+        return (w.reasonLabel ?? w.reason ?? '').toLowerCase().includes(q);
+      })
     : allEvents;
 
   // Counts derived from the same (possibly-filtered) array so the cards

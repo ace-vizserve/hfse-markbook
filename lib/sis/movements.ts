@@ -5,6 +5,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
 import { fetchAllPages } from '@/lib/supabase/paginate';
 import { preloadTermsForAYs, termForDateInPreloaded } from '@/lib/sis/terms';
+import {
+  WITHDRAWAL_REASON_LABELS,
+  type WithdrawalReason,
+} from '@/lib/schemas/enrolment';
 
 // /records/movements unified feed.
 //
@@ -62,7 +66,8 @@ export type MovementEvent =
       termLabel: string | null;
       date: string;
       actorEmail: string | null;
-      reason?: string | null;
+      reason: string | null;
+      reasonLabel: string | null;
     }
   | {
       id: string;
@@ -120,6 +125,7 @@ type MetadataPartial = {
   ctxTermNumber: number | null;
   ctxTermLabel: string | null;
   reason?: string | null;
+  reasonLabel?: string | null;
 };
 
 // Enriched intermediate — has everything except term enrichment.
@@ -138,6 +144,7 @@ type EnrichedPartial = {
   ctxTermNumber: number | null;
   ctxTermLabel: string | null;
   reason?: string | null;
+  reasonLabel?: string | null;
 };
 
 // ── Public API ──────────────────────────────────────────────────────────────
@@ -214,6 +221,7 @@ export async function getMovementEvents(
         date: e.date,
         actorEmail: e.actorEmail,
         reason: e.reason ?? null,
+        reasonLabel: e.reasonLabel ?? null,
       };
     }
     return {
@@ -399,6 +407,16 @@ async function fetchMetadataEvents(
   for (const row of withdrawnRows) {
     if (!row.entity_id) continue;
     const ctx = (row.context ?? {}) as Record<string, unknown>;
+    // The audit context may have either the new structured key ('withdrawalReason')
+    // or the old unstructured key ('reason') for backwards compat with old audit rows.
+    const reasonRaw =
+      (ctx.withdrawalReason as string | null | undefined) ?? null;
+    const reasonFallback = (ctx.reason as string | null | undefined) ?? null;
+    const resolvedReason = reasonRaw ?? reasonFallback ?? null;
+    const reasonLabel: string | null =
+      resolvedReason !== null && resolvedReason in WITHDRAWAL_REASON_LABELS
+        ? WITHDRAWAL_REASON_LABELS[resolvedReason as WithdrawalReason]
+        : null;
     out.push({
       id: row.id,
       kind: 'withdrawn',
@@ -407,7 +425,8 @@ async function fetchMetadataEvents(
       actorEmail: row.actor_email,
       ctxTermNumber: null,
       ctxTermLabel: null,
-      reason: (ctx.reason as string | null | undefined) ?? null,
+      reason: resolvedReason,
+      reasonLabel,
     });
   }
   for (const row of lateRows) {
@@ -698,6 +717,7 @@ async function enrichWithStudents(
       ctxTermNumber: m.ctxTermNumber,
       ctxTermLabel: m.ctxTermLabel,
       reason: m.reason,
+      reasonLabel: m.reasonLabel,
     });
   }
 

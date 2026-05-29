@@ -94,18 +94,14 @@ function buildColumns(
         if (row.original.kind !== 'withdrawn') {
           return <span className="text-muted-foreground">—</span>;
         }
-        const reason = (
-          row.original as Extract<MovementEvent, { kind: 'withdrawn' }>
-        ).reason;
-        if (!reason) return <span className="text-muted-foreground">—</span>;
-        return (
-          <span
-            className="max-w-[200px] truncate text-sm text-foreground"
-            title={reason}
-          >
-            {reason}
-          </span>
-        );
+        const withdrawn = row.original as Extract<
+          MovementEvent,
+          { kind: 'withdrawn' }
+        >;
+        const label = withdrawn.reasonLabel;
+        if (!label)
+          return <span className="text-sm text-muted-foreground">—</span>;
+        return <span className="text-sm">{label}</span>;
       },
       enableSorting: false,
     },
