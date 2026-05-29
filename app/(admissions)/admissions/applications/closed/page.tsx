@@ -17,6 +17,11 @@ import {
 } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
 import { getCurrentAcademicYear, listAyCodes } from '@/lib/academic-year';
+import {
+  APPLICATION_TERMINAL_REASON_LABELS,
+  APPLICATION_TERMINAL_REASON_VALUES,
+  type ApplicationTerminalReason,
+} from '@/lib/schemas/sis';
 import { listStudents } from '@/lib/sis/queries';
 import { getSessionUser } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -38,7 +43,7 @@ const APPLICATIONS_CLOSED_STATUS_BUCKETS: StatusBucketDef[] = [
 export default async function AdmissionsApplicationsClosedPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ay?: string }>;
+  searchParams: Promise<{ ay?: string; reason?: string }>;
 }) {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect('/login');
@@ -63,16 +68,30 @@ export default async function AdmissionsApplicationsClosedPage({
     );
   }
 
-  const { ay: ayParam } = await searchParams;
+  const { ay: ayParam, reason: reasonParam } = await searchParams;
   const ayCodes = await listAyCodes(service);
   const selectedAy =
     ayParam && ayCodes.includes(ayParam) ? ayParam : currentAy.ay_code;
   const isCurrentAy = selectedAy === currentAy.ay_code;
 
+  // Validate the reason param — only accept known enum values.
+  const reasonFilter =
+    reasonParam &&
+    APPLICATION_TERMINAL_REASON_VALUES.includes(
+      reasonParam as ApplicationTerminalReason
+    )
+      ? (reasonParam as ApplicationTerminalReason)
+      : undefined;
+
   const allStudents = await listStudents(selectedAy, 'created_at_desc');
   const closed = allStudents.filter((s) =>
     TERMINAL_STAGES.has((s.applicationStatus ?? '').trim())
   );
+
+  // Apply reason filter server-side before passing to the table.
+  const filteredClosed = reasonFilter
+    ? closed.filter((s) => s.applicationTerminalReason === reasonFilter)
+    : closed;
 
   const cancelledCount = closed.filter(
     (s) => (s.applicationStatus ?? '').trim() === 'Cancelled'
@@ -144,11 +163,38 @@ export default async function AdmissionsApplicationsClosedPage({
         </div>
       </section>
 
+      {/* Reason quick-filter chips */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-mono text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
+          Reason
+        </span>
+        {APPLICATION_TERMINAL_REASON_VALUES.map((key) => {
+          const isActive = reasonFilter === key;
+          const params = new URLSearchParams();
+          params.set('ay', selectedAy);
+          if (!isActive) params.set('reason', key);
+          return (
+            <Link
+              key={key}
+              href={`?${params.toString()}`}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                isActive
+                  ? 'bg-foreground text-background'
+                  : 'bg-muted text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {APPLICATION_TERMINAL_REASON_LABELS[key]}
+            </Link>
+          );
+        })}
+      </div>
+
       {/* List */}
       <StudentDataTable
-        data={closed}
+        data={filteredClosed}
         statusBuckets={APPLICATIONS_CLOSED_STATUS_BUCKETS}
         showSubmittedColumn
+        showReasonColumn
         defaultSorting={[{ id: 'submitted', desc: true }]}
         linkBase="/admissions/applications"
         linkQuery={{ ay: selectedAy }}

@@ -10,6 +10,10 @@ import { IdentifierLink } from '@/components/ui/identifier-link';
 import { ApplicationStatusBadge } from '@/components/ui/application-status-badge';
 import type { EnrollmentStatus } from '@/components/ui/enrollment-status-badge';
 import type { StudentListRow } from '@/lib/sis/queries';
+import {
+  APPLICATION_TERMINAL_REASON_LABELS,
+  type ApplicationTerminalReason,
+} from '@/lib/schemas/sis';
 
 // ─── Bucket types ───────────────────────────────────────────────────────────
 
@@ -97,6 +101,7 @@ export function StudentDataTable({
   linkQuery,
   defaultSorting,
   showSubmittedColumn = false,
+  showReasonColumn = false,
   statusBuckets = DEFAULT_STATUS_BUCKETS,
 }: {
   data: StudentListRow[];
@@ -106,6 +111,7 @@ export function StudentDataTable({
   linkQuery?: Record<string, string>;
   defaultSorting?: SortingState;
   showSubmittedColumn?: boolean;
+  showReasonColumn?: boolean;
   statusBuckets?: StatusBucketDef[];
 }) {
   const querySuffix = React.useMemo(() => {
@@ -241,6 +247,42 @@ export function StudentDataTable({
             } satisfies ColumnDef<StudentListRow>,
           ]
         : []),
+      ...(showReasonColumn
+        ? [
+            {
+              id: 'terminalReason',
+              header: 'Reason',
+              cell: ({ row }) => {
+                const raw = row.original.applicationTerminalReason as
+                  | string
+                  | null;
+                const label: string | null =
+                  raw !== null && raw in APPLICATION_TERMINAL_REASON_LABELS
+                    ? APPLICATION_TERMINAL_REASON_LABELS[
+                        raw as ApplicationTerminalReason
+                      ]
+                    : (raw ?? null);
+                const notes = row.original.applicationTerminalNotes as
+                  | string
+                  | null;
+                if (!label)
+                  return (
+                    <span className="text-sm text-muted-foreground">—</span>
+                  );
+                return (
+                  <div>
+                    <span className="text-sm">{label}</span>
+                    {notes && (
+                      <p className="line-clamp-1 text-xs text-muted-foreground">
+                        {notes}
+                      </p>
+                    )}
+                  </div>
+                );
+              },
+            } satisfies ColumnDef<StudentListRow>,
+          ]
+        : []),
       {
         // Last updated — hidden-by-default, sortable
         accessorKey: 'applicationUpdatedDate',
@@ -260,7 +302,13 @@ export function StudentDataTable({
         },
       },
     ],
-    [linkBase, linkAttribute, querySuffix, showSubmittedColumn]
+    [
+      linkBase,
+      linkAttribute,
+      querySuffix,
+      showSubmittedColumn,
+      showReasonColumn,
+    ]
   );
 
   const statusTabs = React.useMemo(

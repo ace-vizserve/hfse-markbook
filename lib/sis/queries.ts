@@ -48,6 +48,11 @@ export type StudentListRow = {
   // Populated by Records pages only — joins section_students.enrollment_status
   // (active | late_enrollee | withdrawn). Undefined for all Admissions callers.
   enrollmentStatus?: string | null;
+  // Terminal reason + notes — only present on Cancelled/Withdrawn rows.
+  // Populated from _enrolment_status; undefined for non-terminal rows is
+  // safe — callers only render these on the closed-applications page.
+  applicationTerminalReason?: string | null;
+  applicationTerminalNotes?: string | null;
 };
 
 // `created_at` carries the application's submission timestamp (Supabase default
@@ -56,7 +61,7 @@ export type StudentListRow = {
 const LIST_APP_COLUMNS =
   'enroleeNumber, studentNumber, firstName, middleName, lastName, enroleeFullName, levelApplied, created_at';
 const LIST_STATUS_COLUMNS =
-  'enroleeNumber, classLevel, classSection, applicationStatus, applicationUpdatedDate';
+  'enroleeNumber, classLevel, classSection, applicationStatus, applicationUpdatedDate, "applicationTerminalReason", "applicationTerminalNotes"';
 
 export type StudentListOrder = 'created_at_desc' | 'name_asc';
 
@@ -129,6 +134,8 @@ export async function listStudents(
         classSection: string | null;
         applicationStatus: string | null;
         applicationUpdatedDate: string | null;
+        applicationTerminalReason: string | null;
+        applicationTerminalNotes: string | null;
       };
 
       const apps = (appsRes.data ?? []) as AppLite[];
@@ -156,6 +163,8 @@ export async function listStudents(
           applicationStatus: s?.applicationStatus ?? null,
           applicationUpdatedDate: s?.applicationUpdatedDate ?? null,
           created_at: a.created_at,
+          applicationTerminalReason: s?.applicationTerminalReason ?? null,
+          applicationTerminalNotes: s?.applicationTerminalNotes ?? null,
         });
       }
       return out;
