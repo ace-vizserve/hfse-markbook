@@ -29,6 +29,7 @@ import {
   AlertTitle,
 } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { NoCurrentAyCard } from '@/components/ui/no-current-ay-card';
 import { PageShell } from '@/components/ui/page-shell';
 import { getCurrentAcademicYear, listAyCodes } from '@/lib/academic-year';
 import {
@@ -72,7 +73,13 @@ export default async function StudentDocumentDetailPage({
 
   const service = createServiceClient();
   const currentAy = await getCurrentAcademicYear(service);
-  if (!currentAy) notFound();
+  if (!currentAy) {
+    return (
+      <PageShell>
+        <NoCurrentAyCard />
+      </PageShell>
+    );
+  }
 
   const ayCodes = await listAyCodes(service);
   const selectedAy =

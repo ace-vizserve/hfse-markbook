@@ -47,6 +47,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { NoCurrentAyCard } from '@/components/ui/no-current-ay-card';
 import { PageShell } from '@/components/ui/page-shell';
 import {
   getCurrentAcademicYear,
@@ -173,9 +174,7 @@ export default async function AdmissionsDashboard({
   if (!currentAy) {
     return (
       <PageShell>
-        <div className="text-sm text-destructive">
-          No current academic year configured.
-        </div>
+        <NoCurrentAyCard />
       </PageShell>
     );
   }
