@@ -118,7 +118,7 @@ export default async function SectionAttendancePage({
   const { data: enrolmentsRaw } = await supabase
     .from('section_students')
     .select(
-      'id, index_number, enrollment_status, bus_no, classroom_officer_role, student:students(id, student_number, last_name, first_name, middle_name, urgent_compassionate_allowance, vacation_leave_allowance_per_term)'
+      'id, index_number, enrollment_status, enrollment_date, bus_no, classroom_officer_role, student:students(id, student_number, last_name, first_name, middle_name, urgent_compassionate_allowance, vacation_leave_allowance_per_term)'
     )
     .eq('section_id', sectionId)
     .order('index_number');
@@ -127,6 +127,7 @@ export default async function SectionAttendancePage({
     id: string;
     index_number: number;
     enrollment_status: string;
+    enrollment_date: string | null;
     bus_no: string | null;
     classroom_officer_role: string | null;
     student:
@@ -200,6 +201,7 @@ export default async function SectionAttendancePage({
       busNo: e.bus_no,
       classroomOfficerRole: e.classroom_officer_role,
       withdrawn: e.enrollment_status === 'withdrawn',
+      enrollmentDate: e.enrollment_date ?? null,
       compassionateUsed: quota?.used ?? 0,
       compassionateAllowance:
         quota?.allowance ?? s?.urgent_compassionate_allowance ?? 5,

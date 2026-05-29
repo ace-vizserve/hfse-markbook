@@ -157,6 +157,10 @@ export type WideGridEnrolment = {
   // soft warning (toast only — write still proceeds).
   vlUsedThisTerm: number;
   vlAllowance: number;
+  // ISO date string (YYYY-MM-DD) when the student joined the section; null for
+  // non-late-enrollees (enrolled from day 1). Used to dim cells before the
+  // student was part of the class.
+  enrollmentDate: string | null;
 };
 
 // Dropdown option value shape: "P" | "L" | "EX:mc" | "EX:compassionate" |
@@ -666,19 +670,55 @@ export function AttendanceWideGrid({
                         const exReason = cell?.exReason ?? null;
                         const currentValue = encodeOption(status, exReason);
                         const disabled = e.withdrawn || !c.encodable;
+                        // Pre-enrollment: date is before the student's enrollment
+                        // date — cell should be dimmed and non-interactive. If
+                        // there is already a recorded entry, we still show it
+                        // dimmed rather than silently discarding it.
+                        const beforeEnrolment =
+                          !!e.enrollmentDate && c.iso < e.enrollmentDate;
 
                         return (
                           <TableCell
                             key={c.iso}
+                            title={
+                              beforeEnrolment
+                                ? 'Before enrolment date'
+                                : undefined
+                            }
                             className={
                               'overflow-hidden p-0 text-center align-middle ' +
-                              DAY_TYPE_CELL_BG[c.dayType] +
+                              (beforeEnrolment
+                                ? 'bg-muted/40 '
+                                : DAY_TYPE_CELL_BG[c.dayType]) +
                               (c.drawMonthBoundary
                                 ? ' border-l-2 border-l-border'
                                 : '')
                             }
                           >
-                            {!c.encodable ? (
+                            {beforeEnrolment ? (
+                              // Dim cell for pre-enrollment dates. If data was
+                              // already recorded (edge-case: back-dated entry),
+                              // show the value dimmed but do not allow edits.
+                              <span
+                                className={
+                                  'block px-1 py-1 font-mono text-[11px] font-semibold uppercase tracking-[0.06em] opacity-40 ' +
+                                  (status
+                                    ? statusChipGradient(status)
+                                    : 'text-muted-foreground')
+                                }
+                                title={
+                                  status
+                                    ? `Before enrolment date · ${ATTENDANCE_STATUS_LABELS[status]}${status === 'EX' && exReason ? ` · ${EX_REASON_LABELS[exReason]}` : ''}`
+                                    : 'Before enrolment date'
+                                }
+                              >
+                                {status
+                                  ? status === 'EX' && exReason
+                                    ? `E${exReason.slice(0, 1).toUpperCase()}`
+                                    : status
+                                  : '—'}
+                              </span>
+                            ) : !c.encodable ? (
                               <span
                                 className="block px-1 py-1 text-[10px] text-muted-foreground"
                                 title={`${DAY_TYPE_LABELS[c.dayType]}${c.label ? ` · ${c.label}` : ''}`}
