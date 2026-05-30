@@ -7,12 +7,22 @@ import {
   type CompareGridMetric,
 } from '@/components/dashboard/compare-grid';
 import { CompareToolbar } from '@/components/dashboard/compare-toolbar';
+import { MultiSeriesTrendChart } from '@/components/dashboard/charts/multi-series-trend-chart';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { PageShell } from '@/components/ui/page-shell';
 import { listAyCodes } from '@/lib/academic-year';
 import { parseCompareParams } from '@/lib/dashboard/compare';
 import {
   getMarkbookCompareKpis,
+  getSubjectPerformanceTrend,
   type MarkbookCompareKpis,
+  type SubjectTrendPoint,
 } from '@/lib/markbook/compare';
 import { createClient, getSessionUser } from '@/lib/supabase/server';
 
@@ -34,7 +44,16 @@ export default async function MarkbookComparePage({
   const ayCodes = await listAyCodes(supabase);
   const input = parseCompareParams(sp);
 
-  const compareData = input ? await getMarkbookCompareKpis(input) : null;
+  // Fetch KPIs first (builds the cells, which carry termId), then derive
+  // the subject-performance trend from those same cells. Sequential because
+  // the trend query depends on compareData.cells.
+  let compareData: Awaited<ReturnType<typeof getMarkbookCompareKpis>> | null =
+    null;
+  let trendPoints: SubjectTrendPoint[] = [];
+  if (input) {
+    compareData = await getMarkbookCompareKpis(input);
+    trendPoints = await getSubjectPerformanceTrend(compareData.cells);
+  }
 
   const metrics: CompareGridMetric<MarkbookCompareKpis>[] = [
     {
@@ -104,17 +123,104 @@ export default async function MarkbookComparePage({
           Pick at least one AY and one term above to see the comparison.
         </div>
       ) : compareData && compareData.cells.length > 0 ? (
-        <CompareGrid
-          title="KPI comparison"
-          description={`${compareData.cells.length} cell${compareData.cells.length === 1 ? '' : 's'} — ${input.ays.join(', ')} × ${input.kind === 'term' ? input.terms.map((t) => `T${t}`).join(', ') : ''}`}
-          cells={compareData.cells}
-          metrics={metrics}
-        />
+        <>
+          <SubjectPerformanceCharts
+            cells={compareData.cells}
+            trendPoints={trendPoints}
+          />
+          <CompareGrid
+            title="KPI comparison"
+            description={`${compareData.cells.length} cell${compareData.cells.length === 1 ? '' : 's'} — ${input.ays.join(', ')} × ${input.kind === 'term' ? input.terms.map((t) => `T${t}`).join(', ') : ''}`}
+            cells={compareData.cells}
+            metrics={metrics}
+          />
+        </>
       ) : (
         <div className="rounded-xl border border-dashed border-border bg-muted/20 p-12 text-center text-sm text-muted-foreground">
           No data found for this selection. Verify the AYs and terms are seeded.
         </div>
       )}
     </PageShell>
+  );
+}
+
+/**
+ * Renders one subject performance chart per AY.
+ * One line per examinable subject; X axis = selected terms in order.
+ * Hidden entirely when no trend data is available.
+ */
+function SubjectPerformanceCharts({
+  cells,
+  trendPoints,
+}: {
+  cells: Array<{
+    cell: { ayCode: string; termId?: string; termNumber?: number };
+  }>;
+  trendPoints: SubjectTrendPoint[];
+}) {
+  if (trendPoints.length === 0) return null;
+
+  // Group trend points by AY
+  const byAy = new Map<string, SubjectTrendPoint[]>();
+  for (const pt of trendPoints) {
+    if (!byAy.has(pt.ayCode)) byAy.set(pt.ayCode, []);
+    byAy.get(pt.ayCode)!.push(pt);
+  }
+
+  // Period order: T1 < T2 < T3 < T4
+  const allPeriods = [
+    ...new Set(
+      cells
+        .map((c) => (c.cell.termNumber ? `T${c.cell.termNumber}` : null))
+        .filter((p): p is string => p !== null)
+    ),
+  ].sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)));
+
+  const ayEntries = Array.from(byAy.entries());
+
+  return (
+    <div
+      className={`grid grid-cols-1 gap-6 ${ayEntries.length > 1 ? 'md:grid-cols-2' : ''}`}
+    >
+      {ayEntries.map(([ayCode, points]) => {
+        const subjects = [...new Set(points.map((p) => p.subjectName))].sort();
+        if (subjects.length === 0) return null;
+
+        const chartData = allPeriods.map((period) => {
+          const row: Record<string, string | number | null> = { x: period };
+          for (const subject of subjects) {
+            const pt = points.find(
+              (p) => p.periodLabel === period && p.subjectName === subject
+            );
+            row[subject] = pt?.avgGrade ?? null;
+          }
+          return row;
+        });
+
+        const series = subjects.map((s) => ({ key: s, label: s }));
+
+        return (
+          <Card key={ayCode} className="@container/card">
+            <CardHeader className="space-y-1">
+              <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
+                Average quarterly grade
+              </CardDescription>
+              <CardTitle className="font-serif text-[18px] font-semibold tracking-tight text-foreground">
+                Subject Performance — {ayCode}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <MultiSeriesTrendChart
+                series={series}
+                data={chartData}
+                yFormat="number"
+                yDomain={[0, 100]}
+                height={240}
+              />
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
   );
 }
