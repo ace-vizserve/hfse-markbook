@@ -31,6 +31,7 @@ export type CompareCell = {
   kind: 'term' | 'month';
   termNumber?: number;
   month?: string;
+  termId?: string;
 };
 
 export type CompareCellResult<T> = {
@@ -110,15 +111,21 @@ export async function buildCompareCells(
   const supabase = service ?? createServiceClient();
   const { data: termsData } = await supabase
     .from('terms')
-    .select('term_number, start_date, end_date, academic_years!inner(ay_code)')
+    .select(
+      'id, term_number, start_date, end_date, academic_years!inner(ay_code)'
+    )
     .in('academic_years.ay_code', input.ays);
   type Row = {
+    id: string;
     term_number: number;
     start_date: string | null;
     end_date: string | null;
     academic_years: { ay_code: string } | { ay_code: string }[];
   };
-  const termsByAy = new Map<string, Map<number, DateRange>>();
+  const termsByAy = new Map<
+    string,
+    Map<number, { range: DateRange; termId: string }>
+  >();
   for (const row of (termsData ?? []) as Row[]) {
     if (!row.start_date || !row.end_date) continue;
     const ay = Array.isArray(row.academic_years)
@@ -127,8 +134,8 @@ export async function buildCompareCells(
     if (!ay?.ay_code) continue;
     if (!termsByAy.has(ay.ay_code)) termsByAy.set(ay.ay_code, new Map());
     termsByAy.get(ay.ay_code)!.set(row.term_number, {
-      from: row.start_date,
-      to: row.end_date,
+      range: { from: row.start_date, to: row.end_date },
+      termId: row.id,
     });
   }
 
@@ -136,14 +143,15 @@ export async function buildCompareCells(
   for (const ay of input.ays) {
     const ayTerms = termsByAy.get(ay);
     for (const t of input.terms) {
-      const range = ayTerms?.get(t);
-      if (!range) continue;
+      const termData = ayTerms?.get(t);
+      if (!termData) continue;
       cells.push({
         ayCode: ay,
         label: `${ay} · T${t}`,
-        range,
+        range: termData.range,
         kind: 'term',
         termNumber: t,
+        termId: termData.termId,
       });
     }
   }
