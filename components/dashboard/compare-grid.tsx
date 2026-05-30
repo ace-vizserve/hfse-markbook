@@ -24,18 +24,11 @@ export type CompareGridMetric<T> = {
   /** Pull the numeric value out of T for this metric. null = no data. */
   getValue: (data: T) => number | null;
   /**
-   * When true, smaller values are "better" (shaded mint, marked best).
-   * Defaults to false (higher = better). Drives both heatmap direction
-   * and Δ-tone classification.
+   * 'higherIsBetter' | 'lowerIsBetter' — drives delta colour and min/max dot.
+   * Omit for ambiguous metrics (transfers, expected counts, etc.) — delta
+   * and dot are suppressed to avoid misleading direction signals.
    */
-  lowerIsBetter?: boolean;
-  /**
-   * @deprecated Heatmap is now applied to every metric by default. The
-   * old "opt-in to highlighting" API stays accepted for back-compat but
-   * has no effect on rendering — set `lowerIsBetter` instead when you
-   * need direction-awareness.
-   */
-  highlightExtremes?: boolean;
+  direction?: 'higherIsBetter' | 'lowerIsBetter';
 };
 
 export type CompareGridProps<T> = {
@@ -43,34 +36,6 @@ export type CompareGridProps<T> = {
   metrics: CompareGridMetric<T>[];
   title: string;
   description?: string;
-};
-
-type Bucket = 'best' | 'good' | 'neutral' | 'bad' | 'worst';
-
-function bucketOf(
-  value: number,
-  min: number,
-  max: number,
-  lowerIsBetter: boolean
-): Bucket {
-  if (max === min) return 'neutral';
-  // Normalise to 0..1 where 1 = "best direction"
-  const ratio = lowerIsBetter
-    ? (max - value) / (max - min)
-    : (value - min) / (max - min);
-  if (ratio === 1) return 'best';
-  if (ratio === 0) return 'worst';
-  if (ratio >= 0.5) return 'good';
-  return 'bad';
-}
-
-const BUCKET_CLASS: Record<Bucket, string> = {
-  best: 'bg-gradient-to-b from-brand-mint/20 to-brand-mint/5 text-brand-mint font-semibold',
-  good: 'bg-gradient-to-b from-brand-mint/10 to-brand-mint/0 text-foreground',
-  neutral: 'text-muted-foreground',
-  bad: 'bg-gradient-to-b from-destructive/10 to-destructive/0 text-foreground',
-  worst:
-    'bg-gradient-to-b from-destructive/20 to-destructive/5 text-destructive font-semibold',
 };
 
 function formatValue(
@@ -83,36 +48,31 @@ function formatValue(
   return v.toLocaleString('en-SG');
 }
 
-/**
- * Δ vs baseline (first cell). Returns the formatted delta string + the
- * tone bucket so the caller can colour it. Null when the comparison is
- * not meaningful (either side null, or the cell IS the baseline).
- */
 function formatDelta(
   value: number | null,
   baseline: number | null,
   fmt: CompareGridMetric<unknown>['format'],
-  lowerIsBetter: boolean,
+  direction: CompareGridMetric<unknown>['direction'],
   isBaseline: boolean
 ): { text: string; tone: 'good' | 'bad' | 'neutral' } | null {
   if (isBaseline) return null;
   if (value === null || baseline === null) return null;
   if (value === baseline) return { text: '± 0', tone: 'neutral' };
-  const direction = value > baseline ? 1 : -1;
-  const goodDirection = lowerIsBetter ? -1 : 1;
-  const tone: 'good' | 'bad' = direction === goodDirection ? 'good' : 'bad';
-  // Percent metrics show absolute percentage points; everything else relative %.
+
+  const isPositive = value > baseline;
+  let tone: 'good' | 'bad' | 'neutral' = 'neutral';
+  if (direction === 'higherIsBetter') tone = isPositive ? 'good' : 'bad';
+  if (direction === 'lowerIsBetter') tone = isPositive ? 'bad' : 'good';
+
   if (fmt === 'percent') {
     const diff = value - baseline;
-    const text = `${diff > 0 ? '+' : ''}${Math.round(diff)}pp`;
-    return { text, tone };
+    return { text: `${diff > 0 ? '+' : ''}${Math.round(diff)}pp`, tone };
   }
   if (baseline === 0) {
     return { text: value > 0 ? 'new' : '—', tone };
   }
   const pct = ((value - baseline) / Math.abs(baseline)) * 100;
-  const text = `${pct > 0 ? '+' : ''}${Math.round(pct)}%`;
-  return { text, tone };
+  return { text: `${pct > 0 ? '+' : ''}${Math.round(pct)}%`, tone };
 }
 
 const DELTA_TONE: Record<'good' | 'bad' | 'neutral', string> = {
@@ -121,16 +81,11 @@ const DELTA_TONE: Record<'good' | 'bad' | 'neutral', string> = {
   neutral: 'text-muted-foreground',
 };
 
-/**
- * Sub-label for a cell: "T1" for term-kind, "Apr 2026" for month-kind.
- * AY prefix lives in the spanning header above, so we strip it here.
- */
 function cellSubLabel(cell: CompareCellResult<unknown>['cell']): string {
   if (cell.kind === 'term' && cell.termNumber !== undefined) {
     return `T${cell.termNumber}`;
   }
   if (cell.kind === 'month' && cell.month) {
-    // Format YYYY-MM as "Mon YY" — keep it short for the header
     const [y, m] = cell.month.split('-');
     const date = new Date(Number(y), Number(m) - 1, 1);
     return date.toLocaleDateString('en-SG', {
@@ -138,9 +93,30 @@ function cellSubLabel(cell: CompareCellResult<unknown>['cell']): string {
       year: '2-digit',
     });
   }
-  // Fallback: strip "AY9999 · " prefix from label
   const idx = cell.label.indexOf('·');
   return idx >= 0 ? cell.label.slice(idx + 1).trim() : cell.label;
+}
+
+/**
+ * Find best and worst cell indices for a metric row.
+ * Returns null for both when direction is unset (neutral metric) or all values equal.
+ */
+function findBestWorst(
+  values: (number | null)[],
+  direction: CompareGridMetric<unknown>['direction']
+): { bestIdx: number | null; worstIdx: number | null } {
+  if (!direction) return { bestIdx: null, worstIdx: null };
+  const numeric = values
+    .map((v, i) => (v !== null ? { v, i } : null))
+    .filter((x): x is { v: number; i: number } => x !== null);
+  if (numeric.length < 2) return { bestIdx: null, worstIdx: null };
+  const sorted = [...numeric].sort((a, b) => a.v - b.v);
+  const minItem = sorted[0];
+  const maxItem = sorted[sorted.length - 1];
+  if (minItem.v === maxItem.v) return { bestIdx: null, worstIdx: null };
+  return direction === 'lowerIsBetter'
+    ? { bestIdx: minItem.i, worstIdx: maxItem.i }
+    : { bestIdx: maxItem.i, worstIdx: minItem.i };
 }
 
 /**
@@ -196,33 +172,36 @@ export function CompareGrid<T>({
         <div className="overflow-x-auto rounded-lg border border-hairline">
           <Table>
             <TableHeader>
-              {/* Top row: AY-spanning headers */}
+              {/* AY group row — 2px indigo top border groups columns by year */}
               <TableRow className="hover:bg-transparent">
-                <TableHead rowSpan={2} className="bg-muted/30 align-bottom">
+                <TableHead
+                  rowSpan={2}
+                  className="sticky left-0 z-20 border-r border-hairline bg-muted/30 align-bottom"
+                >
                   Metric
                 </TableHead>
                 {ayGroups.map((g) => (
                   <TableHead
                     key={g.ayCode}
                     colSpan={g.span}
-                    className="border-l border-hairline bg-gradient-to-b from-brand-indigo/10 to-transparent text-center text-[11px] text-brand-navy"
+                    className="border-l border-t-2 border-l-hairline border-t-brand-indigo/30 bg-card text-center text-[11px] font-semibold text-brand-navy"
                   >
                     {g.ayCode}
                   </TableHead>
                 ))}
               </TableRow>
-              {/* Bottom row: per-cell sub-labels */}
+              {/* Per-cell sub-labels */}
               <TableRow className="hover:bg-transparent">
                 {cells.map((c, i) => (
                   <TableHead
                     key={`${c.cell.ayCode}-${cellSubLabel(c.cell)}-${i}`}
                     className={cn(
                       'h-9 border-l border-hairline bg-muted/20 text-center text-muted-foreground',
-                      i === baselineIdx && 'text-foreground'
+                      i === baselineIdx && 'font-semibold text-foreground'
                     )}
                     title={
                       i === baselineIdx
-                        ? 'Baseline cell — Δ values below are measured against this'
+                        ? 'Baseline — Δ values are measured against this cell'
                         : undefined
                     }
                   >
@@ -239,49 +218,63 @@ export function CompareGrid<T>({
             <TableBody>
               {metrics.map((metric) => {
                 const values = cells.map((c) => metric.getValue(c.data));
-                const numeric = values.filter((v): v is number => v !== null);
-                const max = numeric.length > 0 ? Math.max(...numeric) : null;
-                const min = numeric.length > 0 ? Math.min(...numeric) : null;
-                const lowerIsBetter = Boolean(metric.lowerIsBetter);
                 const baselineValue = values[baselineIdx];
+                const { bestIdx, worstIdx } = findBestWorst(
+                  values,
+                  metric.direction
+                );
                 return (
                   <TableRow key={metric.key}>
-                    <TableCell className="text-foreground">
-                      <span className="font-medium">{metric.label}</span>
-                      {lowerIsBetter && (
-                        <span
-                          className="ml-1 text-[10px] text-muted-foreground"
-                          title="Lower is better"
-                        >
-                          ↓
-                        </span>
-                      )}
+                    {/* Sticky metric label column */}
+                    <TableCell className="sticky left-0 z-10 border-r border-hairline bg-card text-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium">{metric.label}</span>
+                        {metric.direction === 'lowerIsBetter' && (
+                          <span
+                            className="text-[10px] text-muted-foreground"
+                            title="Lower is better"
+                          >
+                            ↓
+                          </span>
+                        )}
+                        {bestIdx !== null && worstIdx !== null && (
+                          <span className="ml-auto flex gap-0.5 text-[10px]">
+                            <span
+                              className="text-brand-mint"
+                              title={`Best: ${cells[bestIdx].cell.label}`}
+                            >
+                              ●
+                            </span>
+                            <span
+                              className="text-destructive"
+                              title={`Worst: ${cells[worstIdx].cell.label}`}
+                            >
+                              ●
+                            </span>
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     {cells.map((c, i) => {
                       const v = values[i];
-                      const bucket: Bucket =
-                        v === null || min === null || max === null
-                          ? 'neutral'
-                          : bucketOf(v, min, max, lowerIsBetter);
                       const delta = formatDelta(
                         v,
                         baselineValue,
                         metric.format,
-                        lowerIsBetter,
+                        metric.direction,
                         i === baselineIdx
                       );
                       return (
                         <TableCell
                           key={`${c.cell.label}-${i}`}
-                          className={cn(
-                            'border-l border-hairline text-right align-middle font-mono tabular-nums transition-colors',
-                            BUCKET_CLASS[bucket]
-                          )}
+                          className="border-l border-hairline text-right align-middle font-mono tabular-nums"
                           title={
                             v === null ? 'No data for this period' : undefined
                           }
                         >
-                          <div>{formatValue(v, metric.format)}</div>
+                          <div className="font-semibold text-foreground">
+                            {formatValue(v, metric.format)}
+                          </div>
                           {delta && (
                             <div
                               className={cn(
@@ -302,10 +295,11 @@ export function CompareGrid<T>({
           </Table>
         </div>
         <p className="mt-3 px-1 text-[11px] text-muted-foreground">
-          Cells are shaded by relative magnitude within each row. Mint = best
-          direction; red = worst. <span className="font-mono">↓</span> on the
-          metric label means lower is better. Δ values are measured against the
-          leftmost <span className="font-mono">BASE</span> cell.
+          Δ values are measured against the leftmost{' '}
+          <span className="font-mono">BASE</span> cell.{' '}
+          <span className="font-mono">↓</span> on the metric label means lower
+          is better. ● mint = best, ● red = worst (only shown for directional
+          metrics).
         </p>
       </CardContent>
     </Card>
