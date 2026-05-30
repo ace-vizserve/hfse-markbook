@@ -176,7 +176,7 @@ export function CompareGrid<T>({
               <TableRow className="hover:bg-transparent">
                 <TableHead
                   rowSpan={2}
-                  className="sticky left-0 z-20 border-r border-hairline bg-muted/30 align-bottom"
+                  className="sticky left-0 z-20 border-r border-hairline bg-muted align-bottom"
                 >
                   Metric
                 </TableHead>
