@@ -169,11 +169,15 @@ export function getSubjectPerformanceTrend(
   if (cellMeta.length === 0) return Promise.resolve([]);
 
   const termIds = [...new Set(cellMeta.map((c) => c.termId))].sort();
-  const firstAy = cellMeta[0].ayCode;
+  // Tag every AY in the comparison so a grade mutation in any selected AY
+  // invalidates this view (KD #80) — not just the first one listed.
+  const ayTags = [...new Set(cellMeta.map((c) => c.ayCode))].map(
+    (ay) => `markbook-drill:${ay}`
+  );
 
   return unstable_cache(
     loadSubjectPerformanceTrendUncached,
     ['markbook', 'subject-performance', ...termIds],
-    { tags: [`markbook-drill:${firstAy}`], revalidate: 60 }
+    { tags: ayTags, revalidate: 60 }
   )(termIds, cellMeta);
 }
