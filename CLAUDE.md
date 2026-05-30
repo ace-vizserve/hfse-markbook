@@ -60,16 +60,16 @@ here — they live in `.claude/rules/*.md`. Sprint-by-sprint history lives in
 `docs/sprints/development-plan.md` + `git log`.
 -->
 
-**Current state (2026-05-29):** Sprint 46 — Cross-module edge case hardening + attendance proration. 11 bug fixes across 7 modules (bulk-create reason field, NoCurrentAyCard, P-Files unsynced student state, eval late_enrollee counts, attendance withdrawn visual, P-Files no-email guidance, first-AY guidance, expiry same-day). Migration 068: `recompute_attendance_rollup` filters pre-enrollment dates for late enrollees; wide-grid dims pre-enrollment cells. KD #113 added. 77 tests passing. SIS Admin staff page redesigned + sidebar wired.
+**Current state (2026-05-30):** Sprint 47 — Evaluation module purpose fix. Scoped Evaluation down to FCA write-ups only (feeds T1–T3 report cards). Removed Topics/Checklists + Conference Notes tabs, PTC banners, all checklist/PTC API routes (→ 410), dead lib functions, and 6 dead component/schema files. DB tables kept dormant for optional future PTC work (KD #114). 77 tests passing. Confirmed go-live ready: no outstanding blockers. Honor tiers confirmed not used at HFSE — removed from backlog.
 
-**Future work:** Honors tiers; Sec 4 Economics card; self-serve invite flow (KD #87 with `/auth/setup`); per-row overflow menus; attendance audit-log server-side pagination; cron auto-sync trigger (KD #90); VL bulk import parser (KD #94 follow-up); optional coordinator annotation on SOW. **Pending Wynne/Joann clarifications**: (1) who encodes PTC comments — teacher or registrar? PTC comment encoding surface deferred pending #1.
+**Future work:** Sec 4 Economics card (no Sec 4 students yet); self-serve invite flow (KD #87 with `/auth/setup`); per-row overflow menus; attendance audit-log server-side pagination; cron auto-sync trigger (KD #90); VL bulk import parser (KD #94 follow-up); optional coordinator annotation on SOW; PTC digitization as a separate plug-in surface when HFSE is ready (DB tables intact, KD #114).
 
 **Recent sprints** (full history in `docs/sprints/development-plan.md`; per-pass detail in `git log`):
 
+- Sprint 47 (2026-05-30): Evaluation module purpose fix — FCA write-ups only; PTC/checklist UI + API + lib removed; KD #114. Go-live readiness confirmed.
 - Sprint 46 (2026-05-29): Edge case hardening + attendance proration — 11 fixes across 7 modules + migration 068 (KD #113) + SIS Admin staff redesign/sidebar.
 - Sprint 45 (2026-05-29): Records student detail — withdrawal sub-row, operational strip, late-term override, annual grades + GA + award tiers, FCA comments card, DocumentStatusStrip (KDs #111–112, migration 067).
 - Sprint 44 (2026-05-28): Markbook polish — SOW teardown (062–066), non-exam Final Grade picker, letter-grade spec fix, ActivityLabelsDialog, seeder edge cases, masterfile filters + cross-filter + award colours.
-- Sprint 43 (2026-05-28): enterprise production readiness — Prettier + Husky + CI, global error boundary, 73 Vitest tests, tsc clean.
 - Sprints 28–43 (2026-04-29 → 2026-05-28): see development-plan.md. Highlights: KDs #63–112 + migrations 030–067.
 
 ## Cross-reference note
