@@ -25,10 +25,8 @@ import { PageShell } from '@/components/ui/page-shell';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EvaluationSectionsList } from '@/components/evaluation/sections-list';
 import {
-  getChecklistTopicCountByTerm,
   getWriteupProgressByTerm,
   listFormAdviserSectionIds,
-  listSubjectTeacherSectionIds,
 } from '@/lib/evaluation/queries';
 
 type LevelLite = {
@@ -86,14 +84,10 @@ export default async function EvaluationSectionsPickerPage({
     virtue_theme: string | null;
     is_current: boolean;
   };
-  // T4 is excluded — the T4 final card has no comment section (KD #49).
   const terms = ((termsRaw ?? []) as TermRow[]).filter(
     (t) => t.term_number !== 4
   );
 
-  // `?term=<1|2|3>` is the sidebar-Quicklink contract — resolve the semantic
-  // number into the AY's term_id. `?term_id=<uuid>` is the canonical form (used
-  // by the Tabs switcher below); it wins when both are present.
   const termNumberParam = sp.term ? Number.parseInt(sp.term, 10) : NaN;
   const termIdFromNumber = Number.isFinite(termNumberParam)
     ? terms.find((t) => t.term_number === termNumberParam)?.id
@@ -107,8 +101,6 @@ export default async function EvaluationSectionsPickerPage({
     '';
   const selectedTerm = terms.find((t) => t.id === defaultTermId) ?? null;
 
-  // Sections: teachers see every section they have any assignment in
-  // (form_adviser OR subject_teacher); registrar+ sees the whole AY.
   const { data: allSections } = await supabase
     .from('sections')
     .select('id, name, level:levels(id, code, label, level_type)')
@@ -126,33 +118,18 @@ export default async function EvaluationSectionsPickerPage({
     level: Array.isArray(s.level) ? (s.level[0] ?? null) : s.level,
   }));
 
-  // For teachers, resolve both assignment sets in parallel then filter.
-  // For registrar+, both sets stay empty — all sections treated as adviser
-  // sections for display purposes (write-up progress shown everywhere).
-  let adviserSet = new Set<string>();
-  let subjectTeacherSet = new Set<string>();
+  // Teachers see only their advisory sections — subject teachers have no
+  // role in this module after the purpose fix.
   if (sessionUser.role === 'teacher') {
-    [adviserSet, subjectTeacherSet] = await Promise.all([
-      listFormAdviserSectionIds(sessionUser.id),
-      listSubjectTeacherSectionIds(sessionUser.id),
-    ]);
-    sections = sections.filter(
-      (s) => adviserSet.has(s.id) || subjectTeacherSet.has(s.id)
-    );
+    const adviserSet = await listFormAdviserSectionIds(sessionUser.id);
+    sections = sections.filter((s) => adviserSet.has(s.id));
   }
 
   const sectionIds = sections.map((s) => s.id);
 
-  // Write-up progress + checklist topic counts fetched in parallel.
-  const [progress, checklistTopics] = selectedTerm
-    ? await Promise.all([
-        getWriteupProgressByTerm(selectedTerm.id, sectionIds),
-        getChecklistTopicCountByTerm(selectedTerm.id, sections),
-      ])
-    : [
-        {} as Record<string, { active_count: number; submitted_count: number }>,
-        {} as Record<string, number>,
-      ];
+  const progress = selectedTerm
+    ? await getWriteupProgressByTerm(selectedTerm.id, sectionIds)
+    : ({} as Record<string, { active_count: number; submitted_count: number }>);
 
   const sorted = sections.slice().sort((a, b) => {
     const ca = a.level?.code ?? '';
@@ -162,7 +139,6 @@ export default async function EvaluationSectionsPickerPage({
 
   const isTeacher = sessionUser.role === 'teacher';
 
-  // Unique levels in code-sorted order — used by the client-side level filter.
   const levels = Array.from(
     new Map(
       sorted
@@ -174,28 +150,21 @@ export default async function EvaluationSectionsPickerPage({
     ).values()
   );
 
-  // Write-up progress stats are only meaningful for adviser sections.
-  // For registrar+ (adviserSet is empty), all sections count.
-  const adviserSectionIds = isTeacher
-    ? sorted.filter((s) => adviserSet.has(s.id)).map((s) => s.id)
-    : sorted.map((s) => s.id);
-  const totalActive = Object.entries(progress)
-    .filter(([id]) => !isTeacher || adviserSectionIds.includes(id))
-    .reduce((n, [, p]) => n + (p?.active_count ?? 0), 0);
-  const totalSubmitted = Object.entries(progress)
-    .filter(([id]) => !isTeacher || adviserSectionIds.includes(id))
-    .reduce((n, [, p]) => n + (p?.submitted_count ?? 0), 0);
+  const totalActive = Object.values(progress).reduce(
+    (n, p) => n + (p?.active_count ?? 0),
+    0
+  );
+  const totalSubmitted = Object.values(progress).reduce(
+    (n, p) => n + (p?.submitted_count ?? 0),
+    0
+  );
   const completePct =
     totalActive === 0 ? 0 : Math.round((totalSubmitted / totalActive) * 100);
   const levelCount = new Set(sorted.map((s) => s.level?.label).filter(Boolean))
     .size;
 
-  // Is this teacher exclusively a subject teacher with no advisory sections?
-  const isSubjectTeacherOnly = isTeacher && adviserSet.size === 0;
-
   return (
     <PageShell>
-      {/* Back nav */}
       <Link
         href="/evaluation"
         className="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -204,7 +173,6 @@ export default async function EvaluationSectionsPickerPage({
         Evaluation
       </Link>
 
-      {/* Hero */}
       <header className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div className="space-y-4">
           <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -215,9 +183,7 @@ export default async function EvaluationSectionsPickerPage({
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
             {isTeacher
-              ? isSubjectTeacherOnly
-                ? 'Sections where you teach a subject. Open one to set up checklist topics and record ratings for your students.'
-                : 'Your assigned sections — advisory and subject. Open one to write evaluations or manage checklist topics.'
+              ? 'Your advisory sections. Open one to write student evaluations.'
               : 'Every section in the current academic year. Pick one to view or edit evaluations.'}
           </p>
         </div>
@@ -228,7 +194,7 @@ export default async function EvaluationSectionsPickerPage({
           >
             {ay.ay_code}
           </Badge>
-          {!isSubjectTeacherOnly && totalActive > 0 && (
+          {totalActive > 0 && (
             <Badge
               variant="outline"
               className={`h-7 border-border bg-card px-3 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] ${
@@ -243,7 +209,6 @@ export default async function EvaluationSectionsPickerPage({
         </div>
       </header>
 
-      {/* Term switcher */}
       {terms.length > 0 && (
         <Tabs value={defaultTermId}>
           <TabsList>
@@ -263,7 +228,6 @@ export default async function EvaluationSectionsPickerPage({
         </Tabs>
       )}
 
-      {/* Virtue theme warning */}
       {selectedTerm && !selectedTerm.virtue_theme && (
         <div className="flex items-start gap-3 rounded-xl border border-brand-amber/40 bg-brand-amber-light/40 p-4">
           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-amber/15 text-brand-amber">
@@ -290,16 +254,9 @@ export default async function EvaluationSectionsPickerPage({
         </div>
       )}
 
-      {/* Stats */}
       {sorted.length > 0 && (
         <div className="@container/main">
-          <div
-            className={`grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs ${
-              isSubjectTeacherOnly
-                ? '@xl/main:grid-cols-2'
-                : '@xl/main:grid-cols-3'
-            }`}
-          >
+          <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-3 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs">
             <SummaryCard
               description={isTeacher ? 'Your sections' : 'Total sections'}
               value={sorted.length.toLocaleString('en-SG')}
@@ -316,28 +273,25 @@ export default async function EvaluationSectionsPickerPage({
               footerTitle="Currently enrolled"
               footerDetail="Across every section listed"
             />
-            {!isSubjectTeacherOnly && (
-              <SummaryCard
-                description="Write-ups submitted"
-                value={`${completePct}%`}
-                icon={ClipboardCheck}
-                footerTitle={
-                  totalActive === 0
-                    ? '—'
-                    : `${totalSubmitted.toLocaleString('en-SG')} of ${totalActive.toLocaleString('en-SG')}`
-                }
-                footerDetail={
-                  selectedTerm
-                    ? `${selectedTerm.label} progress`
-                    : 'No term selected'
-                }
-              />
-            )}
+            <SummaryCard
+              description="Write-ups submitted"
+              value={`${completePct}%`}
+              icon={ClipboardCheck}
+              footerTitle={
+                totalActive === 0
+                  ? '—'
+                  : `${totalSubmitted.toLocaleString('en-SG')} of ${totalActive.toLocaleString('en-SG')}`
+              }
+              footerDetail={
+                selectedTerm
+                  ? `${selectedTerm.label} progress`
+                  : 'No term selected'
+              }
+            />
           </div>
         </div>
       )}
 
-      {/* Empty state or sections list */}
       {sorted.length === 0 ? (
         <Card className="items-center py-12 text-center">
           <CardContent className="flex flex-col items-center gap-3">
@@ -345,18 +299,17 @@ export default async function EvaluationSectionsPickerPage({
               <GraduationCap className="size-6 text-brand-indigo/60" />
             </div>
             <p className="font-serif text-lg font-semibold text-foreground">
-              {isTeacher ? 'No assigned sections.' : 'No sections in this AY.'}
+              {isTeacher ? 'No advisory sections.' : 'No sections in this AY.'}
             </p>
             <p className="max-w-md text-sm leading-relaxed text-muted-foreground">
               {isTeacher
-                ? 'Ask the registrar to add your teacher assignments in SIS Admin → Sections.'
+                ? 'You have no form adviser assignments. Ask the registrar to assign one in SIS Admin → Sections.'
                 : 'Create sections in SIS Admin → Sections for the current academic year.'}
             </p>
           </CardContent>
         </Card>
       ) : (
         <>
-          {/* Sections label row */}
           <div className="flex items-center gap-2.5">
             <div className="flex size-6 items-center justify-center rounded-lg bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile">
               <LayoutGrid className="size-3" />
@@ -375,22 +328,14 @@ export default async function EvaluationSectionsPickerPage({
             levels={levels}
             selectedTermId={selectedTerm?.id ?? ''}
             sections={sorted.map((s) => {
-              const isAdviserSection = !isTeacher || adviserSet.has(s.id);
               const p = progress[s.id];
               return {
                 id: s.id,
                 name: s.name,
                 levelId: s.level?.id ?? null,
                 levelLabel: s.level?.label ?? null,
-                isAdviserSection,
-                isAlsoBoth:
-                  isTeacher &&
-                  adviserSet.has(s.id) &&
-                  subjectTeacherSet.has(s.id),
-                isSubjectTeacherOnly: isTeacher && !adviserSet.has(s.id),
                 active: p?.active_count ?? 0,
                 submitted: p?.submitted_count ?? 0,
-                topicCount: checklistTopics[s.id] ?? 0,
               };
             })}
           />

@@ -20,12 +20,8 @@ export type SectionCardData = {
   name: string;
   levelId: string | null;
   levelLabel: string | null;
-  isAdviserSection: boolean;
-  isAlsoBoth: boolean;
-  isSubjectTeacherOnly: boolean;
   active: number;
   submitted: number;
-  topicCount: number;
 };
 
 export type LevelOption = { id: string; code: string; label: string };
@@ -73,7 +69,6 @@ export function EvaluationSectionsList({
 
   return (
     <div className="space-y-6">
-      {/* Level filter chips — only shown when there are 2+ distinct levels */}
       {levels.length > 1 && (
         <div className="flex flex-wrap gap-2">
           <FilterChip
@@ -104,7 +99,6 @@ export function EvaluationSectionsList({
         <div className="space-y-6">
           {groups.map((group) => (
             <div key={group.levelId ?? 'none'} className="space-y-3">
-              {/* Level heading — always shown so the registrar can skim the structure */}
               <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 {group.levelLabel ?? 'Unknown level'}
                 <span className="ml-2 text-muted-foreground/50">
@@ -150,16 +144,6 @@ function SectionCard({
         <CardHeader>
           <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
             {s.levelLabel ?? 'Unknown level'}
-            {s.isAlsoBoth && (
-              <span className="ml-2 text-muted-foreground/60">
-                · Adviser + Subject
-              </span>
-            )}
-            {s.isSubjectTeacherOnly && (
-              <span className="ml-2 text-brand-indigo/70">
-                · Subject teacher
-              </span>
-            )}
           </CardDescription>
           <CardTitle className="font-serif text-lg font-semibold tracking-tight text-foreground">
             {s.name}
@@ -170,87 +154,44 @@ function SectionCard({
             </div>
           </CardAction>
         </CardHeader>
-
-        {s.isAdviserSection ? (
-          <>
-            <CardContent className="space-y-3">
-              <div className="flex items-baseline gap-2">
-                <span className="font-serif text-2xl font-semibold tabular-nums text-foreground">
-                  {s.submitted}
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  / {s.active} submitted
-                </span>
-              </div>
-              <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                <div
-                  className={`h-full transition-all ${complete ? 'bg-brand-mint' : 'bg-brand-indigo/70'}`}
-                  style={{ width: `${percent}%` }}
-                />
-              </div>
-            </CardContent>
-            <CardFooter>
-              {complete ? (
-                <Badge className="border-transparent bg-brand-mint text-foreground">
-                  <CheckCircle2 className="mr-1 size-3" />
-                  Complete
-                </Badge>
-              ) : started ? (
-                <Badge
-                  variant="outline"
-                  className="border-brand-indigo/30 bg-brand-indigo/5 text-brand-indigo"
-                >
-                  In progress · {percent}%
-                </Badge>
-              ) : (
-                <Badge
-                  variant="outline"
-                  className="border-border bg-muted/40 text-muted-foreground"
-                >
-                  Not started
-                </Badge>
-              )}
-            </CardFooter>
-          </>
-        ) : (
-          <>
-            <CardContent className="space-y-3">
-              <div className="flex items-baseline gap-2">
-                <span className="font-serif text-2xl font-semibold tabular-nums text-foreground">
-                  {s.topicCount}
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  {s.topicCount === 1 ? 'topic' : 'topics'} · {s.active}{' '}
-                  {s.active === 1 ? 'student' : 'students'}
-                </span>
-              </div>
-              <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                <div
-                  className={`h-full transition-all ${s.topicCount > 0 ? 'bg-brand-indigo/70' : 'bg-transparent'}`}
-                  style={{ width: s.topicCount > 0 ? '100%' : '0%' }}
-                />
-              </div>
-            </CardContent>
-            <CardFooter>
-              {s.topicCount > 0 ? (
-                <Badge
-                  variant="outline"
-                  className="border-brand-indigo/30 bg-brand-indigo/5 text-brand-indigo"
-                >
-                  <CheckCircle2 className="mr-1 size-3" />
-                  Topics set up
-                </Badge>
-              ) : (
-                <Badge
-                  variant="outline"
-                  className="border-border bg-muted/40 text-muted-foreground"
-                >
-                  No topics yet
-                </Badge>
-              )}
-            </CardFooter>
-          </>
-        )}
+        <CardContent className="space-y-3">
+          <div className="flex items-baseline gap-2">
+            <span className="font-serif text-2xl font-semibold tabular-nums text-foreground">
+              {s.submitted}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              / {s.active} submitted
+            </span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+            <div
+              className={`h-full transition-all ${complete ? 'bg-brand-mint' : 'bg-brand-indigo/70'}`}
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+        </CardContent>
+        <CardFooter>
+          {complete ? (
+            <Badge className="border-transparent bg-brand-mint text-foreground">
+              <CheckCircle2 className="mr-1 size-3" />
+              Complete
+            </Badge>
+          ) : started ? (
+            <Badge
+              variant="outline"
+              className="border-brand-indigo/30 bg-brand-indigo/5 text-brand-indigo"
+            >
+              In progress · {percent}%
+            </Badge>
+          ) : (
+            <Badge
+              variant="outline"
+              className="border-border bg-muted/40 text-muted-foreground"
+            >
+              Not started
+            </Badge>
+          )}
+        </CardFooter>
       </Card>
     </Link>
   );
