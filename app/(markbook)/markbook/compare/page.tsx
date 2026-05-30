@@ -42,34 +42,34 @@ export default async function MarkbookComparePage({
       label: 'Grade entries',
       format: 'number',
       getValue: (d) => d.gradesEntered,
-      highlightExtremes: true,
     },
     {
       key: 'sheetsLocked',
       label: 'Sheets locked',
       format: 'number',
       getValue: (d) => d.sheetsLocked,
+      direction: 'higherIsBetter',
     },
     {
       key: 'lockedPct',
       label: 'Lock %',
       format: 'percent',
       getValue: (d) => d.lockedPct,
-      highlightExtremes: true,
+      direction: 'higherIsBetter',
     },
     {
       key: 'changeRequestsPending',
       label: 'CRs pending',
       format: 'number',
       getValue: (d) => d.changeRequestsPending,
-      lowerIsBetter: true,
+      direction: 'lowerIsBetter',
     },
     {
       key: 'avgDecisionHours',
       label: 'Avg decision (hrs)',
       format: 'days',
       getValue: (d) => d.avgDecisionHours,
-      lowerIsBetter: true,
+      direction: 'lowerIsBetter',
     },
   ];
 

@@ -48,7 +48,7 @@ export default async function RecordsComparePage({
       label: 'Enrollments in range',
       format: 'number',
       getValue: (d) => d.enrollmentsInRange,
-      highlightExtremes: true,
+      direction: 'higherIsBetter',
     },
     {
       key: 'lateEnroleesInRange',
@@ -61,15 +61,14 @@ export default async function RecordsComparePage({
       label: 'Withdrawals in range',
       format: 'number',
       getValue: (d) => d.withdrawalsInRange,
-      highlightExtremes: true,
-      lowerIsBetter: true,
+      direction: 'lowerIsBetter',
     },
     {
       key: 'expiringSoon',
       label: 'Expiring soon',
       format: 'number',
       getValue: (d) => d.expiringSoon,
-      lowerIsBetter: true,
+      direction: 'lowerIsBetter',
     },
   ];
 

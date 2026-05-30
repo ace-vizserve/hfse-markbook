@@ -42,21 +42,20 @@ export default async function PFilesComparePage({
       label: 'Revisions in range',
       format: 'number',
       getValue: (d) => d.revisionsInRange,
-      highlightExtremes: true,
     },
     {
       key: 'expiringSoon30',
       label: 'Expiring ≤30d',
       format: 'number',
       getValue: (d) => d.expiringSoon30,
-      lowerIsBetter: true,
+      direction: 'lowerIsBetter',
     },
     {
       key: 'expiringSoon',
       label: 'Expiring ≤60d',
       format: 'number',
       getValue: (d) => d.expiringSoon,
-      lowerIsBetter: true,
+      direction: 'lowerIsBetter',
     },
     {
       key: 'totalDocuments',

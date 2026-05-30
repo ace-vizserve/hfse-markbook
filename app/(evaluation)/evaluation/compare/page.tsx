@@ -42,13 +42,14 @@ export default async function EvaluationComparePage({
       label: 'Submission %',
       format: 'percent',
       getValue: (d) => d.submissionPct,
-      highlightExtremes: true,
+      direction: 'higherIsBetter',
     },
     {
       key: 'submitted',
       label: 'Submitted',
       format: 'number',
       getValue: (d) => d.submitted,
+      direction: 'higherIsBetter',
     },
     {
       key: 'expected',
@@ -61,12 +62,14 @@ export default async function EvaluationComparePage({
       label: 'Median time to submit',
       format: 'days',
       getValue: (d) => d.medianTimeToSubmitDays,
+      direction: 'lowerIsBetter',
     },
     {
       key: 'lateSubmissions',
       label: 'Late submissions',
       format: 'number',
       getValue: (d) => d.lateSubmissions,
+      direction: 'lowerIsBetter',
     },
   ];
 
