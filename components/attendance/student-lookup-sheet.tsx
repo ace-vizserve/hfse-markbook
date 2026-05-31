@@ -1,0 +1,509 @@
+'use client';
+
+import {
+  ArrowLeft,
+  CalendarX2,
+  CircleCheck,
+  CircleX,
+  Clock,
+  FileText,
+  Search,
+  UserSearch,
+} from 'lucide-react';
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
+
+import type {
+  StudentSummaryResponse,
+  TermStat,
+} from '@/app/api/attendance/student-summary/route';
+import type { WideGridEnrolment } from '@/components/attendance/wide-grid';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import type { DailyEntryRow } from '@/lib/attendance/queries';
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type Props = {
+  enrolments: WideGridEnrolment[];
+  initialDaily: DailyEntryRow[];
+  termLabel: string;
+};
+
+type CurrentStats = {
+  P: number;
+  L: number;
+  A: number;
+  EX: number;
+  rate: number | null;
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function computeCurrentStats(
+  sectionStudentId: string,
+  daily: DailyEntryRow[]
+): CurrentStats {
+  const rows = daily.filter((d) => d.sectionStudentId === sectionStudentId);
+  const P = rows.filter((d) => d.status === 'P').length;
+  const L = rows.filter((d) => d.status === 'L').length;
+  const A = rows.filter((d) => d.status === 'A').length;
+  const EX = rows.filter((d) => d.status === 'EX').length;
+  const denominator = P + L + A;
+  const rate =
+    denominator > 0 ? Math.round(((P + L) / denominator) * 1000) / 10 : null;
+  return { P, L, A, EX, rate };
+}
+
+function formatDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-SG', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+// Rate → semantic health band (drives the ring stroke + percentage colour).
+function rateTone(rate: number): {
+  text: string;
+  stroke: string;
+  label: string;
+} {
+  if (rate >= 95)
+    return {
+      text: 'text-brand-mint',
+      stroke: 'stroke-brand-mint',
+      label: 'Excellent',
+    };
+  if (rate >= 85)
+    return {
+      text: 'text-brand-amber',
+      stroke: 'stroke-brand-amber',
+      label: 'Watch',
+    };
+  return {
+    text: 'text-destructive',
+    stroke: 'stroke-destructive',
+    label: 'At risk',
+  };
+}
+
+// Status → Aurora Vault gradient tile recipe (§9.3 status palette).
+const TILE: Record<'present' | 'late' | 'absent' | 'excused', string> = {
+  present:
+    'bg-gradient-to-br from-brand-mint to-brand-sky text-ink shadow-brand-tile-mint',
+  late: 'bg-gradient-to-br from-brand-amber to-brand-amber/80 text-white shadow-brand-tile-amber',
+  absent:
+    'bg-gradient-to-br from-destructive to-destructive/80 text-white shadow-brand-tile-destructive',
+  excused:
+    'bg-gradient-to-br from-brand-indigo to-brand-navy text-white shadow-brand-tile',
+};
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+      {children}
+    </p>
+  );
+}
+
+function RateRing({ rate }: { rate: number | null }) {
+  const size = 116;
+  const center = size / 2;
+  const r = 50;
+  const circumference = 2 * Math.PI * r;
+  const clamped = rate == null ? 0 : Math.max(0, Math.min(100, rate));
+  const offset = circumference * (1 - clamped / 100);
+  const tone = rate == null ? null : rateTone(rate);
+
+  return (
+    <div
+      className="relative flex shrink-0 items-center justify-center"
+      style={{ width: size, height: size }}
+    >
+      <svg
+        width={size}
+        height={size}
+        className="absolute -rotate-90"
+        aria-hidden
+      >
+        <circle
+          cx={center}
+          cy={center}
+          r={r}
+          fill="none"
+          strokeWidth="9"
+          className="stroke-muted"
+        />
+        {rate != null && (
+          <circle
+            cx={center}
+            cy={center}
+            r={r}
+            fill="none"
+            strokeWidth="9"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            className={`${tone?.stroke} transition-[stroke-dashoffset] duration-500 ease-out`}
+          />
+        )}
+      </svg>
+      <div className="relative flex flex-col items-center leading-none">
+        <p
+          className={`font-serif text-xl font-semibold tabular-nums ${tone?.text ?? 'text-muted-foreground'}`}
+        >
+          {rate != null ? `${rate}%` : '—'}
+        </p>
+        {tone && (
+          <p
+            className={`mt-1 font-mono text-[9px] font-semibold uppercase tracking-[0.12em] ${tone.text}`}
+          >
+            {tone.label}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BreakdownCell({
+  value,
+  label,
+  icon: Icon,
+  tile,
+}: {
+  value: number;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  tile: string;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-2 px-2 py-4">
+      <div
+        className={`flex size-8 items-center justify-center rounded-xl ${tile}`}
+      >
+        <Icon className="size-4" />
+      </div>
+      <p className="font-serif text-[26px] font-semibold leading-none tabular-nums text-foreground">
+        {value}
+      </p>
+      <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        {label}
+      </p>
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export function StudentLookupSheet({
+  enrolments,
+  initialDaily,
+  termLabel,
+}: Props) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [summary, setSummary] = useState<StudentSummaryResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const selected = enrolments.find((e) => e.enrolmentId === selectedId);
+
+  const currentStats = useMemo(
+    () => (selectedId ? computeCurrentStats(selectedId, initialDaily) : null),
+    [selectedId, initialDaily]
+  );
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return enrolments;
+    return enrolments.filter((e) => e.studentName.toLowerCase().includes(q));
+  }, [enrolments, query]);
+
+  const previousTerms: TermStat[] = useMemo(
+    () =>
+      (summary?.termStats ?? []).filter(
+        (t) => !t.isCurrent && t.P + t.L + t.A + t.EX > 0
+      ),
+    [summary]
+  );
+
+  useEffect(() => {
+    if (!selectedId) {
+      setSummary(null);
+      return;
+    }
+    setLoading(true);
+    setSummary(null);
+    fetch(`/api/attendance/student-summary?sectionStudentId=${selectedId}`)
+      .then((r) => r.json())
+      .then((data: StudentSummaryResponse) => setSummary(data))
+      .catch(() => setSummary(null))
+      .finally(() => setLoading(false));
+  }, [selectedId]);
+
+  function handleDialogChange(open: boolean) {
+    setDialogOpen(open);
+    if (!open) {
+      setQuery('');
+      setSelectedId(null);
+      setSummary(null);
+    }
+  }
+
+  function handleBack() {
+    setSelectedId(null);
+    setSummary(null);
+    setQuery('');
+  }
+
+  return (
+    <Dialog open={dialogOpen} onOpenChange={handleDialogChange}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-1.5">
+          <UserSearch className="size-3.5" />
+          Look up student
+        </Button>
+      </DialogTrigger>
+
+      <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="shrink-0 border-b border-border px-6 py-4">
+          <DialogTitle className="font-serif text-xl font-semibold">
+            {selected ? 'Attendance record' : 'Attendance lookup'}
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* ── Search / list view ────────────────────────────────────── */}
+        {!selectedId && (
+          <>
+            <div className="shrink-0 border-b border-border px-4 py-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Type a student name…"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="pl-9"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {filtered.length === 0 ? (
+                <p className="px-6 py-10 text-center text-sm text-muted-foreground">
+                  No students match &ldquo;{query}&rdquo;
+                </p>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {filtered.map((e) => (
+                    <li key={e.enrolmentId}>
+                      <button
+                        onClick={() => setSelectedId(e.enrolmentId)}
+                        className="flex w-full items-center gap-3 px-6 py-3 text-left transition-colors hover:bg-muted/50"
+                      >
+                        <span className="w-6 shrink-0 font-mono text-xs text-muted-foreground">
+                          {e.indexNumber}
+                        </span>
+                        <span className="flex-1 text-sm font-medium text-foreground">
+                          {e.studentName}
+                        </span>
+                        {e.withdrawn && (
+                          <Badge variant="secondary" className="text-[10px]">
+                            Withdrawn
+                          </Badge>
+                        )}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* ── Detail view ───────────────────────────────────────────── */}
+        {selectedId && selected && currentStats && (
+          <div className="flex-1 space-y-6 overflow-y-auto p-6">
+            {/* Back */}
+            <button
+              onClick={handleBack}
+              className="inline-flex items-center gap-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ArrowLeft className="size-3" />
+              All students
+            </button>
+
+            {/* ── Hero: identity + rate + breakdown in one card ─────── */}
+            <div className="overflow-hidden rounded-2xl border border-border bg-gradient-to-t from-primary/5 to-card shadow-xs">
+              {/* Identity + rate ring */}
+              <div className="flex items-center justify-between gap-4 px-5 py-5">
+                <div className="min-w-0 space-y-1.5">
+                  <Eyebrow>Current term · {termLabel}</Eyebrow>
+                  <h2 className="truncate font-serif text-2xl font-semibold leading-tight text-foreground">
+                    {selected.studentName}
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    <p className="font-mono text-xs text-muted-foreground">
+                      {selected.studentNumber}
+                    </p>
+                    {selected.withdrawn && (
+                      <Badge variant="secondary" className="text-[10px]">
+                        Withdrawn
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <RateRing rate={currentStats.rate} />
+              </div>
+
+              {/* Breakdown strip */}
+              <div className="grid grid-cols-4 divide-x divide-border border-t border-border bg-card/60">
+                <BreakdownCell
+                  value={currentStats.P}
+                  label="Present"
+                  icon={CircleCheck}
+                  tile={TILE.present}
+                />
+                <BreakdownCell
+                  value={currentStats.L}
+                  label="Late"
+                  icon={Clock}
+                  tile={TILE.late}
+                />
+                <BreakdownCell
+                  value={currentStats.A}
+                  label="Absent"
+                  icon={CircleX}
+                  tile={TILE.absent}
+                />
+                <BreakdownCell
+                  value={currentStats.EX}
+                  label="Excused"
+                  icon={FileText}
+                  tile={TILE.excused}
+                />
+              </div>
+            </div>
+
+            {/* ── Previous Terms ───────────────────────────────────── */}
+            {loading ? (
+              <div className="space-y-2.5">
+                <Eyebrow>Previous terms</Eyebrow>
+                <div className="rounded-xl border border-border px-4 py-6 text-center text-xs text-muted-foreground">
+                  Loading…
+                </div>
+              </div>
+            ) : (
+              previousTerms.length > 0 && (
+                <div className="space-y-2.5">
+                  <Eyebrow>Previous terms</Eyebrow>
+                  <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/40">
+                          <th className="px-4 py-2.5 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                            Term
+                          </th>
+                          <th className="px-4 py-2.5 text-right font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                            Rate
+                          </th>
+                          <th className="px-4 py-2.5 text-right font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                            Absent
+                          </th>
+                          <th className="px-4 py-2.5 text-right font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                            Late
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {previousTerms.map((t) => (
+                          <tr key={t.termId}>
+                            <td className="px-4 py-2.5 font-medium text-foreground">
+                              {t.label}
+                            </td>
+                            <td className="px-4 py-2.5 text-right font-mono tabular-nums text-foreground">
+                              {t.rate != null ? `${t.rate}%` : '—'}
+                            </td>
+                            <td className="px-4 py-2.5 text-right font-mono tabular-nums">
+                              <span
+                                className={
+                                  t.A > 0
+                                    ? 'font-semibold text-destructive'
+                                    : 'text-muted-foreground'
+                                }
+                              >
+                                {t.A}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 text-right font-mono tabular-nums">
+                              <span
+                                className={
+                                  t.L > 0
+                                    ? 'font-semibold text-brand-amber'
+                                    : 'text-muted-foreground'
+                                }
+                              >
+                                {t.L}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            )}
+
+            {/* ── Recent Absences ──────────────────────────────────── */}
+            {!loading && summary && summary.recentAbsences.length > 0 && (
+              <div className="space-y-2.5">
+                <Eyebrow>Recent absences</Eyebrow>
+                <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
+                  <ul className="divide-y divide-border">
+                    {summary.recentAbsences.map((date) => (
+                      <li
+                        key={date}
+                        className="flex items-center gap-3 px-4 py-2.5"
+                      >
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-destructive to-destructive/80 text-white shadow-brand-tile-destructive">
+                          <CalendarX2 className="size-4" />
+                        </div>
+                        <p className="flex-1 text-sm font-medium text-foreground">
+                          {formatDate(date)}
+                        </p>
+                        <p className="font-mono text-[11px] text-muted-foreground">
+                          {date}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {/* ── Full history ─────────────────────────────────────── */}
+            <Button asChild variant="outline" className="w-full">
+              <Link href={`/attendance/students/${selected.studentNumber}`}>
+                View full attendance details
+              </Link>
+            </Button>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
