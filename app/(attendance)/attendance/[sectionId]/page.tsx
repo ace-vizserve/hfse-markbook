@@ -78,7 +78,7 @@ export default async function SectionAttendancePage({
   // Terms — pick a term from ?term_id or default to current.
   const { data: termsRaw } = await supabase
     .from('terms')
-    .select('id, label, term_number, is_current')
+    .select('id, label, term_number, is_current, start_date, end_date')
     .eq('academic_year_id', section.academic_year_id)
     .order('term_number', { ascending: true });
   type TermRow = {
@@ -86,13 +86,42 @@ export default async function SectionAttendancePage({
     label: string;
     term_number: number;
     is_current: boolean;
+    start_date: string | null;
+    end_date: string | null;
   };
   const terms = (termsRaw ?? []) as TermRow[];
-  // Daily view always targets the current (active) term — it's the "mark
-  // today" surface, so the term switcher is hidden and ?term_id is ignored.
+
+  // "Today" in Singapore time (UTC+8) — the daily view marks the real calendar
+  // day, so resolve it server-side for SSR / timezone consistency.
+  const todayIso = new Date(Date.now() + 8 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  // The term whose date window contains today (null during a between-terms break).
+  const termForToday = terms.find(
+    (t) =>
+      t.start_date &&
+      t.end_date &&
+      t.start_date <= todayIso &&
+      todayIso <= t.end_date
+  );
+  // Most-recently-ended term — fallback context when today is in a break so the
+  // daily view still loads a term (it then detects today isn't a school day in
+  // that term and renders the "no classes" state).
+  const mostRecentEndedTerm = [...terms]
+    .filter((t) => t.end_date && t.end_date < todayIso)
+    .sort((a, b) =>
+      (b.end_date as string).localeCompare(a.end_date as string)
+    )[0];
+
+  // Daily view targets the term containing today (term switcher hidden). The
+  // sheet view keeps its ?term_id / is_current default.
   const selectedTermId =
     view === 'daily'
-      ? (terms.find((t) => t.is_current)?.id ?? terms[0]?.id ?? null)
+      ? (termForToday?.id ??
+        mostRecentEndedTerm?.id ??
+        terms.find((t) => t.is_current)?.id ??
+        terms[0]?.id ??
+        null)
       : ((sp.term_id && terms.find((t) => t.id === sp.term_id)?.id) ??
         terms.find((t) => t.is_current)?.id ??
         terms[0]?.id ??
@@ -366,7 +395,9 @@ export default async function SectionAttendancePage({
           termId={selectedTermId}
           enrolments={enrolments}
           calendar={calendar}
+          events={events}
           initialDaily={daily}
+          today={todayIso}
         />
       ) : (
         <AttendanceWideGrid

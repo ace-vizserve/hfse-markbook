@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  CalendarOff,
   ChevronLeft,
   ChevronRight,
   CircleCheck,
@@ -14,18 +15,26 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import type { SchoolCalendarRow } from '@/lib/attendance/calendar';
+import type {
+  CalendarEventRow,
+  SchoolCalendarRow,
+} from '@/lib/attendance/calendar';
 import type { DailyEntryRow } from '@/lib/attendance/queries';
 import type { WideGridEnrolment } from '@/components/attendance/wide-grid';
 import {
   computeSubmitEntries,
   encodableDates,
   loadedMarksForDate,
-  pickDefaultDate,
   tally,
   type DailyMark,
 } from '@/lib/attendance/daily-entry';
-import { EX_REASON_LABELS, type ExReason } from '@/lib/schemas/attendance';
+import {
+  DAY_TYPE_LABELS,
+  EVENT_CATEGORY_LABELS,
+  EX_REASON_LABELS,
+  isEncodableDayType,
+  type ExReason,
+} from '@/lib/schemas/attendance';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -34,12 +43,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-
-function todayLocalIso(): string {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
 
 function formatLongDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
@@ -113,27 +116,33 @@ const DAY_STAT: Array<{
   },
 ];
 
-// ── Parent: owns the selected date + stepper. Delegates marking to a keyed
-//    <DailyPanel> child so its mark state re-seeds when the date changes.
+// ── Parent: opens on the real calendar date (today). Renders the marking
+//    panel on school days, or a "no classes" state on holidays / between-terms
+//    days (surfacing any calendar event for that date). The stepper moves
+//    across school days for back-filling a missed one.
 export function DailyEntry({
   sectionId,
   termId,
   enrolments,
   calendar,
+  events,
   initialDaily,
+  today,
 }: {
   sectionId: string;
   termId: string;
   enrolments: WideGridEnrolment[];
   calendar: SchoolCalendarRow[];
+  events: CalendarEventRow[];
   initialDaily: DailyEntryRow[];
+  today: string;
 }) {
   void sectionId; // not needed for the write (the bulk endpoint keys on sectionStudentId)
 
+  // School (encodable) days in this term, ascending — used by the stepper.
   const dates = useMemo(() => encodableDates(calendar), [calendar]);
-  const [date, setDate] = useState<string | null>(() =>
-    pickDefaultDate(dates, todayLocalIso())
-  );
+  // The view opens on the real calendar date; the stepper moves across school days.
+  const [date, setDate] = useState<string>(today);
 
   // Roster shown for marking: active + late-enrollees (withdrawn excluded).
   const roster = useMemo(
@@ -141,49 +150,54 @@ export function DailyEntry({
     [enrolments]
   );
 
-  const idx = date ? dates.indexOf(date) : -1;
-  const canPrev = idx > 0;
-  const canNext = idx >= 0 && idx < dates.length - 1;
-  function step(delta: number) {
-    if (idx < 0) return;
-    const nd = dates[idx + delta];
-    if (nd) setDate(nd);
-  }
+  // Calendar status + events for the selected date.
+  const calRow = useMemo(
+    () => calendar.find((c) => c.date === date) ?? null,
+    [calendar, date]
+  );
+  const isSchoolDay = calRow
+    ? isEncodableDayType(calRow.dayType, calRow.hblOverlay)
+    : false;
+  const dayEvents = useMemo(
+    () => events.filter((e) => e.startDate <= date && date <= e.endDate),
+    [events, date]
+  );
 
-  // Empty state — no encodable day to mark, or no students.
-  if (!date || roster.length === 0) {
-    return (
-      <Card className="items-center gap-2 py-12 text-center">
-        <p className="font-serif text-xl font-semibold text-foreground">
-          {roster.length === 0
-            ? 'No students to mark'
-            : 'No school day to mark'}
-        </p>
-        <p className="max-w-sm text-sm text-muted-foreground">
-          {roster.length === 0
-            ? 'This section has no active students enrolled.'
-            : 'There are no encodable school days in this term yet. Configure the school calendar first.'}
-        </p>
-      </Card>
-    );
-  }
+  // Stepper targets the nearest school day before / after the selected date
+  // (works even when the selected date itself is not a school day).
+  const prevDate = useMemo(() => {
+    for (let i = dates.length - 1; i >= 0; i--)
+      if (dates[i] < date) return dates[i];
+    return null;
+  }, [dates, date]);
+  const nextDate = useMemo(
+    () => dates.find((d) => d > date) ?? null,
+    [dates, date]
+  );
+
+  const isToday = date === today;
 
   return (
     <div className="space-y-4">
-      {/* Date stepper */}
+      {/* Date strip */}
       <div className="flex items-center justify-center gap-2 sm:justify-start">
         <Button
           variant="outline"
           size="icon"
-          disabled={!canPrev}
-          onClick={() => step(-1)}
-          aria-label="Previous day"
+          disabled={!prevDate}
+          onClick={() => prevDate && setDate(prevDate)}
+          aria-label="Previous school day"
         >
           <ChevronLeft className="size-4" />
         </Button>
-        <div className="min-w-[200px] text-center">
+        <div className="min-w-[220px] text-center">
           <p className="font-serif text-lg font-semibold leading-tight text-foreground">
             {formatLongDate(date)}
+            {isToday && (
+              <span className="ml-2 align-middle font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-primary">
+                Today
+              </span>
+            )}
           </p>
           <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
             {date}
@@ -192,24 +206,108 @@ export function DailyEntry({
         <Button
           variant="outline"
           size="icon"
-          disabled={!canNext}
-          onClick={() => step(1)}
-          aria-label="Next day"
+          disabled={!nextDate}
+          onClick={() => nextDate && setDate(nextDate)}
+          aria-label="Next school day"
         >
           <ChevronRight className="size-4" />
         </Button>
       </div>
 
-      {/* Keyed child — remounts on date change so `marks` re-seeds from the
-          new date's on-file marks. */}
-      <DailyPanel
-        key={date}
-        date={date}
-        termId={termId}
-        roster={roster}
-        initialDaily={initialDaily}
-      />
+      {isSchoolDay ? (
+        roster.length === 0 ? (
+          <Card className="items-center gap-2 py-12 text-center">
+            <p className="font-serif text-xl font-semibold text-foreground">
+              No students to mark
+            </p>
+            <p className="max-w-sm text-sm text-muted-foreground">
+              This section has no active students enrolled.
+            </p>
+          </Card>
+        ) : (
+          // Keyed child — remounts on date change so `marks` re-seeds from the
+          // new date's on-file marks.
+          <DailyPanel
+            key={date}
+            date={date}
+            termId={termId}
+            roster={roster}
+            initialDaily={initialDaily}
+          />
+        )
+      ) : (
+        <NoClasses
+          isToday={isToday}
+          calRow={calRow}
+          events={dayEvents}
+          prevDate={prevDate}
+          onGoToPrev={() => prevDate && setDate(prevDate)}
+        />
+      )}
     </div>
+  );
+}
+
+// ── Shown when the selected date is not a school day (holiday, break, or a
+//    date outside the loaded term). Surfaces any calendar event on that date.
+function NoClasses({
+  isToday,
+  calRow,
+  events,
+  prevDate,
+  onGoToPrev,
+}: {
+  isToday: boolean;
+  calRow: SchoolCalendarRow | null;
+  events: CalendarEventRow[];
+  prevDate: string | null;
+  onGoToPrev: () => void;
+}) {
+  const reason = calRow
+    ? `${DAY_TYPE_LABELS[calRow.dayType]}${calRow.label ? ` — ${calRow.label}` : ''}`
+    : 'This date is outside the school term.';
+
+  return (
+    <Card className="items-center gap-4 py-10 text-center">
+      <div className="flex size-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+        <CalendarOff className="size-6" />
+      </div>
+      <div className="space-y-1">
+        <p className="font-serif text-xl font-semibold text-foreground">
+          No classes {isToday ? 'today' : 'on this day'}
+        </p>
+        <p className="text-sm text-muted-foreground">{reason}</p>
+      </div>
+
+      {events.length > 0 && (
+        <div className="w-full max-w-sm space-y-2">
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            On the calendar
+          </p>
+          {events.map((ev) => (
+            <div
+              key={ev.id}
+              className="rounded-xl border border-border bg-card p-3 text-left shadow-xs"
+            >
+              <p className="text-sm font-medium text-foreground">{ev.label}</p>
+              <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                {EVENT_CATEGORY_LABELS[ev.category]}
+                {ev.startDate !== ev.endDate
+                  ? ` · ${ev.startDate} → ${ev.endDate}`
+                  : ''}
+                {ev.tentative ? ' · tentative' : ''}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {prevDate && (
+        <Button variant="outline" size="sm" onClick={onGoToPrev}>
+          Mark the last school day ({formatLongDate(prevDate)})
+        </Button>
+      )}
+    </Card>
   );
 }
 
@@ -246,7 +344,11 @@ function DailyPanel({
     });
   }
 
+  // Live counts of the working draft — drives the submit-bar summary.
   const counts = tally({ roster, marks, date });
+  // Saved counts (what's on record for this day) — drives the stat cards.
+  // Only changes after Submit → router.refresh() re-fetches `initialDaily`.
+  const saved = tally({ roster, marks: loaded, date });
   const exMissingReason = [...marks.values()].some(
     (m) => m.status === 'EX' && !m.exReason
   );
@@ -285,36 +387,39 @@ function DailyPanel({
 
   return (
     <div className="space-y-4">
-      {/* Day summary cards */}
-      <div className="@container/day">
-        <div className="grid grid-cols-2 gap-3 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @lg/day:grid-cols-4">
-          {DAY_STAT.map((s) => {
-            const Icon = s.icon;
-            return (
-              <Card key={s.key}>
-                <CardHeader>
-                  <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
-                    {s.label}
-                  </CardDescription>
-                  <CardTitle className="font-serif text-[28px] font-semibold leading-none tabular-nums text-foreground">
-                    {counts[s.key]}
-                  </CardTitle>
-                  <CardAction>
-                    <div
-                      className={`flex size-9 items-center justify-center rounded-xl bg-gradient-to-br ${s.tile}`}
-                    >
-                      <Icon className="size-4" />
-                    </div>
-                  </CardAction>
-                </CardHeader>
-              </Card>
-            );
-          })}
+      {/* Day summary cards — reflect what's SAVED for this day (not the
+          in-progress marks); they refresh after Submit. */}
+      <div className="space-y-2">
+        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          On record for this day
+        </p>
+        <div className="@container/day">
+          <div className="grid grid-cols-2 gap-3 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @lg/day:grid-cols-4">
+            {DAY_STAT.map((s) => {
+              const Icon = s.icon;
+              return (
+                <Card key={s.key}>
+                  <CardHeader>
+                    <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
+                      {s.label}
+                    </CardDescription>
+                    <CardTitle className="font-serif text-[28px] font-semibold leading-none tabular-nums text-foreground">
+                      {saved[s.key]}
+                    </CardTitle>
+                    <CardAction>
+                      <div
+                        className={`flex size-9 items-center justify-center rounded-xl bg-gradient-to-br ${s.tile}`}
+                      >
+                        <Icon className="size-4" />
+                      </div>
+                    </CardAction>
+                  </CardHeader>
+                </Card>
+              );
+            })}
+          </div>
         </div>
       </div>
-      <p className="font-mono text-[11px] text-muted-foreground">
-        {counts.unmarked} unmarked → will be saved as Present
-      </p>
 
       {/* Roster */}
       <Card className="overflow-hidden p-0">
