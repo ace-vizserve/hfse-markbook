@@ -1,0 +1,114 @@
+import { describe, expect, it } from 'vitest';
+import {
+  resolveCurrentTerm,
+  resolveCurrentTermId,
+  type TermLike,
+} from '@/lib/sis/current-term';
+
+// AY9999-shaped windows: T1 Jan, T2 ends May 29, T3 starts Jun 29, T4 Sep–Nov.
+function terms(
+  over: Partial<Record<1 | 2 | 3 | 4, Partial<TermLike>>> = {}
+): TermLike[] {
+  const base: TermLike[] = [
+    {
+      id: 't1',
+      term_number: 1,
+      start_date: '2026-01-08',
+      end_date: '2026-03-13',
+      is_current: false,
+    },
+    {
+      id: 't2',
+      term_number: 2,
+      start_date: '2026-03-24',
+      end_date: '2026-05-29',
+      is_current: false,
+    },
+    {
+      id: 't3',
+      term_number: 3,
+      start_date: '2026-06-29',
+      end_date: '2026-09-06',
+      is_current: false,
+    },
+    {
+      id: 't4',
+      term_number: 4,
+      start_date: '2026-09-14',
+      end_date: '2026-11-21',
+      is_current: false,
+    },
+  ];
+  return base.map((t) => ({ ...t, ...over[t.term_number as 1 | 2 | 3 | 4] }));
+}
+
+describe('resolveCurrentTermId', () => {
+  it('returns the term whose window contains today', () => {
+    expect(resolveCurrentTermId(terms(), '2026-04-15')).toBe('t2');
+    expect(resolveCurrentTermId(terms(), '2026-02-01')).toBe('t1');
+    expect(resolveCurrentTermId(terms(), '2026-10-01')).toBe('t4');
+  });
+
+  it('returns the most-recently-ended term during a between-terms break', () => {
+    // today (Jun 1) is past T2 (ended May 29), before T3 (starts Jun 29).
+    expect(resolveCurrentTermId(terms(), '2026-06-01')).toBe('t2');
+  });
+
+  it('returns the earliest term when today precedes the whole year', () => {
+    expect(resolveCurrentTermId(terms(), '2026-01-01')).toBe('t1');
+  });
+
+  it('returns the last (most-recently-ended) term when today is past the year', () => {
+    expect(resolveCurrentTermId(terms(), '2026-12-31')).toBe('t4');
+  });
+
+  it('date containment wins over a stale is_current flag', () => {
+    // today is in T2; T4 is flagged current — date must win.
+    expect(
+      resolveCurrentTermId(terms({ 4: { is_current: true } }), '2026-04-15')
+    ).toBe('t2');
+  });
+
+  it('honors is_current only in a between-terms gap', () => {
+    // today (Jun 1) is in a break; T3 pinned current → use the pin over most-recent.
+    expect(
+      resolveCurrentTermId(terms({ 3: { is_current: true } }), '2026-06-01')
+    ).toBe('t3');
+  });
+
+  it('ignores terms with null dates for containment but still honors their flag', () => {
+    const t: TermLike[] = [
+      {
+        id: 'a',
+        term_number: 1,
+        start_date: null,
+        end_date: null,
+        is_current: true,
+      },
+      {
+        id: 'b',
+        term_number: 2,
+        start_date: null,
+        end_date: null,
+        is_current: false,
+      },
+    ];
+    expect(resolveCurrentTermId(t, '2026-06-01')).toBe('a');
+  });
+
+  it('returns null for an empty term list', () => {
+    expect(resolveCurrentTermId([], '2026-06-01')).toBeNull();
+  });
+});
+
+describe('resolveCurrentTerm', () => {
+  it('returns the whole term object (not just the id)', () => {
+    const result = resolveCurrentTerm(terms(), '2026-04-15');
+    expect(result?.id).toBe('t2');
+    expect(result?.term_number).toBe(2);
+  });
+
+  it('returns null for an empty list', () => {
+    expect(resolveCurrentTerm([], '2026-06-01')).toBeNull();
+  });
+});
