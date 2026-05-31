@@ -1,0 +1,351 @@
+'use client';
+
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
+
+import type { SchoolCalendarRow } from '@/lib/attendance/calendar';
+import type { DailyEntryRow } from '@/lib/attendance/queries';
+import type { WideGridEnrolment } from '@/components/attendance/wide-grid';
+import {
+  computeSubmitEntries,
+  encodableDates,
+  loadedMarksForDate,
+  pickDefaultDate,
+  tally,
+  type DailyMark,
+} from '@/lib/attendance/daily-entry';
+import { EX_REASON_LABELS, type ExReason } from '@/lib/schemas/attendance';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+
+function todayLocalIso(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function formatLongDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-SG', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+}
+
+const STATUS_BTN: Record<
+  'P' | 'L' | 'A' | 'EX',
+  { label: string; on: string }
+> = {
+  P: {
+    label: 'P',
+    on: 'bg-gradient-to-b from-chart-5 to-chart-3 text-white shadow-xs',
+  },
+  L: {
+    label: 'L',
+    on: 'bg-gradient-to-b from-brand-amber to-brand-amber/80 text-white shadow-xs',
+  },
+  A: {
+    label: 'A',
+    on: 'bg-gradient-to-b from-destructive to-destructive/80 text-white shadow-xs',
+  },
+  EX: {
+    label: 'EX',
+    on: 'bg-gradient-to-b from-brand-indigo to-brand-navy text-white shadow-xs',
+  },
+};
+const EX_REASONS: ExReason[] = [
+  'mc',
+  'compassionate',
+  'school_activity',
+  'vacation',
+];
+
+export function DailyEntry({
+  sectionId,
+  termId,
+  enrolments,
+  calendar,
+  initialDaily,
+}: {
+  sectionId: string;
+  termId: string;
+  enrolments: WideGridEnrolment[];
+  calendar: SchoolCalendarRow[];
+  initialDaily: DailyEntryRow[];
+}) {
+  void sectionId; // not needed for the write (the bulk endpoint keys on sectionStudentId)
+  const router = useRouter();
+
+  const dates = useMemo(() => encodableDates(calendar), [calendar]);
+  const [date, setDate] = useState<string | null>(() =>
+    pickDefaultDate(dates, todayLocalIso())
+  );
+
+  // Roster shown for marking: active + late-enrollees (withdrawn excluded).
+  const roster = useMemo(
+    () => enrolments.filter((e) => !e.withdrawn),
+    [enrolments]
+  );
+
+  const loaded = useMemo(
+    () =>
+      date
+        ? loadedMarksForDate(initialDaily, date)
+        : new Map<string, DailyMark>(),
+    [initialDaily, date]
+  );
+
+  // Local marks: seeded from what's on file for the date. Re-seeds on date change
+  // via the `key` on the inner panel (see render) so we never carry marks across days.
+  const [marks, setMarks] = useState<Map<string, DailyMark>>(
+    () => new Map(loaded)
+  );
+  const [saving, setSaving] = useState(false);
+
+  function setMark(enrolmentId: string, m: DailyMark | null) {
+    setMarks((cur) => {
+      const next = new Map(cur);
+      if (m) next.set(enrolmentId, m);
+      else next.delete(enrolmentId);
+      return next;
+    });
+  }
+
+  const counts = date ? tally({ roster, marks, date }) : null;
+  const exMissingReason = [...marks.values()].some(
+    (m) => m.status === 'EX' && !m.exReason
+  );
+
+  const idx = date ? dates.indexOf(date) : -1;
+  const canPrev = idx > 0;
+  const canNext = idx >= 0 && idx < dates.length - 1;
+  function step(delta: number) {
+    if (idx < 0) return;
+    const nd = dates[idx + delta];
+    if (nd) setDate(nd);
+  }
+
+  async function submit() {
+    if (!date) return;
+    const entries = computeSubmitEntries({
+      roster,
+      marks,
+      loaded,
+      termId,
+      date,
+    });
+    if (entries.length === 0) {
+      toast.info('No changes to submit.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch('/api/attendance/daily', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ entries }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.error ?? 'Save failed');
+      toast.success(
+        `Saved attendance for ${formatLongDate(date)} (${entries.length} updated).`
+      );
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Empty state — no encodable day to mark
+  if (!date || roster.length === 0) {
+    return (
+      <Card className="items-center gap-2 py-12 text-center">
+        <p className="font-serif text-xl font-semibold text-foreground">
+          {roster.length === 0
+            ? 'No students to mark'
+            : 'No school day to mark'}
+        </p>
+        <p className="max-w-sm text-sm text-muted-foreground">
+          {roster.length === 0
+            ? 'This section has no active students enrolled.'
+            : 'There are no encodable school days in this term yet. Configure the school calendar first.'}
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <div key={date} className="space-y-4">
+      {/* Date strip + tally */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            disabled={!canPrev}
+            onClick={() => step(-1)}
+            aria-label="Previous day"
+          >
+            <ChevronLeft className="size-4" />
+          </Button>
+          <div className="min-w-[200px] text-center">
+            <p className="font-serif text-lg font-semibold leading-tight text-foreground">
+              {formatLongDate(date)}
+            </p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+              {date}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            disabled={!canNext}
+            onClick={() => step(1)}
+            aria-label="Next day"
+          >
+            <ChevronRight className="size-4" />
+          </Button>
+        </div>
+        {counts && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-muted-foreground">
+            <span>
+              <span className="font-semibold text-brand-mint">{counts.P}</span>{' '}
+              Present
+            </span>
+            <span>
+              <span className="font-semibold text-brand-amber">{counts.L}</span>{' '}
+              Late
+            </span>
+            <span>
+              <span className="font-semibold text-destructive">{counts.A}</span>{' '}
+              Absent
+            </span>
+            <span>
+              <span className="font-semibold text-brand-indigo">
+                {counts.EX}
+              </span>{' '}
+              Excused
+            </span>
+            <span>{counts.unmarked} unmarked → Present</span>
+          </div>
+        )}
+      </div>
+
+      {/* Roster */}
+      <Card className="overflow-hidden p-0">
+        <ul className="divide-y divide-border">
+          {roster.map((e) => {
+            const beforeJoin = !!e.enrollmentDate && e.enrollmentDate > date;
+            const m = marks.get(e.enrolmentId);
+            const active: 'P' | 'L' | 'A' | 'EX' = m
+              ? m.status === 'NC'
+                ? 'P'
+                : m.status
+              : 'P';
+            return (
+              <li
+                key={e.enrolmentId}
+                className={`flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${
+                  beforeJoin ? 'bg-muted/40 opacity-40' : ''
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="w-6 shrink-0 font-mono text-xs text-muted-foreground">
+                    {e.indexNumber}
+                  </span>
+                  <span className="text-sm font-medium text-foreground">
+                    {e.studentName}
+                  </span>
+                </div>
+
+                {beforeJoin ? (
+                  <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                    Before enrolment date
+                  </span>
+                ) : (
+                  <div className="flex flex-col items-end gap-1.5">
+                    <div className="inline-flex overflow-hidden rounded-lg border border-border">
+                      {(['P', 'L', 'A', 'EX'] as const).map((s) => {
+                        const isOn = active === s && (m != null || s === 'P');
+                        const explicit =
+                          m != null &&
+                          (m.status === s || (s === 'P' && m.status === 'P'));
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() =>
+                              setMark(
+                                e.enrolmentId,
+                                s === 'EX'
+                                  ? {
+                                      status: 'EX',
+                                      exReason: m?.exReason ?? null,
+                                    }
+                                  : { status: s, exReason: null }
+                              )
+                            }
+                            className={`w-11 py-1.5 text-center font-mono text-xs font-semibold transition-colors ${
+                              isOn && explicit
+                                ? STATUS_BTN[s].on
+                                : 'text-muted-foreground hover:bg-muted/60'
+                            } ${active === s && !explicit ? 'text-foreground' : ''}`}
+                          >
+                            {STATUS_BTN[s].label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {m?.status === 'EX' && (
+                      <div className="inline-flex flex-wrap justify-end gap-1">
+                        {EX_REASONS.map((r) => (
+                          <button
+                            key={r}
+                            type="button"
+                            onClick={() =>
+                              setMark(e.enrolmentId, {
+                                status: 'EX',
+                                exReason: r,
+                              })
+                            }
+                            className={`rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                              m.exReason === r
+                                ? 'bg-brand-indigo text-white'
+                                : 'border border-border text-muted-foreground hover:bg-muted/60'
+                            }`}
+                          >
+                            {EX_REASON_LABELS[r]}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </Card>
+
+      {/* Submit bar */}
+      <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-border bg-background/95 py-3 backdrop-blur">
+        <p className="text-xs text-muted-foreground">
+          {exMissingReason
+            ? 'Choose a reason for each Excused student to submit.'
+            : counts
+              ? `${counts.P + counts.unmarked} present · ${counts.L + counts.A + counts.EX} exceptions`
+              : ''}
+        </p>
+        <Button onClick={submit} disabled={saving || exMissingReason}>
+          {saving && <Loader2 className="size-4 animate-spin" />}
+          Submit attendance
+        </Button>
+      </div>
+    </div>
+  );
+}
