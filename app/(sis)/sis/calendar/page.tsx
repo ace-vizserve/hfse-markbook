@@ -21,6 +21,7 @@ import {
 } from '@/lib/attendance/calendar';
 import { CalendarAdminClient } from '@/components/attendance/calendar-admin-client';
 import { AUDIENCE_VALUES, type Audience } from '@/lib/schemas/attendance';
+import { resolveCurrentTermId } from '@/lib/sis/current-term';
 
 function parseAudience(raw: string | undefined): Audience {
   return AUDIENCE_VALUES.includes(raw as Audience) ? (raw as Audience) : 'all';
@@ -68,22 +69,15 @@ export default async function SisCalendarPage({
     is_current: boolean;
   };
   const terms = (termsRaw ?? []) as TermRow[];
-  // Default-term cascade mirrors lib/dashboard/windows.ts: today-anchored
-  // (term whose [start_date, end_date] contains today) → is_current flag
-  // → first term in the AY. Today wins so the calendar opens on the term
-  // the registrar is actually working in, even if the is_current flag
-  // hasn't been migrated.
-  const today = new Date().toISOString().slice(0, 10);
-  const todayTerm = terms.find(
-    (t) =>
-      t.start_date && t.end_date && t.start_date <= today && today <= t.end_date
-  );
-  const defaultTermId =
-    sp.term_id ??
-    todayTerm?.id ??
-    terms.find((t) => t.is_current)?.id ??
-    terms[0]?.id ??
-    '';
+  // Default term via the shared resolver: term containing today → is_current
+  // flag → most-recently-ended term → earliest. Opens the calendar on the term
+  // the registrar is actually working in, even when the is_current flag is
+  // unset (and on the most-recent term during a between-terms break). `today`
+  // in Singapore time (UTC+8) for consistency with the other date surfaces.
+  const today = new Date(Date.now() + 8 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const defaultTermId = sp.term_id ?? resolveCurrentTermId(terms, today) ?? '';
 
   const selectedTerm = terms.find((t) => t.id === defaultTermId) ?? null;
   const selectedTermHasDates =

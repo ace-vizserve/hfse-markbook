@@ -33,6 +33,7 @@ import {
   getVacationLeaveUsageForSection,
 } from '@/lib/attendance/queries';
 import { getSchoolConfig } from '@/lib/sis/school-config';
+import { resolveCurrentTermId } from '@/lib/sis/current-term';
 import {
   AttendanceWideGrid,
   type WideGridEnrolment,
@@ -96,36 +97,17 @@ export default async function SectionAttendancePage({
   const todayIso = new Date(Date.now() + 8 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10);
-  // The term whose date window contains today (null during a between-terms break).
-  const termForToday = terms.find(
-    (t) =>
-      t.start_date &&
-      t.end_date &&
-      t.start_date <= todayIso &&
-      todayIso <= t.end_date
-  );
-  // Most-recently-ended term — fallback context when today is in a break so the
-  // daily view still loads a term (it then detects today isn't a school day in
-  // that term and renders the "no classes" state).
-  const mostRecentEndedTerm = [...terms]
-    .filter((t) => t.end_date && t.end_date < todayIso)
-    .sort((a, b) =>
-      (b.end_date as string).localeCompare(a.end_date as string)
-    )[0];
 
-  // Daily view targets the term containing today (term switcher hidden). The
-  // sheet view keeps its ?term_id / is_current default.
+  // Daily view targets the current term (term containing today → most-recent
+  // during a break) via the shared resolver; the term switcher is hidden. When
+  // today is in a break the daily view detects today isn't a school day in the
+  // resolved term and renders the "no classes" state. The sheet view keeps its
+  // ?term_id default (falling back to the same resolver).
   const selectedTermId =
     view === 'daily'
-      ? (termForToday?.id ??
-        mostRecentEndedTerm?.id ??
-        terms.find((t) => t.is_current)?.id ??
-        terms[0]?.id ??
-        null)
+      ? resolveCurrentTermId(terms, todayIso)
       : ((sp.term_id && terms.find((t) => t.id === sp.term_id)?.id) ??
-        terms.find((t) => t.is_current)?.id ??
-        terms[0]?.id ??
-        null);
+        resolveCurrentTermId(terms, todayIso));
   const selectedTerm = terms.find((t) => t.id === selectedTermId) ?? null;
 
   if (!selectedTermId) {
