@@ -1826,6 +1826,29 @@ async function seedAdmissionsFunnel(
           .toISOString()
           .slice(0, 10);
       }
+      // Terminal reason for Cancelled / Withdrawn rows (migration 067 / KD #111).
+      // Feeds the reason column + filter chips on /admissions/applications/closed.
+      if (
+        applicationStatus === 'Cancelled' ||
+        applicationStatus === 'Withdrawn'
+      ) {
+        const TERMINAL_REASONS = [
+          'chose_another_school',
+          'visa_denied',
+          'lost_interest',
+          'financial',
+        ] as const;
+        const TERMINAL_NOTES: Record<string, string> = {
+          chose_another_school: 'Family decided to enrol at another school.',
+          visa_denied: 'Student Pass application was not approved by ICA.',
+          lost_interest: 'Applicant stopped responding after initial inquiry.',
+          financial: 'Family cited financial constraints.',
+        };
+        const reason =
+          TERMINAL_REASONS[Math.floor(rand() * TERMINAL_REASONS.length)];
+        statusRow.applicationTerminalReason = reason;
+        statusRow.applicationTerminalNotes = TERMINAL_NOTES[reason] ?? null;
+      }
       statusRows.push(statusRow);
     }
   }

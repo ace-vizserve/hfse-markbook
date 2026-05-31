@@ -31,6 +31,7 @@ export type StructureSeedResult = {
   school_config_applied: boolean;
   grading_sheets_created: number;
   grading_sheets_totals_set: number;
+  grading_sheets_labels_set: number;
 };
 
 export async function ensureTestStructure(
@@ -56,6 +57,7 @@ export async function ensureTestStructure(
     school_config_applied: false,
     grading_sheets_created: 0,
     grading_sheets_totals_set: 0,
+    grading_sheets_labels_set: 0,
   };
 
   // ---- 1. levels (global reference) ----
@@ -541,6 +543,65 @@ export async function ensureTestStructure(
             .update({ ww_totals: ww, pt_totals: pt, qa_total: qa })
             .eq('id', sheet.id);
           if (!error) result.grading_sheets_totals_set += 1;
+        }
+      }
+
+      // ---- 9b. slot_labels — seed slot labels + dates (migration 057 / KD #105) ----
+      // Sets {label, date, page} entries on any sheet whose slot_labels is NULL so
+      // the publish-readiness slot-date check (KD #105) doesn't perpetually fire an
+      // amber warning and SlotChips render dates. Only writes NULL sheets —
+      // idempotent across re-runs (a sheet with any slot_labels value is skipped).
+      {
+        const { data: unlabelledSheets } = await service
+          .from('grading_sheets')
+          .select('id, term_id, ww_totals, pt_totals')
+          .in('term_id', termIds)
+          .is('slot_labels', null);
+
+        const unlabelled = (unlabelledSheets ?? []) as Array<{
+          id: string;
+          term_id: string;
+          ww_totals: number[] | null;
+          pt_totals: number[] | null;
+        }>;
+
+        // Build a term-id → date-range map from the freshly-read terms so
+        // each slot date falls inside its sheet's term window.
+        const termDateMap = new Map(termsWithDates.map((t) => [t.id, t]));
+
+        // Returns an ISO date clamped to [term.start_date, term.end_date].
+        const slotDate = (termId: string, offsetDays: number): string => {
+          const term = termDateMap.get(termId);
+          if (!term) return new Date().toISOString().slice(0, 10);
+          const d = parseIso(term.start_date);
+          d.setDate(d.getDate() + offsetDays);
+          const end = parseIso(term.end_date);
+          return formatIso(d.getTime() <= end.getTime() ? d : end);
+        };
+
+        for (const sheet of unlabelled) {
+          const wwCount = Math.max(1, (sheet.ww_totals ?? [10, 10]).length);
+          const ptCount = Math.max(1, (sheet.pt_totals ?? [10, 10, 10]).length);
+          // WW slots: spaced 3 weeks apart starting from week 2 of term.
+          // PT slots: spaced 2 weeks apart starting from week 4 of term.
+          const slotLabels = {
+            ww: Array.from({ length: wwCount }, (_, i) => ({
+              label: `Written Work ${i + 1}`,
+              date: slotDate(sheet.term_id, 7 + i * 21),
+              page: null,
+            })),
+            pt: Array.from({ length: ptCount }, (_, i) => ({
+              label: `Performance Task ${i + 1}`,
+              date: slotDate(sheet.term_id, 21 + i * 14),
+              page: null,
+            })),
+            qa: 'Quarterly Assessment',
+          };
+          const { error } = await service
+            .from('grading_sheets')
+            .update({ slot_labels: slotLabels })
+            .eq('id', sheet.id);
+          if (!error) result.grading_sheets_labels_set += 1;
         }
       }
     }

@@ -118,6 +118,9 @@ export async function seedEdgeCases(
         .update({
           enrollment_status: 'late_enrollee',
           enrollment_date: t2EnrollDate,
+          // Explicit T2 override — surfaces as "T2 (corrected)" badge on the
+          // Records placement section (KD #111 / migration 067).
+          late_enrollee_term_number: 2,
         })
         .eq('id', ss.id)
         .eq('enrollment_status', 'active');
@@ -157,11 +160,41 @@ export async function seedEdgeCases(
           .slice(0, 10)
       : new Date().toISOString().slice(0, 10);
 
+    // Deterministic withdrawal reasons per student.
+    // Records placement tab reads section_students.withdrawal_reason (snake_case column).
+    // Movements feed reads audit_log.context.withdrawalReason (camelCase key).
+    // Both must be populated so each surface renders the reason label (KD #111).
+    const withdrawalMeta = new Map<string, { reason: string; notes: string }>([
+      [
+        gritWithdrawn?.id ?? '',
+        {
+          reason: 'family_relocation',
+          notes: 'Family relocating overseas at end of term.',
+        },
+      ],
+      [
+        excellenceWithdrawn?.id ?? '',
+        {
+          reason: 'transferred_other_school',
+          notes: 'Student transferring to an international school.',
+        },
+      ],
+    ]);
+
     for (const ss of [gritWithdrawn, excellenceWithdrawn].filter(Boolean)) {
       if (!ss || ss.enrollment_status === 'withdrawn') continue;
+      const wMeta = withdrawalMeta.get(ss.id) ?? {
+        reason: 'other',
+        notes: null,
+      };
       const { error } = await service
         .from('section_students')
-        .update({ enrollment_status: 'withdrawn', withdrawal_date: t2Mid })
+        .update({
+          enrollment_status: 'withdrawn',
+          withdrawal_date: t2Mid,
+          withdrawal_reason: wMeta.reason,
+          withdrawal_notes: wMeta.notes,
+        })
         .eq('id', ss.id)
         .eq('enrollment_status', 'active');
       if (!error) {
@@ -173,7 +206,13 @@ export async function seedEdgeCases(
           entity_id: ss.id,
           context: {
             before: { enrollment_status: 'active' },
-            after: { enrollment_status: 'withdrawn', withdrawal_date: t2Mid },
+            after: {
+              enrollment_status: 'withdrawn',
+              withdrawal_date: t2Mid,
+              // camelCase key — what lib/sis/movements.ts:413 reads for reasonLabel.
+              withdrawalReason: wMeta.reason,
+              withdrawalNotes: wMeta.notes,
+            },
           },
         });
       }
