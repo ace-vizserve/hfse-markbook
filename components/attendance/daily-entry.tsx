@@ -41,7 +41,7 @@ const STATUS_BTN: Record<
 > = {
   P: {
     label: 'P',
-    on: 'bg-gradient-to-b from-chart-5 to-chart-3 text-white shadow-xs',
+    on: 'bg-gradient-to-b from-brand-mint to-brand-sky text-ink shadow-xs',
   },
   L: {
     label: 'L',
@@ -63,6 +63,8 @@ const EX_REASONS: ExReason[] = [
   'vacation',
 ];
 
+// ── Parent: owns the selected date + stepper. Delegates marking to a keyed
+//    <DailyPanel> child so its mark state re-seeds when the date changes.
 export function DailyEntry({
   sectionId,
   termId,
@@ -77,7 +79,6 @@ export function DailyEntry({
   initialDaily: DailyEntryRow[];
 }) {
   void sectionId; // not needed for the write (the bulk endpoint keys on sectionStudentId)
-  const router = useRouter();
 
   const dates = useMemo(() => encodableDates(calendar), [calendar]);
   const [date, setDate] = useState<string | null>(() =>
@@ -90,16 +91,97 @@ export function DailyEntry({
     [enrolments]
   );
 
+  const idx = date ? dates.indexOf(date) : -1;
+  const canPrev = idx > 0;
+  const canNext = idx >= 0 && idx < dates.length - 1;
+  function step(delta: number) {
+    if (idx < 0) return;
+    const nd = dates[idx + delta];
+    if (nd) setDate(nd);
+  }
+
+  // Empty state — no encodable day to mark, or no students.
+  if (!date || roster.length === 0) {
+    return (
+      <Card className="items-center gap-2 py-12 text-center">
+        <p className="font-serif text-xl font-semibold text-foreground">
+          {roster.length === 0
+            ? 'No students to mark'
+            : 'No school day to mark'}
+        </p>
+        <p className="max-w-sm text-sm text-muted-foreground">
+          {roster.length === 0
+            ? 'This section has no active students enrolled.'
+            : 'There are no encodable school days in this term yet. Configure the school calendar first.'}
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Date stepper */}
+      <div className="flex items-center justify-center gap-2 sm:justify-start">
+        <Button
+          variant="outline"
+          size="icon"
+          disabled={!canPrev}
+          onClick={() => step(-1)}
+          aria-label="Previous day"
+        >
+          <ChevronLeft className="size-4" />
+        </Button>
+        <div className="min-w-[200px] text-center">
+          <p className="font-serif text-lg font-semibold leading-tight text-foreground">
+            {formatLongDate(date)}
+          </p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+            {date}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="icon"
+          disabled={!canNext}
+          onClick={() => step(1)}
+          aria-label="Next day"
+        >
+          <ChevronRight className="size-4" />
+        </Button>
+      </div>
+
+      {/* Keyed child — remounts on date change so `marks` re-seeds from the
+          new date's on-file marks. */}
+      <DailyPanel
+        key={date}
+        date={date}
+        termId={termId}
+        roster={roster}
+        initialDaily={initialDaily}
+      />
+    </div>
+  );
+}
+
+// ── Child: owns the per-date mark state, tally, and submit. Mounted with
+//    key={date} by the parent, so useState re-seeds whenever the date changes.
+function DailyPanel({
+  date,
+  termId,
+  roster,
+  initialDaily,
+}: {
+  date: string;
+  termId: string;
+  roster: WideGridEnrolment[];
+  initialDaily: DailyEntryRow[];
+}) {
+  const router = useRouter();
+
   const loaded = useMemo(
-    () =>
-      date
-        ? loadedMarksForDate(initialDaily, date)
-        : new Map<string, DailyMark>(),
+    () => loadedMarksForDate(initialDaily, date),
     [initialDaily, date]
   );
-
-  // Local marks: seeded from what's on file for the date. Re-seeds on date change
-  // via the `key` on the inner panel (see render) so we never carry marks across days.
   const [marks, setMarks] = useState<Map<string, DailyMark>>(
     () => new Map(loaded)
   );
@@ -114,22 +196,12 @@ export function DailyEntry({
     });
   }
 
-  const counts = date ? tally({ roster, marks, date }) : null;
+  const counts = tally({ roster, marks, date });
   const exMissingReason = [...marks.values()].some(
     (m) => m.status === 'EX' && !m.exReason
   );
 
-  const idx = date ? dates.indexOf(date) : -1;
-  const canPrev = idx > 0;
-  const canNext = idx >= 0 && idx < dates.length - 1;
-  function step(delta: number) {
-    if (idx < 0) return;
-    const nd = dates[idx + delta];
-    if (nd) setDate(nd);
-  }
-
   async function submit() {
-    if (!date) return;
     const entries = computeSubmitEntries({
       roster,
       marks,
@@ -161,79 +233,27 @@ export function DailyEntry({
     }
   }
 
-  // Empty state — no encodable day to mark
-  if (!date || roster.length === 0) {
-    return (
-      <Card className="items-center gap-2 py-12 text-center">
-        <p className="font-serif text-xl font-semibold text-foreground">
-          {roster.length === 0
-            ? 'No students to mark'
-            : 'No school day to mark'}
-        </p>
-        <p className="max-w-sm text-sm text-muted-foreground">
-          {roster.length === 0
-            ? 'This section has no active students enrolled.'
-            : 'There are no encodable school days in this term yet. Configure the school calendar first.'}
-        </p>
-      </Card>
-    );
-  }
-
   return (
-    <div key={date} className="space-y-4">
-      {/* Date strip + tally */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            disabled={!canPrev}
-            onClick={() => step(-1)}
-            aria-label="Previous day"
-          >
-            <ChevronLeft className="size-4" />
-          </Button>
-          <div className="min-w-[200px] text-center">
-            <p className="font-serif text-lg font-semibold leading-tight text-foreground">
-              {formatLongDate(date)}
-            </p>
-            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-              {date}
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            size="icon"
-            disabled={!canNext}
-            onClick={() => step(1)}
-            aria-label="Next day"
-          >
-            <ChevronRight className="size-4" />
-          </Button>
-        </div>
-        {counts && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-muted-foreground">
-            <span>
-              <span className="font-semibold text-brand-mint">{counts.P}</span>{' '}
-              Present
-            </span>
-            <span>
-              <span className="font-semibold text-brand-amber">{counts.L}</span>{' '}
-              Late
-            </span>
-            <span>
-              <span className="font-semibold text-destructive">{counts.A}</span>{' '}
-              Absent
-            </span>
-            <span>
-              <span className="font-semibold text-brand-indigo">
-                {counts.EX}
-              </span>{' '}
-              Excused
-            </span>
-            <span>{counts.unmarked} unmarked → Present</span>
-          </div>
-        )}
+    <div className="space-y-4">
+      {/* Tally */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-muted-foreground">
+        <span>
+          <span className="font-semibold text-brand-mint">{counts.P}</span>{' '}
+          Present
+        </span>
+        <span>
+          <span className="font-semibold text-brand-amber">{counts.L}</span>{' '}
+          Late
+        </span>
+        <span>
+          <span className="font-semibold text-destructive">{counts.A}</span>{' '}
+          Absent
+        </span>
+        <span>
+          <span className="font-semibold text-brand-indigo">{counts.EX}</span>{' '}
+          Excused
+        </span>
+        <span>{counts.unmarked} unmarked → Present</span>
       </div>
 
       {/* Roster */}
@@ -279,6 +299,7 @@ export function DailyEntry({
                           <button
                             key={s}
                             type="button"
+                            aria-pressed={isOn}
                             onClick={() =>
                               setMark(
                                 e.enrolmentId,
@@ -337,9 +358,7 @@ export function DailyEntry({
         <p className="text-xs text-muted-foreground">
           {exMissingReason
             ? 'Choose a reason for each Excused student to submit.'
-            : counts
-              ? `${counts.P + counts.unmarked} present · ${counts.L + counts.A + counts.EX} exceptions`
-              : ''}
+            : `${counts.P + counts.unmarked} present · ${counts.L + counts.A + counts.EX} exceptions`}
         </p>
         <Button onClick={submit} disabled={saving || exMissingReason}>
           {saving && <Loader2 className="size-4 animate-spin" />}
