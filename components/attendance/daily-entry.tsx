@@ -1,6 +1,15 @@
 'use client';
 
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  CircleCheck,
+  CircleX,
+  Clock,
+  FileText,
+  Loader2,
+  type LucideIcon,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -18,7 +27,13 @@ import {
 } from '@/lib/attendance/daily-entry';
 import { EX_REASON_LABELS, type ExReason } from '@/lib/schemas/attendance';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import {
+  Card,
+  CardAction,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 
 function todayLocalIso(): string {
   const d = new Date();
@@ -61,6 +76,41 @@ const EX_REASONS: ExReason[] = [
   'compassionate',
   'school_activity',
   'vacation',
+];
+
+// Day-summary stat cards — status gradient tiles (§9.3 palette). The number
+// is `text-foreground`; the tile carries the colour (matches the page's
+// term-level StatCard treatment).
+const DAY_STAT: Array<{
+  key: 'P' | 'L' | 'A' | 'EX';
+  label: string;
+  icon: LucideIcon;
+  tile: string;
+}> = [
+  {
+    key: 'P',
+    label: 'Present',
+    icon: CircleCheck,
+    tile: 'from-brand-mint to-brand-sky text-ink shadow-brand-tile-mint',
+  },
+  {
+    key: 'L',
+    label: 'Late',
+    icon: Clock,
+    tile: 'from-brand-amber to-brand-amber/80 text-white shadow-brand-tile-amber',
+  },
+  {
+    key: 'A',
+    label: 'Absent',
+    icon: CircleX,
+    tile: 'from-destructive to-destructive/80 text-white shadow-brand-tile-destructive',
+  },
+  {
+    key: 'EX',
+    label: 'Excused',
+    icon: FileText,
+    tile: 'from-brand-indigo to-brand-navy text-white shadow-brand-tile',
+  },
 ];
 
 // ── Parent: owns the selected date + stepper. Delegates marking to a keyed
@@ -235,26 +285,36 @@ function DailyPanel({
 
   return (
     <div className="space-y-4">
-      {/* Tally */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-muted-foreground">
-        <span>
-          <span className="font-semibold text-brand-mint">{counts.P}</span>{' '}
-          Present
-        </span>
-        <span>
-          <span className="font-semibold text-brand-amber">{counts.L}</span>{' '}
-          Late
-        </span>
-        <span>
-          <span className="font-semibold text-destructive">{counts.A}</span>{' '}
-          Absent
-        </span>
-        <span>
-          <span className="font-semibold text-brand-indigo">{counts.EX}</span>{' '}
-          Excused
-        </span>
-        <span>{counts.unmarked} unmarked → Present</span>
+      {/* Day summary cards */}
+      <div className="@container/day">
+        <div className="grid grid-cols-2 gap-3 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @lg/day:grid-cols-4">
+          {DAY_STAT.map((s) => {
+            const Icon = s.icon;
+            return (
+              <Card key={s.key}>
+                <CardHeader>
+                  <CardDescription className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em]">
+                    {s.label}
+                  </CardDescription>
+                  <CardTitle className="font-serif text-[28px] font-semibold leading-none tabular-nums text-foreground">
+                    {counts[s.key]}
+                  </CardTitle>
+                  <CardAction>
+                    <div
+                      className={`flex size-9 items-center justify-center rounded-xl bg-gradient-to-br ${s.tile}`}
+                    >
+                      <Icon className="size-4" />
+                    </div>
+                  </CardAction>
+                </CardHeader>
+              </Card>
+            );
+          })}
+        </div>
       </div>
+      <p className="font-mono text-[11px] text-muted-foreground">
+        {counts.unmarked} unmarked → will be saved as Present
+      </p>
 
       {/* Roster */}
       <Card className="overflow-hidden p-0">

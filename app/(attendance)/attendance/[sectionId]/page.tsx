@@ -88,11 +88,15 @@ export default async function SectionAttendancePage({
     is_current: boolean;
   };
   const terms = (termsRaw ?? []) as TermRow[];
+  // Daily view always targets the current (active) term — it's the "mark
+  // today" surface, so the term switcher is hidden and ?term_id is ignored.
   const selectedTermId =
-    (sp.term_id && terms.find((t) => t.id === sp.term_id)?.id) ??
-    terms.find((t) => t.is_current)?.id ??
-    terms[0]?.id ??
-    null;
+    view === 'daily'
+      ? (terms.find((t) => t.is_current)?.id ?? terms[0]?.id ?? null)
+      : ((sp.term_id && terms.find((t) => t.id === sp.term_id)?.id) ??
+        terms.find((t) => t.is_current)?.id ??
+        terms[0]?.id ??
+        null);
   const selectedTerm = terms.find((t) => t.id === selectedTermId) ?? null;
 
   if (!selectedTermId) {
@@ -235,8 +239,9 @@ export default async function SectionAttendancePage({
             {section.name}
           </h1>
           <p className="max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-            Excel-style attendance sheet for the whole term. Holidays are greyed
-            out. Edits autosave per cell; corrections append a new ledger row.
+            {view === 'daily'
+              ? "Mark today's class in one pass — everyone's present unless you say otherwise. Step back a day to catch up a missed one, then submit."
+              : 'Excel-style attendance sheet for the whole term. Holidays are greyed out. Edits autosave per cell; corrections append a new ledger row.'}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -280,15 +285,13 @@ export default async function SectionAttendancePage({
         </div>
       </header>
 
-      {/* Term switcher */}
-      {terms.length > 1 && (
+      {/* Term switcher — sheet view only; daily is locked to the current term. */}
+      {view === 'sheet' && terms.length > 1 && (
         <Tabs value={selectedTermId} aria-label="Term">
           <TabsList>
             {terms.map((t) => (
               <TabsTrigger key={t.id} value={t.id} asChild>
-                <Link
-                  href={`/attendance/${sectionId}?term_id=${t.id}${view === 'daily' ? '&view=daily' : ''}`}
-                >
+                <Link href={`/attendance/${sectionId}?term_id=${t.id}`}>
                   {t.label}
                   {t.is_current && (
                     <span className="ml-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
@@ -302,51 +305,54 @@ export default async function SectionAttendancePage({
         </Tabs>
       )}
 
-      {/* Stats */}
-      <div className="@container/main">
-        <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-4">
-          <StatCard
-            description="Students"
-            value={activeCount.toLocaleString('en-SG')}
-            icon={Users}
-            footerTitle="Active roster"
-            footerDetail={`${enrolments.length - activeCount} withdrawn`}
-          />
-          <StatCard
-            description="School days"
-            value={schoolDayCount.toLocaleString('en-SG')}
-            icon={CalendarDays}
-            footerTitle={
-              schoolDayCount === 0
-                ? 'Not configured'
-                : `${holidayCount} ${holidayCount === 1 ? 'holiday' : 'holidays'}`
-            }
-            footerDetail={selectedTerm?.label ?? ''}
-          />
-          <StatCard
-            description="Average attendance"
-            value={
-              summary.averageAttendancePct != null
-                ? `${summary.averageAttendancePct.toFixed(1)}%`
-                : '—'
-            }
-            icon={Percent}
-            footerTitle="Across marked students"
-            footerDetail="Present ÷ school days"
-          />
-          <StatCard
-            description="Perfect attendance"
-            value={summary.perfectAttendanceCount.toLocaleString('en-SG')}
-            icon={CalendarCheck}
-            footerTitle={
-              summary.perfectAttendanceCount === 0
-                ? 'None yet'
-                : 'Zero absences'
-            }
-            footerDetail={`of ${activeCount} students`}
-          />
+      {/* Term-level stats — sheet view only. The daily view renders its own
+          day-focused stat cards inside <DailyEntry>. */}
+      {view === 'sheet' && (
+        <div className="@container/main">
+          <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs @xl/main:grid-cols-4">
+            <StatCard
+              description="Students"
+              value={activeCount.toLocaleString('en-SG')}
+              icon={Users}
+              footerTitle="Active roster"
+              footerDetail={`${enrolments.length - activeCount} withdrawn`}
+            />
+            <StatCard
+              description="School days"
+              value={schoolDayCount.toLocaleString('en-SG')}
+              icon={CalendarDays}
+              footerTitle={
+                schoolDayCount === 0
+                  ? 'Not configured'
+                  : `${holidayCount} ${holidayCount === 1 ? 'holiday' : 'holidays'}`
+              }
+              footerDetail={selectedTerm?.label ?? ''}
+            />
+            <StatCard
+              description="Average attendance"
+              value={
+                summary.averageAttendancePct != null
+                  ? `${summary.averageAttendancePct.toFixed(1)}%`
+                  : '—'
+              }
+              icon={Percent}
+              footerTitle="Across marked students"
+              footerDetail="Present ÷ school days"
+            />
+            <StatCard
+              description="Perfect attendance"
+              value={summary.perfectAttendanceCount.toLocaleString('en-SG')}
+              icon={CalendarCheck}
+              footerTitle={
+                summary.perfectAttendanceCount === 0
+                  ? 'None yet'
+                  : 'Zero absences'
+              }
+              footerDetail={`of ${activeCount} students`}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* key forces a remount on section/term change so the grid re-seeds its
           internal cell state from the freshly-fetched `initialDaily`. Without
