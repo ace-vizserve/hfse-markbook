@@ -37,6 +37,8 @@ import {
   AttendanceWideGrid,
   type WideGridEnrolment,
 } from '@/components/attendance/wide-grid';
+import { StudentLookupSheet } from '@/components/attendance/student-lookup-sheet';
+import { DailyEntry } from '@/components/attendance/daily-entry';
 
 type LevelLite = { code: string; label: string };
 type SectionRow = {
@@ -51,10 +53,11 @@ export default async function SectionAttendancePage({
   searchParams,
 }: {
   params: Promise<{ sectionId: string }>;
-  searchParams: Promise<{ term_id?: string }>;
+  searchParams: Promise<{ term_id?: string; view?: string }>;
 }) {
   const { sectionId } = await params;
   const sp = await searchParams;
+  const view: 'sheet' | 'daily' = sp.view === 'daily' ? 'daily' : 'sheet';
 
   const session = await getSessionUser();
   const role = session?.role ?? null;
@@ -243,6 +246,29 @@ export default async function SectionAttendancePage({
           >
             {level?.code ?? ''} · {level?.label ?? ''}
           </Badge>
+          <Tabs value={view} aria-label="View">
+            <TabsList>
+              <TabsTrigger value="sheet" asChild>
+                <Link
+                  href={`/attendance/${sectionId}?term_id=${selectedTermId}`}
+                >
+                  Term sheet
+                </Link>
+              </TabsTrigger>
+              <TabsTrigger value="daily" asChild>
+                <Link
+                  href={`/attendance/${sectionId}?term_id=${selectedTermId}&view=daily`}
+                >
+                  Daily
+                </Link>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <StudentLookupSheet
+            enrolments={enrolments}
+            initialDaily={daily}
+            termLabel={selectedTerm?.label ?? ''}
+          />
           {canWriteNc && (
             <Button asChild variant="outline" size="sm" className="gap-1.5">
               <Link href={`/sis/calendar?term_id=${selectedTermId}`}>
@@ -260,7 +286,9 @@ export default async function SectionAttendancePage({
           <TabsList>
             {terms.map((t) => (
               <TabsTrigger key={t.id} value={t.id} asChild>
-                <Link href={`/attendance/${sectionId}?term_id=${t.id}`}>
+                <Link
+                  href={`/attendance/${sectionId}?term_id=${t.id}${view === 'daily' ? '&view=daily' : ''}`}
+                >
                   {t.label}
                   {t.is_current && (
                     <span className="ml-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
@@ -320,15 +348,32 @@ export default async function SectionAttendancePage({
         </div>
       </div>
 
-      <AttendanceWideGrid
-        sectionId={sectionId}
-        termId={selectedTermId}
-        enrolments={enrolments}
-        calendar={calendar}
-        events={events}
-        initialDaily={daily}
-        canWriteNc={canWriteNc}
-      />
+      {/* key forces a remount on section/term change so the grid re-seeds its
+          internal cell state from the freshly-fetched `initialDaily`. Without
+          it, switching terms via the client-side <Link> tabs keeps the grid
+          mounted and its useState initializer never re-runs — the new term's
+          date columns render with empty cells even though data exists. */}
+      {view === 'daily' ? (
+        <DailyEntry
+          key={`daily:${sectionId}:${selectedTermId}`}
+          sectionId={sectionId}
+          termId={selectedTermId}
+          enrolments={enrolments}
+          calendar={calendar}
+          initialDaily={daily}
+        />
+      ) : (
+        <AttendanceWideGrid
+          key={`${sectionId}:${selectedTermId}`}
+          sectionId={sectionId}
+          termId={selectedTermId}
+          enrolments={enrolments}
+          calendar={calendar}
+          events={events}
+          initialDaily={daily}
+          canWriteNc={canWriteNc}
+        />
+      )}
 
       {/* Adviser name reminder */}
       {!adviserUserId && (
