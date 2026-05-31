@@ -289,3 +289,13 @@
     animation-fill-mode: var(--tw-animation-fill-mode, both);
   }
 }
+
+/* Lock document scroll when the screen-guard overlay is visible (< 1024px).
+   The fixed overlay covers the viewport but the body can still scroll
+   horizontally without this rule. */
+@media (max-width: 1023px) {
+  html,
+  body {
+    overflow: hidden;
+  }
+}

@@ -7,6 +7,7 @@ import {
   CommandPalette,
   CommandPaletteProvider,
 } from '@/components/sis/command-palette';
+import { ScreenGuard } from '@/components/ui/screen-guard';
 import { getSessionUser } from '@/lib/supabase/server';
 
 const inter = Inter({
@@ -56,6 +57,7 @@ export default async function RootLayout({
           {children}
           {role && <CommandPalette role={role} />}
         </CommandPaletteProvider>
+        <ScreenGuard />
         <Toaster
           theme="light"
           position="top-center"
