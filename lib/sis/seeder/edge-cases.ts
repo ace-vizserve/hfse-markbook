@@ -698,5 +698,140 @@ export async function seedEdgeCases(
     console.error('[edge-cases] EC12 section transfer failed:', err);
   }
 
+  // ── EC13 — Term-over-term grade swings (grading-sheet Alerts column) ───────
+  // The base grade seeder memoizes each student's "quality" so their quarterly
+  // grade is nearly flat across terms — almost nothing trips the ≥5 "significant
+  // change" alert (score-entry-grid AlertCell / GradeDiffDialog). Rig two S4
+  // Excellence students — one improving, one declining — with wide per-term raw
+  // gaps so the resulting quarterly swings are comfortably ≥5 and the Alerts
+  // column lights up from T2 onward. Excludes students already special-cased by
+  // other edge cases so the demo students stay clean. Idempotent (deterministic
+  // overwrite of the same rows).
+  try {
+    const t3 = terms.find((t) => t.term_number === 3);
+    const swingTerms = [t1, t2, t3, t4].filter(
+      Boolean
+    ) as (typeof terms)[number][];
+
+    const { data: cfgRows } = await service
+      .from('subject_configs')
+      .select(
+        'id, ww_weight, pt_weight, qa_weight, subjects!inner(is_examinable)'
+      )
+      .eq('level_id', excellence.level_id);
+    type Cfg = {
+      id: string;
+      ww_weight: number;
+      pt_weight: number;
+      qa_weight: number;
+      subjects: { is_examinable: boolean } | { is_examinable: boolean }[];
+    };
+    const examinable = ((cfgRows ?? []) as Cfg[]).filter((c) => {
+      const s = Array.isArray(c.subjects) ? c.subjects[0] : c.subjects;
+      return s?.is_examinable === true;
+    });
+
+    // Two clean Excellence students not already touched by another edge case.
+    const usedIds = new Set(
+      [
+        excellenceLate,
+        excellenceWithdrawn,
+        gaStudent,
+        compassionateStudent,
+        peStudentRow,
+        appliedCR,
+        pfileStudent2,
+      ]
+        .filter(Boolean)
+        .map((s) => (s as SectionStudentRow).id)
+    );
+    const swingCandidates = excellenceSS.filter(
+      (s) => s.enrollment_status === 'active' && !usedIds.has(s.id)
+    );
+
+    // Wide per-term raw-percentage patterns → quarterly swings well over 5.
+    const plans: Array<{
+      student: SectionStudentRow;
+      pct: Record<number, number>;
+    }> = [];
+    if (swingCandidates[0])
+      plans.push({
+        student: swingCandidates[0],
+        pct: { 1: 0.6, 2: 0.84, 3: 0.7, 4: 0.98 }, // improving
+      });
+    if (swingCandidates[1])
+      plans.push({
+        student: swingCandidates[1],
+        pct: { 1: 0.98, 2: 0.78, 3: 0.94, 4: 0.66 }, // declining
+      });
+
+    for (const plan of plans) {
+      for (const termInfo of swingTerms) {
+        const pct = plan.pct[termInfo.term_number] ?? 0.85;
+        for (const cfg of examinable) {
+          const { data: sheetRaw } = await service
+            .from('grading_sheets')
+            .select('id, ww_totals, pt_totals, qa_total')
+            .eq('section_id', excellence.id)
+            .eq('term_id', termInfo.id)
+            .eq('subject_config_id', cfg.id)
+            .maybeSingle();
+          const sheet = sheetRaw as {
+            id: string;
+            ww_totals: number[] | null;
+            pt_totals: number[] | null;
+            qa_total: number | null;
+          } | null;
+          if (!sheet) continue;
+
+          const wwTotals = (sheet.ww_totals ?? []).length
+            ? (sheet.ww_totals as number[])
+            : [10, 10];
+          const ptTotals = (sheet.pt_totals ?? []).length
+            ? (sheet.pt_totals as number[])
+            : [10, 10, 10];
+          const qaTotal = sheet.qa_total ?? 30;
+          const clamp = (v: number, max: number) =>
+            Math.max(0, Math.min(max, Math.round(v)));
+          const wwScores = wwTotals.map((m) => clamp(pct * m, m));
+          const ptScores = ptTotals.map((m) => clamp(pct * m, m));
+          const qaScore = clamp(pct * qaTotal, qaTotal);
+
+          const computed = computeQuarterly({
+            ww_scores: wwScores,
+            ww_totals: wwTotals,
+            pt_scores: ptScores,
+            pt_totals: ptTotals,
+            qa_score: qaScore,
+            qa_total: qaTotal,
+            ww_weight: cfg.ww_weight,
+            pt_weight: cfg.pt_weight,
+            qa_weight: cfg.qa_weight,
+          });
+
+          const { error } = await service
+            .from('grade_entries')
+            .update({
+              ww_scores: wwScores,
+              pt_scores: ptScores,
+              qa_score: qaScore,
+              ww_total: wwScores.reduce((a, b) => a + b, 0),
+              pt_total: ptScores.reduce((a, b) => a + b, 0),
+              ww_ps: computed.ww_ps,
+              pt_ps: computed.pt_ps,
+              qa_ps: computed.qa_ps,
+              initial_grade: computed.initial_grade,
+              quarterly_grade: computed.quarterly_grade,
+            })
+            .eq('grading_sheet_id', sheet.id)
+            .eq('section_student_id', plan.student.id);
+          if (!error) count++;
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[edge-cases] EC13 grade swings failed:', err);
+  }
+
   return { edge_cases_inserted: count };
 }
